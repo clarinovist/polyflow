@@ -60,6 +60,18 @@ function buildMockData(): UsageAnalyticsOverviewData {
             { date: '2026-08-08', totalViews: 117, activeUsers: 4, activeTenants: 2 },
             { date: '2026-08-09', totalViews: 30, activeUsers: 2, activeTenants: 1 },
         ],
+        activeUsersToday: [
+            {
+                tenantId: 'tenant-1',
+                tenantName: 'Tenant Alpha',
+                subdomain: 'alpha',
+                userId: 'user-a',
+                userName: 'Alice',
+                userEmail: 'alice@alpha.test',
+                viewCount: 5,
+                lastActiveAt: new Date('2026-08-13T02:00:00Z'),
+            },
+        ],
         availableTenants: [
             { id: 'tenant-1', name: 'Tenant Alpha', subdomain: 'alpha' },
         ],
@@ -87,13 +99,24 @@ describe('UsageAnalyticsClient daily trend chart', () => {
     });
 
     it('shows tenant/feature rows and a lastActivity fallback', () => {
+        const { getAllByText, getByText } = render(
+            <UsageAnalyticsClient initialData={buildMockData()} />,
+        );
+
+        // "Tenant Alpha" also appears in the active-users-today card now.
+        expect(getAllByText('Tenant Alpha').length).toBeGreaterThan(0);
+        expect(getByText('Tenant Beta')).toBeTruthy();
+        expect(getByText('Daftar Order')).toBeTruthy();
+    });
+
+    it('shows the active-users-today card with resolved user name and email', () => {
         const { getByText } = render(
             <UsageAnalyticsClient initialData={buildMockData()} />,
         );
 
-        expect(getByText('Tenant Alpha')).toBeTruthy();
-        expect(getByText('Tenant Beta')).toBeTruthy();
-        expect(getByText('Daftar Order')).toBeTruthy();
+        expect(getByText('Pengguna Aktif Hari Ini')).toBeTruthy();
+        expect(getByText('Alice')).toBeTruthy();
+        expect(getByText('alice@alpha.test')).toBeTruthy();
     });
 });
 

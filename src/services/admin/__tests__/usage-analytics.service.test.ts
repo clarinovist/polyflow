@@ -12,9 +12,10 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         $queryRaw: vi.fn(),
     },
+    getTenantDb: vi.fn(),
 }));
 
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDb } from '@/lib/core/prisma';
 
 describe('UsageAnalyticsService Hardened', () => {
     beforeEach(() => {
@@ -53,6 +54,7 @@ describe('UsageAnalyticsService Hardened', () => {
                     lastActivity: new Date('2026-07-27T10:00:00Z'),
                 },
             ]) // tenant summaries raw
+            .mockResolvedValueOnce([]) // active users today raw
             .mockResolvedValueOnce([
                 {
                     dateStr: '2026-07-27',
@@ -94,7 +96,7 @@ describe('UsageAnalyticsService Hardened', () => {
         // (correctly computed) zero-filled dates on the JS side and the chart
         // renders as flat/empty. The fix must convert in two explicit steps:
         // treat as UTC first, then convert to Asia/Jakarta.
-        const dailyTrendsQueryCall = vi.mocked(prisma.$queryRaw).mock.calls[4];
+        const dailyTrendsQueryCall = vi.mocked(prisma.$queryRaw).mock.calls[5];
         const dailyTrendsSql = (dailyTrendsQueryCall[0] as unknown as string[]).join('?');
         expect(dailyTrendsSql).toMatch(
             /"occurredAt"\s+AT TIME ZONE\s+'UTC'\)\s+AT TIME ZONE\s+'Asia\/Jakarta'/,
@@ -181,5 +183,114 @@ describe('UsageAnalyticsService Hardened', () => {
                 }),
             }),
         );
+    });
+
+    it('resolves activeUsersToday names per tenant DB and isolates per-tenant failures', async () => {
+        vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
+        vi.mocked(prisma.usageEvent.groupBy).mockResolvedValue([]);
+
+        vi.mocked(prisma.tenant.findMany)
+            .mockResolvedValueOnce([]) // main tenants list (unused in this test)
+            .mockResolvedValueOnce([
+                {
+                    id: 'tenant-1',
+                    name: 'Tenant Alpha',
+                    subdomain: 'alpha',
+                    dbUrl: 'postgres://tenant1',
+                },
+                {
+                    id: 'tenant-2',
+                    name: 'Tenant Beta',
+                    subdomain: 'beta',
+                    dbUrl: 'postgres://tenant2',
+                },
+                // tenant-3 intentionally omitted to simulate a tenant that no
+                // longer exists (e.g. deleted between the raw query and lookup)
+            ] as never);
+
+        vi.mocked(prisma.$queryRaw)
+            .mockResolvedValueOnce([{ count: BigInt(0) }]) // curr active users
+            .mockResolvedValueOnce([{ count: BigInt(0) }]) // prev active users
+            .mockResolvedValueOnce([]) // top features raw
+            .mockResolvedValueOnce([]) // tenant summaries raw
+            .mockResolvedValueOnce([
+                {
+                    tenantId: 'tenant-1',
+                    userId: 'user-a',
+                    viewCount: BigInt(5),
+                    lastActiveAt: new Date('2026-08-13T02:00:00Z'),
+                },
+                {
+                    tenantId: 'tenant-1',
+                    userId: 'user-b', // not found in tenant-1's User table
+                    viewCount: BigInt(2),
+                    lastActiveAt: new Date('2026-08-13T01:00:00Z'),
+                },
+                {
+                    tenantId: 'tenant-2', // tenant DB unreachable
+                    userId: 'user-c',
+                    viewCount: BigInt(1),
+                    lastActiveAt: new Date('2026-08-13T03:00:00Z'),
+                },
+                {
+                    tenantId: 'tenant-3', // tenant record no longer exists
+                    userId: 'user-d',
+                    viewCount: BigInt(1),
+                    lastActiveAt: new Date('2026-08-13T00:30:00Z'),
+                },
+            ]) // active users today raw
+            .mockResolvedValueOnce([]); // daily trends raw
+
+        const tenant1Db = {
+            user: {
+                findMany: vi
+                    .fn()
+                    .mockResolvedValue([
+                        { id: 'user-a', name: 'Alice', email: 'alice@alpha.test' },
+                    ]),
+            },
+        };
+        const tenant2Db = {
+            user: {
+                findMany: vi
+                    .fn()
+                    .mockRejectedValue(new Error('tenant DB unreachable')),
+            },
+        };
+        vi.mocked(getTenantDb).mockImplementation((dbUrl: string) => {
+            if (dbUrl === 'postgres://tenant1') return tenant1Db as never;
+            if (dbUrl === 'postgres://tenant2') return tenant2Db as never;
+            throw new Error(`unexpected dbUrl ${dbUrl}`);
+        });
+
+        const data = await UsageAnalyticsService.getAnalytics({ range: '7d' });
+
+        // tenant-2 (DB down) and tenant-3 (missing tenant record) are dropped
+        expect(data.activeUsersToday).toHaveLength(2);
+        expect(
+            data.activeUsersToday.some((u) => u.tenantId === 'tenant-2'),
+        ).toBe(false);
+        expect(
+            data.activeUsersToday.some((u) => u.tenantId === 'tenant-3'),
+        ).toBe(false);
+
+        const userA = data.activeUsersToday.find((u) => u.userId === 'user-a');
+        expect(userA).toMatchObject({
+            tenantName: 'Tenant Alpha',
+            userName: 'Alice',
+            userEmail: 'alice@alpha.test',
+            viewCount: 5,
+        });
+
+        const userB = data.activeUsersToday.find((u) => u.userId === 'user-b');
+        expect(userB).toMatchObject({
+            userName: 'user-b',
+            userEmail: '-',
+            viewCount: 2,
+        });
+
+        // Sorted by lastActiveAt descending
+        expect(data.activeUsersToday[0].userId).toBe('user-a');
+        expect(data.activeUsersToday[1].userId).toBe('user-b');
     });
 });

@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDb } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { getAllRegisteredFeatures } from '@/lib/analytics/feature-registry';
 import { BusinessRuleError } from '@/lib/errors/errors';
@@ -47,6 +47,17 @@ interface DailyTrendPoint {
     activeTenants: number;
 }
 
+interface ActiveUserToday {
+    tenantId: string;
+    tenantName: string;
+    subdomain: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    viewCount: number;
+    lastActiveAt: Date;
+}
+
 export interface UsageAnalyticsOverviewData {
     periodLabel: string;
     metrics: {
@@ -58,6 +69,7 @@ export interface UsageAnalyticsOverviewData {
     topFeatures: FeatureUsageSummary[];
     tenantSummaries: TenantUsageSummary[];
     dailyTrends: DailyTrendPoint[];
+    activeUsersToday: ActiveUserToday[];
     availableTenants: { id: string; name: string; subdomain: string }[];
     availableModules: string[];
 }
@@ -249,6 +261,73 @@ function calculateJakartaBounds(filter: UsageAnalyticsFilter): {
 function calcPercentChange(curr: number, prev: number): number {
     if (prev === 0) return curr > 0 ? 100 : 0;
     return Math.round(((curr - prev) / prev) * 100);
+}
+
+async function resolveActiveUsersToday(
+    rows: {
+        tenantId: string;
+        userId: string;
+        viewCount: bigint;
+        lastActiveAt: Date;
+    }[],
+): Promise<ActiveUserToday[]> {
+    if (rows.length === 0) return [];
+
+    const tenantIds = Array.from(new Set(rows.map((r) => r.tenantId)));
+    const tenants = await prisma.tenant.findMany({
+        where: { id: { in: tenantIds } },
+        select: { id: true, name: true, subdomain: true, dbUrl: true },
+    });
+    const tenantInfoMap = new Map(tenants.map((t) => [t.id, t]));
+
+    const rowsByTenant = new Map<string, typeof rows>();
+    for (const row of rows) {
+        const list = rowsByTenant.get(row.tenantId) || [];
+        list.push(row);
+        rowsByTenant.set(row.tenantId, list);
+    }
+
+    const settled = await Promise.allSettled(
+        Array.from(rowsByTenant.entries()).map(
+            async ([tenantId, tenantRows]) => {
+                const tenantInfo = tenantInfoMap.get(tenantId);
+                if (!tenantInfo) return [];
+
+                const userIds = tenantRows.map((r) => r.userId);
+                const users = await getTenantDb(tenantInfo.dbUrl).user.findMany(
+                    {
+                        where: { id: { in: userIds } },
+                        select: { id: true, name: true, email: true },
+                    },
+                );
+                const userMap = new Map(users.map((u) => [u.id, u]));
+
+                return tenantRows.map((r): ActiveUserToday => {
+                    const user = userMap.get(r.userId);
+                    return {
+                        tenantId,
+                        tenantName: tenantInfo.name,
+                        subdomain: tenantInfo.subdomain,
+                        userId: r.userId,
+                        userName: user?.name || user?.email || r.userId,
+                        userEmail: user?.email || '-',
+                        viewCount: Number(r.viewCount),
+                        lastActiveAt: r.lastActiveAt,
+                    };
+                });
+            },
+        ),
+    );
+
+    const merged = settled
+        .filter(
+            (r): r is PromiseFulfilledResult<ActiveUserToday[]> =>
+                r.status === 'fulfilled',
+        )
+        .flatMap((r) => r.value);
+
+    merged.sort((a, b) => b.lastActiveAt.getTime() - a.lastActiveAt.getTime());
+    return merged;
 }
 
 export class UsageAnalyticsService {
@@ -537,7 +616,29 @@ export class UsageAnalyticsService {
             },
         );
 
-        // 7. Daily Trends Grouping (PostgreSQL GroupBy + WIB Zero-Filling) (Finding 6 & 17)
+        // 7. Active Users Today — fixed to "today" Jakarta window regardless of
+        // the filter's selected range, resolved cross-DB per active tenant.
+        const todayBounds = calculateJakartaBounds({ range: 'today' });
+        const activeUsersTodayRaw = await prisma.$queryRaw<
+            {
+                tenantId: string;
+                userId: string;
+                viewCount: bigint;
+                lastActiveAt: Date;
+            }[]
+        >`
+            SELECT "tenantId", "userId", COUNT(*) as "viewCount", MAX("occurredAt") as "lastActiveAt"
+            FROM "UsageEvent"
+            WHERE "eventType" = 'FEATURE_VIEW'
+              AND "occurredAt" >= ${todayBounds.start} AND "occurredAt" <= ${todayBounds.end}
+              AND "tenantId" NOT IN ('main', 'admin')
+            GROUP BY "tenantId", "userId"
+            ORDER BY "lastActiveAt" DESC
+        `;
+        const activeUsersToday =
+            await resolveActiveUsersToday(activeUsersTodayRaw);
+
+        // 8. Daily Trends Grouping (PostgreSQL GroupBy + WIB Zero-Filling) (Finding 6 & 17)
         const dailyTrendsRaw = await prisma.$queryRaw<
             {
                 dateStr: string;
@@ -598,6 +699,7 @@ export class UsageAnalyticsService {
             topFeatures,
             tenantSummaries,
             dailyTrends,
+            activeUsersToday,
             availableTenants: tenants,
             availableModules,
         };

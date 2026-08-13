@@ -548,91 +548,172 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                     )}
                 </div>
 
-                {/* Tenant Adoption */}
-                <div className="p-5 rounded-xl bg-card border border-border shadow-sm space-y-4">
-                    <div className="flex items-center justify-between border-b border-border pb-3">
-                        <div>
-                            <h3 className="font-semibold text-sm text-foreground">
-                                Ringkasan Adopsi Per Tenant
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                                Aktivitas dan variasi fitur yang digunakan tiap
-                                tenant
-                            </p>
+                <div className="space-y-6">
+                    {/* Tenant Adoption */}
+                    <div className="p-5 rounded-xl bg-card border border-border shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                            <div>
+                                <h3 className="font-semibold text-sm text-foreground">
+                                    Ringkasan Adopsi Per Tenant
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Aktivitas dan variasi fitur yang digunakan
+                                    tiap tenant
+                                </p>
+                            </div>
+                            <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium text-muted-foreground">
+                                {data.tenantSummaries.length} Tenant
+                            </span>
                         </div>
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium text-muted-foreground">
-                            {data.tenantSummaries.length} Tenant
-                        </span>
+
+                        {data.tenantSummaries.length === 0 ? (
+                            <div className="py-12 text-center text-muted-foreground text-xs">
+                                Belum ada tenant aktif pada periode ini.
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="border-b border-border text-muted-foreground font-semibold">
+                                            <th className="pb-2">
+                                                Nama Tenant
+                                            </th>
+                                            <th className="pb-2 text-right">
+                                                User
+                                            </th>
+                                            <th className="pb-2 text-right">
+                                                Fitur
+                                            </th>
+                                            <th className="pb-2 text-right">
+                                                Total Views
+                                            </th>
+                                            <th className="pb-2 text-right">
+                                                Terakhir Aktif (WIB)
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/60">
+                                        {data.tenantSummaries.map((t) => (
+                                            <tr
+                                                key={t.tenantId}
+                                                className="hover:bg-muted/40 transition-colors"
+                                            >
+                                                <td className="py-2.5 font-medium">
+                                                    <div className="font-semibold text-foreground">
+                                                        {t.tenantName}
+                                                    </div>
+                                                    <div className="text-[10px] text-muted-foreground font-mono">
+                                                        {t.subdomain}
+                                                    </div>
+                                                </td>
+                                                <td className="py-2.5 text-right font-semibold text-foreground">
+                                                    {t.activeUsers}
+                                                </td>
+                                                <td className="py-2.5 text-right text-muted-foreground">
+                                                    {t.featuresUsed}
+                                                </td>
+                                                <td className="py-2.5 text-right font-bold text-foreground">
+                                                    {t.totalViews.toLocaleString()}
+                                                </td>
+                                                <td className="py-2.5 text-right text-[10px] text-muted-foreground">
+                                                    {t.lastActivity
+                                                        ? new Date(
+                                                              t.lastActivity,
+                                                          ).toLocaleTimeString(
+                                                              'id-ID',
+                                                              {
+                                                                  timeZone:
+                                                                      'Asia/Jakarta',
+                                                                  hour: '2-digit',
+                                                                  minute: '2-digit',
+                                                              },
+                                                          )
+                                                        : '-'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
 
-                    {data.tenantSummaries.length === 0 ? (
-                        <div className="py-12 text-center text-muted-foreground text-xs">
-                            Belum ada tenant aktif pada periode ini.
+                    {/* Active Users Today */}
+                    <div className="p-5 rounded-xl bg-card border border-border shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                            <div>
+                                <h3 className="font-semibold text-sm text-foreground">
+                                    Pengguna Aktif Hari Ini
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Daftar user yang mengakses sistem hari ini
+                                    (WIB)
+                                </p>
+                            </div>
+                            <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium text-muted-foreground">
+                                {data.activeUsersToday.length} Pengguna
+                            </span>
                         </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                                <thead>
-                                    <tr className="border-b border-border text-muted-foreground font-semibold">
-                                        <th className="pb-2">Nama Tenant</th>
-                                        <th className="pb-2 text-right">
-                                            User
-                                        </th>
-                                        <th className="pb-2 text-right">
-                                            Fitur
-                                        </th>
-                                        <th className="pb-2 text-right">
-                                            Total Views
-                                        </th>
-                                        <th className="pb-2 text-right">
-                                            Terakhir Aktif (WIB)
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border/60">
-                                    {data.tenantSummaries.map((t) => (
-                                        <tr
-                                            key={t.tenantId}
-                                            className="hover:bg-muted/40 transition-colors"
-                                        >
-                                            <td className="py-2.5 font-medium">
-                                                <div className="font-semibold text-foreground">
-                                                    {t.tenantName}
-                                                </div>
-                                                <div className="text-[10px] text-muted-foreground font-mono">
-                                                    {t.subdomain}
-                                                </div>
-                                            </td>
-                                            <td className="py-2.5 text-right font-semibold text-foreground">
-                                                {t.activeUsers}
-                                            </td>
-                                            <td className="py-2.5 text-right text-muted-foreground">
-                                                {t.featuresUsed}
-                                            </td>
-                                            <td className="py-2.5 text-right font-bold text-foreground">
-                                                {t.totalViews.toLocaleString()}
-                                            </td>
-                                            <td className="py-2.5 text-right text-[10px] text-muted-foreground">
-                                                {t.lastActivity
-                                                    ? new Date(
-                                                          t.lastActivity,
-                                                      ).toLocaleTimeString(
-                                                          'id-ID',
-                                                          {
-                                                              timeZone:
-                                                                  'Asia/Jakarta',
-                                                              hour: '2-digit',
-                                                              minute: '2-digit',
-                                                          },
-                                                      )
-                                                    : '-'}
-                                            </td>
+
+                        {data.activeUsersToday.length === 0 ? (
+                            <div className="py-12 text-center text-muted-foreground text-xs">
+                                Belum ada pengguna aktif hari ini.
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="border-b border-border text-muted-foreground font-semibold">
+                                            <th className="pb-2">Pengguna</th>
+                                            <th className="pb-2">Tenant</th>
+                                            <th className="pb-2 text-right">
+                                                Views
+                                            </th>
+                                            <th className="pb-2 text-right">
+                                                Terakhir Aktif (WIB)
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                                    </thead>
+                                    <tbody className="divide-y divide-border/60">
+                                        {data.activeUsersToday.map((u) => (
+                                            <tr
+                                                key={`${u.tenantId}:${u.userId}`}
+                                                className="hover:bg-muted/40 transition-colors"
+                                            >
+                                                <td className="py-2.5 font-medium">
+                                                    <div className="font-semibold text-foreground">
+                                                        {u.userName}
+                                                    </div>
+                                                    <div className="text-[10px] text-muted-foreground">
+                                                        {u.userEmail}
+                                                    </div>
+                                                </td>
+                                                <td className="py-2.5 text-muted-foreground">
+                                                    {u.tenantName}
+                                                </td>
+                                                <td className="py-2.5 text-right font-bold text-foreground">
+                                                    {u.viewCount}
+                                                </td>
+                                                <td className="py-2.5 text-right text-[10px] text-muted-foreground">
+                                                    {new Date(
+                                                        u.lastActiveAt,
+                                                    ).toLocaleTimeString(
+                                                        'id-ID',
+                                                        {
+                                                            timeZone:
+                                                                'Asia/Jakarta',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                        },
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
