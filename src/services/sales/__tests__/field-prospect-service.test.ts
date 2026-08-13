@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
 import { mockedTransaction } from "./helpers/mock-prisma-transaction";
+import { MAX_CUSTOMER_CODE_ATTEMPTS } from "@/services/sales/customer-code";
 
 function codeUniqueViolation() {
   return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
@@ -181,7 +182,9 @@ describe("field-prospect-service", () => {
         }),
       ).rejects.toThrow("Gagal membuat kode customer unik");
 
-      expect(prisma.$transaction).toHaveBeenCalledTimes(5);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(
+        MAX_CUSTOMER_CODE_ATTEMPTS,
+      );
     });
 
     it("does not retry and rethrows on a non-code-collision error", async () => {

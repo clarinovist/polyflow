@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   getCustomers,
   getCustomerById,
@@ -15,6 +16,15 @@ import {
   requireSalesAccess,
   requireSalesApprover,
 } from "@/lib/auth/sales-access";
+import { MAX_CUSTOMER_CODE_ATTEMPTS } from "@/services/sales/customer-code";
+
+function codeUniqueViolation() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "5.22.0",
+    meta: { target: ["code"] },
+  });
+}
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
@@ -392,17 +402,19 @@ describe("customer actions", () => {
       expect(result).toEqual({ success: true, data: null });
     });
 
-    it("increments code on collision and eventually creates customer", async () => {
-      // Arrange — CUS-001 exists, CUS-002 does not
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
-      vi.mocked(prisma.customer.findUnique)
-        .mockResolvedValueOnce({ id: "existing-1" } as never) // CUS-001 exists
-        .mockResolvedValueOnce(null); // CUS-002 does not
-      vi.mocked(prisma.customer.create).mockResolvedValue({
-        id: "new-1",
-        name: "Collision Customer",
-        code: "CUS-002",
-      } as never);
+    it("retries with a freshly computed code when the first attempt collides", async () => {
+      // Arrange — first getNextCustomerCode() call sees no rows (CUS-001);
+      // second call sees the row the colliding request just committed (CUS-002).
+      vi.mocked(prisma.customer.findFirst)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ code: "CUS-001" } as never);
+      vi.mocked(prisma.customer.create)
+        .mockRejectedValueOnce(codeUniqueViolation())
+        .mockResolvedValueOnce({
+          id: "new-1",
+          name: "Collision Customer",
+          code: "CUS-002",
+        } as never);
 
       // Act
       const result = await createCustomer({
@@ -411,35 +423,35 @@ describe("customer actions", () => {
 
       // Assert
       expect(result).toEqual({ success: true, data: null });
-      expect(prisma.customer.findUnique).toHaveBeenCalledTimes(2);
-      expect(prisma.customer.create).toHaveBeenCalledWith({
+      expect(prisma.customer.create).toHaveBeenCalledTimes(2);
+      expect(prisma.customer.create).toHaveBeenLastCalledWith({
         data: expect.objectContaining({
           code: "CUS-002",
         }),
       });
     });
 
-    it("succeeds even after 5 collision retries (uses last generated code)", async () => {
-      // Arrange — all 5 attempts collide
+    it("returns error after exhausting retries on repeated code collisions", async () => {
+      // Arrange — every attempt collides
       vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
-      vi.mocked(prisma.customer.findUnique).mockResolvedValue({
-        id: "existing",
-      } as never);
-      vi.mocked(prisma.customer.create).mockResolvedValue({
-        id: "new-1",
-        name: "Persistent Collision",
-        code: "CUS-006",
-      } as never);
+      vi.mocked(prisma.customer.create).mockRejectedValue(
+        codeUniqueViolation(),
+      );
 
       // Act
       const result = await createCustomer({
         name: "Persistent Collision",
       });
 
-      // Assert — still succeeds, uses the last code generated
-      expect(result).toEqual({ success: true, data: null });
-      expect(prisma.customer.findUnique).toHaveBeenCalledTimes(5);
-      expect(prisma.customer.create).toHaveBeenCalled();
+      // Assert
+      expect(result).toEqual({
+        success: false,
+        error: "Customer code already exists",
+        code: "BUSINESS_RULE_VIOLATION",
+      });
+      expect(prisma.customer.create).toHaveBeenCalledTimes(
+        MAX_CUSTOMER_CODE_ATTEMPTS,
+      );
     });
 
     it("returns error when database create fails", async () => {

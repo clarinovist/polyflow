@@ -20,6 +20,10 @@ import {
     getCustomerCreditExposure,
     getCustomersWithCreditSummary,
 } from '@/services/sales/credit-service';
+import {
+    createWithUniqueCustomerCode,
+    CustomerCodeCollisionError,
+} from '@/services/sales/customer-code';
 
 export const getCustomers = withTenant(async function getCustomers() {
     return safeAction(async () => {
@@ -88,31 +92,21 @@ export const createCustomer = withTenant(async function createCustomer(
         }
 
         try {
-            let code = result.data.code?.trim();
-            if (!code) {
-                code = await getNextCustomerCode();
+            const explicitCode = result.data.code?.trim();
 
-                let attempts = 0;
-                while (attempts < 5) {
-                    const exists = await prisma.customer.findUnique({
-                        where: { code },
-                        select: { id: true },
-                    });
-
-                    if (!exists) break;
-
-                    const numPart = parseInt(code.substring(4), 10);
-                    code = `CUS-${(numPart + 1).toString().padStart(3, '0')}`;
-                    attempts++;
-                }
+            if (explicitCode) {
+                await prisma.customer.create({
+                    data: { ...result.data, code: explicitCode },
+                });
+            } else {
+                await createWithUniqueCustomerCode(
+                    getNextCustomerCode,
+                    (code) =>
+                        prisma.customer.create({
+                            data: { ...result.data, code },
+                        }),
+                );
             }
-
-            await prisma.customer.create({
-                data: {
-                    ...result.data,
-                    code,
-                },
-            });
 
             revalidatePath('/sales/customers');
             return null;
@@ -122,8 +116,9 @@ export const createCustomer = withTenant(async function createCustomer(
                 module: 'CustomerActions',
             });
             if (
-                error instanceof Error &&
-                error.message.includes('Unique constraint')
+                error instanceof CustomerCodeCollisionError ||
+                (error instanceof Error &&
+                    error.message.includes('Unique constraint'))
             ) {
                 throw new BusinessRuleError('Customer code already exists');
             }

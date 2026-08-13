@@ -1,25 +1,11 @@
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { getNextCustomerCode } from '@/actions/sales/customer';
 import { BusinessRuleError, ConflictError } from '@/lib/errors/errors';
-
-const MAX_CODE_ATTEMPTS = 5;
-
-/**
- * `getNextCustomerCode` reads-then-increments outside any lock, so two
- * field reps creating a prospect around the same time can both compute the
- * same next code. Detect that specific collision so the caller can retry
- * with a freshly recomputed code instead of surfacing a raw DB error.
- */
-function isCustomerCodeUniqueViolation(error: unknown): boolean {
-    return (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002' &&
-        Array.isArray(error.meta?.target) &&
-        error.meta.target.includes('code')
-    );
-}
+import {
+    createWithUniqueCustomerCode,
+    CustomerCodeCollisionError,
+} from '@/services/sales/customer-code';
 
 type CreateProspectInput = {
     name: string;
@@ -141,13 +127,9 @@ export async function createProspectWithAssignment(input: CreateProspectInput) {
         salesUserId,
     } = input;
 
-    for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
-        // Generate unique code — recomputed fresh each attempt so a retry
-        // sees the code committed by whichever request won the race.
-        const code = await getNextCustomerCode();
-
-        try {
-            return await prisma.$transaction(async (tx) => {
+    try {
+        return await createWithUniqueCustomerCode(getNextCustomerCode, (code) =>
+            prisma.$transaction(async (tx) => {
                 // Create customer prospect
                 const customer = await tx.customer.create({
                     data: {
@@ -185,23 +167,14 @@ export async function createProspectWithAssignment(input: CreateProspectInput) {
                 });
 
                 return customer;
-            });
-        } catch (error) {
-            if (!isCustomerCodeUniqueViolation(error)) {
-                throw error;
-            }
-            if (attempt === MAX_CODE_ATTEMPTS - 1) {
-                throw new ConflictError(
-                    'Gagal membuat kode customer unik setelah beberapa percobaan',
-                );
-            }
-            // Collision on `code` — loop and recompute a fresh one.
+            }),
+        );
+    } catch (error) {
+        if (error instanceof CustomerCodeCollisionError) {
+            throw new ConflictError(error.message);
         }
+        throw error;
     }
-
-    throw new ConflictError(
-        'Gagal membuat kode customer unik setelah beberapa percobaan',
-    );
 }
 
 /**
