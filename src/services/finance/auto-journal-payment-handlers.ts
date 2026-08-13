@@ -12,6 +12,10 @@ export async function handleSalesPayment(
     paymentId: string,
     amount: number,
     method: string = 'Bank Transfer',
+    // Tanggal buku jurnal. Default: payment.paymentDate (jalur direct-entry, finance input
+    // sendiri saat itu). Jalur verifikasi remittance mengirim tanggal verifikasi di sini,
+    // supaya jurnal tidak ikut tanggal terima bayar staf pengumpul.
+    journalDate?: Date,
 ) {
     // Validate amount
     if (!amount || amount <= 0 || !isFinite(amount)) {
@@ -41,7 +45,7 @@ export async function handleSalesPayment(
     const arAcc = await getAccountByRole('accounts-receivable');
 
     await AccountingService.createJournalEntry({
-        entryDate: payment.paymentDate,
+        entryDate: journalDate ?? payment.paymentDate,
         description: `Payment Receipt (${paymentMethod}) for ${invoice.invoiceNumber}`,
         reference: payment.paymentNumber || `PAY-${invoice.invoiceNumber}`,
         referenceType: ReferenceType.SALES_PAYMENT,
@@ -69,6 +73,7 @@ export async function handlePurchasePayment(
     paymentId: string,
     amount: number,
     method: string = 'Bank Transfer',
+    journalDate?: Date,
 ) {
     // Validate amount
     if (!amount || amount <= 0 || !isFinite(amount)) {
@@ -98,7 +103,7 @@ export async function handlePurchasePayment(
     const apAcc = await getAccountByRole('accounts-payable');
 
     await AccountingService.createJournalEntry({
-        entryDate: payment.paymentDate,
+        entryDate: journalDate ?? payment.paymentDate,
         description: `Payment (${paymentMethod}) for Purchase Invoice ${invoice.invoiceNumber}`,
         reference: payment.paymentNumber || `PAY-${invoice.invoiceNumber}`,
         referenceType: ReferenceType.PURCHASE_PAYMENT,

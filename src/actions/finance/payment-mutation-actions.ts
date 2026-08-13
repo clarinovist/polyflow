@@ -32,6 +32,9 @@ export const recordCustomerPayment = withTenant(
         notes?: string;
         referenceNumber?: string;
         destinationBank?: string;
+        // Tanggal buku jurnal, kalau beda dari paymentDate (mis. verifikasi remittance —
+        // paymentDate = tanggal terima bayar staf, journalDate = tanggal verifikasi finance).
+        journalDate?: Date | string;
     }) {
         return safeAction(async () => {
             const session = await requireFinanceMutation();
@@ -176,6 +179,9 @@ export const recordCustomerPayment = withTenant(
                         payment.id,
                         data.amount,
                         paymentFields.method,
+                        data.journalDate
+                            ? new Date(data.journalDate)
+                            : undefined,
                     );
                 } catch (journalError) {
                     logger.error('Auto-journal failed after payment recorded', {
@@ -225,6 +231,7 @@ export const recordSupplierPayment = withTenant(
         notes?: string;
         referenceNumber?: string;
         destinationBank?: string;
+        journalDate?: Date | string;
     }) {
         return safeAction(async () => {
             const session = await requireFinanceMutation();
@@ -324,6 +331,9 @@ export const recordSupplierPayment = withTenant(
                         updated.paymentId,
                         data.amount,
                         paymentFields.method,
+                        data.journalDate
+                            ? new Date(data.journalDate)
+                            : undefined,
                     );
                 } catch (journalError) {
                     logger.error(

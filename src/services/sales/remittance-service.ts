@@ -273,6 +273,7 @@ export async function verifyRemittance(
             invoiceId: string;
             amount: number;
             paymentDate: Date;
+            journalDate: Date;
             method: string;
             referenceNumber?: string;
             notes?: string;
@@ -280,13 +281,17 @@ export async function verifyRemittance(
         findLatestPaymentId?: (invoiceId: string) => Promise<string | null>;
     },
 ): Promise<VerifyRemittanceResult> {
+    // Tanggal jurnal ikut saat finance verifikasi, BUKAN tanggal terima bayar yang diinput
+    // staf pengumpul (remittance.collectedAt) — reuse instance yang sama dengan verifiedAt.
+    const verifiedAt = new Date();
+
     // 1. Atomic claim: only PENDING can be verified.
     const claimed = await prisma.salesRemittance.updateMany({
         where: { id: remittanceId, status: 'PENDING' },
         data: {
             status: 'VERIFIED',
             verifiedById: verifierId,
-            verifiedAt: new Date(),
+            verifiedAt,
             // Append notes if provided
             ...(notes ? { notes } : {}),
         },
@@ -335,6 +340,7 @@ export async function verifyRemittance(
             invoiceId: string;
             amount: number;
             paymentDate: Date;
+            journalDate: Date;
             method: string;
             referenceNumber?: string;
             notes?: string;
@@ -375,6 +381,7 @@ export async function verifyRemittance(
                 invoiceId: item.invoiceId,
                 amount: Number(item.amount),
                 paymentDate: remittance.collectedAt,
+                journalDate: verifiedAt,
                 method: item.method,
                 referenceNumber: item.referenceNumber ?? undefined,
                 notes: `Remittance ${remittance.remittanceNumber} item ${item.id}`,

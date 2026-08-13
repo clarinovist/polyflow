@@ -284,6 +284,7 @@ export async function verifyPurchaseRemittance(
             invoiceId: string;
             amount: number;
             paymentDate: Date;
+            journalDate: Date;
             method: string;
             referenceNumber?: string;
             notes?: string;
@@ -293,12 +294,16 @@ export async function verifyPurchaseRemittance(
         ) => Promise<string | null>;
     },
 ): Promise<VerifyPurchaseRemittanceResult> {
+    // Tanggal jurnal ikut saat finance verifikasi, BUKAN tanggal bayar yang diinput staf
+    // (remittance.paidAt) — reuse instance yang sama dengan verifiedAt.
+    const verifiedAt = new Date();
+
     const claimed = await prisma.purchaseRemittance.updateMany({
         where: { id: remittanceId, status: 'PENDING' },
         data: {
             status: 'VERIFIED',
             verifiedById: verifierId,
-            verifiedAt: new Date(),
+            verifiedAt,
             ...(notes ? { notes } : {}),
         },
     });
@@ -340,6 +345,7 @@ export async function verifyPurchaseRemittance(
             invoiceId: string;
             amount: number;
             paymentDate: Date;
+            journalDate: Date;
             method: string;
             referenceNumber?: string;
             notes?: string;
@@ -379,6 +385,7 @@ export async function verifyPurchaseRemittance(
                 invoiceId: item.purchaseInvoiceId,
                 amount: Number(item.amount),
                 paymentDate: remittance.paidAt,
+                journalDate: verifiedAt,
                 method: item.method,
                 referenceNumber: item.referenceNumber ?? undefined,
                 notes: `Purchase remittance ${remittance.remittanceNumber} item ${item.id}`,

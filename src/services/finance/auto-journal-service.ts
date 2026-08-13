@@ -24,16 +24,18 @@ export class AutoJournalService {
         paymentId: string,
         amount: number,
         method: string = 'Bank Transfer',
+        journalDate?: Date,
     ) {
-        return handleSalesPayment(paymentId, amount, method);
+        return handleSalesPayment(paymentId, amount, method, journalDate);
     }
 
     static async handlePurchasePayment(
         paymentId: string,
         amount: number,
         method: string = 'Bank Transfer',
+        journalDate?: Date,
     ) {
-        return handlePurchasePayment(paymentId, amount, method);
+        return handlePurchasePayment(paymentId, amount, method, journalDate);
     }
 
     static async handleSalesReturnReceived(returnId: string) {
