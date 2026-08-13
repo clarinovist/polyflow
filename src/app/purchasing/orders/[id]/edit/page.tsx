@@ -27,6 +27,42 @@ type ProductVariantWithProduct = {
     assetCategory?: string | null;
 };
 
+/**
+ * Maps a persisted PurchaseOrderItem (from getPurchaseOrderById) to the
+ * shape PurchaseOrderForm's react-hook-form defaultValues expect. Every
+ * field the form reads must be listed here explicitly — a field missing
+ * from this whitelist silently reverts to the form's fallback/default on
+ * edit even though the database still holds the real value (same class of
+ * bug found and fixed on the Sales Order edit page: ppnMode was dropped,
+ * so INCLUDE-PPN items appeared as EXCLUDE on edit).
+ */
+export function mapPurchaseOrderItemForEdit(item: {
+    id: string;
+    productVariantId: string;
+    quantity: unknown;
+    unitPrice: unknown;
+    discountPercent?: unknown;
+    taxPercent?: unknown;
+    dppOtherAmount?: unknown;
+    ppnMode?: unknown;
+}) {
+    return {
+        id: item.id,
+        productVariantId: item.productVariantId,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        discountPercent: item.discountPercent
+            ? Number(item.discountPercent)
+            : 0,
+        taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
+        dppOtherAmount: item.dppOtherAmount
+            ? Number(item.dppOtherAmount)
+            : null,
+        ppnMode:
+            (item.ppnMode as 'INCLUDE' | 'EXCLUDE' | undefined) || 'EXCLUDE',
+    };
+}
+
 export default async function EditPurchaseOrderPage({ params }: PageProps) {
     const { id } = await params;
 
@@ -75,19 +111,7 @@ export default async function EditPurchaseOrderPage({ params }: PageProps) {
         deliveryAddress: order.deliveryAddress,
         notes: order.notes,
         shippingCost: order.shippingCost ? Number(order.shippingCost) : 0,
-        items: order.items.map((item) => ({
-            id: item.id,
-            productVariantId: item.productVariantId,
-            quantity: Number(item.quantity),
-            unitPrice: Number(item.unitPrice),
-            discountPercent: item.discountPercent
-                ? Number(item.discountPercent)
-                : 0,
-            taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
-            dppOtherAmount: item.dppOtherAmount
-                ? Number(item.dppOtherAmount)
-                : null,
-        })),
+        items: order.items.map(mapPurchaseOrderItemForEdit),
     };
 
     return (

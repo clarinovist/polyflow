@@ -12,6 +12,46 @@ interface PageProps {
     }>;
 }
 
+/**
+ * Maps a persisted SalesOrderItem (from getSalesOrderById) to the shape
+ * SalesOrderForm's react-hook-form defaultValues expect. Every field the
+ * form reads must be listed here explicitly — a field missing from this
+ * whitelist silently reverts to the form's fallback/default on edit, even
+ * though the database still holds the real value (regression: ppnMode was
+ * dropped here, so items saved as INCLUDE PPN appeared as EXCLUDE on edit,
+ * and re-saving without touching that field overwrote the DB back to EXCLUDE).
+ */
+export function mapSalesOrderItemForEdit(item: Record<string, unknown>) {
+    return {
+        id: String(item.id),
+        productVariantId: String(item.productVariantId),
+        quantity: item.enteredQuantity
+            ? Number(item.enteredQuantity)
+            : Number(item.quantity),
+        unitPrice: item.enteredUnitPrice
+            ? Number(item.enteredUnitPrice)
+            : Number(item.unitPrice),
+        enteredQuantity: item.enteredQuantity
+            ? Number(item.enteredQuantity)
+            : undefined,
+        enteredUnit: item.enteredUnit || undefined,
+        conversionFactorSnapshot: item.conversionFactorSnapshot
+            ? Number(item.conversionFactorSnapshot)
+            : undefined,
+        enteredUnitPrice: item.enteredUnitPrice
+            ? Number(item.enteredUnitPrice)
+            : undefined,
+        discountPercent: item.discountPercent
+            ? Number(item.discountPercent)
+            : 0,
+        taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
+        dppOtherAmount:
+            item.dppOtherAmount != null ? Number(item.dppOtherAmount) : null,
+        ppnMode:
+            (item.ppnMode as 'INCLUDE' | 'EXCLUDE' | undefined) || 'EXCLUDE',
+    };
+}
+
 export default async function EditSalesOrderPage({ params }: PageProps) {
     const { id } = await params;
 
@@ -42,9 +82,8 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         id: order.id,
         customerId: order.customerId || undefined,
         salesRepId:
-            ((order as Record<string, unknown>).salesRepId as
-                | string
-                | null) ?? null,
+            ((order as Record<string, unknown>).salesRepId as string | null) ??
+            null,
         sourceLocationId: order.sourceLocationId || '',
         orderDate: order.orderDate,
         expectedDate: order.expectedDate || undefined,
@@ -60,30 +99,7 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
             status: String(d.status),
             totalCharge: d.totalCharge != null ? Number(d.totalCharge) : null,
         })),
-        items: items.map((item) => ({
-            id: String(item.id),
-            productVariantId: String(item.productVariantId),
-            quantity: item.enteredQuantity
-                ? Number(item.enteredQuantity)
-                : Number(item.quantity),
-            unitPrice: item.enteredUnitPrice
-                ? Number(item.enteredUnitPrice)
-                : Number(item.unitPrice),
-            enteredQuantity: item.enteredQuantity
-                ? Number(item.enteredQuantity)
-                : undefined,
-            enteredUnit: item.enteredUnit || undefined,
-            conversionFactorSnapshot: item.conversionFactorSnapshot
-                ? Number(item.conversionFactorSnapshot)
-                : undefined,
-            enteredUnitPrice: item.enteredUnitPrice
-                ? Number(item.enteredUnitPrice)
-                : undefined,
-            discountPercent: item.discountPercent
-                ? Number(item.discountPercent)
-                : 0,
-            taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
-        })),
+        items: items.map(mapSalesOrderItemForEdit),
     };
 
     return (
