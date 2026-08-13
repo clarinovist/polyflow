@@ -223,7 +223,7 @@ export function buildKpis(
         trend: stats.cashflow.overdueReceivables > 0 ? 'down' : 'neutral',
         trendValue:
             stats.cashflow.overdueReceivables > 0 ? 'Tagih segera' : 'Lancar',
-        href: '/finance/invoices/sales',
+        href: '/finance/invoices/sales?status=OVERDUE',
     };
 
     const overdueAp: DashboardKpi = {
@@ -235,7 +235,7 @@ export function buildKpis(
         trend: stats.cashflow.overduePayables > 0 ? 'down' : 'neutral',
         trendValue:
             stats.cashflow.overduePayables > 0 ? 'Bayar segera' : 'Lancar',
-        href: '/finance/invoices/purchase',
+        href: '/finance/invoices/purchase?status=OVERDUE',
     };
 
     const dueWeek: DashboardKpi = {

@@ -41,9 +41,6 @@ import {
     AlertTriangle,
     RefreshCw,
     CheckCircle2,
-    LucideIcon,
-    Banknote,
-    CalendarClock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -239,41 +236,6 @@ export default function DashboardClient({
                     <KPICard key={kpi.id} {...kpi} />
                 ))}
             </div>
-
-            {/* Cashflow strip — Admin & Finance only */}
-            {showChart && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <CashStat
-                        label={dashboardLabels.overdueReceivables}
-                        value={formatRupiah(stats.cashflow.overdueReceivables)}
-                        href="/finance/invoices/sales"
-                        icon={TrendingUp}
-                        tone={
-                            stats.cashflow.overdueReceivables > 0
-                                ? 'text-red-600'
-                                : 'text-emerald-600'
-                        }
-                    />
-                    <CashStat
-                        label={dashboardLabels.overduePayables}
-                        value={formatRupiah(stats.cashflow.overduePayables)}
-                        href="/finance/invoices/purchase"
-                        icon={Banknote}
-                        tone={
-                            stats.cashflow.overduePayables > 0
-                                ? 'text-amber-600'
-                                : 'text-emerald-600'
-                        }
-                    />
-                    <CashStat
-                        label={dashboardLabels.dueThisWeek}
-                        value={String(stats.cashflow.invoicesDueThisWeek)}
-                        href="/finance/invoices/sales"
-                        icon={CalendarClock}
-                        tone="text-foreground"
-                    />
-                </div>
-            )}
 
             {/* Module shortcuts + Quick actions */}
             {!opsCompact && (
@@ -619,45 +581,6 @@ function KPICard({
         );
     }
     return body;
-}
-
-function CashStat({
-    label,
-    value,
-    href,
-    icon: Icon,
-    tone,
-}: {
-    label: string;
-    value: string;
-    href: string;
-    icon: LucideIcon;
-    tone: string;
-}) {
-    return (
-        <Link href={href} className="block">
-            <Card className="shadow-sm border-border/60 hover:shadow-md hover:border-primary/25 transition-all h-full">
-                <CardContent className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground font-medium">
-                            {label}
-                        </p>
-                        <p
-                            className={cn(
-                                'text-base font-bold tabular-nums truncate',
-                                tone,
-                            )}
-                        >
-                            {value}
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-        </Link>
-    );
 }
 
 function QuickAction({

@@ -58,6 +58,13 @@ describe('role-dashboard-config', () => {
     expect(finance.map((k) => k.id)).toEqual(
       expect.arrayContaining(['overdueAr', 'overdueAp', 'dueWeek', 'revenue'])
     );
+    // overdue KPI cards must deep-link into the filtered invoice view, not the bare list
+    expect(finance.find((k) => k.id === 'overdueAr')?.href).toBe(
+      '/finance/invoices/sales?status=OVERDUE'
+    );
+    expect(finance.find((k) => k.id === 'overdueAp')?.href).toBe(
+      '/finance/invoices/purchase?status=OVERDUE'
+    );
 
     const sales = buildKpis('SALES', baseStats);
     expect(sales.map((k) => k.id)).toEqual(
