@@ -10,9 +10,6 @@ export const PAYMENT_TERM_OPTIONS = [
     { value: 60, label: '60 hari' },
 ] as const;
 
-export type PaymentTermOptionValue =
-    (typeof PAYMENT_TERM_OPTIONS)[number]['value'];
-
 export const DEFAULT_PAYMENT_TERM_DAYS = 30;
 
 type AmountLike =
@@ -38,7 +35,10 @@ export function getInvoiceRemainingAmount(
     totalAmount: AmountLike,
     paidAmount: AmountLike,
 ): number {
-    return Math.max(toFiniteAmount(totalAmount) - toFiniteAmount(paidAmount), 0);
+    return Math.max(
+        toFiniteAmount(totalAmount) - toFiniteAmount(paidAmount),
+        0,
+    );
 }
 
 export type ActionableInvoiceOverdueInput = {
@@ -61,7 +61,9 @@ export function isActionableInvoiceOverdue(
 ): boolean {
     const status = invoice.status?.toUpperCase();
     if (!status || !OVERDUE_ACTION_STATUSES.has(status)) return false;
-    if (getInvoiceRemainingAmount(invoice.totalAmount, invoice.paidAmount) <= 0) {
+    if (
+        getInvoiceRemainingAmount(invoice.totalAmount, invoice.paidAmount) <= 0
+    ) {
         return false;
     }
     if (!invoice.dueDate) return false;

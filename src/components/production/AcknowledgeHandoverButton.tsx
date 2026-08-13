@@ -7,11 +7,7 @@ import { acknowledgeHandover } from '@/actions/inventory/inventory';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
 
-export function AcknowledgeHandoverButton({
-    movementId,
-}: {
-    movementId: string;
-}) {
+function AcknowledgeHandoverButton({ movementId }: { movementId: string }) {
     const [loading, setLoading] = useState(false);
 
     const handleAck = async () => {

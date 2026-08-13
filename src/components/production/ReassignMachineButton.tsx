@@ -64,5 +64,3 @@ export function ReassignMachineButton({
         </>
     );
 }
-
-export default ReassignMachineButton;

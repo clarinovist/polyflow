@@ -230,5 +230,3 @@ export function ReassignOutputLocationButton({
         </>
     );
 }
-
-export default ReassignOutputLocationButton;

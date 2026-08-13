@@ -170,5 +170,3 @@ export const getHrdShiftBoard = withTenant(async function getHrdShiftBoard() {
         });
     });
 });
-
-export const getHrdDashboardKpis = getHrdShiftBoard;

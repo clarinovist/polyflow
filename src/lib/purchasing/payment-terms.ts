@@ -4,5 +4,4 @@ export {
     calculateDueDate,
     isInvoiceOverdue,
     isOverdueByDate,
-    type PaymentTermOptionValue,
 } from '@/lib/finance/payment-terms';

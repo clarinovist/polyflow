@@ -279,8 +279,6 @@ export const createVehicleTariffSchema = z.object({
     notes: z.string().optional(),
 });
 
-export const updateVehicleTariffSchema = createVehicleTariffSchema;
-
 export type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
 export type CreateVehicleTariffValues = z.infer<
     typeof createVehicleTariffSchema
