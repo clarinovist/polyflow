@@ -1,7 +1,25 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { getNextCustomerCode } from '@/actions/sales/customer';
-import { BusinessRuleError } from '@/lib/errors/errors';
+import { BusinessRuleError, ConflictError } from '@/lib/errors/errors';
+
+const MAX_CODE_ATTEMPTS = 5;
+
+/**
+ * `getNextCustomerCode` reads-then-increments outside any lock, so two
+ * field reps creating a prospect around the same time can both compute the
+ * same next code. Detect that specific collision so the caller can retry
+ * with a freshly recomputed code instead of surfacing a raw DB error.
+ */
+function isCustomerCodeUniqueViolation(error: unknown): boolean {
+    return (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        Array.isArray(error.meta?.target) &&
+        error.meta.target.includes('code')
+    );
+}
 
 type CreateProspectInput = {
     name: string;
@@ -123,48 +141,67 @@ export async function createProspectWithAssignment(input: CreateProspectInput) {
         salesUserId,
     } = input;
 
-    return prisma.$transaction(async (tx) => {
-        // Generate unique code
+    for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
+        // Generate unique code — recomputed fresh each attempt so a retry
+        // sees the code committed by whichever request won the race.
         const code = await getNextCustomerCode();
 
-        // Create customer prospect
-        const customer = await tx.customer.create({
-            data: {
-                name: name.trim(),
-                code,
-                phone: phone?.trim() || null,
-                billingAddress: billingAddress?.trim() || null,
-                latitude: latitude ?? undefined,
-                longitude: longitude ?? undefined,
-                city: city?.trim() || null,
-                photoUrl,
-                lifecycleStatus: 'PROSPECT',
-                createdById: salesUserId,
-                source: 'FIELD_FIRST_VISIT',
-            },
-        });
+        try {
+            return await prisma.$transaction(async (tx) => {
+                // Create customer prospect
+                const customer = await tx.customer.create({
+                    data: {
+                        name: name.trim(),
+                        code,
+                        phone: phone?.trim() || null,
+                        billingAddress: billingAddress?.trim() || null,
+                        latitude: latitude ?? undefined,
+                        longitude: longitude ?? undefined,
+                        city: city?.trim() || null,
+                        photoUrl,
+                        lifecycleStatus: 'PROSPECT',
+                        createdById: salesUserId,
+                        source: 'FIELD_FIRST_VISIT',
+                    },
+                });
 
-        // Auto-assign to the sales rep
-        await tx.customerSalesAssignment.create({
-            data: {
-                customerId: customer.id,
-                userId: salesUserId,
-                isPrimary: true,
-                assignedById: salesUserId,
-                notes: 'Auto-assignment dari first visit',
-            },
-        });
+                // Auto-assign to the sales rep
+                await tx.customerSalesAssignment.create({
+                    data: {
+                        customerId: customer.id,
+                        userId: salesUserId,
+                        isPrimary: true,
+                        assignedById: salesUserId,
+                        notes: 'Auto-assignment dari first visit',
+                    },
+                });
 
-        await logActivity({
-            userId: salesUserId,
-            action: 'CUSTOMER_PROSPECT_CREATED',
-            entityType: 'Customer',
-            entityId: customer.id,
-            details: `Prospek baru "${customer.name}" dibuat dari first visit lapangan`,
-        });
+                await logActivity({
+                    userId: salesUserId,
+                    action: 'CUSTOMER_PROSPECT_CREATED',
+                    entityType: 'Customer',
+                    entityId: customer.id,
+                    details: `Prospek baru "${customer.name}" dibuat dari first visit lapangan`,
+                });
 
-        return customer;
-    });
+                return customer;
+            });
+        } catch (error) {
+            if (!isCustomerCodeUniqueViolation(error)) {
+                throw error;
+            }
+            if (attempt === MAX_CODE_ATTEMPTS - 1) {
+                throw new ConflictError(
+                    'Gagal membuat kode customer unik setelah beberapa percobaan',
+                );
+            }
+            // Collision on `code` — loop and recompute a fresh one.
+        }
+    }
+
+    throw new ConflictError(
+        'Gagal membuat kode customer unik setelah beberapa percobaan',
+    );
 }
 
 /**

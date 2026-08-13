@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 import { mockedTransaction } from "./helpers/mock-prisma-transaction";
+
+function codeUniqueViolation() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "5.22.0",
+    meta: { target: ["code"] },
+  });
+}
 
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
@@ -33,6 +42,7 @@ vi.mock("@/actions/sales/customer", () => ({
 }));
 
 import { prisma } from "@/lib/core/prisma";
+import { getNextCustomerCode } from "@/actions/sales/customer";
 import {
   checkCustomerDuplicate,
   createProspectWithAssignment,
@@ -123,6 +133,71 @@ describe("field-prospect-service", () => {
         salesUserId: "u1",
       });
       expect(result).toBeDefined();
+    });
+
+    it("retries with a freshly computed code when the first attempt collides", async () => {
+      vi.mocked(getNextCustomerCode)
+        .mockResolvedValueOnce("CUS-001")
+        .mockResolvedValueOnce("CUS-002");
+
+      mockedTransaction(prisma.$transaction)
+        .mockRejectedValueOnce(codeUniqueViolation())
+        .mockImplementationOnce(async (fn) => {
+          const tx = {
+            customer: {
+              create: vi.fn().mockResolvedValue({
+                id: "cus-new",
+                name: "Toko Retry",
+                code: "CUS-002",
+              }),
+            },
+            customerSalesAssignment: {
+              create: vi.fn().mockResolvedValue({ id: "a1" }),
+            },
+          };
+          return fn(tx);
+        });
+
+      const result = (await createProspectWithAssignment({
+        name: "Toko Retry",
+        salesUserId: "u1",
+      })) as { code: string };
+
+      expect(result.code).toBe("CUS-002");
+      expect(getNextCustomerCode).toHaveBeenCalledTimes(2);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    });
+
+    it("throws a conflict error after exhausting retries on repeated code collisions", async () => {
+      vi.mocked(getNextCustomerCode).mockResolvedValue("CUS-001");
+      mockedTransaction(prisma.$transaction).mockRejectedValue(
+        codeUniqueViolation(),
+      );
+
+      await expect(
+        createProspectWithAssignment({
+          name: "Toko Gagal",
+          salesUserId: "u1",
+        }),
+      ).rejects.toThrow("Gagal membuat kode customer unik");
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(5);
+    });
+
+    it("does not retry and rethrows on a non-code-collision error", async () => {
+      vi.mocked(getNextCustomerCode).mockResolvedValue("CUS-001");
+      mockedTransaction(prisma.$transaction).mockRejectedValue(
+        new Error("connection lost"),
+      );
+
+      await expect(
+        createProspectWithAssignment({
+          name: "Toko Error Lain",
+          salesUserId: "u1",
+        }),
+      ).rejects.toThrow("connection lost");
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 
