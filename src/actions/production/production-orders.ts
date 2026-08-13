@@ -245,6 +245,10 @@ type ProductionOrdersFilter = {
     bomCategories?: BomCategory[];
     q?: string;
     late?: boolean;
+    // Only meant for getProductionOrdersList's default (unfiltered) view — the
+    // plain getProductionOrders() consumers (schedule/MRP/kiosk/machines/
+    // warehouse-materials) never pass this and must keep seeing every status.
+    excludeCompleted?: boolean;
 };
 
 function buildProductionOrdersWhere(
@@ -255,6 +259,8 @@ function buildProductionOrdersWhere(
 
     if (filters?.status) {
         where.status = filters.status;
+    } else if (filters?.excludeCompleted) {
+        where.status = { not: 'COMPLETED' };
     }
     if (filters?.machineId) {
         where.machineId = filters.machineId;

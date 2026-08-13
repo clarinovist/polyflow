@@ -120,6 +120,8 @@ describe('role-dashboard-config', () => {
     expect(find('low-stock')).toBe('/warehouse/inventory?lowStock=true');
     // due-week has no meaningful due-date filter in InvoiceTable - keep plain link (Gap 3)
     expect(find('due-week')).toBe('/finance/invoices/sales');
+    // delayed-jobs must deep-link into the Terlambat filter, not the bare list
+    expect(find('delayed-jobs')).toBe('/production/orders?late=1');
   });
 
   it('returns role-specific quick actions', () => {

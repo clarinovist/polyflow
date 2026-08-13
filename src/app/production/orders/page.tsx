@@ -91,13 +91,21 @@ export default async function ProductionOrdersPage({
         'CANCELLED',
         'WAITING_MATERIAL',
     ] as const;
+    // "ALL" is a sentinel, not a real ProductionStatus — it's how "Semua
+    // status" / "Total SPK" ask for literally everything, distinct from the
+    // bare/no-param state which defaults to hiding COMPLETED (see below).
+    const isAllFilter = status === 'ALL';
     const statusFilter =
-        status && (validStatuses as readonly string[]).includes(status)
+        status &&
+        !isAllFilter &&
+        (validStatuses as readonly string[]).includes(status)
             ? (status as (typeof validStatuses)[number])
             : undefined;
 
     const isLateFilter = late === '1';
     const searchQuery = typeof q === 'string' ? q.trim() : '';
+    const excludeCompletedDefault =
+        !statusFilter && !isLateFilter && !isAllFilter;
     const currentPage = (() => {
         const parsed = Number.parseInt(pageParam ?? '1', 10);
         return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
@@ -109,6 +117,7 @@ export default async function ProductionOrdersPage({
             status: statusFilter,
             q: searchQuery || undefined,
             late: isLateFilter || undefined,
+            excludeCompleted: excludeCompletedDefault || undefined,
             page: currentPage,
         }),
         getProductionOrderStats(),
@@ -164,6 +173,7 @@ export default async function ProductionOrdersPage({
     const hasActiveFilters = !!(
         statusFilter ||
         isLateFilter ||
+        isAllFilter ||
         searchQuery ||
         (category && category !== 'all')
     );
@@ -180,15 +190,17 @@ export default async function ProductionOrdersPage({
                     </h1>
                     <p className="text-muted-foreground mt-2">
                         {planningLabels.listSpkDesc}
-                        {(statusFilter || isLateFilter) && (
+                        {(statusFilter || isLateFilter || isAllFilter) && (
                             <span className="ml-1 font-medium text-foreground">
                                 {isLateFilter
                                     ? `• ${planningLabels.lateOverdue}`
-                                    : `• ${getStatusLabel(statusFilter!, 'production')}`}
+                                    : isAllFilter
+                                      ? `• ${planningLabels.allOrders}`
+                                      : `• ${getStatusLabel(statusFilter!, 'production')}`}
                             </span>
                         )}
                     </p>
-                    {hasActiveFilters && (
+                    {hasActiveFilters ? (
                         <Link
                             href={buildHref({
                                 category: null,
@@ -200,6 +212,16 @@ export default async function ProductionOrdersPage({
                         >
                             Hapus semua filter
                         </Link>
+                    ) : (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                            {planningLabels.defaultHidesCompleted}{' '}
+                            <Link
+                                href={buildHref({ status: 'ALL' })}
+                                className="font-semibold text-primary hover:underline"
+                            >
+                                {planningLabels.showAllStatuses}
+                            </Link>
+                        </p>
                     )}
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -236,10 +258,10 @@ export default async function ProductionOrdersPage({
             {/* Stats Cards - clickable */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Link
-                    href={buildHref({ status: null, late: null })}
+                    href={buildHref({ status: 'ALL', late: null })}
                     className={cn(
                         'rounded-lg',
-                        !statusFilter && !isLateFilter && 'ring-2 ring-primary',
+                        isAllFilter && !isLateFilter && 'ring-2 ring-primary',
                     )}
                 >
                     <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
@@ -347,10 +369,10 @@ export default async function ProductionOrdersPage({
                 {/* Status chips */}
                 <div className="flex flex-wrap gap-1.5">
                     <Link
-                        href={buildHref({ status: null, late: null })}
+                        href={buildHref({ status: 'ALL', late: null })}
                         className={cn(
                             'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors hover:bg-accent',
-                            !statusFilter && !isLateFilter
+                            isAllFilter && !isLateFilter
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : 'bg-background',
                         )}

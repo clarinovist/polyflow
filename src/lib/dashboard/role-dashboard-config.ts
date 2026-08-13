@@ -398,7 +398,7 @@ export function buildAttentionItems(
             id: 'delayed-jobs',
             label: 'SPK lewat jadwal',
             count: stats.production.delayedJobs,
-            href: '/production/orders',
+            href: '/production/orders?late=1',
             severity: 'critical',
             resourceHint: '/production',
         },

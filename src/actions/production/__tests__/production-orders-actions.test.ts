@@ -421,6 +421,25 @@ describe('production order actions', () => {
             expect(lastWhere()).toMatchObject({ status: 'RELEASED' });
         });
 
+        it('excludeCompleted hides only COMPLETED when no explicit status is set', async () => {
+            // Act
+            await getProductionOrders({ excludeCompleted: true } as never);
+
+            // Assert
+            expect(lastWhere()).toEqual({ status: { not: 'COMPLETED' } });
+        });
+
+        it('an explicit status wins over excludeCompleted', async () => {
+            // Act
+            await getProductionOrders({
+                status: 'COMPLETED' as never,
+                excludeCompleted: true,
+            } as never);
+
+            // Assert
+            expect(lastWhere()).toMatchObject({ status: 'COMPLETED' });
+        });
+
         it('folds a single bom filter straight into the where clause', async () => {
             // Act
             await getProductionOrders({ bomCategories: ['PRODUKSI'] as never });
@@ -750,6 +769,39 @@ describe('production order actions', () => {
 
             // Assert
             expect(res.page).toBe(1);
+        });
+
+        it('excludeCompleted filters out COMPLETED orders from the list query', async () => {
+            // Arrange
+            vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+
+            // Act
+            await getProductionOrdersList({ excludeCompleted: true });
+
+            // Assert
+            const call = vi.mocked(prisma.productionOrder.findMany).mock
+                .calls[0][0] as { where: { status?: unknown } };
+            expect(call.where.status).toEqual({ not: 'COMPLETED' });
+        });
+
+        it('an explicit status filter overrides excludeCompleted in the list query', async () => {
+            // Arrange
+            vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(
+                [] as never,
+            );
+
+            // Act
+            await getProductionOrdersList({
+                status: 'COMPLETED' as never,
+                excludeCompleted: true,
+            });
+
+            // Assert
+            const call = vi.mocked(prisma.productionOrder.findMany).mock
+                .calls[0][0] as { where: { status?: unknown } };
+            expect(call.where.status).toBe('COMPLETED');
         });
 
         it('converts Decimal fields to numbers and drops unrendered relations', async () => {

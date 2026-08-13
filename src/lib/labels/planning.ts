@@ -65,6 +65,8 @@ export const planningLabels = {
     clearFilters: 'Hapus Filter',
     filterByStatus: 'Filter status',
     lateOnly: 'Hanya terlambat',
+    defaultHidesCompleted: 'Menyembunyikan SPK berstatus Selesai.',
+    showAllStatuses: 'Tampilkan semua',
 
     // Purchase Orders
     purchaseOrdersDesc: 'Kelola procurement dan pesanan supplier.',
