@@ -28,6 +28,8 @@ import {
 import { isFeatureEnabled } from '@/lib/bot/feature-flags';
 import { syncFindings } from '@/lib/findings/finding-sync';
 import { notifyNewFindings } from '@/lib/findings/finding-notify';
+import { escalateOverdueFindings } from '@/lib/findings/finding-escalate';
+import { isInQuietHours } from '@/lib/telegram/quiet-hours';
 
 export type DigestResult = {
     findings: DigestFinding[];
@@ -58,35 +60,6 @@ async function getPilotTenant() {
     } catch {
         return null;
     }
-}
-
-function isInQuietHours(
-    pref: {
-        quietHoursStart: number | null;
-        quietHoursEnd: number | null;
-    } | null,
-    timezone: string,
-): boolean {
-    if (pref?.quietHoursStart == null || pref?.quietHoursEnd == null)
-        return false;
-
-    const now = new Date();
-    const hour = Number(
-        now.toLocaleString('en-US', {
-            hour: 'numeric',
-            hour12: false,
-            timeZone: timezone,
-        }),
-    );
-
-    const start = pref.quietHoursStart;
-    const end = pref.quietHoursEnd;
-
-    if (start <= end) {
-        return hour >= start && hour < end;
-    }
-    // overnight window (e.g. 22 → 6)
-    return hour >= start || hour < end;
 }
 
 export async function runDigest(): Promise<DigestResult> {
@@ -213,6 +186,18 @@ export async function runDigest(): Promise<DigestResult> {
             ]);
         } catch (error) {
             console.error('[DIGEST] finding sync/notify failed:', error);
+        }
+
+        // No separate findings-escalate cron: this cron is the only place
+        // detectors run at all (once/day, 07:00 WIB per VPS crontab), so a
+        // finer-grained escalation check would not catch anything sooner —
+        // it would just poll a fact that can't have changed. Escalation
+        // check runs after sync/notify so it can act on findings created in
+        // THIS run once their SLA has already elapsed from a past run.
+        try {
+            await escalateOverdueFindings(tenantDb);
+        } catch (error) {
+            console.error('[DIGEST] finding escalation failed:', error);
         }
     }
 

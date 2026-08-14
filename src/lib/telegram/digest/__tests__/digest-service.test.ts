@@ -53,6 +53,13 @@ vi.mock('@/lib/findings/finding-notify', () => ({
   }),
 }));
 
+vi.mock('@/lib/findings/finding-escalate', () => ({
+  escalateOverdueFindings: vi.fn().mockResolvedValue({
+    escalated: [],
+    ownerRecipients: 0,
+  }),
+}));
+
 vi.mock('../detectors', () => ({
   detectCriticalStock: vi.fn(),
   detectStuckSalesOrders: vi.fn(),
@@ -87,6 +94,7 @@ import {
 import { formatDigestMarkdown } from '../format';
 import { syncFindings } from '@/lib/findings/finding-sync';
 import { notifyNewFindings } from '@/lib/findings/finding-notify';
+import { escalateOverdueFindings } from '@/lib/findings/finding-escalate';
 import type { DetectionResult, DetectedItem } from '../detection-types';
 
 const mockGetMainPrisma = vi.mocked(getMainPrisma);
@@ -585,6 +593,67 @@ describe('runDigest', () => {
       );
       vi.mocked(formatDigestMarkdown).mockReturnValue('*Test*');
       vi.mocked(sendTelegramMessage).mockResolvedValue({ ok: true, messageId: 2 });
+      vi.mocked(mockResolveAllowedResources).mockResolvedValue('ALL');
+
+      const mockDb = makeMockTenantDb();
+      mockDb._findManyIdentity.mockResolvedValue([
+        { userId: 'user-1', telegramUserId: 'tg-1', telegramChatId: 'chat-1' },
+      ]);
+      mockDb._findManyPref.mockResolvedValue([
+        { userId: 'user-1', enabled: true, dailyDigest: true, timezone: 'Asia/Jakarta', quietHoursStart: null, quietHoursEnd: null },
+      ]);
+      mockGetTenantDb.mockReturnValue(mockDb as never);
+
+      const result = await runDigest();
+
+      expect(result.sent).toBe(1);
+    });
+
+    it('runs escalation only when findingLifecycle is enabled', async () => {
+      vi.mocked(isFeatureEnabled).mockImplementation(
+        (flag: string) => flag === 'assistant.findingLifecycle',
+      );
+      vi.mocked(detectCriticalStock).mockResolvedValue(
+        okResult('critical_stock', ['/warehouse/inventory'], [oneCriticalStockItem()]),
+      );
+
+      const mockDb = makeMockTenantDb();
+      mockGetTenantDb.mockReturnValue(mockDb as never);
+
+      await runDigest();
+
+      expect(escalateOverdueFindings).toHaveBeenCalledTimes(1);
+      expect(escalateOverdueFindings).toHaveBeenCalledWith(mockDb);
+    });
+
+    it('does not run escalation when findingLifecycle is disabled', async () => {
+      vi.mocked(isFeatureEnabled).mockImplementation(
+        (flag: string) => flag === 'assistant.proactiveDigest',
+      );
+      vi.mocked(detectCriticalStock).mockResolvedValue(
+        okResult('critical_stock', ['/warehouse/inventory'], [oneCriticalStockItem()]),
+      );
+      vi.mocked(formatDigestMarkdown).mockReturnValue('*Test*');
+      vi.mocked(mockResolveAllowedResources).mockResolvedValue('ALL');
+
+      const mockDb = makeMockTenantDb();
+      mockGetTenantDb.mockReturnValue(mockDb as never);
+
+      await runDigest();
+
+      expect(escalateOverdueFindings).not.toHaveBeenCalled();
+    });
+
+    it('an escalateOverdueFindings failure does not stop the Telegram digest from sending', async () => {
+      vi.mocked(isFeatureEnabled).mockReturnValue(true);
+      vi.mocked(escalateOverdueFindings).mockRejectedValueOnce(
+        new Error('escalation down'),
+      );
+      vi.mocked(detectCriticalStock).mockResolvedValue(
+        okResult('critical_stock', ['/warehouse/inventory'], [oneCriticalStockItem()]),
+      );
+      vi.mocked(formatDigestMarkdown).mockReturnValue('*Test*');
+      vi.mocked(sendTelegramMessage).mockResolvedValue({ ok: true, messageId: 3 });
       vi.mocked(mockResolveAllowedResources).mockResolvedValue('ALL');
 
       const mockDb = makeMockTenantDb();
