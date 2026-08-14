@@ -151,6 +151,38 @@ describe('Analytics Track API Route Hardened', () => {
         expect(res.status).toBe(403);
     });
 
+    it('tracks kiosk sub-routes without the workspace access gate (moduleKey "kiosk" is not a WorkspaceKey)', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-kiosk' },
+        } as never);
+        // Even if canAccessWorkspace would deny, kiosk pages aren't gated by it.
+        vi.mocked(canAccessWorkspace).mockReturnValue(false);
+        vi.mocked(prisma.usageEvent.create).mockResolvedValue({ id: 'evt-1' } as never);
+
+        const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                pathname: '/kiosk/jobs',
+                sessionId: 'session-kiosk',
+            }),
+        });
+
+        const res = await POST(req);
+        expect(res.status).toBe(200);
+        expect(canAccessWorkspace).not.toHaveBeenCalled();
+        expect(prisma.usageEvent.create).toHaveBeenCalledWith({
+            data: {
+                tenantId: 'tenant-test-123',
+                userId: 'user-kiosk',
+                featureKey: 'kiosk.jobs.list',
+                moduleKey: 'kiosk',
+                eventType: 'FEATURE_VIEW',
+                source: 'WEB',
+                sessionId: 'session-kiosk',
+            },
+        });
+    });
+
     it('returns 400 when body is invalid JSON', async () => {
         vi.mocked(auth).mockResolvedValue({
             user: { id: 'user-1' },

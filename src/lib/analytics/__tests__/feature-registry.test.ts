@@ -53,13 +53,46 @@ describe('Feature Registry', () => {
         expect(res?.featureKey).not.toContain('so-9988-77');
     });
 
-    it('excludes static assets, login, auth, kiosk, my, and admin platform pages', () => {
+    it('excludes static assets, login, auth, kiosk hub root, my, and admin platform pages', () => {
         expect(resolveFeatureFromPath('/_next/static/chunks/main.js')).toBeNull();
         expect(resolveFeatureFromPath('/api/auth/session')).toBeNull();
         expect(resolveFeatureFromPath('/login')).toBeNull();
         expect(resolveFeatureFromPath('/admin/super-admin')).toBeNull();
         expect(resolveFeatureFromPath('/kiosk')).toBeNull();
         expect(resolveFeatureFromPath('/my/absensi')).toBeNull();
+    });
+
+    it('resolves kiosk shop-floor sub-routes (not excluded like the hub root)', () => {
+        expect(resolveFeatureFromPath('/kiosk/jobs')).toEqual({
+            featureKey: 'kiosk.jobs.list',
+            moduleKey: 'kiosk',
+            label: 'Daftar Job Kiosk Produksi',
+        });
+
+        const detailRes = resolveFeatureFromPath('/kiosk/jobs/po-123');
+        expect(detailRes).toEqual({
+            featureKey: 'kiosk.jobs.detail',
+            moduleKey: 'kiosk',
+            label: 'Fokus Job Kiosk Produksi',
+        });
+        expect(detailRes?.featureKey).not.toContain('po-123');
+
+        expect(resolveFeatureFromPath('/kiosk/production/hd')).toEqual({
+            featureKey: 'kiosk.production_form',
+            moduleKey: 'kiosk',
+            label: 'Input Produksi Kiosk (HD/Potong-Plong)',
+        });
+        expect(resolveFeatureFromPath('/kiosk/production/potongplong')).toEqual({
+            featureKey: 'kiosk.production_form',
+            moduleKey: 'kiosk',
+            label: 'Input Produksi Kiosk (HD/Potong-Plong)',
+        });
+
+        expect(resolveFeatureFromPath('/kiosk/attendance')).toEqual({
+            featureKey: 'kiosk.attendance',
+            moduleKey: 'kiosk',
+            label: 'Presensi Kiosk',
+        });
     });
 
     it('returns null for unregistered / arbitrary paths (allowlist enforcement)', () => {

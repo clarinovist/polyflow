@@ -633,11 +633,33 @@ const FEATURE_REGISTRY: FeatureDefinition[] = [
         pattern: /^\/warehouse\/mobile(?:\/.*)?$/,
         priority: 90,
     },
+    // ─── KIOSK MODULE (shop-floor operator sub-pages; root hub stays excluded) ───
     {
-        featureKey: 'production.kiosk',
-        moduleKey: 'production',
-        label: 'Kiosk Operator Produksi',
-        pattern: /^\/kiosk(?:\/.*)?$/,
+        featureKey: 'kiosk.jobs.detail',
+        moduleKey: 'kiosk',
+        label: 'Fokus Job Kiosk Produksi',
+        pattern: /^\/kiosk\/jobs\/[^/]+$/,
+        priority: 100,
+    },
+    {
+        featureKey: 'kiosk.jobs.list',
+        moduleKey: 'kiosk',
+        label: 'Daftar Job Kiosk Produksi',
+        pattern: /^\/kiosk\/jobs$/,
+        priority: 90,
+    },
+    {
+        featureKey: 'kiosk.production_form',
+        moduleKey: 'kiosk',
+        label: 'Input Produksi Kiosk (HD/Potong-Plong)',
+        pattern: /^\/kiosk\/production(?:\/.*)?$/,
+        priority: 90,
+    },
+    {
+        featureKey: 'kiosk.attendance',
+        moduleKey: 'kiosk',
+        label: 'Presensi Kiosk',
+        pattern: /^\/kiosk\/attendance$/,
         priority: 90,
     },
 
@@ -694,7 +716,7 @@ const EXCLUDED_PATTERNS = [
     /^\/api\//,
     /^\/admin\//, // Exclude admin platform views from tenant adoption metrics
     /^\/admin$/,
-    /^\/kiosk(?:\/.*)?$/, // Exclude kiosk public/operator session
+    /^\/kiosk$/, // Exclude kiosk hub root only — operator picker, belum terikat identitas
     /^\/my(?:\/.*)?$/, // Exclude /my employee self portal
     /^\/device\//,
     /^\/favicon\.ico$/,
