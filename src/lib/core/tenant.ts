@@ -5,6 +5,7 @@ import {
     entitlementContext,
 } from '@/lib/core/prisma';
 import { actorContext } from '@/lib/core/actor-context';
+import { alertCrossTenantContextLeak } from '@/lib/core/tenant-context-leak-alert';
 import { PrismaClient } from '@prisma/client';
 import { headers } from 'next/headers';
 import { cache } from 'react';
@@ -78,6 +79,11 @@ const resolveTenantBySubdomain = cache(async function resolveTenantBySubdomain(
 ): Promise<TenantResolutionResult> {
     let targetDbUrl: string | null = null;
     let resolvedTenantId: string | null = null;
+    // Captured once, before this request's own context (if any) is set below —
+    // used after resolution to tell a genuine cross-tenant leak (dangerous)
+    // apart from a same-tenant nested withTenant call (benign, see
+    // docs/plan/2026-08-14-tenant-context-leak-investigation.md §4.5/§9).
+    const leakedTenantIdAtEntry = tenantIdContext.getStore() ?? null;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
             // CRITICAL: Always use mainPrisma for tenant lookup.
@@ -128,6 +134,18 @@ const resolveTenantBySubdomain = cache(async function resolveTenantBySubdomain(
             `[resolveTenantContext] NOT_FOUND for subdomain="${subdomain}" — tenant query returned null.`,
         );
         return { type: 'NOT_FOUND', subdomain };
+    }
+
+    if (
+        leakedTenantIdAtEntry &&
+        resolvedTenantId &&
+        leakedTenantIdAtEntry !== resolvedTenantId
+    ) {
+        alertCrossTenantContextLeak({
+            subdomain,
+            leakedFromTenantId: leakedTenantIdAtEntry,
+            resolvedTenantId,
+        });
     }
 
     const tenantDb = getTenantDb(targetDbUrl);

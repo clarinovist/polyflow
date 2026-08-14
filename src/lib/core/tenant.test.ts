@@ -22,6 +22,10 @@ vi.mock('@/lib/core/prisma', () => ({
     tenantContext: {
         run: vi.fn((_db, cb) => cb()),
         getStore: vi.fn(),
+    },
+    tenantIdContext: {
+        run: vi.fn((_id, cb) => cb()),
+        getStore: vi.fn(),
     }
 }));
 
