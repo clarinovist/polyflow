@@ -5,6 +5,7 @@ export type FindingSyncOutcome = {
     created: string[];
     reopened: string[];
     updated: string[];
+    unsnoozed: string[];
     autoResolved: string[];
     skippedDetectors: string[];
 };
@@ -33,6 +34,7 @@ function emptyOutcome(): FindingSyncOutcome {
         created: [],
         reopened: [],
         updated: [],
+        unsnoozed: [],
         autoResolved: [],
         skippedDetectors: [],
     };
@@ -126,17 +128,41 @@ export async function syncFindings(
             }
 
             // Still open (UNCLAIMED/CLAIMED/SNOOZED): refresh presentation fields
-            // only. Never touch status, ownership, or SLA — a re-detection is not
-            // a new event in the finding's lifecycle.
+            // only. Never touch ownership or SLA — a re-detection is not a new
+            // event in the finding's lifecycle. The one exception is SNOOZED
+            // past its wake-up time: this daily sync is the only place that
+            // ever re-examines a snoozed finding, so it doubles as the wake
+            // mechanism rather than needing a separate timer/cron.
+            const shouldWake =
+                existing.status === 'SNOOZED' &&
+                existing.snoozedUntil != null &&
+                existing.snoozedUntil <= now;
+
             await tenantDb.finding.update({
                 where: { id: existing.id },
                 data: {
                     headline: item.headline,
                     detail: item.detail,
                     lastSeenAt: now,
+                    ...(shouldWake && {
+                        status: 'UNCLAIMED',
+                        snoozedUntil: null,
+                        events: {
+                            create: {
+                                action: 'UNSNOOZED',
+                                fromStatus: 'SNOOZED',
+                                toStatus: 'UNCLAIMED',
+                            },
+                        },
+                    }),
                 },
             });
-            outcome.updated.push(existing.id);
+
+            if (shouldWake) {
+                outcome.unsnoozed.push(existing.id);
+            } else {
+                outcome.updated.push(existing.id);
+            }
         }
 
         if (result.status !== 'ok') {

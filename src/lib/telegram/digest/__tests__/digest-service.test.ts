@@ -41,6 +41,7 @@ vi.mock('@/lib/findings/finding-sync', () => ({
     created: [],
     reopened: [],
     updated: [],
+    unsnoozed: [],
     autoResolved: [],
     skippedDetectors: [],
   }),
@@ -567,6 +568,7 @@ describe('runDigest', () => {
         created: ['f-new-1'],
         reopened: ['f-reopened-1'],
         updated: ['f-still-open-1'],
+        unsnoozed: [],
         autoResolved: ['f-closed-1'],
         skippedDetectors: [],
       });

@@ -18,6 +18,8 @@ export const mainNavLabels = {
     maklonReceipts: 'Penerimaan Maklon',
     maklonReturns: 'Retur Maklon',
 
+    findings: 'Temuan',
+
     // Support
     help: 'Bantuan',
 } as const;

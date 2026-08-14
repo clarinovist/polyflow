@@ -2768,8 +2768,9 @@ model Finding {
   resolutionNote String?   @db.Text
   autoResolved   Boolean   @default(false)
 
-  slaDueAt    DateTime?
-  escalatedAt DateTime?
+  slaDueAt     DateTime?
+  escalatedAt  DateTime?
+  snoozedUntil DateTime?
 
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())

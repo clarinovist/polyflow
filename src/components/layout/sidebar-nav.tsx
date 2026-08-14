@@ -67,6 +67,11 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
     {
         heading: 'Modul',
         items: [
+            {
+                title: mainNavLabels.findings,
+                href: '/findings',
+                icon: AlertTriangle,
+            },
             { title: mainNavLabels.sales, href: '/sales', icon: ShoppingCart },
             {
                 title: mainNavLabels.purchasing,
@@ -134,7 +139,11 @@ function isSupportActive(pathname: string) {
     return pathname.startsWith('/support');
 }
 
-export function SidebarNav({ user, permissions, activeModules }: SidebarNavProps) {
+export function SidebarNav({
+    user,
+    permissions,
+    activeModules,
+}: SidebarNavProps) {
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -194,6 +203,19 @@ export function SidebarNav({ user, permissions, activeModules }: SidebarNavProps
                 }
                 // Permission filter
                 if (permissions === 'ALL') return true;
+
+                // /findings isn't itself a resource — it surfaces findings
+                // from whichever detector resources the user can already
+                // reach. Rollout scope: production + warehouse only (see
+                // docs/plan/2026-08-14-ai-manager-l2-finding-lifecycle.md).
+                if (item.href === '/findings') {
+                    return permissions.some(
+                        (p) =>
+                            p === '/warehouse/inventory' ||
+                            p === '/production/orders',
+                    );
+                }
+
                 return permissions.some(
                     (p) =>
                         p === item.href ||
@@ -283,7 +305,10 @@ export function SidebarNav({ user, permissions, activeModules }: SidebarNavProps
 
                     {!effectiveCollapsed && (
                         <div className="px-4 pt-4">
-                            <GlobalSearch className="w-full justify-start pl-2" activeModules={activeModules} />
+                            <GlobalSearch
+                                className="w-full justify-start pl-2"
+                                activeModules={activeModules}
+                            />
                         </div>
                     )}
 

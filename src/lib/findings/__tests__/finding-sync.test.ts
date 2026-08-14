@@ -21,6 +21,7 @@ type FakeFinding = {
   autoResolved: boolean;
   slaDueAt?: Date | null;
   escalatedAt?: Date | null;
+  snoozedUntil?: Date | null;
   lastSeenAt?: Date;
   occurrences: number;
 };
@@ -186,6 +187,80 @@ describe('syncFindings', () => {
     expect(updated.headline).toBe('new headline');
     expect(updated.status).toBe('CLAIMED');
     expect(updated.claimedById).toBe('user-1');
+  });
+
+  it('wakes a SNOOZED finding back to UNCLAIMED once snoozedUntil has passed', async () => {
+    const { tenantDb, store } = makeFakeTenantDb([
+      {
+        id: 'f-1',
+        fingerprint: 'production_no_progress:po-1',
+        detector: 'production_no_progress',
+        severity: 'WARNING',
+        status: 'SNOOZED',
+        headline: 'old headline',
+        requiredResources: ['/production/orders'],
+        snoozedUntil: new Date('2026-08-13T00:00:00Z'), // in the past vs system time
+        autoResolved: false,
+        occurrences: 1,
+      },
+    ]);
+    const results = [
+      detectionResult({
+        items: [
+          {
+            entityKey: 'production_no_progress:po-1',
+            entityType: 'ProductionOrder',
+            entityId: 'po-1',
+            severity: 'warning',
+            headline: 'still stalled',
+          },
+        ],
+      }),
+    ];
+
+    const outcome = await syncFindings(tenantDb, results);
+
+    expect(outcome.unsnoozed).toEqual(['f-1']);
+    expect(outcome.updated).toHaveLength(0);
+    const woken = store.get('f-1')!;
+    expect(woken.status).toBe('UNCLAIMED');
+    expect(woken.snoozedUntil).toBeNull();
+  });
+
+  it('leaves a SNOOZED finding alone while snoozedUntil is still in the future', async () => {
+    const { tenantDb, store } = makeFakeTenantDb([
+      {
+        id: 'f-1',
+        fingerprint: 'production_no_progress:po-1',
+        detector: 'production_no_progress',
+        severity: 'WARNING',
+        status: 'SNOOZED',
+        headline: 'old headline',
+        requiredResources: ['/production/orders'],
+        snoozedUntil: new Date('2026-08-20T00:00:00Z'), // in the future vs system time
+        autoResolved: false,
+        occurrences: 1,
+      },
+    ]);
+    const results = [
+      detectionResult({
+        items: [
+          {
+            entityKey: 'production_no_progress:po-1',
+            entityType: 'ProductionOrder',
+            entityId: 'po-1',
+            severity: 'warning',
+            headline: 'still stalled',
+          },
+        ],
+      }),
+    ];
+
+    const outcome = await syncFindings(tenantDb, results);
+
+    expect(outcome.unsnoozed).toHaveLength(0);
+    expect(outcome.updated).toEqual(['f-1']);
+    expect(store.get('f-1')!.status).toBe('SNOOZED');
   });
 
   it('reopens a resolved finding that recurs, bumping occurrences and clearing ownership', async () => {
