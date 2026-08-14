@@ -19,7 +19,7 @@ vi.mock('@/lib/telegram/send-message', () => ({
 }));
 
 vi.mock('@/lib/telegram/permissions', () => ({
-  resolveAllowedResources: vi.fn(),
+  resolveAllowedResourcesForTenant: vi.fn(),
 }));
 
 vi.mock('@/lib/telegram/audit', () => ({
@@ -46,6 +46,13 @@ vi.mock('@/lib/findings/finding-sync', () => ({
   }),
 }));
 
+vi.mock('@/lib/findings/finding-notify', () => ({
+  notifyNewFindings: vi.fn().mockResolvedValue({
+    findingsProcessed: 0,
+    notificationsSent: 0,
+  }),
+}));
+
 vi.mock('../detectors', () => ({
   detectCriticalStock: vi.fn(),
   detectStuckSalesOrders: vi.fn(),
@@ -66,7 +73,7 @@ import { getMainPrisma, getTenantDb } from '@/lib/core/prisma';
 import { hasTenantModuleDirect } from '@/lib/modules/tenant-entitlements';
 import { isKillSwitchActive } from '@/lib/telegram/kill-switch';
 import { sendTelegramMessage } from '@/lib/telegram/send-message';
-import { resolveAllowedResources } from '@/lib/telegram/permissions';
+import { resolveAllowedResourcesForTenant } from '@/lib/telegram/permissions';
 import { logTelegramAudit } from '@/lib/telegram/audit';
 import { isDuplicate, recordNotificationAttempt } from '@/lib/telegram/notification-dedup';
 import { isFeatureEnabled } from '@/lib/bot/feature-flags';
@@ -79,12 +86,13 @@ import {
 } from '../detectors';
 import { formatDigestMarkdown } from '../format';
 import { syncFindings } from '@/lib/findings/finding-sync';
+import { notifyNewFindings } from '@/lib/findings/finding-notify';
 import type { DetectionResult, DetectedItem } from '../detection-types';
 
 const mockGetMainPrisma = vi.mocked(getMainPrisma);
 const mockGetTenantDb = vi.mocked(getTenantDb);
 const mockSendTelegramMessage = vi.mocked(sendTelegramMessage);
-const mockResolveAllowedResources = vi.mocked(resolveAllowedResources);
+const mockResolveAllowedResources = vi.mocked(resolveAllowedResourcesForTenant);
 const mockRecordNotificationAttempt = vi.mocked(recordNotificationAttempt);
 const mockLogTelegramAudit = vi.mocked(logTelegramAudit);
 
@@ -275,6 +283,10 @@ describe('runDigest', () => {
     expect(mockRecordNotificationAttempt).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'SENT' }),
     );
+    // Regression guard (2026-08-14): must resolve permissions against the
+    // tenant DB explicitly, not the ambient prisma proxy — this cron path
+    // never runs inside tenantContext.run().
+    expect(mockResolveAllowedResources).toHaveBeenCalledWith(mockDb, 'user-1');
   });
 
   it('records FAILED when send fails', async () => {
@@ -525,6 +537,54 @@ describe('runDigest', () => {
       );
       vi.mocked(formatDigestMarkdown).mockReturnValue('*Test*');
       vi.mocked(sendTelegramMessage).mockResolvedValue({ ok: true, messageId: 1 });
+      vi.mocked(mockResolveAllowedResources).mockResolvedValue('ALL');
+
+      const mockDb = makeMockTenantDb();
+      mockDb._findManyIdentity.mockResolvedValue([
+        { userId: 'user-1', telegramUserId: 'tg-1', telegramChatId: 'chat-1' },
+      ]);
+      mockDb._findManyPref.mockResolvedValue([
+        { userId: 'user-1', enabled: true, dailyDigest: true, timezone: 'Asia/Jakarta', quietHoursStart: null, quietHoursEnd: null },
+      ]);
+      mockGetTenantDb.mockReturnValue(mockDb as never);
+
+      const result = await runDigest();
+
+      expect(result.sent).toBe(1);
+    });
+
+    it('notifies only findings that were created or reopened, not merely refreshed', async () => {
+      vi.mocked(isFeatureEnabled).mockReturnValue(true);
+      vi.mocked(syncFindings).mockResolvedValue({
+        created: ['f-new-1'],
+        reopened: ['f-reopened-1'],
+        updated: ['f-still-open-1'],
+        autoResolved: ['f-closed-1'],
+        skippedDetectors: [],
+      });
+      vi.mocked(detectCriticalStock).mockResolvedValue(
+        okResult('critical_stock', ['/warehouse/inventory'], [oneCriticalStockItem()]),
+      );
+
+      const mockDb = makeMockTenantDb();
+      mockGetTenantDb.mockReturnValue(mockDb as never);
+
+      await runDigest();
+
+      expect(notifyNewFindings).toHaveBeenCalledWith(mockDb, [
+        'f-new-1',
+        'f-reopened-1',
+      ]);
+    });
+
+    it('a notifyNewFindings failure does not stop the Telegram digest from sending', async () => {
+      vi.mocked(isFeatureEnabled).mockReturnValue(true);
+      vi.mocked(notifyNewFindings).mockRejectedValueOnce(new Error('notify down'));
+      vi.mocked(detectCriticalStock).mockResolvedValue(
+        okResult('critical_stock', ['/warehouse/inventory'], [oneCriticalStockItem()]),
+      );
+      vi.mocked(formatDigestMarkdown).mockReturnValue('*Test*');
+      vi.mocked(sendTelegramMessage).mockResolvedValue({ ok: true, messageId: 2 });
       vi.mocked(mockResolveAllowedResources).mockResolvedValue('ALL');
 
       const mockDb = makeMockTenantDb();

@@ -14,7 +14,10 @@ vi.mock('@/lib/core/prisma', () => ({
   },
 }));
 
-import { resolveAllowedResources } from '../permissions';
+import {
+  resolveAllowedResources,
+  resolveAllowedResourcesForTenant,
+} from '../permissions';
 
 describe('resolveAllowedResources', () => {
   beforeEach(() => {
@@ -69,6 +72,79 @@ describe('resolveAllowedResources', () => {
     mockFindManyPerms.mockResolvedValue([]);
 
     const result = await resolveAllowedResources('user-1');
+    expect(result).toEqual([]);
+  });
+});
+
+describe('resolveAllowedResourcesForTenant', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeTenantDb(overrides: Record<string, unknown> = {}) {
+    return {
+      user: { findUnique: vi.fn().mockResolvedValue(null) },
+      userRole: { findMany: vi.fn().mockResolvedValue([]) },
+      rolePermission: { findMany: vi.fn().mockResolvedValue([]) },
+      ...overrides,
+    };
+  }
+
+  it('queries the injected tenantDb, not the ambient prisma proxy', async () => {
+    const tenantDb = makeTenantDb({
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          role: 'WAREHOUSE',
+          isSuperAdmin: false,
+        }),
+      },
+      userRole: { findMany: vi.fn().mockResolvedValue([]) },
+      rolePermission: {
+        findMany: vi.fn().mockResolvedValue([
+          { resource: '/warehouse/inventory' },
+        ]),
+      },
+    });
+
+    const result = await resolveAllowedResourcesForTenant(
+      tenantDb as never,
+      'user-1',
+    );
+
+    expect(result).toEqual(['/warehouse/inventory']);
+    // The ambient mock (mockFindUnique et al, wired to `prisma`) must never
+    // be touched — this is the whole point of the tenant-scoped variant.
+    expect(mockFindUnique).not.toHaveBeenCalled();
+    expect(mockFindManyRoles).not.toHaveBeenCalled();
+    expect(mockFindManyPerms).not.toHaveBeenCalled();
+  });
+
+  it('returns ALL for a superadmin in the tenant DB', async () => {
+    const tenantDb = makeTenantDb({
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          role: 'ADMIN',
+          isSuperAdmin: true,
+        }),
+      },
+    });
+
+    const result = await resolveAllowedResourcesForTenant(
+      tenantDb as never,
+      'user-1',
+    );
+    expect(result).toBe('ALL');
+  });
+
+  it('returns empty array on tenantDb error', async () => {
+    const tenantDb = makeTenantDb({
+      user: { findUnique: vi.fn().mockRejectedValue(new Error('DB down')) },
+    });
+
+    const result = await resolveAllowedResourcesForTenant(
+      tenantDb as never,
+      'user-1',
+    );
     expect(result).toEqual([]);
   });
 });

@@ -5,7 +5,7 @@ import {
     isKillSwitchActive,
 } from '@/lib/telegram/kill-switch';
 import { sendTelegramMessage } from '@/lib/telegram/send-message';
-import { resolveAllowedResources } from '@/lib/telegram/permissions';
+import { resolveAllowedResourcesForTenant } from '@/lib/telegram/permissions';
 import { logTelegramAudit } from '@/lib/telegram/audit';
 import {
     buildDedupKey,
@@ -27,6 +27,7 @@ import {
 } from './format';
 import { isFeatureEnabled } from '@/lib/bot/feature-flags';
 import { syncFindings } from '@/lib/findings/finding-sync';
+import { notifyNewFindings } from '@/lib/findings/finding-notify';
 
 export type DigestResult = {
     findings: DigestFinding[];
@@ -205,9 +206,13 @@ export async function runDigest(): Promise<DigestResult> {
             LIFECYCLE_SCOPED_DETECTORS.has(r.detector),
         );
         try {
-            await syncFindings(tenantDb, scopedResults);
+            const outcome = await syncFindings(tenantDb, scopedResults);
+            await notifyNewFindings(tenantDb, [
+                ...outcome.created,
+                ...outcome.reopened,
+            ]);
         } catch (error) {
-            console.error('[DIGEST] finding sync failed:', error);
+            console.error('[DIGEST] finding sync/notify failed:', error);
         }
     }
 
@@ -274,8 +279,15 @@ export async function runDigest(): Promise<DigestResult> {
             continue;
         }
 
-        // Permission filter
-        const allowed = await resolveAllowedResources(identity.userId);
+        // Permission filter. Uses the tenant-scoped variant deliberately —
+        // this cron path never runs inside tenantContext.run(), so the
+        // ambient `prisma` proxy would silently fall back to the main DB
+        // and always return [] here (bug found & fixed 2026-08-14, see
+        // docs/plan/2026-08-14-ai-manager-l2-finding-lifecycle.md).
+        const allowed = await resolveAllowedResourcesForTenant(
+            tenantDb,
+            identity.userId,
+        );
         const filtered = findings.filter((f) => {
             if (allowed === 'ALL') return true;
             return f.requiredResources.some((r) => allowed.includes(r));
