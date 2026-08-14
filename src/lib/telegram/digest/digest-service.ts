@@ -18,9 +18,13 @@ import {
     detectOverdueAr,
     detectOverdueAp,
     detectProductionNoProgress,
-    type DigestFinding,
 } from './detectors';
-import { formatDigestMarkdown } from './format';
+import { emptyDetectionResult, type DetectionResult } from './detection-types';
+import {
+    formatDigestMarkdown,
+    toDigestFindings,
+    type DigestFinding,
+} from './format';
 import { isFeatureEnabled } from '@/lib/bot/feature-flags';
 
 export type DigestResult = {
@@ -130,25 +134,57 @@ export async function runDigest(): Promise<DigestResult> {
         );
     }
 
-    // 1. Run all entitled detectors in parallel
+    // 1. Run all entitled detectors in parallel. Detectors resolve their own
+    // internal errors into { status: 'failed' } rather than rejecting, but
+    // allSettled stays as defense-in-depth against anything that still throws.
     const results = await Promise.allSettled([
-        inventoryEntitled ? detectCriticalStock(tenantDb) : Promise.resolve([]),
-        salesEntitled ? detectStuckSalesOrders(tenantDb) : Promise.resolve([]),
-        financeEntitled ? detectOverdueAr(tenantDb) : Promise.resolve([]),
-        financeEntitled ? detectOverdueAp(tenantDb) : Promise.resolve([]),
+        inventoryEntitled
+            ? detectCriticalStock(tenantDb)
+            : Promise.resolve(
+                  emptyDetectionResult('critical_stock', [
+                      '/warehouse/inventory',
+                  ]),
+              ),
+        salesEntitled
+            ? detectStuckSalesOrders(tenantDb)
+            : Promise.resolve(
+                  emptyDetectionResult('stuck_so', ['/sales/orders']),
+              ),
+        financeEntitled
+            ? detectOverdueAr(tenantDb)
+            : Promise.resolve(
+                  emptyDetectionResult('overdue_ar', ['/finance/invoices']),
+              ),
+        financeEntitled
+            ? detectOverdueAp(tenantDb)
+            : Promise.resolve(
+                  emptyDetectionResult('overdue_ap', ['/purchasing/invoices']),
+              ),
         productionEntitled
             ? detectProductionNoProgress(tenantDb)
-            : Promise.resolve([]),
+            : Promise.resolve(
+                  emptyDetectionResult('production_no_progress', [
+                      '/production/orders',
+                  ]),
+              ),
     ]);
 
-    const findings: DigestFinding[] = [];
+    const detectionResults: DetectionResult[] = [];
     for (const r of results) {
         if (r.status === 'fulfilled') {
-            findings.push(...r.value);
+            detectionResults.push(r.value);
+            if (r.value.status === 'failed') {
+                console.error(
+                    `[DIGEST] detector ${r.value.detector} failed:`,
+                    r.value.error,
+                );
+            }
         } else {
-            console.error('[DIGEST] detector error:', r.reason);
+            console.error('[DIGEST] detector rejected:', r.reason);
         }
     }
+
+    const findings: DigestFinding[] = toDigestFindings(detectionResults);
 
     if (findings.length === 0) {
         return empty;

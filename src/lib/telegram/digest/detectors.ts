@@ -1,231 +1,247 @@
 import { Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
+import type { DetectedItem, DetectionResult } from './detection-types';
 
-export type DigestFinding = {
-  detector: string;
-  severity: 'warning' | 'critical';
-  requiredResources: string[];
-  headline: string;
-  detail?: string;
-};
+// Safety cap on rows fetched per detector. Not a display limit (that lives in
+// format.ts) — this only guards against pathological result sets. If a run
+// hits it, status is 'truncated' so callers (auto-resolve in particular) know
+// not to trust "item disappeared" as "item resolved" for this run.
+const FETCH_CAP = 500;
 
-const MAX_ITEMS = 5;
+function buildResult(
+    detector: string,
+    requiredResources: string[],
+    items: DetectedItem[],
+    hitCap: boolean,
+): DetectionResult {
+    return {
+        detector,
+        status: hitCap ? 'truncated' : 'ok',
+        requiredResources,
+        items,
+    };
+}
+
+function failedResult(
+    detector: string,
+    requiredResources: string[],
+    error: unknown,
+): DetectionResult {
+    return {
+        detector,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        requiredResources,
+        items: [],
+    };
+}
 
 type CriticalStockRow = {
-  product: string;
-  qty: Prisma.Decimal;
-  threshold: Prisma.Decimal;
+    productId: string;
+    product: string;
+    qty: Prisma.Decimal;
+    threshold: Prisma.Decimal;
 };
 
 export async function detectCriticalStock(
-  tenantDb: PrismaClient,
-): Promise<DigestFinding[]> {
-  try {
-    const rows = await tenantDb.$queryRaw<CriticalStockRow[]>(Prisma.sql`
-      SELECT p.name AS product, SUM(i.quantity) AS qty, SUM(pv."minStockAlert") AS threshold
+    tenantDb: PrismaClient,
+): Promise<DetectionResult> {
+    const requiredResources = ['/warehouse/inventory'];
+    try {
+        const rows = await tenantDb.$queryRaw<CriticalStockRow[]>(Prisma.sql`
+      SELECT p.id AS "productId", p.name AS product, SUM(i.quantity) AS qty, SUM(pv."minStockAlert") AS threshold
       FROM "Inventory" i
       JOIN "ProductVariant" pv ON i."productVariantId" = pv.id
       JOIN "Product" p ON pv."productId" = p.id
-      GROUP BY p.name
+      GROUP BY p.id, p.name
       HAVING SUM(i.quantity) < SUM(pv."minStockAlert") AND SUM(pv."minStockAlert") > 0
       ORDER BY qty ASC
-      LIMIT ${MAX_ITEMS + 1}
+      LIMIT ${FETCH_CAP}
     `);
 
-    const capped = rows.slice(0, MAX_ITEMS);
-    const remainder = rows.length - MAX_ITEMS;
+        const items: DetectedItem[] = rows.map((row) => ({
+            entityKey: `critical_stock:${row.productId}`,
+            entityType: 'Product',
+            entityId: row.productId,
+            severity: 'critical',
+            headline: `${row.product}: ${Number(row.qty).toFixed(0)} < ${Number(row.threshold).toFixed(0)}`,
+        }));
 
-    return capped.map((row, i) => ({
-      detector: 'critical_stock',
-      severity: 'critical' as const,
-      requiredResources: ['/warehouse/inventory'],
-      headline:
-        i === 0 && rows.length > MAX_ITEMS
-          ? `${rows.length} produk stok kritis`
-          : `${row.product}: ${Number(row.qty).toFixed(0)} < ${Number(row.threshold).toFixed(0)}`,
-      detail:
-        i === 0 && remainder > 0 ? `...dan ${remainder} lainnya` : undefined,
-    }));
-  } catch {
-    return [];
-  }
+        return buildResult(
+            'critical_stock',
+            requiredResources,
+            items,
+            rows.length === FETCH_CAP,
+        );
+    } catch (error) {
+        return failedResult('critical_stock', requiredResources, error);
+    }
 }
 
 export async function detectStuckSalesOrders(
-  tenantDb: PrismaClient,
-): Promise<DigestFinding[]> {
-  try {
-    const threshold = new Date();
-    threshold.setDate(threshold.getDate() - 3);
+    tenantDb: PrismaClient,
+): Promise<DetectionResult> {
+    const requiredResources = ['/sales/orders'];
+    try {
+        const threshold = new Date();
+        threshold.setDate(threshold.getDate() - 3);
 
-    const rows = await tenantDb.salesOrder.findMany({
-      where: {
-        status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] },
-        orderDate: { lt: threshold },
-      },
-      select: {
-        orderNumber: true,
-        customer: { select: { name: true } },
-        orderDate: true,
-      },
-      orderBy: { orderDate: 'asc' },
-      take: MAX_ITEMS + 1,
-    });
+        const rows = await tenantDb.salesOrder.findMany({
+            where: {
+                status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] },
+                orderDate: { lt: threshold },
+            },
+            select: {
+                id: true,
+                orderNumber: true,
+                customer: { select: { name: true } },
+                orderDate: true,
+            },
+            orderBy: { orderDate: 'asc' },
+            take: FETCH_CAP,
+        });
 
-    const findings: DigestFinding[] = [];
-    const show = rows.slice(0, MAX_ITEMS);
+        const items: DetectedItem[] = rows.map((row) => {
+            const daysSince = Math.floor(
+                (Date.now() - row.orderDate.getTime()) / 86_400_000,
+            );
+            return {
+                entityKey: `stuck_so:${row.id}`,
+                entityType: 'SalesOrder',
+                entityId: row.id,
+                severity: 'warning',
+                headline: `${row.orderNumber} — ${row.customer?.name || 'Guest'}`,
+                detail: `${daysSince} hari sejak order, belum selesai`,
+            };
+        });
 
-    for (const row of show) {
-      const daysSince = Math.floor(
-        (Date.now() - row.orderDate.getTime()) / 86_400_000,
-      );
-      findings.push({
-        detector: 'stuck_so',
-        severity: 'warning',
-        requiredResources: ['/sales/orders'],
-        headline: `${row.orderNumber} — ${row.customer?.name || 'Guest'}`,
-        detail: `${daysSince} hari sejak order, belum selesai`,
-      });
+        return buildResult(
+            'stuck_so',
+            requiredResources,
+            items,
+            rows.length === FETCH_CAP,
+        );
+    } catch (error) {
+        return failedResult('stuck_so', requiredResources, error);
     }
-
-    if (rows.length > MAX_ITEMS) {
-      findings.push({
-        detector: 'stuck_so',
-        severity: 'warning',
-        requiredResources: ['/sales/orders'],
-        headline: `...dan ${rows.length - MAX_ITEMS} SO lain belum selesai`,
-      });
-    }
-
-    return findings;
-  } catch {
-    return [];
-  }
 }
 
 type OverdueArRow = {
-  invoiceNumber: string;
-  totalAmount: Prisma.Decimal;
-  paidAmount: Prisma.Decimal;
-  dueDate: Date | null;
-  soNumber: string | null;
+    invoiceId: string;
+    invoiceNumber: string;
+    totalAmount: Prisma.Decimal;
+    paidAmount: Prisma.Decimal;
+    dueDate: Date | null;
+    soNumber: string | null;
 };
 
 export async function detectOverdueAr(
-  tenantDb: PrismaClient,
-): Promise<DigestFinding[]> {
-  try {
-    const rows = await tenantDb.$queryRaw<OverdueArRow[]>(Prisma.sql`
-      SELECT i."invoiceNumber", i."totalAmount", i."paidAmount", i."dueDate",
+    tenantDb: PrismaClient,
+): Promise<DetectionResult> {
+    const requiredResources = ['/finance/invoices'];
+    try {
+        const rows = await tenantDb.$queryRaw<OverdueArRow[]>(Prisma.sql`
+      SELECT i.id AS "invoiceId", i."invoiceNumber", i."totalAmount", i."paidAmount", i."dueDate",
              so."orderNumber" AS "soNumber"
       FROM "Invoice" i
       LEFT JOIN "SalesOrder" so ON i."salesOrderId" = so.id
       WHERE i."dueDate" < NOW()
         AND i.status IN ('UNPAID', 'PARTIAL')
       ORDER BY i."dueDate" ASC
-      LIMIT ${MAX_ITEMS + 1}
+      LIMIT ${FETCH_CAP}
     `);
 
-    const capped = rows.slice(0, MAX_ITEMS);
-    const remainder = rows.length - MAX_ITEMS;
+        const items: DetectedItem[] = rows.map((row) => {
+            const outstanding =
+                Number(row.totalAmount) - Number(row.paidAmount);
+            return {
+                entityKey: `overdue_ar:${row.invoiceId}`,
+                entityType: 'Invoice',
+                entityId: row.invoiceId,
+                severity: 'critical',
+                headline: `Invoice ${row.invoiceNumber} (SO: ${row.soNumber || '-'})`,
+                detail: `Jatuh tempo, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
+            };
+        });
 
-    const findings: DigestFinding[] = [];
-    for (const row of capped) {
-      const outstanding =
-        Number(row.totalAmount) - Number(row.paidAmount);
-      findings.push({
-        detector: 'overdue_ar',
-        severity: 'critical',
-        requiredResources: ['/finance/invoices'],
-        headline: `Invoice ${row.invoiceNumber} (SO: ${row.soNumber || '-'})`,
-        detail: `Jatuh tempo, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
-      });
+        return buildResult(
+            'overdue_ar',
+            requiredResources,
+            items,
+            rows.length === FETCH_CAP,
+        );
+    } catch (error) {
+        return failedResult('overdue_ar', requiredResources, error);
     }
-
-    if (remainder > 0) {
-      findings.push({
-        detector: 'overdue_ar',
-        severity: 'critical',
-        requiredResources: ['/finance/invoices'],
-        headline: `...dan ${remainder} invoice overdue lainnya`,
-      });
-    }
-
-    return findings;
-  } catch {
-    return [];
-  }
 }
 
 type OverdueApRow = {
-  invoiceNumber: string;
-  totalAmount: Prisma.Decimal;
-  paidAmount: Prisma.Decimal;
-  dueDate: Date | null;
-  poNumber: string | null;
+    invoiceId: string;
+    invoiceNumber: string;
+    totalAmount: Prisma.Decimal;
+    paidAmount: Prisma.Decimal;
+    dueDate: Date | null;
+    poNumber: string | null;
 };
 
 export async function detectOverdueAp(
-  tenantDb: PrismaClient,
-): Promise<DigestFinding[]> {
-  try {
-    const rows = await tenantDb.$queryRaw<OverdueApRow[]>(Prisma.sql`
-      SELECT pi."invoiceNumber", pi."totalAmount", pi."paidAmount", pi."dueDate",
+    tenantDb: PrismaClient,
+): Promise<DetectionResult> {
+    const requiredResources = ['/purchasing/invoices'];
+    try {
+        const rows = await tenantDb.$queryRaw<OverdueApRow[]>(Prisma.sql`
+      SELECT pi.id AS "invoiceId", pi."invoiceNumber", pi."totalAmount", pi."paidAmount", pi."dueDate",
              po."orderNumber" AS "poNumber"
       FROM "PurchaseInvoice" pi
       LEFT JOIN "PurchaseOrder" po ON pi."purchaseOrderId" = po.id
       WHERE pi."dueDate" < NOW()
         AND pi.status IN ('UNPAID', 'PARTIAL')
       ORDER BY pi."dueDate" ASC
-      LIMIT ${MAX_ITEMS + 1}
+      LIMIT ${FETCH_CAP}
     `);
 
-    const capped = rows.slice(0, MAX_ITEMS);
-    const remainder = rows.length - MAX_ITEMS;
+        const items: DetectedItem[] = rows.map((row) => {
+            const outstanding =
+                Number(row.totalAmount) - Number(row.paidAmount);
+            return {
+                entityKey: `overdue_ap:${row.invoiceId}`,
+                entityType: 'PurchaseInvoice',
+                entityId: row.invoiceId,
+                severity: 'critical',
+                headline: `Invoice ${row.invoiceNumber} (PO: ${row.poNumber || '-'})`,
+                detail: `Jatuh tempo, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
+            };
+        });
 
-    const findings: DigestFinding[] = [];
-    for (const row of capped) {
-      const outstanding =
-        Number(row.totalAmount) - Number(row.paidAmount);
-      findings.push({
-        detector: 'overdue_ap',
-        severity: 'critical',
-        requiredResources: ['/purchasing/invoices'],
-        headline: `Invoice ${row.invoiceNumber} (PO: ${row.poNumber || '-'})`,
-        detail: `Jatuh tempo, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
-      });
+        return buildResult(
+            'overdue_ap',
+            requiredResources,
+            items,
+            rows.length === FETCH_CAP,
+        );
+    } catch (error) {
+        return failedResult('overdue_ap', requiredResources, error);
     }
-
-    if (remainder > 0) {
-      findings.push({
-        detector: 'overdue_ap',
-        severity: 'critical',
-        requiredResources: ['/purchasing/invoices'],
-        headline: `...dan ${remainder} invoice overdue lainnya`,
-      });
-    }
-
-    return findings;
-  } catch {
-    return [];
-  }
 }
 
 type ProductionNoProgressRow = {
-  id: string;
-  orderNumber: string | null;
-  lastActivity: Date;
-  hoursSince: number;
+    id: string;
+    orderNumber: string | null;
+    lastActivity: Date;
+    hoursSince: number;
 };
 
 export async function detectProductionNoProgress(
-  tenantDb: PrismaClient,
-): Promise<DigestFinding[]> {
-  try {
-    const cutoff = new Date();
-    cutoff.setHours(cutoff.getHours() - 24);
+    tenantDb: PrismaClient,
+): Promise<DetectionResult> {
+    const requiredResources = ['/production/orders'];
+    try {
+        const cutoff = new Date();
+        cutoff.setHours(cutoff.getHours() - 24);
 
-    const rows = await tenantDb.$queryRaw<ProductionNoProgressRow[]>(Prisma.sql`
+        const rows = await tenantDb.$queryRaw<
+            ProductionNoProgressRow[]
+        >(Prisma.sql`
       SELECT po.id, po."orderNumber",
              COALESCE(MAX(pe."startTime"), po."plannedStartDate", po."createdAt") AS "lastActivity",
              EXTRACT(EPOCH FROM (NOW() - COALESCE(MAX(pe."startTime"), po."plannedStartDate", po."createdAt"))) / 3600 AS "hoursSince"
@@ -237,28 +253,25 @@ export async function detectProductionNoProgress(
       GROUP BY po.id, po."orderNumber", po."plannedStartDate", po."createdAt"
       HAVING COALESCE(MAX(pe."startTime"), po."plannedStartDate", po."createdAt") < ${cutoff}
       ORDER BY "lastActivity" ASC
-      LIMIT ${MAX_ITEMS + 1}
+      LIMIT ${FETCH_CAP}
     `);
 
-    const capped = rows.slice(0, MAX_ITEMS);
-    const remainder = rows.length - MAX_ITEMS;
+        const items: DetectedItem[] = rows.map((row) => ({
+            entityKey: `production_no_progress:${row.id}`,
+            entityType: 'ProductionOrder',
+            entityId: row.id,
+            severity: 'warning',
+            headline: `SPK ${row.orderNumber || row.id.slice(0, 8)}`,
+            detail: `${Math.floor(row.hoursSince)} jam tanpa progres`,
+        }));
 
-    const findings: DigestFinding[] = capped.map((row, i) => ({
-      detector: 'production_no_progress',
-      severity: 'warning' as const,
-      requiredResources: ['/production/orders'],
-      headline:
-        i === 0 && remainder > 0
-          ? `${rows.length} SPK tanpa progres`
-          : `SPK ${row.orderNumber || row.id.slice(0, 8)}`,
-      detail:
-        i === 0 && remainder > 0
-          ? `...dan ${remainder} lainnya`
-          : `${Math.floor(row.hoursSince)} jam tanpa progres`,
-    }));
-
-    return findings;
-  } catch {
-    return [];
-  }
+        return buildResult(
+            'production_no_progress',
+            requiredResources,
+            items,
+            rows.length === FETCH_CAP,
+        );
+    } catch (error) {
+        return failedResult('production_no_progress', requiredResources, error);
+    }
 }
