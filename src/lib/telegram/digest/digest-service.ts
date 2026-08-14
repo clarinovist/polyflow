@@ -26,6 +26,7 @@ import {
     type DigestFinding,
 } from './format';
 import { isFeatureEnabled } from '@/lib/bot/feature-flags';
+import { syncFindings } from '@/lib/findings/finding-sync';
 
 export type DigestResult = {
     findings: DigestFinding[];
@@ -34,6 +35,15 @@ export type DigestResult = {
     skipped: number;
     failed: number;
 };
+
+// Fase 1 rollout scope (docs/plan/2026-08-14-ai-manager-l2-finding-lifecycle.md
+// §0): only production + warehouse detectors feed the claimable Finding
+// lifecycle for now. stuck_so/overdue_ar/overdue_ap still run (for the
+// Telegram digest) but are not synced into Finding until a later rollout.
+const LIFECYCLE_SCOPED_DETECTORS = new Set([
+    'critical_stock',
+    'production_no_progress',
+]);
 
 async function getPilotTenant() {
     try {
@@ -87,7 +97,9 @@ export async function runDigest(): Promise<DigestResult> {
         failed: 0,
     };
 
-    if (!isFeatureEnabled('assistant.proactiveDigest')) {
+    const digestEnabled = isFeatureEnabled('assistant.proactiveDigest');
+    const lifecycleEnabled = isFeatureEnabled('assistant.findingLifecycle');
+    if (!digestEnabled && !lifecycleEnabled) {
         return empty;
     }
 
@@ -184,10 +196,25 @@ export async function runDigest(): Promise<DigestResult> {
         }
     }
 
+    // Sync into the claimable Finding lifecycle BEFORE the empty-findings
+    // early return below — an empty detection result is exactly the signal
+    // that lets auto-resolve close findings that stopped recurring, so sync
+    // must run even when there's nothing left to send via Telegram.
+    if (lifecycleEnabled) {
+        const scopedResults = detectionResults.filter((r) =>
+            LIFECYCLE_SCOPED_DETECTORS.has(r.detector),
+        );
+        try {
+            await syncFindings(tenantDb, scopedResults);
+        } catch (error) {
+            console.error('[DIGEST] finding sync failed:', error);
+        }
+    }
+
     const findings: DigestFinding[] = toDigestFindings(detectionResults);
 
-    if (findings.length === 0) {
-        return empty;
+    if (!digestEnabled || findings.length === 0) {
+        return { ...empty, findings };
     }
 
     // 2. Get recipients: ACTIVE TelegramIdentity + pref enabled && dailyDigest

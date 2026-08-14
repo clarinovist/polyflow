@@ -55,6 +55,8 @@ model User {
   salesReturns                   SalesReturn[]                    @relation("SalesReturnCreator")
   purchaseReturns                PurchaseReturn[]                 @relation("PurchaseReturnCreator")
   notifications                  Notification[]
+  claimedFindings                Finding[]                        @relation("FindingClaimedBy")
+  resolvedFindings               Finding[]                        @relation("FindingResolvedBy")
   pettyCashTransactions          PettyCashTransaction[]           @relation("PettyCashCreator")
   maklonReturns                  MaklonMaterialReturn[]           @relation("MaklonReturnCreator")
   createdPettyCashReports        PettyCashDailyReport[]           @relation("PettyCashReportCreator")
@@ -2705,6 +2707,7 @@ enum NotificationType {
   HRD_PROBATION_ENDING
   HRD_CONTRACT_EXPIRING
   REMITTANCE_PENDING
+  PRODUCTION_STALLED
 }
 
 model Notification {
@@ -2724,6 +2727,81 @@ model Notification {
   @@index([userId])
   @@index([userId, isRead])
   @@index([createdAt])
+}
+
+enum FindingStatus {
+  UNCLAIMED
+  CLAIMED
+  RESOLVED
+  SNOOZED
+}
+
+enum FindingSeverity {
+  WARNING
+  CRITICAL
+}
+
+// AI manager Finding lifecycle (docs/plan/2026-08-14-ai-manager-l2-finding-lifecycle.md).
+// A business fact detected by the proactive digest detectors, tracked
+// independently of Notification: Notification is a per-user, disposable send
+// record (Cascade on user delete); a Finding is a fact about the business
+// (stock low, SPK stalled) that must survive the staff account that happened
+// to claim or resolve it, hence SetNull instead of Cascade below.
+model Finding {
+  id          String          @id @default(uuid())
+  fingerprint String          @unique
+  detector    String
+  severity    FindingSeverity
+  status      FindingStatus   @default(UNCLAIMED)
+
+  headline          String
+  detail            String?  @db.Text
+  requiredResources String[]
+  entityType        String?
+  entityId          String?
+  helpArticleSlug   String?
+
+  claimedById    String?
+  claimedAt      DateTime?
+  resolvedById   String?
+  resolvedAt     DateTime?
+  resolutionNote String?   @db.Text
+  autoResolved   Boolean   @default(false)
+
+  slaDueAt    DateTime?
+  escalatedAt DateTime?
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  occurrences Int      @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  claimedBy  User? @relation("FindingClaimedBy", fields: [claimedById], references: [id], onDelete: SetNull)
+  resolvedBy User? @relation("FindingResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  events FindingEvent[]
+
+  @@index([status])
+  @@index([status, severity])
+  @@index([status, slaDueAt])
+  @@index([claimedById])
+}
+
+model FindingEvent {
+  id         String   @id @default(uuid())
+  findingId  String
+  action     String
+  actorId    String?
+  fromStatus String?
+  toStatus   String?
+  note       String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@index([findingId, createdAt])
 }
 
 model PettyCashTransaction {

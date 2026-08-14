@@ -9,7 +9,8 @@ export type AssistantFeatureFlag =
     | 'assistant.tenantKnowledge'
     | 'assistant.crossModuleDiagnosis'
     | 'assistant.sensitiveDomains'
-    | 'assistant.proactiveDigest';
+    | 'assistant.proactiveDigest'
+    | 'assistant.findingLifecycle';
 
 const FEATURE_FLAGS: Record<
     AssistantFeatureFlag,
@@ -40,6 +41,11 @@ const FEATURE_FLAGS: Record<
         enabled: false,
         description:
             'Enable proactive daily exception digest via Telegram cron',
+    },
+    'assistant.findingLifecycle': {
+        enabled: false,
+        description:
+            'Sync detector results into claimable Finding records (production + warehouse only for now)',
     },
 };
 
