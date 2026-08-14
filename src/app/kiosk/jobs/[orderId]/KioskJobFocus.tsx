@@ -258,16 +258,11 @@ export default function KioskJobFocus({
         ? toDisplayQuantity(targetBase, unitMeta.conversionFactor)
         : targetBase;
 
+    // scrapQuantity is already the aggregate of scrapDaunQty + scrapProngkolQty
+    // (see schema comment "Total Aggregated Scrap (Legacy/KPI)") — do not re-add the breakdown.
     const totalScrapQty = (order.executions || [])
         .filter((e) => e.status !== 'VOIDED')
-        .reduce(
-            (sum, e) =>
-                sum +
-                Number(e.scrapQuantity || 0) +
-                Number(e.scrapDaunQty || 0) +
-                Number(e.scrapProngkolQty || 0),
-            0,
-        );
+        .reduce((sum, e) => sum + Number(e.scrapQuantity || 0), 0);
 
     // Show loading while hydrating or redirecting to hub (no operator)
     if (!isInitialized || !operatorId) {

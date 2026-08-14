@@ -29,10 +29,9 @@ function ExecutionScrapCell({
     execution: ExtendedProductionOrder['executions'][number];
     scrapRecords: ExtendedProductionOrder['scrapRecords'];
 }) {
-    const totalScrap =
-        Number(execution.scrapQuantity || 0) +
-        Number(execution.scrapDaunQty || 0) +
-        Number(execution.scrapProngkolQty || 0);
+    // scrapQuantity is already the aggregate of scrapDaunQty + scrapProngkolQty
+    // (see schema comment "Total Aggregated Scrap (Legacy/KPI)") — do not re-add the breakdown.
+    const totalScrap = Number(execution.scrapQuantity || 0);
 
     if (totalScrap <= 0) {
         return <>-</>;
@@ -79,19 +78,14 @@ function ExecutionScrapCell({
     );
 }
 
-function getTotalScrapQuantity(
+export function getTotalScrapQuantity(
     executions: ExtendedProductionOrder['executions'],
 ) {
+    // scrapQuantity is already the aggregate of scrapDaunQty + scrapProngkolQty
+    // (see schema comment "Total Aggregated Scrap (Legacy/KPI)") — do not re-add the breakdown.
     return executions
         .filter((exec) => exec.status !== 'VOIDED')
-        .reduce(
-            (sum, exec) =>
-                sum +
-                Number(exec.scrapQuantity || 0) +
-                Number(exec.scrapDaunQty || 0) +
-                Number(exec.scrapProngkolQty || 0),
-            0,
-        );
+        .reduce((sum, exec) => sum + Number(exec.scrapQuantity || 0), 0);
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
