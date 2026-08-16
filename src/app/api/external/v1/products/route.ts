@@ -2,9 +2,14 @@ import { withTenantRoute } from '@/lib/core/tenant';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/prisma';
 import { validateExternalRequest } from '@/lib/api/external-api-helper';
+import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 export const GET = withTenantRoute(async function GET(req: NextRequest) {
-    // 1. Validate API Key
+    // 1. Module entitlement guard
+    const moduleDeny = await requireModuleOrNextResponse('INVENTORY');
+    if (moduleDeny) return moduleDeny;
+
+    // 2. Validate API Key
     const { isValid, response } = await validateExternalRequest(req);
     if (!isValid) {
         return response;

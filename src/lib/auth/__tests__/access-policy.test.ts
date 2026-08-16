@@ -25,7 +25,8 @@ describe('Access Policy Helpers', () => {
       expect(getWorkspaceFromPath('/')).toBeNull();
       expect(getWorkspaceFromPath('/login')).toBeNull();
       expect(getWorkspaceFromPath('/about')).toBeNull();
-      expect(getWorkspaceFromPath('/kiosk/terminal')).toBeNull();
+      // /kiosk is now a valid PRODUCTION sub-workspace alias (GAP 3 refactor)
+      expect(getWorkspaceFromPath('/kiosk/terminal')).toBe('production');
     });
   });
 

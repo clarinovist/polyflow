@@ -7,9 +7,14 @@ import {
 import { auth } from '@/auth';
 import { resolveTenantContext } from '@/lib/core/tenant';
 import { getMainPrisma } from '@/lib/core/prisma';
+import { requireModuleFromRequest } from '@/lib/modules/guard';
 
 export async function POST(req: NextRequest) {
     try {
+        // ── Module entitlement guard: production photos belong to PRODUCTION ──
+        const moduleDeny = await requireModuleFromRequest(req, 'PRODUCTION');
+        if (moduleDeny) return moduleDeny;
+
         const formData = await req.formData();
         const file = formData.get('file') as File | null;
         const executionId = formData.get('executionId') as string | null;

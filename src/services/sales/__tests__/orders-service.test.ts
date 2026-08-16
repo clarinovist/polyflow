@@ -116,6 +116,10 @@ vi.mock("@/lib/tools/audit", () => ({
   logActivity: vi.fn(),
 }));
 
+vi.mock("@/lib/modules/tenant-entitlements", () => ({
+  hasTenantModule: vi.fn().mockResolvedValue(true),
+}));
+
 describe("confirmOrder", () => {
   beforeEach(() => {
     vi.clearAllMocks();

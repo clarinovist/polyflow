@@ -9,6 +9,7 @@ import {
 import { listTenantBackups } from '@/actions/admin/tenant-backup';
 import { listTenantUsers } from '@/actions/admin/tenant-users';
 import TenantUsersClient from './TenantUsersClient';
+import { EntitlementPanel } from './EntitlementPanel';
 import { getCrossTenantAuditLogs } from '@/actions/admin/cross-tenant-audit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,15 +59,30 @@ export default async function TenantDetailPage({
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) notFound();
 
-    const [statsMap, backups, auditResult, users] = await Promise.all([
+    const [statsMap, backups, auditResult, users, modules] = await Promise.all([
         getAllTenantStats(),
         listTenantBackups(tenant.id),
         getCrossTenantAuditLogs({ page: 1, limit: 25, tenantId: tenant.id }),
         listTenantUsers(tenant.id),
+        prisma.tenantModule.findMany({
+            where: { tenantId: tenant.id },
+            select: {
+                moduleKey: true,
+                status: true,
+                enabledAt: true,
+                expiresAt: true,
+            },
+        }),
     ]);
     const stats: TenantStats | undefined = statsMap[tenant.id];
     const auditLogs = auditResult.logs;
     const isOnline = stats?.online === true;
+    const entitlements = modules.map((m) => ({
+        moduleKey: m.moduleKey,
+        status: m.status,
+        enabledAt: m.enabledAt?.toISOString() ?? null,
+        expiresAt: m.expiresAt?.toISOString() ?? null,
+    }));
 
     return (
         <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
@@ -232,6 +248,13 @@ export default async function TenantDetailPage({
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Module Entitlements */}
+            <EntitlementPanel
+                tenantId={tenant.id}
+                tenantName={tenant.name}
+                entitlements={entitlements}
+            />
 
             {/* Users management */}
             <TenantUsersClient tenantId={tenant.id} initialUsers={users} />

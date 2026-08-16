@@ -2,6 +2,7 @@ import { withTenantRoute } from '@/lib/core/tenant';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/prisma';
 import { requireApiRoles } from '@/lib/tools/api-auth';
+import { requireAnyModuleOrNextResponse } from '@/lib/modules/guard';
 import { Prisma, ProductType } from '@prisma/client';
 
 const MAX_VARIANTS = 50;
@@ -47,6 +48,9 @@ const isProductType = (value: string): value is ProductType =>
     Object.prototype.hasOwnProperty.call(ProductType, value);
 
 export const GET = withTenantRoute(async function GET(req: Request) {
+    const moduleDeny = await requireAnyModuleOrNextResponse(['SALES', 'PRODUCTION']);
+    if (moduleDeny) return moduleDeny;
+
     const auth = await requireApiRoles([
         'ADMIN',
         'PLANNING',

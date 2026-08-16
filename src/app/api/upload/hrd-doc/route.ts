@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { getTenantPrefix, buildHrdDocKey, uploadToR2 } from '@/lib/storage/r2';
+import { requireModuleFromRequest } from '@/lib/modules/guard';
 
 const ALLOWED_TYPES = [
     'application/pdf',
@@ -25,6 +26,10 @@ function guessImageTypeFromName(name: string): string {
 
 export async function POST(req: NextRequest) {
     try {
+        // ── Module entitlement guard: HRD documents belong to HRD ──
+        const moduleDeny = await requireModuleFromRequest(req, 'HRD');
+        if (moduleDeny) return moduleDeny;
+
         await requireAuth();
 
         const formData = await req.formData();

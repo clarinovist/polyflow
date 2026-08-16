@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/command';
 import { Button, ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils/utils';
+import { resolvePathToModule } from '@/lib/modules/module-registry';
 // import { DialogProps } from '@radix-ui/react-dialog'; // Removing DialogProps to avoid confusion
 
 export type GlobalSearchProps = ButtonProps & {
@@ -32,27 +33,14 @@ export type GlobalSearchProps = ButtonProps & {
     activeModules?: string[];
 };
 
-/** Map from href prefix to module key for entitlement filtering. */
-const HREF_MODULE_MAP: Record<string, string> = {
-    '/kiosk': 'PRODUCTION',
-    '/warehouse': 'INVENTORY',
-    '/production': 'PRODUCTION',
-    '/hrd': 'HRD',
-    '/sales': 'SALES',
-    '/finance': 'FINANCE',
-    '/purchasing': 'PURCHASING',
-    '/maklon': 'MAKLON',
-};
-
 function isHrefAllowed(href: string, activeModules?: string[]): boolean {
     if (!activeModules || activeModules.length === 0) return true;
     // CORE paths are always allowed
     if (href.startsWith('/dashboard') || href.startsWith('/support'))
         return true;
-    for (const [prefix, moduleKey] of Object.entries(HREF_MODULE_MAP)) {
-        if (href.startsWith(prefix)) {
-            return activeModules.includes(moduleKey);
-        }
+    const moduleKey = resolvePathToModule(href);
+    if (moduleKey) {
+        return activeModules.includes(moduleKey);
     }
     return true;
 }

@@ -2,8 +2,12 @@ import { withTenantRoute } from '@/lib/core/tenant';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/prisma';
 import { requireApiRoles } from '@/lib/tools/api-auth';
+import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 export const GET = withTenantRoute(async function GET(req: Request) {
+  const moduleDeny = await requireModuleOrNextResponse('PRODUCTION');
+  if (moduleDeny) return moduleDeny;
+
   const auth = await requireApiRoles(['ADMIN', 'PLANNING', 'PRODUCTION']);
   if (auth.response) return auth.response;
 

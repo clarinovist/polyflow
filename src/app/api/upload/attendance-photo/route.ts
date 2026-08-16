@@ -6,6 +6,7 @@ import {
 } from '@/lib/storage/r2';
 import { resolveTenantContext } from '@/lib/core/tenant';
 import { getMainPrisma } from '@/lib/core/prisma';
+import { requireModuleFromRequest } from '@/lib/modules/guard';
 
 const ALLOWED_TYPES = [
     'image/jpeg',
@@ -28,6 +29,10 @@ function guessImageTypeFromName(name: string): string {
 
 export async function POST(req: NextRequest) {
     try {
+        // ── Module entitlement guard: attendance photos belong to HRD ──
+        const moduleDeny = await requireModuleFromRequest(req, 'HRD');
+        if (moduleDeny) return moduleDeny;
+
         const formData = await req.formData();
         const file = formData.get('file') as File | null;
         const employeeId = (formData.get('employeeId') as string | null)?.trim() || null;

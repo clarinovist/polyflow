@@ -1,5 +1,5 @@
 import { getUserRoles } from '@/lib/auth/roles';
-import { resolveWorkspaceToModule } from '@/lib/modules/module-registry';
+import { resolveWorkspaceToModule, MODULE_DEFINITIONS } from '@/lib/modules/module-registry';
 
 type EntitlementContextReader = {
     getStore: () => string[] | undefined;
@@ -84,6 +84,30 @@ export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
     } as const;
 
 /**
+ * Set of valid workspace segments derived from MODULE_DEFINITIONS[].workspaceRoots,
+ * minus sub-workspace aliases (e.g. '/field' is SALES but the workspace key
+ * is 'sales', not 'field').
+ */
+const VALID_WORKSPACE_SEGMENTS = new Set<string>();
+for (const mod of MODULE_DEFINITIONS) {
+    for (const root of mod.workspaceRoots) {
+        // Only take top-level segments that match WorkspaceKey union
+        // (e.g. '/sales', '/hrd' — not '/field' or '/kiosk' which are aliases)
+        const segment = root.slice(1); // remove leading '/'
+        if (segment && !VALID_WORKSPACE_SEGMENTS.has(segment)) {
+            // Map alias segments to their primary workspace key
+            if (segment === 'field') {
+                VALID_WORKSPACE_SEGMENTS.add('sales');
+            } else if (segment === 'kiosk') {
+                VALID_WORKSPACE_SEGMENTS.add('production');
+            } else {
+                VALID_WORKSPACE_SEGMENTS.add(segment);
+            }
+        }
+    }
+}
+
+/**
  * Extracts the workspace key from a URL pathname.
  */
 export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
@@ -91,20 +115,13 @@ export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
     const workspaceCandidate = parts[1];
     if (
         workspaceCandidate &&
-        [
-            'admin',
-            'dashboard',
-            'warehouse',
-            'production',
-            'finance',
-            'sales',
-            'purchasing',
-            'hrd',
-            'maklon',
-        ].includes(workspaceCandidate)
+        VALID_WORKSPACE_SEGMENTS.has(workspaceCandidate)
     ) {
         return workspaceCandidate as WorkspaceKey;
     }
+    // Handle sub-workspace aliases (e.g. /field → 'sales', /kiosk → 'production')
+    if (workspaceCandidate === 'field') return 'sales';
+    if (workspaceCandidate === 'kiosk') return 'production';
     return null;
 }
 

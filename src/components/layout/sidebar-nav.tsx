@@ -38,6 +38,7 @@ import { useState, useEffect } from 'react';
 import { mainNavLabels } from '@/lib/labels';
 import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { resolvePathToModule } from '@/lib/modules/module-registry';
 
 interface SidebarNavProps {
     user: {
@@ -187,16 +188,7 @@ export function SidebarNav({
             items: group.items.filter((item) => {
                 // Entitlement filter: hide modules the tenant hasn't purchased
                 if (activeModules && activeModules.length > 0) {
-                    const hrefToModuleKey: Record<string, string> = {
-                        '/sales': 'SALES',
-                        '/purchasing': 'PURCHASING',
-                        '/production': 'PRODUCTION',
-                        '/warehouse': 'INVENTORY',
-                        '/finance': 'FINANCE',
-                        '/hrd': 'HRD',
-                        '/maklon': 'MAKLON',
-                    };
-                    const moduleKey = hrefToModuleKey[item.href];
+                    const moduleKey = resolvePathToModule(item.href);
                     if (moduleKey && !activeModules.includes(moduleKey)) {
                         return false;
                     }

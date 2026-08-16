@@ -199,3 +199,98 @@ export function withModuleRoute(
         return handler(req);
     };
 }
+
+// ---------------------------------------------------------------------------
+// Guard for routes NOT wrapped in withTenantRoute (e.g. upload routes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Checks module entitlement for a route handler that is NOT inside
+ * withTenantRoute (and therefore has no tenantIdContext set).
+ *
+ * Resolves the tenant from request headers, then checks activeModules.
+ * Returns a NextResponse 403 if denied, or null if entitled (proceed).
+ *
+ * Usage:
+ *   export async function POST(req: NextRequest) {
+ *     const deny = await requireModuleFromRequest(req, 'HRD');
+ *     if (deny) return deny;
+ *     // ... handler
+ *   }
+ */
+export async function requireModuleFromRequest(
+    req: Request,
+    moduleKey: ModuleKey,
+): Promise<NextResponse | null> {
+    if (moduleKey === 'CORE') return null;
+
+    try {
+        const { resolveTenantContext } = await import('@/lib/core/tenant');
+        const result = await resolveTenantContext(req.headers);
+        if (result.type !== 'RESOLVED') {
+            // No tenant resolved — non-tenant request (super admin), allow
+            return null;
+        }
+        if (!result.activeModules.includes(moduleKey)) {
+            return NextResponse.json(
+                {
+                    error: 'MODULE_NOT_ENTITLED',
+                    moduleKey,
+                    message: `Module "${moduleKey}" is not available for this tenant.`,
+                },
+                { status: 403 },
+            );
+        }
+        return null;
+    } catch {
+        // fail-closed: deny on error
+        return NextResponse.json(
+            {
+                error: 'MODULE_NOT_ENTITLED',
+                moduleKey,
+                message: `Module "${moduleKey}" is not available.`,
+            },
+            { status: 403 },
+        );
+    }
+}
+
+/**
+ * Same as requireModuleFromRequest but passes when **any** of the given
+ * modules is active.
+ */
+export async function requireAnyModuleFromRequest(
+    req: Request,
+    moduleKeys: ModuleKey[],
+): Promise<NextResponse | null> {
+    if (moduleKeys.length === 0 || moduleKeys.includes('CORE')) return null;
+
+    try {
+        const { resolveTenantContext } = await import('@/lib/core/tenant');
+        const result = await resolveTenantContext(req.headers);
+        if (result.type !== 'RESOLVED') {
+            return null;
+        }
+        const hasAny = moduleKeys.some((k) => result.activeModules.includes(k));
+        if (!hasAny) {
+            return NextResponse.json(
+                {
+                    error: 'MODULE_NOT_ENTITLED',
+                    moduleKey: moduleKeys.join('|'),
+                    message: `None of the modules "${moduleKeys.join('", "')}" are available for this tenant.`,
+                },
+                { status: 403 },
+            );
+        }
+        return null;
+    } catch {
+        return NextResponse.json(
+            {
+                error: 'MODULE_NOT_ENTITLED',
+                moduleKey: moduleKeys.join('|'),
+                message: `Module entitlement check failed.`,
+            },
+            { status: 403 },
+        );
+    }
+}

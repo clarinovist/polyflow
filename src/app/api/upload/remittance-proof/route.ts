@@ -5,6 +5,7 @@ import {
     buildRemittanceProofKey,
     uploadToR2,
 } from '@/lib/storage/r2';
+import { requireModuleFromRequest } from '@/lib/modules/guard';
 
 const ALLOWED_IMAGE_TYPES = [
     'image/jpeg',
@@ -35,6 +36,10 @@ function isAllowedImageType(mime: string, filename: string): boolean {
 
 export async function POST(request: NextRequest) {
     try {
+        // ── Module entitlement guard: remittance proof belongs to FINANCE ──
+        const moduleDeny = await requireModuleFromRequest(request, 'FINANCE');
+        if (moduleDeny) return moduleDeny;
+
         const session = await requireSalesAccess();
 
         const formData = await request.formData();

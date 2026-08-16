@@ -439,3 +439,117 @@ export async function resetTenantAdminPassword(
         }
     });
 }
+
+/**
+ * Toggle a tenant module entitlement between ACTIVE and SUSPENDED.
+ * Also supports setting an expiresAt date.
+ *
+ * Audit: logs to main DB AuditLog with before/after state (GAP 5).
+ */
+export async function updateTenantModule(
+    tenantId: string,
+    moduleKey: string,
+    action: 'ACTIVATE' | 'SUSPEND' | 'SET_EXPIRY',
+    expiresAt?: string | null,
+) {
+    return safeAction(async () => {
+        const session = await auth();
+        if (session?.user?.role !== Role.ADMIN) {
+            throw new AuthorizationError(
+                'Unauthorized: Super Admin access required.',
+            );
+        }
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+        });
+        if (!tenant) {
+            throw new BusinessRuleError('Tenant tidak ditemukan.');
+        }
+
+        const existing = await prisma.tenantModule.findUnique({
+            where: {
+                tenantId_moduleKey: { tenantId, moduleKey },
+            },
+        });
+
+        if (action === 'ACTIVATE') {
+            if (existing) {
+                await prisma.tenantModule.update({
+                    where: {
+                        tenantId_moduleKey: { tenantId, moduleKey },
+                    },
+                    data: {
+                        status: 'ACTIVE',
+                        expiresAt: expiresAt ? new Date(expiresAt) : null,
+                    },
+                });
+            } else {
+                await prisma.tenantModule.create({
+                    data: {
+                        tenantId,
+                        moduleKey,
+                        status: 'ACTIVE',
+                        expiresAt: expiresAt ? new Date(expiresAt) : null,
+                    },
+                });
+            }
+        } else if (action === 'SUSPEND') {
+            if (!existing) {
+                throw new BusinessRuleError(
+                    `Module "${moduleKey}" tidak aktif untuk tenant "${tenant.name}".`,
+                );
+            }
+            await prisma.tenantModule.update({
+                where: {
+                    tenantId_moduleKey: { tenantId, moduleKey },
+                },
+                data: { status: 'SUSPENDED' },
+            });
+        } else if (action === 'SET_EXPIRY') {
+            if (!existing) {
+                throw new BusinessRuleError(
+                    `Module "${moduleKey}" tidak aktif untuk tenant "${tenant.name}".`,
+                );
+            }
+            await prisma.tenantModule.update({
+                where: {
+                    tenantId_moduleKey: { tenantId, moduleKey },
+                },
+                data: {
+                    expiresAt: expiresAt ? new Date(expiresAt) : null,
+                },
+            });
+        }
+
+        const after = await prisma.tenantModule.findUnique({
+            where: {
+                tenantId_moduleKey: { tenantId, moduleKey },
+            },
+        });
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'TENANT_MODULE_UPDATED',
+            entityType: 'TenantModule',
+            entityId: `${tenantId}:${moduleKey}`,
+            details: `Module "${moduleKey}" for tenant "${tenant.name}": ${action}${expiresAt ? ` (expires: ${expiresAt})` : ''}`,
+            changes: {
+                before: existing
+                    ? {
+                          status: existing.status,
+                          expiresAt: existing.expiresAt?.toISOString() ?? null,
+                      }
+                    : null,
+                after: after
+                    ? {
+                          status: after.status,
+                          expiresAt: after.expiresAt?.toISOString() ?? null,
+                      }
+                    : null,
+            },
+        });
+
+        return null;
+    });
+}

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import type { ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { formatRupiah } from '@/lib/utils/utils';
+import { resolvePathToModule } from '@/lib/modules/module-registry';
 
 export type DashboardRole =
     | 'ADMIN'
@@ -851,16 +852,8 @@ export function buildModuleShortcuts(
 
     if (!activeModules || activeModules.length === 0) return all;
 
-    const hrefModuleMap: Record<string, string> = {
-        '/sales': 'SALES',
-        '/purchasing': 'PURCHASING',
-        '/production': 'PRODUCTION',
-        '/warehouse': 'INVENTORY',
-        '/finance': 'FINANCE',
-    };
-
     return all.filter((s) => {
-        const moduleKey = hrefModuleMap[s.href];
+        const moduleKey = resolvePathToModule(s.href);
         if (!moduleKey) return true; // CORE items always shown
         return activeModules.includes(moduleKey);
     });

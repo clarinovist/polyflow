@@ -5,6 +5,7 @@ import {
     buildDeliveryPhotoKey,
     uploadToR2,
 } from '@/lib/storage/r2';
+import { requireModuleFromRequest } from '@/lib/modules/guard';
 
 const ALLOWED_TYPES = [
     'image/jpeg',
@@ -26,6 +27,10 @@ function guessImageTypeFromName(name: string): string {
 
 export async function POST(request: NextRequest) {
     try {
+        // ── Module entitlement guard: delivery photos belong to SALES ──
+        const moduleDeny = await requireModuleFromRequest(request, 'SALES');
+        if (moduleDeny) return moduleDeny;
+
         await requireAuth();
 
         const formData = await request.formData();

@@ -70,7 +70,9 @@ import {
     RefreshCw,
     RotateCcw,
     UserRound,
+    Package,
 } from 'lucide-react';
+import { PACKAGE_TEMPLATES } from '@/lib/modules/module-registry';
 
 function EditTenantDialog({
     tenant,
@@ -1089,6 +1091,35 @@ export function SuperAdminClient({
                                         <p className="text-xs text-muted-foreground">
                                             Will be accessed at{' '}
                                             <code>subdomain.domain.com</code>
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="packageKey">
+                                            <Package className="inline h-3.5 w-3.5 mr-1" />
+                                            Package
+                                        </Label>
+                                        <Select
+                                            name="packageKey"
+                                            defaultValue="ERP_COMPLETE"
+                                        >
+                                            <SelectTrigger id="packageKey">
+                                                <SelectValue placeholder="Select package" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {PACKAGE_TEMPLATES.map((pkg) => (
+                                                    <SelectItem
+                                                        key={pkg.key}
+                                                        value={pkg.key}
+                                                    >
+                                                        {pkg.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">
+                                            Modules akan diprovision otomatis
+                                            sesuai paket.
                                         </p>
                                     </div>
 

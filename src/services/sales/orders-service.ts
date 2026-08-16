@@ -15,6 +15,7 @@ import {
 import { logActivity } from '@/lib/tools/audit';
 import { createStockReservation } from '@/services/inventory/reservation-service';
 import { ProductionService } from '@/services/production/production-service';
+import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 import { processOrderItems } from './order-item-processor';
@@ -943,6 +944,11 @@ export async function confirmOrder(
     // Default: false (shortages go to FG demand board instead).
     const autoCreateWo = process.env.AUTO_CREATE_WO_ON_SO_CONFIRM === 'true';
 
+    // Gate: only attempt WO creation if tenant has PRODUCTION module.
+    // Tenant distributor (SALES without PRODUCTION) should not call
+    // ProductionService.createOrderFromSales.
+    const hasProduction = await hasTenantModule('PRODUCTION');
+
     // Build name map from order items for friendly warning messages
     const variantNameMap = new Map(
         order.items.map((item) => [
@@ -951,7 +957,7 @@ export async function confirmOrder(
         ]),
     );
 
-    if (autoCreateWo && shortages.length > 0) {
+    if (autoCreateWo && hasProduction && shortages.length > 0) {
         const shortageVariantIds = shortages.map((s) => s.productVariantId);
 
         // Re-query which variants have BOM (could have been created between tx and now)

@@ -5,6 +5,7 @@ import {
     buildWarehouseAttachmentKey,
     uploadToR2,
 } from '@/lib/storage/r2';
+import { requireModuleFromRequest } from '@/lib/modules/guard';
 
 const ALLOWED_IMAGE_TYPES = [
     'image/jpeg',
@@ -38,6 +39,10 @@ function isAllowedImageType(mime: string, filename: string): boolean {
 
 export async function POST(request: NextRequest) {
     try {
+        // ── Module entitlement guard: warehouse attachments belong to INVENTORY ──
+        const moduleDeny = await requireModuleFromRequest(request, 'INVENTORY');
+        if (moduleDeny) return moduleDeny;
+
         await requireAuth();
 
         const formData = await request.formData();

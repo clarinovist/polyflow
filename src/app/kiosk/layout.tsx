@@ -7,6 +7,9 @@ import { ClockDisplay } from './ClockDisplay';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { KioskFullscreenToggle } from './KioskFullscreenToggle';
 import { KioskIdleShell } from './KioskIdleShell';
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { hasWorkspaceEntitlement } from '@/lib/auth/access-policy';
 
 interface KioskActiveExecution {
     id: string;
@@ -28,6 +31,17 @@ export default async function KioskLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const session = await auth();
+
+    if (!session) {
+        redirect('/login');
+    }
+
+    // ── Entitlement gate: /kiosk belongs to PRODUCTION module ──
+    if (!hasWorkspaceEntitlement('production')) {
+        redirect('/error?error=ModuleNotEntitled');
+    }
+
     const activeExecutions =
         (await getActiveExecutions()) as unknown as KioskActiveExecution[];
 

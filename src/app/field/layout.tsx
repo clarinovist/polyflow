@@ -2,6 +2,8 @@ import { FieldBottomNav } from '@/components/field/FieldBottomNav';
 import { FieldMobileFrame } from '@/components/field/FieldMobileFrame';
 import { MobileAccountMenu } from '@/components/layout/mobile-account-menu';
 import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { hasWorkspaceEntitlement } from '@/lib/auth/access-policy';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import { getDashboardStats } from '@/actions/inventory/inventory';
 import { isMobileUserAgent } from '@/lib/mobile/mobile-access-policy';
@@ -13,6 +15,16 @@ export default async function FieldLayout({
     children: React.ReactNode;
 }) {
     const session = await auth();
+
+    if (!session) {
+        redirect('/login');
+    }
+
+    // ── Entitlement gate: /field belongs to SALES module ──
+    if (!hasWorkspaceEntitlement('sales')) {
+        redirect('/error?error=ModuleNotEntitled');
+    }
+
     const sessionAllowed =
         (session?.user as { allowedResources?: string[] })?.allowedResources ||
         [];
