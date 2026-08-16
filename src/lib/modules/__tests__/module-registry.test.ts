@@ -15,8 +15,8 @@ import {
 
 describe('Module Registry', () => {
     describe('MODULE_DEFINITIONS', () => {
-        it('should have exactly 8 modules', () => {
-            expect(MODULE_DEFINITIONS).toHaveLength(8);
+        it('should have exactly 9 modules', () => {
+            expect(MODULE_DEFINITIONS).toHaveLength(9);
         });
 
         it('CORE is always active', () => {
@@ -111,7 +111,7 @@ describe('Module Registry', () => {
 
         it('returns all non-core modules', () => {
             const business = getBusinessModules();
-            expect(business.length).toBe(7);
+            expect(business.length).toBe(8);
         });
     });
 

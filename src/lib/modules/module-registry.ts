@@ -25,7 +25,8 @@ export type ModuleKey =
     | 'PRODUCTION'
     | 'INVENTORY'
     | 'FINANCE'
-    | 'MAKLON';
+    | 'MAKLON'
+    | 'DISTRIBUTOR';
 
 type CapabilityKey = 'MANUFACTURING_WORKFORCE';
 
@@ -239,6 +240,20 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
         serviceDirs: ['maklon'],
         uploadPrefixes: [],
     },
+    {
+        key: 'DISTRIBUTOR',
+        label: 'Distributor',
+        alwaysActive: false,
+        workspaceRoots: ['/distribution'],
+        permissionRoots: ['/distribution'],
+        landingPath: '/distribution',
+        requiredModules: [],
+        capabilities: [],
+        apiRoutes: [],
+        actionPrefixes: ['distribution/'],
+        serviceDirs: ['distribution'],
+        uploadPrefixes: [],
+    },
 ];
 
 // ---------------------------------------------------------------------------
@@ -268,6 +283,18 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
         modules: ['CORE', 'PURCHASING', 'PRODUCTION', 'INVENTORY'],
     },
     {
+        key: 'DISTRIBUTION',
+        label: 'Polyflow Distribution',
+        modules: [
+            'CORE',
+            'SALES',
+            'PURCHASING',
+            'INVENTORY',
+            'FINANCE',
+            'DISTRIBUTOR',
+        ],
+    },
+    {
         key: 'ERP_COMPLETE',
         label: 'Polyflow ERP Complete',
         modules: [
@@ -279,6 +306,7 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
             'INVENTORY',
             'FINANCE',
             'MAKLON',
+            'DISTRIBUTOR',
         ],
     },
 ];

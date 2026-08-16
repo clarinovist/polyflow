@@ -266,6 +266,11 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/maklon/returns', label: 'Retur Maklon' },
         ],
     },
+    {
+        // Fase 1: hanya hub landing; item fitur menyusul setelah discovery (Fase 2)
+        key: '/distribution',
+        label: 'Distributor',
+    },
 ];
 
 const FEATURE_CATALOG: PermissionNode[] = [

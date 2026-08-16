@@ -19,7 +19,8 @@ type WorkspaceKey =
     | 'purchasing'
     | 'finance'
     | 'hrd'
-    | 'maklon';
+    | 'maklon'
+    | 'distribution';
 
 type NavSection =
     | 'ringkasan'
@@ -585,6 +586,71 @@ const purchasingNavItems: NavItem[] = [
 ];
 
 /**
+ * Distribution portal nav items (Fase 1: hub + alias ke modul existing;
+ * fitur distributor sendiri menyusul setelah discovery).
+ */
+const distributionNavItems: NavItem[] = [
+    {
+        id: 'dist-dashboard',
+        label: 'Papan Distributor',
+        href: '/distribution',
+        workspace: 'distribution',
+        section: 'ringkasan',
+        owner: 'distribution',
+    },
+    {
+        id: 'dist-sales-orders',
+        label: 'Sales Order',
+        href: '/sales/orders',
+        workspace: 'distribution',
+        section: 'transaksi',
+        owner: 'sales',
+        isAlias: true,
+        canonicalHref: '/sales/orders',
+    },
+    {
+        id: 'dist-deliveries',
+        label: 'Surat Jalan',
+        href: '/sales/deliveries',
+        workspace: 'distribution',
+        section: 'pengiriman',
+        owner: 'sales',
+        isAlias: true,
+        canonicalHref: '/sales/deliveries',
+    },
+    {
+        id: 'dist-purchase-orders',
+        label: 'Order Pembelian (PO)',
+        href: '/purchasing/orders',
+        workspace: 'distribution',
+        section: 'transaksi',
+        owner: 'purchasing',
+        isAlias: true,
+        canonicalHref: '/purchasing/orders',
+    },
+    {
+        id: 'dist-inventory',
+        label: 'Stok',
+        href: '/warehouse/inventory',
+        workspace: 'distribution',
+        section: 'persediaan',
+        owner: 'warehouse',
+        isAlias: true,
+        canonicalHref: '/warehouse/inventory',
+    },
+    {
+        id: 'dist-receivables',
+        label: 'Invoice & Piutang',
+        href: '/sales/invoices',
+        workspace: 'distribution',
+        section: 'pelaporan',
+        owner: 'sales',
+        isAlias: true,
+        canonicalHref: '/sales/invoices',
+    },
+];
+
+/**
  * All nav items across all portals.
  */
 export const NAV_REGISTRY: NavItem[] = [
@@ -593,6 +659,7 @@ export const NAV_REGISTRY: NavItem[] = [
     ...productionNavItems,
     ...warehouseNavItems,
     ...purchasingNavItems,
+    ...distributionNavItems,
 ];
 
 /**

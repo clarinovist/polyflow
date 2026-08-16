@@ -22,7 +22,8 @@ export type WorkspaceKey =
     | 'sales'
     | 'purchasing'
     | 'hrd'
-    | 'maklon';
+    | 'maklon'
+    | 'distribution';
 
 /**
  * Checks if a tenant has an active entitlement for the module that owns a
@@ -81,6 +82,8 @@ export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
         hrd: ['ADMIN', 'FINANCE', 'HRD'],
         // Maklon portal: admin + procurement/planning; warehouse keeps /warehouse/maklon aliases
         maklon: ['ADMIN', 'PROCUREMENT', 'PLANNING'],
+        // Distributor portal: admin + sales/marketing; alur beli-jual-kirim-tagih
+        distribution: ['ADMIN', 'SALES', 'MARKETING', 'PROCUREMENT'],
     } as const;
 
 /**
