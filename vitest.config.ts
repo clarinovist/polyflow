@@ -15,6 +15,12 @@ export default defineConfig({
     test: {
         environment: 'node',
         globals: true,
+        // Force test build of React et al. If the ambient shell exports
+        // NODE_ENV=production, React loads its production bundle which does not
+        // export `act` and every component test fails with
+        // "React.act is not a function". Tests must never depend on the
+        // developer's shell environment.
+        env: { NODE_ENV: 'test' },
         setupFiles: ['./vitest.setup.ts'],
         include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/*.spec.ts'],
         server: {
