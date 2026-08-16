@@ -26,6 +26,11 @@ vi.mock('@/lib/tools/api-auth', () => ({
     requireApiRoles: vi.fn(async () => ({ response: null, userId: 'user-1' })),
 }));
 
+vi.mock('@/lib/modules/guard', () => ({
+    requireModuleOrNextResponse: vi.fn().mockResolvedValue(null),
+    requireAnyModuleOrNextResponse: vi.fn().mockResolvedValue(null),
+}));
+
 const mockPrisma = vi.hoisted(() => ({
     productVariant: { findMany: vi.fn() },
 }));

@@ -24,6 +24,11 @@ vi.mock('@/lib/auth/purchasing-access', () => ({
         mockRequirePurchasingRemittanceCreator(...args),
 }));
 
+vi.mock('@/lib/modules/guard', () => ({
+    requireModuleFromRequest: vi.fn().mockResolvedValue(null),
+    requireAnyModuleFromRequest: vi.fn().mockResolvedValue(null),
+}));
+
 const mockUploadToR2 = vi
     .fn()
     .mockResolvedValue('/api/images/tenant/remittance-proof/wh-1/123.jpg');

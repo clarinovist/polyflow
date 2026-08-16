@@ -23,6 +23,11 @@ vi.mock('@/lib/tools/auth-checks', () => ({
     requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
 
+vi.mock('@/lib/modules/guard', () => ({
+    requireModuleFromRequest: vi.fn().mockResolvedValue(null),
+    requireAnyModuleFromRequest: vi.fn().mockResolvedValue(null),
+}));
+
 const mockUploadToR2 = vi.fn().mockResolvedValue('https://r2/polyflow/hrd/doc.pdf');
 const mockBuildHrdDocKey = vi.fn().mockReturnValue('polyflow/hrd/disciplinary/ent-1/doc.pdf');
 const mockGetTenantPrefix = vi.fn().mockResolvedValue('polyflow');

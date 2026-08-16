@@ -37,6 +37,11 @@ vi.mock('@/lib/core/tenant', () => ({
     resolveTenantContext: (...args: unknown[]) => mockResolveTenantContext(...args),
 }));
 
+vi.mock('@/lib/modules/guard', () => ({
+    requireModuleFromRequest: vi.fn().mockResolvedValue(null),
+    requireAnyModuleFromRequest: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('next/headers', () => ({
     headers: vi.fn().mockResolvedValue({
         get: vi.fn().mockReturnValue('kiyowo.example.com'),
