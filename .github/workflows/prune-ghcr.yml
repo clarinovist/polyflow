@@ -1,0 +1,37 @@
+name: Prune GHCR Images
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch: {}
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  prune-untagged:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune untagged image versions
+        uses: snok/container-retention-policy@v3
+        with:
+          account: clarinovist
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: polyflow
+          untagged: true
+          keep-n-most-recent: 5
+
+  prune-tagged:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune old tagged image versions
+        uses: snok/container-retention-policy@v3
+        with:
+          account: clarinovist
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: polyflow
+          untagged: false
+          keep-n-most-recent: 5
+          skip-tags: latest,buildcache
+          cut-off: 14d
