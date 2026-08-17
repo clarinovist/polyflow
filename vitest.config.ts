@@ -2,6 +2,18 @@ import { defineConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
+// Vitest only defaults NODE_ENV to 'test' when it is UNSET. An ambient
+// NODE_ENV=production exported by the developer's shell leaks in and breaks
+// the whole suite in two ways: React 19's production build does not export
+// `act` ("React.act is not a function" in every component test), and Vite
+// boots in production mode which breaks node-builtin resolution under the
+// jsdom environment ("No such built-in module: node:"). Force the test
+// environment before anything boots — the suite must never depend on the
+// developer's shell.
+if (process.env.NODE_ENV !== 'test') {
+    (process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
+}
+
 export default defineConfig({
     plugins: [tsconfigPaths()],
     resolve: {
