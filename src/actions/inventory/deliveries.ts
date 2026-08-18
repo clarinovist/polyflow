@@ -9,12 +9,14 @@ import {
     BusinessRuleError,
 } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireSalesApprover } from '@/lib/auth/sales-access';
 import {
     createManualDeliveryOrderSchema,
     updateDeliveryPricingSchema,
     updateDeliveryItemQuantitiesSchema,
     updateDeliveryItemNotesSchema,
     saveDeliveryLoadVerificationSchema,
+    reverseDeliveryShipmentSchema,
 } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { canTransition } from '@/lib/sales/delivery-status';
@@ -211,11 +213,17 @@ export const getDeliveryOrderById = withTenant(
                     salesOrder: {
                         include: {
                             customer: true,
-                            // Drives the combined "SJ + Invoice" ESC/P button;
-                            // a SO can carry more than one invoice, so the UI
-                            // asks instead of guessing.
+                            // Drives the combined "SJ + Invoice" ESC/P button
+                            // and the "Batalkan Pengiriman" visibility guard
+                            // (hidden once any invoice is PAID/PARTIAL); a SO
+                            // can carry more than one invoice, so the UI asks
+                            // instead of guessing.
                             invoices: {
-                                select: { id: true, invoiceNumber: true },
+                                select: {
+                                    id: true,
+                                    invoiceNumber: true,
+                                    status: true,
+                                },
                                 orderBy: { invoiceDate: 'asc' },
                             },
                         },
@@ -345,6 +353,18 @@ export const updateDeliveryStatus = withTenant(
                     `Tidak dapat mengubah status dari ${doRecord.status} ke ${newStatus}.`,
                     { from: doRecord.status, to: newStatus, deliveryOrderId },
                     'INVALID_DELIVERY_STATUS',
+                );
+            }
+
+            // SHIPPED→CANCELLED is only valid through reverseDeliveryShipment,
+            // which reverses stock/invoice/reservations atomically. Block the
+            // generic path even though canTransition (delivery-status.ts)
+            // allows it, so no route can flip status without reversing stock.
+            if (doRecord.status === 'SHIPPED' && newStatus === 'CANCELLED') {
+                throw new BusinessRuleError(
+                    'DO sudah SHIPPED — gunakan "Batalkan Pengiriman" (reverseDeliveryShipment) untuk membalik stok dan invoice, bukan ubah status langsung.',
+                    { deliveryOrderId },
+                    'USE_REVERSE_DELIVERY_SHIPMENT',
                 );
             }
 
@@ -1135,6 +1155,43 @@ export const correctDeliveryQtyToVerified = withTenant(
             revalidatePath(`/warehouse/outgoing/${deliveryOrderId}`);
 
             return { success: true };
+        });
+    },
+);
+
+/**
+ * Reverse a SHIPPED Delivery Order: undoes stock OUT, restores reservations,
+ * voids the draft/unpaid invoice(s), and reopens the Sales Order.
+ * ADMIN only — destructive/override action per src/actions/sales/AGENTS.md guard matrix.
+ */
+export const reverseDeliveryShipment = withTenant(
+    async function reverseDeliveryShipment(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireSalesApprover();
+            const data = reverseDeliveryShipmentSchema.parse(input);
+
+            const { reverseDeliveryShipment: reverseShipment } =
+                await import('@/services/sales/delivery-reversal-service');
+            const doRecord = await prisma.deliveryOrder.findUnique({
+                where: { id: data.deliveryOrderId },
+                select: { salesOrderId: true },
+            });
+            const result = await reverseShipment(
+                data.deliveryOrderId,
+                session.user.id,
+                data.reason,
+            );
+
+            revalidatePath('/sales/deliveries');
+            revalidatePath(`/sales/deliveries/${data.deliveryOrderId}`);
+            revalidatePath('/warehouse/outgoing');
+            revalidatePath(`/warehouse/outgoing/${data.deliveryOrderId}`);
+            revalidatePath('/sales/orders');
+            if (doRecord?.salesOrderId) {
+                revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
+            }
+
+            return result;
         });
     },
 );

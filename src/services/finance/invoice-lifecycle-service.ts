@@ -1,5 +1,10 @@
 import { addDays } from 'date-fns';
-import { InvoiceStatus, JournalStatus, SalesOrderStatus } from '@prisma/client';
+import {
+    InvoiceStatus,
+    JournalStatus,
+    SalesOrderStatus,
+    Prisma,
+} from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
 import { logger } from '@/lib/config/logger';
@@ -257,10 +262,12 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
 export async function updateInvoiceStatus(
     data: UpdateInvoiceStatusValues,
     userId: string,
+    tx?: Prisma.TransactionClient,
 ) {
+    const db = tx ?? prisma;
     const { id, status, paidAmount } = data;
 
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await db.invoice.findUnique({
         where: { id },
         include: { salesOrder: { select: { entrySource: true } } },
     });
@@ -278,12 +285,16 @@ export async function updateInvoiceStatus(
     ) {
         throw new BusinessRuleError(
             'Invoice masih DRAFT. Finance harus approve terlebih dahulu sebelum bisa dibayar.',
-            { invoiceId: id, currentStatus: invoice.status, targetStatus: status },
+            {
+                invoiceId: id,
+                currentStatus: invoice.status,
+                targetStatus: status,
+            },
             'INVOICE_DRAFT',
         );
     }
 
-    await prisma.invoice.update({
+    await db.invoice.update({
         where: { id },
         data: {
             status,
@@ -297,6 +308,7 @@ export async function updateInvoiceStatus(
         entityType: 'Invoice',
         entityId: id,
         details: `Invoice ${invoice.invoiceNumber} status updated to ${status}`,
+        tx,
     });
 
     let journalStatus: JournalStatus | undefined;
@@ -317,7 +329,7 @@ export async function updateInvoiceStatus(
     }
 
     if (journalStatus) {
-        await prisma.journalEntry.updateMany({
+        await db.journalEntry.updateMany({
             where: {
                 referenceId: id,
                 referenceType: 'SALES_INVOICE',

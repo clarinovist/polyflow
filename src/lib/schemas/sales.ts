@@ -226,6 +226,19 @@ export const saveDeliveryLoadVerificationSchema = z.object({
         .min(1),
 });
 
+/** Reverse a SHIPPED delivery order — see delivery-reversal-service.ts */
+export const reverseDeliveryShipmentSchema = z.object({
+    deliveryOrderId: z.string().min(1),
+    reason: z
+        .string()
+        .min(5, 'Alasan wajib diisi, minimal 5 karakter')
+        .max(500, 'Alasan maksimal 500 karakter')
+        .transform(sanitizeHtml),
+});
+export type ReverseDeliveryShipmentValues = z.infer<
+    typeof reverseDeliveryShipmentSchema
+>;
+
 export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
 export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;
 export type UpdateSalesOrderValues = z.infer<typeof updateSalesOrderSchema>;

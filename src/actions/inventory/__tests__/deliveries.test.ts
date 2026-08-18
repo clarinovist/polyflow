@@ -6,18 +6,27 @@ import {
     getOpenDeliveryOrderCount,
     getDeliveryOrderById,
     fetchDeliveryStockReadiness,
+    updateDeliveryStatus,
+    reverseDeliveryShipment,
 } from '../deliveries';
 import { prisma } from '@/lib/core/prisma';
 import {
     requireWarehouseResourcePermission,
     requireAuth,
 } from '@/lib/tools/auth-checks';
+import { requireSalesApprover } from '@/lib/auth/sales-access';
 import { logActivity } from '@/lib/tools/audit';
 
 const mockGetDeliveryStockReadiness = vi.fn();
 vi.mock('@/services/sales/delivery-fulfillment-service', () => ({
     getDeliveryStockReadiness: (...args: unknown[]) =>
         mockGetDeliveryStockReadiness(...args),
+}));
+
+const mockReverseDeliveryShipment = vi.fn();
+vi.mock('@/services/sales/delivery-reversal-service', () => ({
+    reverseDeliveryShipment: (...args: unknown[]) =>
+        mockReverseDeliveryShipment(...args),
 }));
 
 vi.mock('@/lib/core/tenant', () => ({
@@ -30,6 +39,7 @@ vi.mock('@/lib/core/prisma', () => ({
             findUnique: vi.fn(),
             findMany: vi.fn(),
             count: vi.fn(),
+            update: vi.fn(),
         },
         deliveryOrderItem: {
             update: vi.fn(),
@@ -44,6 +54,10 @@ vi.mock('@/lib/core/prisma', () => ({
 vi.mock('@/lib/tools/auth-checks', () => ({
     requireAuth: vi.fn(),
     requireWarehouseResourcePermission: vi.fn(),
+}));
+
+vi.mock('@/lib/auth/sales-access', () => ({
+    requireSalesApprover: vi.fn(),
 }));
 
 vi.mock('@/lib/tools/audit', () => ({
@@ -308,5 +322,110 @@ describe('fetchDeliveryStockReadiness', () => {
             success: true,
             data: [{ productVariantId: 'pv-1', isReady: true }],
         });
+    });
+});
+
+describe('updateDeliveryStatus — SHIPPED→CANCELLED guard', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireWarehouseResourcePermission).mockResolvedValue({
+            user: { id: 'user-1' },
+        } as never);
+    });
+
+    it('rejects a direct SHIPPED→CANCELLED status change and points to reverseDeliveryShipment', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue({
+            id: 'do-1',
+            status: 'SHIPPED',
+            salesOrderId: 'so-1',
+            orderNumber: 'DO-2026-0080',
+        } as never);
+
+        const result = await updateDeliveryStatus('do-1', 'CANCELLED');
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.code).toBe('USE_REVERSE_DELIVERY_SHIPMENT');
+        }
+        expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('still allows other valid transitions (e.g. SHIPPED→IN_TRANSIT)', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue({
+            id: 'do-1',
+            status: 'SHIPPED',
+            salesOrderId: 'so-1',
+            orderNumber: 'DO-2026-0080',
+        } as never);
+
+        const result = await updateDeliveryStatus('do-1', 'IN_TRANSIT');
+
+        expect(result.success).toBe(true);
+        expect(prisma.deliveryOrder.update).toHaveBeenCalledWith({
+            where: { id: 'do-1' },
+            data: { status: 'IN_TRANSIT' },
+        });
+    });
+});
+
+describe('reverseDeliveryShipment action', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('rejects non-ADMIN callers before touching the service', async () => {
+        vi.mocked(requireSalesApprover).mockRejectedValue(
+            new Error('Unauthorized: Hanya admin yang dapat melakukan aksi ini.'),
+        );
+
+        const result = await reverseDeliveryShipment({
+            deliveryOrderId: 'do-1',
+            reason: 'Revisi order sebelum kirim ulang',
+        });
+
+        expect(result.success).toBe(false);
+        expect(mockReverseDeliveryShipment).not.toHaveBeenCalled();
+    });
+
+    it('delegates to the reversal service for an ADMIN caller', async () => {
+        vi.mocked(requireSalesApprover).mockResolvedValue({
+            user: { id: 'admin-1' },
+        } as never);
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue({
+            salesOrderId: 'so-1',
+        } as never);
+        mockReverseDeliveryShipment.mockResolvedValue({
+            success: true,
+            reversedLines: 1,
+        });
+
+        const result = await reverseDeliveryShipment({
+            deliveryOrderId: 'do-1',
+            reason: 'Revisi order sebelum kirim ulang',
+        });
+
+        expect(mockReverseDeliveryShipment).toHaveBeenCalledWith(
+            'do-1',
+            'admin-1',
+            'Revisi order sebelum kirim ulang',
+        );
+        expect(result).toEqual({
+            success: true,
+            data: { success: true, reversedLines: 1 },
+        });
+    });
+
+    it('rejects a reason shorter than 5 characters via schema validation', async () => {
+        vi.mocked(requireSalesApprover).mockResolvedValue({
+            user: { id: 'admin-1' },
+        } as never);
+
+        const result = await reverseDeliveryShipment({
+            deliveryOrderId: 'do-1',
+            reason: 'x',
+        });
+
+        expect(result.success).toBe(false);
+        expect(mockReverseDeliveryShipment).not.toHaveBeenCalled();
     });
 });

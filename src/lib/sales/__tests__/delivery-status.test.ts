@@ -46,6 +46,10 @@ describe('delivery-status', () => {
       expect(canTransition('SHIPPED', 'RETURNED')).toBe(true);
     });
 
+    it('allows SHIPPED → CANCELLED (reverseDeliveryShipment only)', () => {
+      expect(canTransition('SHIPPED', 'CANCELLED')).toBe(true);
+    });
+
     it('allows IN_TRANSIT → ARRIVED', () => {
       expect(canTransition('IN_TRANSIT', 'ARRIVED')).toBe(true);
     });

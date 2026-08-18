@@ -12,7 +12,11 @@ import type { DeliveryStatus } from '@prisma/client';
 export const DELIVERY_TRANSITIONS: Record<string, string[]> = {
     PENDING: ['LOADING', 'SHIPPED', 'CANCELLED'],
     LOADING: ['SHIPPED', 'CANCELLED'],
-    SHIPPED: ['IN_TRANSIT', 'ARRIVED', 'DELIVERED', 'RETURNED'],
+    // CANCELLED from SHIPPED is only reachable via reverseDeliveryShipment()
+    // (src/services/sales/delivery-reversal-service.ts) — that path reverses
+    // stock/invoice/reservations atomically. updateDeliveryStatus rejects a
+    // direct SHIPPED→CANCELLED request even though canTransition allows it.
+    SHIPPED: ['IN_TRANSIT', 'ARRIVED', 'DELIVERED', 'RETURNED', 'CANCELLED'],
     IN_TRANSIT: ['ARRIVED', 'DELIVERED', 'RETURNED'],
     ARRIVED: ['DELIVERED', 'RETURNED'],
     DELIVERED: [],

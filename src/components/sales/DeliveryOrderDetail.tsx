@@ -54,6 +54,7 @@ import {
     fetchDeliveryStockReadiness,
     updateDeliveryItemQuantities,
     updateDeliveryItemNotes,
+    reverseDeliveryShipment,
 } from '@/actions/inventory/deliveries';
 import {
     StockReadinessBanner,
@@ -73,6 +74,7 @@ import { type CompanyConfig } from '@/lib/config/company';
 import { compressImageForUpload } from '@/lib/media/compress-image';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
@@ -138,8 +140,9 @@ export interface DeliveryOrderDetailData {
             shippingAddress?: string | null;
             billingAddress?: string | null;
         } | null;
-        /** Used to offer the combined "SJ + Invoice" ESC/P download. */
-        invoices?: { id: string; invoiceNumber: string }[];
+        /** Used to offer the combined "SJ + Invoice" ESC/P download, and to
+         * hide "Batalkan Pengiriman" once any invoice is PAID/PARTIAL. */
+        invoices?: { id: string; invoiceNumber: string; status?: string }[];
     } | null;
     sourceLocation?: { name?: string } | null;
     createdBy?: { name?: string } | null;
@@ -196,6 +199,15 @@ export function DeliveryOrderDetail({
     const canEditQty = order.status === 'PENDING' || order.status === 'LOADING';
     const isLoadVerified = !!order.loadVerifiedAt;
     const canShip = isLoadVerified;
+    const hasPaidInvoice = invoices.some((inv) =>
+        ['PAID', 'PARTIAL'].includes(inv.status ?? ''),
+    );
+    const canReverseShipment =
+        order.status === 'SHIPPED' &&
+        !order.proofOfDeliveryAt &&
+        !hasPaidInvoice;
+    const [reverseReason, setReverseReason] = useState('');
+    const [isReversing, setIsReversing] = useState(false);
 
     // Load stock readiness when DO is PENDING or LOADING (via server action — no Prisma on client)
     useEffect(() => {
@@ -295,6 +307,33 @@ export function DeliveryOrderDetail({
             toast.error('Gagal memproses perubahan status.');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleReverseShipment = async () => {
+        if (reverseReason.trim().length < 5) {
+            toast.error('Alasan wajib diisi, minimal 5 karakter');
+            return;
+        }
+        setIsReversing(true);
+        try {
+            const result = await reverseDeliveryShipment({
+                deliveryOrderId: order.id,
+                reason: reverseReason,
+            });
+            if (result.success) {
+                toast.success(
+                    'Pengiriman dibatalkan — stok & invoice dikembalikan.',
+                );
+                setReverseReason('');
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Gagal membatalkan pengiriman.');
+            }
+        } catch (_error) {
+            toast.error('Gagal membatalkan pengiriman.');
+        } finally {
+            setIsReversing(false);
         }
     };
 
@@ -653,6 +692,81 @@ export function DeliveryOrderDetail({
                                     </AlertDialogContent>
                                 </AlertDialog>
                             )}
+                        {/* Batalkan Pengiriman — reverse a SHIPPED DO: stock, invoice
+                            & reservations flow back atomically. Blue, not red — this
+                            is a valid correction, not an emergency (§4.2 plan). */}
+                        {canReverseShipment && (
+                            <AlertDialog
+                                onOpenChange={(open) => {
+                                    if (!open) setReverseReason('');
+                                }}
+                            >
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                                    >
+                                        <RotateCcw className="mr-1 h-3.5 w-3.5" />{' '}
+                                        Batalkan Pengiriman
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Batalkan Pengiriman DO{' '}
+                                            {order.orderNumber}?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription asChild>
+                                            <div className="space-y-2">
+                                                <p>
+                                                    Stok akan dikembalikan ke{' '}
+                                                    {order.sourceLocation
+                                                        ?.name ?? 'lokasi asal'}
+                                                    , invoice draft/belum
+                                                    dibayar untuk SO{' '}
+                                                    {
+                                                        order.salesOrder
+                                                            ?.orderNumber
+                                                    }{' '}
+                                                    akan dibatalkan, dan SO
+                                                    kembali ke status siap
+                                                    kirim. Tindakan ini tidak
+                                                    dapat diurungkan.
+                                                </p>
+                                                <Textarea
+                                                    placeholder="Alasan pembatalan (wajib, min. 5 karakter)"
+                                                    value={reverseReason}
+                                                    onChange={(e) =>
+                                                        setReverseReason(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="text-sm"
+                                                />
+                                            </div>
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Batal
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                handleReverseShipment()
+                                            }
+                                            className="bg-blue-600 hover:bg-blue-700"
+                                            disabled={
+                                                isReversing ||
+                                                reverseReason.trim().length < 5
+                                            }
+                                        >
+                                            Ya, Batalkan Pengiriman
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                         <span className="text-muted-foreground text-sm">
                             Terkait dengan{' '}
                             <Link
