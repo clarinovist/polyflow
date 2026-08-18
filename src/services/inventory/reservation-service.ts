@@ -219,6 +219,20 @@ export async function adjustReservationsForVoidOutput(
     }
 }
 
+export async function autoExpireReservations(
+    tx?: Prisma.TransactionClient,
+): Promise<number> {
+    const client = tx ?? prisma;
+    const result = await client.stockReservation.updateMany({
+        where: {
+            status: ReservationStatus.ACTIVE,
+            reservedUntil: { not: null, lt: new Date() },
+        },
+        data: { status: ReservationStatus.EXPIRED },
+    });
+    return result.count;
+}
+
 export async function cancelSpecificReservation(
     reservationId: string,
     tx: Prisma.TransactionClient,

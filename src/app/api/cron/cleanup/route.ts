@@ -33,6 +33,7 @@ export async function GET(req: Request) {
                 let auditLogs = 0;
                 let notifications = 0;
                 let expiredQuotations = 0;
+                let expiredReservations = 0;
                 let autoClosedSchedules: {
                     scanned: number;
                     closed: string[];
@@ -161,6 +162,29 @@ export async function GET(req: Request) {
                 }
 
                 try {
+                    if (inventoryEntitled) {
+                        const { autoExpireReservations } =
+                            await import('@/services/inventory/reservation-service');
+                        expiredReservations = await autoExpireReservations();
+                        if (expiredReservations > 0) {
+                            console.log(
+                                `[Cron] Auto-expired ${expiredReservations} stock reservation(s) for ${tenant.subdomain}.`,
+                            );
+                        }
+                    } else {
+                        moduleSkips.push({
+                            tenant: tenant.subdomain,
+                            module: 'INVENTORY',
+                        });
+                    }
+                } catch (expireErr) {
+                    console.error(
+                        `[Cron] Failed to auto-expire stock reservations for ${tenant.subdomain}:`,
+                        expireErr,
+                    );
+                }
+
+                try {
                     if (salesEntitled) {
                         const { autoCloseExpiredDeliverySchedules } =
                             await import('@/services/sales/delivery-schedule-auto-close');
@@ -185,6 +209,7 @@ export async function GET(req: Request) {
                     auditLogs,
                     notifications,
                     expiredQuotations,
+                    expiredReservations,
                     autoClosedSchedules,
                     subsystemError,
                 };

@@ -384,6 +384,13 @@ describe("commitDeliveryShipment", () => {
 
     expect(prisma.deliveryOrder.updateMany).toHaveBeenCalled();
     expect(InventoryCoreService.validateAndLockStock).toHaveBeenCalledTimes(2);
+    expect(InventoryCoreService.validateAndLockStock).toHaveBeenCalledWith(
+      prisma,
+      "loc-1",
+      "pv-1",
+      100,
+      "so-1",
+    );
     expect(InventoryCoreService.deductStock).toHaveBeenCalledTimes(2);
     expect(prisma.stockMovement.create).toHaveBeenCalledTimes(2);
     expect(AccountingService.recordInventoryMovement).toHaveBeenCalledTimes(2);
@@ -498,6 +505,31 @@ describe("commitDeliveryShipment", () => {
         data: { status: ReservationStatus.FULFILLED },
       })
     );
+  });
+
+  it("excludes this SO's own reservation from validateAndLockStock (partial-delivery leftover must not self-block)", async () => {
+    // Regression: 5a decrements (not FULFILLED) when DO qty < reservation qty,
+    // leaving a leftover ACTIVE reservation for this same SO. Without excluding
+    // referenceId, validateAndLockStock would count that leftover and throw
+    // "Stok terpesan" even though the SO holding it is the one shipping.
+    const doRecord = makeDeliveryOrder({ status: DeliveryStatus.PENDING });
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
+    vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([]);
+    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(0);
+    vi.mocked(InventoryCoreService.deductStock).mockResolvedValue(undefined);
+    vi.mocked(prisma.stockMovement.create).mockResolvedValue({ id: "mv-1" } as never);
+    vi.mocked(AccountingService.recordInventoryMovement).mockResolvedValue(undefined);
+    vi.mocked(prisma.deliveryOrder.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.salesOrderItem.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.salesOrder.update).mockResolvedValue({} as never);
+    vi.mocked(InvoiceService.createDraftInvoiceFromOrder).mockResolvedValue({} as never);
+    vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 0 } as never);
+
+    await commitDeliveryShipment("do-1", "user-1");
+
+    for (const call of vi.mocked(InventoryCoreService.validateAndLockStock).mock.calls) {
+      expect(call[4]).toBe("so-1");
+    }
   });
 
   it("skips SERVICE items — no stock deduction for services", async () => {

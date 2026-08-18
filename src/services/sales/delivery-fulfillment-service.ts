@@ -140,7 +140,10 @@ export async function createDeliveryOrderFromSalesOrder(
     // 3. Physical lines with residual qty only (D7, D12)
     // If plannedItems provided, use those quantities; otherwise use full residual
     const plannedItemMap = new Map(
-        (plannedItems || []).map((pi) => [pi.salesOrderItemId, pi.plannedQuantity]),
+        (plannedItems || []).map((pi) => [
+            pi.salesOrderItemId,
+            pi.plannedQuantity,
+        ]),
     );
 
     const residualLines = salesOrder.items
@@ -155,9 +158,10 @@ export async function createDeliveryOrderFromSalesOrder(
 
             // Use planned quantity if provided, otherwise full residual
             const plannedQty = plannedItemMap.get(item.id);
-            const residual = plannedQty !== undefined
-                ? Math.round(plannedQty * 10000) / 10000
-                : fullResidual;
+            const residual =
+                plannedQty !== undefined
+                    ? Math.round(plannedQty * 10000) / 10000
+                    : fullResidual;
 
             return { item, residual, fullResidual };
         })
@@ -286,108 +290,219 @@ export async function commitDeliveryShipment(
     let soOrderNumber = '';
     const result = await prisma.$transaction(
         async (tx) => {
-        // 1. Atomic claim: ensure DO is committable and loadVerifiedAt is set, preventing concurrent double-shipment
-        const claim = await tx.deliveryOrder.updateMany({
-            where: {
-                id: deliveryOrderId,
-                status: { in: COMMITTABLE_DO_STATUSES },
-                loadVerifiedAt: { not: null },
-            },
-            data: {
-                updatedAt: new Date(),
-            },
-        });
-
-        if (claim.count === 0) {
-            const check = await tx.deliveryOrder.findUnique({
-                where: { id: deliveryOrderId },
-                select: { status: true, loadVerifiedAt: true },
+            // 1. Atomic claim: ensure DO is committable and loadVerifiedAt is set, preventing concurrent double-shipment
+            const claim = await tx.deliveryOrder.updateMany({
+                where: {
+                    id: deliveryOrderId,
+                    status: { in: COMMITTABLE_DO_STATUSES },
+                    loadVerifiedAt: { not: null },
+                },
+                data: {
+                    updatedAt: new Date(),
+                },
             });
-            if (!check)
-                throw new NotFoundError('Delivery Order', deliveryOrderId);
-            if (
-                !COMMITTABLE_DO_STATUSES.includes(check.status as DeliveryStatus)
-            ) {
-                throw new BusinessRuleError(
-                    `Tidak bisa commit DO status ${check.status}. ` +
-                        `Hanya DO PENDING atau LOADING yang bisa di-commit ke SHIPPED.`,
-                );
-            }
-            if (!check.loadVerifiedAt) {
-                throw new BusinessRuleError(
-                    'Verifikasi muat belum dikunci. Cek qty fisik vs perintah, lalu Kunci Verifikasi sebelum Tandai Dikirim.',
-                    { deliveryOrderId },
-                );
-            }
-            throw new BusinessRuleError('Delivery Order sedang diproses oleh transaksi lain.');
-        }
 
-        // 1b. Load DO + items + SO
-        const doRecord = await tx.deliveryOrder.findUnique({
-            where: { id: deliveryOrderId },
-            include: {
-                items: true,
-                salesOrder: {
-                    include: {
-                        items: {
-                            include: {
-                                productVariant: { include: { product: true } },
+            if (claim.count === 0) {
+                const check = await tx.deliveryOrder.findUnique({
+                    where: { id: deliveryOrderId },
+                    select: { status: true, loadVerifiedAt: true },
+                });
+                if (!check)
+                    throw new NotFoundError('Delivery Order', deliveryOrderId);
+                if (
+                    !COMMITTABLE_DO_STATUSES.includes(
+                        check.status as DeliveryStatus,
+                    )
+                ) {
+                    throw new BusinessRuleError(
+                        `Tidak bisa commit DO status ${check.status}. ` +
+                            `Hanya DO PENDING atau LOADING yang bisa di-commit ke SHIPPED.`,
+                    );
+                }
+                if (!check.loadVerifiedAt) {
+                    throw new BusinessRuleError(
+                        'Verifikasi muat belum dikunci. Cek qty fisik vs perintah, lalu Kunci Verifikasi sebelum Tandai Dikirim.',
+                        { deliveryOrderId },
+                    );
+                }
+                throw new BusinessRuleError(
+                    'Delivery Order sedang diproses oleh transaksi lain.',
+                );
+            }
+
+            // 1b. Load DO + items + SO
+            const doRecord = await tx.deliveryOrder.findUnique({
+                where: { id: deliveryOrderId },
+                include: {
+                    items: true,
+                    salesOrder: {
+                        include: {
+                            items: {
+                                include: {
+                                    productVariant: {
+                                        include: { product: true },
+                                    },
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            });
 
-        if (!doRecord)
-            throw new NotFoundError('Delivery Order', deliveryOrderId);
+            if (!doRecord)
+                throw new NotFoundError('Delivery Order', deliveryOrderId);
 
-        // 3. Guard SO status — not CANCELLED
-        if (doRecord.salesOrder.status === SalesOrderStatus.CANCELLED) {
-            throw new BusinessRuleError(
-                'SO sudah dibatalkan — tidak bisa commit pengiriman.',
-            );
-        }
-
-        // 4. Collect physical items for stock posting
-        const soItemMap = new Map(
-            doRecord.salesOrder.items.map((item) => [
-                item.productVariantId,
-                item,
-            ]),
-        );
-
-        const stockLines: Array<{
-            doItem: (typeof doRecord.items)[number];
-            soItem: (typeof doRecord.salesOrder.items)[number];
-        }> = [];
-
-        for (const doItem of doRecord.items) {
-            const soItem = soItemMap.get(doItem.productVariantId);
-            if (!soItem) continue;
-
-            const productType = soItem.productVariant.product.productType;
-            if (productType === ProductType.SERVICE) continue; // D12: skip SERVICE
-
-            // Validate residual: deliveredQty + DO qty <= SO qty — allow 0 after physical correction
-            const needed = doItem.quantity.toNumber();
-            if (needed <= 0) continue; // #7: qty fisik 0 → skip stock, DO still SHIPPED, invoiced as 0
-            const delivered = soItem.deliveredQty.toNumber();
-            const totalQty = soItem.quantity.toNumber();
-            if (delivered + needed > totalQty) {
+            // 3. Guard SO status — not CANCELLED
+            if (doRecord.salesOrder.status === SalesOrderStatus.CANCELLED) {
                 throw new BusinessRuleError(
-                    `Residual tidak cukup untuk ${soItem.productVariant.product.name}: ` +
-                        `delivered(${delivered}) + needed(${needed}) > total(${totalQty})`,
+                    'SO sudah dibatalkan — tidak bisa commit pengiriman.',
                 );
             }
 
-            stockLines.push({ doItem, soItem });
-        }
+            // 4. Collect physical items for stock posting
+            const soItemMap = new Map(
+                doRecord.salesOrder.items.map((item) => [
+                    item.productVariantId,
+                    item,
+                ]),
+            );
 
-        if (stockLines.length === 0) {
-            // All lines corrected to 0 after physical check → still mark DO SHIPPED (nothing to deduct), SO stays, invoice 0
-            await tx.deliveryOrder.update({
-                where: { id: deliveryOrderId },
+            const stockLines: Array<{
+                doItem: (typeof doRecord.items)[number];
+                soItem: (typeof doRecord.salesOrder.items)[number];
+            }> = [];
+
+            for (const doItem of doRecord.items) {
+                const soItem = soItemMap.get(doItem.productVariantId);
+                if (!soItem) continue;
+
+                const productType = soItem.productVariant.product.productType;
+                if (productType === ProductType.SERVICE) continue; // D12: skip SERVICE
+
+                // Validate residual: deliveredQty + DO qty <= SO qty — allow 0 after physical correction
+                const needed = doItem.quantity.toNumber();
+                if (needed <= 0) continue; // #7: qty fisik 0 → skip stock, DO still SHIPPED, invoiced as 0
+                const delivered = soItem.deliveredQty.toNumber();
+                const totalQty = soItem.quantity.toNumber();
+                if (delivered + needed > totalQty) {
+                    throw new BusinessRuleError(
+                        `Residual tidak cukup untuk ${soItem.productVariant.product.name}: ` +
+                            `delivered(${delivered}) + needed(${needed}) > total(${totalQty})`,
+                    );
+                }
+
+                stockLines.push({ doItem, soItem });
+            }
+
+            if (stockLines.length === 0) {
+                // All lines corrected to 0 after physical check → still mark DO SHIPPED (nothing to deduct), SO stays, invoice 0
+                await tx.deliveryOrder.update({
+                    where: { id: deliveryOrderId },
+                    data: {
+                        status: DeliveryStatus.SHIPPED,
+                        stockCommittedAt: new Date(),
+                        stockCommittedById: userId,
+                        ...(opts?.trackingNumber && {
+                            trackingNumber: opts.trackingNumber,
+                        }),
+                        ...(opts?.carrier && { carrier: opts.carrier }),
+                    },
+                });
+                await InvoiceService.createDraftInvoiceFromOrder(
+                    doRecord.salesOrderId,
+                    userId,
+                );
+                await logActivity({
+                    userId,
+                    action: 'COMMIT_DELIVERY_SHIPMENT',
+                    entityType: 'DeliveryOrder',
+                    entityId: deliveryOrderId,
+                    details: `DO ${doRecord.orderNumber} committed with all lines 0 after correction — no stock movement.`,
+                    tx,
+                });
+                return { success: true };
+            }
+
+            // 5. Per physical line: consume reservations + validate + deduct stock
+            for (const { doItem, soItem: _soItem } of stockLines) {
+                const locationId = doRecord.sourceLocationId;
+                const needed = doItem.quantity.toNumber();
+                const pvId = doItem.productVariantId;
+
+                // 5a. Consume ACTIVE reservations for this SO
+                const reservations = await tx.stockReservation.findMany({
+                    where: {
+                        referenceId: doRecord.salesOrderId,
+                        reservedFor: ReservationType.SALES_ORDER,
+                        productVariantId: pvId,
+                        status: ReservationStatus.ACTIVE,
+                    },
+                    orderBy: { createdAt: 'asc' },
+                });
+
+                let remaining = needed;
+                for (const res of reservations) {
+                    if (remaining <= 0) break;
+                    const resQty = res.quantity.toNumber();
+                    const consume = Math.min(resQty, remaining);
+
+                    if (consume >= resQty) {
+                        await tx.stockReservation.update({
+                            where: { id: res.id },
+                            data: { status: ReservationStatus.FULFILLED },
+                        });
+                    } else {
+                        await tx.stockReservation.update({
+                            where: { id: res.id },
+                            data: { quantity: { decrement: consume } },
+                        });
+                    }
+
+                    remaining =
+                        Math.round((remaining - consume) * 10000) / 10000;
+                }
+
+                // 5b. Validate and lock stock (throws InsufficientStockError).
+                // Exclude this SO's own reservation — partial-delivery leftovers stay
+                // ACTIVE (decremented, not FULFILLED, see 5a) and must not self-block.
+                await InventoryCoreService.validateAndLockStock(
+                    tx,
+                    locationId,
+                    pvId,
+                    needed,
+                    doRecord.salesOrderId,
+                );
+
+                // 5c. Deduct stock
+                await InventoryCoreService.deductStock(
+                    tx,
+                    locationId,
+                    pvId,
+                    needed,
+                );
+
+                // 5d. Create stock movement + accounting
+                const movement = await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.OUT,
+                        productVariantId: pvId,
+                        fromLocationId: locationId,
+                        quantity: needed,
+                        salesOrderId: doRecord.salesOrderId,
+                        createdById: userId,
+                        reference: `Shipment for ${doRecord.salesOrder.orderNumber} via ${doRecord.orderNumber}`,
+                        createdAt: new Date(),
+                    },
+                });
+                await AccountingService.recordInventoryMovement(movement, tx);
+            }
+
+            // 6. Update DO → SHIPPED (conditional to ensure single execution)
+            const updated = await tx.deliveryOrder.updateMany({
+                where: {
+                    id: deliveryOrderId,
+                    status: { in: COMMITTABLE_DO_STATUSES },
+                },
                 data: {
                     status: DeliveryStatus.SHIPPED,
                     stockCommittedAt: new Date(),
@@ -398,164 +513,68 @@ export async function commitDeliveryShipment(
                     ...(opts?.carrier && { carrier: opts.carrier }),
                 },
             });
-            await InvoiceService.createDraftInvoiceFromOrder(
-                doRecord.salesOrderId,
-                userId,
-            );
+            if (updated.count === 0) {
+                throw new BusinessRuleError(
+                    'Delivery Order telah diubah oleh transaksi lain.',
+                );
+            }
+
+            // 7. Increment deliveredQty for physical items
+            for (const { doItem, soItem } of stockLines) {
+                await tx.salesOrderItem.update({
+                    where: { id: soItem.id },
+                    data: {
+                        deliveredQty: { increment: doItem.quantity.toNumber() },
+                    },
+                });
+            }
+
+            // 8. SO → SHIPPED (MVP: full residual, all physical lines delivered)
+            await tx.salesOrder.update({
+                where: { id: doRecord.salesOrderId },
+                data: { status: SalesOrderStatus.SHIPPED },
+            });
+
+            // 9. Fulfill remaining reservations
+            await tx.stockReservation.updateMany({
+                where: {
+                    referenceId: doRecord.salesOrderId,
+                    reservedFor: ReservationType.SALES_ORDER,
+                    status: ReservationStatus.FULFILLED,
+                },
+                data: { status: ReservationStatus.FULFILLED },
+            });
+
+            // 10. Audit log (invoice moved outside tx)
+            salesOrderIdForInvoice = doRecord.salesOrderId;
+            doOrderNumber = doRecord.orderNumber;
+            soOrderNumber = doRecord.salesOrder.orderNumber;
+
             await logActivity({
                 userId,
                 action: 'COMMIT_DELIVERY_SHIPMENT',
                 entityType: 'DeliveryOrder',
                 entityId: deliveryOrderId,
-                details: `DO ${doRecord.orderNumber} committed with all lines 0 after correction — no stock movement.`,
+                details:
+                    `DO ${doRecord.orderNumber} committed: stock OUT for ${stockLines.length} items, ` +
+                    `SO ${doRecord.salesOrder.orderNumber} → SHIPPED.`,
+                fromStatus: doRecord.status as string,
+                toStatus: 'SHIPPED',
                 tx,
             });
+
             return { success: true };
-        }
-
-        // 5. Per physical line: consume reservations + validate + deduct stock
-        for (const { doItem, soItem: _soItem } of stockLines) {
-            const locationId = doRecord.sourceLocationId;
-            const needed = doItem.quantity.toNumber();
-            const pvId = doItem.productVariantId;
-
-            // 5a. Consume ACTIVE reservations for this SO
-            const reservations = await tx.stockReservation.findMany({
-                where: {
-                    referenceId: doRecord.salesOrderId,
-                    reservedFor: ReservationType.SALES_ORDER,
-                    productVariantId: pvId,
-                    status: ReservationStatus.ACTIVE,
-                },
-                orderBy: { createdAt: 'asc' },
-            });
-
-            let remaining = needed;
-            for (const res of reservations) {
-                if (remaining <= 0) break;
-                const resQty = res.quantity.toNumber();
-                const consume = Math.min(resQty, remaining);
-
-                if (consume >= resQty) {
-                    await tx.stockReservation.update({
-                        where: { id: res.id },
-                        data: { status: ReservationStatus.FULFILLED },
-                    });
-                } else {
-                    await tx.stockReservation.update({
-                        where: { id: res.id },
-                        data: { quantity: { decrement: consume } },
-                    });
-                }
-
-                remaining = Math.round((remaining - consume) * 10000) / 10000;
-            }
-
-            // 5b. Validate and lock stock (throws InsufficientStockError)
-            await InventoryCoreService.validateAndLockStock(
-                tx,
-                locationId,
-                pvId,
-                needed,
-            );
-
-            // 5c. Deduct stock
-            await InventoryCoreService.deductStock(
-                tx,
-                locationId,
-                pvId,
-                needed,
-            );
-
-            // 5d. Create stock movement + accounting
-            const movement = await tx.stockMovement.create({
-                data: {
-                    type: MovementType.OUT,
-                    productVariantId: pvId,
-                    fromLocationId: locationId,
-                    quantity: needed,
-                    salesOrderId: doRecord.salesOrderId,
-                    createdById: userId,
-                    reference: `Shipment for ${doRecord.salesOrder.orderNumber} via ${doRecord.orderNumber}`,
-                    createdAt: new Date(),
-                },
-            });
-            await AccountingService.recordInventoryMovement(movement, tx);
-        }
-
-        // 6. Update DO → SHIPPED (conditional to ensure single execution)
-        const updated = await tx.deliveryOrder.updateMany({
-            where: {
-                id: deliveryOrderId,
-                status: { in: COMMITTABLE_DO_STATUSES },
-            },
-            data: {
-                status: DeliveryStatus.SHIPPED,
-                stockCommittedAt: new Date(),
-                stockCommittedById: userId,
-                ...(opts?.trackingNumber && {
-                    trackingNumber: opts.trackingNumber,
-                }),
-                ...(opts?.carrier && { carrier: opts.carrier }),
-            },
-        });
-        if (updated.count === 0) {
-            throw new BusinessRuleError('Delivery Order telah diubah oleh transaksi lain.');
-        }
-
-        // 7. Increment deliveredQty for physical items
-        for (const { doItem, soItem } of stockLines) {
-            await tx.salesOrderItem.update({
-                where: { id: soItem.id },
-                data: {
-                    deliveredQty: { increment: doItem.quantity.toNumber() },
-                },
-            });
-        }
-
-        // 8. SO → SHIPPED (MVP: full residual, all physical lines delivered)
-        await tx.salesOrder.update({
-            where: { id: doRecord.salesOrderId },
-            data: { status: SalesOrderStatus.SHIPPED },
-        });
-
-        // 9. Fulfill remaining reservations
-        await tx.stockReservation.updateMany({
-            where: {
-                referenceId: doRecord.salesOrderId,
-                reservedFor: ReservationType.SALES_ORDER,
-                status: ReservationStatus.FULFILLED,
-            },
-            data: { status: ReservationStatus.FULFILLED },
-        });
-
-        // 10. Audit log (invoice moved outside tx)
-        salesOrderIdForInvoice = doRecord.salesOrderId;
-        doOrderNumber = doRecord.orderNumber;
-        soOrderNumber = doRecord.salesOrder.orderNumber;
-
-        await logActivity({
-            userId,
-            action: 'COMMIT_DELIVERY_SHIPMENT',
-            entityType: 'DeliveryOrder',
-            entityId: deliveryOrderId,
-            details:
-                `DO ${doRecord.orderNumber} committed: stock OUT for ${stockLines.length} items, ` +
-                `SO ${doRecord.salesOrder.orderNumber} → SHIPPED.`,
-            fromStatus: doRecord.status as string,
-            toStatus: 'SHIPPED',
-            tx,
-        });
-
-        return { success: true };
-    },
-    { timeout: 30_000, maxWait: 10_000 },
+        },
+        { timeout: 30_000, maxWait: 10_000 },
     );
 
     // Invoice DRAFT outside main tx to reduce work per transaction (was causing P2028 timeout)
     if (salesOrderIdForInvoice) {
         try {
-            await InvoiceService.createDraftInvoiceFromOrder(salesOrderIdForInvoice, userId);
+            await InvoiceService.createDraftInvoiceFromOrder(
+                salesOrderIdForInvoice,
+                userId,
+            );
             await logActivity({
                 userId,
                 action: 'INVOICE_DRAFT_FROM_DO',
@@ -564,7 +583,10 @@ export async function commitDeliveryShipment(
                 details: `Invoice DRAFT created for SO ${soOrderNumber} after DO ${doOrderNumber} committed.`,
             });
         } catch (invErr) {
-            console.error('[commitDeliveryShipment] invoice creation failed after commit (non-blocking)', invErr);
+            console.error(
+                '[commitDeliveryShipment] invoice creation failed after commit (non-blocking)',
+                invErr,
+            );
         }
     }
 

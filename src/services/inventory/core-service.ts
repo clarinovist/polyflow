@@ -13,6 +13,7 @@ export class InventoryCoreService {
         locationId: string,
         productVariantId: string,
         quantity: number,
+        excludeReferenceId?: string,
     ) {
         // 1. Lock Row
         const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
@@ -46,12 +47,16 @@ export class InventoryCoreService {
             );
         }
 
-        // 3. Check Reservations
+        // 3. Check Reservations — exclude reservation milik referenceId sendiri
+        // (mis. SO yang sedang mengirim), sisa reservation ACTIVE punya SO lain saja yang block.
         const resAgg = await tx.stockReservation.aggregate({
             where: {
                 locationId,
                 productVariantId,
                 status: ReservationStatus.ACTIVE,
+                ...(excludeReferenceId && {
+                    referenceId: { not: excludeReferenceId },
+                }),
             },
             _sum: { quantity: true },
         });

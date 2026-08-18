@@ -6,6 +6,7 @@ import {
   getSalesOrderResidualDemand,
   adjustReservationsForVoidOutput,
   cancelSpecificReservation,
+  autoExpireReservations,
 } from "../reservation-service";
 import { ReservationStatus, ReservationType } from "@prisma/client";
 import { prisma } from "@/lib/core/prisma";
@@ -206,6 +207,44 @@ describe("reservation-service", () => {
           quantity: expect.objectContaining({ toNumber: expect.any(Function) }),
         },
       });
+    });
+  });
+
+  describe("autoExpireReservations", () => {
+    it("expires ACTIVE reservations past reservedUntil using default prisma client", async () => {
+      vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 3 });
+
+      const count = await autoExpireReservations();
+
+      expect(count).toBe(3);
+      expect(prisma.stockReservation.updateMany).toHaveBeenCalledWith({
+        where: {
+          status: ReservationStatus.ACTIVE,
+          reservedUntil: { not: null, lt: expect.any(Date) },
+        },
+        data: { status: ReservationStatus.EXPIRED },
+      });
+    });
+
+    it("uses the provided transaction client when given", async () => {
+      const mockTx = {
+        stockReservation: {
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+      };
+
+      const count = await autoExpireReservations(mockTx as any);
+
+      expect(count).toBe(1);
+      expect(mockTx.stockReservation.updateMany).toHaveBeenCalled();
+      expect(prisma.stockReservation.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("returns 0 when no reservations are past reservedUntil", async () => {
+      vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 0 });
+
+      const count = await autoExpireReservations();
+      expect(count).toBe(0);
     });
   });
 

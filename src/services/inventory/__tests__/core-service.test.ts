@@ -240,6 +240,64 @@ describe("InventoryCoreService", () => {
       }
     });
 
+    it("should exclude reservation belonging to excludeReferenceId from the aggregate", async () => {
+      // Arrange
+      const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([{ quantity: "100" }]),
+        stockReservation: {
+          aggregate: vi.fn().mockResolvedValue({
+            _sum: { quantity: { toNumber: () => 0 } },
+          }),
+        },
+      };
+
+      // Act
+      const result = await InventoryCoreService.validateAndLockStock(
+        mockTx as any,
+        "location-1",
+        "pv-1",
+        50,
+        "so-self",
+      );
+
+      // Assert
+      expect(result).toBe(100);
+      expect(mockTx.stockReservation.aggregate).toHaveBeenCalledWith({
+        where: {
+          locationId: "location-1",
+          productVariantId: "pv-1",
+          status: ReservationStatus.ACTIVE,
+          referenceId: { not: "so-self" },
+        },
+        _sum: { quantity: true },
+      });
+    });
+
+    it("should not block when the only ACTIVE reservation belongs to excludeReferenceId (self)", async () => {
+      // Arrange — mirrors the delivery commit case: SO's own leftover reservation
+      // is ACTIVE (partial delivery, not yet FULFILLED) and must not self-block.
+      const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([{ quantity: "100" }]),
+        stockReservation: {
+          // Simulates DB already excluding "so-self" via the where clause
+          aggregate: vi.fn().mockResolvedValue({
+            _sum: { quantity: { toNumber: () => 0 } },
+          }),
+        },
+      };
+
+      // Act & Assert — should NOT throw even though reservation exists for self
+      await expect(
+        InventoryCoreService.validateAndLockStock(
+          mockTx as any,
+          "location-1",
+          "pv-1",
+          100,
+          "so-self",
+        ),
+      ).resolves.toBe(100);
+    });
+
     it("should treat null reservation sum as 0", async () => {
       // Arrange
       const mockTx = {

@@ -7,6 +7,7 @@ import { InvoiceService } from '@/services/finance/invoice-service';
 import { dispatchReminders } from '@/lib/hrd/employment-reminder';
 import { autoExpireQuotations } from '@/services/sales/quotation-service';
 import { autoCloseExpiredDeliverySchedules } from '@/services/sales/delivery-schedule-auto-close';
+import { autoExpireReservations } from '@/services/inventory/reservation-service';
 
 vi.mock('next/server', () => {
     class MockNextResponse {
@@ -60,6 +61,9 @@ vi.mock('@/services/inventory/core-service', () => ({
         checkLowStockTriggers: vi.fn().mockResolvedValue(undefined),
     },
 }));
+vi.mock('@/services/inventory/reservation-service', () => ({
+    autoExpireReservations: vi.fn().mockResolvedValue(0),
+}));
 vi.mock('@/services/purchasing/invoices-service', () => ({
     checkOverduePurchasingInvoices: vi.fn().mockResolvedValue(undefined),
 }));
@@ -98,6 +102,7 @@ describe('Cleanup Cron Route', () => {
         vi.mocked(dispatchReminders).mockClear();
         vi.mocked(autoExpireQuotations).mockClear();
         vi.mocked(autoCloseExpiredDeliverySchedules).mockClear();
+        vi.mocked(autoExpireReservations).mockClear();
     });
 
     it('should return 401 if authorization header is missing', async () => {
@@ -187,10 +192,69 @@ describe('Cleanup Cron Route', () => {
         expect(InvoiceService.checkOverdueSalesInvoices).toHaveBeenCalled();
         expect(autoExpireQuotations).toHaveBeenCalled();
         expect(autoCloseExpiredDeliverySchedules).toHaveBeenCalled();
+        expect(autoExpireReservations).toHaveBeenCalled();
         expect(dispatchReminders).not.toHaveBeenCalled();
 
         const data = await response.json();
         expect(data.entitlementSkips).toBe(1);
+    });
+
+    it('skips reservation auto-expire when INVENTORY module is not entitled', async () => {
+        mockRunForEachActiveTenant.mockImplementation(
+            async (fn: (tenant: { id: string; subdomain: string }) => unknown) =>
+                [
+                    {
+                        tenant: 'acme',
+                        result: await fn({
+                            id: 'tenant-1',
+                            subdomain: 'acme',
+                        }),
+                    },
+                ],
+        );
+        vi.mocked(hasTenantModule).mockImplementation(
+            async (moduleKey: string) => moduleKey !== 'INVENTORY',
+        );
+
+        const req = new Request('http://localhost/api/cron/cleanup', {
+            method: 'GET',
+            headers: { authorization: 'Bearer test-secret' },
+        });
+        const response = await GET(req);
+        expect(response.status).toBe(200);
+
+        expect(autoExpireReservations).not.toHaveBeenCalled();
+
+        const data = await response.json();
+        // INVENTORY is checked twice per tenant (low-stock triggers + reservation expire)
+        expect(data.entitlementSkips).toBe(2);
+    });
+
+    it('continues cleanup for a tenant even when reservation auto-expire throws', async () => {
+        mockRunForEachActiveTenant.mockImplementation(
+            async (fn: (tenant: { id: string; subdomain: string }) => unknown) =>
+                [
+                    {
+                        tenant: 'acme',
+                        result: await fn({
+                            id: 'tenant-1',
+                            subdomain: 'acme',
+                        }),
+                    },
+                ],
+        );
+        vi.mocked(autoExpireReservations).mockRejectedValue(new Error('DB down'));
+
+        const req = new Request('http://localhost/api/cron/cleanup', {
+            method: 'GET',
+            headers: { authorization: 'Bearer test-secret' },
+        });
+        const response = await GET(req);
+        expect(response.status).toBe(200);
+
+        const data = await response.json();
+        expect(data.success).toBe(true);
+        expect(autoCloseExpiredDeliverySchedules).toHaveBeenCalled();
     });
 
     it('should return partial success when one tenant errors', async () => {
