@@ -1105,17 +1105,24 @@ export async function cancelOrder(id: string, userId: string) {
         );
     }
 
-    // Block cancel if delivery stock movements exist
-    const deliveryMovements = await prisma.stockMovement.count({
+    // Block cancel if a delivery still has live (un-reversed) committed stock.
+    // Checked via DeliveryOrder.stockCommittedAt rather than StockMovement
+    // existence: reverseDeliveryShipment() reverses the OUT movement with an
+    // offsetting IN (VOID:) rather than deleting it, so counting OUT
+    // StockMovement rows would still see the original movement and block
+    // cancel forever even after a successful reverse. stockCommittedAt is the
+    // canonical "did this DO's stock actually move and stay moved" marker —
+    // reverseDeliveryShipment nulls it out on reversal.
+    const uncommittedReversalCount = await prisma.deliveryOrder.count({
         where: {
             salesOrderId: id,
-            type: 'OUT',
+            stockCommittedAt: { not: null },
         },
     });
-    if (deliveryMovements > 0) {
+    if (uncommittedReversalCount > 0) {
         throw new BusinessRuleError(
             'Cannot cancel order: delivery stock movements already exist. Reverse deliveries first.',
-            { orderId: id, movementCount: deliveryMovements },
+            { orderId: id, deliveryOrderCount: uncommittedReversalCount },
             'DELIVERY_MOVEMENTS_EXIST',
         );
     }

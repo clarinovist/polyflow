@@ -43,6 +43,9 @@ const createMockPrisma = () => ({
     groupBy: vi.fn(),
     updateMany: vi.fn(),
   },
+  deliveryOrder: {
+    count: vi.fn(),
+  },
   deliveryScheduleOrder: {
     updateMany: vi.fn(),
   },
@@ -888,7 +891,7 @@ describe("cancelOrder", () => {
   it("should cancel order successfully when no material issues or deliveries", async () => {
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockOrder as any);
     vi.mocked(prisma.materialIssue.count).mockResolvedValue(0);
-    vi.mocked(prisma.stockMovement.count).mockResolvedValue(0);
+    vi.mocked(prisma.deliveryOrder.count).mockResolvedValue(0);
     vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 1 } as any);
     vi.mocked(prisma.salesOrder.update).mockResolvedValue({} as any);
 
@@ -931,14 +934,37 @@ describe("cancelOrder", () => {
     );
   });
 
-  it("should throw when delivery stock movements exist", async () => {
+  it("should throw when a delivery still has live (un-reversed) committed stock", async () => {
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockOrder as any);
     vi.mocked(prisma.materialIssue.count).mockResolvedValue(0);
-    vi.mocked(prisma.stockMovement.count).mockResolvedValue(2);
+    vi.mocked(prisma.deliveryOrder.count).mockResolvedValue(1);
 
     await expect(cancelOrder("so-1", "user-1")).rejects.toThrow(
       "delivery stock movements already exist",
     );
+  });
+
+  it("allows cancel once the only delivery has been reversed (stockCommittedAt cleared)", async () => {
+    // Guards against the regression: reverseDeliveryShipment() reverses the
+    // OUT StockMovement with an offsetting IN rather than deleting it, so a
+    // count-based check on StockMovement would stay blocked forever. The
+    // guard queries DeliveryOrder.stockCommittedAt instead, which reverse
+    // explicitly nulls out — this is the state cancelOrder must accept.
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockOrder as any);
+    vi.mocked(prisma.materialIssue.count).mockResolvedValue(0);
+    vi.mocked(prisma.deliveryOrder.count).mockResolvedValue(0);
+    vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(prisma.salesOrder.update).mockResolvedValue({} as any);
+
+    await cancelOrder("so-1", "user-1");
+
+    expect(prisma.deliveryOrder.count).toHaveBeenCalledWith({
+      where: { salesOrderId: "so-1", stockCommittedAt: { not: null } },
+    });
+    expect(prisma.salesOrder.update).toHaveBeenCalledWith({
+      where: { id: "so-1" },
+      data: { status: SalesOrderStatus.CANCELLED },
+    });
   });
 
   it("should throw when order not found", async () => {
