@@ -29,14 +29,6 @@ import {
 } from '@/lib/utils/geolocation-sampler';
 import type { GeofenceMode } from '@/services/hrd/attendance-location';
 
-interface Shift {
-    id: string;
-    name: string;
-    startTime: string;
-    endTime: string;
-    plannedHours: number | null;
-}
-
 interface Feedback {
     type: 'success' | 'error';
     message: string;
@@ -58,7 +50,6 @@ interface LocationState {
 }
 
 interface Props {
-    shifts: Shift[];
     employees: KioskEmployeeOption[];
     /**
      * Only `enforce` makes a GPS fix mandatory here. Under `observe` the
@@ -78,14 +69,9 @@ function nowWIB(): string {
     });
 }
 
-export function AttendanceKioskForm({
-    shifts,
-    employees,
-    geofenceMode,
-}: Props) {
+export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
     const isLocationRequired = geofenceMode === 'enforce';
     const [clock, setClock] = useState<string | null>(null);
-    const [selectedShift] = useState<string>(shifts[0]?.id ?? '');
     const [selectedEmployee, setSelectedEmployee] =
         useState<KioskEmployeeOption | null>(null);
     const [pin, setPin] = useState('');
@@ -207,7 +193,6 @@ export function AttendanceKioskForm({
             });
             return;
         }
-        const shiftToUse = selectedShift || shifts[0]?.id || undefined;
 
         setLoading(true);
         setFeedback(null);
@@ -228,19 +213,19 @@ export function AttendanceKioskForm({
                 return;
             }
 
+            // workShiftId sengaja undefined: server resolve dari
+            // EmployeeShiftAssignment karyawan (attendance-service.ts), baru
+            // fallback ke shift aktif pertama. Kiosk tidak boleh menebak shift.
             const result = await kioskClockIn(
                 selectedEmployee.code,
                 pin,
-                shiftToUse,
+                undefined,
                 photoUrl,
                 location ?? undefined,
             );
             if (result.success && result.data) {
                 const d = result.data;
-                const shiftName =
-                    d.shiftName ||
-                    shifts.find((s) => s.id === shiftToUse)?.name ||
-                    '';
+                const shiftName = d.shiftName || '';
                 const msg = d.isOvertimeShift
                     ? `${d.employeeName} · LEMBUR · ${shiftName}`
                     : `${d.employeeName} · ${shiftName} · ${nowWIB()}`;

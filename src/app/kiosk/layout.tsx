@@ -7,7 +7,6 @@ import { ClockDisplay } from './ClockDisplay';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { KioskFullscreenToggle } from './KioskFullscreenToggle';
 import { KioskIdleShell } from './KioskIdleShell';
-import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { hasWorkspaceEntitlement } from '@/lib/auth/access-policy';
 
@@ -31,12 +30,10 @@ export default async function KioskLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const session = await auth();
-
-    if (!session) {
-        redirect('/login');
-    }
-
+    // Kiosk sengaja publik: operator produksi hanya punya Kode Karyawan + PIN,
+    // bukan akun ERP. Setiap mutasi tetap diverifikasi PIN per-karyawan di
+    // server (AttendanceService.clockIn -> verifyPin) plus rate limit per
+    // (IP, kode karyawan). Membuka layout tidak membuka satu pun mutasi.
     // ── Entitlement gate: /kiosk belongs to PRODUCTION module ──
     if (!hasWorkspaceEntitlement('production')) {
         redirect('/error?error=ModuleNotEntitled');

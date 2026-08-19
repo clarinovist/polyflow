@@ -1,4 +1,3 @@
-import { getWorkShifts } from '@/actions/admin/work-shifts';
 import {
     listKioskEmployees,
     getKioskGeofenceMode,
@@ -9,23 +8,12 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export default async function KioskAttendancePage() {
-    const [shiftsResult, employeesResult, geofenceModeResult] =
-        await Promise.all([
-            getWorkShifts(),
-            listKioskEmployees(),
-            getKioskGeofenceMode(),
-        ]);
-
-    const shifts = (shiftsResult.success ? (shiftsResult.data ?? []) : [])
-        .filter((s) => s.status === 'ACTIVE')
-        .map((s) => ({
-            id: s.id,
-            name: s.name,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            plannedHours:
-                s.plannedHours != null ? Number(s.plannedHours) : null,
-        }));
+    // Shift tidak lagi diambil di sini: server yang resolve dari
+    // EmployeeShiftAssignment saat clock-in.
+    const [employeesResult, geofenceModeResult] = await Promise.all([
+        listKioskEmployees(),
+        getKioskGeofenceMode(),
+    ]);
 
     const employees = employeesResult.success
         ? (employeesResult.data ?? [])
@@ -48,7 +36,6 @@ export default async function KioskAttendancePage() {
                 </Button>
             </Link>
             <AttendanceKioskForm
-                shifts={shifts}
                 employees={employees}
                 geofenceMode={geofenceMode}
             />

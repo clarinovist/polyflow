@@ -5,7 +5,7 @@ import { haversineDistance } from '@/lib/utils/geo';
 // Mock prisma client
 const mockDb = {
   employee: { findUnique: vi.fn() },
-  workShift: { findUnique: vi.fn() },
+  workShift: { findUnique: vi.fn(), findMany: vi.fn() },
   employeeShiftAssignment: { findFirst: vi.fn() },
   attendanceRecord: {
     findFirst: vi.fn(),
@@ -1167,6 +1167,87 @@ describe('AttendanceService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('clockIn - shift resolution when client sends no workShiftId', () => {
+    // The kiosk deliberately stops sending workShiftId (it used to send
+    // shifts[0], stamping everyone onto the earliest shift and corrupting
+    // workDate on overnight shifts). The server must resolve the shift itself.
+    const assignedShift = { id: 'shift-assigned', name: 'Shift 1', startTime: '06:00', endTime: '14:00', plannedHours: null, status: 'ACTIVE' };
+
+    function primeCreate(shift: typeof assignedShift) {
+      vi.mocked(mockDb.attendanceRecord.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(null);
+      vi.mocked(mockDb.attendanceRecord.count).mockResolvedValue(0);
+      vi.mocked(mockDb.attendanceRecord.create).mockResolvedValue({
+        id: 'rec-x', employeeId: 'emp-1', workDate: new Date('2026-08-19'),
+        workShiftId: shift.id, clockInAt: new Date(), clockOutAt: null,
+        isOvertimeShift: false, status: 'PRESENT', source: 'KIOSK',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg', clockOutPhotoUrl: null,
+        employee: { name: 'Budi', code: 'EMP-001' }, workShift: shift,
+      } as any);
+    }
+
+    it('resolves the shift from EmployeeShiftAssignment, not the first active shift', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue({
+        workShiftId: 'shift-assigned',
+      } as any);
+      vi.mocked(mockDb.workShift.findUnique).mockResolvedValue(assignedShift as any);
+      primeCreate(assignedShift);
+
+      const result = await AttendanceService.clockIn(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+      }, {});
+
+      expect(result.shiftName).toBe('Shift 1');
+      expect(mockDb.workShift.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'shift-assigned' } }),
+      );
+      // Fallback list must not be consulted when an assignment exists.
+      expect(mockDb.workShift.findMany).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the first active shift when the employee has no assignment', async () => {
+      const fallbackShift = { ...assignedShift, id: 'shift-fallback', name: 'Shift Pagi' };
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.workShift.findMany).mockResolvedValue([fallbackShift] as any);
+      vi.mocked(mockDb.workShift.findUnique).mockResolvedValue(fallbackShift as any);
+      primeCreate(fallbackShift);
+
+      const result = await AttendanceService.clockIn(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234',
+        clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+      }, {});
+
+      expect(result.shiftName).toBe('Shift Pagi');
+      expect(mockDb.workShift.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'shift-fallback' } }),
+      );
+    });
+
+    it('rejects when there is neither an assignment nor any active shift', async () => {
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.employeeShiftAssignment.findFirst).mockResolvedValue(null);
+      vi.mocked(mockDb.workShift.findMany).mockResolvedValue([] as any);
+
+      await expect(
+        AttendanceService.clockIn(mockDb as any, {
+          employeeCode: 'EMP-001', pin: '1234',
+          clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
+        }, {}),
+      ).rejects.toThrow('Tidak ada shift aktif terdaftar di sistem.');
     });
   });
 
