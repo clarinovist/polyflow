@@ -175,6 +175,13 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
                                     })) || [],
                             }))}
                         mode="edit"
+                        // orderType tidak ikut disimpan oleh updateSalesOrder
+                        // (tidak ada di updateSalesOrderSchema maupun di
+                        // tx.salesOrder.update). Tanpa lockedOrderType dropdown-nya
+                        // aktif dan perubahan user dibuang diam-diam saat Simpan.
+                        // Dikunci ke nilai tersimpan supaya batasannya jujur.
+                        // Plan: docs/plan/2026-08-20-mto-credit-limit-confirm-gap.md §10
+                        lockedOrderType={order.orderType}
                         initialData={initialData}
                     />
                 </CardContent>

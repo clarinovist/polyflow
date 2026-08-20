@@ -778,6 +778,62 @@ describe("confirmOrder", () => {
     expect(updateCall.data.salesRepId).toBeNull();
   });
 
+  // ── Gap 8: orderType tidak ikut tersimpan saat update ───────────────
+  // Plan: docs/plan/2026-08-20-mto-credit-limit-confirm-gap.md §10
+  // Test ini MENGUNCI perilaku yang ada, bukan mendeskripsikan yang ideal.
+  // updateSalesOrderSchema tidak punya field orderType dan tx.salesOrder.update
+  // tidak menulisnya — jadi kiriman orderType apa pun dari client diabaikan.
+  // UI dijaga terpisah: edit/page.tsx mengirim lockedOrderType agar dropdown
+  // disabled, supaya user tidak mengira perubahannya tersimpan.
+  // Kalau suatu saat orderType dibuat editable (Opsi 8-B di plan), test ini
+  // HARUS diganti — bukan dihapus diam-diam.
+  it("mengabaikan orderType yang dikirim saat update — tidak pernah ditulis ke DB", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValueOnce({
+      id: "so-1",
+      orderType: SalesOrderType.MAKE_TO_ORDER,
+      status: SalesOrderStatus.DRAFT,
+      items: [],
+      invoices: [],
+      deliveryOrders: [],
+    } as never);
+    vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+      id: "pv-1",
+      name: "Product A",
+      product: { productType: ProductType.FINISHED_GOOD },
+    } as never);
+
+    await updateOrder(
+      {
+        id: "so-1",
+        // client mencoba mengubah MAKE_TO_ORDER → MAKE_TO_STOCK
+        orderType: SalesOrderType.MAKE_TO_STOCK,
+        orderDate: new Date("2026-04-17T00:00:00.000Z"),
+        expectedDate: null,
+        notes: "test",
+        shippingCost: 0,
+        items: [
+          {
+            productVariantId: "pv-1",
+            quantity: 1,
+            unitPrice: 1000,
+            discountPercent: 0,
+            taxPercent: 0,
+            dppOtherAmount: null,
+            ppnMode: "EXCLUDE",
+            isFreeItem: false,
+          },
+        ],
+      } as never,
+      "user-1",
+    );
+
+    const updateCall = vi
+      .mocked(prisma.salesOrder.update)
+      .mock.calls.at(-1)?.[0] as never as { data: Record<string, unknown> };
+    // orderType TIDAK boleh muncul di payload update — bukan sekadar "nilainya lama"
+    expect(updateCall.data).not.toHaveProperty("orderType");
+  });
+
   // ── Fase B: priceStatus gate ────────────────────────────────────────
   it("confirm SO dengan priceStatus PENDING ditolak BusinessRuleError — tidak ada mutasi DB apa pun (harga 0 scenario)", async () => {
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({

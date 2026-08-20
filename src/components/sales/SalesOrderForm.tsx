@@ -1286,9 +1286,11 @@ export function SalesOrderForm({
                                     </SelectContent>
                                 </Select>
                                 <FormDescription>
-                                    {lockedOrderType
-                                        ? 'Tipe pesanan dipilih dari intent sebelumnya.'
-                                        : 'Pilih alur pemenuhan order.'}
+                                    {mode === 'edit'
+                                        ? salesLabels.orderTypeHelpLockedOnEdit
+                                        : lockedOrderType
+                                          ? salesLabels.orderTypeHelpFromIntent
+                                          : salesLabels.orderTypeHelpPick}
                                 </FormDescription>
                                 <FormMessage />
                             </FormItem>

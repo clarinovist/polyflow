@@ -77,6 +77,11 @@ export const salesLabels = {
     fulfillFromStock: 'Dari stok',
     fulfillProduce: 'Produksi dulu',
     fulfillMaklon: 'Maklon (jasa)',
+    // Order type field help text
+    orderTypeHelpPick: 'Pilih alur pemenuhan order.',
+    orderTypeHelpFromIntent: 'Tipe pesanan dipilih dari intent sebelumnya.',
+    orderTypeHelpLockedOnEdit:
+        'Tipe pesanan tidak bisa diubah setelah SO dibuat. Kalau salah pilih, hapus draft ini lalu buat ulang.',
     // Archive
     archiveLink: 'Lihat arsip tanpa customer',
     archiveTitle: 'Arsip · tanpa customer',
