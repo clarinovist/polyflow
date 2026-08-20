@@ -294,8 +294,10 @@ export async function verifyPurchaseRemittance(
         ) => Promise<string | null>;
     },
 ): Promise<VerifyPurchaseRemittanceResult> {
-    // Tanggal jurnal ikut saat finance verifikasi, BUKAN tanggal bayar yang diinput staf
-    // (remittance.paidAt) — reuse instance yang sama dengan verifiedAt.
+    // Tanggal payment DAN jurnal ikut saat finance verifikasi, BUKAN tanggal bayar yang
+    // diinput staf (remittance.paidAt) — finance mencatat kas keluar pada hari mereka
+    // memverifikasi. Tanggal bayar versi staf tetap tersimpan di remittance.paidAt.
+    // Reuse instance yang sama untuk verifiedAt/paymentDate/journalDate.
     const verifiedAt = new Date();
 
     const claimed = await prisma.purchaseRemittance.updateMany({
@@ -384,7 +386,7 @@ export async function verifyPurchaseRemittance(
             const paymentRes = await recordPayment({
                 invoiceId: item.purchaseInvoiceId,
                 amount: Number(item.amount),
-                paymentDate: remittance.paidAt,
+                paymentDate: verifiedAt,
                 journalDate: verifiedAt,
                 method: item.method,
                 referenceNumber: item.referenceNumber ?? undefined,

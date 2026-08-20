@@ -32,8 +32,9 @@ export const recordCustomerPayment = withTenant(
         notes?: string;
         referenceNumber?: string;
         destinationBank?: string;
-        // Tanggal buku jurnal, kalau beda dari paymentDate (mis. verifikasi remittance —
-        // paymentDate = tanggal terima bayar staf, journalDate = tanggal verifikasi finance).
+        // Tanggal buku jurnal, kalau perlu dipisah dari paymentDate. Jalur verifikasi
+        // remittance mengirim tanggal verifikasi finance untuk keduanya; jalur direct-entry
+        // hanya mengisi paymentDate dan jurnal ikut ke sana.
         journalDate?: Date | string;
     }) {
         return safeAction(async () => {
@@ -490,6 +491,21 @@ export const deletePayment = withTenant(async function deletePayment(
                 });
                 await tx.journalEntry.deleteMany({
                     where: { referenceId: id, referenceType: refType },
+                });
+
+                // Payment yang lahir dari verifikasi setoran ditunjuk oleh
+                // SalesRemittanceItem/PurchaseRemittanceItem.paymentId. Kolom itu String?
+                // tanpa FK, jadi menghapus Payment TIDAK otomatis membersihkannya dan
+                // pointer-nya menggantung — item dianggap "sudah dibayar" saat remittance
+                // diproses ulang padahal payment-nya tidak ada. Lepas pointer di transaksi
+                // yang sama supaya item kembali bisa diproses.
+                await tx.salesRemittanceItem.updateMany({
+                    where: { paymentId: id },
+                    data: { paymentId: null },
+                });
+                await tx.purchaseRemittanceItem.updateMany({
+                    where: { paymentId: id },
+                    data: { paymentId: null },
                 });
 
                 await tx.payment.delete({ where: { id } });

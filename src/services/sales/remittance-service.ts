@@ -281,8 +281,10 @@ export async function verifyRemittance(
         findLatestPaymentId?: (invoiceId: string) => Promise<string | null>;
     },
 ): Promise<VerifyRemittanceResult> {
-    // Tanggal jurnal ikut saat finance verifikasi, BUKAN tanggal terima bayar yang diinput
-    // staf pengumpul (remittance.collectedAt) — reuse instance yang sama dengan verifiedAt.
+    // Tanggal payment DAN jurnal ikut saat finance verifikasi, BUKAN tanggal terima bayar
+    // yang diinput staf pengumpul (remittance.collectedAt) — finance mencatat kas masuk pada
+    // hari mereka memverifikasi. Tanggal terima versi sales tetap tersimpan di
+    // remittance.collectedAt. Reuse instance yang sama untuk verifiedAt/paymentDate/journalDate.
     const verifiedAt = new Date();
 
     // 1. Atomic claim: only PENDING can be verified.
@@ -380,7 +382,7 @@ export async function verifyRemittance(
             const paymentRes = await recordPayment({
                 invoiceId: item.invoiceId,
                 amount: Number(item.amount),
-                paymentDate: remittance.collectedAt,
+                paymentDate: verifiedAt,
                 journalDate: verifiedAt,
                 method: item.method,
                 referenceNumber: item.referenceNumber ?? undefined,

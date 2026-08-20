@@ -13,8 +13,8 @@ export async function handleSalesPayment(
     amount: number,
     method: string = 'Bank Transfer',
     // Tanggal buku jurnal. Default: payment.paymentDate (jalur direct-entry, finance input
-    // sendiri saat itu). Jalur verifikasi remittance mengirim tanggal verifikasi di sini,
-    // supaya jurnal tidak ikut tanggal terima bayar staf pengumpul.
+    // sendiri saat itu). Jalur verifikasi remittance mengirim tanggal verifikasi finance —
+    // sama dengan paymentDate-nya, jadi jurnal dan payment selalu jatuh di hari yang sama.
     journalDate?: Date,
 ) {
     // Validate amount

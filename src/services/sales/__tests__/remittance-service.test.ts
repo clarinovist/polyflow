@@ -673,6 +673,61 @@ describe('remittance-service', () => {
                 }),
             );
         });
+
+        it('paymentDate DAN journalDate ikut tanggal verifikasi finance, bukan collectedAt sales', async () => {
+            const collectedAt = new Date('2026-08-02T00:00:00Z');
+            vi.mocked(prisma.salesRemittance.updateMany).mockResolvedValue({ count: 1 } as never);
+            vi.mocked(prisma.salesRemittance.findUnique).mockResolvedValue({
+                id: 'rem-1',
+                remittanceNumber: 'REM-2026-08-0001',
+                collectedAt,
+                notes: null,
+                items: [
+                    {
+                        id: 'ri-1',
+                        remittanceId: 'rem-1',
+                        invoiceId: 'inv-1',
+                        amount: dec(100),
+                        method: 'Cash',
+                        referenceNumber: null,
+                        paymentId: null,
+                    },
+                ],
+            } as never);
+            vi.mocked(prisma.salesRemittanceItem.update).mockResolvedValue({} as never);
+
+            const mockRecordPayment = vi.fn().mockResolvedValue({
+                success: true,
+                data: { paymentId: 'pay-1' },
+            });
+
+            const before = Date.now();
+            await verifyRemittance('rem-1', 'verifier-1', undefined, {
+                recordPayment: mockRecordPayment,
+                findLatestPaymentId: async () => 'pay-1',
+            });
+            const after = Date.now();
+
+            const args = mockRecordPayment.mock.calls[0][0] as {
+                paymentDate: Date;
+                journalDate: Date;
+            };
+
+            // Bukan tanggal input sales.
+            expect(args.paymentDate.getTime()).not.toBe(collectedAt.getTime());
+            // Tanggal payment dan jurnal harus instance yang sama (tidak boleh beda hari).
+            expect(args.paymentDate.getTime()).toBe(args.journalDate.getTime());
+            // Dan jatuh di rentang waktu verifikasi berjalan.
+            expect(args.paymentDate.getTime()).toBeGreaterThanOrEqual(before);
+            expect(args.paymentDate.getTime()).toBeLessThanOrEqual(after);
+
+            // verifiedAt yang tersimpan juga instance yang sama.
+            const updateArgs = vi.mocked(prisma.salesRemittance.updateMany).mock
+                .calls[0][0] as unknown as { data: { verifiedAt: Date } };
+            expect(updateArgs.data.verifiedAt.getTime()).toBe(
+                args.paymentDate.getTime(),
+            );
+        });
     });
 
     describe('rejectRemittance', () => {

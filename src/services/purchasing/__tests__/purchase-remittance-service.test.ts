@@ -430,6 +430,51 @@ describe('purchase-remittance-service', () => {
             expect(result.failedCount).toBe(1);
             expect(result.items[0].success).toBe(false);
         });
+
+        it('paymentDate DAN journalDate ikut tanggal verifikasi finance, bukan paidAt staf', async () => {
+            const paidAt = new Date('2026-08-02');
+            vi.mocked(prisma.purchaseRemittance.updateMany).mockResolvedValue({
+                count: 1,
+            } as never);
+            vi.mocked(prisma.purchaseRemittance.findUnique).mockResolvedValue({
+                id: 'prem-1',
+                remittanceNumber: 'PREM-2026-08-0001',
+                paidAt,
+                notes: null,
+                items: [
+                    {
+                        id: 'pri-1',
+                        purchaseInvoiceId: 'pinv-1',
+                        amount: dec(200),
+                        method: 'Cash',
+                        referenceNumber: null,
+                        paymentId: null,
+                    },
+                ],
+            } as never);
+
+            const recordPayment = vi.fn().mockResolvedValue({
+                success: true,
+                data: { message: 'ok' },
+            });
+
+            const before = Date.now();
+            await verifyPurchaseRemittance('prem-1', 'fin-1', undefined, {
+                recordPayment,
+                findLatestPaymentId: vi.fn().mockResolvedValue('pp-1'),
+            });
+            const after = Date.now();
+
+            const args = recordPayment.mock.calls[0][0] as {
+                paymentDate: Date;
+                journalDate: Date;
+            };
+
+            expect(args.paymentDate.getTime()).not.toBe(paidAt.getTime());
+            expect(args.paymentDate.getTime()).toBe(args.journalDate.getTime());
+            expect(args.paymentDate.getTime()).toBeGreaterThanOrEqual(before);
+            expect(args.paymentDate.getTime()).toBeLessThanOrEqual(after);
+        });
     });
 
     describe('rejectPurchaseRemittance', () => {
