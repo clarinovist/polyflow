@@ -80,6 +80,17 @@ type ChatApiResponse = {
     };
 };
 
+type StreamEvent =
+    | { type: 'tool'; name: string; label: string }
+    | { type: 'delta'; text: string }
+    | { type: 'error'; message: string }
+    | {
+          type: 'done';
+          data: NonNullable<ChatApiResponse['data']> & {
+              interactionId?: string;
+          };
+      };
+
 const CATEGORIZED_PROMPTS = [
     {
         category: 'Stok & Gudang',
@@ -305,7 +316,13 @@ function inlineFormat(text: string): React.ReactNode {
     return <>{parts}</>;
 }
 
-function TypingDots({ longWait }: { longWait: boolean }) {
+function TypingDots({
+    longWait,
+    toolProgress,
+}: {
+    longWait: boolean;
+    toolProgress?: string | null;
+}) {
     return (
         <div className="flex items-center gap-3 pl-11 my-2">
             <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-950/20 px-4 py-3 shadow-sm">
@@ -313,10 +330,16 @@ function TypingDots({ longWait }: { longWait: boolean }) {
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.15s]" />
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-bounce" />
             </div>
-            {longWait && (
+            {toolProgress ? (
                 <span className="text-xs text-muted-foreground">
-                    Sedang meracik data & analisis...
+                    {toolProgress}...
                 </span>
+            ) : (
+                longWait && (
+                    <span className="text-xs text-muted-foreground">
+                        Sedang meracik data &amp; analisis...
+                    </span>
+                )
             )}
         </div>
     );
@@ -390,6 +413,7 @@ export function PolyflowChatPanel({
     const [question, setQuestion] = useState(initialQuestion || '');
     const [isLoading, setIsLoading] = useState(false);
     const [longWait, setLongWait] = useState(false);
+    const [toolProgress, setToolProgress] = useState<string | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [initialSent, setInitialSent] = useState(false);
     const [conversationId, setConversationId] = useState<string | undefined>();
@@ -555,44 +579,16 @@ export function PolyflowChatPanel({
         setQuestion('');
         setIsLoading(true);
         setLongWait(false);
+        setToolProgress(null);
 
         const controller = new AbortController();
         abortRef.current = controller;
 
         try {
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: payload, conversationId }),
-                signal: controller.signal,
-            });
-
-            const json = (await res.json()) as ChatApiResponse;
-
-            if (!res.ok || !json.success) {
-                pushMessage(
-                    'assistant',
-                    json.error ||
-                        'Maaf, sistem sedang sibuk. Silakan coba beberapa saat lagi.',
-                );
-                return;
+            const streamed = await sendViaStream(payload, controller);
+            if (!streamed) {
+                await sendViaJson(payload, controller);
             }
-
-            // Update conversationId from response
-            if (json.data?.conversationId) {
-                setConversationId(json.data.conversationId);
-            }
-
-            pushMessage(
-                'assistant',
-                json.data?.answer ||
-                    'Maaf, belum ada jawaban yang bisa saya berikan.',
-                json.data?.interactionId,
-                json.data?.citedArticles,
-                json.data?.relatedArticles,
-                json.data?.evidence,
-                json.data?.confidence,
-            );
         } catch (err) {
             if ((err as Error).name === 'AbortError') {
                 pushMessage('assistant', 'Permintaan dibatalkan.');
@@ -604,8 +600,183 @@ export function PolyflowChatPanel({
             }
         } finally {
             setIsLoading(false);
+            setToolProgress(null);
             abortRef.current = null;
         }
+    };
+
+    /**
+     * Jalur utama: SSE. Return false bila endpoint stream tidak tersedia /
+     * gagal SEBELUM token pertama sampai — pemanggil lalu jatuh ke /api/chat.
+     * Setelah token pertama tampil kita TIDAK fallback lagi (biar tidak dobel).
+     */
+    const sendViaStream = async (
+        payload: string,
+        controller: AbortController,
+    ): Promise<boolean> => {
+        let res: Response;
+        try {
+            res = await fetch('/api/chat/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: payload, conversationId }),
+                signal: controller.signal,
+            });
+        } catch (err) {
+            if ((err as Error).name === 'AbortError') throw err;
+            return false;
+        }
+
+        if (!res.ok || !res.body) {
+            // 429 dan error auth punya pesan spesifik — tampilkan, jangan retry
+            // ke endpoint lain (rate limiter-nya sama, hasilnya akan sama).
+            if (res.status === 429 || res.status === 401 || res.status === 403) {
+                const j = await res.json().catch(() => null);
+                pushMessage(
+                    'assistant',
+                    (j as { error?: string } | null)?.error ||
+                        'Permintaan tidak dapat diproses.',
+                );
+                return true;
+            }
+            return false;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let streamedText = '';
+        let messageId: string | null = null;
+        let sawAnything = false;
+
+        const ensureMessage = () => {
+            if (messageId) return messageId;
+            const id = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            messageId = id;
+            setMessages((prev) => [
+                ...prev,
+                { id, role: 'assistant', text: '' },
+            ]);
+            return id;
+        };
+
+        const applyDelta = (text: string) => {
+            const id = ensureMessage();
+            streamedText += text;
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === id ? { ...m, text: streamedText } : m,
+                ),
+            );
+        };
+
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data:')) continue;
+
+                const raw = trimmed.slice(5).trim();
+                // Sentinel non-JSON penutup stream — WAJIB di-strip sebelum parse.
+                if (!raw || raw === '[DONE]') continue;
+
+                let event: StreamEvent;
+                try {
+                    event = JSON.parse(raw) as StreamEvent;
+                } catch {
+                    continue;
+                }
+
+                sawAnything = true;
+
+                if (event.type === 'tool') {
+                    setToolProgress(event.label);
+                } else if (event.type === 'delta') {
+                    setToolProgress(null);
+                    applyDelta(event.text);
+                } else if (event.type === 'error') {
+                    const id = ensureMessage();
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === id ? { ...m, text: event.message } : m,
+                        ),
+                    );
+                } else if (event.type === 'done') {
+                    const data = event.data;
+                    if (data.conversationId) {
+                        setConversationId(data.conversationId);
+                    }
+                    const id = ensureMessage();
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === id
+                                ? {
+                                      ...m,
+                                      // Jawaban final menang atas akumulasi delta:
+                                      // jalur non-stream (mis. greeting fast-path)
+                                      // tidak pernah mengirim delta sama sekali.
+                                      text: data.answer || streamedText || m.text,
+                                      interactionId: data.interactionId,
+                                      citedArticles: data.citedArticles,
+                                      relatedArticles: data.relatedArticles,
+                                      evidenceChips: data.evidence,
+                                      suggestions: data.suggestions,
+                                      confidence: data.confidence,
+                                  }
+                                : m,
+                        ),
+                    );
+                }
+            }
+        }
+
+        // Stream terbuka tapi tidak mengirim apa pun → biarkan fallback jalan.
+        return sawAnything;
+    };
+
+    /** Jalur lama (non-stream). Dipertahankan sebagai fallback. */
+    const sendViaJson = async (
+        payload: string,
+        controller: AbortController,
+    ): Promise<void> => {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: payload, conversationId }),
+            signal: controller.signal,
+        });
+
+        const json = (await res.json()) as ChatApiResponse;
+
+        if (!res.ok || !json.success) {
+            pushMessage(
+                'assistant',
+                json.error ||
+                    'Maaf, sistem sedang sibuk. Silakan coba beberapa saat lagi.',
+            );
+            return;
+        }
+
+        if (json.data?.conversationId) {
+            setConversationId(json.data.conversationId);
+        }
+
+        pushMessage(
+            'assistant',
+            json.data?.answer ||
+                'Maaf, belum ada jawaban yang bisa saya berikan.',
+            json.data?.interactionId,
+            json.data?.citedArticles,
+            json.data?.relatedArticles,
+            json.data?.evidence,
+            json.data?.confidence,
+        );
     };
 
     const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -975,7 +1146,10 @@ export function PolyflowChatPanel({
 
                     {isLoading && (
                         <div className="space-y-2">
-                            <TypingDots longWait={longWait} />
+                            <TypingDots
+                                longWait={longWait}
+                                toolProgress={toolProgress}
+                            />
                             {longWait && (
                                 <div className="pl-13">
                                     <button

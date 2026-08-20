@@ -18,6 +18,7 @@ export type VirtualCsAuditInput = {
     latencyMs: number;
     confidence?: number;
     citedSlugs?: string[];
+    conversationId?: string;
 };
 
 function compactQuestion(question: string): string {
@@ -93,6 +94,8 @@ export async function logVirtualCsEvent(
                 confidence: input.confidence ?? null,
                 latencyMs: input.latencyMs,
                 blockedReason: input.blockedReason || null,
+                conversationId: input.conversationId || null,
+                citedSlugs: input.citedSlugs ?? [],
             },
         });
         interactionId = interaction.id;

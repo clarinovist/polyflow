@@ -5,28 +5,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateVirtualCsReply } from '@/lib/bot/virtual-cs-service';
 import { POLYFLOW_PRODUCT_ID } from '@/lib/bot/product-scope';
 import { logVirtualCsEvent } from '@/lib/bot/chat-audit';
+import { checkChatRateLimit } from '@/lib/bot/chat-rate-limit';
 
-// Simple in-memory rate limiter: 20 requests per minute per user
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 20;
-const RATE_WINDOW_MS = 60_000;
-
-function checkRateLimit(userId: string): boolean {
-    const now = Date.now();
-    const entry = rateLimitMap.get(userId);
-
-    if (!entry || now > entry.resetAt) {
-        rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
-        return true;
-    }
-
-    if (entry.count >= RATE_LIMIT) {
-        return false;
-    }
-
-    entry.count++;
-    return true;
-}
+// Rate limit (20 req/menit per user) di-share dengan /api/chat/stream lewat
+// `@/lib/bot/chat-rate-limit` — jangan bikin peta lokal di sini lagi.
 
 export const POST = withTenantRoute(async function POST(req: NextRequest) {
     const startedAt = Date.now();
@@ -43,7 +25,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
 
     // Rate limit check
     const userId = (session.user as { id?: string }).id || '';
-    if (userId && !checkRateLimit(userId)) {
+    if (userId && !checkChatRateLimit(userId)) {
         return NextResponse.json(
             {
                 success: false,
@@ -135,6 +117,8 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
             requesterName: session.user.name || undefined,
             latencyMs: Date.now() - startedAt,
             citedSlugs: result.citedArticles?.map((a) => a.slug) || [],
+            confidence: result.confidence,
+            conversationId: result.conversationId,
         });
 
         return NextResponse.json({
@@ -156,6 +140,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
             tenantId,
             requesterName: session.user.name || undefined,
             latencyMs: Date.now() - startedAt,
+            conversationId,
         });
 
         return NextResponse.json(

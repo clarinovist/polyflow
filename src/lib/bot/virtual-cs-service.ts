@@ -17,6 +17,8 @@ import {
     buildLlmHistory,
 } from './conversation-service';
 import { checkPromptInjection, logInjectionAttempt } from './injection-defense';
+import { detectGreeting } from './greeting';
+import { getToolLabel } from './tool-labels';
 import {
     analyzeForClarification,
     resolvePronouns,
@@ -25,6 +27,7 @@ import {
 import type {
     AssistantUserContext,
     AssistantResponse,
+    AssistantStreamEvent,
     CitedArticleForResponse,
     ToolEvidence,
 } from './assistant-types';
@@ -59,6 +62,7 @@ export async function generateVirtualCsReply(
         tenantId?: string;
         sessionUser?: SessionUser;
         conversationId?: string;
+        onEvent?: (event: AssistantStreamEvent) => void;
     },
 ): Promise<VirtualCsResponse> {
     // 1. Guardrails
@@ -93,6 +97,23 @@ export async function generateVirtualCsReply(
                 allowed: false,
                 blockedReason: 'Prompt injection attempt blocked',
             },
+        };
+    }
+
+    // 1c. Greeting fast-path — jawab sapaan tanpa membakar agentic loop.
+    // Ditempatkan SETELAH guardrail + injection check supaya jalur keamanan
+    // tetap dilewati, dan SEBELUM setup LLM supaya hemat ~9 detik + 1 call.
+    const greetingFastPath = detectGreeting(
+        input.question,
+        input.requesterName,
+    );
+    if (greetingFastPath.isGreeting && greetingFastPath.reply) {
+        return {
+            answer: greetingFastPath.reply,
+            citations: ['policy:greeting'],
+            suggestions: greetingFastPath.suggestions,
+            confidence: 1,
+            safety: { allowed: true },
         };
     }
 
@@ -248,9 +269,261 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
         let finalAnswer = '';
         const collectedCited: CitedArticleForResponse[] = [];
         const collectedEvidence: ToolEvidence[] = [];
+        const onEvent = context?.onEvent;
+
+        /**
+         * Eksekusi satu batch tool call: otorisasi → validasi Zod → execute
+         * dengan timeout → push hasil sebagai pesan `tool` → audit.
+         *
+         * Dipakai bersama oleh jalur streaming dan non-streaming supaya logika
+         * keamanan hanya punya SATU implementasi. Jangan duplikasi blok ini —
+         * lewatnya satu pemeriksaan otorisasi di salah satu cabang adalah
+         * kebocoran data lintas-permission yang senyap.
+         */
+        async function runToolCalls(
+            calls: Array<{ id: string; name: string; args: string }>,
+        ): Promise<void> {
+            for (const call of calls) {
+                const toolName = call.name;
+
+                let rawArgs: unknown = {};
+                try {
+                    rawArgs = JSON.parse(call.args || '{}');
+                } catch {
+                    messages.push({
+                        role: 'tool',
+                        tool_call_id: call.id,
+                        content: `Error: argumen tool '${toolName}' bukan JSON yang valid.`,
+                    } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+                    continue;
+                }
+
+                if (AGENTIC_DEBUG) {
+                    console.debug(
+                        `[AGENTIC] Calling tool: ${toolName} with args:`,
+                        rawArgs,
+                    );
+                }
+
+                const toolDef = getToolByName(toolName);
+                if (!toolDef) {
+                    messages.push({
+                        role: 'tool',
+                        tool_call_id: call.id,
+                        content: `Error: Tool '${toolName}' tidak dikenali.`,
+                    } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+                    continue;
+                }
+
+                // Authorization check (double-check before execution)
+                if (assistantCtx) {
+                    const authResult = checkToolAuthorization(
+                        toolDef,
+                        assistantCtx,
+                    );
+                    if (!authResult.allowed) {
+                        if (AGENTIC_DEBUG) {
+                            console.debug(
+                                `[AGENTIC] Tool ${toolName} DENIED: ${authResult.reason}`,
+                            );
+                        }
+                        messages.push({
+                            role: 'tool',
+                            tool_call_id: call.id,
+                            content: `Akses ditolak: ${authResult.reason}`,
+                        } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+
+                        logToolExecution({
+                            conversationId: activeConversationId,
+                            toolName,
+                            permissionResource:
+                                toolDef.requiredResources.join(','),
+                            allowed: false,
+                            outcome: 'DENIED',
+                            durationMs: 0,
+                        });
+                        continue;
+                    }
+                }
+
+                // Beri tahu user tool apa yang sedang berjalan (hanya jalur SSE).
+                // Diemit SETELAH otorisasi lolos supaya nama tool yang ditolak
+                // tidak bocor ke user yang tidak berhak.
+                onEvent?.({
+                    type: 'tool',
+                    name: toolName,
+                    label: getToolLabel(toolName),
+                });
+
+                // Validate input with Zod schema
+                const parseResult = toolDef.inputSchema.safeParse(rawArgs);
+                if (!parseResult.success) {
+                    messages.push({
+                        role: 'tool',
+                        tool_call_id: call.id,
+                        content: `Input tidak valid: ${parseResult.error.issues.map((i) => i.message).join(', ')}`,
+                    } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+                    continue;
+                }
+
+                // Execute tool with timeout
+                const startTime = Date.now();
+                const TOOL_TIMEOUT_MS = 15_000; // 15 seconds per tool
+                try {
+                    const evidence = await Promise.race([
+                        toolDef.execute(parseResult.data, assistantCtx!),
+                        new Promise<never>((_, reject) =>
+                            setTimeout(
+                                () => reject(new Error('Tool timeout')),
+                                TOOL_TIMEOUT_MS,
+                            ),
+                        ),
+                    ]);
+                    collectedEvidence.push(evidence);
+
+                    // Collect cited articles from search_help_articles
+                    if (toolName === 'search_help_articles') {
+                        for (const entity of evidence.entities || []) {
+                            if (entity.type === 'HelpArticle' && entity.href) {
+                                const slug = entity.id;
+                                if (
+                                    !collectedCited.some((c) => c.slug === slug)
+                                ) {
+                                    collectedCited.push({
+                                        slug,
+                                        title: entity.label,
+                                        summary: evidence.facts.find(
+                                            (f) => f.label === entity.label,
+                                        )?.value,
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    const durationMs = Date.now() - startTime;
+
+                    messages.push({
+                        role: 'tool',
+                        tool_call_id: call.id,
+                        content: evidenceToText(evidence),
+                    } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+
+                    logToolExecution({
+                        conversationId: activeConversationId,
+                        toolName,
+                        permissionResource: toolDef.requiredResources.join(','),
+                        allowed: true,
+                        outcome: 'SUCCESS',
+                        durationMs,
+                    });
+                } catch (execError) {
+                    const durationMs = Date.now() - startTime;
+                    const errorMsg =
+                        execError instanceof Error
+                            ? execError.message
+                            : 'Unknown error';
+
+                    messages.push({
+                        role: 'tool',
+                        tool_call_id: call.id,
+                        content: `Error executing tool ${toolName}: ${errorMsg}`,
+                    } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+
+                    logToolExecution({
+                        conversationId: activeConversationId,
+                        toolName,
+                        permissionResource: toolDef.requiredResources.join(','),
+                        allowed: true,
+                        outcome: 'ERROR',
+                        durationMs,
+                    });
+                }
+            }
+        }
 
         // Agentic Loop (max 4 iterations)
         for (let loop = 0; loop < 4; loop++) {
+            // Stream hanya pada jalur SSE. Delta teks diteruskan apa adanya;
+            // tool_calls dirakit ulang dari potongan delta (index-based) karena
+            // OpenAI memecah nama & argumen tool antar-chunk.
+            if (onEvent) {
+                const stream = await openai.chat.completions.create({
+                    model,
+                    messages,
+                    temperature: 0.3,
+                    stream: true,
+                    tools:
+                        openAiTools.length > 0
+                            ? (openAiTools as OpenAI.Chat.Completions.ChatCompletionTool[])
+                            : undefined,
+                    tool_choice: openAiTools.length > 0 ? 'auto' : undefined,
+                });
+
+                let streamedContent = '';
+                const assembledCalls: Array<{
+                    id: string;
+                    name: string;
+                    args: string;
+                }> = [];
+
+                for await (const chunk of stream) {
+                    const delta = chunk.choices[0]?.delta;
+                    if (!delta) continue;
+
+                    if (delta.content) {
+                        streamedContent += delta.content;
+                        onEvent({ type: 'delta', text: delta.content });
+                    }
+
+                    for (const tc of delta.tool_calls ?? []) {
+                        const idx = tc.index ?? 0;
+                        if (!assembledCalls[idx]) {
+                            assembledCalls[idx] = {
+                                id: '',
+                                name: '',
+                                args: '',
+                            };
+                        }
+                        if (tc.id) assembledCalls[idx].id = tc.id;
+                        if (tc.function?.name)
+                            assembledCalls[idx].name += tc.function.name;
+                        if (tc.function?.arguments)
+                            assembledCalls[idx].args += tc.function.arguments;
+                    }
+                }
+
+                const validCalls = assembledCalls.filter((c) => c && c.name);
+
+                if (validCalls.length === 0) {
+                    finalAnswer = streamedContent.trim();
+                    messages.push({
+                        role: 'assistant',
+                        content: streamedContent,
+                    });
+                    break;
+                }
+
+                messages.push({
+                    role: 'assistant',
+                    content: streamedContent || null,
+                    tool_calls: validCalls.map((c) => ({
+                        id: c.id,
+                        type: 'function' as const,
+                        function: { name: c.name, arguments: c.args },
+                    })),
+                });
+
+                await runToolCalls(
+                    validCalls.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        args: c.args,
+                    })),
+                );
+                continue;
+            }
+
             const completion = await openai.chat.completions.create({
                 model,
                 messages,
@@ -271,158 +544,18 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
                 responseMessage.tool_calls &&
                 responseMessage.tool_calls.length > 0
             ) {
-                for (const toolCall of responseMessage.tool_calls) {
-                    const fn = (
-                        toolCall as OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall
-                    ).function;
-                    const toolName = fn.name;
-                    const rawArgs = JSON.parse(fn.arguments || '{}');
-
-                    if (AGENTIC_DEBUG) {
-                        console.debug(
-                            `[AGENTIC] Calling tool: ${toolName} with args:`,
-                            rawArgs,
-                        );
-                    }
-
-                    // Get tool definition
-                    const toolDef = getToolByName(toolName);
-                    if (!toolDef) {
-                        messages.push({
-                            role: 'tool',
-                            tool_call_id: toolCall.id,
-                            content: `Error: Tool '${toolName}' tidak dikenali.`,
-                        } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
-                        continue;
-                    }
-
-                    // Authorization check (double-check before execution)
-                    if (assistantCtx) {
-                        const authResult = checkToolAuthorization(
-                            toolDef,
-                            assistantCtx,
-                        );
-                        if (!authResult.allowed) {
-                            if (AGENTIC_DEBUG) {
-                                console.debug(
-                                    `[AGENTIC] Tool ${toolName} DENIED: ${authResult.reason}`,
-                                );
-                            }
-                            messages.push({
-                                role: 'tool',
-                                tool_call_id: toolCall.id,
-                                content: `Akses ditolak: ${authResult.reason}`,
-                            } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
-
-                            // Log tool execution as denied
-                            logToolExecution({
-                                conversationId: activeConversationId,
-                                toolName,
-                                permissionResource:
-                                    toolDef.requiredResources.join(','),
-                                allowed: false,
-                                outcome: 'DENIED',
-                                durationMs: 0,
-                            });
-                            continue;
-                        }
-                    }
-
-                    // Validate input with Zod schema
-                    const parseResult = toolDef.inputSchema.safeParse(rawArgs);
-                    if (!parseResult.success) {
-                        messages.push({
-                            role: 'tool',
-                            tool_call_id: toolCall.id,
-                            content: `Input tidak valid: ${parseResult.error.issues.map((i) => i.message).join(', ')}`,
-                        } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
-                        continue;
-                    }
-
-                    // Execute tool with timeout
-                    const startTime = Date.now();
-                    const TOOL_TIMEOUT_MS = 15_000; // 15 seconds per tool
-                    try {
-                        const evidence = await Promise.race([
-                            toolDef.execute(parseResult.data, assistantCtx!),
-                            new Promise<never>((_, reject) =>
-                                setTimeout(
-                                    () => reject(new Error('Tool timeout')),
-                                    TOOL_TIMEOUT_MS,
-                                ),
-                            ),
-                        ]);
-                        collectedEvidence.push(evidence);
-
-                        // Collect cited articles from search_help_articles
-                        if (toolName === 'search_help_articles') {
-                            // Extract articles from evidence entities
-                            for (const entity of evidence.entities || []) {
-                                if (
-                                    entity.type === 'HelpArticle' &&
-                                    entity.href
-                                ) {
-                                    const slug = entity.id;
-                                    if (
-                                        !collectedCited.some(
-                                            (c) => c.slug === slug,
-                                        )
-                                    ) {
-                                        collectedCited.push({
-                                            slug,
-                                            title: entity.label,
-                                            summary: evidence.facts.find(
-                                                (f) => f.label === entity.label,
-                                            )?.value,
-                                        });
-                                    }
-                                }
-                            }
-                        }
-
-                        const durationMs = Date.now() - startTime;
-                        const evidenceText = evidenceToText(evidence);
-
-                        messages.push({
-                            role: 'tool',
-                            tool_call_id: toolCall.id,
-                            content: evidenceText,
-                        } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
-
-                        // Log successful tool execution
-                        logToolExecution({
-                            conversationId: activeConversationId,
-                            toolName,
-                            permissionResource:
-                                toolDef.requiredResources.join(','),
-                            allowed: true,
-                            outcome: 'SUCCESS',
-                            durationMs,
-                        });
-                    } catch (execError) {
-                        const durationMs = Date.now() - startTime;
-                        const errorMsg =
-                            execError instanceof Error
-                                ? execError.message
-                                : 'Unknown error';
-
-                        messages.push({
-                            role: 'tool',
-                            tool_call_id: toolCall.id,
-                            content: `Error executing tool ${toolName}: ${errorMsg}`,
-                        } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
-
-                        logToolExecution({
-                            conversationId: activeConversationId,
-                            toolName,
-                            permissionResource:
-                                toolDef.requiredResources.join(','),
-                            allowed: true,
-                            outcome: 'ERROR',
-                            durationMs,
-                        });
-                    }
-                }
+                await runToolCalls(
+                    responseMessage.tool_calls.map((toolCall) => {
+                        const fn = (
+                            toolCall as OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall
+                        ).function;
+                        return {
+                            id: toolCall.id,
+                            name: fn.name,
+                            args: fn.arguments || '{}',
+                        };
+                    }),
+                );
             } else {
                 finalAnswer = responseMessage.content?.trim() || '';
                 break;

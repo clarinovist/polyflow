@@ -108,7 +108,10 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
       tenantId: effectiveTenantId,
       userId,
       latencyMs: Date.now() - startedAt,
-    });
+      citedSlugs: result.citedArticles?.map((a) => a.slug) || [],
+      confidence: result.confidence,
+      conversationId: result.conversationId,
+    }); 
 
     logTelegramAudit({ action: 'HOME_FETCH', telegramUserId, userId, tenantId: effectiveTenantId, outcome: 'QUERY_SUCCESS', ip, latencyMs: Date.now() - startedAt });
 

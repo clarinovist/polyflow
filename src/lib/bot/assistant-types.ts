@@ -112,3 +112,13 @@ export type AssistantResponse = {
         blockedReason?: string;
     };
 };
+
+// ---------------------------------------------------------------------------
+// Streaming events (SSE) — emitted while the agentic loop runs
+// ---------------------------------------------------------------------------
+
+export type AssistantStreamEvent =
+    | { type: 'tool'; name: string; label: string }
+    | { type: 'delta'; text: string }
+    | { type: 'done'; data: AssistantResponse }
+    | { type: 'error'; message: string };
