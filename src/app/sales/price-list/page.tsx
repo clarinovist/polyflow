@@ -12,6 +12,7 @@ import { withTenant } from '@/lib/core/tenant';
 async function getProductsForFilter() {
     const products = await prisma.productVariant.findMany({
         where: {
+            archivedAt: null,
             product: { productType: { in: ['FINISHED_GOOD', 'PACKAGING'] } },
         },
         select: {

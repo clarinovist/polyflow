@@ -684,6 +684,7 @@ export const getProductionHistoryFilterOptions = withTenant(
                     orderBy: { shiftName: 'asc' },
                 }),
                 prisma.productVariant.findMany({
+                    where: { archivedAt: null },
                     select: { id: true, name: true },
                     orderBy: { name: 'asc' },
                 }),

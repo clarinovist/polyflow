@@ -196,7 +196,7 @@ export const getWarehouseShiftBoard = withTenant(
 
 async function computeLowStockCount(): Promise<number> {
     const lowStockVariants = await prisma.productVariant.findMany({
-        where: { minStockAlert: { not: null } },
+        where: { minStockAlert: { not: null }, archivedAt: null },
         select: {
             id: true,
             minStockAlert: true,
@@ -230,7 +230,7 @@ async function computeLowStockCount(): Promise<number> {
 
 async function computeSuggestedReorderCount(): Promise<number> {
     const reorderVariants = await prisma.productVariant.findMany({
-        where: { reorderPoint: { not: null } },
+        where: { reorderPoint: { not: null }, archivedAt: null },
         select: {
             id: true,
             reorderPoint: true,

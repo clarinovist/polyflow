@@ -311,7 +311,7 @@ export class InventoryCoreService {
         const { NotificationService } =
             await import('@/services/core/notification-service');
         const lowStockVariants = await prisma.productVariant.findMany({
-            where: { minStockAlert: { not: null } },
+            where: { minStockAlert: { not: null }, archivedAt: null },
             select: {
                 id: true,
                 minStockAlert: true,

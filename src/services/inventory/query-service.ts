@@ -130,9 +130,14 @@ export class InventoryQueryService {
 
     static async getProductVariants(includeFixedAsset = true) {
         return await prisma.productVariant.findMany({
+            // Varian terarsip tidak boleh dipilih di transaksi baru
+            // (SO/PO/retur/transfer/adjustment) — riwayat lama tetap utuh.
             where: includeFixedAsset
-                ? {}
-                : { product: { productType: { not: 'FIXED_ASSET' } } },
+                ? { archivedAt: null }
+                : {
+                      archivedAt: null,
+                      product: { productType: { not: 'FIXED_ASSET' } },
+                  },
             include: {
                 product: true,
                 inventories: {
@@ -229,7 +234,7 @@ export class InventoryQueryService {
                 },
             }),
             prisma.productVariant.findMany({
-                where: { minStockAlert: { not: null } },
+                where: { minStockAlert: { not: null }, archivedAt: null },
                 select: {
                     id: true,
                     minStockAlert: true,
@@ -275,7 +280,7 @@ export class InventoryQueryService {
         }).length;
 
         const reorderVariants = await prisma.productVariant.findMany({
-            where: { reorderPoint: { not: null } },
+            where: { reorderPoint: { not: null }, archivedAt: null },
             select: { id: true, reorderPoint: true },
         });
 

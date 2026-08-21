@@ -51,6 +51,7 @@ function buildCostDiagnosticsSnapshot(
 
 export const getProducts = withTenant(async function getProducts(options?: {
     type?: ProductType;
+    includeArchived?: boolean;
 }) {
     return safeAction(async () => {
         await requireAuth();
@@ -60,10 +61,21 @@ export const getProducts = withTenant(async function getProducts(options?: {
             where.productType = options.type;
         }
 
+        const includeArchived = options?.includeArchived ?? false;
+        const variantWhere: Prisma.ProductVariantWhereInput = includeArchived
+            ? {}
+            : { archivedAt: null };
+
+        // Sembunyikan produk yang seluruh variannya terarsip (kecuali diminta).
+        if (!includeArchived) {
+            where.variants = { some: { archivedAt: null } };
+        }
+
         const products = await prisma.product.findMany({
             where,
             include: {
                 variants: {
+                    where: variantWhere,
                     include: {
                         _count: {
                             select: {
@@ -234,6 +246,7 @@ export const getVariants = withTenant(async function getVariants() {
     return safeAction(async () => {
         await requireAuth();
         const variants = await prisma.productVariant.findMany({
+            where: { archivedAt: null },
             include: {
                 product: true,
             },

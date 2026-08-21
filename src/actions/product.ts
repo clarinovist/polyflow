@@ -1,7 +1,7 @@
 // Re-exports for backward compatibility.
 // New code should import from:
 //   product-queries (getProducts, getProductById, getUnits, getProductTypes, getVariants, getNextSKU)
-//   product-mutations (createProduct, updateProduct, deleteProduct, deleteVariant)
+//   product-mutations (createProduct, updateProduct, deleteProduct, deleteVariant, archiveVariant, unarchiveVariant)
 
 export {
     getProducts,
@@ -17,5 +17,7 @@ export {
     updateProduct,
     deleteProduct,
     deleteVariant,
+    archiveVariant,
+    unarchiveVariant,
     quickCreateProduct,
 } from './product/product-mutations';

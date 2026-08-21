@@ -72,6 +72,8 @@ export const GET = withTenantRoute(async function GET(req: Request) {
         hasBomParam;
 
     const where: Prisma.ProductVariantWhereInput = {
+        // variant terarsip tidak boleh dipilih di transaksi baru
+        archivedAt: null,
         ...(q
             ? {
                   OR: [

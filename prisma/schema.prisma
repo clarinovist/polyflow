@@ -475,6 +475,10 @@ model ProductVariant {
   standardCost           Decimal?                   @db.Decimal(15, 4)
   revenueAccountId       String? // Phase 2.3: per-variant revenue GL override
   returnAccountId        String? // Phase 2.3c: per-variant return GL override
+  /// Soft-hide: kalau terisi, variant dianggap diarsipkan — hilang dari katalog
+  /// aktif & dropdown transaksi baru, tapi seluruh riwayat (SO/DO/produksi/opname)
+  /// tetap utuh. Pola sama dengan Bom.archivedAt.
+  archivedAt             DateTime?
   Batch                  Batch[]
   productionBoms         Bom[]                      @relation("ProductBom")
   ingredientInBoms       BomItem[]                  @relation("Ingredient")
@@ -502,6 +506,8 @@ model ProductVariant {
   productionRoutes       ProductionRoute[]
   productionRuns         ProductionRun[]
   qualityCheckParameters QualityCheckParameter[]
+
+  @@index([archivedAt])
 }
 
 model CustomerProductPrice {

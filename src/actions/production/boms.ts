@@ -158,6 +158,7 @@ export const getProductVariants = withTenant(
     async function getProductVariants() {
         return safeAction(async () => {
             const variants = await prisma.productVariant.findMany({
+                where: { archivedAt: null },
                 include: {
                     product: true,
                     inventories: {

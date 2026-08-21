@@ -78,6 +78,7 @@ export class ProductionOrderService {
             }),
             prisma.productVariant.findMany({
                 where: {
+                    archivedAt: null,
                     product: {
                         productType: { in: [...ISSUABLE_MATERIAL_TYPES] },
                     },

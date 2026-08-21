@@ -9,11 +9,12 @@ import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { ProductType } from '@prisma/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { productTableLabels } from '@/lib/labels/products';
 
 export default async function ProductsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ type?: string }>;
+    searchParams: Promise<{ type?: string; archived?: string }>;
 }) {
     // In Next.js 15+, searchParams is a Promise
     const params = await searchParams;
@@ -24,8 +25,11 @@ export default async function ProductsPage({
         typeParam &&
         Object.values(ProductType).includes(typeParam as ProductType);
 
+    const showArchived = params.archived === '1';
+
     const products = await getProducts({
         type: isValidType ? (typeParam as ProductType) : undefined,
+        includeArchived: showArchived,
     });
 
     const showPricesRes = await canViewPrices();
@@ -64,6 +68,19 @@ export default async function ProductsPage({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Link
+                        href={
+                            showArchived
+                                ? `/dashboard/products${isValidType ? `?type=${typeParam}` : ''}`
+                                : `/dashboard/products?${isValidType ? `type=${typeParam}&` : ''}archived=1`
+                        }
+                    >
+                        <Button variant="outline">
+                            {showArchived
+                                ? productTableLabels.hideArchived
+                                : productTableLabels.showArchived}
+                        </Button>
+                    </Link>
                     <ProductGlossary />
                     <ImportDialog />
                     <Link href="/dashboard/products/create">

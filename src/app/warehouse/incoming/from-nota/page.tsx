@@ -19,6 +19,7 @@ const getData = withTenantPage(async () => {
             select: { id: true, name: true },
         }),
         prisma.productVariant.findMany({
+            where: { archivedAt: null },
             orderBy: { name: 'asc' },
             select: {
                 id: true,

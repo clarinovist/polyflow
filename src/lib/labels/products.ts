@@ -94,6 +94,21 @@ export const productTableLabels = {
     deleteDialogCancel: 'Batal',
     deleting: 'Menghapus...',
     deleteSku: 'Hapus SKU',
+    archiveSku: 'Arsipkan',
+    unarchiveSku: 'Pulihkan',
+    archivedBadge: 'Arsip',
+    showArchived: 'Tampilkan arsip',
+    hideArchived: 'Sembunyikan arsip',
+    archiveDialogTitle: 'Arsipkan Item Produk',
+    archiveDialogDescription: (
+        name: string,
+        variantName: string,
+        skuCode: string,
+    ) =>
+        `Arsipkan ${name}${variantName ? ` (${variantName})` : ''}?\nSKU: ${skuCode}\nVarian akan disembunyikan dari katalog aktif dan tidak bisa dipilih di transaksi baru. Seluruh riwayat tetap utuh dan bisa dipulihkan kapan saja.`,
+    archiveDialogConfirm: 'Arsipkan',
+    archiving: 'Mengarsipkan...',
+    unarchiving: 'Memulihkan...',
 } as const;
 
 /** ProductGlossary component labels */

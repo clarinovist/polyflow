@@ -613,3 +613,99 @@ export const deleteVariant = withTenant(async function deleteVariant(
         }
     });
 });
+
+export const archiveVariant = withTenant(async function archiveVariant(
+    id: string,
+) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        try {
+            const variant = await prisma.productVariant.findUnique({
+                where: { id },
+                select: { id: true, skuCode: true, archivedAt: true },
+            });
+
+            if (!variant) {
+                throw new BusinessRuleError('Varian produk tidak ditemukan.');
+            }
+
+            if (variant.archivedAt) {
+                throw new BusinessRuleError(
+                    'Varian produk sudah diarsipkan.',
+                );
+            }
+
+            await prisma.productVariant.update({
+                where: { id },
+                data: { archivedAt: new Date() },
+            });
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'ARCHIVE_PRODUCT_VARIANT',
+                entityType: 'ProductVariant',
+                entityId: id,
+                details: `Archived product variant ${variant.skuCode}`,
+            });
+
+            revalidatePath('/dashboard/products');
+            return null;
+        } catch (error) {
+            if (error instanceof BusinessRuleError) throw error;
+            logger.error('Failed to archive variant', {
+                error,
+                variantId: id,
+                module: 'ProductActions',
+            });
+            throw new BusinessRuleError('Gagal mengarsipkan varian produk.');
+        }
+    });
+});
+
+export const unarchiveVariant = withTenant(async function unarchiveVariant(
+    id: string,
+) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        try {
+            const variant = await prisma.productVariant.findUnique({
+                where: { id },
+                select: { id: true, skuCode: true, archivedAt: true },
+            });
+
+            if (!variant) {
+                throw new BusinessRuleError('Varian produk tidak ditemukan.');
+            }
+
+            if (!variant.archivedAt) {
+                throw new BusinessRuleError(
+                    'Varian produk tidak dalam status arsip.',
+                );
+            }
+
+            await prisma.productVariant.update({
+                where: { id },
+                data: { archivedAt: null },
+            });
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'UNARCHIVE_PRODUCT_VARIANT',
+                entityType: 'ProductVariant',
+                entityId: id,
+                details: `Unarchived product variant ${variant.skuCode}`,
+            });
+
+            revalidatePath('/dashboard/products');
+            return null;
+        } catch (error) {
+            if (error instanceof BusinessRuleError) throw error;
+            logger.error('Failed to unarchive variant', {
+                error,
+                variantId: id,
+                module: 'ProductActions',
+            });
+            throw new BusinessRuleError('Gagal memulihkan varian produk.');
+        }
+    });
+});

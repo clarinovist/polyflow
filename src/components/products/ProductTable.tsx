@@ -24,9 +24,11 @@ import {
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
+    Archive,
+    ArchiveRestore,
 } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
-import { deleteVariant } from '@/actions/product';
+import { deleteVariant, archiveVariant, unarchiveVariant } from '@/actions/product';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
@@ -63,6 +65,7 @@ type ProductVariant = {
     currentCost?: number;
     currentStockValue?: number;
     stock: number;
+    archivedAt?: string | Date | null;
     _count: {
         inventories: number;
     };
@@ -132,6 +135,10 @@ export function ProductTable({
     const [variantToDelete, setVariantToDelete] =
         useState<ProductVariant | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+    const [variantToArchive, setVariantToArchive] =
+        useState<ProductVariant | null>(null);
+    const [isArchiving, setIsArchiving] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
     const router = useRouter();
@@ -237,6 +244,38 @@ export function ProductTable({
 
     const handleEditClick = (productId: string) => {
         router.push(`/dashboard/products/${productId}/edit`);
+    };
+
+    const handleArchiveClick = (variant: ProductVariant) => {
+        setVariantToArchive(variant);
+        setArchiveDialogOpen(true);
+    };
+
+    const handleArchiveConfirm = async () => {
+        if (!variantToArchive) return;
+
+        setIsArchiving(true);
+        const result = await archiveVariant(variantToArchive.id);
+
+        if (result.success) {
+            toast.success('Varian produk berhasil diarsipkan.');
+            setArchiveDialogOpen(false);
+            setVariantToArchive(null);
+            router.refresh();
+        } else {
+            toast.error(result.error || 'Gagal mengarsipkan varian produk.');
+        }
+        setIsArchiving(false);
+    };
+
+    const handleUnarchive = async (variant: ProductVariant) => {
+        const result = await unarchiveVariant(variant.id);
+        if (result.success) {
+            toast.success('Varian produk berhasil dipulihkan.');
+            router.refresh();
+        } else {
+            toast.error(result.error || 'Gagal memulihkan varian produk.');
+        }
     };
 
     if (flattenedVariants.length === 0) {
@@ -468,6 +507,16 @@ export function ProductTable({
                                             <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-white/5">
                                                 {variant.skuCode}
                                             </span>
+                                            {variant.archivedAt && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="ml-2 text-[9px] font-bold py-0 h-5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                                >
+                                                    {
+                                                        productTableLabels.archivedBadge
+                                                    }
+                                                </Badge>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge
@@ -643,6 +692,51 @@ export function ProductTable({
                                                 >
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
+                                                {variant.archivedAt ? (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 hover:bg-green-500/10 hover:text-green-600 transition-colors"
+                                                                onClick={() =>
+                                                                    handleUnarchive(
+                                                                        variant,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <ArchiveRestore className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            {
+                                                                productTableLabels.unarchiveSku
+                                                            }
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                ) : (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 hover:bg-amber-500/10 hover:text-amber-600 transition-colors"
+                                                                onClick={() =>
+                                                                    handleArchiveClick(
+                                                                        variant,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Archive className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            {
+                                                                productTableLabels.archiveSku
+                                                            }
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -699,6 +793,44 @@ export function ProductTable({
                             {isDeleting
                                 ? productTableLabels.deleting
                                 : productTableLabels.deleteSku}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Archive Confirmation Dialog */}
+            <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {productTableLabels.archiveDialogTitle}
+                        </DialogTitle>
+                        <DialogDescription className="whitespace-pre-line">
+                            {productTableLabels.archiveDialogDescription(
+                                variantToArchive?.productName || '',
+                                variantToArchive?.name !==
+                                    variantToArchive?.productName
+                                    ? variantToArchive?.name || ''
+                                    : '',
+                                variantToArchive?.skuCode || '',
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setArchiveDialogOpen(false)}
+                            disabled={isArchiving}
+                        >
+                            {productTableLabels.deleteDialogCancel}
+                        </Button>
+                        <Button
+                            onClick={handleArchiveConfirm}
+                            disabled={isArchiving}
+                        >
+                            {isArchiving
+                                ? productTableLabels.archiving
+                                : productTableLabels.archiveDialogConfirm}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

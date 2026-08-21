@@ -621,6 +621,9 @@ function buildProductPriceWhere(
     );
 
     return {
+        // Varian terarsip tidak muncul di daftar harga — harga baru tidak
+        // perlu diset untuk SKU yang sudah tidak dipakai.
+        archivedAt: null,
         product: { productType: productTypeFilter },
         ...(params.productVariantId ? { id: params.productVariantId } : {}),
         ...(restrictToCustomPrice
