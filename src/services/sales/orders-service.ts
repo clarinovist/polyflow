@@ -14,6 +14,7 @@ import {
 } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { createStockReservation } from '@/services/inventory/reservation-service';
+import { isSalesStockReservationEnabled } from '@/lib/config/stock-reservation-flag';
 import { ProductionService } from '@/services/production/production-service';
 import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
 import { checkCreditLimit } from './credit-service';
@@ -844,7 +845,10 @@ export async function confirmOrder(
                     shortageAmount = demand - activeReservationAmount;
                 }
 
-                if (activeReservationAmount > 0) {
+                if (
+                    activeReservationAmount > 0 &&
+                    isSalesStockReservationEnabled()
+                ) {
                     await createStockReservation(
                         {
                             productVariantId: item.productVariantId,

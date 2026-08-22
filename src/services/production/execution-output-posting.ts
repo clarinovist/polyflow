@@ -7,6 +7,7 @@ import {
     createStockReservation,
     getSalesOrderResidualDemand,
 } from '@/services/inventory/reservation-service';
+import { isSalesStockReservationEnabled } from '@/lib/config/stock-reservation-flag';
 
 import { ProductionCostService } from './cost-service';
 import type { ProductionExecutionOrder } from './execution-types';
@@ -115,7 +116,7 @@ export async function recordFinishedGoodsOutput(params: {
     let reservationId: string | undefined;
 
     // Hook auto-reserve for SalesOrder if linked (Fase A)
-    if (order.salesOrderId) {
+    if (order.salesOrderId && isSalesStockReservationEnabled()) {
         const salesOrder = await tx.salesOrder.findUnique({
             where: { id: order.salesOrderId },
             select: { expectedDate: true },
