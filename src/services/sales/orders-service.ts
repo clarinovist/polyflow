@@ -601,45 +601,80 @@ export async function updateOrder(
     const needsPendingUpdate = discountCeilingPending || hasZeroPriceUpdate;
 
     return await prisma.$transaction(async (tx) => {
-        // Delete only items that are NOT delivered (delivered items stay)
-        const undeliveredItemIds = currentOrder.items
-            .filter((item) => Number(item.deliveredQty) === 0)
+        // ── Diff by item id (bukan delete-all-then-recreate) ──────────────
+        // Pola lama menghapus item undelivered lalu membuat ULANG seluruh
+        // payload. Tiga akibatnya:
+        //  (A) baris dengan deliveredQty > 0 tidak ikut terhapus tapi tetap
+        //      dibuat ulang → tiap edit SO yang terkirim sebagian
+        //      menggandakan baris tersebut;
+        //  (B) pemetaan payload→record lama memakai productVariantId,
+        //      padahal validasi di atas memakai id — dua baris dengan varian
+        //      sama membuat deliveredQty tertukar;
+        //  (C) id item selalu baru, sehingga FK DeliveryScheduleOrderItem
+        //      .salesOrderItemId (tanpa onDelete: Cascade) putus.
+        //
+        // itemsWithTotals berurutan sama dengan data.items (processOrderItems
+        // memakai items.map), jadi pasangkan by index — bukan by varian.
+        // Plan: docs/plan/2026-08-22-edit-item-so-sales-field.md
+        const submittedIds = new Set(
+            data.items
+                .map((item) => item.id)
+                .filter((id): id is string => Boolean(id)),
+        );
+
+        // Item existing yang tidak dikirim ulang: hanya boleh dihapus bila
+        // belum pernah terkirim. Baris dengan deliveredQty > 0 dipertahankan
+        // karena barangnya sudah keluar gudang.
+        const removableItemIds = currentOrder.items
+            .filter(
+                (item) =>
+                    !submittedIds.has(item.id) &&
+                    Number(item.deliveredQty) === 0,
+            )
             .map((item) => item.id);
 
-        if (undeliveredItemIds.length > 0) {
+        if (removableItemIds.length > 0) {
             await tx.salesOrderItem.deleteMany({
-                where: { id: { in: undeliveredItemIds } },
+                where: { id: { in: removableItemIds } },
             });
         }
 
-        // Create new item entries, preserving deliveredQty for carried-over items
-        const itemsToCreate = itemsWithTotals.map((item) => {
-            const submittedItem = data.items.find(
-                (di) => di.productVariantId === item.productVariantId,
-            );
-            const existingRecord = submittedItem?.id
-                ? existingItemsMap.get(submittedItem.id)
+        const itemFields = (item: (typeof itemsWithTotals)[number]) => ({
+            productVariantId: item.productVariantId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            isFreeItem: item.isFreeItem ?? false,
+            enteredQuantity: item.enteredQuantity,
+            enteredUnit: item.enteredUnit,
+            conversionFactorSnapshot: item.conversionFactorSnapshot,
+            enteredUnitPrice: item.enteredUnitPrice,
+            discountPercent: item.discountPercent,
+            taxPercent: item.taxPercent,
+            taxAmount: item.taxAmount,
+            subtotal: item.subtotal,
+            dppOtherAmount: item.dppOtherAmount,
+            ppnMode: item.ppnMode,
+        });
+
+        const itemsToCreate: ReturnType<typeof itemFields>[] = [];
+
+        for (let i = 0; i < itemsWithTotals.length; i++) {
+            const processed = itemsWithTotals[i];
+            const submitted = data.items[i];
+            const existingRecord = submitted?.id
+                ? existingItemsMap.get(submitted.id)
                 : undefined;
 
-            return {
-                productVariantId: item.productVariantId,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                isFreeItem: item.isFreeItem ?? false,
-                enteredQuantity: item.enteredQuantity,
-                enteredUnit: item.enteredUnit,
-                conversionFactorSnapshot: item.conversionFactorSnapshot,
-                enteredUnitPrice: item.enteredUnitPrice,
-                discountPercent: item.discountPercent,
-                taxPercent: item.taxPercent,
-                taxAmount: item.taxAmount,
-                subtotal: item.subtotal,
-                dppOtherAmount: item.dppOtherAmount,
-                ppnMode: item.ppnMode,
-                // Preserve deliveredQty if item was carried over
-                deliveredQty: existingRecord ? existingRecord.deliveredQty : 0,
-            };
-        });
+            if (existingRecord) {
+                // Update in place — id tetap, deliveredQty tidak disentuh.
+                await tx.salesOrderItem.update({
+                    where: { id: existingRecord.id },
+                    data: itemFields(processed),
+                });
+            } else {
+                itemsToCreate.push(itemFields(processed));
+            }
+        }
 
         // ── Fase C: resolve priceStatus correction for update ──────
         // - needsPendingUpdate → PENDING (new violation)

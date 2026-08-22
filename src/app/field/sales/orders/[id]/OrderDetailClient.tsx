@@ -12,6 +12,7 @@ import {
     XCircle,
     ClipboardList,
     FileText,
+    Pencil,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -530,6 +531,31 @@ export function OrderDetailClient({
             {order.status !== 'CANCELLED' && (
                 <div className="fixed bottom-16 left-0 right-0 p-4 bg-background border-t z-40 shadow-lg">
                     <div className="flex flex-wrap gap-2">
+                        {/* Edit Item — sales field bisa tambah item / ubah qty
+                            tanpa menelepon admin. Rute di bawah /field supaya
+                            lolos gate mobile + gate role SALES.
+                            Plan: docs/plan/2026-08-22-edit-item-so-sales-field.md */}
+                        {[
+                            'QUOTATION',
+                            'QUOTATION_SENT',
+                            'DRAFT',
+                            'CONFIRMED',
+                            'IN_PRODUCTION',
+                            'READY_TO_SHIP',
+                        ].includes(order.status) && (
+                            <Button
+                                variant="outline"
+                                className="flex-1 rounded-xl h-11 text-sm font-semibold"
+                                asChild
+                            >
+                                <Link
+                                    href={`/field/sales/orders/${order.id}/edit`}
+                                >
+                                    <Pencil className="h-4.5 w-4.5 mr-1.5" />
+                                    Edit Item
+                                </Link>
+                            </Button>
+                        )}
                         {order.status === 'DRAFT' && (
                             <>
                                 <Button

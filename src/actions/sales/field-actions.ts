@@ -1,11 +1,15 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireSalesAccess } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import { SalesOrderStatus } from '@prisma/client';
+import { updateSalesOrderSchema } from '@/lib/schemas/sales';
+import type { UpdateSalesOrderValues } from '@/lib/schemas/sales';
+import * as SalesService from '@/services/sales/orders-service';
 import {
     getFieldSalesScope,
     scopedCustomerWhere,
@@ -418,6 +422,40 @@ export const getFieldCustomerById = withTenant(
                 where: { id },
             });
             return serializeData(customer);
+        });
+    },
+);
+
+// ── Scoped SO update (Edit Item untuk sales field) ────────────────
+
+/**
+ * Update SO dari portal mobile sales field.
+ *
+ * Berbeda dari `updateSalesOrder` di `sales.ts` yang hanya menjaga role:
+ * di sini scope field ikut ditegakkan lewat `assertCanAccessFieldOrder`,
+ * supaya sales tidak bisa mengedit SO milik sales lain hanya dengan menebak id.
+ *
+ * Aturan bisnis (status terlarang, qty < deliveredQty, harga vs invoice,
+ * plafon diskon, credit limit) tetap ditegakkan `SalesService.updateOrder`.
+ *
+ * Plan: docs/plan/2026-08-22-edit-item-so-sales-field.md
+ */
+export const updateFieldSalesOrder = withTenant(
+    async function updateFieldSalesOrder(data: UpdateSalesOrderValues) {
+        return safeAction(async () => {
+            const session = await requireSalesAccess();
+            const scope = getFieldSalesScope(session);
+            await assertCanAccessFieldOrder(scope, data.id);
+
+            const parsed = updateSalesOrderSchema.parse(data);
+            await SalesService.updateOrder(parsed, session.user.id);
+
+            revalidatePath('/field/sales/orders');
+            revalidatePath(`/field/sales/orders/${data.id}`);
+            revalidatePath('/sales');
+            revalidatePath(`/sales/orders/${data.id}`);
+
+            return { id: data.id };
         });
     },
 );
