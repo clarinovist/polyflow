@@ -3,35 +3,60 @@ name: Prune GHCR Images
 on:
   schedule:
     - cron: '0 0 * * 0'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Report what would be deleted without deleting it'
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   packages: write
   contents: read
 
+# Pinned to an exact release on purpose: snok/container-retention-policy stopped
+# publishing a moving major tag after v2, so `@v3` does not exist and never did.
+# Using it fails at "Set up job" with "unable to find version v3" — which is how
+# this workflow silently never ran between 2026-08-17 and 2026-08-23. Bump this
+# deliberately; do not "tidy" it back to @v3.
+#
+# CR_PAT rather than GITHUB_TOKEN: the `image-tags` negation operators used below
+# to protect :latest and :buildcache are only supported for personal/app tokens,
+# and a temporal token would additionally require this repo to hold the Admin
+# role in the package settings.
 jobs:
   prune-untagged:
+    name: Prune untagged image versions
     runs-on: ubuntu-latest
     steps:
       - name: Prune untagged image versions
-        uses: snok/container-retention-policy@v3
+        uses: snok/container-retention-policy@v3.1.0
         with:
-          account: clarinovist
-          token: ${{ secrets.GITHUB_TOKEN }}
+          account: user
+          token: ${{ secrets.CR_PAT }}
           image-names: polyflow
-          untagged: true
-          keep-n-most-recent: 5
+          tag-selection: untagged
+          # keep-n-most-recent is deliberately absent: upstream documents that it
+          # does not protect untagged versions, so age is the only real guard here.
+          cut-off: 2w
+          dry-run: ${{ inputs.dry-run || false }}
 
   prune-tagged:
+    name: Prune old tagged image versions
     runs-on: ubuntu-latest
     steps:
       - name: Prune old tagged image versions
-        uses: snok/container-retention-policy@v3
+        uses: snok/container-retention-policy@v3.1.0
         with:
-          account: clarinovist
-          token: ${{ secrets.GITHUB_TOKEN }}
+          account: user
+          token: ${{ secrets.CR_PAT }}
           image-names: polyflow
-          untagged: false
+          tag-selection: tagged
+          # Protects the two tags the deploy path depends on: docker-compose.yml
+          # pulls :latest on the VPS, and production.yml uses :buildcache as its
+          # registry build cache. Deleting either breaks deploy or cache.
+          image-tags: '!latest !buildcache'
           keep-n-most-recent: 5
-          skip-tags: latest,buildcache
-          cut-off: 14d
+          cut-off: 2w
+          dry-run: ${{ inputs.dry-run || false }}
