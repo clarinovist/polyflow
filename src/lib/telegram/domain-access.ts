@@ -6,7 +6,9 @@ const DOMAIN_MAP: Record<string, string> = {
   '/finance/invoices/sales': 'finance',
   '/finance/aging': 'finance',
   '/purchasing/orders': 'purchasing',
-  '/hrd/attendance': 'hrd',
+  // '/hrd/attendance': 'hrd' dihapus 2026-08-24 — 'hrd' tidak pernah ada di
+  // ALL_DOMAINS maupun VALID_DATA_DOMAINS, jadi mapping ini tidak berefek
+  // apa pun. Kalau domain HRD dibutuhkan, daftarkan dulu di kedua list itu.
 };
 
 // 'price' sengaja TIDAK ada di DOMAIN_MAP maupun di cabang prefix di bawah:

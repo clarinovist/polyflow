@@ -214,4 +214,21 @@ describe('Telegram mini-app home route', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(body.kpis)).toBe(true);
   });
+
+  it('menghitung stok kritis per VARIAN dan mengabaikan varian terarsip', async () => {
+    // Bug B: dulu GROUP BY p.name (nama produk) sehingga angka KPI tidak cocok
+    // dengan daftar detail yang GROUP BY pv.id.
+    // Bug D: varian terarsip tidak boleh memicu alert.
+    const { GET } = await import('../route');
+    await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' }));
+
+    const { prisma } = await import('@/lib/core/prisma');
+    const calls = (prisma.$queryRaw as ReturnType<typeof vi.fn>).mock.calls;
+    // $queryRaw dipanggil sebagai tagged template: arg[0] = potongan statis.
+    const sql = (calls[0][0] as unknown as readonly string[]).join(' ');
+
+    expect(sql).toContain('GROUP BY pv.id');
+    expect(sql).not.toContain('GROUP BY p.name');
+    expect(sql).toContain('"archivedAt" IS NULL');
+  });
 });

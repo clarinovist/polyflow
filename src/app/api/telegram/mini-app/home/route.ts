@@ -52,13 +52,17 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
   const alerts: Array<{ type: string; message: string; deepLink: string }> = [];
 
   try {
+    // Bug B: dulu GROUP BY p.name (nama produk) sedangkan daftar detail di
+    // data/[domain] GROUP BY pv.id (varian) — angka KPI tidak cocok dengan
+    // jumlah baris yang dibuka user. Sekarang keduanya per varian.
+    // Bug D: varian terarsip tidak boleh memicu alert (keputusan user).
     const rows = await prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) as count FROM (
-        SELECT p.name
-        FROM "Inventory" i
-        JOIN "ProductVariant" pv ON i."productVariantId" = pv.id
-        JOIN "Product" p ON pv."productId" = p.id
-        GROUP BY p.name
+        SELECT pv.id
+        FROM "ProductVariant" pv
+        LEFT JOIN "Inventory" i ON i."productVariantId" = pv.id
+        WHERE pv."archivedAt" IS NULL
+        GROUP BY pv.id
         HAVING SUM(i.quantity) < SUM(pv."minStockAlert") AND SUM(pv."minStockAlert") > 0
       ) t
     `;

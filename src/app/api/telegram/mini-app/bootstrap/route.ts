@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withTenantRoute } from '@/lib/core/tenant';
-import { getTenantIdFromContext } from '@/lib/core/prisma';
+import { getTenantIdFromContext, getMainPrisma } from '@/lib/core/prisma';
 import { prisma } from '@/lib/core/prisma';
 import { isMiniAppEnabled } from '@/lib/telegram/kill-switch';
 import { verifyTelegramSession, extractSessionTokenFromCookieHeader } from '@/lib/telegram/session';
@@ -97,6 +97,20 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
     where: { tenantId_userId: { tenantId: effectiveTenantId, userId } },
   }).catch(() => null);
 
+  // Nama tenant dipakai UI (sebelumnya di-hardcode di home/page.tsx sehingga
+  // salah untuk tenant lain). Tabel Tenant HANYA ada di main DB, jadi wajib
+  // getMainPrisma() — proxy `prisma` akan diarahkan ke DB tenant.
+  let tenantName: string | null = null;
+  try {
+    const t = await getMainPrisma().tenant.findUnique({
+      where: { id: effectiveTenantId },
+      select: { name: true },
+    });
+    tenantName = t?.name ?? null;
+  } catch {
+    tenantName = null;
+  }
+
   logTelegramAudit({
     action: 'BOOTSTRAP',
     telegramUserId,
@@ -108,7 +122,7 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({
-    tenant: { id: effectiveTenantId },
+    tenant: { id: effectiveTenantId, name: tenantName },
     user: {
       id: user.id,
       name: user.name,

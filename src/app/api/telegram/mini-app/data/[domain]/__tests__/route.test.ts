@@ -704,3 +704,139 @@ describe('Telegram mini-app data/price — gate ADMIN & pemetaan harga', () => {
     expect(listPricesByProduct).not.toHaveBeenCalled();
   });
 });
+
+describe('Telegram mini-app data/stock — SQL fetchStock (Fase 2)', () => {
+  setupSession();
+
+  /**
+   * Rekonstruksi query terakhir yang dikirim ke $queryRaw.
+   *
+   * PENTING (diverifikasi 2026-08-24): karena `$queryRaw` di-mock dengan
+   * `vi.fn()`, ia menerima argumen tagged template MENTAH —
+   * `(TemplateStringsArray, ...values)` — bukan objek `Prisma.Sql`. Jadi:
+   *   arg[0]  = potongan string statis
+   *   arg[1:] = nilai yang diinterpolasi
+   *
+   * `sqlStatic` = hanya bagian statis (untuk memastikan klausa BENAR-BENAR
+   * menyatu ke SQL), `values` = nilai interpolasi (untuk memastikan klausa
+   * TIDAK menyelinap sebagai parameter).
+   *
+   * Nilai bertipe `Prisma.Sql` (punya getter `.sql`) di-render supaya klausa
+   * yang disisipkan lewat `Prisma.sql` tetap terlihat sebagai SQL.
+   */
+  async function lastStockSql(): Promise<{
+    sqlStatic: string;
+    sqlFull: string;
+    values: unknown[];
+  }> {
+    const { prisma } = await import('@/lib/core/prisma');
+    const calls = (prisma.$queryRaw as ReturnType<typeof vi.fn>).mock.calls;
+    const call = calls[calls.length - 1];
+
+    const strings = call[0] as unknown as readonly string[];
+    const values = call.slice(1);
+
+    const sqlStatic = Array.isArray(strings) ? strings.join(' ') : '';
+
+    const rendered = values.map((v) => {
+      const maybeSql = (v as { sql?: unknown } | null)?.sql;
+      return typeof maybeSql === 'string' ? maybeSql : '';
+    });
+
+    const sqlFull = Array.isArray(strings)
+      ? strings.reduce(
+          (acc, part, i) => acc + part + (rendered[i] ?? ''),
+          '',
+        )
+      : '';
+
+    return { sqlStatic, sqlFull, values };
+  }
+
+  async function callStock(filter?: string) {
+    const { GET } = await import('../route');
+    const query: Record<string, string> = filter ? { filter } : {};
+    return assertResponse(
+      await GET(
+        makeRequest('stock', query, { cookie: 'polyflow_tg=raw-token' }),
+        domainParams('stock'),
+      ),
+    );
+  }
+
+  it('menyaring varian terarsip (bug D)', async () => {
+    await callStock();
+    const { sqlStatic } = await lastStockSql();
+    expect(sqlStatic).toContain('"archivedAt" IS NULL');
+  });
+
+  it('filter "all" TIDAK memakai HAVING minStockAlert > 0 (bug A)', async () => {
+    await callStock('all');
+    const { sqlFull, values } = await lastStockSql();
+
+    // Cabang all harus tanpa HAVING sama sekali, jadi SKU tanpa batas minimum
+    // ikut tampil. Sebelum fix, klausa ini selalu ada.
+    expect(sqlFull).not.toContain('HAVING');
+    // Dan tidak boleh ada HAVING yang menyelinap sebagai parameter (bug lama:
+    // string di-interpolasi jadi $1 alih-alih SQL).
+    expect(
+      values.some((v) => typeof v === 'string' && v.includes('HAVING')),
+    ).toBe(false);
+  });
+
+  it('filter "critical" menyisipkan HAVING sebagai SQL, bukan parameter', async () => {
+    await callStock('critical');
+    const { sqlFull, values } = await lastStockSql();
+
+    expect(sqlFull).toContain('HAVING');
+    expect(sqlFull).toContain('minStockAlert');
+    // Regresi paling penting: klausa HAVING harus menyatu ke SQL. Kalau ia
+    // dikirim sebagai nilai parameter (string biasa), Postgres menerimanya
+    // sebagai $1 dan query gagal / klausanya tidak berefek.
+    expect(
+      values.some((v) => typeof v === 'string' && v.includes('HAVING')),
+    ).toBe(false);
+  });
+
+  it('tidak menandai CRITICAL saat minStockAlert 0 (batas belum diset)', async () => {
+    const { prisma } = await import('@/lib/core/prisma');
+    (prisma.$queryRaw as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        variantId: 'v-1',
+        productName: 'Tali Rafia',
+        variantName: 'Merah',
+        skuCode: 'BAL1',
+        qty: BigInt(0),
+        minStockAlert: BigInt(0),
+        unit: 'BAL',
+      },
+    ]);
+
+    const res = await callStock('all');
+    const body = await res.json();
+
+    expect(body.items[0].status).toBe('OK');
+    expect(body.items[0].statusVariant).toBe('ok');
+  });
+
+  it('menandai CRITICAL saat qty di bawah batas minimum', async () => {
+    const { prisma } = await import('@/lib/core/prisma');
+    (prisma.$queryRaw as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        variantId: 'v-2',
+        productName: 'Tali Rafia',
+        variantName: 'Biru',
+        skuCode: 'BAL2',
+        qty: BigInt(3),
+        minStockAlert: BigInt(10),
+        unit: 'BAL',
+      },
+    ]);
+
+    const res = await callStock('critical');
+    const body = await res.json();
+
+    expect(body.items[0].status).toBe('CRITICAL');
+    expect(body.items[0].statusVariant).toBe('critical');
+  });
+});

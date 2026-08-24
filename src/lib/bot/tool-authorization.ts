@@ -41,8 +41,15 @@ const SENSITIVITY_POLICY: Record<
     personal: {
         requiredResources: ['/hrd'],
     },
+    // Data komersial sensitif (harga jual/harga khusus customer). Resource-nya
+    // dulu keliru '/hrd' — harga bukan data HRD; diperbaiki 2026-08-24 ke
+    // '/sales/price-list' agar sejajar dengan permission-catalog.
+    // CATATAN: belum ada tool ber-sensitivity 'restricted' di tool-registry.ts,
+    // jadi policy ini belum menjaga apa pun. Ia disiapkan untuk tool harga
+    // (mis. get_product_price) kalau asisten disambungkan nanti — lihat
+    // docs/plan/2026-08-24-telegram-miniapp-harga-dan-audit.md §4.4.
     restricted: {
-        requiredResources: ['/hrd'],
+        requiredResources: ['/sales/price-list'],
         requiredFeatures: ['feature:view-prices'],
     },
 };

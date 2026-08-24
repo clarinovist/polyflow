@@ -26,6 +26,13 @@ const TEST_BOT_TOKEN = 'test-bot-token-should-never-appear-in-response';
 
 vi.mock('@/lib/core/prisma', () => ({
     getTenantIdFromContext: vi.fn(() => 'tenant-melindo'),
+    // Tabel Tenant hanya ada di main DB, jadi route memakai getMainPrisma()
+    // (bukan proxy `prisma`) untuk mengambil nama tenant.
+    getMainPrisma: vi.fn(() => ({
+        tenant: {
+            findUnique: vi.fn().mockResolvedValue({ name: 'PT Contoh Sejahtera' }),
+        },
+    })),
     prisma: {
         user: {
             findUnique: vi.fn().mockResolvedValue({
@@ -188,5 +195,47 @@ describe('Telegram mini-app bootstrap route', () => {
         expect(serialized).not.toContain(TEST_BOT_TOKEN);
         expect(serialized).not.toContain('raw-token');
         expect(serialized.toLowerCase()).not.toContain('initdata');
+    });
+
+    it('mengembalikan nama tenant dari main DB (bug C: dulu hardcoded di UI)', async () => {
+        const { GET } = await import('../route');
+        const res = assertResponse(
+            await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' })),
+        );
+        const body = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(typeof body.tenant.id).toBe('string');
+        expect(body.tenant.name).toBe('PT Contoh Sejahtera');
+    });
+
+    it('mengembalikan canViewPrices true untuk ADMIN', async () => {
+        const { GET } = await import('../route');
+        const res = assertResponse(
+            await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' })),
+        );
+        const body = await res.json();
+
+        expect(body.features.canViewPrices).toBe(true);
+    });
+
+    it('tetap 200 dengan tenant.name null saat lookup main DB gagal', async () => {
+        const { getMainPrisma } = await import('@/lib/core/prisma');
+        (getMainPrisma as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+            tenant: {
+                findUnique: vi.fn().mockRejectedValue(new Error('main db down')),
+            },
+        });
+
+        const { GET } = await import('../route');
+        const res = assertResponse(
+            await GET(makeRequest({ cookie: 'polyflow_tg=raw-token' })),
+        );
+        const body = await res.json();
+
+        // Nama tenant hanya kosmetik — kegagalannya tidak boleh menjatuhkan
+        // seluruh bootstrap.
+        expect(res.status).toBe(200);
+        expect(body.tenant.name).toBeNull();
     });
 });

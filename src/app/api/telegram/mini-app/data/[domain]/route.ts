@@ -17,6 +17,7 @@ import {
 import { listPricesByProduct } from '@/services/sales/price-list-service';
 import type { Role } from '@prisma/client';
 import type { SalesOrderStatus, PurchaseOrderStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 function getIp(req: NextRequest): string {
     return (req.headers.get('x-forwarded-for') || 'unknown')
@@ -58,10 +59,13 @@ async function fetchStock(
     page: number,
     pageSize: number,
 ): Promise<{ total: number; items: DataItem[] }> {
+    // Bug A: cabang 'all' dulu ikut memakai HAVING minStockAlert > 0, jadi SKU
+    // yang belum diisi batas minimum tidak pernah muncul walau tab "Semua".
+    // Sekarang hanya cabang 'critical' yang menyaring.
     const where =
         filter === 'critical'
-            ? `HAVING SUM(i.quantity) < SUM(pv."minStockAlert") AND SUM(pv."minStockAlert") > 0`
-            : `HAVING SUM(pv."minStockAlert") > 0`;
+            ? Prisma.sql`HAVING SUM(i.quantity) < SUM(pv."minStockAlert") AND SUM(pv."minStockAlert") > 0`
+            : Prisma.empty;
 
     const rows = await prisma.$queryRaw<
         {
@@ -85,6 +89,7 @@ async function fetchStock(
     FROM "ProductVariant" pv
     JOIN "Product" p ON pv."productId" = p.id
     LEFT JOIN "Inventory" i ON i."productVariantId" = pv.id
+    WHERE pv."archivedAt" IS NULL
     GROUP BY pv.id, p.name, pv.name, pv."skuCode", pv."minStockAlert", pv."primaryUnit"
     ${where}
     ORDER BY qty ASC
@@ -94,17 +99,21 @@ async function fetchStock(
     const offset = page * pageSize;
     const sliced = rows.slice(offset, offset + pageSize);
 
-    const items: DataItem[] = sliced.map((r) => ({
-        id: r.variantId,
-        title: `${r.productName} — ${r.variantName}`,
-        subtitle: `SKU: ${r.skuCode}`,
-        status: Number(r.qty) < Number(r.minStockAlert) ? 'CRITICAL' : 'OK',
-        statusVariant:
-            Number(r.qty) < Number(r.minStockAlert)
+    const items: DataItem[] = sliced.map((r) => {
+        // minStockAlert bisa 0/null (batas belum diset) — jangan tandai CRITICAL.
+        const min = Number(r.minStockAlert);
+        const isCritical = min > 0 && Number(r.qty) < min;
+        return {
+            id: r.variantId,
+            title: `${r.productName} — ${r.variantName}`,
+            subtitle: `SKU: ${r.skuCode}`,
+            status: isCritical ? 'CRITICAL' : 'OK',
+            statusVariant: isCritical
                 ? ('critical' as const)
                 : ('ok' as const),
-        meta: `${Number(r.qty).toLocaleString('id-ID')} ${r.unit} / min ${Number(r.minStockAlert).toLocaleString('id-ID')}`,
-    }));
+            meta: `${Number(r.qty).toLocaleString('id-ID')} ${r.unit} / min ${min.toLocaleString('id-ID')}`,
+        };
+    });
 
     return { total, items };
 }

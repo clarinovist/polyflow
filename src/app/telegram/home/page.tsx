@@ -9,7 +9,7 @@ import { ErrorState, EmptyState } from '../components/error-states';
 
 type Kpi = { key: string; label: string; value: number | string; checkedAt: string; domain?: string };
 type Alert = { type: string; message: string; deepLink: string };
-type Bootstrap = { user: { name?: string; allowedDomains: string[] }; tenant: { id: string } };
+type Bootstrap = { user: { name?: string; allowedDomains: string[] }; tenant: { id: string; name?: string | null } };
 
 function HomeInner() {
   const { haptic } = useTelegram();
@@ -101,14 +101,20 @@ function HomeInner() {
 
   const userName = bootstrap?.user?.name || 'Admin';
   const allowedDomains = bootstrap?.user?.allowedDomains || [];
+  const tenantName = bootstrap?.tenant?.name?.trim() || null;
+  const todayLabel = new Date().toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Jakarta',
+  });
 
   return (
     <div className="mx-auto min-h-screen max-w-[480px] p-4 pb-24">
       <header className="mb-5 flex items-start justify-between">
         <div>
           <h1 className="text-base font-semibold">Halo, {userName}</h1>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <p className="text-xs opacity-60">CV Melindo Jaya • {(new Date() as any).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+          <p className="text-xs opacity-60">{tenantName ? `${tenantName} • ` : ''}{todayLabel}</p>
         </div>
         <Link href="/telegram/account" className="rounded-full border px-3 py-1.5 text-xs">⋮</Link>
       </header>
