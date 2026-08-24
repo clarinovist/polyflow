@@ -1,3 +1,25 @@
+/** Shared CTA destinations for the public landing page.
+ *  `#contact` is the CTA section (cta-section-enhanced.tsx has id="contact").
+ *  Final destination (WhatsApp / form / email) is still pending a product decision —
+ *  see docs/plan/2026-08-24-landing-page-design-hardening.md §9. */
+export const homeLinks = {
+    contactSales: '#contact',
+    exploreFeatures: '#features',
+    testimonials: '#testimonials',
+    register: '/register',
+    login: '/login',
+} as const;
+
+/** Public navigation labels */
+export const navLabels = {
+    features: 'Fitur',
+    testimonials: 'Testimoni',
+    tenantLogin: 'Login Tenant',
+    contactSales: 'Hubungi Penjualan',
+    openMenu: 'Buka menu',
+    closeMenu: 'Tutup menu',
+} as const;
+
 /** Hero section labels */
 export const heroLabels = {
     badge: 'Dibangun untuk Industri Plastik Konverting',
@@ -49,6 +71,17 @@ export const featureLabels = {
                 'Pelacakan pengiriman end-to-end, penjadwalan pengiriman, dan manajemen biaya angkutan dalam satu tampilan.',
         },
     },
+} as const;
+
+/** CTA section labels */
+export const ctaLabels = {
+    badge: 'Mulai Sekarang',
+    heading: 'Siap mengoptimalkan',
+    headingAccent: 'pabrik Anda?',
+    description:
+        'Buat workspace untuk perusahaan Anda, atau masuk ke tenant yang sudah ada. Setiap modul siap dipakai sejak hari pertama.',
+    primaryCta: 'Buat Workspace',
+    secondaryCta: 'Login Tenant',
 } as const;
 
 /** Public footer labels */

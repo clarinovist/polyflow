@@ -9,6 +9,7 @@ import {
     Truck,
 } from 'lucide-react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
 import { featureLabels as L } from '@/lib/labels/home';
 import { useRef } from 'react';
 
@@ -69,13 +70,15 @@ const features = [
     },
 ];
 
-// 3D Tilt Card Component
+// 3D Tilt Card Component — pointer tracking is skipped entirely under reduced motion
 function TiltCard({
     children,
     className,
+    disabled = false,
 }: {
     children: React.ReactNode;
     className?: string;
+    disabled?: boolean;
 }) {
     const ref = useRef<HTMLDivElement>(null);
     const x = useMotionValue(0);
@@ -84,7 +87,7 @@ function TiltCard({
     const rotateY = useTransform(x, [-100, 100], [-10, 10]);
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!ref.current) return;
+        if (disabled || !ref.current) return;
         const rect = ref.current.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
@@ -93,9 +96,14 @@ function TiltCard({
     };
 
     const handleMouseLeave = () => {
+        if (disabled) return;
         x.set(0);
         y.set(0);
     };
+
+    if (disabled) {
+        return <div className={className}>{children}</div>;
+    }
 
     return (
         <motion.div
@@ -128,8 +136,14 @@ const itemVariants = {
 };
 
 export default function FeaturesSectionEnhanced() {
+    const prefersReducedMotion = useReducedMotionSafe();
+    const animated = !prefersReducedMotion;
+
     return (
-        <section id="features" className="py-28 relative overflow-hidden">
+        <section
+            id="features"
+            className="py-24 scroll-mt-24 relative overflow-hidden"
+        >
             {/* Section background */}
             <div className="absolute inset-0 bg-zinc-50 dark:bg-zinc-950" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.1),transparent_60%)] dark:bg-[radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.1),transparent_60%)]" />
@@ -139,35 +153,44 @@ export default function FeaturesSectionEnhanced() {
 
             <div className="container mx-auto px-6 max-w-6xl relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: animated ? 20 : 0 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: '-100px' }}
-                    transition={{ duration: 0.6 }}
-                    className="text-center mb-16"
+                    viewport={{ once: true, amount: 0 }}
+                    transition={{ duration: animated ? 0.6 : 0.2 }}
+                    className="text-center mb-14"
                 >
                     <motion.span
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: animated ? 10 : 0 }}
                         whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.1, duration: 0.5 }}
+                        viewport={{ once: true, amount: 0 }}
+                        transition={{
+                            delay: animated ? 0.1 : 0,
+                            duration: 0.5,
+                        }}
                         className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block"
                     >
                         {L.sectionTitle}
                     </motion.span>
                     <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: animated ? 20 : 0 }}
                         whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.2, duration: 0.6 }}
+                        viewport={{ once: true, amount: 0 }}
+                        transition={{
+                            delay: animated ? 0.2 : 0,
+                            duration: 0.6,
+                        }}
                         className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-5"
                     >
                         {L.sectionHeading}
                     </motion.h2>
                     <motion.p
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: animated ? 20 : 0 }}
                         whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.3, duration: 0.6 }}
+                        viewport={{ once: true, amount: 0 }}
+                        transition={{
+                            delay: animated ? 0.3 : 0,
+                            duration: 0.6,
+                        }}
                         className="text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto text-lg"
                     >
                         {L.sectionDescription}
@@ -178,12 +201,12 @@ export default function FeaturesSectionEnhanced() {
                     variants={containerVariants}
                     initial="hidden"
                     whileInView="visible"
-                    viewport={{ once: true, margin: '-50px' }}
+                    viewport={{ once: true, amount: 0 }}
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
                 >
                     {features.map((feature, index) => (
                         <motion.div key={index} variants={itemVariants}>
-                            <TiltCard className="h-full">
+                            <TiltCard className="h-full" disabled={!animated}>
                                 <div
                                     className={`group relative p-7 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-zinc-900/20 ${feature.borderColor} ${feature.glowColor} hover:bg-zinc-100 dark:hover:bg-zinc-900/40 transition-all duration-500 cursor-default h-full shadow-lg hover:shadow-xl`}
                                 >
@@ -201,10 +224,14 @@ export default function FeaturesSectionEnhanced() {
 
                                     <div className="relative z-10">
                                         <motion.div
-                                            whileHover={{
-                                                scale: 1.1,
-                                                rotate: 5,
-                                            }}
+                                            whileHover={
+                                                animated
+                                                    ? {
+                                                          scale: 1.1,
+                                                          rotate: 5,
+                                                      }
+                                                    : undefined
+                                            }
                                             transition={{
                                                 type: 'spring',
                                                 stiffness: 300,

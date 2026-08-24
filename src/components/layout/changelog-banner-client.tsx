@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -12,6 +13,31 @@ const CHANGELOG_SANITIZE_CONFIG = {
     ALLOW_DATA_ATTR: false,
 };
 
+/**
+ * Routes that anonymous visitors can reach. The changelog is an internal release
+ * note — it names unreleased modules, internal phases, and links the private repo —
+ * so it must never render on a public surface.
+ *
+ * `/` is the marketing landing page and is matched exactly, not by prefix:
+ * a prefix match on '/' would suppress the banner everywhere.
+ */
+const PUBLIC_PATH_PREFIXES = [
+    '/login',
+    '/register',
+    '/logout',
+    '/terms',
+    '/privacy',
+    '/kiosk',
+];
+
+export function isPublicChangelogPath(pathname: string | null): boolean {
+    if (!pathname) return true;
+    if (pathname === '/') return true;
+    return PUBLIC_PATH_PREFIXES.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    );
+}
+
 interface ChangelogBannerClientProps {
     version: string;
     notesHtml: string;
@@ -21,18 +47,24 @@ export function ChangelogBannerClient({
     version,
     notesHtml,
 }: ChangelogBannerClientProps) {
+    const pathname = usePathname();
+    const isPublicPage = isPublicChangelogPath(pathname);
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
+        if (isPublicPage) {
+            setIsVisible(false);
+            return;
+        }
         const dismissed = localStorage.getItem(
             `dismissed_changelog_${version}`,
         );
         if (!dismissed) {
             setIsVisible(true);
         }
-    }, [version]);
+    }, [version, isPublicPage]);
 
-    if (!isVisible) return null;
+    if (isPublicPage || !isVisible) return null;
 
     const handleDismiss = () => {
         localStorage.setItem(`dismissed_changelog_${version}`, 'true');

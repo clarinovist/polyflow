@@ -86,7 +86,10 @@ export default function TestimonialSectionEnhanced() {
     };
 
     return (
-        <section id="testimonials" className="py-28 relative overflow-hidden">
+        <section
+            id="testimonials"
+            className="py-24 scroll-mt-24 relative overflow-hidden"
+        >
             {/* Background */}
             <div className="absolute inset-0 bg-zinc-950" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(120,119,198,0.1),transparent_50%)]" />
@@ -123,7 +126,7 @@ export default function TestimonialSectionEnhanced() {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: '-100px' }}
+                    viewport={{ once: true, amount: 0 }}
                     transition={{ duration: 0.6 }}
                     className="text-center mb-16"
                 >

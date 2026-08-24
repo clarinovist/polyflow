@@ -6,8 +6,12 @@ import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
+import { navLabels as L, homeLinks } from '@/lib/labels/home';
 
 export default function PublicNavEnhanced() {
+    const prefersReducedMotion = useReducedMotionSafe();
+    const animated = !prefersReducedMotion;
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -18,16 +22,19 @@ export default function PublicNavEnhanced() {
     }, []);
 
     const navLinks = [
-        { href: '#features', label: 'Features' },
-        { href: '#testimonials', label: 'About Us' },
-        { href: '/login', label: 'Tenant Login' },
+        { href: homeLinks.exploreFeatures, label: L.features },
+        { href: homeLinks.testimonials, label: L.testimonials },
+        { href: homeLinks.login, label: L.tenantLogin },
     ];
 
     return (
         <motion.header
-            initial={{ y: -100 }}
+            initial={{ y: animated ? -100 : 0 }}
             animate={{ y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{
+                duration: animated ? 0.6 : 0.2,
+                ease: [0.16, 1, 0.3, 1],
+            }}
             className={`fixed top-0 w-full z-50 transition-all duration-500 ${
                 scrolled
                     ? 'bg-white/80 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-200 dark:border-white/5 shadow-lg shadow-black/20'
@@ -49,10 +56,10 @@ export default function PublicNavEnhanced() {
                     {navLinks.map((link, index) => (
                         <motion.div
                             key={link.href}
-                            initial={{ opacity: 0, y: -20 }}
+                            initial={{ opacity: 0, y: animated ? -20 : 0 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{
-                                delay: 0.1 + index * 0.1,
+                                delay: animated ? 0.1 + index * 0.1 : 0,
                                 duration: 0.5,
                             }}
                         >
@@ -65,13 +72,16 @@ export default function PublicNavEnhanced() {
                         </motion.div>
                     ))}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: animated ? 0.9 : 1 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.4, duration: 0.5 }}
+                        transition={{
+                            delay: animated ? 0.4 : 0,
+                            duration: 0.5,
+                        }}
                     >
                         <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            whileHover={animated ? { scale: 1.05 } : undefined}
+                            whileTap={animated ? { scale: 0.95 } : undefined}
                             transition={{
                                 type: 'spring',
                                 stiffness: 400,
@@ -82,7 +92,9 @@ export default function PublicNavEnhanced() {
                                 className="bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-sm h-9 px-6 rounded-full font-semibold shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.15)] transition-all duration-300"
                                 asChild
                             >
-                                <Link href="#contact">Contact Sales</Link>
+                                <Link href={homeLinks.contactSales}>
+                                    {L.contactSales}
+                                </Link>
                             </Button>
                         </motion.div>
                     </motion.div>
@@ -90,20 +102,26 @@ export default function PublicNavEnhanced() {
 
                 {/* Mobile hamburger */}
                 <motion.button
+                    type="button"
+                    aria-label={mobileOpen ? L.closeMenu : L.openMenu}
+                    aria-expanded={mobileOpen}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5, duration: 0.5 }}
+                    transition={{ delay: animated ? 0.5 : 0, duration: 0.5 }}
                     className="md:hidden text-zinc-900 dark:text-white p-2"
                     onClick={() => setMobileOpen(!mobileOpen)}
-                    whileTap={{ scale: 0.9 }}
+                    whileTap={animated ? { scale: 0.9 } : undefined}
                 >
                     <AnimatePresence mode="wait">
                         {mobileOpen ? (
                             <motion.div
                                 key="close"
-                                initial={{ rotate: -90, opacity: 0 }}
+                                initial={{
+                                    rotate: animated ? -90 : 0,
+                                    opacity: 0,
+                                }}
                                 animate={{ rotate: 0, opacity: 1 }}
-                                exit={{ rotate: 90, opacity: 0 }}
+                                exit={{ rotate: animated ? 90 : 0, opacity: 0 }}
                                 transition={{ duration: 0.2 }}
                             >
                                 <X className="w-6 h-6" />
@@ -111,9 +129,15 @@ export default function PublicNavEnhanced() {
                         ) : (
                             <motion.div
                                 key="menu"
-                                initial={{ rotate: 90, opacity: 0 }}
+                                initial={{
+                                    rotate: animated ? 90 : 0,
+                                    opacity: 0,
+                                }}
                                 animate={{ rotate: 0, opacity: 1 }}
-                                exit={{ rotate: -90, opacity: 0 }}
+                                exit={{
+                                    rotate: animated ? -90 : 0,
+                                    opacity: 0,
+                                }}
                                 transition={{ duration: 0.2 }}
                             >
                                 <Menu className="w-6 h-6" />
@@ -137,10 +161,13 @@ export default function PublicNavEnhanced() {
                             {navLinks.map((link, index) => (
                                 <motion.div
                                     key={link.href}
-                                    initial={{ opacity: 0, x: -20 }}
+                                    initial={{
+                                        opacity: 0,
+                                        x: animated ? -20 : 0,
+                                    }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{
-                                        delay: index * 0.1,
+                                        delay: animated ? index * 0.1 : 0,
                                         duration: 0.3,
                                     }}
                                 >
@@ -154,19 +181,22 @@ export default function PublicNavEnhanced() {
                                 </motion.div>
                             ))}
                             <motion.div
-                                initial={{ opacity: 0, x: -20 }}
+                                initial={{ opacity: 0, x: animated ? -20 : 0 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.3, duration: 0.3 }}
+                                transition={{
+                                    delay: animated ? 0.3 : 0,
+                                    duration: 0.3,
+                                }}
                             >
                                 <Button
                                     className="w-full bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 rounded-full font-semibold"
                                     asChild
                                 >
                                     <Link
-                                        href="#contact"
+                                        href={homeLinks.contactSales}
                                         onClick={() => setMobileOpen(false)}
                                     >
-                                        Contact Sales
+                                        {L.contactSales}
                                     </Link>
                                 </Button>
                             </motion.div>
