@@ -11,10 +11,7 @@ import {
     requireFinanceMutation,
 } from '@/lib/auth/finance-access';
 
-import {
-    CreateOpeningBalanceInput,
-    UnifiedMakeOpeningBalanceInput,
-} from './opening-balance-types';
+import { UnifiedMakeOpeningBalanceInput } from './opening-balance-types';
 import {
     assertNoDuplicateOpeningBalanceEntries,
     createAPOpeningBalance,
@@ -117,55 +114,6 @@ export const saveUnifiedOpeningBalance = withTenant(
                 });
                 throw new BusinessRuleError(
                     'Failed to save opening balance. Please verify entries.',
-                );
-            }
-        });
-    },
-);
-
-export const createOpeningBalance = withTenant(
-    async function createOpeningBalance(data: CreateOpeningBalanceInput) {
-        return safeAction(async () => {
-            const session = await requireFinanceMutation();
-
-            try {
-                const equityAccount =
-                    await ensureOpeningBalanceEquityAccount(prisma);
-                const subLedgerAccount = await getSubLedgerAccountOrThrow(
-                    prisma,
-                    data.type,
-                );
-
-                await prisma.$transaction(async (tx) => {
-                    if (data.type === 'AR') {
-                        await createAROpeningBalance(
-                            data,
-                            session.user.id,
-                            equityAccount.id,
-                            subLedgerAccount.id,
-                            tx,
-                        );
-                    } else {
-                        await createAPOpeningBalance(
-                            data,
-                            session.user.id,
-                            equityAccount.id,
-                            subLedgerAccount.id,
-                            tx,
-                        );
-                    }
-                });
-
-                revalidatePath('/finance');
-                revalidatePath('/finance/reports/balance-sheet');
-                return { message: 'Opening balance created successfully' };
-            } catch (error) {
-                logger.error('Failed to create opening balance', {
-                    error,
-                    module: 'OpeningBalanceActions',
-                });
-                throw new BusinessRuleError(
-                    'Failed to create opening balance. Please try again.',
                 );
             }
         });
