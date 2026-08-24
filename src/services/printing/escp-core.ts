@@ -13,14 +13,14 @@
 
 // ─── ESC/P Control Codes ──────────────────────────────────────────────
 
-export const ESC = 0x1b; // Escape
-export const FF = 0x0c; // Form Feed
-export const CR = 0x0d; // Carriage Return
-export const LF = 0x0a; // Line Feed
+const ESC = 0x1b; // Escape
+const FF = 0x0c; // Form Feed
+const CR = 0x0d; // Carriage Return
+const LF = 0x0a; // Line Feed
 
 // ─── Helper: Convert string to byte array (ASCII-safe ESC/P) ──────────
 
-export function toPrinterSafeText(s: string): string {
+function toPrinterSafeText(s: string): string {
     return s
         .normalize('NFKD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -38,12 +38,12 @@ export function str(s: string): number[] {
 // ─── ESC/P Command Builders ───────────────────────────────────────────
 
 /** Initialize printer (reset to defaults) */
-export function init(): number[] {
+function init(): number[] {
     return [ESC, 0x40]; // ESC @
 }
 
 /** Set print quality: 0=Draft, 1=NLQ (Near Letter Quality) */
-export function setQuality(mode: 0 | 1): number[] {
+function setQuality(mode: 0 | 1): number[] {
     return [ESC, 0x78, mode]; // ESC x n
 }
 
@@ -66,22 +66,22 @@ export function setCPI(pitch: 10 | 12): number[] {
 }
 
 /** Cancel condensed mode (DC2) — belt and braces alongside ESC !. */
-export function cancelCondensed(): number[] {
+function cancelCondensed(): number[] {
     return [0x12];
 }
 
 /** Cancel proportional spacing. ESC p 0 */
-export function cancelProportional(): number[] {
+function cancelProportional(): number[] {
     return [ESC, 0x70, 0];
 }
 
 /** Set line spacing to 1/6 inch */
-export function setLineSpacing1_6(): number[] {
+function setLineSpacing1_6(): number[] {
     return [ESC, 0x32]; // ESC 2
 }
 
 /** Set page length in lines (1-127). ESC C n */
-export function setPageLengthLines(n: number): number[] {
+function setPageLengthLines(n: number): number[] {
     return [ESC, 0x43, Math.max(1, Math.min(127, Math.round(n)))]; // ESC C n
 }
 
@@ -91,12 +91,12 @@ export function setBold(on: boolean): number[] {
 }
 
 /** Set left margin (in columns at current CPI) */
-export function setLeftMargin(col: number): number[] {
+function setLeftMargin(col: number): number[] {
     return [ESC, 0x6c, col]; // ESC l n
 }
 
 /** Set right margin (in columns at current CPI) */
-export function setRightMargin(col: number): number[] {
+function setRightMargin(col: number): number[] {
     return [ESC, 0x51, col]; // ESC Q n
 }
 
@@ -112,7 +112,7 @@ export function formFeed(): number[] {
 
 // ─── Layout Constants ─────────────────────────────────────────────────
 
-export const CM_PER_INCH = 2.54;
+const CM_PER_INCH = 2.54;
 export const BODY_CPI = 12;
 /** Mechanical print-width ceiling of Epson wide-carriage models. */
 const WIDE_CARRIAGE_MAX_INCHES = 13.6;

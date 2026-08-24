@@ -654,36 +654,6 @@ export function canReopenTrip(tripStatus: TripStatus): {
         error: `Tidak bisa membuka kembali trip dengan status "${tripStatus}". Hanya trip terkonfirmasi yang bisa dikembalikan ke Rencana.`,
     };
 }
-
-// ============================================
-// Status Labels (Bahasa Indonesia)
-// ============================================
-
-export const SCHEDULE_STATUS_LABELS: Record<string, string> = {
-    DRAFT: 'Draft',
-    ACTIVE: 'Aktif',
-    CLOSED: 'Selesai',
-    // Legacy
-    CONFIRMED: 'Aktif',
-    IN_TRANSIT: 'Aktif',
-    COMPLETED: 'Selesai',
-};
-
-export const TRIP_STATUS_LABELS: Record<string, string> = {
-    PLANNED: 'Direncanakan',
-    CONFIRMED: 'Dikonfirmasi',
-    DEPARTED: 'Berangkat',
-    COMPLETED: 'Selesai',
-    CANCELLED: 'Dibatalkan',
-};
-
-export const STOP_STATUS_LABELS: Record<string, string> = {
-    PLANNED: 'Belum SJ',
-    LINKED: 'Ada SJ',
-    GENERATED: 'Ada SJ',
-    CANCELLED: 'Batal',
-};
-
 export const TRANSPORT_MODE_LABELS: Record<string, string> = {
     INTERNAL_FLEET: 'Armada Internal',
     EXTERNAL_FLEET: 'Armada Luar',
@@ -696,45 +666,4 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
     PICKUP_LOAD: 'Muat/Pickup',
     BACKHAUL: 'Backhaul',
     OTHER: 'Lainnya',
-};
-
-/**
- * Status badge color hints for UI.
- */
-export const SCHEDULE_STATUS_COLORS: Record<string, string> = {
-    DRAFT: 'muted',
-    ACTIVE: 'blue',
-    CLOSED: 'green',
-    CONFIRMED: 'blue',
-    IN_TRANSIT: 'blue',
-    COMPLETED: 'green',
-};
-
-export const TRIP_STATUS_COLORS: Record<string, string> = {
-    PLANNED: 'muted',
-    CONFIRMED: 'blue',
-    DEPARTED: 'amber',
-    COMPLETED: 'green',
-    CANCELLED: 'red',
-};
-
-export const STOP_STATUS_COLORS: Record<string, string> = {
-    PLANNED: 'orange',
-    LINKED: 'green',
-    GENERATED: 'green',
-    CANCELLED: 'red',
-};
-
-export const TRANSPORT_MODE_COLORS: Record<string, string> = {
-    INTERNAL_FLEET: 'blue',
-    EXTERNAL_FLEET: 'purple',
-    CUSTOMER_PICKUP: 'teal',
-    TBD: 'muted',
-};
-
-export const ACTIVITY_TYPE_COLORS: Record<string, string> = {
-    DELIVERY: 'blue',
-    PICKUP_LOAD: 'amber',
-    BACKHAUL: 'purple',
-    OTHER: 'muted',
 };

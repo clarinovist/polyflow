@@ -10,7 +10,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
-    DEFAULT_PAYMENT_METHOD,
     type PaymentBankKey,
     type PaymentMethod,
     type TenantPaymentBanks,
@@ -120,5 +119,3 @@ export function PaymentMethodFields({
         </>
     );
 }
-
-export { DEFAULT_PAYMENT_METHOD };

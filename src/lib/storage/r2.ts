@@ -1,6 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { headers } from 'next/headers';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';import { headers } from 'next/headers';
 import { extractSubdomain } from '@/lib/core/tenant';
 
 // Reuse existing S3-compatible env vars (already configured for Cloudflare R2)
@@ -14,8 +12,6 @@ export const r2Client = new S3Client({
 });
 
 export const BUCKET = process.env.S3_BUCKET || 'polyflow-uploads';
-const PUBLIC_URL = process.env.S3_PUBLIC_URL || '';
-
 /**
  * Get tenant identifier from request headers.
  * Returns tenant subdomain (e.g., "kiyowo", "melindo") or "default" if not found.
@@ -36,24 +32,6 @@ export async function getTenantPrefix(): Promise<string> {
         return 'default';
     }
 }
-
-export async function generateR2PresignedUploadUrl(
-    key: string,
-    contentType: string,
-    expiresIn = 300,
-): Promise<{ uploadUrl: string; publicUrl: string }> {
-    const command = new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
-        ContentType: contentType,
-    });
-
-    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn });
-    const publicUrl = `${PUBLIC_URL}/${key}`;
-
-    return { uploadUrl, publicUrl };
-}
-
 /**
  * Upload file directly to R2 (server-side, avoids CORS issues).
  */
@@ -152,11 +130,6 @@ export function buildDeliveryPhotoKey(
     const timestamp = Date.now();
     return `${tenant}/delivery/${deliveryOrderId}/${photoType}/${timestamp}.${ext}`;
 }
-export function buildBackupKey(tenant: string, database: string): string {
-    const date = new Date().toISOString().split('T')[0];
-    return `${tenant}/backups/${database}/${date}.sql.gz`;
-}
-
 /**
  * Build R2 key for warehouse operational attachments.
  * Format: {tenant}/warehouse/{entityType}/{entityId}/{checkpoint}/{timestamp}.{ext}

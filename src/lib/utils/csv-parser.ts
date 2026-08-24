@@ -38,7 +38,7 @@ export interface ParsedProduct {
 /**
  * Generate CSV template for product import
  */
-export function generateCSVTemplate(): string {
+function generateCSVTemplate(): string {
     const headers = [
         'product_name',
         'product_type',
@@ -126,7 +126,7 @@ export function downloadCSVTemplate() {
 /**
  * Parse CSV file
  */
-export function parseCSVFile(file: File): Promise<ProductImportRow[]> {
+function parseCSVFile(file: File): Promise<ProductImportRow[]> {
     return new Promise((resolve, reject) => {
         Papa.parse<ProductImportRow>(file, {
             header: true,
@@ -153,7 +153,7 @@ export function parseCSVFile(file: File): Promise<ProductImportRow[]> {
 /**
  * Group rows by product name
  */
-export function groupByProduct(
+function groupByProduct(
     rows: ProductImportRow[],
 ): Map<string, ProductImportRow[]> {
     const grouped = new Map<string, ProductImportRow[]>();
@@ -217,7 +217,7 @@ function buildAttributes(
 /**
  * Generate Excel template for product import
  */
-export function generateExcelTemplate(): Blob {
+function generateExcelTemplate(): Blob {
     const headers = [
         'product_name',
         'product_type',
@@ -338,7 +338,7 @@ export function downloadExcelTemplate() {
 /**
  * Parse Excel file (.xlsx or .xls)
  */
-export function parseExcelFile(file: File): Promise<ProductImportRow[]> {
+function parseExcelFile(file: File): Promise<ProductImportRow[]> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
 
@@ -407,7 +407,7 @@ export async function parseImportFile(file: File): Promise<ProductImportRow[]> {
 /**
  * Generate error report CSV
  */
-export function generateErrorReport(
+function generateErrorReport(
     results: Array<{
         row: number;
         errors: Array<{ field: string; message: string }>;

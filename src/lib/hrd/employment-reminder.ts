@@ -22,7 +22,7 @@ interface ExpiringEmployee {
 }
 
 /** Find ACTIVE employees with PROBATION/CONTRACT ending within window (including overdue). */
-export async function findExpiringEmployees(
+async function findExpiringEmployees(
     db: PrismaClient,
 ): Promise<ExpiringEmployee[]> {
     const now = new Date();

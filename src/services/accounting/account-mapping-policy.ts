@@ -75,7 +75,7 @@ function contextToAccountRole(context: AccountMappingContext): AccountRole {
  * Resolve the inventory asset account code based on product type.
  * Uses tenant-aware account resolver with fallback patterns.
  */
-export async function resolveInventoryAccountCode(
+async function resolveInventoryAccountCode(
     productType: ProductType | string | null | undefined,
     tenantId?: string,
 ): Promise<ResolvedAccount> {

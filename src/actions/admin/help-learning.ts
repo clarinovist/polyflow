@@ -148,20 +148,6 @@ export async function listHelpDrafts(params: ListDraftsParams = {}) {
 
     return { items, total, page, limit };
 }
-
-export async function getHelpDraft(id: string) {
-    await requireSuperAdmin();
-    const mainDb = getMainPrisma();
-    const draft = await mainDb.helpLearningDraft.findUnique({
-        where: { id },
-        include: {
-            cluster: true,
-        },
-    });
-    if (!draft) throw new NotFoundError('Draft not found.');
-    return draft;
-}
-
 export async function approveDraftAsArticle(
     id: string,
     opts?: {

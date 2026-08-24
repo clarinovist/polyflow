@@ -47,7 +47,7 @@ export async function createEmployeeSessionToken(
     return `${header}.${body}.${sig}`;
 }
 
-export async function verifyEmployeeSessionToken(
+async function verifyEmployeeSessionToken(
     token: string,
 ): Promise<EmployeeSessionPayload | null> {
     try {

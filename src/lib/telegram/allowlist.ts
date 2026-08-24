@@ -63,13 +63,3 @@ export function isPilotTenant(subdomain: string | null | undefined): boolean {
   ).toLowerCase();
   return subdomain.toLowerCase() === pilot;
 }
-
-export function checkPilotEligibility(params: {
-  user: PilotUser;
-  subdomain: string | null | undefined;
-}): { allowed: boolean; reason?: string } {
-  if (!isPilotTenant(params.subdomain)) {
-    return { allowed: false, reason: 'tenant not pilot' };
-  }
-  return checkPilotAdminGate(params.user);
-}

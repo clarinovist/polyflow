@@ -22,7 +22,7 @@ const VALID_UNITS = Object.values(Unit);
 /**
  * Validate a single import row
  */
-export function validateRow(
+function validateRow(
     row: ProductImportRow,
     rowIndex: number,
     existingSKUs: Set<string>,

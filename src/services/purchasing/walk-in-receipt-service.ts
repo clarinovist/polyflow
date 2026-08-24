@@ -15,11 +15,6 @@ import { BusinessRuleError } from '@/lib/errors/errors';
 import { logger } from '@/lib/config/logger';
 import { WALK_IN_NOTE_PREFIX } from '@/lib/purchasing/walk-in';
 
-export {
-    WALK_IN_NOTE_PREFIX,
-    isWalkInPurchaseOrderNotes,
-} from '@/lib/purchasing/walk-in';
-
 const WALK_IN_LOCATIONS_BLOCKED = ['SCRAP', 'CUSTOMER_OWNED'];
 
 export async function listReceivablePurchaseOrders() {
@@ -312,10 +307,7 @@ export async function createWalkInReceipt(
  * Finance approval: approve walk-in purchase invoice → UNPAID.
  * Idempotent: if already UNPAID/PAID, returns existing.
  */
-export async function approveWalkInInvoice(
-    invoiceId: string,
-    _userId: string,
-) {
+export async function approveWalkInInvoice(invoiceId: string, _userId: string) {
     const invoice = await prisma.purchaseInvoice.findUnique({
         where: { id: invoiceId },
         include: {
@@ -376,9 +368,8 @@ export async function approveWalkInInvoice(
 
     // Sync journal status
     try {
-        const { AutoJournalService } = await import(
-            '@/services/finance/auto-journal-service'
-        );
+        const { AutoJournalService } =
+            await import('@/services/finance/auto-journal-service');
         await AutoJournalService.handlePurchaseInvoiceCreated(invoiceId);
     } catch (err) {
         logger.error('Auto-Journal sync failed on walk-in invoice approve', {

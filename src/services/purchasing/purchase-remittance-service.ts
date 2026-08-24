@@ -600,17 +600,3 @@ export async function listPurchaseRemittances(
 
     return rows;
 }
-
-export async function getPurchaseRemittanceById(id: string) {
-    const remittance = await prisma.purchaseRemittance.findUnique({
-        where: { id },
-        include: {
-            items: { include: { purchaseInvoice: true } },
-            user: { select: { id: true, name: true } },
-        },
-    });
-
-    if (!remittance) throw new NotFoundError('PurchaseRemittance', id);
-
-    return remittance;
-}

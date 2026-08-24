@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
 
-export const purchaseOrderItemSchema = z.object({
+const purchaseOrderItemSchema = z.object({
     id: z.string().optional(),
     productVariantId: z.string().min(1, 'Product is required'),
     quantity: z.coerce.number().positive('Quantity must be positive'),
@@ -42,7 +42,7 @@ export const updatePurchaseOrderSchema = z.object({
         .min(1, 'At least one item is required'),
 });
 
-export const goodsReceiptItemSchema = z.object({
+const goodsReceiptItemSchema = z.object({
     purchaseOrderItemId: z.string().optional(),
     productVariantId: z.string().min(1, 'Product is required'),
     receivedQty: z
@@ -165,7 +165,7 @@ export const createWalkInReceiptSchema = z.object({
         .min(1, 'At least one item is required'),
 });
 
-export const purchaseRequestItemSchema = z.object({
+const purchaseRequestItemSchema = z.object({
     productVariantId: z.string().min(1, 'Product is required'),
     quantity: z.coerce.number().positive('Quantity must be positive'),
     notes: z.string().optional().transform(sanitizeHtml),

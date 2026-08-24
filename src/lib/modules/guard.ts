@@ -67,37 +67,6 @@ export class ModuleNotEntitledError extends BusinessRuleError {
         this.name = 'ModuleNotEntitledError';
     }
 }
-
-// ---------------------------------------------------------------------------
-// Guard for server actions (throws on denial)
-// ---------------------------------------------------------------------------
-
-/**
- * Wraps a server action to enforce module entitlement.
- * Throws ModuleNotEntitledError if the module is not active.
- *
- * Usage:
- *   export const myAction = withModuleGuard('HRD', async (input) => { ... });
- */
-export function withModuleGuard<TArgs extends unknown[], TResult>(
-    moduleKey: ModuleKey,
-    fn: (...args: TArgs) => Promise<TResult>,
-): (...args: TArgs) => Promise<TResult> {
-    return async (...args: TArgs): Promise<TResult> => {
-        const tenantId = tenantIdContext.getStore();
-        if (!tenantId) {
-            throw new ModuleNotEntitledError(moduleKey, 'unknown');
-        }
-
-        const active = await isModuleActive(tenantId, moduleKey);
-        if (!active) {
-            throw new ModuleNotEntitledError(moduleKey, tenantId);
-        }
-
-        return fn(...args);
-    };
-}
-
 // ---------------------------------------------------------------------------
 // Guard for API routes (returns NextResponse on denial)
 // ---------------------------------------------------------------------------
@@ -181,25 +150,6 @@ export async function requireAnyModuleOrNextResponse(
 
     return denied;
 }
-
-/**
- * Higher-order wrapper for route handlers that need module guard.
- * Combines withTenantRoute + module check.
- *
- * Usage:
- *   export const GET = withModuleRoute('FINANCE', async (req) => { ... });
- */
-export function withModuleRoute(
-    moduleKey: ModuleKey,
-    handler: (req: Request) => Promise<NextResponse | Response>,
-): (req: Request) => Promise<NextResponse | Response> {
-    return async (req: Request): Promise<NextResponse | Response> => {
-        const deny = await requireModuleOrNextResponse(moduleKey);
-        if (deny) return deny;
-        return handler(req);
-    };
-}
-
 // ---------------------------------------------------------------------------
 // Guard for routes NOT wrapped in withTenantRoute (e.g. upload routes)
 // ---------------------------------------------------------------------------
@@ -249,46 +199,6 @@ export async function requireModuleFromRequest(
                 error: 'MODULE_NOT_ENTITLED',
                 moduleKey,
                 message: `Module "${moduleKey}" is not available.`,
-            },
-            { status: 403 },
-        );
-    }
-}
-
-/**
- * Same as requireModuleFromRequest but passes when **any** of the given
- * modules is active.
- */
-export async function requireAnyModuleFromRequest(
-    req: Request,
-    moduleKeys: ModuleKey[],
-): Promise<NextResponse | null> {
-    if (moduleKeys.length === 0 || moduleKeys.includes('CORE')) return null;
-
-    try {
-        const { resolveTenantContext } = await import('@/lib/core/tenant');
-        const result = await resolveTenantContext(req.headers);
-        if (result.type !== 'RESOLVED') {
-            return null;
-        }
-        const hasAny = moduleKeys.some((k) => result.activeModules.includes(k));
-        if (!hasAny) {
-            return NextResponse.json(
-                {
-                    error: 'MODULE_NOT_ENTITLED',
-                    moduleKey: moduleKeys.join('|'),
-                    message: `None of the modules "${moduleKeys.join('", "')}" are available for this tenant.`,
-                },
-                { status: 403 },
-            );
-        }
-        return null;
-    } catch {
-        return NextResponse.json(
-            {
-                error: 'MODULE_NOT_ENTITLED',
-                moduleKey: moduleKeys.join('|'),
-                message: `Module entitlement check failed.`,
             },
             { status: 403 },
         );

@@ -1,6 +1,6 @@
 'use server';
 
-import { signIn, signOut } from '@/auth';
+import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { MAIN_LOGIN_RATE_LIMIT_MESSAGE } from '@/lib/auth/login-rate-limit';
@@ -67,8 +67,4 @@ export async function authenticate(
         console.error('Unexpected sign-in error:', error);
         return 'Login sedang bermasalah. Silakan coba lagi.';
     }
-}
-
-export async function logOut() {
-    await signOut();
 }

@@ -57,19 +57,3 @@ export const approvePettyCashExpense = withTenant(
         });
     },
 );
-
-export const replenishPettyCash = withTenant(async function replenishPettyCash(
-    amount: number,
-    bankAccountId: string,
-) {
-    return safeAction(async () => {
-        const session = await requireFinanceMutation();
-        const result = await PettyCashService.replenish(
-            amount,
-            bankAccountId,
-            session.user.id,
-        );
-        revalidatePath('/finance/petty-cash');
-        return serializeData(result);
-    });
-});

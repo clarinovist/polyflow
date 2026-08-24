@@ -20,20 +20,6 @@ export const createReservationSchema = z.object({
 export const cancelReservationSchema = z.object({
     reservationId: z.string().min(1, 'Reservation ID is required'),
 });
-
-// Batch Creation Schema
-export const createBatchSchema = z.object({
-    batchNumber: z
-        .string()
-        .min(1, 'Batch number is required')
-        .transform(sanitizeHtml),
-    productVariantId: z.string().min(1, 'Product variant is required'),
-    locationId: z.string().min(1, 'Location is required'),
-    quantity: z.coerce.number().positive('Quantity must be positive'),
-    manufacturingDate: z.date(),
-    expiryDate: z.date().optional(),
-});
-
 export type CreateReservationValues = z.infer<typeof createReservationSchema>;
 export type CancelReservationValues = z.infer<typeof cancelReservationSchema>;
 export const transferStockSchema = z
@@ -52,7 +38,7 @@ export const transferStockSchema = z
         path: ['destinationLocationId'],
     });
 
-export const adjustStockSchema = z.object({
+const adjustStockSchema = z.object({
     locationId: z.string().min(1, 'Location is required'),
     productVariantId: z.string().min(1, 'Product is required'),
     type: z.enum(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] as const),

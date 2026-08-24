@@ -13,8 +13,8 @@ import { cache } from 'react';
 // Subdomain parsing lives in a client-safe module (no server-only imports) so
 // it can be shared with client components like login-form.tsx. Imported here
 // (and re-exported) for backward compatibility with existing server-side callers.
-import { extractSubdomain, RESERVED_SUBDOMAINS } from '@/lib/core/subdomain';
-export { extractSubdomain, RESERVED_SUBDOMAINS };
+import { extractSubdomain } from '@/lib/core/subdomain';
+export { extractSubdomain };
 
 export type TenantResolutionResult =
     | { type: 'NONE' }

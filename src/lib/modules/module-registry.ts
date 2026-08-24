@@ -452,19 +452,3 @@ export function resolveWorkspaceToModule(workspace: string): ModuleKey | null {
     const root = workspace.startsWith('/') ? workspace : `/${workspace}`;
     return _workspaceToModule.get(root) ?? null;
 }
-
-/**
- * Resolve a pathname to its module key via workspace roots.
- * Falls back to permission resolution for paths not under a workspace root.
- */
-export function resolvePathToModuleKey(pathname: string): ModuleKey | null {
-    // Try workspace root first
-    const segments = pathname.split('/').filter(Boolean);
-    if (segments.length > 0) {
-        const workspaceRoot = `/${segments[0]}`;
-        const wk = _workspaceToModule.get(workspaceRoot);
-        if (wk) return wk;
-    }
-    // Fallback to full path resolution
-    return resolvePathToModule(pathname);
-}

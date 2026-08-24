@@ -272,65 +272,6 @@ export const getTodayRoutePlan = withTenant(async function getTodayRoutePlan() {
         return plan;
     });
 });
-
-// ── List route plans (admin view — filter by date range + rep) ──────
-
-export const listRoutePlans = withTenant(
-    async function listRoutePlans(filters: {
-        startDate?: string;
-        endDate?: string;
-        userId?: string;
-    }) {
-        return safeAction(async () => {
-            await requireSalesAccess();
-
-            const where: Record<string, unknown> = {};
-            if (filters.startDate || filters.endDate) {
-                where.date = {};
-                if (filters.startDate) {
-                    (where.date as Record<string, unknown>).gte = new Date(
-                        filters.startDate,
-                    );
-                }
-                if (filters.endDate) {
-                    (where.date as Record<string, unknown>).lte = new Date(
-                        filters.endDate,
-                    );
-                }
-            }
-            if (filters.userId) {
-                where.userId = filters.userId;
-            }
-
-            const plans = await prisma.salesRoutePlan.findMany({
-                where,
-                include: {
-                    items: {
-                        orderBy: { sortOrder: 'asc' },
-                        include: {
-                            customer: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    code: true,
-                                    city: true,
-                                },
-                            },
-                        },
-                    },
-                    user: {
-                        select: { id: true, name: true },
-                    },
-                },
-                orderBy: { date: 'desc' },
-                take: 50,
-            });
-
-            return plans;
-        });
-    },
-);
-
 // ── Create route plan ───────────────────────────────────────────────
 
 export const createRoutePlan = withTenant(async function createRoutePlan(

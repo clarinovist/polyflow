@@ -97,7 +97,7 @@ export function calculateComplianceRate({
 
 // — Helpers for reviewStatus decision per Q1 —
 
-export const REVIEW_PENDING_REASONS = [
+const REVIEW_PENDING_REASONS = [
     'TOKO_BARU',
     'PERMINTAAN_DADAKAN',
 ] as const;

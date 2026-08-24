@@ -90,7 +90,7 @@ export type CitedArticleForResponse = {
     modules?: string[];
 };
 
-export type AssistantEvidenceChip = {
+type AssistantEvidenceChip = {
     source: ToolEvidenceSource;
     label: string;
     checkedAt: string;

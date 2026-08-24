@@ -98,20 +98,3 @@ export const logoutEmployee = withTenant(async function logoutEmployee() {
     await clearEmployeeSessionCookie();
     return { success: true };
 });
-
-// For admin to check employee has phone+pin setup
-export const checkEmployeeMyAccess = withTenant(
-    async function checkEmployeeMyAccess(employeeId: string) {
-        const emp = await db.employee.findUnique({
-            where: { id: employeeId },
-            select: { id: true, phone: true, pinHash: true, status: true },
-        });
-        if (!emp)
-            return { hasPhone: false, hasPin: false, status: 'NOT_FOUND' };
-        return {
-            hasPhone: !!emp.phone,
-            hasPin: !!emp.pinHash,
-            status: emp.status,
-        };
-    },
-);

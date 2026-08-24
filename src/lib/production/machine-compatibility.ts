@@ -149,21 +149,3 @@ export function filterMachinesByStage<T extends { type: string }>(
     const allowed = getCompatibleMachineTypes(category, overrideMap);
     return machines.filter((m) => allowed.includes(m.type));
 }
-
-/**
- * Filter machines compatible with a process using capability list (primary) + fallback (secondary)
- */
-export function filterMachinesByProcess<T extends { id: string; type: string }>(
-    machines: T[],
-    processCode?: string | null,
-    capableMachineIds?: Set<string>,
-): T[] {
-    if (capableMachineIds && capableMachineIds.size > 0) {
-        return machines.filter((m) => capableMachineIds.has(m.id));
-    }
-    if (processCode) {
-        const fallback = getFallbackMachineTypesForProcess(processCode);
-        if (fallback.length > 0) return machines.filter((m) => fallback.includes(m.type));
-    }
-    return machines;
-}

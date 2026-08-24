@@ -15,7 +15,6 @@ export {
 export {
     createProduct,
     updateProduct,
-    deleteProduct,
     deleteVariant,
     archiveVariant,
     unarchiveVariant,

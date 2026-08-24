@@ -60,7 +60,7 @@ export function isCountedSalesOrderStatus(status: string): boolean {
     return status !== CANCELLED;
 }
 
-export const ISSUED_INVOICE_EXCLUDED_STATUSES = new Set<string>([
+const ISSUED_INVOICE_EXCLUDED_STATUSES = new Set<string>([
     DRAFT,
     CANCELLED,
 ]);

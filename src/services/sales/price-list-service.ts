@@ -497,16 +497,6 @@ export async function bulkAdjustPrices(
         value: input.value,
     });
 }
-
-/**
- * Compatibility shim for CustomerProductPricesManager.
- * Ensures single write path for same table (price-list-service is source of truth).
- * Existing actions in customer-product-prices.ts can call this to avoid divergent logic.
- */
-export async function upsertSinglePrice(entry: BulkUpsertEntry): Promise<void> {
-    await bulkUpsertPrices([entry]);
-}
-
 // ── Product-first price list (master-detail) ──────────────────────────
 
 /** Kategori produk yang tampil di price list secara default (belum diminta eksplisit). */

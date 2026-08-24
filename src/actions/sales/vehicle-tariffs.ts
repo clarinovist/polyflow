@@ -19,23 +19,6 @@ import { routesMatch, customersMatch } from '@/lib/sales/delivery-pricing';
 import { findApplicableVehicleTariff } from '@/lib/sales/vehicle-tariff-resolver';
 import { Prisma, RateType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-
-/**
- * Get all tariffs for a vehicle.
- */
-export const getTariffsByVehicle = withTenant(
-    async function getTariffsByVehicle(vehicleId: string) {
-        return safeAction(async () => {
-            await requireSalesAccess();
-
-            return prisma.vehicleTariff.findMany({
-                where: { vehicleId },
-                orderBy: { validFrom: 'desc' },
-            });
-        });
-    },
-);
-
 /**
  * Get the currently valid tariff for a vehicle, optionally filtered by route
  * and customer. Delegates to findApplicableVehicleTariff for precedence logic.

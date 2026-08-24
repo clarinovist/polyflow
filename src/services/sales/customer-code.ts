@@ -9,7 +9,7 @@ export const MAX_CUSTOMER_CODE_ATTEMPTS = 5;
  * unique violation on `code`) so callers can retry with a freshly
  * recomputed code instead of surfacing a raw DB error.
  */
-export function isCustomerCodeUniqueViolation(error: unknown): boolean {
+function isCustomerCodeUniqueViolation(error: unknown): boolean {
     return (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002' &&

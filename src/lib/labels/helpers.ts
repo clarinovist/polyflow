@@ -7,15 +7,6 @@ import {
     financeStatusLabels,
     purchasingStatusLabels,
 } from './status';
-
-/** Fallback helper: returns mapped label or raw value if not found */
-export function getLabel<T extends Record<string, string>>(
-    map: T,
-    key: string,
-): string {
-    return (map as Record<string, string>)[key] ?? key;
-}
-
 export type StatusDomain =
     | 'production'
     | 'warehouse'

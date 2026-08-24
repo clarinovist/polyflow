@@ -101,15 +101,6 @@ export const checkRunRmAvailability = withTenant(async function checkRunRmAvaila
     return serializeData(result);
   });
 });
-
-export const getRunProgress = withTenant(async function getRunProgress(id: string) {
-  return safeAction(async () => {
-    await requirePlanningRole();
-    const data = await ProductionRoutingRunService.computeRunProgress(id);
-    return serializeData(data);
-  });
-});
-
 export const getRunReadiness = withTenant(async function getRunReadiness(id: string) {
   return safeAction(async () => {
     await requirePlanningRole();

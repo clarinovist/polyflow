@@ -6,7 +6,7 @@
  */
 import { z } from 'zod';
 
-export const REVENUE_MATCH_TYPES = [
+const REVENUE_MATCH_TYPES = [
     'VARIANT_NAME_CONTAINS',
     'PRODUCT_NAME',
     'SKU_PREFIX',

@@ -19,4 +19,3 @@ export class AnalyticsService {
 }
 
 export type { ProductionAnalyticsData, SalesMetrics };
-export { getProductionAnalytics, getSalesMetrics };

@@ -8,7 +8,6 @@ import {
     createProductionProcessSchema,
     updateProductionProcessSchema,
     createRouteSchema,
-    updateRouteSchema,
     createRouteStepSchema,
     updateRouteStepSchema,
     reorderRouteStepsSchema,
@@ -28,7 +27,6 @@ import type {
     CreateProductionProcessValues,
     UpdateProductionProcessValues,
     CreateRouteValues,
-    UpdateRouteValues,
     CreateRouteStepValues,
     UpdateRouteStepValues,
     ReorderRouteStepsValues,
@@ -50,15 +48,6 @@ export const listProcesses = withTenant(async function listProcesses(filter?: {
         return serializeData(data);
     });
 });
-
-export const getProcess = withTenant(async function getProcess(id: string) {
-    return safeAction(async () => {
-        await requirePlanningRole();
-        const data = await ProductionRoutingService.getProcessById(id);
-        return serializeData(data);
-    });
-});
-
 export const createProcess = withTenant(async function createProcess(
     raw: CreateProductionProcessValues,
 ) {
@@ -189,26 +178,6 @@ export const createRoute = withTenant(async function createRoute(
         return serializeData(result);
     });
 });
-
-export const updateRoute = withTenant(async function updateRoute(
-    raw: UpdateRouteValues,
-) {
-    return safeAction(async () => {
-        await assertRoutingEnabled();
-        const session = await requirePlanningRole();
-        const parsed = updateRouteSchema.parse(raw);
-        const { id, ...rest } = parsed;
-        const result = await ProductionRoutingService.updateRoute(
-            id,
-            rest,
-            (session as { user?: { id?: string } })?.user?.id,
-        );
-        revalidatePath('/production/routings');
-        revalidatePath(`/production/routings/${id}`);
-        return serializeData(result);
-    });
-});
-
 export const duplicateRoute = withTenant(async function duplicateRoute(
     id: string,
 ) {
@@ -223,17 +192,6 @@ export const duplicateRoute = withTenant(async function duplicateRoute(
         return serializeData(result);
     });
 });
-
-export const deleteRoute = withTenant(async function deleteRoute(id: string) {
-    return safeAction(async () => {
-        await assertRoutingEnabled();
-        await requirePlanningRole();
-        const result = await ProductionRoutingService.deleteRoute(id);
-        revalidatePath('/production/routings');
-        return serializeData(result);
-    });
-});
-
 export const validateRouteAction = withTenant(
     async function validateRouteAction(routeId: string) {
         return safeAction(async () => {

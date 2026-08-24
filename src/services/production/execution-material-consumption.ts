@@ -46,7 +46,7 @@ function hasFloorEnteredBalRule(attributes: unknown): boolean {
     );
 }
 
-export function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
+function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
     const productType = item.productVariant?.product?.productType;
     const primaryUnit = item.productVariant?.primaryUnit;
     const attributes = item.productVariant?.attributes;

@@ -5,15 +5,6 @@ import { AnalyticsService } from '@/services/analytics/analytics-service';
 import { DateRange } from '@/types/analytics';
 import { format } from 'date-fns';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
-
-export const getSalesMetrics = withTenant(async function getSalesMetrics(
-    dateRange?: DateRange,
-) {
-    return safeAction(async () => {
-        return await AnalyticsService.getSalesMetrics(dateRange);
-    });
-});
-
 export const getProductionAnalytics = withTenant(
     async function getProductionAnalytics(dateRange?: DateRange) {
         return safeAction(async () => {

@@ -34,7 +34,7 @@ import {
 type FindingSeverity = 'WARNING' | 'CRITICAL';
 type FindingStatus = 'UNCLAIMED' | 'CLAIMED' | 'RESOLVED' | 'SNOOZED';
 
-export type FindingItem = {
+type FindingItem = {
     id: string;
     detector: string;
     severity: FindingSeverity;

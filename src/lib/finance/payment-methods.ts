@@ -25,14 +25,6 @@ const LEGACY_BANK_NAMES: Record<LegacyBankKey, string> = {
 function isLegacyBankKey(key: string): key is LegacyBankKey {
     return (LEGACY_BANK_KEYS as readonly string[]).includes(key);
 }
-
-export const PAYMENT_METHODS = [
-    'Transfer BCA',
-    'Transfer Mandiri',
-    'Cash',
-    'Check',
-] as const;
-
 /** Widened: dynamic tenant banks produce methods like 'Transfer BRI' that don't fit a static union. */
 export type PaymentMethod = string;
 
@@ -100,7 +92,7 @@ export function getClearingBankOptions(
 }
 
 /** Base labels (without account numbers). */
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
     'Transfer BCA': 'Transfer BCA',
     'Transfer Mandiri': 'Transfer Mandiri',
     Cash: 'Tunai',
@@ -180,7 +172,7 @@ export function deriveDestinationBank(
     return extra ? extra.key : null;
 }
 
-export function isSelectablePaymentMethod(
+function isSelectablePaymentMethod(
     method: string,
     banks: TenantPaymentBanks = [],
 ): boolean {

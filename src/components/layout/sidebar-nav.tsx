@@ -120,11 +120,6 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
         ],
     },
 ];
-
-export const sidebarLinks: NavItemType[] = sidebarLinkGroups.flatMap(
-    (g) => g.items,
-);
-
 const HELP_CHILDREN: Array<{ href: string; label: string; icon: LucideIcon }> =
     [
         { href: '/support', label: 'Cara pakai', icon: BookOpen },

@@ -2,8 +2,7 @@ import type {
     ToolEvidence,
     ToolEvidenceFact,
     ToolEvidenceEntity,
-    AssistantEvidenceChip,
-} from './assistant-types';
+    } from './assistant-types';
 
 /**
  * Create a ToolEvidence object with current timestamp.
@@ -64,60 +63,4 @@ export function evidenceToText(evidence: ToolEvidence): string {
     );
 
     return lines.join('\n');
-}
-
-/**
- * Convert ToolEvidence into evidence chips for UI display.
- */
-export function evidenceToChips(
-    evidence: ToolEvidence[],
-): AssistantEvidenceChip[] {
-    return evidence.map((e) => ({
-        source: e.source,
-        label:
-            e.source === 'tenant-data'
-                ? `Data tenant — dicek ${formatTime(e.checkedAt)}`
-                : e.source === 'global-kb'
-                  ? 'Panduan resmi Polyflow'
-                  : e.source === 'tenant-kb'
-                    ? 'SOP internal perusahaan'
-                    : 'Audit log',
-        checkedAt: e.checkedAt,
-        href: e.entities?.[0]?.href,
-    }));
-}
-
-/**
- * Format ISO timestamp to WIB time string.
- */
-function formatTime(iso: string): string {
-    return new Date(iso).toLocaleString('id-ID', {
-        timeZone: 'Asia/Jakarta',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
-
-/**
- * Merge multiple evidence objects into a single combined evidence.
- */
-export function mergeEvidence(evidences: ToolEvidence[]): ToolEvidence {
-    const allFacts: ToolEvidenceFact[] = [];
-    const allEntities: ToolEvidenceEntity[] = [];
-    let hasPartial = false;
-
-    for (const e of evidences) {
-        allFacts.push(...e.facts);
-        if (e.entities) allEntities.push(...e.entities);
-        if (e.completeness === 'partial') hasPartial = true;
-    }
-
-    return {
-        summary: evidences.map((e) => e.summary).join('\n\n'),
-        facts: allFacts,
-        entities: allEntities.length > 0 ? allEntities : undefined,
-        source: evidences[0]?.source ?? 'tenant-data',
-        checkedAt: new Date().toISOString(),
-        completeness: hasPartial ? 'partial' : 'complete',
-    };
 }

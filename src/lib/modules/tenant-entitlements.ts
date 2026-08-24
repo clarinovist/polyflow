@@ -14,8 +14,6 @@
 import { getMainPrisma } from '@/lib/core/prisma';
 import { tenantIdContext } from '@/lib/core/prisma';
 import type { ModuleKey } from '@/lib/modules/module-registry';
-import { getModule } from '@/lib/modules/module-registry';
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -83,7 +81,7 @@ function buildActiveModules(entitlements: TenantEntitlement[]): Set<ModuleKey> {
  * Must be called within a `withTenant` scope (i.e., tenantIdContext must be set).
  * Returns null if tenantIdContext is not available.
  */
-export async function getTenantEntitlementContext(): Promise<TenantEntitlementContext | null> {
+async function getTenantEntitlementContext(): Promise<TenantEntitlementContext | null> {
     const tenantId = tenantIdContext.getStore();
     if (!tenantId) return null;
 
@@ -103,41 +101,6 @@ export async function hasTenantModule(moduleKey: ModuleKey): Promise<boolean> {
     if (moduleKey === 'CORE') return true;
     return ctx.activeModules.has(moduleKey);
 }
-
-/**
- * Assert that the current tenant has an active module entitlement.
- * Throws a BusinessRuleError if the module is not entitled.
- */
-export async function requireTenantModule(moduleKey: ModuleKey): Promise<void> {
-    if (moduleKey === 'CORE') return;
-
-    const ctx = await getTenantEntitlementContext();
-    if (!ctx) {
-        // No tenant context — this is likely a non-tenant request (super admin).
-        // Allow CORE, deny everything else.
-        throw new EntitlementError(
-            `Module "${moduleKey}" is not available: no tenant context.`,
-        );
-    }
-
-    const mod = getModule(moduleKey);
-
-    // Check required modules
-    for (const req of mod.requiredModules) {
-        if (!ctx.activeModules.has(req)) {
-            throw new EntitlementError(
-                `Module "${moduleKey}" requires "${req}" which is not active for this tenant.`,
-            );
-        }
-    }
-
-    if (!ctx.activeModules.has(moduleKey)) {
-        throw new EntitlementError(
-            `Module "${moduleKey}" is not available for tenant "${ctx.tenantId}".`,
-        );
-    }
-}
-
 /**
  * Get the list of active module keys for the current tenant.
  * Always includes CORE.

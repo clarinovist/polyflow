@@ -59,21 +59,4 @@ const BrandCardHeader = React.forwardRef<
 ));
 BrandCardHeader.displayName = 'BrandCardHeader';
 
-const BrandGradientText = ({
-    children,
-    className,
-}: {
-    children: React.ReactNode;
-    className?: string;
-}) => (
-    <span
-        className={cn(
-            'bg-brand-gradient bg-clip-text text-transparent bg-300% animate-gradient',
-            className,
-        )}
-    >
-        {children}
-    </span>
-);
-
-export { BrandCard, BrandCardContent, BrandCardHeader, BrandGradientText };
+export { BrandCard, BrandCardContent, BrandCardHeader };

@@ -6,26 +6,18 @@ import { serializeData } from '@/lib/utils/utils';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { InventoryMovementService } from '@/services/inventory/movement-service';
 import { InventoryQueryService } from '@/services/inventory/query-service';
-import * as ReservationService from '@/services/inventory/reservation-service';
 import * as AnalyticsService from '@/services/inventory/analytics-service';
 import { getStockLedger } from '@/services/inventory/stock-ledger-service';
 import {
-    transferStockSchema,
-    TransferStockValues,
     bulkAdjustStockSchema,
     BulkAdjustStockValues,
     bulkTransferStockSchema,
     BulkTransferStockValues,
-    createReservationSchema,
-    CreateReservationValues,
-    cancelReservationSchema,
-    CancelReservationValues,
     adjustStockWithBatchSchema,
     AdjustStockWithBatchValues,
 } from '@/lib/schemas/inventory';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { logger } from '@/lib/config/logger';
 import { safeAction, ValidationError } from '@/lib/errors/errors';
 
 export const getInventoryStats = withTenant(
@@ -55,50 +47,6 @@ export const getProductVariants = withTenant(
         });
     },
 );
-
-export const getAvailableBatches = withTenant(
-    async function getAvailableBatches(
-        productVariantId: string,
-        locationId: string,
-    ) {
-        return safeAction(async () => {
-            await requireAuth();
-            return await InventoryQueryService.getAvailableBatches(
-                productVariantId,
-                locationId,
-            );
-        });
-    },
-);
-
-export const transferStock = withTenant(async function transferStock(
-    data: TransferStockValues,
-    _userId?: string,
-) {
-    return safeAction(async () => {
-        const session = await requireAuth();
-        const currentUserId = session.user.id;
-
-        logger.info('Transfer Action Started', { data, module: 'inventory' });
-        const result = transferStockSchema.safeParse(data);
-        if (!result.success) {
-            logger.error('Validation Failed', {
-                error: result.error,
-                module: 'inventory',
-            });
-            throw new ValidationError(result.error.issues[0].message);
-        }
-
-        await InventoryMovementService.transferStock(
-            result.data,
-            currentUserId,
-        );
-        // Audit log is already recorded inside the service layer within the transaction
-        revalidatePath('/warehouse/inventory');
-        revalidatePath('/warehouse/inventory/history');
-    });
-});
-
 export const transferStockBulk = withTenant(async function transferStockBulk(
     data: BulkTransferStockValues,
     _userId?: string,
@@ -256,24 +204,6 @@ export const getInventoryAsOf = withTenant(async function getInventoryAsOf(
         return await AnalyticsService.getInventoryAsOf(targetDate, locationId);
     });
 });
-
-export const getStockHistory = withTenant(async function getStockHistory(
-    productVariantId: string,
-    startDate: Date,
-    endDate: Date,
-    locationId?: string,
-) {
-    return safeAction(async () => {
-        await requireAuth();
-        return await AnalyticsService.getStockHistory(
-            productVariantId,
-            startDate,
-            endDate,
-            locationId,
-        );
-    });
-});
-
 export const getStockLedgerAction = withTenant(
     async function getStockLedgerAction(
         productVariantId: string,
@@ -292,52 +222,6 @@ export const getStockLedgerAction = withTenant(
         });
     },
 );
-
-export const createStockReservation = withTenant(
-    async function createStockReservation(data: CreateReservationValues) {
-        return safeAction(async () => {
-            await requireAuth();
-            const result = createReservationSchema.safeParse(data);
-            if (!result.success) {
-                throw new ValidationError(result.error.issues[0].message);
-            }
-
-            await ReservationService.createStockReservation(result.data);
-            revalidatePath('/warehouse/inventory');
-        });
-    },
-);
-
-export const cancelStockReservation = withTenant(
-    async function cancelStockReservation(data: CancelReservationValues) {
-        return safeAction(async () => {
-            await requireAuth();
-            const result = cancelReservationSchema.safeParse(data);
-            if (!result.success) {
-                throw new ValidationError(result.error.issues[0].message);
-            }
-
-            await ReservationService.cancelStockReservation(result.data);
-            revalidatePath('/warehouse/inventory');
-        });
-    },
-);
-
-export const getActiveReservations = withTenant(
-    async function getActiveReservations(
-        locationId?: string,
-        productVariantId?: string,
-    ) {
-        return safeAction(async () => {
-            await requireAuth();
-            return await ReservationService.getActiveReservations(
-                locationId,
-                productVariantId,
-            );
-        });
-    },
-);
-
 // ============================================
 // ANALYTICS & INSIGHTS (Phase 4)
 // ============================================
@@ -359,18 +243,6 @@ export const getDaysOfInventoryOnHand = withTenant(
         });
     },
 );
-
-export const getStockMovementTrends = withTenant(
-    async function getStockMovementTrends(
-        period: 'week' | 'month' | 'quarter' = 'month',
-    ) {
-        return safeAction(async () => {
-            await requireAuth();
-            return await AnalyticsService.getStockMovementTrends(period);
-        });
-    },
-);
-
 export const acknowledgeHandover = withTenant(
     async function acknowledgeHandover(movementId: string) {
         return safeAction(async () => {

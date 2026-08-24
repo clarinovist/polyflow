@@ -146,50 +146,6 @@ export async function createTenantUser(
 
     return { success: true as const, userId: user.id };
 }
-
-/**
- * Update user role in a tenant DB.
- */
-export async function updateTenantUserRole(
-    tenantId: string,
-    userId: string,
-    role: Role,
-) {
-    const session = await requireSuperAdmin();
-    const { tenant, db } = await loadTenantDb(tenantId);
-
-    const target = await db.user.findUnique({ where: { id: userId } });
-    if (!target) throw new BusinessRuleError('User tidak ditemukan.');
-
-    try {
-        await db.$transaction([
-            db.userRole.deleteMany({ where: { userId } }),
-            db.userRole.create({ data: { userId, role } }),
-            db.user.update({
-                where: { id: userId },
-                data: { role },
-            }),
-        ]);
-    } catch {
-        /* Fallback if UserRole table or transaction fails */
-        await db.user.update({
-            where: { id: userId },
-            data: { role },
-        });
-    }
-
-    await logActivity({
-        userId: session.user.id!,
-        action: 'TENANT_USER_ROLE_CHANGED',
-        entityType: 'User',
-        entityId: userId,
-        details: `Changed role of ${target.email} from ${target.role} to ${role} on tenant "${tenant.name}".`,
-        changes: { tenantId, userId, before: target.role, after: role },
-    });
-
-    return { success: true as const };
-}
-
 /**
  * Delete a user from a tenant DB. Permanent.
  */

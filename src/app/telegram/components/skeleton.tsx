@@ -1,6 +1,6 @@
 'use client';
 
-export function SkeletonCard() {
+function SkeletonCard() {
   return (
     <div className="tg-card animate-pulse p-4">
       <div className="mb-3 h-4 w-24 rounded bg-black/10 dark:bg-white/10" />

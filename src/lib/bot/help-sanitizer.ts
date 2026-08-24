@@ -43,11 +43,6 @@ export function sanitizeQuestion(input: string): string {
     out = out.replace(CUSTOMER_NAME_HINT, 'customer [NAMA]');
     return out.replace(/\s+/g, ' ').trim();
 }
-
-export function sanitizeSampleQuestions(samples: string[]): string[] {
-    return samples.slice(0, 5).map(sanitizeQuestion);
-}
-
 /** Check if a question contains sensitive patterns that should block draft creation */
 export function containsSensitiveData(input: string): boolean {
     const lower = input.toLowerCase();

@@ -4,7 +4,7 @@ type UnitConfig = {
     conversionFactor?: unknown;
 };
 
-export function unitNumber(value: unknown, fallback = 0): number {
+function unitNumber(value: unknown, fallback = 0): number {
     if (typeof value === 'number')
         return Number.isFinite(value) ? value : fallback;
     if (typeof value === 'string') {

@@ -52,24 +52,6 @@ export const createDisciplinaryAction = withTenant(
         });
     },
 );
-
-export const deleteDisciplinaryAction = withTenant(
-    async function deleteDisciplinaryAction(id: string) {
-        return safeAction(async () => {
-            const session = await requireHrdApprover();
-            await DisciplinaryService.remove(prisma, id);
-            await logActivity({
-                userId: session.user.id,
-                action: 'DISCIPLINARY_ACTION_DELETED',
-                entityType: 'DisciplinaryAction',
-                entityId: id,
-                details: `Deleted disciplinary action ${id}`,
-            });
-            return null;
-        });
-    },
-);
-
 // ─── Leave Requests ───
 
 export const listLeaveRequests = withTenant(

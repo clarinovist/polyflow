@@ -7,7 +7,7 @@ export type DetectedItem = {
     detail?: string;
 };
 
-export type DetectionStatus = 'ok' | 'failed' | 'truncated';
+type DetectionStatus = 'ok' | 'failed' | 'truncated';
 
 export type DetectionResult = {
     detector: string;

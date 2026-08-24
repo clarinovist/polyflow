@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { WeekPicker } from '@/components/ui/week-picker';
-import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 
 interface Props {
     currentDate: Date;
@@ -28,6 +27,3 @@ export function UrlWeekPicker({
 
     return <WeekPicker currentDate={currentDate} onDateChange={onDateChange} />;
 }
-
-// Re-export for callers that need week bounds directly.
-export { startOfWeek, endOfWeek };

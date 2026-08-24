@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { SalesOrderType, Unit } from '@prisma/client';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
 
-export const salesOrderItemSchema = z.object({
+const salesOrderItemSchema = z.object({
     id: z.string().optional(),
     productVariantId: z.string().min(1, 'Product is required'),
     quantity: z.coerce.number().positive('Quantity must be positive'),
@@ -32,7 +32,7 @@ export const salesOrderItemSchema = z.object({
     isFreeItem: z.boolean().optional().default(false),
 });
 
-export const customItemSchema = z.object({
+const customItemSchema = z.object({
     tempId: z.string(),
     name: z.string().min(1, 'Product name is required'),
     sellPrice: z.coerce.number().min(0).optional().default(0),
@@ -125,22 +125,11 @@ export const updateSalesOrderSchema = z.object({
         .array(salesOrderItemSchema)
         .min(1, 'At least one item is required'),
 });
-
-export const confirmSalesOrderSchema = z.object({
-    id: z.string(),
-});
-
 export const shipSalesOrderSchema = z.object({
     id: z.string(),
     trackingNumber: z.string().optional().transform(sanitizeHtml),
     carrier: z.string().optional().transform(sanitizeHtml),
 });
-
-export const cancelSalesOrderSchema = z.object({
-    id: z.string(),
-    reason: z.string().optional().transform(sanitizeHtml), // For audit log
-});
-
 export const createManualDeliveryOrderSchema = z.object({
     salesOrderId: z.string().min(1, 'Sales Order is required'),
     sourceLocationId: z.string().min(1, 'Source location is required'),
@@ -235,10 +224,6 @@ export const reverseDeliveryShipmentSchema = z.object({
         .max(500, 'Alasan maksimal 500 karakter')
         .transform(sanitizeHtml),
 });
-export type ReverseDeliveryShipmentValues = z.infer<
-    typeof reverseDeliveryShipmentSchema
->;
-
 export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
 export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;
 export type UpdateSalesOrderValues = z.infer<typeof updateSalesOrderSchema>;
@@ -296,41 +281,8 @@ export type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
 export type CreateVehicleTariffValues = z.infer<
     typeof createVehicleTariffSchema
 >;
-
-// ==========================================
-// DELIVERY SCHEDULE / TRIP / STOP SCHEMAS
-// ==========================================
-
-export const createScheduleTripSchema = z.object({
-    vehicleId: z.string().min(1, 'Kendaraan harus dipilih'),
-    departureDate: z.coerce.date(),
-    routeName: z.string().optional().nullable(),
-    notes: z.string().optional().nullable(),
-});
-
-export const updateScheduleTripSchema = z.object({
-    departureDate: z.coerce.date().optional(),
-    routeName: z.string().optional().nullable(),
-    notes: z.string().optional().nullable(),
-    sequence: z.coerce.number().int().min(0).optional(),
-});
-
-export const updateTripStatusSchema = z.object({
-    status: z.enum([
-        'PLANNED',
-        'CONFIRMED',
-        'DEPARTED',
-        'COMPLETED',
-        'CANCELLED',
-    ]),
-});
-
 export const assignSalesOrderToTripSchema = z.object({
     salesOrderId: z.string().min(1, 'Sales Order harus dipilih'),
     plannedWeightKg: z.coerce.number().min(0).optional().nullable(),
     notes: z.string().optional().nullable(),
-});
-
-export const linkDeliveryOrderSchema = z.object({
-    deliveryOrderId: z.string().min(1, 'Surat Jalan harus dipilih'),
 });

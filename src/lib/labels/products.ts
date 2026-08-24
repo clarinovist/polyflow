@@ -227,12 +227,3 @@ export const variantFieldLabels = {
     minStockAlert: 'Peringatan Stok Minimum (Opsional)',
     simpleUnitMode: 'Mode satuan sederhana (konversi 1:1)',
 } as const;
-
-/** ProductCombobox component labels */
-export const productComboboxLabels = {
-    selectProduct: 'Pilih produk...',
-    noProductsFound: 'Tidak ada produk ditemukan.',
-    searchPlaceholder: 'Cari produk...',
-    suggestions: 'Saran',
-    allMaterials: 'Semua Bahan',
-} as const;

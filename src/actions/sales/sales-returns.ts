@@ -9,8 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { SalesReturnService } from '@/services/sales/returns-service';
 import {
     createSalesReturnSchema,
-    updateSalesReturnSchema,
-} from '@/lib/schemas/returns';
+    } from '@/lib/schemas/returns';
 import * as z from 'zod';
 import { safeAction } from '@/lib/errors/errors';
 
@@ -51,26 +50,6 @@ export const createSalesReturnAction = withTenant(
         });
     },
 );
-
-export const updateSalesReturnAction = withTenant(
-    async function updateSalesReturnAction(
-        data: z.infer<typeof updateSalesReturnSchema>,
-    ) {
-        return safeAction(async () => {
-            const session = await requireSalesAccess();
-            const parsedData = updateSalesReturnSchema.parse(data);
-            const salesReturn = await SalesReturnService.updateReturn(
-                parsedData,
-                session.user.id,
-            );
-
-            revalidatePath('/sales/returns');
-            revalidatePath(`/sales/returns/${salesReturn.id}`);
-            return salesReturn;
-        });
-    },
-);
-
 export const confirmSalesReturnAction = withTenant(
     async function confirmSalesReturnAction(id: string) {
         return safeAction(async () => {

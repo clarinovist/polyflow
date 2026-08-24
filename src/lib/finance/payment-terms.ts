@@ -10,8 +10,6 @@ export const PAYMENT_TERM_OPTIONS = [
     { value: 60, label: '60 hari' },
 ] as const;
 
-export const DEFAULT_PAYMENT_TERM_DAYS = 30;
-
 type AmountLike =
     | number
     | string
@@ -100,12 +98,4 @@ export function isInvoiceOverdue(
     const due = startOfDay(new Date(dueDate));
     const today = startOfDay(new Date());
     return due.getTime() < today.getTime();
-}
-
-/** Helper alias untuk filter/sort overdue di list. */
-export function isOverdueByDate(
-    dueDate: Date | string | null | undefined,
-    status?: string | null,
-): boolean {
-    return isInvoiceOverdue(dueDate, status);
 }

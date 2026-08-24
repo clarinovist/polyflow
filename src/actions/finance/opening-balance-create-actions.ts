@@ -6,7 +6,10 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError, safeAction } from '@/lib/errors/errors';
-import { requireFinanceAccess, requireFinanceMutation } from '@/lib/auth/finance-access';
+import {
+    requireFinanceAccess,
+    requireFinanceMutation,
+} from '@/lib/auth/finance-access';
 
 import {
     CreateOpeningBalanceInput,

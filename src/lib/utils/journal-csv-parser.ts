@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 import { z } from 'zod';
 
-export const importJournalSchema = z.object({
+const importJournalSchema = z.object({
     Date: z.string(), // YYYY-MM-DD
     Reference: z.string(),
     Description: z.string(),

@@ -10,7 +10,7 @@ import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 // Pure helpers (unit-testable)
 // ───────────────────────────────────────────────────
 
-export const round2 = (n: number) => Math.round(n * 100) / 100;
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Count Mon–Sat days in [start, end] inclusive (UTC). Sundays excluded. */
 export function countMonToSat(start: Date, end: Date): number {
@@ -29,7 +29,7 @@ export function yearMonthKey(year: number, month: number): number {
     return year * 100 + month;
 }
 
-export function dateToYearMonth(date: Date): { year: number; month: number } {
+function dateToYearMonth(date: Date): { year: number; month: number } {
     return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
 }
 

@@ -12,53 +12,6 @@ export const loginFormLabels = {
     showPassword: 'Tampilkan kata sandi',
     rememberMe: 'Ingat saya',
 } as const;
-
-/** Role selection labels */
-export const roleSelectionLabels = {
-    heading: 'Siapa Anda?',
-    subtitle: 'Pilih peran kerja Anda untuk sesi ini.',
-    roles: {
-        ADMIN: {
-            title: 'Administrator',
-            description: 'Akses penuh ke pengaturan dan manajemen sistem.',
-        },
-        WAREHOUSE: {
-            title: 'Gudang',
-            description:
-                'Inventaris, pergerakan stok, dan pengeluaran material.',
-        },
-        PRODUCTION: {
-            title: 'Produksi (lantai)',
-            description: 'SPK aktif, papan mesin, kiosk operator, stok lantai.',
-        },
-        PLANNING: {
-            title: 'Planning (PPIC)',
-            description:
-                'Jadwal, MRP, SPK perencanaan, stok & pembelian terkait.',
-        },
-        SALES: {
-            title: 'Sales',
-            description: 'Pesanan penjualan, penawaran, dan pelanggan.',
-        },
-        MARKETING: {
-            title: 'Marketing',
-            description: 'Pemasaran, promosi, dan analisis penjualan.',
-        },
-        FINANCE: {
-            title: 'Finance',
-            description: 'Faktur, tagihan, dan akuntansi keuangan.',
-        },
-        PROCUREMENT: {
-            title: 'Purchasing',
-            description: 'Pembelian, purchase order, dan manajemen supplier.',
-        },
-        HRD: {
-            title: 'HRD',
-            description: 'Kehadiran, payroll, cuti, dan manajemen karyawan.',
-        },
-    },
-} as const;
-
 /** Workspace discovery labels */
 export const workspaceDiscoveryLabels = {
     signInToWorkspace: 'Masuk ke workspace Anda',
@@ -74,14 +27,6 @@ export const workspaceDiscoveryLabels = {
     noWorkspace: 'Belum memiliki workspace?',
     registerNewCompany: 'Daftar Perusahaan Baru',
 } as const;
-
-/** Error boundary labels */
-export const errorBoundaryLabels = {
-    title: 'Gagal memproses',
-    description: 'Silakan coba lagi atau hubungi admin.',
-    reloadPage: 'Muat Ulang Halaman',
-} as const;
-
 /** Brand panel labels */
 export const brandPanelLabels = {
     welcomeTo: 'Selamat datang di',

@@ -23,18 +23,6 @@ export const actionLabels = {
     view: 'Lihat',
     download: 'Unduh',
 } as const;
-
-/** Unit display */
-export const unitLabels = {
-    kg: 'KG',
-    roll: 'Roll',
-    bal: 'Bal',
-    pcs: 'Pcs',
-    zak: 'Zak',
-    meter: 'Meter',
-    sheet: 'Lembar',
-} as const;
-
 /** Form field labels umum */
 export const formLabels = {
     name: 'Nama',

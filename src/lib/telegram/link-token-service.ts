@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '@/lib/core/prisma';
 
-export function generateSecureToken(lengthBytes = 24): string {
+function generateSecureToken(lengthBytes = 24): string {
   // url-safe base64 without padding
   return crypto
     .randomBytes(lengthBytes)
@@ -60,11 +60,4 @@ export async function validateAndConsumeLinkToken(
     userId: record.userId,
     id: record.id,
   };
-}
-
-export async function cleanupExpiredTokens(): Promise<number> {
-  const result = await prisma.telegramLinkToken.deleteMany({
-    where: { expiresAt: { lt: new Date() }, usedAt: null },
-  });
-  return result.count;
 }

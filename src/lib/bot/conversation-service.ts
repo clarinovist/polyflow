@@ -2,13 +2,10 @@ import { prisma } from '@/lib/core/prisma';
 import type {
     HelpConversation,
     HelpMessage,
-    HelpConversationStatus,
-} from '@prisma/client';
+    } from '@prisma/client';
 
 const MAX_MESSAGE_CONTENT_LENGTH = 4000;
 const MAX_HISTORY_MESSAGES = 10;
-const MAX_SUMMARY_LENGTH = 500;
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -24,16 +21,9 @@ export type ConversationContext = {
     summary?: string;
     resolvedEntities: Map<string, { type: string; id: string; label: string }>;
 };
-
-// ---------------------------------------------------------------------------
-// Create a new conversation
-// ---------------------------------------------------------------------------
-
-export const TELEGRAM_MINI_APP_CHANNEL = 'telegram_mini_app' as const;
-
 export type AllowedChannel = 'web' | 'telegram' | 'telegram_mini_app';
 
-export async function createConversation(input: {
+async function createConversation(input: {
     tenantId: string;
     userId: string;
     channel?: AllowedChannel | string;
@@ -78,28 +68,6 @@ export async function getOrCreateConversation(input: {
         channel: input.channel,
     });
 }
-
-// ---------------------------------------------------------------------------
-// Validate ownership & tenant
-// ---------------------------------------------------------------------------
-
-export async function validateConversationOwnership(input: {
-    conversationId: string;
-    tenantId: string;
-    userId: string;
-}): Promise<boolean> {
-    const conversation = await prisma.helpConversation.findUnique({
-        where: { id: input.conversationId },
-        select: { tenantId: true, userId: true },
-    });
-
-    if (!conversation) return false;
-    return (
-        conversation.tenantId === input.tenantId &&
-        conversation.userId === input.userId
-    );
-}
-
 // ---------------------------------------------------------------------------
 // Load recent messages for context window
 // ---------------------------------------------------------------------------
@@ -193,36 +161,6 @@ export async function saveMessage(input: {
 
     return message;
 }
-
-// ---------------------------------------------------------------------------
-// Update conversation summary (after threshold)
-// ---------------------------------------------------------------------------
-
-export async function updateConversationSummary(
-    conversationId: string,
-    summary: string,
-): Promise<void> {
-    const truncatedSummary = summary.slice(0, MAX_SUMMARY_LENGTH);
-    await prisma.helpConversation.update({
-        where: { id: conversationId },
-        data: { summary: truncatedSummary },
-    });
-}
-
-// ---------------------------------------------------------------------------
-// Close conversation
-// ---------------------------------------------------------------------------
-
-export async function closeConversation(
-    conversationId: string,
-    status: HelpConversationStatus = 'CLOSED',
-): Promise<void> {
-    await prisma.helpConversation.update({
-        where: { id: conversationId },
-        data: { status },
-    });
-}
-
 // ---------------------------------------------------------------------------
 // Build context for LLM (summary + recent messages)
 // ---------------------------------------------------------------------------
@@ -244,24 +182,4 @@ export function buildLlmHistory(
     messages.push(...context.history);
 
     return messages;
-}
-
-/**
- * Check if conversation needs summarization (>20 messages).
- */
-export function needsSummarization(messageCount: number): boolean {
-    return messageCount > 20;
-}
-
-/**
- * Extract entity references from conversation context for disambiguation.
- */
-export function extractEntityReferences(
-    context: ConversationContext,
-): string[] {
-    const refs: string[] = [];
-    for (const [, entity] of context.resolvedEntities) {
-        refs.push(`${entity.type}:${entity.id} (${entity.label})`);
-    }
-    return refs;
 }

@@ -14,7 +14,7 @@ export function calcPieceEarnings(
     return Math.round(quantityKg * ratePerKg * 100) / 100;
 }
 
-export async function resolveActivePieceRate(
+async function resolveActivePieceRate(
     db: PrismaClient | Prisma.TransactionClient,
     machineType: MachineType,
 ): Promise<number | null> {

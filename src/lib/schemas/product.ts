@@ -8,7 +8,7 @@ const consumptionRuleSchema = z.enum([
     'CEIL_ENTERED_BAL',
 ]);
 
-export const productVariantSchema = z.object({
+const productVariantSchema = z.object({
     id: z.string().optional(), // For editing existing variants
     name: z.string().min(1, 'Variant name is required'),
     skuCode: z

@@ -8,17 +8,6 @@ export async function findIdentityByTelegramUserId(
     where: { telegramUserId, tenantId },
   });
 }
-
-export async function findIdentityByUserId(userId: string, tenantId: string) {
-  return prisma.telegramIdentity.findFirst({
-    where: { userId, tenantId, status: 'ACTIVE' },
-  });
-}
-
-export async function findIdentityById(id: string) {
-  return prisma.telegramIdentity.findUnique({ where: { id } });
-}
-
 export async function createIdentity(input: {
   telegramUserId: string;
   telegramChatId?: string | null;
@@ -89,16 +78,4 @@ export async function touchIdentityLastActive(id: string) {
   await prisma.telegramIdentity
     .update({ where: { id }, data: { lastActiveAt: new Date() } })
     .catch(() => {});
-}
-
-export async function revokeIdentityByTelegramUserId(
-  tenantId: string,
-  telegramUserId: string,
-) {
-  const identity = await findIdentityByTelegramUserId(
-    telegramUserId,
-    tenantId,
-  );
-  if (!identity) return null;
-  return revokeIdentity(identity.id);
 }

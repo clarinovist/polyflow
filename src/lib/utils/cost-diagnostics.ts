@@ -55,7 +55,7 @@ export function getCostAlertShortLabel(flag: CostAnomalyFlag): string {
     }
 }
 
-export function getCostGapPercent(
+function getCostGapPercent(
     currentCost: number,
     standardCost: number,
 ): number | null {

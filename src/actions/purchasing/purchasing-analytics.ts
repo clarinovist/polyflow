@@ -17,7 +17,7 @@ function safePercentage(numerator: number, denominator: number): number {
     return (numerator / denominator) * 100;
 }
 
-export const getPurchaseSpendReport = withTenant(
+const getPurchaseSpendReport = withTenant(
     async function getPurchaseSpendReport(dateRange: DateRange): Promise<{
         success: boolean;
         data?: PurchaseSpendTrend;
@@ -163,7 +163,7 @@ export const getPurchaseSpendReport = withTenant(
     },
 );
 
-export const getTopSuppliers = withTenant(async function getTopSuppliers(
+const getTopSuppliers = withTenant(async function getTopSuppliers(
     dateRange: DateRange,
     limit: number = 5,
 ): Promise<{ success: boolean; data?: TopSupplierItem[]; error?: string }> {
@@ -215,7 +215,7 @@ export const getTopSuppliers = withTenant(async function getTopSuppliers(
     });
 });
 
-export const getPurchaseStatusSummary = withTenant(
+const getPurchaseStatusSummary = withTenant(
     async function getPurchaseStatusSummary(dateRange: DateRange): Promise<{
         success: boolean;
         data?: PurchaseByStatusItem[];
@@ -255,7 +255,7 @@ export const getPurchaseStatusSummary = withTenant(
     },
 );
 
-export const getAPAgingReport = withTenant(
+const getAPAgingReport = withTenant(
     async function getAPAgingReport(): Promise<{
         success: boolean;
         data?: APAgingItem[];

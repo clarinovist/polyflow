@@ -126,18 +126,6 @@ export const DETAIL_JOURNAL_TEMPLATES: Record<
         counterNameHints: ['Kas Kecil', 'Petty Cash'],
     },
 };
-
-/**
- * Get template by key, throws if not found.
- */
-export function getDetailJournalTemplate(key: string): DetailJournalTemplate {
-    const template = DETAIL_JOURNAL_TEMPLATES[key as DetailJournalTemplateKey];
-    if (!template) {
-        throw new Error(`Unknown detail journal template: ${key}`);
-    }
-    return template;
-}
-
 /**
  * Find the default account ID from the COA list by matching account codes or name hints.
  */

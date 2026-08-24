@@ -7,11 +7,11 @@
 import { NextResponse } from 'next/server';
 
 /** Convert ESC/P byte array to a Uint8Array for download. */
-export function toUint8Array(bytes: number[]): Uint8Array {
+function toUint8Array(bytes: number[]): Uint8Array {
     return new Uint8Array(bytes);
 }
 
-export function toSafeDownloadFilename(
+function toSafeDownloadFilename(
     value: string,
     fallback = 'document',
 ): string {

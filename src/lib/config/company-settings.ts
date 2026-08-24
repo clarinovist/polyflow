@@ -48,7 +48,7 @@ export const MAX_PAPER_CM = 45;
  * sane form size so callers fall back to the env/default paper — a bad value
  * here would otherwise produce an unprintable ESC/P layout.
  */
-export function parsePaperCm(value: string | undefined): number | null {
+function parsePaperCm(value: string | undefined): number | null {
     if (!value) return null;
     const n = parseFloat(value);
     if (!Number.isFinite(n) || n < MIN_PAPER_CM || n > MAX_PAPER_CM) {
@@ -62,7 +62,7 @@ export function parsePaperCm(value: string | undefined): number | null {
  * Returns a partial map keyed by field name. Never throws — on any error it
  * returns an empty object so callers safely fall back to env defaults.
  */
-export async function readCompanySettingOverrides(): Promise<
+async function readCompanySettingOverrides(): Promise<
     Partial<CompanySettings>
 > {
     try {

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 
 export const POLYFLOW_PRODUCT_ID = 'polyflow';
 
-export function resolveRequestedProduct(req: NextRequest): string {
+function resolveRequestedProduct(req: NextRequest): string {
     const headerProduct = req.headers.get('x-openclaw-product');
     const bodyProduct = req.nextUrl.searchParams.get('product');
     return (headerProduct || bodyProduct || '').trim().toLowerCase();

@@ -16,7 +16,7 @@ export function hashToken(rawToken: string): string {
   return crypto.createHash('sha256').update(rawToken).digest('hex');
 }
 
-export function generateRawToken(): string {
+function generateRawToken(): string {
   return crypto.randomBytes(32).toString('hex'); // 64 hex chars
 }
 
@@ -99,22 +99,6 @@ export async function revokeTelegramSessionsByUserId(
     where: { tenantId, userId },
   });
 }
-
-export async function revokeTelegramSessionsByTelegramUserId(
-  tenantId: string,
-  telegramUserId: string,
-): Promise<void> {
-  await prisma.telegramMiniAppSession.deleteMany({
-    where: { tenantId, telegramUserId },
-  });
-}
-
-export async function revokeSessionByTokenHash(hash: string): Promise<void> {
-  await prisma.telegramMiniAppSession
-    .delete({ where: { sessionTokenHash: hash } })
-    .catch(() => {});
-}
-
 export function buildSessionCookieHeader(
   rawToken: string,
   opts?: { expiresAt?: Date; isProduction?: boolean },

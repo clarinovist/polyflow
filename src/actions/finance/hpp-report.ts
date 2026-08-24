@@ -129,17 +129,3 @@ export const unlockPeriod = withTenant(async function unlockPeriod(
         return { success: true };
     });
 });
-
-export const getPeriodLock = withTenant(async function getPeriodLock(
-    year: number,
-    month: number,
-) {
-    return safeAction(async () => {
-        await requireFinanceAccess();
-
-        return prisma.periodLock.findUnique({
-            where: { year_month: { year, month } },
-            include: { lockedBy: { select: { name: true, email: true } } },
-        });
-    });
-});

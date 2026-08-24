@@ -16,17 +16,6 @@ export interface ProductionRealizationItem {
     scheduleAdherence: 'On Time' | 'Late' | 'Early' | 'Pending';
     delayDays: number;
 }
-
-export interface MaterialUsageVarianceItem {
-    orderNumber: string;
-    materialName: string;
-    materialSku: string;
-    standardQuantity: number;
-    actualQuantity: number;
-    variance: number;
-    variancePercentage: number;
-}
-
 export interface MachinePerformanceItem {
     machineId?: string;
     machineName: string;
@@ -68,18 +57,6 @@ export interface QualityControlSummary {
         sampleProductionOrderId?: string;
     }[];
 }
-
-// ============================================
-// SALES ANALYTICS TYPES
-// ============================================
-
-export interface SalesRevenueItem {
-    period: string; // "Jan 2024", "Feb 2024", etc.
-    revenue: number;
-    orderCount: number;
-    aov: number; // Average Order Value
-}
-
 export interface TopCustomerItem {
     customerId: string;
     customerName: string;
@@ -95,20 +72,6 @@ export interface TopProductItem {
     totalQuantity: number;
     totalRevenue: number;
 }
-
-export interface SalesPipelineSummary {
-    status: string;
-    count: number;
-    value: number;
-    percentage: number;
-}
-
-export interface ARAgingItem {
-    range: 'Current' | '1-30 Days' | '31-60 Days' | '61-90 Days' | '> 90 Days';
-    amount: number;
-    invoiceCount: number;
-}
-
 // ============================================
 // PURCHASING ANALYTICS TYPES
 // ============================================

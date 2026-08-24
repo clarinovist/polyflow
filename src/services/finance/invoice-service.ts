@@ -27,7 +27,11 @@ export class InvoiceService {
 
     static async updateSalesInvoiceDueDate(
         id: string,
-        data: { dueDate?: Date; termOfPaymentDays?: number; invoiceDate?: Date },
+        data: {
+            dueDate?: Date;
+            termOfPaymentDays?: number;
+            invoiceDate?: Date;
+        },
         userId: string,
     ) {
         return updateSalesInvoiceDueDate(id, data, userId);
@@ -44,12 +48,3 @@ export class InvoiceService {
         return checkOverdueSalesInvoices();
     }
 }
-
-export {
-    checkOverdueSalesInvoices,
-    createDraftInvoiceFromOrder,
-    createInvoice,
-    generateInvoiceNumber,
-    updateInvoiceStatus,
-    updateSalesInvoiceDueDate,
-};

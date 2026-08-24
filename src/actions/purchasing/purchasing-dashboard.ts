@@ -4,9 +4,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
-import { safeAction } from '@/lib/errors/errors';
-import { serializeData } from '@/lib/utils/utils';
-import { getSuggestedPurchases } from '@/services/inventory/analytics-service';
+import { safeAction } from '@/lib/errors/errors';import { getSuggestedPurchases } from '@/services/inventory/analytics-service';
 import type { SuggestedReorderItem } from './purchasing-types';
 import { PR_AGING_THRESHOLD_DAYS } from './purchasing-types';
 
@@ -265,118 +263,6 @@ export const getPurchasingShiftBoard = withTenant(
                     topSupplierSpend,
                 },
             };
-        });
-    },
-);
-
-export const getPurchasingDashboardStats = withTenant(
-    async function getPurchasingDashboardStats() {
-        return safeAction(async () => {
-            await requirePurchasingAccess();
-
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-            const openPos = await prisma.purchaseOrder.count({
-                where: {
-                    status: {
-                        in: [
-                            PurchaseOrderStatus.SENT,
-                            PurchaseOrderStatus.PARTIAL_RECEIVED,
-                        ],
-                    },
-                },
-            });
-
-            const pendingPrs = await prisma.purchaseRequest.count({
-                where: {
-                    status: {
-                        in: [
-                            PurchaseRequestStatus.OPEN,
-                            PurchaseRequestStatus.APPROVED,
-                        ],
-                    },
-                },
-            });
-
-            const monthlySpend = await prisma.purchaseOrder.aggregate({
-                where: {
-                    createdAt: { gte: startOfMonth },
-                    status: {
-                        notIn: [
-                            PurchaseOrderStatus.CANCELLED,
-                            PurchaseOrderStatus.DRAFT,
-                        ],
-                    },
-                },
-                _sum: { totalAmount: true },
-            });
-
-            const topSuppliers = await prisma.purchaseOrder.groupBy({
-                by: ['supplierId'],
-                where: {
-                    createdAt: { gte: startOfMonth },
-                    status: {
-                        notIn: [
-                            PurchaseOrderStatus.CANCELLED,
-                            PurchaseOrderStatus.DRAFT,
-                        ],
-                    },
-                },
-                _count: { id: true },
-                _sum: { totalAmount: true },
-                orderBy: { _count: { id: 'desc' } },
-                take: 5,
-            });
-
-            const supplierIds = topSuppliers.map((s) => s.supplierId);
-            const suppliers = await prisma.supplier.findMany({
-                where: { id: { in: supplierIds } },
-                select: { id: true, name: true },
-            });
-            const supplierMap = new Map(suppliers.map((s) => [s.id, s.name]));
-
-            const topSuppliersResolved = topSuppliers.map((s) => ({
-                supplierId: s.supplierId,
-                supplierName: supplierMap.get(s.supplierId) || 'Unknown',
-                orderCount: s._count.id,
-                totalSpend: s._sum.totalAmount?.toNumber() || 0,
-            }));
-
-            const recentOrders = await prisma.purchaseOrder.findMany({
-                orderBy: { createdAt: 'desc' },
-                take: 5,
-                include: {
-                    supplier: { select: { name: true } },
-                },
-            });
-
-            return {
-                openPos,
-                pendingPrs,
-                monthlySpend: monthlySpend._sum.totalAmount?.toNumber() || 0,
-                topSuppliers: topSuppliersResolved,
-                recentOrders: serializeData(recentOrders),
-            };
-        });
-    },
-);
-
-export const getSuggestedReorderForPurchasing = withTenant(
-    async function getSuggestedReorderForPurchasing() {
-        return safeAction(async () => {
-            await requirePurchasingAccess();
-
-            const items = await getSuggestedPurchases();
-            return items.slice(0, 20).map((v) => ({
-                id: v.id,
-                name: v.name,
-                skuCode: v.skuCode,
-                supplierName: v.preferredSupplier?.name ?? null,
-                totalStock: v.totalStock,
-                reorderPoint: v.reorderPoint?.toNumber() ?? null,
-                reorderQuantity: v.reorderQuantity?.toNumber() ?? null,
-            }));
         });
     },
 );

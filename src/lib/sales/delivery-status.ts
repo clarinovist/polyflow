@@ -55,7 +55,7 @@ export const TERMINAL_DELIVERY_STATUSES: DeliveryStatus[] = [
 /**
  * Get the human-readable label for a delivery status (Bahasa Indonesia).
  */
-export const DELIVERY_STATUS_LABELS: Record<string, string> = {
+const DELIVERY_STATUS_LABELS: Record<string, string> = {
     PENDING: 'Menunggu',
     LOADING: 'Sedang Dimuat',
     SHIPPED: 'Dikirim',

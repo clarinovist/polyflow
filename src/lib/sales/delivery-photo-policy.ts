@@ -25,7 +25,7 @@ export const POD_PHOTO_STATUS_LIST: readonly DeliveryStatus[] = [
     'DELIVERED',
 ];
 
-export const DELIVERY_PHOTO_STATUS_BY_TYPE: Record<
+const DELIVERY_PHOTO_STATUS_BY_TYPE: Record<
     DeliveryPhotoType,
     readonly DeliveryStatus[]
 > = {

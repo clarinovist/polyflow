@@ -13,10 +13,9 @@ export * from './settings';
 export * from './analytics';
 export * from './production-components';
 export * from './warehouse-components';
-export * from './finance';
 export * from './auth';
 export * from './home';
 export * from './admin';
 export * from './products';
 
-export { getLabel, getStatusLabel, getPriorityLabel } from './helpers';
+export { getStatusLabel, getPriorityLabel } from './helpers';

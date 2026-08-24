@@ -296,36 +296,6 @@ async function seedDefaultPermissionsInternal(
         });
     }
 }
-
-export const seedDefaultPermissions = withTenant(
-    async function seedDefaultPermissions(
-        targetRole: Role,
-        defaultResources: string[],
-    ) {
-        return safeAction(async () => {
-            try {
-                const session = await auth();
-                if (!session?.user || !isTenantAdmin(session.user))
-                    throw new AuthorizationError('Unauthorized');
-
-                await seedDefaultPermissionsInternal(
-                    targetRole,
-                    defaultResources,
-                );
-                return null;
-            } catch (error) {
-                if (error instanceof AuthorizationError) throw error;
-                logger.error('Gagal melakukan seed permissions', {
-                    error,
-                    targetRole,
-                    module: 'PermissionActions',
-                });
-                throw new BusinessRuleError('Gagal melakukan seed');
-            }
-        });
-    },
-);
-
 const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     ADMIN: [],
     WAREHOUSE: ['/warehouse', '/kiosk'],

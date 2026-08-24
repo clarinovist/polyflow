@@ -3,7 +3,7 @@ export type ProductionExecutionMode =
     | 'INDIVIDUAL_OUTPUT'
     | 'MATERIAL_CONVERSION';
 
-export const GENERIC_MODE: ProductionExecutionMode = 'GENERIC';
+const GENERIC_MODE: ProductionExecutionMode = 'GENERIC';
 
 /**
  * Resolves a persisted executionModeSnapshot (nullable) to a safe runtime mode.

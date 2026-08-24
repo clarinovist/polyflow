@@ -7,8 +7,7 @@ import { serializeData } from '@/lib/utils/utils';
 import {
     startFieldVisit,
     completeFieldVisit,
-    syncVisitLogs,
-} from '@/services/sales/field-visit-service';
+    } from '@/services/sales/field-visit-service';
 
 // ── Start visit ──────────────────────────────────────────────────
 
@@ -49,35 +48,6 @@ export const completeFieldVisitAction = withTenant(
                 userId: session.user.id,
             });
             return serializeData(visit);
-        });
-    },
-);
-
-// ── Sync offline logs ────────────────────────────────────────────
-
-export const syncVisitLogsAction = withTenant(
-    async function syncVisitLogsAction(
-        logs: {
-            clientVisitId: string;
-            customerId: string;
-            checkInTime: string;
-            checkOutTime: string;
-            durationSeconds: number;
-            latitude: number;
-            longitude: number;
-            distance: number;
-            notes: string | null;
-            photoUrl: string | null;
-            isExtraCall?: boolean;
-            extraReason?: string;
-            routePlanItemId?: string;
-        }[],
-    ) {
-        return safeAction(async () => {
-            const session = await requireSalesAccess();
-            const results = await syncVisitLogs(session.user.id, logs);
-            const syncedCount = results.filter((r) => r.success).length;
-            return { count: syncedCount, results };
         });
     },
 );

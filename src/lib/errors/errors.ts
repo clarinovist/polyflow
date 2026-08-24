@@ -68,7 +68,7 @@ export class AuthorizationError extends ApplicationError {
 }
 
 /** Map English resource names to Indonesian labels for user-facing messages */
-export const RESOURCE_LABELS: Record<string, string> = {
+const RESOURCE_LABELS: Record<string, string> = {
     Account: 'Akun',
     'Account for role': 'Akun untuk peran',
     AppSettings: 'Pengaturan Aplikasi',
@@ -103,7 +103,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
 };
 
 /** Translate resource label if known, otherwise keep original */
-export function translateResource(resource: string): string {
+function translateResource(resource: string): string {
     // exact match
     if (RESOURCE_LABELS[resource]) return RESOURCE_LABELS[resource];
     // prefix match for "Account for role 'x'" etc

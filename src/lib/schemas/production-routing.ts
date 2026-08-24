@@ -39,13 +39,6 @@ export const createRouteSchema = z.object({
     notes: z.string().trim().max(1000).optional().nullable(),
 });
 
-export const updateRouteSchema = z.object({
-    id: z.string().uuid(),
-    name: z.string().trim().min(2).max(120).optional(),
-    isDefault: z.boolean().optional(),
-    notes: z.string().trim().max(1000).optional().nullable(),
-});
-
 export const createRouteStepSchema = z.object({
     routeId: z.string().uuid(),
     stepCode: z
@@ -124,7 +117,6 @@ export type UpdateProductionProcessValues = z.infer<
     typeof updateProductionProcessSchema
 >;
 export type CreateRouteValues = z.infer<typeof createRouteSchema>;
-export type UpdateRouteValues = z.infer<typeof updateRouteSchema>;
 export type CreateRouteStepValues = z.infer<typeof createRouteStepSchema>;
 export type UpdateRouteStepValues = z.infer<typeof updateRouteStepSchema>;
 export type ReorderRouteStepsValues = z.infer<typeof reorderRouteStepsSchema>;

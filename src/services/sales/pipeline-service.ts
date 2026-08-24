@@ -13,9 +13,9 @@ import {
 
 // ── Stage definitions ─────────────────────────────────────────────
 
-export const PIPELINE_QUOTATION_STATUSES = QUOTATION_STATUSES;
+const PIPELINE_QUOTATION_STATUSES = QUOTATION_STATUSES;
 
-export const PIPELINE_CONVERTED_STATUSES: readonly SalesOrderStatus[] = [
+const PIPELINE_CONVERTED_STATUSES: readonly SalesOrderStatus[] = [
     'DRAFT',
     'CONFIRMED',
     'IN_PRODUCTION',
@@ -24,7 +24,7 @@ export const PIPELINE_CONVERTED_STATUSES: readonly SalesOrderStatus[] = [
     'DELIVERED',
 ] as const;
 
-export const PIPELINE_ALL_RELEVANT_STATUSES: readonly SalesOrderStatus[] = [
+const PIPELINE_ALL_RELEVANT_STATUSES: readonly SalesOrderStatus[] = [
     ...PIPELINE_QUOTATION_STATUSES,
     ...PIPELINE_CONVERTED_STATUSES,
 ] as const;

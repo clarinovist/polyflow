@@ -256,14 +256,6 @@ export const setUserRoles = withTenant(async function setUserRoles(
         return null;
     });
 });
-
-export const updateUserRole = withTenant(async function updateUserRole(
-    userId: string,
-    newRole: Role,
-) {
-    return setUserRoles(userId, [newRole]);
-});
-
 export const updateUser = withTenant(async function updateUser(
     data: UpdateUserInput,
 ) {

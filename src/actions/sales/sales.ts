@@ -395,55 +395,6 @@ export const getSalesOrderStats = withTenant(async function getSalesOrderStats(
         };
     });
 });
-
-export const getRecentPipelineOrders = withTenant(
-    async function getRecentPipelineOrders() {
-        return safeAction(async () => {
-            const session = await requireSalesAccess();
-            const userId = session.user.id;
-
-            const orders = await prisma.salesOrder.findMany({
-                where: {
-                    customerId: { not: null },
-                    status: {
-                        in: [
-                            'QUOTATION',
-                            'QUOTATION_SENT',
-                            'DRAFT',
-                            'CONFIRMED',
-                            'IN_PRODUCTION',
-                            'READY_TO_SHIP',
-                        ],
-                    },
-                    createdById: userId,
-                },
-                select: {
-                    id: true,
-                    orderNumber: true,
-                    totalAmount: true,
-                    status: true,
-                    orderDate: true,
-                    customer: {
-                        select: { name: true },
-                    },
-                },
-                orderBy: { orderDate: 'desc' },
-                take: 3,
-            });
-
-            return orders.map((o) => ({
-                id: o.id,
-                orderNumber: o.orderNumber,
-                customerName: o.customer?.name ?? '-',
-                totalAmount:
-                    o.totalAmount != null ? Number(o.totalAmount) : null,
-                status: o.status,
-                orderDate: o.orderDate.toISOString(),
-            }));
-        });
-    },
-);
-
 // ── Quotation lifecycle actions ──────────────────────────────────────
 
 export const sendQuotationOrder = withTenant(async function sendQuotationOrder(

@@ -130,7 +130,7 @@ export type UpdateQualityCheckParameterValues = z.infer<
 // Nilai ukur QC yang diisi operator di kiosk saat log hasil produksi. Warning
 // visual saja untuk nilai di luar toleransi — kiosk tidak block submit
 // (lihat docs/plan/2026-08-11-qc-kiosk-parametric-checkpoint.md).
-export const qcMeasurementInputSchema = z.object({
+const qcMeasurementInputSchema = z.object({
     parameterId: z.string().min(1),
     value: z.coerce.number(),
 });
@@ -418,23 +418,3 @@ export const logMachineDowntimeSchema = z.object({
 });
 
 export type LogMachineDowntimeValues = z.infer<typeof logMachineDowntimeSchema>;
-
-export const splitProductionOrdersSchema = z.object({
-    salesOrderId: z.string().min(1, 'Sales Order ID is required'),
-    productVariantId: z.string().min(1, 'Product variant is required'),
-    batches: z
-        .array(
-            z.object({
-                plannedQuantity: z.coerce
-                    .number()
-                    .positive('Batch planned quantity must be positive'),
-                plannedStartDate: z.coerce.date(),
-                machineId: z.string().optional(),
-            }),
-        )
-        .min(1, 'At least one batch is required'),
-});
-
-export type SplitProductionOrdersValues = z.infer<
-    typeof splitProductionOrdersSchema
->;

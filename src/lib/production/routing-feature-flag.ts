@@ -25,17 +25,3 @@ export async function isRoutingEnabled(): Promise<boolean> {
   });
   return setting?.value === 'true';
 }
-
-/** Persist a pilot toggle in the current tenant database. */
-export async function setRoutingEnabled(enabled: boolean): Promise<void> {
-  const tenantDb = tenantContext.getStore();
-  if (!tenantDb) {
-    throw new Error('Routing flag harus diubah dalam tenant context.');
-  }
-
-  await tenantDb.appSetting.upsert({
-    where: { key: ROUTING_SETTING_KEY },
-    create: { key: ROUTING_SETTING_KEY, value: String(enabled) },
-    update: { value: String(enabled) },
-  });
-}

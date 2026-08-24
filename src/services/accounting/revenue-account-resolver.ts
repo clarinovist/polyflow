@@ -148,7 +148,7 @@ async function matchRule(
     return null;
 }
 
-export async function resolveAccountCodeAsync(
+async function resolveAccountCodeAsync(
     code: string,
     cacheKey: string,
     tenantDb: Pick<PrismaClient, 'account'>,
@@ -166,8 +166,4 @@ export async function resolveAccountCodeAsync(
         return account.id;
     }
     return null;
-}
-
-export function clearRevenueRuleCache(): void {
-    codeIdCaches.clear();
 }

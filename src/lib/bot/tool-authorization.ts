@@ -140,18 +140,3 @@ export function filterAuthorizedTools<
         return result.allowed;
     });
 }
-
-/**
- * Create a denied evidence response for an unauthorized tool call.
- */
-export function deniedEvidence(toolName: string): {
-    text: string;
-    allowed: false;
-    reason: string;
-} {
-    return {
-        text: `Akses ditolak. Anda tidak memiliki izin untuk menggunakan ${toolName}.`,
-        allowed: false,
-        reason: 'Permission denied',
-    };
-}

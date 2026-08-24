@@ -7,7 +7,7 @@ import {
 // ---------------------------------------------------------------------------
 // Mobile UA detection — same regex as existing sales redirect
 // ---------------------------------------------------------------------------
-export const MOBILE_UA_RE =
+const MOBILE_UA_RE =
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 
 export function isMobileUserAgent(ua: string | null | undefined): boolean {

@@ -9,11 +9,9 @@ export {
     getProductionFormData,
     createProductionOrder,
     quickCreateProductionOrder,
-    getProductionOrders,
     getProductionOrder,
     updateProductionOrder,
     deleteProductionOrder,
-    getProductionOrderStats,
 } from './production-orders';
 
 export {
@@ -28,9 +26,7 @@ export {
 export {
     batchIssueMaterials,
     consolidatedBatchIssueMaterials,
-    recordMaterialIssue,
     recordAdHocMaterialUsage,
-    deleteMaterialIssue,
     recordScrap,
     deleteScrap,
 } from './production-materials';
@@ -38,22 +34,14 @@ export {
 export {
     createProductionIssue,
     updateProductionIssueStatus,
-    deleteProductionIssue,
 } from './production-issues';
 
 export { recordQualityInspection } from './production-inspection';
 
 export { addProductionShift, deleteProductionShift } from './production-shifts';
 
-export {
-    getBomWithInventory,
-    createProductionFromSalesOrder,
-    simulateMrp,
-    cancelOrderFromPlanning,
-} from './production-mrp';
+export { getBomWithInventory } from './production-mrp';
 
 export { createChildProductionOrder } from './production-child';
-
-export { logMachineDowntime } from './production-downtime';
 
 export { getFgDemandBoard, createSpkFromDemand } from './production-demand';

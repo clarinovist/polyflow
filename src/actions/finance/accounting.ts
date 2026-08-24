@@ -3,13 +3,10 @@
 import { withTenant } from '@/lib/core/tenant';
 import {
     AccountingService,
-    CreateJournalEntryInput,
-} from '@/services/accounting/accounting-service';
+    } from '@/services/accounting/accounting-service';
 import { requireFinanceAccess, requireFinanceMutation, requireFinanceApprover } from '@/lib/auth/finance-access';
 import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
-import { logger } from '@/lib/config/logger';
-
 import { AccountType, AccountCategory } from '@prisma/client';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
@@ -43,29 +40,6 @@ export const createAccount = withTenant(async function createAccount(data: {
         }
     });
 });
-
-export const updateAccount = withTenant(async function updateAccount(
-    id: string,
-    data: {
-        code?: string;
-        name?: string;
-        type?: AccountType;
-        category?: AccountCategory;
-        description?: string;
-    },
-) {
-    return safeAction(async () => {
-        await requireFinanceMutation();
-        try {
-            const account = await AccountingService.updateAccount(id, data);
-            revalidatePath('/finance/coa');
-            return serializeData(account);
-        } catch {
-            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
-        }
-    });
-});
-
 export const deleteAccount = withTenant(async function deleteAccount(
     id: string,
 ) {
@@ -79,32 +53,6 @@ export const deleteAccount = withTenant(async function deleteAccount(
         }
     });
 });
-
-export const createManualJournalEntry = withTenant(
-    async function createManualJournalEntry(data: CreateJournalEntryInput) {
-        return safeAction(async () => {
-            const session = await requireFinanceMutation();
-
-            try {
-                const entry = await AccountingService.createJournalEntry({
-                    ...data,
-                    createdById: session.user?.id,
-                });
-
-                revalidatePath('/finance/journals');
-                return serializeData(entry);
-            } catch {
-                logger.error('Failed to create manual journal entry', {
-                    module: 'AccountingActions',
-                });
-                throw new BusinessRuleError(
-                    'Failed to create journal entry. Please check input data.',
-                );
-            }
-        });
-    },
-);
-
 export const getAccountBalance = withTenant(async function getAccountBalance(
     accountId: string,
     startDate?: Date,
@@ -262,34 +210,6 @@ export const getFixedAssets = withTenant(async function getFixedAssets() {
         return serializeData(assets);
     });
 });
-
-export const createFixedAsset = withTenant(
-    async function createFixedAsset(data: {
-        assetCode: string;
-        name: string;
-        category: string;
-        purchaseDate: Date;
-        purchaseValue: number;
-        usefulLifeMonths: number;
-        assetAccountId: string;
-        depreciationAccountId: string;
-        accumulatedDepreciationAccountId: string;
-    }) {
-        return safeAction(async () => {
-            await requireFinanceMutation();
-            try {
-                const asset = await FixedAssetService.createAsset(data);
-                revalidatePath('/finance/assets');
-                return serializeData(asset);
-            } catch {
-                throw new BusinessRuleError(
-                    'Gagal memproses transaksi akuntansi',
-                );
-            }
-        });
-    },
-);
-
 export const runDepreciation = withTenant(async function runDepreciation(
     year: number,
     month: number,

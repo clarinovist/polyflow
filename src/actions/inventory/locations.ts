@@ -177,27 +177,3 @@ export const updateLocation = withTenant(async function updateLocation(
         }
     });
 });
-
-export const deleteLocation = withTenant(async function deleteLocation(
-    id: string,
-) {
-    return safeAction(async () => {
-        try {
-            // First check if it's used somewhere. Here we can let prisma throw foreign key error
-            // or explicitly check relations. For simplicity we let Prisma error on delete if used.
-            const location = await prisma.location.delete({
-                where: { id },
-            });
-            return location;
-        } catch (error) {
-            logger.error('Failed to delete location', {
-                error,
-                module: 'LocationsActions',
-            });
-            throw new ExternalServiceError(
-                'Cannot delete location as it might be used in existing transactions.',
-                'Database',
-            );
-        }
-    });
-});

@@ -95,30 +95,6 @@ export function checkPromptInjection(message: string): InjectionCheckResult {
 
     return { safe: true };
 }
-
-/**
- * Sanitize knowledge article content to prevent prompt injection via uploaded content.
- * This is a basic defense — content should still be human-reviewed before publishing.
- */
-export function sanitizeKnowledgeContent(content: string): string {
-    let sanitized = content;
-
-    // Remove potential system prompt markers
-    sanitized = sanitized.replace(/\[SYSTEM\]/gi, '[CONTENT]');
-    sanitized = sanitized.replace(/\[ADMIN\]/gi, '[CONTENT]');
-    sanitized = sanitized.replace(/\[INST\]/gi, '[CONTENT]');
-    sanitized = sanitized.replace(/<<\s*SYS\s*>>/gi, '[CONTENT]');
-    sanitized = sanitized.replace(/<\|im_start\|>/gi, '[CONTENT]');
-    sanitized = sanitized.replace(/<\|im_end\|>/gi, '[CONTENT]');
-
-    // Limit length
-    if (sanitized.length > 50000) {
-        sanitized = sanitized.slice(0, 50000);
-    }
-
-    return sanitized;
-}
-
 /**
  * Log injection attempt for monitoring.
  */

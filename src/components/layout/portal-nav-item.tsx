@@ -97,7 +97,7 @@ function getAccent(accentColor: string) {
     );
 }
 
-export function PortalNavItem({
+function PortalNavItem({
     href,
     icon: Icon,
     label,

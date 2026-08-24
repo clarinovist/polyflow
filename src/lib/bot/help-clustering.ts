@@ -114,19 +114,3 @@ export async function upsertCluster(input: ClusterInput) {
         return null;
     }
 }
-
-export async function listClustersForDrafting(minHitCount = 3, limit = 20) {
-    const { getMainPrisma } = await import('@/lib/core/prisma');
-    const mainDb = getMainPrisma();
-
-    const clusters = await mainDb.helpQuestionCluster.findMany({
-        where: {
-            status: 'OPEN',
-            hitCount: { gte: minHitCount },
-        },
-        orderBy: [{ hitCount: 'desc' }, { lastSeenAt: 'desc' }],
-        take: limit,
-    });
-
-    return clusters;
-}

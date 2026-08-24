@@ -148,16 +148,6 @@ export const salesSidebarLabels = {
     priceList: 'Price List',
     collection: 'Penagihan',
 } as const;
-
-export const planningSidebarLabelsExtended = {
-    planningDashboard: 'Dashboard Planning',
-    workOrders: 'SPK Produksi',
-    incomingRequests: 'Papan Permintaan FG',
-    productionSchedule: 'Jadwal Produksi',
-    materialRequirements: 'Kebutuhan Material',
-    productionAnalytics: 'Analitik Produksi',
-} as const;
-
 export const purchasingSidebarLabels = {
     homeBoard: 'Papan Pembelian',
     purchasingDashboard: 'Dashboard Pembelian',

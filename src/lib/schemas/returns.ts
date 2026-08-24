@@ -5,7 +5,7 @@ import { ItemCondition, ReturnReason } from '@prisma/client';
 // SALES RETURN SCHEMAS
 // ==========================================
 
-export const salesReturnItemSchema = z.object({
+const salesReturnItemSchema = z.object({
     productVariantId: z.string().uuid('Invalid Product Variant ID'),
     returnedQty: z.coerce.number().positive('Quantity must be positive'),
     unitPrice: z.coerce.number().nonnegative('Unit price must be non-negative'),
@@ -43,7 +43,7 @@ export type UpdateSalesReturnValues = z.infer<typeof updateSalesReturnSchema>;
 // PURCHASE RETURN SCHEMAS
 // ==========================================
 
-export const purchaseReturnItemSchema = z.object({
+const purchaseReturnItemSchema = z.object({
     productVariantId: z.string().uuid('Invalid Product Variant ID'),
     returnedQty: z.coerce.number().positive('Quantity must be positive'),
     unitCost: z.coerce.number().nonnegative('Unit price must be non-negative'),

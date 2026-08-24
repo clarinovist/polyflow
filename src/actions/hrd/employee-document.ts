@@ -85,20 +85,3 @@ export const restoreEmployeeDocument = withTenant(
         });
     },
 );
-
-export const deleteEmployeeDocument = withTenant(
-    async function deleteEmployeeDocument(documentId: string) {
-        return safeAction(async () => {
-            const session = await requireHrdApprover();
-            await EmployeeDocumentService.remove(prisma, documentId);
-            await logActivity({
-                userId: session.user.id,
-                action: 'EMPLOYEE_DOCUMENT_DELETED',
-                entityType: 'EmployeeDocument',
-                entityId: documentId,
-                details: `Deleted document ${documentId}`,
-            });
-            return null;
-        });
-    },
-);

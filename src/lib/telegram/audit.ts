@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/core/prisma';
 import type { TelegramAuditAction } from '@prisma/client';
 
-export function hashTelegramUserId(telegramUserId: string | number): string {
+function hashTelegramUserId(telegramUserId: string | number): string {
   const idStr = String(telegramUserId);
   return crypto.createHash('sha256').update(idStr).digest('hex').slice(0, 16);
 }

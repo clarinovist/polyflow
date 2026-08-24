@@ -36,10 +36,3 @@ export function EmptyState({ message }: { message: string }) {
     </div>
   );
 }
-
-export function ForbiddenState({ message }: { message?: string }) {
-  return ErrorState({
-    title: 'Akses tidak tersedia',
-    message: message || 'Akses modul ini belum tersedia untuk akun Anda.',
-  });
-}

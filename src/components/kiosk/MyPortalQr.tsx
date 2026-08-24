@@ -44,15 +44,3 @@ export function MyPortalQr() {
         </div>
     );
 }
-
-/** Compact button for header */
-export function MyPortalButton() {
-    return (
-        <Link
-            href="/my"
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border bg-white text-xs font-bold hover:bg-muted"
-        >
-            <Smartphone className="h-3.5 w-3.5" /> MY
-        </Link>
-    );
-}
