@@ -43,6 +43,7 @@ export function DesktopRequiredClient() {
             if (from) {
                 window.location.href = decodeURIComponent(from);
             } else {
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                 window.location.href = '/dashboard';
             }
         }

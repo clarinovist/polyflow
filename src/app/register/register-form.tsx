@@ -50,6 +50,7 @@ export default function RegisterForm() {
 
             // Cross-origin redirect to the new tenant subdomain — router.push()
             // cannot navigate across origins.
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
             window.location.href = `${protocol}//${targetHost}/login`;
         }, 1500);
     };
