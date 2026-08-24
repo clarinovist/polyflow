@@ -185,6 +185,9 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                         size="sm"
                         variant="outline"
                         onClick={() =>
+                            // Target is an /api file-download endpoint, not a page
+                            // route — router.push() would try to fetch it as an
+                            // RSC payload and break the download.
                             (window.location.href = `/api/hrd/payroll-monthly/export?periodId=${periodId}`)
                         }
                         disabled={payslips.length === 0}

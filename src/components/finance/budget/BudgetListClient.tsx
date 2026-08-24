@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Account } from '@prisma/client';
 import {
     Table,
@@ -44,16 +45,10 @@ export function BudgetListClient({
     accounts,
     year: initialYear,
 }: BudgetListClientProps) {
+    const router = useRouter();
     const [year, setYear] = useState(initialYear.toString());
     const [budgets, setBudgets] = useState(initialBudgets);
-    // Actually, for year change we should probably navigate or re-fetch.
-    // For now, let's keep it simple: Changing year will reload page by navigation?
-    // Or simpler: Just a selector that pushes router.
 
-    // But `initialBudgets` comes from server.
-    // Let's implement client-side year switching via navigation
-
-    // For editing:
     const [editingCell, setEditingCell] = useState<{
         accountId: string;
         month: number;
@@ -167,7 +162,7 @@ export function BudgetListClient({
                         value={year}
                         onValueChange={(val) => {
                             setYear(val);
-                            window.location.href = `/finance/budgeting/input?year=${val}`;
+                            router.push(`/finance/budgeting/input?year=${val}`);
                         }}
                     >
                         <SelectTrigger className="w-[120px]">

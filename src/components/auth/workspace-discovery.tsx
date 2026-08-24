@@ -59,6 +59,8 @@ export default function WorkspaceDiscovery() {
             }
         }
 
+        // Cross-origin redirect to the tenant subdomain — router.push()
+        // cannot navigate across origins.
         window.location.href = `${protocol}//${targetHost}/login`;
     };
 

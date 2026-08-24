@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Table,
     TableBody,
@@ -52,6 +53,7 @@ export function EmployeesDirectory({
     initialPayType,
     initialEmployment,
 }: Props) {
+    const router = useRouter();
     const [q, setQ] = useState('');
     const [status, setStatus] = useState(initialStatus || '');
     const [payType, setPayType] = useState(initialPayType || '');
@@ -198,7 +200,9 @@ export function EmployeesDirectory({
                                         key={emp.id}
                                         className="hover:bg-muted/30 cursor-pointer"
                                         onClick={() => {
-                                            window.location.href = `/dashboard/employees/${emp.id}`;
+                                            router.push(
+                                                `/dashboard/employees/${emp.id}`,
+                                            );
                                         }}
                                     >
                                         <TableCell className="font-mono text-xs text-muted-foreground">

@@ -37,7 +37,9 @@ export function DesktopRequiredClient() {
     const handleBypass = () => {
         if (typeof document !== 'undefined') {
             document.cookie = 'bypass_mobile=true; path=/; max-age=86400';
-            // Redirect to the originally requested page
+            // Full reload forces a fresh request through middleware so the
+            // bypass cookie is re-evaluated; router.push() can serve from the
+            // Router Cache and skip that round-trip.
             if (from) {
                 window.location.href = decodeURIComponent(from);
             } else {

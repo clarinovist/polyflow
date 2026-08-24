@@ -48,6 +48,8 @@ export default function RegisterForm() {
                 targetHost = `${subdomain}.polyflow.uk${port}`;
             }
 
+            // Cross-origin redirect to the new tenant subdomain — router.push()
+            // cannot navigate across origins.
             window.location.href = `${protocol}//${targetHost}/login`;
         }, 1500);
     };
