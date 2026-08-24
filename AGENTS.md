@@ -11,8 +11,10 @@ Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
 - Template: `docs/plan/_TEMPLATE.md` (satu-satunya file di folder ini yang di-commit)
 - Jika model ada masalah: tulis dulu plan, jangan langsung edit code.
 - Plan harus ada sebelum mulai fix.
-- **`docs/plan/` di-gitignore** — repo ini publik, dan plan rutin memuat detail
-  internal (alamat host, email akun, nama tenant). Jadi plan tetap lokal: jangan
+- **`docs/plan/` di-gitignore** — plan rutin memuat detail internal (alamat host,
+  email akun, nama tenant). Repo ini private per 2026-08-24, tapi "private" bukan
+  "aman": akses kolaborator, fork internal, dan integrasi CI tetap bisa membacanya,
+  dan status private bisa berubah dengan satu klik. Jadi plan tetap lokal: jangan
   coba `git add` isinya, dan jangan berasumsi plan lama ada di clone baru.
 
 ### 2. FIX — jalankan sesuai plan
@@ -237,8 +239,9 @@ sumber kebenaran untuk produksi. **Keduanya wajib sama.**
 ## Operasi Produksi & Deploy
 
 Topologi VPS, nama container, daftar database tenant, prosedur deploy, seeding prod, dan
-checklist verifikasi setelah deploy ada di **`docs/ops/vps.md`** — lokal, tidak di-commit
-karena repo ini publik.
+checklist verifikasi setelah deploy ada di **`docs/ops/vps.md`** — lokal, tidak di-commit.
+Repo ini private, tapi private bukan berarti aman untuk kredensial dan topologi: siapa pun
+yang punya akses repo (kolaborator, CI) ikut membacanya, dan visibility bisa berubah.
 
 Yang tetap berlaku tanpa perlu membuka file itu:
 

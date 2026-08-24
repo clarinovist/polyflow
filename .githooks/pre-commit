@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pre-commit hook
 #   1. AGENTS.md consistency check
-#   2. Data-file guard  — keeps counterparty records out of this public repo
+#   2. Data-file guard  — keeps counterparty records out of this shared repo
 #   3. Tenant-name guard — keeps customer/tenant identifiers out of tracked files
 #
 # Enable once per clone: git config core.hooksPath .githooks
@@ -55,14 +55,14 @@ fi
 
 if [ -n "$BLOCKED" ]; then
     echo ""
-    echo "  pre-commit: refusing to commit data files to a PUBLIC repo"
+    echo "  pre-commit: refusing to commit data files to a SHARED repo"
     echo ""
     printf '%s' "$BLOCKED" | sed 's/^/      /'
     echo ""
     echo "  Counterparty records (names, phones, addresses, tax IDs, bank"
     echo "  accounts, balances) must not enter this repo's history — removing"
-    echo "  them later does not undo it, because forks keep the objects"
-    echo "  reachable even after a rewrite."
+    echo "  them later does not fully undo it: the objects stay reachable in"
+    echo "  history, and in any clone or fork already taken."
     echo ""
     echo "  If this file genuinely belongs here:"
     echo "      ALLOW_DATA_FILES=1 git commit ..."
@@ -129,13 +129,13 @@ else
 
         if [ -n "$NAME_HITS" ]; then
             echo ""
-            echo "  pre-commit: tenant/customer name headed into a PUBLIC repo"
+            echo "  pre-commit: tenant/customer name headed into a SHARED repo"
             echo ""
             printf '%s' "$NAME_HITS" | sed 's/^/      /'
             echo ""
             echo "  Which customers this system runs for is business information."
-            echo "  Once pushed it is public permanently — forks and caches keep it"
-            echo "  reachable even after a history rewrite."
+            echo "  Once pushed it is hard to walk back — history, clones and"
+            echo "  caches keep it reachable even after a rewrite."
             echo ""
             echo "  Move the detail to a local-only path instead:"
             echo "      docs/ops/    operational runbooks, tenant topology"

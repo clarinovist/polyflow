@@ -105,7 +105,7 @@ graphify-out/
 # Contains plaintext API keys — must NOT be committed.
 /.opencode/opencode.json
 
-# local planning/working docs — kept out of this public repo on purpose.
+# local planning/working docs — kept out of this shared repo on purpose.
 # Plans routinely carry internal detail (host addresses, account emails, tenant
 # names), so docs/plan/ stays local-only. AGENTS.md still requires a plan file
 # per change; it just is not committed.
@@ -129,10 +129,36 @@ graphify-out/
 # 146 customer names with phone numbers, addresses and NPWP; 53 suppliers with
 # 23 bank account numbers; AR/AP balances per counterparty. This is Melindo's
 # data, not ours, and it is personal data under UU PDP 27/2022 — it must not sit
-# in a public repo. Kept locally because the import narrative is still useful.
+# in a shared repo. Kept locally because the import narrative is still useful.
 # NOTE: ignoring only stops future exposure. These files are still in git history
-# (added 2026-07-03, c9f383b2) and in existing forks; removing them from history
-# needs a rewrite + force push and cannot reach the forks.
+# (added 2026-07-03, c9f383b2); removing them needs a rewrite + force push. Repo
+# ini private dan fork-nya nol per 2026-08-24, jadi rewrite masih realistis —
+# tidak ada fork di luar sana yang mustahil dijangkau. Belum dikerjakan.
 /docs/data-import/archive/melindo-initial/
-/melindo_sales_import.sql
-/melindo_catalog_review.csv
+# Pola tanpa leading slash: file ini pernah dipindah ke scripts/archive/ dan
+# pola root-anchored (/melindo_...) berhenti melindungi begitu file berpindah
+# direktori. Cocokkan di mana pun ia berada (2026-08-19).
+melindo_sales_import.sql
+melindo_catalog_review.csv
+
+# Working set import/reseed Melindo — 1.442 baris INSERT: nominal pembayaran
+# bertanggal, nama perusahaan supplier, dan baris kasbon yang menyebut nama
+# individu berikut keperluannya (data pribadi, UU PDP 27/2022).
+#
+# Ter-track sejak sebelum guard #2 di .githooks/pre-commit ada; guard hari ini
+# menolak semuanya (.sql di luar prisma/migrations/ yang memuat INSERT INTO).
+# Di-untrack 2026-08-24 — file tetap ada lokal, isinya masih di riwayat git.
+#
+# Didaftar satu per satu, BUKAN pakai glob melindo-*.sql: dua file reset di
+# direktori yang sama murni DDL/verifikasi (0 baris data) dan sengaja tetap
+# tracked karena dirujuk docs/runbooks/2026-05-09-melindo-transactional-reset-execution.md
+melindo-ar-reseed.sql
+melindo-customer-payments.sql
+melindo-inv-june-import.sql
+melindo-journal-june-import.sql
+melindo-pi-accrual-june.sql
+melindo-pi-june-import.sql
+melindo-supplier-payments.sql
+
+# Command Code CLI — settings & taste lokal, bukan konfigurasi bersama.
+/.commandcode/
