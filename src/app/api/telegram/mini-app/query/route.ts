@@ -17,6 +17,20 @@ function getIp(req: NextRequest): string {
   return (req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
 }
 
+/**
+ * BELUM ADA CONSUMER UI (per 2026-08-24).
+ *
+ * Tombol "Tanya CS" di /telegram/home dulu menaut ke
+ * `/telegram/data?focus=assistant`, tapi param `focus` tidak pernah dibaca —
+ * jadi endpoint ini tidak pernah dipanggil dari Mini App. Tombolnya sudah
+ * dihapus sampai asisten benar-benar tersambung (keputusan user).
+ *
+ * Route ini SENGAJA dipertahankan sebagai fondasi kalau UI chat dibuat nanti.
+ * Catatan penting kalau melanjutkan: tidak ada satu pun tool di
+ * `src/lib/bot/tool-registry.ts` yang menjawab pertanyaan harga, jadi asisten
+ * belum bisa dipakai untuk itu tanpa menambah tool baru.
+ * Lihat docs/plan/2026-08-24-telegram-miniapp-harga-dan-audit.md §4.4.
+ */
 export const POST = withTenantRoute(async function POST(req: NextRequest) {
   const startedAt = Date.now();
   const ip = getIp(req);

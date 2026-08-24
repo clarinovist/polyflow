@@ -154,12 +154,9 @@ function HomeInner() {
         )}
       </section>
 
-      <section className="mb-5 flex gap-2">
-        <Link href="/telegram/data" className="flex-1 rounded-full bg-black px-4 py-2.5 text-center text-sm font-medium text-white dark:bg-white dark:text-black" style={{ minHeight: 44 }}>
+      <section className="mb-5">
+        <Link href="/telegram/data" className="block w-full rounded-full bg-black px-4 py-2.5 text-center text-sm font-medium text-white dark:bg-white dark:text-black" style={{ minHeight: 44 }}>
           Buka data
-        </Link>
-        <Link href="/telegram/data?focus=assistant" className="flex-1 rounded-full border px-4 py-2.5 text-center text-sm font-medium" style={{ minHeight: 44 }}>
-          Tanya CS
         </Link>
       </section>
 

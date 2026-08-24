@@ -82,6 +82,10 @@ vi.mock('@/lib/telegram/domain-access', async (orig) => {
   return actual;
 });
 
+vi.mock('@/services/sales/price-list-service', () => ({
+  listPricesByProduct: vi.fn(),
+}));
+
 function assertResponse(res: void | Response): Response {
   if (res && typeof res === 'object' && 'status' in res && typeof (res as Response).json === 'function') {
     return res as Response;
@@ -432,5 +436,271 @@ describe('Telegram mini-app data/[domain] route', () => {
     expect(body.hasMore).toBe(false);
     expect(body.total).toBe(1);
     expect(body.items.length).toBe(1);
+  });
+});
+
+describe('Telegram mini-app data/price — gate ADMIN & pemetaan harga', () => {
+  // Dipanggil demi efek samping beforeEach (stub sesi + user ADMIN default);
+  // nilainya tidak dipakai di blok ini.
+  setupSession();
+
+  const priceRow = {
+    variantId: 'var-1',
+    skuCode: 'BAL000001',
+    variantName: 'Rafia 1kg',
+    productName: 'Tali Rafia',
+    productType: 'FINISHED_GOOD',
+    basePrice: 15000,
+    customPriceCount: 0,
+    minPrice: null,
+    maxPrice: null,
+    prices: [],
+  };
+
+  async function mockPrices(rows: unknown[], total = rows.length) {
+    const { listPricesByProduct } = await import('@/services/sales/price-list-service');
+    (listPricesByProduct as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: rows,
+      total,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
+    });
+    return listPricesByProduct as ReturnType<typeof vi.fn>;
+  }
+
+  it('returns 403 PRICE_FORBIDDEN for SALES (harga hanya ADMIN)', async () => {
+    const { prisma } = await import('@/lib/core/prisma');
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'user-1',
+      name: 'Putri',
+      role: 'SALES',
+      isSuperAdmin: false,
+      isActive: true,
+    });
+    (prisma.userRole.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.rolePermission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { resource: '/sales' },
+      { resource: '/sales/price-list' },
+    ]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    // SALES tidak pernah mendapat domain 'price' dari computeAllowedDomains,
+    // jadi ia tertahan di gate domain lebih dulu. Gate PRICE_FORBIDDEN di
+    // route adalah lapis kedua (defense-in-depth) yang secara desain tidak
+    // terjangkau lewat jalur normal — sengaja tidak dites lewat mock global
+    // karena stub yang bocor lintas-test (clearAllMocks tidak mereset
+    // implementasi) merusak seluruh berkas ini.
+    expect(body.status).toBe('DOMAIN_FORBIDDEN');
+  });
+
+  it('returns 200 for ADMIN', async () => {
+    await mockPrices([priceRow]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.domain).toBe('price');
+    expect(body.items.length).toBe(1);
+  });
+
+  it('returns 200 for superadmin', async () => {
+    const { prisma } = await import('@/lib/core/prisma');
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'user-1',
+      name: 'Owner',
+      role: 'STAFF',
+      isSuperAdmin: true,
+      isActive: true,
+    });
+    await mockPrices([priceRow]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+
+    expect(res.status).toBe(200);
+  });
+
+  it('mengubah page 0-based route menjadi 1-based service', async () => {
+    const spy = await mockPrices([priceRow]);
+
+    const { GET } = await import('../route');
+    // page=0 -> service harus dipanggil dengan page 1
+    await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price'));
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+
+    // page=2 -> service harus dipanggil dengan page 3
+    await GET(
+      makeRequest('price', { page: '2' }, { cookie: 'polyflow_tg=raw-token' }),
+      domainParams('price'),
+    );
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ page: 3 }));
+  });
+
+  it('meneruskan q sebagai search ke service', async () => {
+    const spy = await mockPrices([priceRow]);
+
+    const { GET } = await import('../route');
+    await GET(
+      makeRequest('price', { q: '  rafia  ' }, { cookie: 'polyflow_tg=raw-token' }),
+      domainParams('price'),
+    );
+
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'rafia' }));
+  });
+
+  it('filter custom mengirim onlyWithCustomPrice true', async () => {
+    const spy = await mockPrices([priceRow]);
+
+    const { GET } = await import('../route');
+    await GET(
+      makeRequest('price', { filter: 'custom' }, { cookie: 'polyflow_tg=raw-token' }),
+      domainParams('price'),
+    );
+
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ onlyWithCustomPrice: true }),
+    );
+  });
+
+  it('filter default all tidak mengaktifkan onlyWithCustomPrice', async () => {
+    const spy = await mockPrices([priceRow]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(body.filter).toBe('all');
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ onlyWithCustomPrice: false }),
+    );
+  });
+
+  it('menampilkan "Harga belum diset" saat tidak ada harga apa pun', async () => {
+    await mockPrices([{ ...priceRow, basePrice: null }]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(body.items[0].meta).toBe('Harga belum diset');
+    expect(body.items[0].status).toBe('HARGA UMUM');
+    expect(body.items[0].statusVariant).toBe('neutral');
+  });
+
+  it('menampilkan rentang harga khusus saat min != max', async () => {
+    await mockPrices([
+      { ...priceRow, customPriceCount: 3, minPrice: 12000, maxPrice: 14000 },
+    ]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(body.items[0].status).toBe('3 HARGA KHUSUS');
+    expect(body.items[0].statusVariant).toBe('warning');
+    expect(body.items[0].meta).toContain('Umum Rp 15.000');
+    expect(body.items[0].meta).toContain('Rp 12.000');
+    expect(body.items[0].meta).toContain('Rp 14.000');
+  });
+
+  it('menampilkan satu harga khusus saat min == max', async () => {
+    await mockPrices([
+      { ...priceRow, customPriceCount: 1, minPrice: 13000, maxPrice: 13000 },
+    ]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(body.items[0].meta).toContain('khusus Rp 13.000');
+    expect(body.items[0].meta).not.toContain('–');
+  });
+
+  it('menandai basePrice kosong tapi ada harga khusus', async () => {
+    await mockPrices([
+      {
+        ...priceRow,
+        basePrice: null,
+        customPriceCount: 2,
+        minPrice: 9000,
+        maxPrice: 9500,
+      },
+    ]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(body.items[0].meta).toContain('Umum belum diset');
+    expect(body.items[0].meta).toContain('Rp 9.000');
+  });
+
+  it('memetakan judul dan SKU ke DataItem', async () => {
+    await mockPrices([priceRow]);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(body.items[0].id).toBe('var-1');
+    expect(body.items[0].title).toBe('Tali Rafia — Rafia 1kg');
+    expect(body.items[0].subtitle).toBe('SKU: BAL000001');
+  });
+
+  it('menghitung hasMore dari total service', async () => {
+    await mockPrices([priceRow], 45);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(makeRequest('price', {}, { cookie: 'polyflow_tg=raw-token' }), domainParams('price')),
+    );
+    const body = await res.json();
+
+    expect(body.total).toBe(45);
+    expect(body.hasMore).toBe(true);
+  });
+
+  it('tidak meneruskan q untuk domain non-harga', async () => {
+    const { prisma } = await import('@/lib/core/prisma');
+    (prisma.salesOrder.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.salesOrder.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+
+    const { GET } = await import('../route');
+    const res = assertResponse(
+      await GET(
+        makeRequest('sales', { q: 'rafia' }, { cookie: 'polyflow_tg=raw-token' }),
+        domainParams('sales'),
+      ),
+    );
+
+    // Tidak error, dan service harga tidak tersentuh.
+    expect(res.status).toBe(200);
+    const { listPricesByProduct } = await import('@/services/sales/price-list-service');
+    expect(listPricesByProduct).not.toHaveBeenCalled();
   });
 });

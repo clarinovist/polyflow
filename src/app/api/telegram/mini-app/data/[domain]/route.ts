@@ -14,6 +14,7 @@ import {
     computeAllowedDomains,
     isValidDataDomain,
 } from '@/lib/telegram/domain-access';
+import { listPricesByProduct } from '@/services/sales/price-list-service';
 import type { Role } from '@prisma/client';
 import type { SalesOrderStatus, PurchaseOrderStatus } from '@prisma/client';
 
@@ -288,12 +289,67 @@ async function fetchPurchasing(
     return { total, items };
 }
 
+async function fetchPrice(
+    filter: string,
+    page: number,
+    pageSize: number,
+    search?: string,
+): Promise<{ total: number; items: DataItem[] }> {
+    // listPricesByProduct memakai halaman 1-based, route ini 0-based.
+    const result = await listPricesByProduct({
+        page: page + 1,
+        pageSize,
+        search: search?.trim() || undefined,
+        onlyWithCustomPrice: filter === 'custom',
+    });
+
+    const items: DataItem[] = result.data.map((row) => {
+        const hasCustom = row.customPriceCount > 0;
+
+        let meta: string;
+        if (row.basePrice == null && !hasCustom) {
+            meta = 'Harga belum diset';
+        } else {
+            const parts: string[] = [];
+            parts.push(
+                row.basePrice != null
+                    ? `Umum ${fmtRp(row.basePrice)}`
+                    : 'Umum belum diset',
+            );
+            if (hasCustom && row.minPrice != null && row.maxPrice != null) {
+                parts.push(
+                    row.minPrice === row.maxPrice
+                        ? `khusus ${fmtRp(row.minPrice)}`
+                        : `khusus ${fmtRp(row.minPrice)}–${fmtRp(row.maxPrice)}`,
+                );
+            }
+            meta = parts.join(' • ');
+        }
+
+        return {
+            id: row.variantId,
+            title: `${row.productName} — ${row.variantName}`,
+            subtitle: `SKU: ${row.skuCode}`,
+            status: hasCustom
+                ? `${row.customPriceCount} HARGA KHUSUS`
+                : 'HARGA UMUM',
+            statusVariant: hasCustom
+                ? ('warning' as const)
+                : ('neutral' as const),
+            meta,
+        };
+    });
+
+    return { total: result.total, items };
+}
+
 const DOMAIN_FETCHERS: Record<
     string,
     (
         filter: string,
         page: number,
         pageSize: number,
+        search?: string,
     ) => Promise<{ total: number; items: DataItem[] }>
 > = {
     stock: fetchStock,
@@ -301,6 +357,7 @@ const DOMAIN_FETCHERS: Record<
     production: fetchProduction,
     finance: fetchFinance,
     purchasing: fetchPurchasing,
+    price: fetchPrice,
 };
 
 const DEFAULT_FILTERS: Record<string, string> = {
@@ -309,6 +366,7 @@ const DEFAULT_FILTERS: Record<string, string> = {
     production: 'active',
     finance: 'overdue',
     purchasing: 'outstanding',
+    price: 'all',
 };
 
 export const GET = withTenantRoute(async function GET(
@@ -393,13 +451,15 @@ export const GET = withTenantRoute(async function GET(
 
     let allowedResources: string[] | 'ALL' = [];
     let assignedRoles: string[] = [];
+    // Dideklarasikan di scope luar karena gate harga di bawah membutuhkannya.
+    let allRoles: Role[] = [];
     try {
         const roleRows = await prisma.userRole.findMany({
             where: { userId },
             select: { role: true },
         });
         assignedRoles = roleRows.map((r) => r.role as string);
-        const allRoles = [...new Set([user.role, ...assignedRoles])].filter(
+        allRoles = [...new Set([user.role, ...assignedRoles])].filter(
             Boolean,
         ) as Role[];
         if (user.isSuperAdmin) {
@@ -429,6 +489,27 @@ export const GET = withTenantRoute(async function GET(
         );
     }
 
+    // Harga = data komersial sensitif. Keputusan user 2026-08-24: ADMIN saja.
+    // Defense-in-depth — computeAllowedDomains sudah menyaring lewat cabang
+    // `hasAll`, cek ini menjaga kalau ALL_DOMAINS dipakai ulang di tempat lain.
+    if (domain === 'price') {
+        const isAdmin = user.isSuperAdmin || allRoles.includes('ADMIN');
+        if (!isAdmin) {
+            logTelegramAudit({
+                action: 'DATA_LIST_FETCH',
+                telegramUserId,
+                userId,
+                tenantId: effectiveTenantId,
+                outcome: 'PRICE_FORBIDDEN',
+                ip,
+            });
+            return NextResponse.json(
+                { error: 'Harga hanya untuk admin', status: 'PRICE_FORBIDDEN' },
+                { status: 403 },
+            );
+        }
+    }
+
     const url = new URL(req.url);
     const filterParam =
         url.searchParams.get('filter') || DEFAULT_FILTERS[domain] || '';
@@ -439,7 +520,18 @@ export const GET = withTenantRoute(async function GET(
     );
 
     const fetcher = DOMAIN_FETCHERS[domain];
-    const { total, items } = await fetcher(filterParam, page, pageSize);
+    // `q` hanya dibaca untuk domain harga — owner perlu mengetik nama produk
+    // saat ditanya customer. Domain lain sengaja tidak berubah (scope kecil).
+    const searchParam =
+        domain === 'price'
+            ? url.searchParams.get('q')?.slice(0, 100) || undefined
+            : undefined;
+    const { total, items } = await fetcher(
+        filterParam,
+        page,
+        pageSize,
+        searchParam,
+    );
 
     logTelegramAudit({
         action: 'DATA_LIST_FETCH',

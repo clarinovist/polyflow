@@ -9,7 +9,18 @@ const DOMAIN_MAP: Record<string, string> = {
   '/hrd/attendance': 'hrd',
 };
 
-const ALL_DOMAINS = ['stock', 'sales', 'production', 'finance', 'purchasing'] as const;
+// 'price' sengaja TIDAK ada di DOMAIN_MAP maupun di cabang prefix di bawah:
+// harga hanya untuk ADMIN/superadmin, yang masuk lewat cabang `hasAll`.
+// Menambahkan '/sales/price-list' -> 'price' di sini akan memberi akses ke
+// SALES/MARKETING. Lihat docs/plan/2026-08-24-telegram-miniapp-harga-dan-audit.md §0.
+const ALL_DOMAINS = [
+  'stock',
+  'sales',
+  'production',
+  'finance',
+  'purchasing',
+  'price',
+] as const;
 
 type ComputeAllowedDomainsInput = {
   isSuperAdmin: boolean;
@@ -42,7 +53,14 @@ export function computeAllowedDomains(input: ComputeAllowedDomainsInput): Set<st
   return allowedDomainsSet;
 }
 
-export const VALID_DATA_DOMAINS = ['stock', 'sales', 'production', 'finance', 'purchasing'] as const;
+export const VALID_DATA_DOMAINS = [
+  'stock',
+  'sales',
+  'production',
+  'finance',
+  'purchasing',
+  'price',
+] as const;
 
 export type DataDomain = (typeof VALID_DATA_DOMAINS)[number];
 

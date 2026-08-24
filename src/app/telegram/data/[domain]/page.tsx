@@ -42,6 +42,7 @@ const DOMAIN_LABELS: Record<string, string> = {
     production: 'Produksi',
     finance: 'Finance',
     purchasing: 'Purchasing',
+    price: 'Harga',
 };
 
 const DOMAIN_FILTERS: Record<string, Array<{ key: string; label: string }>> = {
@@ -65,6 +66,10 @@ const DOMAIN_FILTERS: Record<string, Array<{ key: string; label: string }>> = {
         { key: 'outstanding', label: 'Outstanding' },
         { key: 'all', label: 'Semua' },
     ],
+    price: [
+        { key: 'all', label: 'Semua' },
+        { key: 'custom', label: 'Harga khusus' },
+    ],
 };
 
 function DomainDataInner({ domain }: { domain: string }) {
@@ -80,6 +85,16 @@ function DomainDataInner({ domain }: { domain: string }) {
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [filter, setFilter] = useState(initialFilter);
+    // Search hanya dipakai domain harga (owner mencari SKU saat ditanya customer).
+    const isSearchable = domain === 'price';
+    const [searchInput, setSearchInput] = useState('');
+    const [search, setSearch] = useState('');
+
+    useEffect(() => {
+        if (!isSearchable) return;
+        const t = setTimeout(() => setSearch(searchInput.trim()), 400);
+        return () => clearTimeout(t);
+    }, [searchInput, isSearchable]);
 
     const fetchBootstrap = useCallback(async () => {
         try {
@@ -96,7 +111,12 @@ function DomainDataInner({ domain }: { domain: string }) {
     }, []);
 
     const fetchData = useCallback(
-        async (filterVal: string, pageNum: number, append: boolean) => {
+        async (
+            filterVal: string,
+            pageNum: number,
+            append: boolean,
+            searchVal: string,
+        ) => {
             if (append) setLoadingMore(true);
             else setLoading(true);
             setError(null);
@@ -105,6 +125,7 @@ function DomainDataInner({ domain }: { domain: string }) {
                 const qs = new URLSearchParams();
                 if (filterVal) qs.set('filter', filterVal);
                 if (pageNum > 0) qs.set('page', String(pageNum));
+                if (searchVal) qs.set('q', searchVal);
 
                 const res = await fetch(
                     `/api/telegram/mini-app/data/${domain}?${qs}`,
@@ -152,8 +173,8 @@ function DomainDataInner({ domain }: { domain: string }) {
 
     useEffect(() => {
         setPage(0);
-        fetchData(filter || '', 0, false);
-    }, [filter, fetchData]);
+        fetchData(filter || '', 0, false, search);
+    }, [filter, search, fetchData]);
 
     const handleFilterChange = (newFilter: string) => {
         setFilter(newFilter);
@@ -163,50 +184,43 @@ function DomainDataInner({ domain }: { domain: string }) {
     const handleLoadMore = () => {
         const nextPage = page + 1;
         setPage(nextPage);
-        fetchData(filter, nextPage, true);
+        fetchData(filter, nextPage, true, search);
     };
-
-    if (loading) {
-        return (
-            <div className="mx-auto max-w-[480px] p-4 pb-24">
-                <div className="mb-4 h-5 w-40 animate-pulse rounded bg-black/10 dark:bg-white/10" />
-                <SkeletonList count={4} />
-            </div>
-        );
-    }
-
-    if (error) {
-        const isSession =
-            error.toLowerCase().includes('session') ||
-            error.toLowerCase().includes('expired');
-        return (
-            <div className="pb-24">
-                <ErrorState
-                    title={isSession ? 'Sesi kadaluarsa' : 'Gagal memuat data'}
-                    message={error}
-                    actionLabel={isSession ? 'Muat ulang Mini App' : 'Kembali'}
-                    onAction={() =>
-                        isSession
-                            ? window.location.reload()
-                            : window.history.back()
-                    }
-                />
-            </div>
-        );
-    }
 
     const allowedDomains = bootstrap?.user?.allowedDomains || [];
     const filterOptions = DOMAIN_FILTERS[domain] || [];
     const currentFilter = filter || filterOptions[0]?.key || '';
+    const isSession =
+        !!error &&
+        (error.toLowerCase().includes('session') ||
+            error.toLowerCase().includes('expired'));
 
+    // Header + kotak cari sengaja SELALU dirender. Kalau di-early-return saat
+    // loading, input search ter-unmount tiap ketik → keyboard HP menutup dan
+    // fokus hilang.
     return (
         <div className="mx-auto max-w-[480px] p-4 pb-28">
             <div className="mb-4 flex items-center justify-between">
                 <h1 className="text-base font-semibold">
                     {DOMAIN_LABELS[domain] || domain}
                 </h1>
-                <span className="text-xs opacity-50">{total} item</span>
+                {!loading && !error && (
+                    <span className="text-xs opacity-50">{total} item</span>
+                )}
             </div>
+
+            {isSearchable && (
+                <input
+                    type="search"
+                    inputMode="search"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Cari nama produk, SKU, atau customer"
+                    aria-label="Cari harga produk"
+                    className="mb-3 w-full rounded-xl border px-3 py-2.5 text-sm outline-none"
+                    style={{ minHeight: 44 }}
+                />
+            )}
 
             {filterOptions.length > 0 && (
                 <div className="mb-4 flex gap-2">
@@ -219,6 +233,7 @@ function DomainDataInner({ domain }: { domain: string }) {
                                     ? 'bg-black text-white dark:bg-white dark:text-black'
                                     : 'border opacity-60'
                             }`}
+                            style={{ minHeight: 44 }}
                         >
                             {fo.label}
                         </button>
@@ -226,8 +241,27 @@ function DomainDataInner({ domain }: { domain: string }) {
                 </div>
             )}
 
-            {items.length === 0 ? (
-                <EmptyState message="Tidak ada data" />
+            {loading ? (
+                <SkeletonList count={4} />
+            ) : error ? (
+                <ErrorState
+                    title={isSession ? 'Sesi kadaluarsa' : 'Gagal memuat data'}
+                    message={error}
+                    actionLabel={isSession ? 'Muat ulang Mini App' : 'Kembali'}
+                    onAction={() =>
+                        isSession
+                            ? window.location.reload()
+                            : window.history.back()
+                    }
+                />
+            ) : items.length === 0 ? (
+                <EmptyState
+                    message={
+                        isSearchable && search
+                            ? `Tidak ada hasil untuk "${search}"`
+                            : 'Tidak ada data'
+                    }
+                />
             ) : (
                 <div className="space-y-2">
                     {items.map((item) => (
@@ -255,11 +289,12 @@ function DomainDataInner({ domain }: { domain: string }) {
                 </div>
             )}
 
-            {hasMore && (
+            {hasMore && !loading && !error && (
                 <button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
                     className="mt-4 w-full rounded-full border py-2.5 text-sm font-medium opacity-80 disabled:opacity-40"
+                    style={{ minHeight: 44 }}
                 >
                     {loadingMore ? 'Memuat...' : 'Muat lebih banyak'}
                 </button>

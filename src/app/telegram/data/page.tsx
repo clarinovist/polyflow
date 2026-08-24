@@ -5,18 +5,26 @@ import { useEffect, useState } from 'react';
 import { TelegramProvider } from '../components/telegram-provider';
 import { BottomNav } from '../components/bottom-nav';
 import { SkeletonList } from '../components/skeleton';
+import { ErrorState } from '../components/error-states';
 
-type Bootstrap = { user: { allowedDomains: string[] } };
+type Bootstrap = {
+  user: { allowedDomains: string[] };
+  features?: { canViewPrices?: boolean };
+};
 
 function DataHubInner() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     fetch('/api/telegram/mini-app/bootstrap', { credentials: 'include' })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('bootstrap gagal');
+        return r.json();
+      })
       .then((j) => setBootstrap(j))
-      .catch(() => {})
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -24,10 +32,26 @@ function DataHubInner() {
     return <div className="mx-auto max-w-[480px] p-4 pb-24"><SkeletonList count={3} /></div>;
   }
 
+  if (failed) {
+    return (
+      <div className="pb-24">
+        <ErrorState
+          title="Gagal memuat menu"
+          message="Tidak bisa mengambil daftar akses. Muat ulang Mini App."
+          actionLabel="Muat ulang"
+          onAction={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
+
   const allowed = bootstrap?.user?.allowedDomains || [];
   const has = (d: string) => allowed.length === 0 || allowed.includes(d);
+  // Harga: ADMIN saja. Jangan fail-open — kalau flag tidak ada, sembunyikan.
+  const canViewPrices = bootstrap?.features?.canViewPrices === true;
 
   const cards = [
+    canViewPrices ? { icon: '🏷️', label: 'Harga produk', desc: 'Harga jual & harga khusus customer', href: '/telegram/data/price' } : null,
     has('stock') ? { icon: '📦', label: 'Stok & stok kritis', desc: 'Lihat stok, critical alert', href: '/telegram/data/stock' } : null,
     has('sales') ? { icon: '🚚', label: 'Sales order & delivery', desc: 'SO pending, delivery', href: '/telegram/data/sales' } : null,
     has('production') ? { icon: '🏭', label: 'Produksi aktif', desc: 'SPK berjalan', href: '/telegram/data/production' } : null,
@@ -57,7 +81,7 @@ function DataHubInner() {
       )}
 
       <div className="mt-6 text-[11px] opacity-40">
-        Domain disembunyikan (bukan disabled) jika tidak diizinkan — per blueprint §5.3. Backend tetap wajib cek resource setiap request. Phase 2 akan isi list/detail read-only per domain.
+        Menu yang tidak Anda miliki aksesnya tidak ditampilkan.
       </div>
 
       <BottomNav allowedDomains={allowed} />

@@ -73,10 +73,13 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
   }
 
   let allowedResources: string[] = [];
+  // Di scope luar karena dipakai juga untuk flag canViewPrices di bawah.
+  const allRolesForGate = [...new Set([user.role, ...assignedRoles])].filter(
+    Boolean,
+  ) as Role[];
   try {
-    const allRoles = [...new Set([user.role, ...assignedRoles])].filter(Boolean) as Role[];
-    if (allRoles.length) {
-      const perms = await prisma.rolePermission.findMany({ where: { role: { in: allRoles }, canAccess: true }, select: { resource: true } });
+    if (allRolesForGate.length) {
+      const perms = await prisma.rolePermission.findMany({ where: { role: { in: allRolesForGate }, canAccess: true }, select: { resource: true } });
       allowedResources = [...new Set(perms.map((p) => p.resource))];
     }
   } catch {
@@ -125,6 +128,9 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
       notificationsEnabled: pref?.enabled ?? true,
       criticalStock: pref?.criticalStock ?? true,
       dailyDigest: pref?.dailyDigest ?? true,
+      // Harga = ADMIN saja (keputusan user 2026-08-24). Dipakai UI untuk
+      // menyembunyikan kartu Harga tanpa menunggu 403 dari route data.
+      canViewPrices: user.isSuperAdmin || allRolesForGate.includes('ADMIN'),
       pilot: true,
     },
     version: '1.0.0-phase1',

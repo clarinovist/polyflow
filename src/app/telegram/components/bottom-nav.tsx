@@ -10,7 +10,7 @@ export function BottomNav({ allowedDomains }: { allowedDomains?: string[] }) {
 
   const items: NavItem[] = [
     { href: '/telegram/home', label: 'Home', icon: '🏠' },
-    { href: '/telegram/data', label: 'Data', icon: '📦', domains: ['stock', 'sales', 'production', 'finance', 'purchasing'] },
+    { href: '/telegram/data', label: 'Data', icon: '📦', domains: ['stock', 'sales', 'production', 'finance', 'purchasing', 'price'] },
     { href: '/telegram/account', label: 'Akun', icon: '👤' },
   ];
 
