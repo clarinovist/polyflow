@@ -9,26 +9,26 @@ Server actions for accounting, journal entries, invoices, payments, petty cash, 
 All exported actions use finance access guards from `@/lib/auth/finance-access`.
 Plain `requireAuth()` is NOT used — every action requires one of:
 
-| Guard | Roles | Use case |
-|-------|-------|----------|
-| `requireFinanceAccess()` | ADMIN, FINANCE | Read operations (reports, queries, lists) |
-| `requireFinanceMutation()` | ADMIN, FINANCE | Payment, asset, budget, reconciliation mutation |
-| `requireFinanceApprover()` | ADMIN, FINANCE | Post/void/reverse journal, close/reopen period, reconciliation final |
-| `requireFinanceAdmin()` | ADMIN only | resetAllMappings (destructive) |
-| `requireFinanceReadCrossPortal(roles)` | ADMIN, FINANCE + listed roles | Cross-portal read exceptions |
+| Guard                                  | Roles                         | Use case                                                             |
+| -------------------------------------- | ----------------------------- | -------------------------------------------------------------------- |
+| `requireFinanceAccess()`               | ADMIN, FINANCE                | Read operations (reports, queries, lists)                            |
+| `requireFinanceMutation()`             | ADMIN, FINANCE                | Payment, asset, budget, reconciliation mutation                      |
+| `requireFinanceApprover()`             | ADMIN, FINANCE                | Post/void/reverse journal, close/reopen period, reconciliation final |
+| `requireFinanceAdmin()`                | ADMIN only                    | resetAllMappings (destructive)                                       |
+| `requireFinanceReadCrossPortal(roles)` | ADMIN, FINANCE + listed roles | Cross-portal read exceptions                                         |
 
 ### Cross-portal exceptions (§9.14)
 
-| Action | File | Allowed extra roles | Reason |
-|--------|------|---------------------|--------|
-| `getWipValuation` | finance.ts | PRODUCTION | Production costing |
-| `getOrderCosting` | finance.ts | PRODUCTION | Production costing |
-| `getAccounts` | account-actions.ts | (already guarded) | Product master |
-| `getOutstandingInvoicesByCustomerId` | invoice.ts | SALES, FIELD_SALES | Field Sales AR lookup |
-| `getSalesInvoices` | invoices.ts | SALES | Sales invoice list |
-| `getInvoiceStats` | invoices.ts | SALES | Sales invoice stats |
-| `getPurchaseInvoices` | invoices.ts | PROCUREMENT | Purchasing AP |
-| `getOutstandingPurchaseInvoices` | invoices.ts | PROCUREMENT | Purchasing AP |
+| Action                               | File               | Allowed extra roles | Reason                |
+| ------------------------------------ | ------------------ | ------------------- | --------------------- |
+| `getWipValuation`                    | finance.ts         | PRODUCTION          | Production costing    |
+| `getOrderCosting`                    | finance.ts         | PRODUCTION          | Production costing    |
+| `getAccounts`                        | account-actions.ts | (already guarded)   | Product master        |
+| `getOutstandingInvoicesByCustomerId` | invoice.ts         | SALES, FIELD_SALES  | Field Sales AR lookup |
+| `getSalesInvoices`                   | invoices.ts        | SALES               | Sales invoice list    |
+| `getInvoiceStats`                    | invoices.ts        | SALES               | Sales invoice stats   |
+| `getPurchaseInvoices`                | invoices.ts        | PROCUREMENT         | Purchasing AP         |
+| `getOutstandingPurchaseInvoices`     | invoices.ts        | PROCUREMENT         | Purchasing AP         |
 
 ### Guard assignment by file
 
@@ -43,7 +43,6 @@ Plain `requireAuth()` is NOT used — every action requires one of:
 **payment-query-actions.ts**: all=read
 **payment-mutation-actions.ts**: record=mutation, delete=mutation
 **opening-balance-create-actions.ts**: getAccounts=read, save=mutation
-**opening-balance-history-actions.ts**: getRecent=read, delete=mutation
 **period-actions.ts**: getFiscalPeriods=read, getIncomeStatementSummary=read, generatePeriodsForYear=mutation, closePeriod=approver, reopenPeriod=approver
 **reconciliation-actions.ts**: create/match/adjust=mutation, complete/adjustmentJournals=approver, get/list/calculate=read
 **petty-cash-actions.ts**: get=read, create/approve/replenish=mutation
@@ -91,7 +90,7 @@ import { requireFinanceAccess } from '@/lib/auth/finance-access';
 
 export const myAction = withTenant(async function myAction(data: InputType) {
     return safeAction(async () => {
-        await requireFinanceAccess();  // or requireFinanceMutation, etc.
+        await requireFinanceAccess(); // or requireFinanceMutation, etc.
         // ... business logic
         return result;
     });

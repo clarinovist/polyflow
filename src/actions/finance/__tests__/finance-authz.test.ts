@@ -711,22 +711,6 @@ describe('Pass 3: opening-balance-create-actions.ts', () => {
     });
 });
 
-describe('Pass 3: opening-balance-history-actions.ts', () => {
-    beforeEach(() => vi.clearAllMocks());
-
-    it('getRecentOpeningBalances: SALES denied', async () => {
-        setupAuth('SALES');
-        const { getRecentOpeningBalances } = await import('../opening-balance-history-actions');
-        await expectDenied(() => getRecentOpeningBalances());
-    });
-
-    it('deleteOpeningBalance: SALES denied', async () => {
-        setupAuth('SALES');
-        const { deleteOpeningBalance } = await import('../opening-balance-history-actions');
-        await expectDenied(() => deleteOpeningBalance('ob1', 'AR'));
-    });
-});
-
 describe('Pass 3: period-actions.ts', () => {
     beforeEach(() => vi.clearAllMocks());
 
@@ -1178,12 +1162,6 @@ describe('Pass 5: opening-balance — positive cases', () => {
         setupAuth('FINANCE');
         const { saveUnifiedOpeningBalance } = await import('../opening-balance-create-actions');
         await expectAllowed(() => saveUnifiedOpeningBalance({ arEntries: [], apEntries: [], generalEntries: [] } as any));
-    });
-
-    it('deleteOpeningBalance: FINANCE allowed (mutation)', async () => {
-        setupAuth('FINANCE');
-        const { deleteOpeningBalance } = await import('../opening-balance-history-actions');
-        await expectAllowed(() => deleteOpeningBalance('ob1', 'AR'));
     });
 });
 
