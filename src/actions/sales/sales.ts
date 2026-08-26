@@ -23,6 +23,7 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import {
     requireSalesAccess,
     requireSalesApprover,
+    requireSalesCancellationAccess,
 } from '@/lib/auth/sales-access';
 import {
     safeAction,
@@ -305,7 +306,7 @@ export const cancelSalesOrder = withTenant(async function cancelSalesOrder(
     id: string,
 ) {
     return safeAction(async () => {
-        const session = await requireSalesApprover();
+        const session = await requireSalesCancellationAccess();
         await SalesService.cancelOrder(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);

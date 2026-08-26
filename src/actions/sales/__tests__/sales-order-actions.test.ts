@@ -24,7 +24,7 @@ import {
     reopenQuotation,
 } from '@/services/sales/quotation-service';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { requireSalesAccess, requireSalesApprover } from '@/lib/auth/sales-access';
+import { requireSalesAccess, requireSalesApprover, requireSalesCancellationAccess } from '@/lib/auth/sales-access';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError } from '@/lib/errors/errors';
@@ -64,6 +64,7 @@ vi.mock('@/lib/tools/auth-checks', () => ({
 vi.mock('@/lib/auth/sales-access', () => ({
     requireSalesAccess: vi.fn(),
     requireSalesApprover: vi.fn(),
+    requireSalesCancellationAccess: vi.fn(),
 }));
 
 vi.mock('@/services/sales/sales-service', () => ({
@@ -105,6 +106,9 @@ describe('sales order actions', () => {
         vi.mocked(requireAuth).mockResolvedValue(SESSION as never);
         vi.mocked(requireSalesAccess).mockResolvedValue(SESSION as never);
         vi.mocked(requireSalesApprover).mockResolvedValue(SESSION as never);
+        vi.mocked(requireSalesCancellationAccess).mockResolvedValue(
+            SESSION as never,
+        );
     });
 
     describe('read actions', () => {
@@ -317,7 +321,7 @@ describe('sales order actions', () => {
             expect(revalidatePath).toHaveBeenCalledWith('/sales/deliveries');
         });
 
-        it('requires approver rights to cancel, not plain auth', async () => {
+        it('requires cancellation rights to cancel, not plain auth', async () => {
             // Arrange
             vi.mocked(SalesService.cancelOrder).mockResolvedValue(
                 undefined as never,
@@ -327,7 +331,7 @@ describe('sales order actions', () => {
             await cancelSalesOrder('so-1');
 
             // Assert
-            expect(requireSalesApprover).toHaveBeenCalled();
+            expect(requireSalesCancellationAccess).toHaveBeenCalled();
             expect(SalesService.cancelOrder).toHaveBeenCalledWith(
                 'so-1',
                 'user-1',
@@ -564,15 +568,16 @@ describe('sales order actions', () => {
             expect(res.success).toBe(true);
         });
 
-        it('cancelSalesOrder uses requireSalesApprover() — WAREHOUSE/SALES would be blocked at guard level', async () => {
-            // Arrange — approver passes in this happy path
+        it('cancelSalesOrder uses requireSalesCancellationAccess() — ADMIN/MARKETING pass, SALES/WAREHOUSE blocked at guard level', async () => {
+            // Arrange — cancellation guard passes in this happy path
             vi.mocked(SalesService.cancelOrder).mockResolvedValue(undefined as never);
 
             // Act
             await cancelSalesOrder('so-1');
 
             // Assert
-            expect(requireSalesApprover).toHaveBeenCalled();
+            expect(requireSalesCancellationAccess).toHaveBeenCalled();
+            expect(requireSalesApprover).not.toHaveBeenCalled();
             expect(requireAuth).not.toHaveBeenCalled();
             expect(requireSalesAccess).not.toHaveBeenCalled();
         });

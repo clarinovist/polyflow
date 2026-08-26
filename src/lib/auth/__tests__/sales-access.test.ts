@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { requireSalesAccess, requireSalesApprover, requireSalesFinance, requireSalesManager, requireDeliveryAccess } from "../sales-access";
+import { requireSalesAccess, requireSalesApprover, requireSalesCancellationAccess, requireSalesFinance, requireSalesManager, requireDeliveryAccess } from "../sales-access";
 import { BusinessRuleError } from "@/lib/errors/errors";
 
 vi.mock("@/lib/tools/auth-checks", () => ({
@@ -40,6 +40,30 @@ describe("sales-access helpers", () => {
     it("rejects FINANCE", async () => {
       vi.mocked(requireAuth).mockResolvedValue(mockSession("FINANCE"));
       await expect(requireSalesAccess()).rejects.toThrow(BusinessRuleError);
+    });
+  });
+
+  describe("requireSalesCancellationAccess", () => {
+    it("allows ADMIN", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("ADMIN"));
+      const session = await requireSalesCancellationAccess();
+      expect(session.user.role).toBe("ADMIN");
+    });
+
+    it("allows MARKETING", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("MARKETING"));
+      const session = await requireSalesCancellationAccess();
+      expect(session.user.role).toBe("MARKETING");
+    });
+
+    it("rejects SALES", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("SALES"));
+      await expect(requireSalesCancellationAccess()).rejects.toThrow(BusinessRuleError);
+    });
+
+    it("rejects FINANCE", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("FINANCE"));
+      await expect(requireSalesCancellationAccess()).rejects.toThrow(BusinessRuleError);
     });
   });
 

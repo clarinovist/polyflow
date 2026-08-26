@@ -12,7 +12,8 @@
  *
  * Usage:
  *   const session = await requireSalesAccess();     // ADMIN | SALES | MARKETING
- *   const session = await requireSalesApprover();    // ADMIN only (cancel, destructive)
+ *   const session = await requireSalesCancellationAccess(); // ADMIN | MARKETING (cancel SO)
+ *   const session = await requireSalesApprover();    // ADMIN only (delete, destructive)
  *   const session = await requireSalesFinance();     // ADMIN | FINANCE
  *   const session = await requireSalesManager();     // ADMIN | MARKETING
  *   const session = await requireDeliveryAccess();   // ADMIN | SALES | MARKETING | WAREHOUSE
@@ -33,7 +34,18 @@ export async function requireSalesAccess() {
     return session;
 }
 
-/** ADMIN-only — for cancel SO, force ops, destructive actions. */
+/** ADMIN or MARKETING — for cancel SO (marketing boleh batalkan, delete tetap admin). */
+export async function requireSalesCancellationAccess() {
+    const session = await requireAuth();
+    if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {
+        throw new BusinessRuleError(
+            'Unauthorized: Hanya admin atau marketing yang dapat membatalkan sales order.',
+        );
+    }
+    return session;
+}
+
+/** ADMIN-only — for delete SO, force ops, destructive actions. */
 export async function requireSalesApprover() {
     const session = await requireAuth();
     if (!hasAnyRole(session.user, ['ADMIN'])) {
