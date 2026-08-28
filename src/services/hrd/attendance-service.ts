@@ -4,6 +4,7 @@ import {
     AttendanceStatus,
 } from '@prisma/client';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { logger } from '@/lib/config/logger';
 import { verifyPin } from './pin-helpers';
 import {
     resolveWorkDate,
@@ -212,6 +213,14 @@ function toNum(v: Prisma.Decimal | null | undefined): number {
     return v ? Number(v) : 0;
 }
 
+/**
+ * Batas durasi kerja yang masih dianggap wajar (jam). Sift 24 jam penuh tanpa
+ * keluar-masuk ulang sudah tidak mungkin; melebihi ini pasti salah input atau
+ * data korup. Juga menjaga hasil hitung di bawah kapasitas kolom
+ * actualHours/regularHours/overtimeHours (Decimal(5,2), max ±999,99).
+ */
+const MAX_ATTENDANCE_SHIFT_HOURS = 24;
+
 async function findEmployee(
     db: PrismaClient,
     code: string,
@@ -414,6 +423,35 @@ function buildComputedData(
         return {
             plannedHours: new Prisma.Decimal(planned),
             actualHours: null,
+            regularHours: new Prisma.Decimal(0),
+            overtimeHours: new Prisma.Decimal(0),
+            standardDayHours: new Prisma.Decimal(standardDayHours),
+            dailyEarnings: new Prisma.Decimal(0),
+            overtimeEarnings: new Prisma.Decimal(0),
+            totalEarnings: new Prisma.Decimal(0),
+        };
+    }
+    // Backstop lapis kedua (semua caller: clockOut, correct, admin-clock).
+    // Jam implausible — negatif (pulang sebelum masuk) atau > 24 jam — tidak
+    // boleh pernah ditulis ke DB: Decimal(5,2) overflow = error 500-level,
+    // dan nilai negatif = gaji minus masuk payroll (kasus produksi
+    // 2026-08-07). Zeroing membuat anomali terlihat di rekap tanpa merusak
+    // data.
+    if (actual < 0 || actual > MAX_ATTENDANCE_SHIFT_HOURS) {
+        logger.error(
+            'Implausible attendance hours neutralized (zeroed, not written)',
+            {
+                module: 'AttendanceService',
+                recordId: record.id,
+                employeeId: record.employeeId,
+                clockInAt: record.clockInAt,
+                clockOutAt: record.clockOutAt,
+                computedActualHours: actual,
+            },
+        );
+        return {
+            plannedHours: new Prisma.Decimal(planned),
+            actualHours: new Prisma.Decimal(0),
             regularHours: new Prisma.Decimal(0),
             overtimeHours: new Prisma.Decimal(0),
             standardDayHours: new Prisma.Decimal(standardDayHours),
@@ -1176,6 +1214,29 @@ export const AttendanceService = {
             include: includeRelations,
         });
         if (!record) throw new NotFoundError('Record tidak ditemukan');
+
+        // Validasi semantik jam final: field koreksi menimpa nilai lama.
+        // Tanpa ini, jam inverted / durasi raksasa (warisan data korup TZ
+        // lama) dihitung jadi actualHours negatif > 999 dan ditolak Postgres
+        // dengan "numeric field overflow" (Decimal(5,2)) — atau lebih buruk,
+        // gaji negatif tersimpan (kasus produksi 2026-08-07).
+        const effectiveClockIn = data.clockInAt ?? record.clockInAt;
+        const effectiveClockOut = data.clockOutAt ?? record.clockOutAt;
+        if (effectiveClockIn && effectiveClockOut) {
+            const durationHours =
+                (effectiveClockOut.getTime() - effectiveClockIn.getTime()) /
+                (1000 * 60 * 60);
+            if (durationHours <= 0) {
+                throw new BusinessRuleError(
+                    'Jam pulang harus setelah jam masuk. Periksa kembali tanggal/jam koreksi.',
+                );
+            }
+            if (durationHours > MAX_ATTENDANCE_SHIFT_HOURS) {
+                throw new BusinessRuleError(
+                    'Durasi kerja melebihi 24 jam. Periksa kembali tanggal/jam koreksi.',
+                );
+            }
+        }
 
         const updated = await db.attendanceRecord.update({
             where: { id: recordId },

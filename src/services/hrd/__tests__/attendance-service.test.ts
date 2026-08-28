@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AttendanceService } from '../attendance-service';
 import { haversineDistance } from '@/lib/utils/geo';
+import { logger } from '@/lib/config/logger';
 
 // Mock prisma client
 const mockDb = {
@@ -191,6 +192,137 @@ describe('AttendanceService', () => {
           clockInPhotoUrl: '/api/images/test/attendance/emp-1/clock_in-1.jpg',
         }, {}),
       ).rejects.toThrow('Sudah absen shift ini hari ini');
+    });
+  });
+
+  describe('correct', () => {
+    function correctBaseRecord(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'rec-9',
+        employeeId: 'emp-1',
+        workDate: new Date('2026-08-27T00:00:00.000Z'),
+        workShiftId: 'shift-1',
+        clockInAt: new Date('2026-08-27T01:47:46.852Z'), // 08:47 WIB
+        clockOutAt: null,
+        isOvertimeShift: false,
+        status: 'PRESENT',
+        source: 'KIOSK',
+        plannedHours: dec(8),
+        actualHours: null,
+        regularHours: dec(0),
+        overtimeHours: dec(0),
+        standardDayHours: dec(8),
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        dailyEarnings: dec(0),
+        overtimeEarnings: dec(0),
+        totalEarnings: dec(0),
+        employee: { name: 'Budi', code: 'EMP-001' },
+        workShift: activeShift,
+        ...overrides,
+      };
+    }
+
+    it('rejects clock-out earlier than clock-in (inverted legacy data)', async () => {
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(
+        correctBaseRecord({
+          clockOutAt: new Date('2026-06-27T14:12:00.000Z'), // 2 bulan sebelum clock-in
+        }) as any,
+      );
+
+      await expect(
+        AttendanceService.correct(mockDb as any, 'rec-9', {
+          clockOutAt: new Date('2026-06-27T14:12:00.000Z'),
+        }),
+      ).rejects.toThrow('Jam pulang harus setelah jam masuk');
+      expect(mockDb.attendanceRecord.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects durations longer than 24 hours', async () => {
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(
+        correctBaseRecord() as any,
+      );
+
+      await expect(
+        AttendanceService.correct(mockDb as any, 'rec-9', {
+          clockInAt: new Date('2026-08-26T01:00:00.000Z'),
+          clockOutAt: new Date('2026-08-27T02:00:00.000Z'),
+        }),
+      ).rejects.toThrow('Durasi kerja melebihi 24 jam');
+      expect(mockDb.attendanceRecord.update).not.toHaveBeenCalled();
+    });
+
+    it('accepts a normal correction and recomputes hours', async () => {
+      const clockOut = new Date('2026-08-27T13:57:00.000Z'); // 12,15 jam kerja
+      vi.mocked(mockDb.attendanceRecord.findUnique).mockResolvedValue(
+        correctBaseRecord() as any,
+      );
+      vi.mocked(mockDb.attendanceRecord.update).mockResolvedValue(
+        correctBaseRecord({
+          clockOutAt: clockOut,
+          actualHours: dec(12.15),
+          regularHours: dec(8),
+          overtimeHours: dec(4.15),
+          dailyEarnings: dec(100000),
+          overtimeEarnings: dec(778125),
+          totalEarnings: dec(878125),
+        }) as any,
+      );
+
+      const result = await AttendanceService.correct(mockDb as any, 'rec-9', {
+        clockOutAt: clockOut,
+      });
+
+      expect(result.actualHours).toBe(12.15);
+      // update #1 (jam koreksi) + update #2 (recompute)
+      expect(mockDb.attendanceRecord.update).toHaveBeenCalledTimes(2);
+    });
+
+    it('zeros implausible hours at write time (backstop for non-correct paths)', async () => {
+      const errorSpy = vi
+        .spyOn(logger, 'error')
+        .mockImplementation(() => undefined);
+      // Jam masuk "masa depan" (data korup) → clock-out sekarang = durasi negatif.
+      const futureClockIn = new Date(Date.now() + 3 * 3600_000);
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue(activeEmployee as any);
+      vi.mocked(verifyPin).mockResolvedValue(true);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        {
+          id: 'rec-1', employeeId: 'emp-1', workDate: todayWorkDate(),
+          clockInAt: futureClockIn, clockOutAt: null, workShift: activeShift, workShiftId: 'shift-1',
+          dailyRateSnapshot: activeEmployee.dailyRate,
+          overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+          standardDayHours: activeEmployee.standardDayHours,
+          plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+          dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        },
+      ] as any);
+      vi.mocked(mockDb.attendanceRecord.update).mockResolvedValue({
+        id: 'rec-1', employeeId: 'emp-1', clockInAt: futureClockIn,
+        clockOutAt: new Date(), isOvertimeShift: false,
+        status: 'PRESENT', source: 'KIOSK',
+        dailyRateSnapshot: activeEmployee.dailyRate,
+        overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+        standardDayHours: activeEmployee.standardDayHours,
+        plannedHours: dec(8), actualHours: dec(0), regularHours: dec(0), overtimeHours: dec(0),
+        dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+        employee: { name: 'Budi', code: 'EMP-001' }, workShift: activeShift,
+      } as any);
+
+      await AttendanceService.clockOut(mockDb as any, {
+        employeeCode: 'EMP-001', pin: '1234',
+      }, {});
+
+      // Update #2 (recompute) wajib menulis nol, bukan nilai negatif.
+      expect(mockDb.attendanceRecord.update).toHaveBeenCalledTimes(2);
+      const recomputeData = (mockDb.attendanceRecord.update as any).mock
+        .calls[1][0].data;
+      expect(Number(recomputeData.actualHours)).toBe(0);
+      expect(Number(recomputeData.regularHours)).toBe(0);
+      expect(Number(recomputeData.overtimeHours)).toBe(0);
+      expect(Number(recomputeData.totalEarnings)).toBe(0);
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
   });
 
