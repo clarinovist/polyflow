@@ -13,20 +13,11 @@ import {
 } from '@/lib/utils/timezone';
 import { serializeData } from '@/lib/utils/utils';
 import { countUncoveredFgVariants } from '@/services/production/fg-demand-service';
-
-export type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
-
-const PROCESS_KEYS: ProcessKey[] = ['MIXING', 'EXTRUSION', 'PACKING', 'OTHER'];
-
-function processKeyFromCategory(
-    category: string | null | undefined,
-): ProcessKey {
-    const c = (category || '').toUpperCase();
-    if (c === 'MIXING') return 'MIXING';
-    if (c === 'EXTRUSION') return 'EXTRUSION';
-    if (c === 'PACKING') return 'PACKING';
-    return 'OTHER';
-}
+import {
+    PROCESS_KEYS,
+    processKeyFromCategory,
+    type ProcessKey,
+} from '@/lib/production/process-keys';
 
 function emptyHourly() {
     return Array.from({ length: 24 }, (_, i) => ({

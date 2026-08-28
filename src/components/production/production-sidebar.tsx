@@ -120,6 +120,11 @@ const productionLinks = [
                 label: productionSidebarLabels.productionAnalytics,
             },
             {
+                href: '/production/daily-report',
+                icon: BarChart3,
+                label: productionSidebarLabels.dailyReport,
+            },
+            {
                 href: '/production/costing',
                 icon: TrendingUp,
                 label: productionSidebarLabels.costingDashboard,

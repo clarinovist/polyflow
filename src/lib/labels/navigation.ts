@@ -65,6 +65,7 @@ export const productionSidebarLabels = {
     teamShifts: 'Tim / Shift',
     outputLogs: 'Log Hasil',
     packingMonthlyReport: 'Laporan Packing',
+    dailyReport: 'Produksi Harian',
     workShifts: 'Shift Kerja',
     operatorKiosk: 'Kiosk Operator',
     costingDashboard: 'Costing',

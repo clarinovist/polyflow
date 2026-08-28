@@ -1,0 +1,284 @@
+import { withTenantPage } from '@/lib/core/tenant';
+import { formatWibDate, toBusinessDateString } from '@/lib/utils/timezone';
+import {
+    ProductionDailyReportService,
+    type DailyProductionRow,
+} from '@/services/production/production-daily-report-service';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import {
+    AlertTriangle,
+    Boxes,
+    Cog,
+    Layers,
+    Package,
+} from 'lucide-react';
+import { DateRangeFilter } from './DateRangeFilter';
+
+export const dynamic = 'force-dynamic';
+
+const getReport = withTenantPage(
+    async (from: string, to: string) =>
+        ProductionDailyReportService.getDailyReport({ from, to }),
+);
+
+interface PageProps {
+    searchParams: Promise<{ from?: string; to?: string }>;
+}
+
+function dayName(dateStr: string): string {
+    return new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        weekday: 'long',
+    }).format(new Date(`${dateStr}T12:00:00+07:00`));
+}
+
+const fmt = (n: number) => n.toLocaleString('id-ID');
+
+export default async function ProductionDailyReportPage({
+    searchParams,
+}: PageProps) {
+    const params = await searchParams;
+    const now = new Date();
+    const todayStr = toBusinessDateString(now);
+    const yesterdayStr = toBusinessDateString(
+        new Date(now.getTime() - 24 * 60 * 60 * 1000),
+    );
+    const defaultFrom = toBusinessDateString(
+        new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000),
+    );
+    const from = params.from || defaultFrom;
+    const to = params.to || todayStr;
+
+    const report = await getReport(from, to);
+    const { rows, periodTotals } = report;
+
+    const kpis = [
+        {
+            key: 'MIXING' as const,
+            label: 'Mixing',
+            icon: Layers,
+            accent: 'bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400',
+        },
+        {
+            key: 'EXTRUSION' as const,
+            label: 'Extrusi',
+            icon: Cog,
+            accent: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
+        },
+        {
+            key: 'PACKING' as const,
+            label: 'Packing',
+            icon: Package,
+            accent: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400',
+        },
+        {
+            key: 'OTHER' as const,
+            label: 'Lainnya',
+            icon: Boxes,
+            accent: 'bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400',
+        },
+    ];
+
+    const totalScrap = rows.reduce((s, r) => s + r.totalScrap, 0);
+    const totalEntries = rows.reduce((s, r) => s + r.totalEntries, 0);
+
+    const rowBadge = (row: DailyProductionRow) => {
+        if (row.date === todayStr)
+            return (
+                <Badge className="ml-2 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
+                    Hari Ini
+                </Badge>
+            );
+        if (row.date === yesterdayStr)
+            return (
+                <Badge
+                    variant="outline"
+                    className="ml-2 border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
+                >
+                    Kemarin
+                </Badge>
+            );
+        return null;
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                        Produksi Harian
+                    </h1>
+                    <p className="text-muted-foreground text-sm">
+                        Hasil produksi (actual) per hari WIB, dipisah per
+                        proses. Periode{' '}
+                        {formatWibDate(from)} – {formatWibDate(to)}.
+                    </p>
+                </div>
+                <DateRangeFilter from={from} to={to} />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                {kpis.map((kpi) => {
+                    const totals = periodTotals[kpi.key];
+                    const Icon = kpi.icon;
+                    return (
+                        <Card
+                            key={kpi.key}
+                            className="border-zinc-200 dark:border-zinc-800 shadow-sm"
+                        >
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">
+                                            {kpi.label}
+                                        </p>
+                                        <h3 className="text-2xl font-bold text-foreground mt-1 tabular-nums">
+                                            {fmt(totals.produced)}
+                                        </h3>
+                                        <p className="text-[11px] text-muted-foreground mt-1">
+                                            {totals.entries} entri
+                                        </p>
+                                    </div>
+                                    <div
+                                        className={`p-3 rounded-xl ${kpi.accent}`}
+                                    >
+                                        <Icon className="h-6 w-6" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+                <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">
+                                    Scrap
+                                </p>
+                                <h3 className="text-2xl font-bold text-destructive mt-1 tabular-nums">
+                                    {fmt(totalScrap)}
+                                </h3>
+                                <p className="text-[11px] text-muted-foreground mt-1">
+                                    {totalEntries} entri total
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400">
+                                <AlertTriangle className="h-6 w-6" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold">
+                        Rincian per Hari
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                        <Table>
+                            <TableHeader className="bg-zinc-50 dark:bg-zinc-900/50">
+                                <TableRow>
+                                    <TableHead className="font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Tanggal
+                                    </TableHead>
+                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Mixing
+                                    </TableHead>
+                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Extrusi
+                                    </TableHead>
+                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Packing
+                                    </TableHead>
+                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Lainnya
+                                    </TableHead>
+                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Scrap
+                                    </TableHead>
+                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Entri
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {rows.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={7}
+                                            className="text-center py-12 text-muted-foreground italic"
+                                        >
+                                            Tidak ada hasil produksi pada
+                                            periode ini.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    rows.map((row) => (
+                                        <TableRow
+                                            key={row.date}
+                                            className="hover:bg-zinc-50/55 dark:hover:bg-zinc-900/30"
+                                        >
+                                            <TableCell className="font-medium text-sm text-foreground whitespace-nowrap">
+                                                {formatWibDate(row.date)}
+                                                <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                                    {dayName(row.date)}
+                                                </span>
+                                                {rowBadge(row)}
+                                            </TableCell>
+                                            {(
+                                                [
+                                                    'MIXING',
+                                                    'EXTRUSION',
+                                                    'PACKING',
+                                                    'OTHER',
+                                                ] as const
+                                            ).map((key) => (
+                                                <TableCell
+                                                    key={key}
+                                                    className="text-right text-sm text-foreground tabular-nums"
+                                                >
+                                                    {fmt(
+                                                        row.byProcess[key]
+                                                            .produced,
+                                                    )}
+                                                </TableCell>
+                                            ))}
+                                            <TableCell className="text-right text-sm text-destructive tabular-nums">
+                                                {row.totalScrap > 0
+                                                    ? fmt(row.totalScrap)
+                                                    : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
+                                                {row.totalEntries}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                        Angka = hasil bersih (quantity produced, tanpa scrap)
+                        per proses, satuan mengikuti output masing-masing BOM
+                        (kg / karung / pcs) — tidak dijumlah antar-kolom.
+                        Sumber data sama dengan papan &quot;Hari Ini&quot;:
+                        entri hasil produksi yang tidak dibatalkan, hari WIB.
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
