@@ -9,9 +9,19 @@ vi.mock('../material-service', () => ({
     },
 }));
 
-const createTx = () => ({
+const createTx = (locations?: Array<Record<string, unknown>>) => ({
     location: {
         findUnique: vi.fn().mockResolvedValue({ id: 'loc-scrap' }),
+        findMany: vi.fn().mockResolvedValue(
+            locations ?? [
+                {
+                    id: 'loc-scrap',
+                    name: 'Scrap Warehouse',
+                    slug: 'scrap_warehouse',
+                    locationPurpose: 'SCRAP',
+                },
+            ],
+        ),
     },
     productVariant: {
         findUnique: vi.fn(),
@@ -180,5 +190,78 @@ describe('recordExecutionScrap', () => {
             expect.objectContaining({ productVariantId: 'name-daun' }),
             tx,
         );
+    });
+
+    it('resolves a non-canonical scrap location via locationPurpose (gudang-scrap)', async () => {
+        // Regression: one tenant's scrap location slug is `gudang-scrap`, not
+        // the hardcoded `scrap_warehouse` — the old lookup returned null and
+        // affal silently never reached stock (0 StockMovement for the scrap
+        // variants despite daily affal entries).
+        const tx = createTx([
+            {
+                id: 'loc-gudang-scrap',
+                name: 'Gudang Scrap / Afval',
+                slug: 'gudang-scrap',
+                locationPurpose: 'SCRAP',
+            },
+        ]);
+        tx.productVariant.findUnique.mockImplementation(({ where }: any) => {
+            if (where.skuCode === 'AP000000') {
+                return Promise.resolve({ id: 'variant-prongkol' });
+            }
+            if (where.skuCode === 'AD000000') {
+                return Promise.resolve({ id: 'variant-daun' });
+            }
+            return Promise.resolve(null);
+        });
+
+        await recordExecutionScrap({
+            tx: tx as any,
+            productionOrderId: 'po-1',
+            executionId: 'exec-1',
+            scrapQuantity: 0,
+            scrapProngkolQty: 2.5,
+            scrapDaunQty: 3.5,
+            userId: 'user-1',
+        });
+
+        expect(ProductionMaterialService.recordScrap).toHaveBeenCalledTimes(2);
+        expect(ProductionMaterialService.recordScrap).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                productVariantId: 'variant-prongkol',
+                locationId: 'loc-gudang-scrap',
+                quantity: 2.5,
+            }),
+            tx,
+        );
+    });
+
+    it('warns and records nothing when the tenant has no scrap location', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            const tx = createTx([]);
+            tx.productVariant.findUnique.mockResolvedValue(null);
+
+            await recordExecutionScrap({
+                tx: tx as any,
+                productionOrderId: 'po-1',
+                executionId: 'exec-1',
+                scrapQuantity: 0,
+                scrapProngkolQty: 1.5,
+                scrapDaunQty: 0,
+            });
+
+            expect(
+                ProductionMaterialService.recordScrap,
+            ).not.toHaveBeenCalled();
+            expect(tx.scrapRecord.updateMany).not.toHaveBeenCalled();
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.stringContaining('No SCRAP location'),
+                expect.objectContaining({ productionOrderId: 'po-1' }),
+            );
+        } finally {
+            warnSpy.mockRestore();
+        }
     });
 });

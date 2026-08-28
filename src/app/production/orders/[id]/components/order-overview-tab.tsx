@@ -21,6 +21,7 @@ import {
 import Link from 'next/link';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 
 function ExecutionScrapCell({
     execution,
@@ -29,9 +30,9 @@ function ExecutionScrapCell({
     execution: ExtendedProductionOrder['executions'][number];
     scrapRecords: ExtendedProductionOrder['scrapRecords'];
 }) {
-    // scrapQuantity is already the aggregate of scrapDaunQty + scrapProngkolQty
-    // (see schema comment "Total Aggregated Scrap (Legacy/KPI)") — do not re-add the breakdown.
-    const totalScrap = Number(execution.scrapQuantity || 0);
+    // Kiosk rows duplicate affal into generic scrapQuantity; AddOutputDialog
+    // rows leave it 0 — max(generic, prongkol + daun) is exact for both.
+    const totalScrap = executionScrapTotal(execution);
 
     if (totalScrap <= 0) {
         return <>-</>;
@@ -81,11 +82,11 @@ function ExecutionScrapCell({
 export function getTotalScrapQuantity(
     executions: ExtendedProductionOrder['executions'],
 ) {
-    // scrapQuantity is already the aggregate of scrapDaunQty + scrapProngkolQty
-    // (see schema comment "Total Aggregated Scrap (Legacy/KPI)") — do not re-add the breakdown.
+    // Kiosk rows duplicate affal into generic scrapQuantity; AddOutputDialog
+    // rows leave it 0 — max(generic, prongkol + daun) is exact for both.
     return executions
         .filter((exec) => exec.status !== 'VOIDED')
-        .reduce((sum, exec) => sum + Number(exec.scrapQuantity || 0), 0);
+        .reduce((sum, exec) => sum + executionScrapTotal(exec), 0);
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

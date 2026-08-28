@@ -46,6 +46,16 @@ vi.mock("@/lib/core/prisma", () => {
     },
     location: {
       findUnique: vi.fn(),
+      findMany: vi
+        .fn()
+        .mockResolvedValue([
+          {
+            id: "loc-scrap",
+            name: "Scrap Warehouse",
+            slug: "scrap_warehouse",
+            locationPurpose: "SCRAP",
+          },
+        ]),
     },
     productVariant: {
       findUnique: vi.fn(),

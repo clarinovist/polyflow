@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { NotFoundError } from '@/lib/errors/errors';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 
 type RunCostStep = {
   orderId: string;
@@ -125,6 +126,7 @@ export class RoutingCostService {
                 machine: { select: { costPerHour: true } },
                 operator: { select: { dailyRate: true, standardDayHours: true, payType: true } },
                 quantityProduced: true, scrapQuantity: true,
+                scrapProngkolQty: true, scrapDaunQty: true,
               },
             },
           },
@@ -164,7 +166,7 @@ export class RoutingCostService {
       }
 
       const conv = order.executions.reduce((sum, execution) => sum + executionConversionCost(execution), 0);
-      const scrapQty = order.executions.reduce((sum, execution) => sum + Number(execution.scrapQuantity ?? 0), 0);
+      const scrapQty = order.executions.reduce((sum, execution) => sum + executionScrapTotal(execution), 0);
       externalMaterialCost += matExternal;
       internalWipValue += matInternal;
       conversionCost += conv;

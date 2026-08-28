@@ -1,6 +1,7 @@
 import { endOfDay, startOfMonth } from 'date-fns';
 
 import { prisma } from '@/lib/core/prisma';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import {
     DateRange,
     MachinePerformanceItem,
@@ -215,7 +216,7 @@ export async function getProductionAnalytics(
 
     executions.forEach((execution) => {
         const quantity = Number(execution.quantityProduced);
-        const scrap = Number(execution.scrapQuantity);
+        const scrap = executionScrapTotal(execution);
 
         let durationHours = 0;
         if (execution.endTime && execution.startTime) {

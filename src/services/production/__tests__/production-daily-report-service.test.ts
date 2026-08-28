@@ -23,6 +23,8 @@ const exec = (overrides: Record<string, unknown>) => ({
     startTime: new Date('2026-08-27T10:00:00.000Z'),
     quantityProduced: dec(100),
     scrapQuantity: dec(0),
+    scrapProngkolQty: dec(0),
+    scrapDaunQty: dec(0),
     productionOrder: { bom: { category: 'EXTRUSION' } },
     ...overrides,
 });
@@ -156,6 +158,42 @@ describe('ProductionDailyReportService.getDailyReport', () => {
                 to: '2026-08-27',
             }),
         ).rejects.toThrow();
+    });
+
+    it('counts affal from the dedicated prongkol/daun columns, not just generic scrap', async () => {
+        // Production pattern since 2026-07-28: main form writes generic=0 and
+        // the dedicated columns carry the affal quantities.
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([
+            exec({
+                quantityProduced: dec(5234),
+                scrapQuantity: dec(0),
+                scrapProngkolQty: dec(102.4),
+                scrapDaunQty: dec(199.3),
+            }),
+        ]);
+
+        const report = await ProductionDailyReportService.getDailyReport();
+
+        expect(report.rows[0].totalScrap).toBeCloseTo(301.7, 5);
+        expect(report.periodTotals.EXTRUSION.scrap).toBeCloseTo(301.7, 5);
+    });
+
+    it('does not double-count kiosk rows where generic scrap duplicates affal columns', async () => {
+        // Kiosk writes scrapQuantity = prongkol + daun (verified invariant on
+        // both production tenants). Summing all three columns would
+        // double-count; max() is exact for both write shapes.
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([
+            exec({
+                quantityProduced: dec(1000),
+                scrapQuantity: dec(12),
+                scrapProngkolQty: dec(7),
+                scrapDaunQty: dec(5),
+            }),
+        ]);
+
+        const report = await ProductionDailyReportService.getDailyReport();
+
+        expect(report.rows[0].totalScrap).toBe(12);
     });
 
     it('defaults to today (WIB) and tolerates executions without order relation', async () => {

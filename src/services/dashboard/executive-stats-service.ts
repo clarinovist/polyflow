@@ -278,7 +278,11 @@ export class ExecutiveStatsService {
                         lte: endOfCurrentMonth,
                     },
                 },
-                _sum: { scrapQuantity: true },
+                _sum: {
+                    scrapQuantity: true,
+                    scrapProngkolQty: true,
+                    scrapDaunQty: true,
+                },
             }),
             // 14. Execution Output
             prisma.productionExecution.aggregate({
@@ -425,9 +429,16 @@ export class ExecutiveStatsService {
         );
         const downtimeHours = totalDowntimeMs / (1000 * 60 * 60);
 
+        // Aggregate-level max(generic, prongkol+daun): rows written by the
+        // kiosk duplicate affal into scrapQuantity, AddOutputDialog rows do
+        // not — summing all three columns would double-count.
+        const executionScrapKg = Math.max(
+            decimalToNumber(executionScrapAgg._sum.scrapQuantity),
+            decimalToNumber(executionScrapAgg._sum.scrapProngkolQty) +
+                decimalToNumber(executionScrapAgg._sum.scrapDaunQty),
+        );
         const totalScrapKg =
-            decimalToNumber(scrapRecordsAgg._sum.quantity) +
-            decimalToNumber(executionScrapAgg._sum.scrapQuantity);
+            decimalToNumber(scrapRecordsAgg._sum.quantity) + executionScrapKg;
         const totalOutput = decimalToNumber(
             executionOutputAgg._sum.quantityProduced,
         );

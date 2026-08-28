@@ -31,6 +31,7 @@ import {
     findLatestShiftForOrder,
 } from '@/services/production/shift-service';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 
 export const startExecution = withTenant(async function startExecution(
     data: StartExecutionValues,
@@ -469,12 +470,20 @@ export const getProductionHistory = withTenant(
                 where.status = { not: 'VOIDED' };
             }
 
+            const orConditions: Record<string, unknown>[] = [];
             if (filter?.hasScrap) {
-                where.scrapQuantity = { gt: 0 };
+                orConditions.push(
+                    { scrapQuantity: { gt: 0 } },
+                    { scrapProngkolQty: { gt: 0 } },
+                    { scrapDaunQty: { gt: 0 } },
+                );
             }
 
             if (filter?.missingPhoto) {
-                where.OR = [{ photoUrl: null }, { photoUrl: '' }];
+                orConditions.push({ photoUrl: null }, { photoUrl: '' });
+            }
+            if (orConditions.length > 0) {
+                where.OR = orConditions;
             }
 
             // Phase B: relation-based filters
@@ -587,7 +596,7 @@ export const getProductionHistory = withTenant(
                     helpers: exec.helpers.map((h) => ({ name: h.name })),
                 });
                 group.totalQuantity += Number(exec.quantityProduced || 0);
-                group.totalScrap += Number(exec.scrapQuantity || 0);
+                group.totalScrap += executionScrapTotal(exec);
 
                 if (exec.endTime) {
                     if (
@@ -762,6 +771,8 @@ export const getOperatorTodaySummary = withTenant(
                         productionOrderId: true,
                         quantityProduced: true,
                         scrapQuantity: true,
+                        scrapProngkolQty: true,
+                        scrapDaunQty: true,
                         endTime: true,
                     },
                 }),
@@ -784,7 +795,7 @@ export const getOperatorTodaySummary = withTenant(
                 0,
             );
             const scrapQty = executions.reduce(
-                (sum, e) => sum + Number(e.scrapQuantity || 0),
+                (sum, e) => sum + executionScrapTotal(e),
                 0,
             );
 

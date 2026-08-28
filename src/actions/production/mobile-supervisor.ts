@@ -180,18 +180,24 @@ export const getProductionSupervisorOverview = withTenant(
                                   _sum: {
                                       quantityProduced: true,
                                       scrapQuantity: true,
+                                      scrapProngkolQty: true,
+                                      scrapDaunQty: true,
                                   },
                               })
                               .catch(() => ({
                                   _sum: {
                                       quantityProduced: null,
                                       scrapQuantity: null,
+                                      scrapProngkolQty: null,
+                                      scrapDaunQty: null,
                                   },
                               }))
                         : Promise.resolve({
                               _sum: {
                                   quantityProduced: null,
                                   scrapQuantity: null,
+                                  scrapProngkolQty: null,
+                                  scrapDaunQty: null,
                               },
                           }),
                     prisma.machineDowntime
@@ -246,7 +252,13 @@ export const getProductionSupervisorOverview = withTenant(
                 (o) => o.status === 'IN_PROGRESS',
             ).length;
             const outputToday = Number(executions._sum?.quantityProduced ?? 0);
-            const scrapToday = Number(executions._sum?.scrapQuantity ?? 0);
+            // Kiosk rows duplicate affal into scrapQuantity; AddOutputDialog
+            // rows leave it 0 — max(generic, prongkol+daun) avoids double count.
+            const scrapToday = Math.max(
+                Number(executions._sum?.scrapQuantity ?? 0),
+                Number(executions._sum?.scrapProngkolQty ?? 0) +
+                    Number(executions._sum?.scrapDaunQty ?? 0),
+            );
 
             let targetToday: number | null = null;
             let targetUnitMode: TargetUnitMode = 'NONE';

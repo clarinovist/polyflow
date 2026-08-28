@@ -8,6 +8,7 @@ import { Plus, Factory, ExternalLink, MonitorPlay, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { QuickProduceDialog } from './QuickProduceDialog';
 import { cn } from '@/lib/utils/utils';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 
 export type Order = {
     id: string;
@@ -36,6 +37,8 @@ export type Order = {
         id: string;
         quantityProduced: number;
         scrapQuantity: number;
+        scrapProngkolQty?: number;
+        scrapDaunQty?: number;
         startTime: string;
         endTime: string | null;
         status: string;
@@ -355,7 +358,7 @@ function OrderCard({
     const progress = planned > 0 ? Math.min((actual / planned) * 100, 100) : 0;
 
     const totalScrap = (order.executions ?? []).reduce(
-        (sum, ex) => sum + Number(ex.scrapQuantity),
+        (sum, ex) => sum + executionScrapTotal(ex),
         0,
     );
     const execCount = (order.executions ?? []).length;

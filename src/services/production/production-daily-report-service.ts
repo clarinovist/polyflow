@@ -9,6 +9,7 @@ import {
     processKeyFromCategory,
     type ProcessKey,
 } from '@/lib/production/process-keys';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 
 export interface DailyProcessTotals {
     produced: number;
@@ -76,6 +77,8 @@ export class ProductionDailyReportService {
                 startTime: true,
                 quantityProduced: true,
                 scrapQuantity: true,
+                scrapProngkolQty: true,
+                scrapDaunQty: true,
                 productionOrder: {
                     select: { bom: { select: { category: true } } },
                 },
@@ -100,11 +103,12 @@ export class ProductionDailyReportService {
             const key = processKeyFromCategory(
                 exec.productionOrder?.bom?.category,
             );
+            const scrapTotal = executionScrapTotal(exec);
             const bucket = row.byProcess[key];
             bucket.produced += Number(exec.quantityProduced || 0);
-            bucket.scrap += Number(exec.scrapQuantity || 0);
+            bucket.scrap += scrapTotal;
             bucket.entries += 1;
-            row.totalScrap += Number(exec.scrapQuantity || 0);
+            row.totalScrap += scrapTotal;
             row.totalEntries += 1;
         }
 

@@ -521,7 +521,7 @@ describe('production execution actions', () => {
         });
 
         it.each([
-            ['hasScrap', { hasScrap: true }, 'scrapQuantity'],
+            ['hasScrap', { hasScrap: true }, 'OR'],
             ['machineId', { machineId: 'mac-1' }, 'machineId'],
             ['operatorId', { operatorId: 'op-1' }, 'operatorId'],
             ['shiftId', { shiftId: 'shift-1' }, 'shiftId'],

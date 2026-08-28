@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { resolveLocationByRole } from '@/lib/locations/resolve-location';
 
 import { ProductionMaterialService } from './material-service';
 
@@ -21,6 +21,21 @@ const SCRAP_VARIANT_LOOKUP: Record<
         reason: 'Production Process Waste (Trim)',
     },
 };
+
+/**
+ * Resolve the tenant's scrap/affal warehouse.
+ *
+ * Slugs differ per tenant (one uses the canonical `scrap_warehouse`,
+ * another uses `gudang-scrap`), so a hardcoded slug silently no-ops on
+ * the other tenant. resolveLocationByRole matches known slug aliases
+ * first, then falls back to `locationPurpose === 'SCRAP'`.
+ */
+async function findScrapLocation(tx: Prisma.TransactionClient) {
+    const locations = await tx.location.findMany({
+        select: { id: true, name: true, slug: true, locationPurpose: true },
+    });
+    return resolveLocationByRole(locations, 'SCRAP');
+}
 
 async function findExecutionScrapVariant(
     tx: Prisma.TransactionClient,
@@ -68,11 +83,16 @@ export async function recordExecutionScrap(params: {
         return;
     }
 
-    const scrapLocation = await tx.location.findUnique({
-        where: { slug: WAREHOUSE_SLUGS.SCRAP },
-    });
+    const scrapLocation = await findScrapLocation(tx);
 
     if (!scrapLocation) {
+        // Affal quantities stay on the execution row (reported in production
+        // reports) but never reach stock — surface it loudly so the missing
+        // warehouse gets fixed instead of silently dropping stock IN.
+        console.warn(
+            '[production-scrap] No SCRAP location resolved for tenant; affal recorded on execution only',
+            { productionOrderId, executionId },
+        );
         return;
     }
 

@@ -18,6 +18,7 @@ import {
     processKeyFromCategory,
     type ProcessKey,
 } from '@/lib/production/process-keys';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 
 function emptyHourly() {
     return Array.from({ length: 24 }, (_, i) => ({
@@ -140,6 +141,8 @@ export const getProductionLiveOverview = withTenant(
                             select: {
                                 quantityProduced: true,
                                 scrapQuantity: true,
+                                scrapProngkolQty: true,
+                                scrapDaunQty: true,
                                 startTime: true,
                             },
                         },
@@ -217,7 +220,7 @@ export const getProductionLiveOverview = withTenant(
             for (const exec of executionsToday) {
                 const cat = exec.productionOrder?.bom?.category;
                 const qty = Number(exec.quantityProduced || 0);
-                const scrap = Number(exec.scrapQuantity || 0);
+                const scrap = executionScrapTotal(exec);
                 const hr = getWibHour(exec.startTime);
                 addOutput('today', cat, qty, scrap);
                 processes[processKeyFromCategory(cat)].hourly[hr].today += qty;
@@ -418,7 +421,7 @@ export const getProductionLiveOverview = withTenant(
                     0,
                 );
                 const totalScrap = order.executions.reduce(
-                    (sum, e) => sum + Number(e.scrapQuantity || 0),
+                    (sum, e) => sum + executionScrapTotal(e),
                     0,
                 );
                 const totalPlusScrap = totalProduced + totalScrap;

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { formatWIB } from '@/lib/utils/timezone';
 import { cn } from '@/lib/utils/utils';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import {
     resolveProductionAlertThresholds,
     type ProductionAlertThresholds,
@@ -265,7 +266,7 @@ function exportCsv(groups: GroupData[]) {
             const foto = e.photoUrl ? 'Ya' : 'Tidak';
             const notes = (e.notes || '').replace(/"/g, '""');
             rows.push(
-                `"${start}","${end}","${dur}","${g.productionOrder.orderNumber}","${g.productionOrder.bom.productVariant.name}","${g.productionOrder.bom.name}","${machine}","${operator}","${shift}",${e.quantityProduced},${e.scrapQuantity},"${g.productionOrder.bom.productVariant.primaryUnit}","${e.status}","${foto}","${notes}"`,
+                `"${start}","${end}","${dur}","${g.productionOrder.orderNumber}","${g.productionOrder.bom.productVariant.name}","${g.productionOrder.bom.name}","${machine}","${operator}","${shift}",${e.quantityProduced},${executionScrapTotal(e)},"${g.productionOrder.bom.productVariant.primaryUnit}","${e.status}","${foto}","${notes}"`,
             );
         }
     }
@@ -758,9 +759,9 @@ function ExecutionDetailRow({
                     </span>
 
                     {/* Scrap total */}
-                    {exec.scrapQuantity > 0 && (
+                    {executionScrapTotal(exec) > 0 && (
                         <span className="text-destructive text-xs font-medium">
-                            -{Number(exec.scrapQuantity).toLocaleString()} scrap
+                            -{executionScrapTotal(exec).toLocaleString()} scrap
                         </span>
                     )}
 
@@ -866,8 +867,9 @@ function TimelineRow({
     const unit = group.productionOrder.bom.productVariant.primaryUnit;
     const hasPhoto = !!exec.photoUrl;
     const anomalies = getAnomalies(exec, hasPhoto);
-    const total = exec.quantityProduced + exec.scrapQuantity;
-    const scrapPct = total > 0 ? (exec.scrapQuantity / total) * 100 : 0;
+    const scrapTotal = executionScrapTotal(exec);
+    const total = exec.quantityProduced + scrapTotal;
+    const scrapPct = total > 0 ? (scrapTotal / total) * 100 : 0;
 
     return (
         <div
@@ -914,9 +916,9 @@ function TimelineRow({
                 {Number(exec.quantityProduced).toLocaleString()} {unit}
             </span>
 
-            {exec.scrapQuantity > 0 && (
+            {scrapTotal > 0 && (
                 <span className="text-destructive text-xs shrink-0">
-                    -{Number(exec.scrapQuantity).toLocaleString()}
+                    -{scrapTotal.toLocaleString()}
                     {scrapPct > anomalyPercent && (
                         <span className="text-[9px] ml-0.5">
                             ({scrapPct.toFixed(0)}%)
