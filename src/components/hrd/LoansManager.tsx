@@ -16,6 +16,7 @@ import {
     listLoans,
     createLoan,
     markLoanDefaulted,
+    recordLoanPayment,
     getLoanPortfolioSummary,
 } from '@/actions/hrd/payroll-monthly';
 import { getEmployees } from '@/actions/admin/employees';
@@ -92,6 +93,12 @@ export function LoansManager() {
     >('ACTIVE');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [collateralFile, setCollateralFile] = useState<File | null>(null);
+    const [payForm, setPayForm] = useState<{
+        loanId: string;
+        amount: string;
+        date: string;
+        notes: string;
+    }>({ loanId: '', amount: '', date: '', notes: '' });
     const [portfolio, setPortfolio] = useState<{
         activeCount: number;
         paidOffCount: number;
@@ -202,6 +209,64 @@ export function LoansManager() {
             load();
         } else {
             toast.error(res.error || 'Gagal');
+        }
+    };
+
+    const openPayForm = (loan: {
+        id: string;
+        remainingBalance: unknown;
+    }) => {
+        setPayForm({
+            loanId: loan.id,
+            amount: String(toN(loan.remainingBalance)),
+            date: format(new Date(), 'yyyy-MM-dd'),
+            notes: '',
+        });
+        setExpandedId(loan.id);
+    };
+
+    const handlePaySubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const loan = loans.find((l) => l.id === payForm.loanId);
+        if (!loan || !payForm.amount || !payForm.date) {
+            toast.error('Lengkapi jumlah dan tanggal pembayaran');
+            return;
+        }
+        const amount = Number(payForm.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            toast.error('Jumlah pembayaran tidak valid');
+            return;
+        }
+        if (amount === toN(loan.remainingBalance)) {
+            const ok = confirm(
+                `Jumlah = sisa kasbon. Kasbon ${loan.loanNumber} akan ditandai LUNAS. Lanjutkan?`,
+            );
+            if (!ok) return;
+        }
+        try {
+            const res = await recordLoanPayment(loan.id, {
+                amount,
+                date: new Date(payForm.date),
+                notes: payForm.notes || undefined,
+            });
+            if (res.success) {
+                toast.success(
+                    res.data.loan.status === 'PAID_OFF'
+                        ? `Pembayaran dicatat — kasbon ${loan.loanNumber} LUNAS`
+                        : `Pembayaran dicatat — sisa ${formatIdr(toN(res.data.loan.remainingBalance))}`,
+                );
+                setPayForm({
+                    loanId: '',
+                    amount: '',
+                    date: '',
+                    notes: '',
+                });
+                load();
+            } else {
+                toast.error(res.error || 'Gagal');
+            }
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Gagal');
         }
     };
 
@@ -550,6 +615,18 @@ export function LoansManager() {
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
+                                                        className="h-7 text-xs text-green-700"
+                                                        onClick={() =>
+                                                            openPayForm(l)
+                                                        }
+                                                    >
+                                                        Bayar
+                                                    </Button>
+                                                )}
+                                                {l.status === 'ACTIVE' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
                                                         className="h-7 text-xs text-red-600"
                                                         onClick={() =>
                                                             handleDefaulted(
@@ -569,7 +646,135 @@ export function LoansManager() {
                                                     colSpan={8}
                                                     className="p-3 text-xs"
                                                 >
-                                                    <div className="space-y-1">
+                                                    <div className="space-y-3">
+                                                        {l.status ===
+                                                            'ACTIVE' &&
+                                                            (payForm.loanId ===
+                                                            l.id ? (
+                                                                <form
+                                                                    onSubmit={
+                                                                        handlePaySubmit
+                                                                    }
+                                                                    className="flex flex-wrap items-end gap-2 rounded-md border bg-card p-3"
+                                                                >
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-xs font-semibold">
+                                                                            Jumlah
+                                                                        </Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            step="any"
+                                                                            className="h-8 w-40"
+                                                                            value={
+                                                                                payForm.amount
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                setPayForm(
+                                                                                    {
+                                                                                        ...payForm,
+                                                                                        amount:
+                                                                                            e
+                                                                                                .target
+                                                                                                .value,
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-xs font-semibold">
+                                                                            Tanggal
+                                                                        </Label>
+                                                                        <Input
+                                                                            type="date"
+                                                                            className="h-8 w-40"
+                                                                            value={
+                                                                                payForm.date
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                setPayForm(
+                                                                                    {
+                                                                                        ...payForm,
+                                                                                        date: e
+                                                                                            .target
+                                                                                            .value,
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-xs font-semibold">
+                                                                            Catatan
+                                                                            (opsional)
+                                                                        </Label>
+                                                                        <Input
+                                                                            className="h-8 w-56"
+                                                                            placeholder="Misal: tunai 8 Agust"
+                                                                            value={
+                                                                                payForm.notes
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                setPayForm(
+                                                                                    {
+                                                                                        ...payForm,
+                                                                                        notes: e
+                                                                                            .target
+                                                                                            .value,
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                    <Button
+                                                                        type="submit"
+                                                                        size="sm"
+                                                                        className="h-8"
+                                                                    >
+                                                                        Catat
+                                                                        Pembayaran
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        className="h-8"
+                                                                        onClick={() =>
+                                                                            setPayForm(
+                                                                                {
+                                                                                    loanId: '',
+                                                                                    amount: '',
+                                                                                    date: '',
+                                                                                    notes: '',
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Batal
+                                                                    </Button>
+                                                                </form>
+                                                            ) : (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 text-xs text-green-700"
+                                                                    onClick={() =>
+                                                                        openPayForm(
+                                                                            l,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Catat
+                                                                    Pembayaran
+                                                                </Button>
+                                                            ))}
                                                         <p className="font-semibold">
                                                             Riwayat cicilan{' '}
                                                             {l.loanNumber}

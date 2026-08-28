@@ -13,6 +13,7 @@ import {
     type AllowanceInput,
     type CreateLoanInput,
     type GeneratePayslipsInput,
+    type RecordLoanPaymentInput,
     type UpdateDraftPayslipInput,
 } from '@/services/hrd/payroll-monthly-service';
 
@@ -73,6 +74,28 @@ export const markLoanDefaulted = withTenant(async function markLoanDefaulted(
             details: `Loan ${loan.loanNumber} marked DEFAULTED`,
         });
         return serializeData(loan);
+    });
+});
+
+export const recordLoanPayment = withTenant(async function recordLoanPayment(
+    id: string,
+    data: RecordLoanPaymentInput,
+) {
+    return safeAction(async () => {
+        const session = await requireHrdApprover();
+        const result = await EmployeeLoanService.recordPayment(prisma, id, {
+            ...data,
+            date: new Date(data.date),
+        });
+        const loan = result.loan;
+        await logActivity({
+            userId: session.user.id,
+            action: 'LOAN_PAYMENT_RECORDED',
+            entityType: 'EmployeeLoan',
+            entityId: id,
+            details: `Manual payment ${result.payment.amount} on ${loan.loanNumber} (${loan.employee.code} — ${loan.employee.name}); remaining=${loan.remainingBalance}, status=${loan.status}`,
+        });
+        return serializeData(result);
     });
 });
 

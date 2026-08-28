@@ -139,6 +139,12 @@ export interface CreateLoanInput {
     approvedById?: string;
 }
 
+export interface RecordLoanPaymentInput {
+    amount: number;
+    date: Date;
+    notes?: string;
+}
+
 type TxClient = Prisma.TransactionClient;
 
 async function nextLoanNumberInTx(tx: TxClient, year: number): Promise<string> {
@@ -289,6 +295,61 @@ export const EmployeeLoanService = {
         return db.employeeLoan.update({
             where: { id },
             data: { status: 'DEFAULTED' },
+        });
+    },
+
+    /**
+     * Record a manual (offline cash) payment against an ACTIVE loan.
+     * - Creates EmployeeLoanPayment with payslipId NULL (outside payroll)
+     * - Marks loan PAID_OFF when remaining hits 0
+     * - Rejects overpayment and payments on PAID_OFF/DEFAULTED loans
+     */
+    async recordPayment(
+        db: PrismaClient,
+        loanId: string,
+        data: RecordLoanPaymentInput,
+    ) {
+        const amount = round2(data.amount);
+        if (amount <= 0)
+            throw new BusinessRuleError('Jumlah pembayaran harus > 0');
+
+        const loan = await db.employeeLoan.findUnique({ where: { id: loanId } });
+        if (!loan) throw new NotFoundError('Kasbon tidak ditemukan');
+        if (loan.status === 'PAID_OFF')
+            throw new BusinessRuleError('Kasbon ini sudah LUNAS');
+        if (loan.status !== 'ACTIVE')
+            throw new BusinessRuleError(
+                'Kasbon DEFAULTED tidak bisa menerima pembayaran manual',
+            );
+        if (amount > Number(loan.remainingBalance)) {
+            throw new BusinessRuleError(
+                `Pembayaran melebihi sisa kasbon (${Number(loan.remainingBalance)})`,
+            );
+        }
+
+        const remaining = round2(Number(loan.remainingBalance) - amount);
+
+        return db.$transaction(async (tx) => {
+            const payment = await tx.employeeLoanPayment.create({
+                data: {
+                    loanId,
+                    payslipId: null,
+                    amount,
+                    date: data.date,
+                    notes: data.notes?.trim() || null,
+                },
+            });
+            const loan2 = await tx.employeeLoan.update({
+                where: { id: loanId },
+                data: {
+                    remainingBalance: remaining,
+                    status: remaining <= 0 ? 'PAID_OFF' : 'ACTIVE',
+                },
+                include: {
+                    employee: { select: { id: true, name: true, code: true } },
+                },
+            });
+            return { payment, loan: loan2 };
         });
     },
 

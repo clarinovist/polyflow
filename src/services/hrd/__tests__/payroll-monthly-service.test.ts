@@ -144,6 +144,126 @@ describe('EmployeeLoanService.create', () => {
     });
 });
 
+describe('EmployeeLoanService.recordPayment', () => {
+    const mockDb = {
+        employeeLoan: {
+            findUnique: vi.fn(),
+            update: vi.fn(),
+        },
+        employeeLoanPayment: {
+            create: vi.fn(),
+        },
+        $transaction: vi.fn(),
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockDb.$transaction.mockImplementation(async (fn: (tx: typeof mockDb) => Promise<unknown>) =>
+            fn(mockDb),
+        );
+    });
+
+    const activeLoan = {
+        id: 'l1',
+        loanNumber: 'KSB-2026-0001',
+        status: 'ACTIVE',
+        remainingBalance: 1_500_000,
+    };
+
+    const paymentInput = (amount: number) => ({
+        amount,
+        date: new Date('2026-08-08T00:00:00Z'),
+        notes: 'tunai',
+    });
+
+    it('rejects amount <= 0', async () => {
+        await expect(
+            EmployeeLoanService.recordPayment(mockDb as any, 'l1', paymentInput(0)),
+        ).rejects.toThrow(/harus > 0/i);
+    });
+
+    it('rejects when loan not found', async () => {
+        mockDb.employeeLoan.findUnique.mockResolvedValue(null);
+        await expect(
+            EmployeeLoanService.recordPayment(mockDb as any, 'l1', paymentInput(100_000)),
+        ).rejects.toThrow(/tidak ditemukan/i);
+    });
+
+    it('rejects payment on PAID_OFF loan', async () => {
+        mockDb.employeeLoan.findUnique.mockResolvedValue({
+            ...activeLoan,
+            status: 'PAID_OFF',
+            remainingBalance: 0,
+        });
+        await expect(
+            EmployeeLoanService.recordPayment(mockDb as any, 'l1', paymentInput(100_000)),
+        ).rejects.toThrow(/sudah LUNAS/i);
+    });
+
+    it('rejects payment on DEFAULTED loan', async () => {
+        mockDb.employeeLoan.findUnique.mockResolvedValue({
+            ...activeLoan,
+            status: 'DEFAULTED',
+        });
+        await expect(
+            EmployeeLoanService.recordPayment(mockDb as any, 'l1', paymentInput(100_000)),
+        ).rejects.toThrow(/DEFAULTED/i);
+    });
+
+    it('rejects overpayment beyond remaining balance', async () => {
+        mockDb.employeeLoan.findUnique.mockResolvedValue(activeLoan);
+        await expect(
+            EmployeeLoanService.recordPayment(mockDb as any, 'l1', paymentInput(1_500_001)),
+        ).rejects.toThrow(/melebihi sisa/i);
+    });
+
+    it('partial payment keeps ACTIVE and reduces remaining', async () => {
+        mockDb.employeeLoan.findUnique.mockResolvedValue(activeLoan);
+        mockDb.employeeLoanPayment.create.mockResolvedValue({ id: 'p1' });
+        mockDb.employeeLoan.update.mockResolvedValue({
+            ...activeLoan,
+            remainingBalance: 1_100_000,
+            status: 'ACTIVE',
+        });
+
+        const result = await EmployeeLoanService.recordPayment(
+            mockDb as any,
+            'l1',
+            paymentInput(400_000),
+        );
+
+        expect(result.loan.status).toBe('ACTIVE');
+        expect(mockDb.employeeLoanPayment.create).toHaveBeenCalled();
+        const payArg = mockDb.employeeLoanPayment.create.mock.calls[0][0];
+        expect(payArg.data.amount).toBe(400_000);
+        expect(payArg.data.payslipId).toBeNull();
+        const updArg = mockDb.employeeLoan.update.mock.calls[0][0];
+        expect(updArg.data.remainingBalance).toBe(1_100_000);
+        expect(updArg.data.status).toBe('ACTIVE');
+    });
+
+    it('full payment marks loan PAID_OFF', async () => {
+        mockDb.employeeLoan.findUnique.mockResolvedValue(activeLoan);
+        mockDb.employeeLoanPayment.create.mockResolvedValue({ id: 'p2' });
+        mockDb.employeeLoan.update.mockResolvedValue({
+            ...activeLoan,
+            remainingBalance: 0,
+            status: 'PAID_OFF',
+        });
+
+        const result = await EmployeeLoanService.recordPayment(
+            mockDb as any,
+            'l1',
+            paymentInput(1_500_000),
+        );
+
+        expect(result.loan.status).toBe('PAID_OFF');
+        const updArg = mockDb.employeeLoan.update.mock.calls[0][0];
+        expect(updArg.data.remainingBalance).toBe(0);
+        expect(updArg.data.status).toBe('PAID_OFF');
+    });
+});
+
 describe('PayrollMonthlyService.generateDrafts', () => {
     const mockDb = {
         payrollPeriod: { upsert: vi.fn() },
