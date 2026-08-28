@@ -109,6 +109,21 @@ export const financeLinks = [
                 icon: CreditCard,
                 label: financeSidebarLabels.supplierPayments,
             },
+            {
+                href: '/finance/rekap-hutang',
+                icon: FileText,
+                label: financeSidebarLabels.rekapHutang,
+            },
+            {
+                href: '/finance/rekap-piutang',
+                icon: FileText,
+                label: financeSidebarLabels.rekapPiutang,
+            },
+            {
+                href: '/finance/rekap-piutang-karyawan',
+                icon: FileText,
+                label: financeSidebarLabels.rekapPiutangKaryawan,
+            },
         ],
     },
     {

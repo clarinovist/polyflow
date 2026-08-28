@@ -184,6 +184,12 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/finance/payments/received', label: 'Penerimaan Customer' },
             { key: '/finance/invoices/purchase', label: 'Hutang' },
             { key: '/finance/payments/sent', label: 'Pembayaran Supplier' },
+            { key: '/finance/rekap-hutang', label: 'Rekap Hutang Dagang' },
+            { key: '/finance/rekap-piutang', label: 'Rekap Piutang Dagang' },
+            {
+                key: '/finance/rekap-piutang-karyawan',
+                label: 'Rekap Piutang Karyawan',
+            },
             { key: '/finance/journals', label: 'Jurnal' },
             { key: '/finance/assets', label: 'Aset Tetap' },
             { key: '/finance/foh-allocation', label: 'Alokasi FOH' },
