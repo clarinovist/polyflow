@@ -3,7 +3,9 @@ import { formatWibDate, toBusinessDateString } from '@/lib/utils/timezone';
 import {
     ProductionDailyReportService,
     type DailyProductionRow,
+    type MachineTotals,
 } from '@/services/production/production-daily-report-service';
+import { PROCESS_KEYS } from '@/lib/production/process-keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
@@ -21,7 +23,16 @@ import {
     Layers,
     Package,
 } from 'lucide-react';
+import Link from 'next/link';
 import { DateRangeFilter } from './DateRangeFilter';
+import {
+    affalPercent,
+    dayName,
+    fmt,
+    machineDisplayName,
+    machineTypeLabel,
+    PROCESS_LABEL,
+} from './shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,15 +44,6 @@ const getReport = withTenantPage(
 interface PageProps {
     searchParams: Promise<{ from?: string; to?: string }>;
 }
-
-function dayName(dateStr: string): string {
-    return new Intl.DateTimeFormat('id-ID', {
-        timeZone: 'Asia/Jakarta',
-        weekday: 'long',
-    }).format(new Date(`${dateStr}T12:00:00+07:00`));
-}
-
-const fmt = (n: number) => n.toLocaleString('id-ID');
 
 export default async function ProductionDailyReportPage({
     searchParams,
@@ -59,7 +61,7 @@ export default async function ProductionDailyReportPage({
     const to = params.to || todayStr;
 
     const report = await getReport(from, to);
-    const { rows, periodTotals } = report;
+    const { rows, periodTotals, machineTotals } = report;
 
     const kpis = [
         {
@@ -232,7 +234,12 @@ export default async function ProductionDailyReportPage({
                                             className="hover:bg-zinc-50/55 dark:hover:bg-zinc-900/30"
                                         >
                                             <TableCell className="font-medium text-sm text-foreground whitespace-nowrap">
-                                                {formatWibDate(row.date)}
+                                                <Link
+                                                    href={`/production/daily-report/${row.date}`}
+                                                    className="hover:underline decoration-dotted underline-offset-4"
+                                                >
+                                                    {formatWibDate(row.date)}
+                                                </Link>
                                                 <span className="ml-2 text-xs text-muted-foreground font-normal">
                                                     {dayName(row.date)}
                                                 </span>
@@ -274,11 +281,157 @@ export default async function ProductionDailyReportPage({
                         Angka = hasil bersih (quantity produced, tanpa scrap)
                         per proses, satuan mengikuti output masing-masing BOM
                         (kg / karung / pcs) — tidak dijumlah antar-kolom.
+                        Klik tanggal untuk melihat pecahan per mesin hari itu.
                         Sumber data sama dengan papan &quot;Hari Ini&quot;:
                         entri hasil produksi yang tidak dibatalkan, hari WIB.
                     </p>
                 </CardContent>
             </Card>
+
+            {PROCESS_KEYS.some((key) => machineTotals[key].length > 0) && (
+                <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <CardHeader>
+                        <CardTitle className="text-lg font-bold">
+                            Rekap per Mesin — Periode{' '}
+                            {formatWibDate(from)} – {formatWibDate(to)}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {PROCESS_KEYS.map((key) => {
+                            const machines = machineTotals[key];
+                            if (machines.length === 0) return null;
+                            return (
+                                <div key={key}>
+                                    <h3 className="text-sm font-semibold text-foreground mb-2">
+                                        {PROCESS_LABEL[key]}
+                                    </h3>
+                                    <MachineTable
+                                        machines={machines}
+                                        highlightLowestAffalShare={
+                                            key === 'EXTRUSION'
+                                        }
+                                    />
+                                </div>
+                            );
+                        })}
+                        <p className="text-xs text-muted-foreground">
+                            Hasil &amp; affal per mesin untuk seluruh periode.
+                            Satuan mengikuti output BOM tiap proses — jangan
+                            dijumlah antar proses. % Affal = affal ÷ (hasil +
+                            affal), aman dibandingkan antar mesin karena
+                            satuannya sama. Baris tanpa nama mesin (mis. entri
+                            kiosk) dikelompokkan per tipe mesin.
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    );
+}
+
+function MachineTable({
+    machines,
+    highlightLowestAffalShare = false,
+}: {
+    machines: MachineTotals[];
+    /** Emphasize the worst affal share among named machines (≥ 1 entry). */
+    highlightLowestAffalShare?: boolean;
+}) {
+    const named = machines.filter((m) => m.machineName !== null);
+    let worstShare: number | null = null;
+    if (highlightLowestAffalShare && named.length > 1) {
+        const shares = named
+            .map((m) => affalPercent(m.produced, m.scrap))
+            .filter((s): s is number => s !== null);
+        if (shares.length > 0) {
+            worstShare = Math.min(...shares);
+        }
+    }
+
+    return (
+        <div className="rounded-md border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <Table>
+                <TableHeader className="bg-zinc-50 dark:bg-zinc-900/50">
+                    <TableRow>
+                        <TableHead className="font-semibold text-zinc-700 dark:text-zinc-300">
+                            Mesin
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                            Hasil
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                            Affal
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                            % Affal
+                        </TableHead>
+                        <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
+                            Entri
+                        </TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {machines.map((m, i) => {
+                        const pct = affalPercent(m.produced, m.scrap);
+                        const isWorst =
+                            worstShare !== null &&
+                            pct !== null &&
+                            pct === worstShare;
+                        return (
+                            <TableRow
+                                key={`${m.machineName ?? 'none'}-${i}`}
+                                className="hover:bg-zinc-50/55 dark:hover:bg-zinc-900/30"
+                            >
+                                <TableCell className="text-sm text-foreground">
+                                    {machineDisplayName(m)}
+                                    {machineTypeLabel(m) && (
+                                        <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                            {machineTypeLabel(m)}
+                                        </span>
+                                    )}
+                                    {isWorst && (
+                                        <Badge
+                                            variant="outline"
+                                            className="ml-2 border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400"
+                                        >
+                                            affal tertinggi
+                                        </Badge>
+                                    )}
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-foreground tabular-nums">
+                                    {fmt(m.produced)}
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-destructive tabular-nums">
+                                    {m.scrap > 0 ? fmt(m.scrap) : '-'}
+                                </TableCell>
+                                <TableCell className="text-right text-sm tabular-nums">
+                                    {pct === null ? (
+                                        <span className="text-muted-foreground">
+                                            -
+                                        </span>
+                                    ) : (
+                                        <span
+                                            className={
+                                                pct >= 20
+                                                    ? 'text-destructive font-medium'
+                                                    : 'text-foreground'
+                                            }
+                                        >
+                                            {pct.toLocaleString('id-ID', {
+                                                maximumFractionDigits: 1,
+                                            })}
+                                            %
+                                        </span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
+                                    {m.entries}
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
         </div>
     );
 }
