@@ -3,7 +3,7 @@
  *  Final destination (WhatsApp / form / email) is still pending a product decision —
  *  see docs/plan/2026-08-24-landing-page-design-hardening.md §9. */
 export const homeLinks = {
-    contactSales: '#contact',
+    contactSales: 'mailto:marketing@polyflow.uk',
     exploreFeatures: '#features',
     testimonials: '#testimonials',
     register: '/register',
@@ -13,7 +13,7 @@ export const homeLinks = {
 /** Public navigation labels */
 export const navLabels = {
     features: 'Fitur',
-    testimonials: 'Testimoni',
+    testimonials: 'Kenapa PolyFlow',
     tenantLogin: 'Login Tenant',
     contactSales: 'Hubungi Penjualan',
     openMenu: 'Buka menu',
@@ -30,7 +30,6 @@ export const heroLabels = {
         'Sistem ERP Konversi Plastik tingkat lanjut. Satukan gudang, produksi, penjualan, dan keuangan dalam satu platform yang kuat.',
     contactSales: 'Hubungi Penjualan',
     exploreFeatures: 'Jelajahi Fitur',
-    trustedBy: 'Dipercaya oleh 1.000+ produsen di seluruh dunia',
 } as const;
 
 /** Hero stats strip — small numbers below the CTA */
@@ -109,7 +108,7 @@ export const footerLabels = {
     product: 'Produk',
     company: 'Perusahaan',
     features: 'Fitur',
-    testimonials: 'Testimoni',
+    testimonials: 'Kenapa PolyFlow',
     contactSales: 'Hubungi Penjualan',
     register: 'Daftar',
     tenantLogin: 'Login Tenant',
@@ -117,4 +116,34 @@ export const footerLabels = {
     privacyPolicy: 'Kebijakan Privasi',
     copyright: '© {year} PolyFlow ERP Systems. Hak cipta dilindungi.',
     craftedFor: 'Dibuat untuk industri konversi plastik.',
+} as const;
+
+/** Why PolyFlow section labels (replaces fictitious testimonials) */
+export const whyPolyflow = {
+    sectionTitle: 'Kenapa PolyFlow',
+    sectionHeading: 'Dibangun untuk Realitas Pabrik Konversi',
+    sectionDescription:
+        'Bukan ERP generik yang dipaksa. Setiap keputusan desain lahir dari kebutuhan operasi plastik konverting nyata.',
+    items: {
+        multiTenant: {
+            title: 'Multi-Tenant dari Hari 1',
+            description:
+                'Satu sistem, banyak perusahaan. Setiap tenant punya database terpisah — data tidak pernah bercampur. Tambah perusahaan baru tanpa setup infrastruktur.',
+        },
+        soFirst: {
+            title: 'Alur SO-First',
+            description:
+                'Pesanan penjualan adalah sumber kebenaran. Produksi, gudang, dan invoice terhubung otomatis — tidak ada entri manual yang terputus di tengah jalan.',
+        },
+        auditTrail: {
+            title: 'Status Audit Trail',
+            description:
+                'Setiap perubahan status (SO, PO, DO, Invoice, Journal) tercatat otomatis dengan siapa, kapan, dan dari status apa. Bukan plugin — built-in.',
+        },
+        accessibility: {
+            title: 'Aksesibilitas Bawaan',
+            description:
+                'Dukungan prefers-reduced-motion di setiap halaman. Bukan karena compliance — karena tim produksi yang pakai di lapangan juga butuh.',
+        },
+    },
 } as const;

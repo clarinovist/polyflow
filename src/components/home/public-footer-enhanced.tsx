@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { footerLabels as L } from '@/lib/labels/home';
+import { footerLabels as L, homeLinks } from '@/lib/labels/home';
 import { Mail, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -10,8 +10,8 @@ import { useState } from 'react';
 const footerLinks = {
     product: [
         { label: 'Features', href: '#features' },
-        { label: 'Testimonials', href: '#testimonials' },
-        { label: 'Contact Sales', href: '#contact' },
+        { label: 'Kenapa PolyFlow', href: '#testimonials' },
+        { label: 'Contact Sales', href: homeLinks.contactSales },
     ],
     company: [
         { label: 'Register', href: '/register' },
