@@ -10,6 +10,7 @@ import {
     monthLabelId,
     recentMonthOptions,
     sanitizeBusinessDateParam,
+    worstAffalShare,
 } from './shared';
 
 const mt = (
@@ -108,6 +109,42 @@ describe('recentMonthOptions', () => {
         expect(recentMonthOptions(3, new Date('2026-01-10T10:00:00.000Z'))).toEqual(
             ['2026-01', '2025-12', '2025-11'],
         );
+    });
+});
+
+describe('worstAffalShare', () => {
+    it('returns the HIGHEST affal share (regression 2026-08-29: Math.min flagged the best machine)', () => {
+        // Real data from the user screenshot (2026-08-29):
+        // KW 3 had 5% (the BEST) yet wore the "affal tertinggi" badge.
+        const extrusi = [
+            mt('Extruder KW 3', 'EXTRUDER'),
+            mt('Extruder KW 4', 'EXTRUDER'),
+            mt('Extruder KW 2', 'EXTRUDER'),
+        ];
+        // Shares: KW 3 = 1128/22677 = 4.97→5, KW 4 = 163.5/1287.4 = 12.7,
+        // KW 2 = 1558.39/18744.79 = 8.3 → worst (max) must be 12.7 (KW 4).
+        const qty = [
+            { produced: 21549, scrap: 1128 },
+            { produced: 1123.9, scrap: 163.5 },
+            { produced: 17186.4, scrap: 1558.39 },
+        ];
+        const withQty = (machines: MachineTotals[]): MachineTotals[] =>
+            machines.map((m, i) => ({ ...m, ...qty[i] }));
+        expect(worstAffalShare(withQty(extrusi))).toBe(12.7);
+    });
+
+    it('returns null with fewer than two named machines (nothing to compare)', () => {
+        expect(
+            worstAffalShare([
+                { machineName: 'Extruder A', machineType: null, produced: 10, scrap: 5, entries: 1 },
+            ]),
+        ).toBeNull();
+    });
+
+    it('returns null when no share is computable (all zero output)', () => {
+        expect(
+            worstAffalShare([mt('A', null), mt('B', null)]),
+        ).toBeNull();
     });
 });
 

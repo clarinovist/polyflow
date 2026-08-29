@@ -38,6 +38,7 @@ import {
     PROCESS_LABEL,
     recentMonthOptions,
     sanitizeBusinessDateParam,
+    worstAffalShare,
 } from './shared';
 
 export const dynamic = 'force-dynamic';
@@ -374,7 +375,7 @@ export default async function ProductionDailyReportPage({
                                     </h3>
                                     <MachineTable
                                         machines={machines}
-                                        highlightLowestAffalShare={
+                                        highlightWorstAffalShare={
                                             key === 'EXTRUSION'
                                         }
                                     />
@@ -401,22 +402,15 @@ export default async function ProductionDailyReportPage({
 
 function MachineTable({
     machines,
-    highlightLowestAffalShare = false,
+    highlightWorstAffalShare = false,
 }: {
     machines: MachineTotals[];
-    /** Emphasize the worst affal share among named machines (≥ 1 entry). */
-    highlightLowestAffalShare?: boolean;
+    /** Badge the highest affal share among named machines (≥ 2 to compare). */
+    highlightWorstAffalShare?: boolean;
 }) {
-    const named = machines.filter((m) => m.machineName !== null);
-    let worstShare: number | null = null;
-    if (highlightLowestAffalShare && named.length > 1) {
-        const shares = named
-            .map((m) => affalPercent(m.produced, m.scrap))
-            .filter((s): s is number => s !== null);
-        if (shares.length > 0) {
-            worstShare = Math.min(...shares);
-        }
-    }
+    const worstShare = highlightWorstAffalShare
+        ? worstAffalShare(machines)
+        : null;
 
     return (
         <div className="rounded-md border border-zinc-200 dark:border-zinc-800 overflow-hidden">

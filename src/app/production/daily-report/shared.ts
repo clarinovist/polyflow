@@ -38,6 +38,22 @@ export function affalPercent(
     return Math.round((affal / gross) * 1000) / 10;
 }
 
+/**
+ * The worst affal share among named machines — the HIGHEST % affal (most
+ * waste relative to output), null when not comparable (fewer than two named
+ * machines, or no computable share). Regression guard 2026-08-29: the badge
+ * used Math.min and flagged the BEST machine instead.
+ */
+export function worstAffalShare(machines: MachineTotals[]): number | null {
+    const named = machines.filter((m) => m.machineName !== null);
+    if (named.length < 2) return null;
+    const shares = named
+        .map((m) => affalPercent(m.produced, m.scrap))
+        .filter((s): s is number => s !== null);
+    if (shares.length === 0) return null;
+    return Math.max(...shares);
+}
+
 /** "(tanpa mesin)" when neither the relation nor a type snapshot exists. */
 export function machineDisplayName(m: MachineTotals): string {
     return m.machineName || m.machineType || '(tanpa mesin)';
