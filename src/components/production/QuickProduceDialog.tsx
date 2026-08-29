@@ -19,9 +19,23 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { Loader2, Factory } from 'lucide-react';
+import { Loader2, Factory, Check, ChevronsUpDown } from 'lucide-react';
+import { cn } from '@/lib/utils/utils';
 import { quickCreateProductionOrder } from '@/actions/production/production';
 import { getCompatibleMachineTypes, MachineStageMap } from '@/lib/production/machine-compatibility';
 
@@ -64,6 +78,7 @@ export function QuickProduceDialog({
     const [quantity, setQuantity] = useState('');
     const [selectedMachineId, setSelectedMachineId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [bomComboboxOpen, setBomComboboxOpen] = useState(false);
 
     // Find selected BOM
     const selectedBom = useMemo(
@@ -141,36 +156,104 @@ export function QuickProduceDialog({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Product / BOM selection */}
+                    {/* Product / BOM selection — searchable combobox */}
                     <div className="space-y-2">
                         <Label htmlFor="bom">Produk</Label>
-                        <Select
-                            value={selectedBomId}
-                            onValueChange={handleBomChange}
+                        <Popover
+                            open={bomComboboxOpen}
+                            onOpenChange={setBomComboboxOpen}
                         >
-                            <SelectTrigger id="bom">
-                                <SelectValue placeholder="Pilih produk..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {boms.map((bom) => (
-                                    <SelectItem key={bom.id} value={bom.id}>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">
-                                                {bom.productVariant.name}
+                            <PopoverTrigger asChild>
+                                <Button
+                                    id="bom"
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={bomComboboxOpen}
+                                    className="w-full justify-between font-normal"
+                                >
+                                    {selectedBom ? (
+                                        <span className="flex flex-col items-start min-w-0">
+                                            <span className="truncate font-medium">
+                                                {selectedBom.productVariant.name}
                                             </span>
                                             <span className="text-xs text-muted-foreground">
-                                                {bom.category} • {bom.name}
+                                                {selectedBom.category} • {selectedBom.name}
                                             </span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                                {boms.length === 0 && (
-                                    <SelectItem value="__none" disabled>
-                                        Tidak ada BOM default. Buat BOM dulu.
-                                    </SelectItem>
-                                )}
-                            </SelectContent>
-                        </Select>
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted-foreground">
+                                            Pilih produk...
+                                        </span>
+                                    )}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="p-0" align="start">
+                                <Command
+                                    filter={(value, search) => {
+                                        const bom = boms.find(
+                                            (b) => b.id === value,
+                                        );
+                                        if (!bom) return 0;
+                                        const q = search.toLowerCase();
+                                        return (
+                                            bom.productVariant.name
+                                                .toLowerCase()
+                                                .includes(q) ||
+                                            bom.name
+                                                .toLowerCase()
+                                                .includes(q) ||
+                                            bom.category.toLowerCase().includes(q)
+                                        )
+                                            ? 1
+                                            : 0;
+                                    }}
+                                >
+                                    <CommandInput placeholder="Cari produk..." />
+                                    <CommandList>
+                                        <CommandEmpty>
+                                            Tidak ada produk ditemukan.
+                                        </CommandEmpty>
+                                        <CommandGroup>
+                                            {boms.map((bom) => (
+                                                <CommandItem
+                                                    key={bom.id}
+                                                    value={bom.id}
+                                                    onSelect={(currentValue) => {
+                                                        handleBomChange(
+                                                            currentValue ===
+                                                                selectedBomId
+                                                                ? ''
+                                                                : currentValue,
+                                                        );
+                                                        setBomComboboxOpen(false);
+                                                    }}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            'h-4 w-4 shrink-0',
+                                                            selectedBomId ===
+                                                                bom.id
+                                                                ? 'opacity-100'
+                                                                : 'opacity-0',
+                                                        )}
+                                                    />
+                                                    <div className="flex flex-col min-w-0 flex-1">
+                                                        <span className="truncate font-medium">
+                                                            {bom.productVariant.name}
+                                                        </span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {bom.category} • {bom.name}
+                                                        </span>
+                                                    </div>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     {/* Quantity */}
