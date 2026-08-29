@@ -2,7 +2,6 @@ import { withTenantPage } from '@/lib/core/tenant';
 import { formatWibDate, toBusinessDateString } from '@/lib/utils/timezone';
 import {
     ProductionDailyReportService,
-    type DailyProductionRow,
     type MachineTotals,
 } from '@/services/production/production-daily-report-service';
 import { PROCESS_KEYS } from '@/lib/production/process-keys';
@@ -26,23 +25,67 @@ import {
 import Link from 'next/link';
 import { DateRangeFilter } from './DateRangeFilter';
 import {
+    MachineRecapFilter,
+    MACHINE_RECAP_ALL,
+} from './MachineRecapFilter';
+import {
     affalPercent,
     dayName,
     fmt,
     machineDisplayName,
     machineTypeLabel,
+    monthLabelId,
     PROCESS_LABEL,
+    recentMonthOptions,
+    sanitizeBusinessDateParam,
 } from './shared';
 
 export const dynamic = 'force-dynamic';
 
 const getReport = withTenantPage(
-    async (from: string, to: string) =>
+    async (from: string | null, to: string | null) =>
         ProductionDailyReportService.getDailyReport({ from, to }),
 );
 
+const getRecap = withTenantPage(async (month: string | null) =>
+    ProductionDailyReportService.getMachineRecap({ month }),
+);
+
 interface PageProps {
-    searchParams: Promise<{ from?: string; to?: string }>;
+    searchParams: Promise<{
+        from?: string;
+        to?: string;
+        range?: string;
+        mesin?: string;
+    }>;
+}
+
+const YYYY_MM = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** All-time is explicit (range=all); invalid params fall back to defaults. */
+function resolvePeriodParams(params: {
+    from?: string;
+    to?: string;
+    range?: string;
+}): { from: string | null; to: string | null; allTime: boolean } {
+    if (params.range === 'all') {
+        return { from: null, to: null, allTime: true };
+    }
+    return {
+        from: sanitizeBusinessDateParam(params.from),
+        to: sanitizeBusinessDateParam(params.to),
+        allTime: false,
+    };
+}
+
+/** Absent/invalid mesin = current month (default); 'all' = all time. */
+function resolveRecapMonth(
+    mesin: string | undefined,
+    now: Date,
+): string | null {
+    if (mesin === MACHINE_RECAP_ALL) return null;
+    if (mesin && YYYY_MM.test(mesin)) return mesin;
+    return toBusinessDateString(now).slice(0, 7);
 }
 
 export default async function ProductionDailyReportPage({
@@ -54,14 +97,16 @@ export default async function ProductionDailyReportPage({
     const yesterdayStr = toBusinessDateString(
         new Date(now.getTime() - 24 * 60 * 60 * 1000),
     );
-    const defaultFrom = toBusinessDateString(
-        new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000),
-    );
-    const from = params.from || defaultFrom;
-    const to = params.to || todayStr;
 
-    const report = await getReport(from, to);
-    const { rows, periodTotals, machineTotals } = report;
+    const { from, to, allTime } = resolvePeriodParams(params);
+    const recapMonth = resolveRecapMonth(params.mesin, now);
+
+    const [report, recap] = await Promise.all([
+        getReport(from, to),
+        getRecap(recapMonth),
+    ]);
+    const { rows, periodTotals } = report;
+    const { machineTotals, month: recapApplied } = recap;
 
     const kpis = [
         {
@@ -93,7 +138,7 @@ export default async function ProductionDailyReportPage({
     const totalScrap = rows.reduce((s, r) => s + r.totalScrap, 0);
     const totalEntries = rows.reduce((s, r) => s + r.totalEntries, 0);
 
-    const rowBadge = (row: DailyProductionRow) => {
+    const rowBadge = (row: { date: string }) => {
         if (row.date === todayStr)
             return (
                 <Badge className="ml-2 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
@@ -112,6 +157,17 @@ export default async function ProductionDailyReportPage({
         return null;
     };
 
+    const periodLabel = allTime
+        ? 'Semua waktu'
+        : `${formatWibDate(from ?? todayStr)} – ${formatWibDate(to ?? todayStr)}`;
+
+    const carryParams = {
+        from: from ?? undefined,
+        to: to ?? undefined,
+        range: allTime ? 'all' : undefined,
+    };
+    const monthOptions = recentMonthOptions(12, now);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
@@ -121,11 +177,15 @@ export default async function ProductionDailyReportPage({
                     </h1>
                     <p className="text-muted-foreground text-sm">
                         Hasil produksi (actual) per hari WIB, dipisah per
-                        proses. Periode{' '}
-                        {formatWibDate(from)} – {formatWibDate(to)}.
+                        proses. Periode {periodLabel}.
                     </p>
                 </div>
-                <DateRangeFilter from={from} to={to} />
+                <DateRangeFilter
+                    from={from}
+                    to={to}
+                    allTime={allTime}
+                    mesin={params.mesin}
+                />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -290,11 +350,18 @@ export default async function ProductionDailyReportPage({
 
             {PROCESS_KEYS.some((key) => machineTotals[key].length > 0) && (
                 <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-                    <CardHeader>
+                    <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-lg font-bold">
-                            Rekap per Mesin — Periode{' '}
-                            {formatWibDate(from)} – {formatWibDate(to)}
+                            Rekap per Mesin —{' '}
+                            {recapApplied === null
+                                ? 'Semua waktu'
+                                : monthLabelId(recapApplied)}
                         </CardTitle>
+                        <MachineRecapFilter
+                            value={recapApplied ?? MACHINE_RECAP_ALL}
+                            monthOptions={monthOptions}
+                            carryParams={carryParams}
+                        />
                     </CardHeader>
                     <CardContent className="space-y-6">
                         {PROCESS_KEYS.map((key) => {
@@ -315,8 +382,11 @@ export default async function ProductionDailyReportPage({
                             );
                         })}
                         <p className="text-xs text-muted-foreground">
-                            Hasil &amp; affal per mesin untuk seluruh periode.
-                            Satuan mengikuti output BOM tiap proses — jangan
+                            Hasil &amp; affal per mesin untuk{' '}
+                            {recapApplied === null
+                                ? 'seluruh periode data'
+                                : `bulan ${monthLabelId(recapApplied)}`}
+                            . Satuan mengikuti output BOM tiap proses — jangan
                             dijumlah antar proses. % Affal = affal ÷ (hasil +
                             affal), aman dibandingkan antar mesin karena
                             satuannya sama. Baris tanpa nama mesin (mis. entri

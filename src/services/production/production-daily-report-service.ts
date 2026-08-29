@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/core/prisma';
+import { ValidationError } from '@/lib/errors/errors';
 import {
     getWibDayBounds,
+    getWibMonthBounds,
     parseBusinessDate,
     toBusinessDateString,
 } from '@/lib/utils/timezone';
@@ -26,13 +28,19 @@ export interface DailyProductionRow {
 }
 
 export interface DailyProductionReport {
-    from: string;
-    to: string;
+    /** WIB business dates, null = unbounded on that side (all-time mode). */
+    from: string | null;
+    to: string | null;
     /** Sorted descending by date (latest first) */
     rows: DailyProductionRow[];
     periodTotals: Record<ProcessKey, DailyProcessTotals>;
+}
+
+export interface MachineRecap {
+    /** YYYY-MM when scoped to one month, null = all time. */
+    month: string | null;
     /**
-     * Machine-level totals for the whole period, grouped per process.
+     * Machine-level totals, grouped per process.
      * Sorted: produced desc, then machine name (no-machine last).
      */
     machineTotals: Record<ProcessKey, MachineTotals[]>;
@@ -82,6 +90,20 @@ interface ExecutionRow {
     machine?: { name: string; type: string } | null;
     pieceMachineType?: string | null;
 }
+
+/** Shared select — one shape for the period report, recap, and day detail. */
+const EXECUTION_SELECT = {
+    startTime: true,
+    quantityProduced: true,
+    scrapQuantity: true,
+    scrapProngkolQty: true,
+    scrapDaunQty: true,
+    machine: { select: { name: true, type: true } },
+    pieceMachineType: true,
+    productionOrder: {
+        select: { bom: { select: { category: true } } },
+    },
+};
 
 /**
  * Grouping identity for machine totals. Normal rows always carry a machine
@@ -162,46 +184,67 @@ function machineNameCompare(a: string | null, b: string | null): number {
     return a.localeCompare(b);
 }
 
+/**
+ * startTime filter for the optional period bounds. Null (both sides unset) =
+ * all-time, no startTime constraint. Partial bounds (one side null) are
+ * supported — the UI defaults only fill the missing side for display.
+ */
+function startBoundsWhere(
+    from: string | null,
+    to: string | null,
+): { gte?: Date; lte?: Date } | null {
+    if (!from && !to) return null;
+    const where: { gte?: Date; lte?: Date } = {};
+    if (from) where.gte = getWibDayBounds(from).startOfDay;
+    if (to) where.lte = getWibDayBounds(to).endOfDay;
+    return where;
+}
+
+/** 'YYYY-MM' → WIB month bounds; throws defensively on malformed input. */
+function monthBoundsWhere(month: string): { gte: Date; lte: Date } {
+    const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
+    if (!match) {
+        throw new ValidationError(
+            `Invalid month format: "${month}". Expected YYYY-MM.`,
+        );
+    }
+    const { start, end } = getWibMonthBounds(
+        Number(match[1]),
+        Number(match[2]),
+    );
+    return { gte: start, lte: end };
+}
+
+/** Every non-VOIDED execution inside the optional startTime bounds. */
+async function fetchNonVoidedExecutions(
+    startWhere: { gte?: Date; lte?: Date } | null,
+) {
+    return prisma.productionExecution.findMany({
+        where: {
+            status: { not: 'VOIDED' },
+            ...(startWhere ? { startTime: startWhere } : {}),
+        },
+        select: EXECUTION_SELECT,
+    });
+}
+
 export class ProductionDailyReportService {
     /**
      * Actual production output per WIB business day, bucketed by process
      * (from the SPK's BOM category). Counts only non-VOIDED executions whose
-     * startTime falls inside the requested WIB day range — the same source and
-     * filter as the production live overview, so "kemarin" here always matches
-     * the outputYesterday figure on /production.
+     * startTime falls inside the requested range — null bounds mean all time.
+     * Defaults for the UI live in the page layer, not here.
      */
     static async getDailyReport(params?: {
-        from?: string;
-        to?: string;
+        from?: string | null;
+        to?: string | null;
     }): Promise<DailyProductionReport> {
-        const from = parseBusinessDate(
-            params?.from || toBusinessDateString(new Date()),
-        );
-        const to = parseBusinessDate(
-            params?.to || toBusinessDateString(new Date()),
-        );
+        const from = params?.from ? parseBusinessDate(params.from) : null;
+        const to = params?.to ? parseBusinessDate(params.to) : null;
 
-        const { startOfDay } = getWibDayBounds(from);
-        const { endOfDay } = getWibDayBounds(to);
-
-        const executions = await prisma.productionExecution.findMany({
-            where: {
-                status: { not: 'VOIDED' },
-                startTime: { gte: startOfDay, lte: endOfDay },
-            },
-            select: {
-                startTime: true,
-                quantityProduced: true,
-                scrapQuantity: true,
-                scrapProngkolQty: true,
-                scrapDaunQty: true,
-                machine: { select: { name: true, type: true } },
-                pieceMachineType: true,
-                productionOrder: {
-                    select: { bom: { select: { category: true } } },
-                },
-            },
-        });
+        const executions = await fetchNonVoidedExecutions(
+            startBoundsWhere(from, to),
+        );
 
         const rowsByDate = new Map<string, DailyProductionRow>();
 
@@ -243,13 +286,22 @@ export class ProductionDailyReportService {
             b.date.localeCompare(a.date),
         );
 
-        return {
-            from,
-            to,
-            rows,
-            periodTotals,
-            machineTotals: aggregateByMachine(executions),
-        };
+        return { from, to, rows, periodTotals };
+    }
+
+    /**
+     * Machine-level recap for one WIB month (month = 'YYYY-MM') or all time
+     * (month = null). Deliberately independent of getDailyReport's period so
+     * the UI can filter the recap and the per-day table separately. Same
+     * aggregation as the former report-level machineTotals.
+     */
+    static async getMachineRecap(params?: {
+        month?: string | null;
+    }): Promise<MachineRecap> {
+        const month = params?.month ?? null;
+        const startWhere = month ? monthBoundsWhere(month) : null;
+        const executions = await fetchNonVoidedExecutions(startWhere);
+        return { month, machineTotals: aggregateByMachine(executions) };
     }
 
     /**
@@ -263,22 +315,9 @@ export class ProductionDailyReportService {
         const date = parseBusinessDate(params.date);
         const { startOfDay, endOfDay } = getWibDayBounds(date);
 
-        const executions = await prisma.productionExecution.findMany({
-            where: {
-                status: { not: 'VOIDED' },
-                startTime: { gte: startOfDay, lte: endOfDay },
-            },
-            select: {
-                quantityProduced: true,
-                scrapQuantity: true,
-                scrapProngkolQty: true,
-                scrapDaunQty: true,
-                machine: { select: { name: true, type: true } },
-                pieceMachineType: true,
-                productionOrder: {
-                    select: { bom: { select: { category: true } } },
-                },
-            },
+        const executions = await fetchNonVoidedExecutions({
+            gte: startOfDay,
+            lte: endOfDay,
         });
 
         const byProcess = emptyByProcess() as unknown as Record<

@@ -7,6 +7,9 @@ import {
     affalPercent,
     machineDisplayName,
     machineTypeLabel,
+    monthLabelId,
+    recentMonthOptions,
+    sanitizeBusinessDateParam,
 } from './shared';
 
 const mt = (
@@ -75,5 +78,50 @@ describe('PROCESS_LABEL', () => {
         expect(PROCESS_LABEL.EXTRUSION).toBe('Extrusi');
         expect(PROCESS_LABEL.PACKING).toBe('Packing');
         expect(PROCESS_LABEL.OTHER).toBe('Lainnya');
+    });
+});
+
+describe('monthLabelId', () => {
+    it('renders YYYY-MM as long Indonesian month + year', () => {
+        expect(monthLabelId('2026-08')).toBe('Agustus 2026');
+        expect(monthLabelId('2026-01')).toBe('Januari 2026');
+    });
+
+    it('passes through malformed input untouched', () => {
+        expect(monthLabelId('all')).toBe('all');
+    });
+});
+
+describe('recentMonthOptions', () => {
+    it('lists the last N WIB months including current, latest first', () => {
+        // 2026-08-31T18:00:00Z is already 2026-09-01 01:00 WIB — the WIB
+        // month, not the UTC month, must win.
+        const nearMidnightWib = new Date('2026-08-31T18:00:00.000Z');
+        expect(recentMonthOptions(3, nearMidnightWib)).toEqual([
+            '2026-09',
+            '2026-08',
+            '2026-07',
+        ]);
+    });
+
+    it('wraps across year boundary', () => {
+        expect(recentMonthOptions(3, new Date('2026-01-10T10:00:00.000Z'))).toEqual(
+            ['2026-01', '2025-12', '2025-11'],
+        );
+    });
+});
+
+describe('sanitizeBusinessDateParam', () => {
+    it('passes valid business dates through', () => {
+        expect(sanitizeBusinessDateParam('2026-08-29')).toBe('2026-08-29');
+    });
+
+    it('returns null for absent, malformed, or impossible dates', () => {
+        expect(sanitizeBusinessDateParam(undefined)).toBeNull();
+        expect(sanitizeBusinessDateParam('')).toBeNull();
+        expect(sanitizeBusinessDateParam('blah')).toBeNull();
+        expect(sanitizeBusinessDateParam('26-08-2026')).toBeNull();
+        expect(sanitizeBusinessDateParam('2026-02-30')).toBeNull();
+        expect(sanitizeBusinessDateParam('2026-13-01')).toBeNull();
     });
 });

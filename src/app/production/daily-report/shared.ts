@@ -4,6 +4,7 @@
  * client/component code here, so both server pages can import freely.
  */
 
+import { toBusinessDateString } from '@/lib/utils/timezone';
 import type { MachineTotals } from '@/services/production/production-daily-report-service';
 import type { ProcessKey } from '@/lib/production/process-keys';
 
@@ -53,4 +54,57 @@ export function machineTypeLabel(m: MachineTotals): string | null {
     }
     // Type-only bucket: the type IS the identity, render as-is.
     return t;
+}
+
+/** '2026-08' → 'Agustus 2026' (id-ID long month). */
+export function monthLabelId(month: string): string {
+    const match = /^(\d{4})-(\d{2})$/.exec(month);
+    if (!match) return month;
+    const d = new Date(`${month}-15T12:00:00+07:00`);
+    return new Intl.DateTimeFormat('id-ID', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Asia/Jakarta',
+    }).format(d);
+}
+
+/**
+ * The last `count` WIB months including the current one, latest first —
+ * options for the machine-recap month select. Month identity follows the WIB
+ * business date (same calendar as the report rows), not the server-local one.
+ */
+export function recentMonthOptions(count: number, now: Date): string[] {
+    const [y, m] = toBusinessDateString(now)
+        .slice(0, 7)
+        .split('-')
+        .map(Number);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const out: string[] = [];
+    for (let i = 0; i < count; i++) {
+        const total = y * 12 + (m - 1) - i;
+        out.push(
+            `${String(Math.floor(total / 12)).padStart(4, '0')}-${pad(
+                (total % 12) + 1,
+            )}`,
+        );
+    }
+    return out;
+}
+
+/**
+ * URL param → validated business date, or null when absent/malformed
+ * (format OR calendar — 2026-02-30 is rejected). Page-level guard so a
+ * hand-edited query string degrades to the default view, never a 500.
+ */
+export function sanitizeBusinessDateParam(
+    param: string | undefined,
+): string | null {
+    if (!param || !/^\d{4}-\d{2}-\d{2}$/.test(param)) return null;
+    const [y, m, d] = param.split('-').map(Number);
+    const check = new Date(Date.UTC(y, m - 1, d));
+    return check.getUTCFullYear() === y &&
+        check.getUTCMonth() === m - 1 &&
+        check.getUTCDate() === d
+        ? param
+        : null;
 }

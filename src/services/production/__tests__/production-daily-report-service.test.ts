@@ -73,6 +73,46 @@ describe('ProductionDailyReportService.getDailyReport', () => {
         );
     });
 
+    it('supports all-time: null bounds omit the startTime filter entirely', async () => {
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([]);
+
+        const report = await ProductionDailyReportService.getDailyReport({
+            from: null,
+            to: null,
+        });
+
+        const args = vi.mocked(prisma.productionExecution.findMany).mock
+            .calls[0][0];
+        expect(args.where.status).toEqual({ not: 'VOIDED' });
+        expect(args.where.startTime).toBeUndefined();
+        expect(report.from).toBeNull();
+        expect(report.to).toBeNull();
+    });
+
+    it('supports partial bounds: only from → gte only, only to → lte only', async () => {
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([]);
+
+        await ProductionDailyReportService.getDailyReport({
+            from: '2026-08-25',
+        });
+        let args = vi.mocked(prisma.productionExecution.findMany).mock
+            .calls[0][0];
+        expect(args.where.startTime.gte.toISOString()).toBe(
+            '2026-08-24T17:00:00.000Z',
+        );
+        expect(args.where.startTime.lte).toBeUndefined();
+
+        await ProductionDailyReportService.getDailyReport({
+            to: '2026-08-27',
+        });
+        args = vi.mocked(prisma.productionExecution.findMany).mock
+            .calls[1][0];
+        expect(args.where.startTime.gte).toBeUndefined();
+        expect(args.where.startTime.lte.toISOString()).toBe(
+            '2026-08-27T16:59:59.999Z',
+        );
+    });
+
     it('buckets executions per WIB day and per process, latest day first', async () => {
         vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([
             // 27 Aug WIB 00:30 — counts as the 27th despite being the 26th in UTC
@@ -198,7 +238,7 @@ describe('ProductionDailyReportService.getDailyReport', () => {
         expect(report.rows[0].totalScrap).toBe(12);
     });
 
-    it('defaults to today (WIB) and tolerates executions without order relation', async () => {
+    it('treats missing params as all-time (defaults live in the page layer)', async () => {
         vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([
             exec({
                 quantityProduced: dec(50),
@@ -211,9 +251,9 @@ describe('ProductionDailyReportService.getDailyReport', () => {
 
         const args = vi.mocked(prisma.productionExecution.findMany).mock
             .calls[0][0];
-        const today = args.where.startTime.gte.toISOString();
-        expect(today).toMatch(/T17:00:00\.000Z$/);
-        expect(report.from).toBe(report.to);
+        expect(args.where.startTime).toBeUndefined();
+        expect(report.from).toBeNull();
+        expect(report.to).toBeNull();
         expect(report.rows).toHaveLength(1);
         expect(report.rows[0].byProcess.OTHER).toEqual({
             produced: 50,
@@ -223,7 +263,7 @@ describe('ProductionDailyReportService.getDailyReport', () => {
     });
 });
 
-describe('ProductionDailyReportService — machine totals (period)', () => {
+describe('ProductionDailyReportService.getMachineRecap', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -251,12 +291,10 @@ describe('ProductionDailyReportService — machine totals (period)', () => {
             }),
         ]);
 
-        const report = await ProductionDailyReportService.getDailyReport({
-            from: '2026-08-25',
-            to: '2026-08-27',
-        });
+        const recap = await ProductionDailyReportService.getMachineRecap();
 
-        expect(report.machineTotals.EXTRUSION).toEqual([
+        expect(recap.month).toBeNull();
+        expect(recap.machineTotals.EXTRUSION).toEqual([
             {
                 machineName: 'Extruder B',
                 machineType: 'EXTRUDER',
@@ -272,7 +310,7 @@ describe('ProductionDailyReportService — machine totals (period)', () => {
                 entries: 2,
             },
         ]);
-        expect(report.machineTotals.MIXING).toEqual([
+        expect(recap.machineTotals.MIXING).toEqual([
             {
                 machineName: 'Mixer 1',
                 machineType: 'MIXER',
@@ -281,15 +319,16 @@ describe('ProductionDailyReportService — machine totals (period)', () => {
                 entries: 1,
             },
         ]);
-        expect(report.machineTotals.PACKING).toEqual([]);
-        expect(report.machineTotals.OTHER).toEqual([]);
+        expect(recap.machineTotals.PACKING).toEqual([]);
+        expect(recap.machineTotals.OTHER).toEqual([]);
 
-        // Period produced per process must equal sum of machine rows.
-        const extrusionSum = report.machineTotals.EXTRUSION.reduce(
+        // Aggregation reuse invariant: process sums stay equal to totals
+        // computed from the same rows (no double count, no dropped entry).
+        const extrusionSum = recap.machineTotals.EXTRUSION.reduce(
             (s, m) => s + m.produced,
             0,
         );
-        expect(extrusionSum).toBe(report.periodTotals.EXTRUSION.produced);
+        expect(extrusionSum).toBe(450);
     });
 
     it('buckets kiosk piece-rate rows (machineId null, pieceMachineType set) by machine type', async () => {
@@ -306,9 +345,9 @@ describe('ProductionDailyReportService — machine totals (period)', () => {
             }),
         ]);
 
-        const report = await ProductionDailyReportService.getDailyReport();
+        const recap = await ProductionDailyReportService.getMachineRecap();
 
-        expect(report.machineTotals.EXTRUSION).toEqual([
+        expect(recap.machineTotals.EXTRUSION).toEqual([
             {
                 machineName: null,
                 machineType: 'EXTRUDER',
@@ -329,14 +368,41 @@ describe('ProductionDailyReportService — machine totals (period)', () => {
             exec({ quantityProduced: dec(20) }),
         ]);
 
-        const report = await ProductionDailyReportService.getDailyReport();
+        const recap = await ProductionDailyReportService.getMachineRecap();
 
         // Both no-machine executions merge into a single "(tanpa mesin)" row.
         expect(
-            report.machineTotals.EXTRUSION.map((m) => m.machineName),
+            recap.machineTotals.EXTRUSION.map((m) => m.machineName),
         ).toEqual(['Extruder A', null]);
-        expect(report.machineTotals.EXTRUSION[1].produced).toBe(30);
-        expect(report.machineTotals.EXTRUSION[1].entries).toBe(2);
+        expect(recap.machineTotals.EXTRUSION[1].produced).toBe(30);
+        expect(recap.machineTotals.EXTRUSION[1].entries).toBe(2);
+    });
+
+    it('scopes to one WIB month (YYYY-MM) with exact month bounds', async () => {
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([]);
+
+        const recap = await ProductionDailyReportService.getMachineRecap({
+            month: '2026-08',
+        });
+
+        expect(recap.month).toBe('2026-08');
+        const args = vi.mocked(prisma.productionExecution.findMany).mock
+            .calls[0][0];
+        // 1 Aug 00:00 WIB .. 31 Aug 23:59:59.999 WIB
+        expect(args.where.startTime.gte.toISOString()).toBe(
+            '2026-07-31T17:00:00.000Z',
+        );
+        expect(args.where.startTime.lte.toISOString()).toBe(
+            '2026-08-31T16:59:59.999Z',
+        );
+    });
+
+    it('throws on malformed month', async () => {
+        await expect(
+            ProductionDailyReportService.getMachineRecap({
+                month: 'aug-2026',
+            }),
+        ).rejects.toThrow();
     });
 });
 
