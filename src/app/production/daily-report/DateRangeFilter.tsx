@@ -8,26 +8,21 @@ import { Input } from '@/components/ui/input';
 interface DateRangeFilterProps {
     from: string | null;
     to: string | null;
-    /** True when the current view is all-time (range=all). */
-    allTime: boolean;
     /** Machine-recap filter param to preserve across navigation. */
     mesin?: string;
 }
 
 /**
- * Top period filter (KPIs + per-day table). Empty both dates + Terapkan =
- * all time (range=all). Preset chips fill the inputs (Semua waktu applies
- * all-time immediately); typing a date drops the URL back to period mode.
+ * Top period filter (KPIs + per-day table). Inputs default to a 30-day
+ * window; user may fill one date only (partial bound) or both. Preset chips
+ * fill the inputs and navigate immediately.
  */
 export function DateRangeFilter({
     from,
     to,
-    allTime,
     mesin,
 }: DateRangeFilterProps) {
     const router = useRouter();
-    // Inputs show the effective defaults (30d window) even in all-time mode,
-    // but stay untouched until the user edits them.
     const effectiveFrom = from ?? allTimeDefaultFrom();
     const [fromValue, setFromValue] = useState(effectiveFrom);
     const [toValue, setToValue] = useState(to ?? todayStr());
@@ -39,16 +34,10 @@ export function DateRangeFilter({
 
     const apply = () => {
         const params = new URLSearchParams();
-        if (!fromValue && !toValue) {
-            params.set('range', 'all');
-        } else {
-            if (fromValue) params.set('from', fromValue);
-            if (toValue) params.set('to', toValue);
-        }
+        if (fromValue) params.set('from', fromValue);
+        if (toValue) params.set('to', toValue);
         push(params);
     };
-
-    const applyAllTime = () => push(new URLSearchParams({ range: 'all' }));
 
     const applyMonthPreset = (start: string, end: string) => {
         setFromValue(start);
@@ -88,13 +77,6 @@ export function DateRangeFilter({
             <div className="flex items-center gap-2">
                 <Button size="sm" onClick={apply}>
                     Terapkan
-                </Button>
-                <Button
-                    size="sm"
-                    variant={allTime ? 'default' : 'outline'}
-                    onClick={applyAllTime}
-                >
-                    Semua waktu
                 </Button>
                 <Button
                     size="sm"

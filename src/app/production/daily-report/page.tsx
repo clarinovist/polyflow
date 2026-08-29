@@ -56,26 +56,31 @@ interface PageProps {
     searchParams: Promise<{
         from?: string;
         to?: string;
-        range?: string;
         mesin?: string;
     }>;
 }
 
 const YYYY_MM = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-/** All-time is explicit (range=all); invalid params fall back to defaults. */
+/**
+ * Resolve period params: sanitize from/to, default to a 30-day window ending
+ * today when both are absent. Service still supports partial bounds (one side
+ * null), so a hand-edited URL with only `from` or only `to` works correctly.
+ */
 function resolvePeriodParams(params: {
     from?: string;
     to?: string;
-    range?: string;
-}): { from: string | null; to: string | null; allTime: boolean } {
-    if (params.range === 'all') {
-        return { from: null, to: null, allTime: true };
-    }
+    now: Date;
+}): { from: string; to: string } {
+    const from = sanitizeBusinessDateParam(params.from);
+    const to = sanitizeBusinessDateParam(params.to);
+    const today = toBusinessDateString(params.now);
+    const defaultFrom = toBusinessDateString(
+        new Date(params.now.getTime() - 29 * 24 * 60 * 60 * 1000),
+    );
     return {
-        from: sanitizeBusinessDateParam(params.from),
-        to: sanitizeBusinessDateParam(params.to),
-        allTime: false,
+        from: from ?? defaultFrom,
+        to: to ?? today,
     };
 }
 
@@ -99,7 +104,7 @@ export default async function ProductionDailyReportPage({
         new Date(now.getTime() - 24 * 60 * 60 * 1000),
     );
 
-    const { from, to, allTime } = resolvePeriodParams(params);
+    const { from, to } = resolvePeriodParams({ ...params, now });
     const recapMonth = resolveRecapMonth(params.mesin, now);
 
     const [report, recap] = await Promise.all([
@@ -158,14 +163,11 @@ export default async function ProductionDailyReportPage({
         return null;
     };
 
-    const periodLabel = allTime
-        ? 'Semua waktu'
-        : `${formatWibDate(from ?? todayStr)} – ${formatWibDate(to ?? todayStr)}`;
+    const periodLabel = `${formatWibDate(from)} – ${formatWibDate(to)}`;
 
     const carryParams = {
-        from: from ?? undefined,
-        to: to ?? undefined,
-        range: allTime ? 'all' : undefined,
+        from,
+        to,
     };
     const monthOptions = recentMonthOptions(12, now);
 
@@ -184,7 +186,6 @@ export default async function ProductionDailyReportPage({
                 <DateRangeFilter
                     from={from}
                     to={to}
-                    allTime={allTime}
                     mesin={params.mesin}
                 />
             </div>
