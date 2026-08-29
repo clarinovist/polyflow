@@ -33,6 +33,24 @@ export const heroLabels = {
     trustedBy: 'Dipercaya oleh 1.000+ produsen di seluruh dunia',
 } as const;
 
+/** Hero stats strip — small numbers below the CTA */
+export const heroStats = [
+    { value: '6', label: 'Modul Terintegrasi' },
+    { value: '1', label: 'Sistem, Bukan Taburan' },
+    { value: '∞', label: 'Pelacakan Real-time' },
+] as const;
+
+/** Hero pipeline panel — the vertical flow diagram on the right side */
+export const heroPipeline = {
+    title: 'Alur Produksi PolyFlow',
+    steps: [
+        { num: '01', label: 'Sales Order', desc: 'Pesanan masuk' },
+        { num: '02', label: 'Produksi', desc: 'Mesin & BOM' },
+        { num: '03', label: 'Gudang', desc: 'Stok & Material' },
+        { num: '04', label: 'Invoice', desc: 'Tagih & Lunas' },
+    ],
+} as const;
+
 /** Features section labels */
 export const featureLabels = {
     sectionTitle: 'Modul',
