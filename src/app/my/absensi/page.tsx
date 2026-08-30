@@ -143,6 +143,7 @@ export default async function MyAbsensiPage({
                                                       {
                                                           hour: '2-digit',
                                                           minute: '2-digit',
+                                                          timeZone: 'Asia/Jakarta',
                                                       },
                                                   )
                                                 : '-'}{' '}
@@ -155,6 +156,7 @@ export default async function MyAbsensiPage({
                                                       {
                                                           hour: '2-digit',
                                                           minute: '2-digit',
+                                                          timeZone: 'Asia/Jakarta',
                                                       },
                                                   )
                                                 : '...'}

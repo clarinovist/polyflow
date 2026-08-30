@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { AttendanceService } from '@/services/hrd/attendance-service';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import { todayWibDateString } from '@/services/hrd/shift-window';
+import { formatWIB } from '@/lib/utils/timezone';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
 
 function csvEscape(val: string | number): string {
@@ -147,8 +148,8 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         r.employeeName,
         r.shiftName,
         r.status,
-        r.clockInAt ? new Date(r.clockInAt).toISOString() : '',
-        r.clockOutAt ? new Date(r.clockOutAt).toISOString() : '',
+        r.clockInAt ? formatWIB(r.clockInAt, 'HH:mm') : '',
+        r.clockOutAt ? formatWIB(r.clockOutAt, 'HH:mm') : '',
         r.plannedHours,
         r.actualHours ?? '',
         r.overtimeHours,

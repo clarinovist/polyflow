@@ -423,6 +423,7 @@ export function MyAttendanceClock() {
                                 ).toLocaleTimeString('id-ID', {
                                     hour: '2-digit',
                                     minute: '2-digit',
+                                    timeZone: 'Asia/Jakarta',
                                 })}
                             </p>
                         )}
@@ -434,6 +435,7 @@ export function MyAttendanceClock() {
                                 ).toLocaleTimeString('id-ID', {
                                     hour: '2-digit',
                                     minute: '2-digit',
+                                    timeZone: 'Asia/Jakarta',
                                 })}
                             </p>
                         )}
