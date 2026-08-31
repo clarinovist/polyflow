@@ -24,6 +24,7 @@ export type MissingInvoiceIssue = {
 export type ShortfallIssue = {
     id: string;
     invoiceNumber: string;
+    invoiceDate: Date;
     arDebit: number;
     totalAmount: number;
     difference: number;
@@ -225,6 +226,7 @@ export async function collectFinanceJournalIssues(
                 salesInvoiceShortfalls.push({
                     id: inv.id,
                     invoiceNumber: inv.invoiceNumber,
+                    invoiceDate: inv.invoiceDate,
                     arDebit,
                     totalAmount: total,
                     difference: total - arDebit,

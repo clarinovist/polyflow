@@ -29,14 +29,14 @@
 import { readFileSync } from 'fs';
 import { JournalStatus, ReferenceType } from '@prisma/client';
 
+import { actorContext } from '@/lib/core/actor-context';
 import {
-    actorContext,
-    entitlementContext,
     getMainPrisma,
     getTenantDb,
     prisma,
     tenantContext,
     tenantIdContext,
+    entitlementContext,
 } from '@/lib/core/prisma';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { AccountingService } from '@/services/accounting/accounting-service';
@@ -54,6 +54,13 @@ const tenantArg = process.argv
 const mappingPath = process.argv
     .find((a) => a.startsWith('--mapping='))
     ?.split('=')[1];
+// Scope gate: 'ar' = sales side only, 'ap' = purchase side only, 'all' (default).
+// Dipakai untuk eksekusi parsial (mis. Opsi A: AR dulu, hutang tidak disentuh).
+const SCOPE = (process.argv
+    .find((a) => a.startsWith('--scope='))
+    ?.split('=')[1] || 'all') as 'all' | 'ar' | 'ap';
+const SALES_IN_SCOPE = SCOPE !== 'ap';
+const PURCHASE_IN_SCOPE = SCOPE !== 'ar';
 
 const rupiah = (n: number) =>
     `Rp ${Math.round(n).toLocaleString('id-ID')}`;
@@ -120,9 +127,7 @@ function summarize(issues: FinanceJournalIssues) {
     );
 
     console.log('=== Ringkasan temuan (tanpa jurnal POSTED/non-VOIDED) ===');
-    console.log(
-        `AR account: ${issues.arAccountCode ?? 'TIDAK KETEMU'} | AP account: ${issues.apAccountCode ?? 'TIDAK KETEMU'}`,
-    );
+    console.log(`[scope=${SCOPE}] AR account: ${issues.arAccountCode ?? 'TIDAK KETEMU'} | AP account: ${issues.apAccountCode ?? 'TIDAK KETEMU'}`);
     console.log(
         `Sales invoice tanpa jurnal   : ${issues.salesInvoicesMissing.length} doc, ${rupiah(missingSalesInvoiceTotal)}`,
     );
@@ -252,15 +257,24 @@ async function runRepair(): Promise<void> {
     }
 
     console.log('\n=== APPLY: purchase invoice (leg PPN) ===');
-    for (const inv of issues.purchaseInvoicesMissingVat) {
+    for (const inv of PURCHASE_IN_SCOPE
+        ? issues.purchaseInvoicesMissingVat
+        : []) {
         console.log(
             `[backfill] PURCHASE_INVOICE ${inv.invoiceNumber} PPN ${rupiah(inv.derivedTaxAmount)}`,
         );
         await ensure('PURCHASE_INVOICE', inv.id);
     }
+    if (!PURCHASE_IN_SCOPE && issues.purchaseInvoicesMissingVat.length > 0) {
+        console.log(
+            `[skip-scope] ${issues.purchaseInvoicesMissingVat.length} purchase invoice dilewati (scope=ar)`,
+        );
+    }
 
     console.log('\n=== APPLY: purchase payment ===');
-    for (const p of issues.purchasePaymentsMissing) {
+    for (const p of PURCHASE_IN_SCOPE
+        ? issues.purchasePaymentsMissing
+        : []) {
         if (skipSet.has(`PURCHASE_PAYMENT:${p.id}`)) {
             console.log(
                 `[skip-mapping] payment ${p.paymentNumber ?? p.id} ${rupiah(p.amount)} — sudah terwakili jurnal manual.`,
@@ -270,6 +284,11 @@ async function runRepair(): Promise<void> {
         }
         console.log(`[backfill] PURCHASE_PAYMENT ${p.paymentNumber ?? p.id} ${rupiah(p.amount)}`);
         await ensure('PURCHASE_PAYMENT', p.id);
+    }
+    if (!PURCHASE_IN_SCOPE && issues.purchasePaymentsMissing.length > 0) {
+        console.log(
+            `[skip-scope] ${issues.purchasePaymentsMissing.length} purchase payment dilewati (scope=ar)`,
+        );
     }
 
     console.log('\n=== Selesai ===');
