@@ -150,21 +150,51 @@ export async function generateInvoiceNumber(): Promise<string> {
     const now = new Date();
     const suffix = `/INV/${monthToRoman(now.getMonth() + 1)}/${now.getFullYear()}`;
 
-    const lastInvoice = await prisma.invoice.findFirst({
+    // Max sequence, bukan latest createdAt — nomor dari sumber luar (backfill
+    // OB, import) bisa punya createdAt terbaru dengan seq kecil dan bikin
+    // generator menghasilkan nomor yang sudah terpakai (P2002, lihat plan
+    // docs/plan/2026-08-31-fix-invoice-number-collision.md).
+    const existing = await prisma.invoice.findMany({
         where: { invoiceNumber: { endsWith: suffix } },
-        orderBy: { createdAt: 'desc' },
+        select: { invoiceNumber: true },
     });
 
-    let nextSequence = 1;
-    if (lastInvoice) {
-        const seqStr = lastInvoice.invoiceNumber.split('/')[0];
-        const lastSeq = parseInt(seqStr);
-        if (!isNaN(lastSeq)) {
-            nextSequence = lastSeq + 1;
+    let maxSequence = 0;
+    for (const row of existing) {
+        const seq = parseInt(row.invoiceNumber.split('/')[0]);
+        if (!isNaN(seq) && seq > maxSequence) {
+            maxSequence = seq;
         }
     }
 
-    return `${nextSequence}${suffix}`;
+    return `${maxSequence + 1}${suffix}`;
+}
+
+const INVOICE_NUMBER_MAX_ATTEMPTS = 3;
+
+/**
+ * Create invoice dengan retry khusus P2002 pada `invoiceNumber` (race dua
+ * pembuatan bersamaan). Error lain langsung dilempar.
+ */
+export async function createInvoiceWithNumberRetry<T>(
+    create: (invoiceNumber: string) => Promise<T>,
+): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < INVOICE_NUMBER_MAX_ATTEMPTS; attempt++) {
+        const invoiceNumber = await generateInvoiceNumber();
+        try {
+            return await create(invoiceNumber);
+        } catch (error) {
+            lastError = error;
+            const isDuplicateInvoiceNumber =
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002' &&
+                Array.isArray(error.meta?.target) &&
+                (error.meta?.target as string[]).includes('invoiceNumber');
+            if (!isDuplicateInvoiceNumber) throw error;
+        }
+    }
+    throw lastError;
 }
 
 export async function createInvoice(data: CreateInvoiceValues, userId: string) {
@@ -222,21 +252,24 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
     const calculatedTotal =
         await calculateSalesInvoiceTotalFromDelivered(salesOrderId);
 
-    const invoiceNumber = await generateInvoiceNumber();
-
-    const invoice = await prisma.invoice.create({
-        data: {
-            invoiceNumber,
-            salesOrderId,
-            invoiceDate,
-            dueDate: finalDueDate,
-            termOfPaymentDays: termOfPaymentDays || 0,
-            totalAmount: calculatedTotal,
-            paidAmount: 0,
-            status: InvoiceStatus.UNPAID,
-            notes,
+    const { invoice, invoiceNumber } = await createInvoiceWithNumberRetry(
+        async (num) => {
+            const created = await prisma.invoice.create({
+                data: {
+                    invoiceNumber: num,
+                    salesOrderId,
+                    invoiceDate,
+                    dueDate: finalDueDate,
+                    termOfPaymentDays: termOfPaymentDays || 0,
+                    totalAmount: calculatedTotal,
+                    paidAmount: 0,
+                    status: InvoiceStatus.UNPAID,
+                    notes,
+                },
+            });
+            return { invoice: created, invoiceNumber: num };
         },
-    });
+    );
 
     await logActivity({
         userId,
@@ -404,22 +437,28 @@ export async function createDraftInvoiceFromOrder(
                 try {
                     const termOfPaymentDays =
                         salesOrder.customer?.paymentTermDays ?? 30;
-                    const invoiceNumber = await generateInvoiceNumber();
                     const invoiceDate = new Date();
                     const dueDate = addDays(invoiceDate, termOfPaymentDays);
-                    const supplementary = await prisma.invoice.create({
-                        data: {
-                            invoiceNumber,
-                            salesOrderId,
-                            invoiceDate,
-                            dueDate,
-                            termOfPaymentDays,
-                            totalAmount: remaining,
-                            paidAmount: 0,
-                            status: InvoiceStatus.DRAFT,
-                            notes: `Suplementer: tambahan kirim setelah invoice ${existingInvoice.invoiceNumber} (sisa ${remaining}) — SO ${salesOrder.orderNumber}`,
-                        },
-                    });
+                    const { supplementary, invoiceNumber } =
+                        await createInvoiceWithNumberRetry(async (num) => {
+                            const created = await prisma.invoice.create({
+                                data: {
+                                    invoiceNumber: num,
+                                    salesOrderId,
+                                    invoiceDate,
+                                    dueDate,
+                                    termOfPaymentDays,
+                                    totalAmount: remaining,
+                                    paidAmount: 0,
+                                    status: InvoiceStatus.DRAFT,
+                                    notes: `Suplementer: tambahan kirim setelah invoice ${existingInvoice.invoiceNumber} (sisa ${remaining}) — SO ${salesOrder.orderNumber}`,
+                                },
+                            });
+                            return {
+                                supplementary: created,
+                                invoiceNumber: num,
+                            };
+                        });
                     await logActivity({
                         userId,
                         action: 'CREATE_SUPPLEMENTARY_INVOICE',
@@ -452,23 +491,27 @@ export async function createDraftInvoiceFromOrder(
     }
 
     const termOfPaymentDays = salesOrder.customer?.paymentTermDays ?? 30;
-    const invoiceNumber = await generateInvoiceNumber();
     const invoiceDate = new Date();
     const dueDate = addDays(invoiceDate, termOfPaymentDays);
 
-    const invoice = await prisma.invoice.create({
-        data: {
-            invoiceNumber,
-            salesOrderId,
-            invoiceDate,
-            dueDate,
-            termOfPaymentDays,
-            totalAmount: calculatedTotal,
-            paidAmount: 0,
-            status: InvoiceStatus.DRAFT,
-            notes: `System generated draft invoice for Order ${salesOrder.orderNumber} (based on delivered quantities)`,
+    const { invoice, invoiceNumber } = await createInvoiceWithNumberRetry(
+        async (num) => {
+            const created = await prisma.invoice.create({
+                data: {
+                    invoiceNumber: num,
+                    salesOrderId,
+                    invoiceDate,
+                    dueDate,
+                    termOfPaymentDays,
+                    totalAmount: calculatedTotal,
+                    paidAmount: 0,
+                    status: InvoiceStatus.DRAFT,
+                    notes: `System generated draft invoice for Order ${salesOrder.orderNumber} (based on delivered quantities)`,
+                },
+            });
+            return { invoice: created, invoiceNumber: num };
         },
-    });
+    );
 
     await logActivity({
         userId,

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { InvoiceStatus, JournalStatus } from "@prisma/client";
+import { InvoiceStatus, JournalStatus, Prisma } from "@prisma/client";
 
 import {
   generateInvoiceNumber,
+  createInvoiceWithNumberRetry,
   createInvoice,
   updateInvoiceStatus,
   createDraftInvoiceFromOrder,
@@ -19,6 +20,7 @@ vi.mock("@/lib/core/prisma", () => ({
   prisma: {
     invoice: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -54,6 +56,7 @@ vi.mock("@/lib/config/logger", () => ({
 describe("invoice-lifecycle-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as never);
     vi.useFakeTimers();
     // Default to a fixed date: 2026-06-24
     vi.setSystemTime(new Date(2026, 5, 24));
@@ -66,24 +69,24 @@ describe("invoice-lifecycle-service", () => {
   describe("generateInvoiceNumber", () => {
     it("should generate invoice number with sequence 1 when no prior invoices exist", async () => {
       // Arrange
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as never);
 
       // Act
       const result = await generateInvoiceNumber();
 
       // Assert
       expect(result).toBe("1/INV/VI/2026");
-      expect(prisma.invoice.findFirst).toHaveBeenCalledWith({
+      expect(prisma.invoice.findMany).toHaveBeenCalledWith({
         where: { invoiceNumber: { endsWith: "/INV/VI/2026" } },
-        orderBy: { createdAt: "desc" },
+        select: { invoiceNumber: true },
       });
     });
 
-    it("should increment sequence when last invoice exists", async () => {
+    it("should increment sequence from the max sequence found", async () => {
       // Arrange
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue({
-        invoiceNumber: "5/INV/VI/2026",
-      } as any);
+      vi.mocked(prisma.invoice.findMany).mockResolvedValue([
+        { invoiceNumber: "5/INV/VI/2026" },
+      ] as never);
 
       // Act
       const result = await generateInvoiceNumber();
@@ -94,9 +97,9 @@ describe("invoice-lifecycle-service", () => {
 
     it("should handle large sequence numbers without zero-padding", async () => {
       // Arrange
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue({
-        invoiceNumber: "99/INV/VI/2026",
-      } as any);
+      vi.mocked(prisma.invoice.findMany).mockResolvedValue([
+        { invoiceNumber: "99/INV/VI/2026" },
+      ] as never);
 
       // Act
       const result = await generateInvoiceNumber();
@@ -105,17 +108,120 @@ describe("invoice-lifecycle-service", () => {
       expect(result).toBe("100/INV/VI/2026");
     });
 
-    it("should fall back to sequence 1 when last invoice number part is non-numeric", async () => {
+    it("should ignore non-numeric prefixes when scanning max sequence", async () => {
       // Arrange - part before first "/" is non-numeric so parseInt returns NaN
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue({
-        invoiceNumber: "abc/INV/VI/2026",
-      } as any);
+      vi.mocked(prisma.invoice.findMany).mockResolvedValue([
+        { invoiceNumber: "abc/INV/VI/2026" },
+      ] as never);
 
       // Act
       const result = await generateInvoiceNumber();
 
       // Assert
       expect(result).toBe("1/INV/VI/2026");
+    });
+
+    // Regression: backfill OB insert "05/INV/VIII/2026" dengan createdAt
+    // paling baru; generator lama (latest createdAt) menghasilkan nomor yang
+    // sudah terpakai → P2002 memblok semua pembuatan invoice. Lihat
+    // docs/plan/2026-08-31-fix-invoice-number-collision.md
+    it("should use max sequence even when a lower sequence has the latest createdAt", async () => {
+      // Arrange
+      vi.mocked(prisma.invoice.findMany).mockResolvedValue([
+        { invoiceNumber: "79/INV/VI/2026" },
+        { invoiceNumber: "05/INV/VI/2026" },
+        { invoiceNumber: "6/INV/VI/2026" },
+      ] as never);
+
+      // Act
+      const result = await generateInvoiceNumber();
+
+      // Assert
+      expect(result).toBe("80/INV/VI/2026");
+    });
+  });
+
+  describe("createInvoiceWithNumberRetry", () => {
+    const p2002InvoiceNumber = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed on the fields: (`invoiceNumber`)",
+      {
+        code: "P2002",
+        clientVersion: "5.22.0",
+        meta: { target: ["invoiceNumber"] },
+      },
+    );
+
+    it("should retry and succeed when invoiceNumber collides (P2002)", async () => {
+      // Arrange
+      vi.mocked(prisma.invoice.findMany)
+        .mockResolvedValueOnce([{ invoiceNumber: "5/INV/VI/2026" }] as never)
+        .mockResolvedValueOnce([
+          { invoiceNumber: "5/INV/VI/2026" },
+          { invoiceNumber: "6/INV/VI/2026" },
+        ] as never);
+      vi.mocked(prisma.invoice.create)
+        .mockRejectedValueOnce(p2002InvoiceNumber)
+        .mockResolvedValue({
+          id: "inv-1",
+          invoiceNumber: "7/INV/VI/2026",
+        } as never);
+
+      // Act
+      const result = await createInvoiceWithNumberRetry((invoiceNumber) =>
+        prisma.invoice.create({ data: { invoiceNumber } } as never),
+      );
+
+      // Assert
+      expect(prisma.invoice.create).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ id: "inv-1", invoiceNumber: "7/INV/VI/2026" });
+    });
+
+    it("should not retry for non-P2002 errors", async () => {
+      // Arrange
+      vi.mocked(prisma.invoice.create).mockRejectedValue(
+        new Error("boom") as never,
+      );
+
+      // Act & Assert
+      await expect(
+        createInvoiceWithNumberRetry((invoiceNumber) =>
+          prisma.invoice.create({ data: { invoiceNumber } } as never),
+        ),
+      ).rejects.toThrow("boom");
+      expect(prisma.invoice.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not retry when P2002 target is not invoiceNumber", async () => {
+      // Arrange
+      const otherP2002 = new Prisma.PrismaClientKnownRequestError("dup", {
+        code: "P2002",
+        clientVersion: "5.22.0",
+        meta: { target: ["salesOrderId"] },
+      });
+      vi.mocked(prisma.invoice.create).mockRejectedValue(otherP2002 as never);
+
+      // Act & Assert
+      await expect(
+        createInvoiceWithNumberRetry((invoiceNumber) =>
+          prisma.invoice.create({ data: { invoiceNumber } } as never),
+        ),
+      ).rejects.toBe(otherP2002);
+      expect(prisma.invoice.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("should throw after exhausting retry attempts", async () => {
+      // Arrange
+      vi.mocked(prisma.invoice.create).mockRejectedValue(
+        p2002InvoiceNumber as never,
+      );
+
+      // Act & Assert
+      await expect(
+        createInvoiceWithNumberRetry((invoiceNumber) =>
+          prisma.invoice.create({ data: { invoiceNumber } } as never),
+        ),
+      ).rejects.toBe(p2002InvoiceNumber);
+      expect(prisma.invoice.create).toHaveBeenCalledTimes(3);
     });
   });
 

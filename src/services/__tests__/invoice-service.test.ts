@@ -46,6 +46,7 @@ describe('InvoiceService', () => {
             // Mock generateInvoiceNumber internal logic
              
             (prisma.invoice.findFirst as any).mockResolvedValue(null);
+            (prisma.invoice.findMany as any).mockResolvedValue([]);
 
             // Mock sales order
              
@@ -92,8 +93,8 @@ describe('InvoiceService', () => {
             // Mock generateInvoiceNumber internal logic
              
             (prisma.invoice.findFirst as any).mockResolvedValueOnce(null); // existing check
-             
-            (prisma.invoice.findFirst as any).mockResolvedValueOnce(null); // generateInvoiceNumber check
+
+            (prisma.invoice.findMany as any).mockResolvedValue([]); // generateInvoiceNumber: max sequence scan
 
             // Mock sales order
              
