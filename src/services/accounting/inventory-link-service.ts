@@ -193,14 +193,16 @@ export async function recordInventoryMovement(
                 description: `GR: ${productVariant.name}`,
             },
             {
+                // GR/IR clearing — bukan AP langsung. Invoice yang membalik
+                // accrual ini saat difakturkan (lihat handlePurchaseInvoiceCreated).
                 accountId: await getAccountId(
-                    (await resolveAccountCode(productType, 'trade-payable'))
+                    (await resolveAccountCode(productType, 'gr-clearing'))
                         .code,
                     db,
                 ),
                 debit: 0,
                 credit: totalAmount,
-                description: `Trade Payable: ${productVariant.name}`,
+                description: `GR/IR: ${productVariant.name}`,
             },
         );
     } else if (movement.type === 'OUT' && movement.salesOrderId) {

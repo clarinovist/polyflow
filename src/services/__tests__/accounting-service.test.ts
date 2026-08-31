@@ -58,6 +58,7 @@ vi.mock('../accounting/account-resolver', () => ({
         const map: Record<string, { id: string; code: string; name: string }> = {
             'accounts-receivable': { id: 'acc-ar', code: '11210', name: 'Accounts Receivable' },
             'accounts-payable': { id: 'acc-ap', code: '21110', name: 'Accounts Payable' },
+            'gr-clearing': { id: 'acc-gr-ir', code: '21140', name: 'GR/IR' },
             'sales-revenue': { id: 'acc-rev', code: '41100', name: 'Sales Revenue' },
             'vat-output': { id: 'acc-vat', code: '21310', name: 'VAT Output' },
             'inventory': { id: 'acc-inv', code: '11300', name: 'Inventory' },
@@ -249,9 +250,10 @@ describe('AccountingService', () => {
             
             const lines = createArg.data.lines.create;
             expect(lines).toHaveLength(2);
-            // Debit Inventory 11310, Credit AP 21110
+            // Debit Inventory 11310, Credit GR/IR clearing 21140 (accrual —
+            // invoice yang membaliknya saat difakturkan)
             expect(lines.find((l: Record<string, unknown>) => l.debit === 500 && l.accountId === 'acc-11310')).toBeDefined();
-            expect(lines.find((l: Record<string, unknown>) => l.credit === 500 && l.accountId === 'acc-21110')).toBeDefined();
+            expect(lines.find((l: Record<string, unknown>) => l.credit === 500 && l.accountId === 'acc-21140')).toBeDefined();
         });
 
         it('should create correct journal lines for Production Output (IN)', async () => {

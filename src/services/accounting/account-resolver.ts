@@ -55,6 +55,8 @@ export type AccountRole =
     | 'suspense-clearing'
     // Phase 3: Direct labor
     | 'direct-labor'
+    // Phase 4: AP model — GR accrual lands on GR/IR clearing, not AP
+    | 'gr-clearing'
     | 'intermediate';
 
 interface AccountPattern {
@@ -79,6 +81,14 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
         { code: '2-110' },
         { nameContains: 'Hutang Dagang' },
         { nameContains: 'Trade Payable' },
+    ],
+    // GR/IR — barang diterima belum difakturkan (liability). GR mengkredit sini,
+    // invoice membaliknya saat difakturkan (lihat handlePurchaseInvoiceCreated).
+    'gr-clearing': [
+        { code: '21140' },
+        { code: '2-115' },
+        { nameContains: 'GR/IR' },
+        { nameContains: 'Barang Diterima Belum Difakturkan' },
     ],
     // === Cash / Bank ===
     'petty-cash': [

@@ -38,17 +38,19 @@ export type MissingPaymentIssue = {
     method: string | null;
 };
 
-export type MissingVatInvoiceIssue = {
+/**
+ * Cutover model AP invoice-based (GR/IR clearing): mulai tanggal ini SEMUA
+ * purchase invoice wajib punya jurnal (Dr GR/IR + Dr PPN / Cr AP) — bukan
+ * cuma yang ber-PPN. Invoice pra-cutoff tidak diwajibkan (historis, sudah
+ * terparkir di 1-199 via rekonsiliasi 2026-08-31).
+ */
+export const PURCHASE_JOURNAL_CUTOFF_ISO = '2026-08-31T17:00:00.000Z'; // 2026-09-01 00:00 WIB
+
+export type PurchaseInvoiceMissingIssue = {
     id: string;
     invoiceNumber: string;
     status: string;
     invoiceDate: Date;
-    totalAmount: number;
-    derivedTaxAmount: number;
-};
-
-export type NonVatInvoiceStat = {
-    count: number;
     totalAmount: number;
 };
 
@@ -58,8 +60,7 @@ export type FinanceJournalIssues = {
     salesInvoicesMissing: MissingInvoiceIssue[];
     salesInvoiceShortfalls: ShortfallIssue[];
     salesPaymentsMissing: MissingPaymentIssue[];
-    purchaseInvoicesMissingVat: MissingVatInvoiceIssue[];
-    purchaseInvoicesNonVat: NonVatInvoiceStat;
+    purchaseInvoicesMissing: PurchaseInvoiceMissingIssue[];
     purchasePaymentsMissing: MissingPaymentIssue[];
 };
 
@@ -185,16 +186,16 @@ export async function collectFinanceJournalIssues(
             },
         }),
         db.purchaseInvoice.findMany({
-            where: { status: { notIn: ['CANCELLED', 'DRAFT'] } },
+            where: {
+                status: { notIn: ['CANCELLED', 'DRAFT'] },
+                invoiceDate: { gte: new Date(PURCHASE_JOURNAL_CUTOFF_ISO) },
+            },
             select: {
                 id: true,
                 invoiceNumber: true,
                 status: true,
                 invoiceDate: true,
                 totalAmount: true,
-                purchaseOrder: {
-                    select: { totalAmount: true, taxAmount: true },
-                },
             },
         }),
     ]);
@@ -245,43 +246,25 @@ export async function collectFinanceJournalIssues(
             method: p.method,
         }));
 
-    const purchaseInvoicesMissingVat: MissingVatInvoiceIssue[] = [];
-    let nonVatCount = 0;
-    let nonVatTotal = 0;
-
-    for (const inv of purchaseInvoices) {
-        const total = Number(inv.totalAmount);
-        const poTotal = Number(inv.purchaseOrder?.totalAmount ?? 0);
-        const poTax = Number(inv.purchaseOrder?.taxAmount ?? 0);
-
-        // Mirror handlePurchaseInvoiceCreated: VAT journal only exists when
-        // the PO carries tax — non-VAT bills have no journal by design.
-        // Rounded for reporting (the float formula picks up ~1e-11 noise).
-        let taxAmount = 0;
-        if (poTotal > 0 && poTax > 0 && poTotal > poTax) {
-            const taxRate = poTax / (poTotal - poTax);
-            taxAmount = Math.round((total - total / (1 + taxRate)) * 100) / 100;
-        }
-
-        if (taxAmount <= 0) {
-            nonVatCount += 1;
-            nonVatTotal += total;
-            continue;
-        }
-        if (!purchaseInvoiceJournalIndex.has(inv.id)) {
-            purchaseInvoicesMissingVat.push({
+    // Post-cutoff: SEMUA purchase invoice wajib punya jurnal (model AP
+    // invoice-based). Pra-cutoff dikecualikan (historis terparkir di 1-199).
+    const purchaseInvoicesMissing: PurchaseInvoiceMissingIssue[] =
+        purchaseInvoices
+            .filter((inv) => !purchaseInvoiceJournalIndex.has(inv.id))
+            .map((inv) => ({
                 id: inv.id,
                 invoiceNumber: inv.invoiceNumber,
                 status: inv.status,
                 invoiceDate: inv.invoiceDate,
-                totalAmount: total,
-                derivedTaxAmount: taxAmount,
-            });
-        }
-    }
+                totalAmount: Number(inv.totalAmount),
+            }));
 
     const supplierPayments = await db.payment.findMany({
-        where: { purchaseInvoiceId: { not: null }, amount: { gt: 0 } },
+        where: {
+            purchaseInvoiceId: { not: null },
+            amount: { gt: 0 },
+            paymentDate: { gte: new Date(PURCHASE_JOURNAL_CUTOFF_ISO) },
+        },
         select: {
             id: true,
             paymentNumber: true,
@@ -306,8 +289,7 @@ export async function collectFinanceJournalIssues(
         salesInvoicesMissing,
         salesInvoiceShortfalls,
         salesPaymentsMissing,
-        purchaseInvoicesMissingVat,
-        purchaseInvoicesNonVat: { count: nonVatCount, totalAmount: nonVatTotal },
+        purchaseInvoicesMissing,
         purchasePaymentsMissing,
     };
 }

@@ -50,17 +50,15 @@ describe('detectMissingFinanceJournals', () => {
                     method: 'Cash',
                 },
             ],
-            purchaseInvoicesMissingVat: [
+            purchaseInvoicesMissing: [
                 {
                     id: 'pinv-1',
                     invoiceNumber: 'BILL-1',
                     status: 'UNPAID',
                     invoiceDate: new Date(),
                     totalAmount: 110000,
-                    derivedTaxAmount: 10000,
                 },
             ],
-            purchaseInvoicesNonVat: { count: 3, totalAmount: 900000 },
             purchasePaymentsMissing: [
                 {
                     id: 'ppay-1',
@@ -92,7 +90,7 @@ describe('detectMissingFinanceJournals', () => {
             'critical',
             'critical',
             'critical',
-            'warning',
+            'critical',
             'critical',
         ]);
 
@@ -107,8 +105,7 @@ describe('detectMissingFinanceJournals', () => {
             salesInvoicesMissing: [],
             salesInvoiceShortfalls: [],
             salesPaymentsMissing: [],
-            purchaseInvoicesMissingVat: [],
-            purchaseInvoicesNonVat: { count: 0, totalAmount: 0 },
+            purchaseInvoicesMissing: [],
             purchasePaymentsMissing: [],
         });
 

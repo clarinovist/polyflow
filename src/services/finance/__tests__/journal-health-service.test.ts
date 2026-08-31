@@ -45,14 +45,37 @@ function makeFakeDb(cfg: FakeDbConfig): PrismaClient {
             findMany: vi.fn(async () => cfg.invoices),
         },
         payment: {
-            findMany: vi.fn(async (args: { where: Record<string, unknown> }) =>
-                'purchaseInvoiceId' in args.where
-                    ? cfg.supplierPayments
-                    : cfg.customerPayments,
-            ),
+            findMany: vi.fn(async (args: {
+                where: Record<string, unknown>;
+            }) => {
+                if ('purchaseInvoiceId' in args.where) {
+                    const gte = (
+                        args.where.paymentDate as { gte?: Date } | undefined
+                    )?.gte;
+                    const rows = cfg.supplierPayments as Array<{
+                        paymentDate: Date;
+                    }>;
+                    return gte
+                        ? rows.filter((r) => r.paymentDate >= gte)
+                        : rows;
+                }
+                return cfg.customerPayments;
+            }),
         },
         purchaseInvoice: {
-            findMany: vi.fn(async () => cfg.purchaseInvoices),
+            findMany: vi.fn(async (args: {
+                where: {
+                    invoiceDate?: { gte: Date };
+                };
+            }) => {
+                const gte = args.where.invoiceDate?.gte;
+                const rows = cfg.purchaseInvoices as Array<{
+                    invoiceDate: Date;
+                }>;
+                return gte
+                    ? rows.filter((r) => r.invoiceDate >= gte)
+                    : rows;
+            }),
         },
     };
     return db as unknown as PrismaClient;
@@ -119,17 +142,17 @@ describe('collectFinanceJournalIssues', () => {
             {
                 id: 'ppay-missing',
                 paymentNumber: 'PAY-OUT-9',
-                paymentDate: new Date('2026-07-08'),
+                paymentDate: new Date('2026-09-05'),
                 amount: 90000,
                 method: 'Bank Transfer',
             },
         ],
         purchaseInvoices: [
             {
-                id: 'pinv-missing-vat',
+                id: 'pinv-missing',
                 invoiceNumber: 'BILL-MISS',
                 status: 'UNPAID',
-                invoiceDate: new Date('2026-07-02'),
+                invoiceDate: new Date('2026-09-02'),
                 totalAmount: 110000,
                 purchaseOrder: { totalAmount: 110000, taxAmount: 10000 },
             },
@@ -137,7 +160,7 @@ describe('collectFinanceJournalIssues', () => {
                 id: 'pinv-nonvat',
                 invoiceNumber: 'BILL-NONVAT',
                 status: 'UNPAID',
-                invoiceDate: new Date('2026-07-03'),
+                invoiceDate: new Date('2026-09-03'),
                 totalAmount: 80000,
                 purchaseOrder: { totalAmount: 0, taxAmount: 0 },
             },
@@ -145,7 +168,7 @@ describe('collectFinanceJournalIssues', () => {
                 id: 'pinv-ok',
                 invoiceNumber: 'BILL-OK',
                 status: 'UNPAID',
-                invoiceDate: new Date('2026-07-04'),
+                invoiceDate: new Date('2026-09-04'),
                 totalAmount: 220000,
                 purchaseOrder: { totalAmount: 220000, taxAmount: 20000 },
             },
@@ -194,14 +217,14 @@ describe('collectFinanceJournalIssues', () => {
             amount: 50000,
         });
 
-        expect(issues.purchaseInvoicesMissingVat).toHaveLength(1);
-        expect(issues.purchaseInvoicesMissingVat[0]).toMatchObject({
-            id: 'pinv-missing-vat',
-            derivedTaxAmount: 10000,
+        expect(issues.purchaseInvoicesMissing).toHaveLength(2);
+        expect(issues.purchaseInvoicesMissing[0]).toMatchObject({
+            id: 'pinv-missing',
+            totalAmount: 110000,
         });
-
-        expect(issues.purchaseInvoicesNonVat).toEqual({
-            count: 1,
+        // Post-cutoff: non-VAT invoice juga wajib jurnal (model AP invoice-based)
+        expect(issues.purchaseInvoicesMissing[1]).toMatchObject({
+            id: 'pinv-nonvat',
             totalAmount: 80000,
         });
 
@@ -209,6 +232,25 @@ describe('collectFinanceJournalIssues', () => {
         expect(issues.purchasePaymentsMissing[0]).toMatchObject({
             id: 'ppay-missing',
         });
+    });
+
+    it('excludes pre-cutoff purchase documents (historis terparkir di 1-199)', async () => {
+        db = makeFakeDb({
+            ...baseConfig,
+            purchaseInvoices: baseConfig.purchaseInvoices.map((inv) => ({
+                ...(inv as { invoiceDate: Date }),
+                invoiceDate: new Date('2026-08-20'),
+            })),
+            supplierPayments: baseConfig.supplierPayments.map((p) => ({
+                ...(p as { paymentDate: Date }),
+                paymentDate: new Date('2026-08-20'),
+            })),
+        });
+
+        const issues = await collectFinanceJournalIssues(db);
+
+        expect(issues.purchaseInvoicesMissing).toHaveLength(0);
+        expect(issues.purchasePaymentsMissing).toHaveLength(0);
     });
 
     it('skips shortfall detection when the AR control account cannot be resolved', async () => {

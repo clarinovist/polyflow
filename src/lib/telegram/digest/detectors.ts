@@ -323,14 +323,14 @@ export async function detectMissingFinanceJournals(
                 detail: `${rupiah(p.amount)} — ${p.method ?? 'metode tidak dicatat'}`,
             });
         }
-        for (const inv of issues.purchaseInvoicesMissingVat) {
+        for (const inv of issues.purchaseInvoicesMissing) {
             items.push({
                 entityKey: `missing_finance_journal:PURCHASE_INVOICE:${inv.id}`,
                 entityType: 'PurchaseInvoice',
                 entityId: inv.id,
-                severity: 'warning',
-                headline: `Invoice pembelian ${inv.invoiceNumber} tanpa jurnal PPN`,
-                detail: `PPN dihitung ${rupiah(inv.derivedTaxAmount)} dari ${rupiah(inv.totalAmount)}`,
+                severity: 'critical',
+                headline: `Invoice pembelian ${inv.invoiceNumber} tanpa jurnal AP`,
+                detail: `${rupiah(inv.totalAmount)} — status ${inv.status}`,
             });
         }
         for (const p of issues.purchasePaymentsMissing) {

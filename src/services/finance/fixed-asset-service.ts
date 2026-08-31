@@ -141,10 +141,10 @@ export class FixedAssetService {
             await resolveAccount(catConfig.accumRole as AccountRole)
         ).id;
 
-        // Resolve AP account — align with inventory GR path (trade-payable role)
+        // Resolve GR/IR clearing — align with inventory GR path (accrual model)
         const apAccountCode = await resolveAccountCode(
             product.productType,
-            'trade-payable',
+            'gr-clearing',
         );
         const apAccountId = (
             await tx.account.findFirst({
@@ -153,7 +153,7 @@ export class FixedAssetService {
         )?.id;
         if (!apAccountId)
             throw new BusinessRuleError(
-                `Akun Trade Payable tidak ditemukan: ${apAccountCode.code}`,
+                `Akun GR/IR Clearing tidak ditemukan: ${apAccountCode.code}`,
             );
 
         const qty = params.receivedQty;
@@ -225,7 +225,7 @@ export class FixedAssetService {
             createdAssets.push(asset.id);
         }
 
-        // Journal: Dr Asset Account / Cr Trade Payable — inside same tx
+        // Journal: Dr Asset Account / Cr GR/IR Clearing — inside same tx
         const totalAmount = params.unitCost * qty;
 
         await createJournalEntry(
@@ -248,7 +248,7 @@ export class FixedAssetService {
                         accountId: apAccountId,
                         debit: 0,
                         credit: totalAmount,
-                        description: `Trade Payable: ${product.name}`,
+                        description: `GR/IR: ${product.name}`,
                     },
                 ],
             } as unknown as CreateJournalEntryInput,

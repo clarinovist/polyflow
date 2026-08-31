@@ -39,6 +39,9 @@ import {
     entitlementContext,
 } from '@/lib/core/prisma';
 import { toBusinessDateString } from '@/lib/utils/timezone';
+import {
+    PURCHASE_JOURNAL_CUTOFF_ISO,
+} from '@/services/finance/journal-health-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { resolveAccount } from '@/services/accounting/account-resolver';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
@@ -117,8 +120,8 @@ function summarize(issues: FinanceJournalIssues) {
         (s, p) => s + p.amount,
         0,
     );
-    const missingVatTotal = issues.purchaseInvoicesMissingVat.reduce(
-        (s, i) => s + i.derivedTaxAmount,
+    const missingPurchaseInvoiceTotal = issues.purchaseInvoicesMissing.reduce(
+        (s, i) => s + i.totalAmount,
         0,
     );
     const missingPurchasePaymentTotal = issues.purchasePaymentsMissing.reduce(
@@ -138,31 +141,31 @@ function summarize(issues: FinanceJournalIssues) {
         `Sales payment tanpa jurnal   : ${issues.salesPaymentsMissing.length} doc, ${rupiah(missingSalesPaymentTotal)}`,
     );
     console.log(
-        `Purchase invoice tanpa jurnal PPN : ${issues.purchaseInvoicesMissingVat.length} doc, leg PPN ${rupiah(missingVatTotal)}`,
+        `Purchase invoice tanpa jurnal (post-cutoff ${PURCHASE_JOURNAL_CUTOFF_ISO.slice(0, 10)}) : ${issues.purchaseInvoicesMissing.length} doc, ${rupiah(missingPurchaseInvoiceTotal)}`,
     );
     console.log(
-        `Purchase invoice non-VAT (by design tanpa jurnal): ${issues.purchaseInvoicesNonVat.count} doc, ${rupiah(issues.purchaseInvoicesNonVat.totalAmount)} — butuh keputusan desain, TIDAK dibackfill otomatis`,
-    );
-    console.log(
-        `Purchase payment tanpa jurnal: ${issues.purchasePaymentsMissing.length} doc, ${rupiah(missingPurchasePaymentTotal)}`,
+        `Purchase payment tanpa jurnal (post-cutoff): ${issues.purchasePaymentsMissing.length} doc, ${rupiah(missingPurchasePaymentTotal)}`,
     );
 
     const expectedArDelta =
         missingSalesInvoiceTotal + shortfallTotal - missingSalesPaymentTotal;
+    const expectedApDelta =
+        missingPurchaseInvoiceTotal - missingPurchasePaymentTotal;
     console.log('---');
     console.log(
         `Estimasi delta AR bila semua dibackfill (invoice + shortfall − payment): ${rupiah(expectedArDelta)}`,
     );
     console.log(
-        `Catatan AP: backfill purchase invoice hanya melengkapi leg PPN (${rupiah(missingVatTotal)}); saldo AP penuh butuh keputusan desain terpisah.`,
+        `Estimasi delta AP bila semua dibackfill (invoice − payment): ${rupiah(expectedApDelta)}`,
     );
     return {
         missingSalesInvoiceTotal,
         shortfallTotal,
         missingSalesPaymentTotal,
-        missingVatTotal,
+        missingPurchaseInvoiceTotal,
         missingPurchasePaymentTotal,
         expectedArDelta,
+        expectedApDelta,
     };
 }
 
@@ -256,18 +259,18 @@ async function runRepair(): Promise<void> {
         await ensure('SALES_PAYMENT', p.id);
     }
 
-    console.log('\n=== APPLY: purchase invoice (leg PPN) ===');
+    console.log('\n=== APPLY: purchase invoice (full AP, post-cutoff) ===');
     for (const inv of PURCHASE_IN_SCOPE
-        ? issues.purchaseInvoicesMissingVat
+        ? issues.purchaseInvoicesMissing
         : []) {
         console.log(
-            `[backfill] PURCHASE_INVOICE ${inv.invoiceNumber} PPN ${rupiah(inv.derivedTaxAmount)}`,
+            `[backfill] PURCHASE_INVOICE ${inv.invoiceNumber} ${rupiah(inv.totalAmount)}`,
         );
         await ensure('PURCHASE_INVOICE', inv.id);
     }
-    if (!PURCHASE_IN_SCOPE && issues.purchaseInvoicesMissingVat.length > 0) {
+    if (!PURCHASE_IN_SCOPE && issues.purchaseInvoicesMissing.length > 0) {
         console.log(
-            `[skip-scope] ${issues.purchaseInvoicesMissingVat.length} purchase invoice dilewati (scope=ar)`,
+            `[skip-scope] ${issues.purchaseInvoicesMissing.length} purchase invoice dilewati (scope=ar)`,
         );
     }
 

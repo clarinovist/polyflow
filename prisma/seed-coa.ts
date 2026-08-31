@@ -215,6 +215,13 @@ const accounts = [
         parentCode: '21100',
     },
     {
+        code: '21140',
+        name: 'Goods Received Not Invoiced (GR/IR)',
+        type: AccountType.LIABILITY,
+        category: AccountCategory.CURRENT_LIABILITY,
+        parentCode: '21100',
+    },
+    {
         code: '21120',
         name: 'Other Payables',
         type: AccountType.LIABILITY,

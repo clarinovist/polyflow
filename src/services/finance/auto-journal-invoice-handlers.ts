@@ -290,11 +290,17 @@ export async function handlePurchaseInvoiceCreated(
     if (poTotal > 0 && poTax > 0 && poTotal > poTax) {
         const taxRate = poTax / (poTotal - poTax);
         const netAmount = totalAmount / (1 + taxRate);
-        taxAmount = totalAmount - netAmount;
+        // Round to cents — the float derivation picks up ~1e-11 noise, and the
+        // journal lines must sum to totalAmount exactly.
+        taxAmount = Math.round((totalAmount - netAmount) * 100) / 100;
     }
+    const subtotal = totalAmount - taxAmount;
 
-    if (taxAmount <= 0) return;
-
+    // Full-amount AP booking (invoice-based model, matches rekap hutang):
+    // Dr GR/IR clearing (membalik accrual saat barang diterima)
+    // Dr PPN Masukan (bila ber-PPN)
+    // Cr AP totalAmount
+    const grClearingAccount = await resolveAccount('gr-clearing');
     const vatInputAccount = await resolveAccount('vat-input');
     const apAccount = await resolveAccount('accounts-payable');
 
@@ -304,7 +310,7 @@ export async function handlePurchaseInvoiceCreated(
     await AccountingService.createJournalEntry({
         // journalDate override: same repair rationale as the sales side.
         entryDate: options?.journalDate ?? invoice.invoiceDate,
-        description: `Purchase Invoice #${invoice.invoiceNumber} - PPN Masukan`,
+        description: `Purchase Invoice #${invoice.invoiceNumber}`,
         reference: invoice.invoiceNumber,
         referenceType: ReferenceType.PURCHASE_INVOICE,
         referenceId: invoice.id,
@@ -312,16 +318,26 @@ export async function handlePurchaseInvoiceCreated(
         status: journalStatus,
         lines: [
             {
-                accountId: vatInputAccount.id,
-                debit: taxAmount,
+                accountId: grClearingAccount.id,
+                debit: subtotal,
                 credit: 0,
-                description: `VAT Input for ${invoice.invoiceNumber}`,
+                description: `GR/IR: ${invoice.invoiceNumber}`,
             },
+            ...(taxAmount > 0
+                ? [
+                      {
+                          accountId: vatInputAccount.id,
+                          debit: taxAmount,
+                          credit: 0,
+                          description: `VAT Input for ${invoice.invoiceNumber}`,
+                      },
+                  ]
+                : []),
             {
                 accountId: apAccount.id,
                 debit: 0,
-                credit: taxAmount,
-                description: `AP for ${invoice.invoiceNumber} PPN`,
+                credit: totalAmount,
+                description: `AP for ${invoice.invoiceNumber}`,
             },
         ],
     });

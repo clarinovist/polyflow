@@ -16,6 +16,7 @@ import {
 export type AccountMappingContext =
     | 'inventory'
     | 'trade-payable'
+    | 'gr-clearing'
     | 'cogs'
     | 'wip'
     | 'adjustment-gain'
@@ -56,6 +57,8 @@ function contextToAccountRole(context: AccountMappingContext): AccountRole {
             return 'inventory';
         case 'trade-payable':
             return 'accounts-payable';
+        case 'gr-clearing':
+            return 'gr-clearing';
         case 'cogs':
             return 'cogs';
         case 'wip':

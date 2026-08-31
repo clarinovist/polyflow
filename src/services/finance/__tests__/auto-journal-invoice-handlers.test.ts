@@ -35,6 +35,7 @@ vi.mock('../../accounting/account-resolver', () => ({
             'vat-output': { id: 'acc-vat', code: '21310', name: 'VAT Output' },
             'vat-input': { id: 'acc-vat-in', code: '21320', name: 'VAT Input' },
             'accounts-payable': { id: 'acc-ap', code: '21110', name: 'AP' },
+            'gr-clearing': { id: 'acc-gr-ir', code: '2-115', name: 'GR/IR' },
         };
         return map[role] || { id: 'acc-unknown', code: '00000', name: 'Unknown' };
     }),
@@ -590,5 +591,71 @@ describe('auto-journal idempotency & repair journalDate', () => {
         await handlePurchaseInvoiceCreated('pinv-1');
 
         expect(AccountingService.createJournalEntry).not.toHaveBeenCalled();
+    });
+
+    it('purchase invoice handler books full AP with GR/IR reversal + VAT split', async () => {
+        const { handlePurchaseInvoiceCreated } = await import(
+            '../auto-journal-invoice-handlers'
+        );
+        vi.mocked(prisma.purchaseInvoice.findUnique).mockResolvedValue({
+            id: 'pinv-2',
+            invoiceNumber: 'BILL-100',
+            invoiceDate: new Date('2026-09-02'),
+            totalAmount: dec(110000),
+            status: 'UNPAID',
+            purchaseOrder: { totalAmount: dec(110000), taxAmount: dec(10000) },
+        } as never);
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
+
+        await handlePurchaseInvoiceCreated('pinv-2');
+
+        expect(AccountingService.createJournalEntry).toHaveBeenCalledTimes(1);
+        const call = vi.mocked(AccountingService.createJournalEntry).mock
+            .calls[0][0];
+        expect(call.lines).toHaveLength(3);
+        expect(call.lines[0]).toMatchObject({
+            accountId: 'acc-gr-ir',
+            debit: 100000,
+            credit: 0,
+        });
+        expect(call.lines[1]).toMatchObject({
+            accountId: 'acc-vat-in',
+            debit: 10000,
+            credit: 0,
+        });
+        expect(call.lines[2]).toMatchObject({
+            accountId: 'acc-ap',
+            debit: 0,
+            credit: 110000,
+        });
+    });
+
+    it('purchase invoice handler books non-VAT bill without early-return', async () => {
+        const { handlePurchaseInvoiceCreated } = await import(
+            '../auto-journal-invoice-handlers'
+        );
+        vi.mocked(prisma.purchaseInvoice.findUnique).mockResolvedValue({
+            id: 'pinv-3',
+            invoiceNumber: 'BILL-101',
+            invoiceDate: new Date('2026-09-03'),
+            totalAmount: dec(80000),
+            status: 'UNPAID',
+            purchaseOrder: { totalAmount: dec(0), taxAmount: dec(0) },
+        } as never);
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
+
+        await handlePurchaseInvoiceCreated('pinv-3');
+
+        const call = vi.mocked(AccountingService.createJournalEntry).mock
+            .calls[0][0];
+        expect(call.lines).toHaveLength(2);
+        expect(call.lines[0]).toMatchObject({
+            accountId: 'acc-gr-ir',
+            debit: 80000,
+        });
+        expect(call.lines[1]).toMatchObject({
+            accountId: 'acc-ap',
+            credit: 80000,
+        });
     });
 });
