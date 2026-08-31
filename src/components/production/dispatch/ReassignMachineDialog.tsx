@@ -22,14 +22,22 @@ import { updateProductionOrder } from '@/actions/production/production';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { productionComponentLabels } from '@/lib/labels';
+import {
+    isMachineCompatibleWithCategory,
+    type MachineStageMap,
+} from '@/lib/production/machine-compatibility';
 
 interface ReassignMachineDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     orderId: string;
     orderNumber: string;
+    /** BOM category of the SPK — machines outside it are filtered out. */
+    bomCategory: string;
     currentMachineId: string | null;
-    machines: { id: string; name: string; code: string }[];
+    machines: { id: string; name: string; code: string; type: string }[];
+    /** Per-tenant stage→machine-type override; absent = default map. */
+    machineStageMap?: MachineStageMap | null;
 }
 
 export function ReassignMachineDialog({
@@ -37,11 +45,19 @@ export function ReassignMachineDialog({
     onOpenChange,
     orderId,
     orderNumber,
+    bomCategory,
     currentMachineId,
     machines,
+    machineStageMap,
 }: ReassignMachineDialogProps) {
+    const selectableMachines = machines.filter((m) =>
+        isMachineCompatibleWithCategory(m.type, bomCategory, machineStageMap),
+    );
+    const currentIsSelectable = selectableMachines.some(
+        (m) => m.id === currentMachineId,
+    );
     const [selectedMachineId, setSelectedMachineId] = useState<string>(
-        currentMachineId || '',
+        currentIsSelectable ? currentMachineId || '' : '',
     );
     const [isPending, setIsPending] = useState(false);
 
@@ -106,7 +122,7 @@ export function ReassignMachineDialog({
                                 />
                             </SelectTrigger>
                             <SelectContent>
-                                {machines.map((machine) => (
+                                {selectableMachines.map((machine) => (
                                     <SelectItem
                                         key={machine.id}
                                         value={machine.id}

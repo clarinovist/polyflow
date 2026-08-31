@@ -1656,6 +1656,76 @@ describe("ProductionOrderService", () => {
       });
     });
 
+    it("should reject generic SPK reassignment to a machine type incompatible with the BOM category", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+        mockExistingOrder({ bomId: "bom-mix" }),
+      );
+      vi.mocked(prisma.machine.findUnique).mockResolvedValue({
+        type: MachineType.EXTRUDER,
+      } as any);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue({
+        category: BomCategory.MIXING,
+      } as any);
+      vi.mocked(prisma.appSetting.findUnique).mockResolvedValue(null as any);
+
+      await expect(
+        ProductionOrderService.updateOrder({
+          id: "po-1",
+          machineId: "m-ext",
+        }),
+      ).rejects.toThrow("tidak compatible dengan stage MIXING");
+      expect(prisma.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it("should allow generic SPK reassignment when the machine type matches the BOM category", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+        mockExistingOrder({ bomId: "bom-mix" }),
+      );
+      vi.mocked(prisma.machine.findUnique).mockResolvedValue({
+        type: MachineType.MIXER,
+      } as any);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue({
+        category: BomCategory.MIXING,
+      } as any);
+      vi.mocked(prisma.appSetting.findUnique).mockResolvedValue(null as any);
+      vi.mocked(prisma.productionOrder.update).mockResolvedValue({
+        id: "po-1",
+      } as any);
+
+      await ProductionOrderService.updateOrder({
+        id: "po-1",
+        machineId: "m-mixer",
+      });
+      expect(prisma.productionOrder.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ machineId: "m-mixer" }),
+        }),
+      );
+    });
+
+    it("should honor the tenant machineStageMap override on generic reassignment", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+        mockExistingOrder({ bomId: "bom-ext" }),
+      );
+      vi.mocked(prisma.machine.findUnique).mockResolvedValue({
+        type: MachineType.MIXER,
+      } as any);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue({
+        category: BomCategory.EXTRUSION,
+      } as any);
+      // Tenant map that does NOT include MIXER for EXTRUSION
+      vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({
+        value: JSON.stringify({ EXTRUSION: ["EXTRUDER"] }),
+      } as any);
+
+      await expect(
+        ProductionOrderService.updateOrder({
+          id: "po-1",
+          machineId: "m-mixer",
+        }),
+      ).rejects.toThrow("tidak compatible dengan stage EXTRUSION");
+    });
+
     it("should update plannedStartDate only (reschedule scenario)", async () => {
       const p = new Date("2026-07-16T00:00:00Z");
       vi.mocked(prisma.productionOrder.update).mockResolvedValue({

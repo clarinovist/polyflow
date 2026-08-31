@@ -21,14 +21,21 @@ import {
 import { Label } from '@/components/ui/label';
 import { updateProductionOrder } from '@/actions/production/production';
 import { toast } from 'sonner';
+import {
+    isMachineCompatibleWithCategory,
+    type MachineStageMap,
+} from '@/lib/production/machine-compatibility';
 
 interface AssignJobButtonProps {
     machineId: string;
     machineCode: string;
+    /** Board machine type — released orders are filtered to compatible BOM categories. */
+    machineType: string;
     releasedOrders: {
         id: string;
         orderNumber: string;
         bom: {
+            category: string;
             productVariant: {
                 name: string;
             };
@@ -38,16 +45,28 @@ interface AssignJobButtonProps {
             code: string;
         } | null;
     }[];
+    /** Per-tenant stage→machine-type override; absent = default map. */
+    machineStageMap?: MachineStageMap | null;
 }
 
 export function AssignJobButton({
     machineId,
     machineCode,
+    machineType,
     releasedOrders,
+    machineStageMap,
 }: AssignJobButtonProps) {
     const [open, setOpen] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState('');
     const [isPending, setIsPending] = useState(false);
+
+    const compatibleOrders = releasedOrders.filter((o) =>
+        isMachineCompatibleWithCategory(
+            machineType,
+            o.bom.category,
+            machineStageMap,
+        ),
+    );
 
     const handleAssign = async () => {
         if (!selectedOrderId) {
@@ -111,12 +130,13 @@ export function AssignJobButton({
                                 <SelectValue placeholder="Pilih order..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {releasedOrders.length === 0 ? (
+                                {compatibleOrders.length === 0 ? (
                                     <div className="p-4 text-center text-xs text-muted-foreground">
-                                        Tidak ada order released yang tersedia.
+                                        Tidak ada order released yang
+                                        compatible dengan tipe mesin ini.
                                     </div>
                                 ) : (
-                                    releasedOrders.map((order) => {
+                                    compatibleOrders.map((order) => {
                                         const isPlannedForThis =
                                             order.machine?.id === machineId;
                                         const otherMachineCode =

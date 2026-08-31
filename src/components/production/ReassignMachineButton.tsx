@@ -5,17 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Factory } from 'lucide-react';
 import { ReassignMachineDialog } from '@/components/production/dispatch/ReassignMachineDialog';
 import { productionComponentLabels } from '@/lib/labels';
+import type { MachineStageMap } from '@/lib/production/machine-compatibility';
 
 export function ReassignMachineButton({
     orderId,
     orderNumber,
+    bomCategory,
     currentMachineId,
     machines,
+    machineStageMap,
 }: {
     orderId: string;
     orderNumber: string;
+    bomCategory: string;
     currentMachineId: string | null;
-    machines: { id: string; name: string; code: string }[];
+    machines: { id: string; name: string; code: string; type: string }[];
+    machineStageMap?: MachineStageMap | null;
 }) {
     const [open, setOpen] = useState(false);
     if (currentMachineId) {
@@ -35,8 +40,10 @@ export function ReassignMachineButton({
                     onOpenChange={setOpen}
                     orderId={orderId}
                     orderNumber={orderNumber}
+                    bomCategory={bomCategory}
                     currentMachineId={currentMachineId}
                     machines={machines}
+                    machineStageMap={machineStageMap}
                 />
             </>
         );
@@ -58,8 +65,10 @@ export function ReassignMachineButton({
                 onOpenChange={setOpen}
                 orderId={orderId}
                 orderNumber={orderNumber}
+                bomCategory={bomCategory}
                 currentMachineId={currentMachineId}
                 machines={machines}
+                machineStageMap={machineStageMap}
             />
         </>
     );

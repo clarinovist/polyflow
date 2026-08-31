@@ -22,6 +22,7 @@ import {
     stageFromBomCategory,
     stageLabelId,
 } from '@/lib/locations/resolve-location';
+import type { MachineStageMap } from '@/lib/production/machine-compatibility';
 
 interface Props {
     order: ExtendedProductionOrder;
@@ -32,6 +33,7 @@ interface Props {
         workShifts: WorkShift[];
         machines: Machine[];
         rawMaterials: ProductVariant[];
+        machineStageMap?: MachineStageMap | null;
     };
 }
 
@@ -118,8 +120,10 @@ export function OrderDetailHeader({ order, formData }: Props) {
                             <ReassignMachineButton
                                 orderId={order.id}
                                 orderNumber={order.orderNumber}
+                                bomCategory={order.bom.category}
                                 currentMachineId={order.machine?.id || null}
                                 machines={formData.machines}
+                                machineStageMap={formData.machineStageMap}
                             />
                         </span>
                         <span>·</span>

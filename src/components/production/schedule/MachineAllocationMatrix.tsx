@@ -20,6 +20,7 @@ export type OrderChip = {
     id: string;
     orderNumber: string;
     bomName: string;
+    bomCategory: string;
     status: string;
     plannedQuantity: number;
     machineId: string | null;

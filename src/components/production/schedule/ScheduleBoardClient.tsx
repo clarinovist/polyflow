@@ -10,6 +10,7 @@ import { MachineAllocationMatrix } from './MachineAllocationMatrix';
 import { PendingDispatchQueue } from './PendingDispatchQueue';
 import { AssignOrderDialog } from './AssignOrderDialog';
 import type { OrderChip, Machine } from './MachineAllocationMatrix';
+import type { MachineStageMap } from '@/lib/production/machine-compatibility';
 
 /* ---------- Types ---------- */
 type ScheduleOrder = OrderChip & {
@@ -23,6 +24,8 @@ interface ScheduleBoardClientProps {
     from: string | null;
     showCompleted: boolean;
     counts: { ongoing: number; completedInWeek: number };
+    /** Per-tenant stage→machine-type override; absent = default map. */
+    machineStageMap?: MachineStageMap | null;
 }
 
 /* ---------- Component ---------- */
@@ -33,6 +36,7 @@ export function ScheduleBoardClient({
     from,
     showCompleted,
     counts,
+    machineStageMap,
 }: ScheduleBoardClientProps) {
     const ongoingOnly = orders.filter((o) => o.status !== 'COMPLETED');
     const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -131,6 +135,7 @@ export function ScheduleBoardClient({
                 plannedStartDate={assignContext.plannedStartDate}
                 orders={orders}
                 machines={machines}
+                machineStageMap={machineStageMap}
             />
         </div>
     );

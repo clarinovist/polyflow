@@ -52,6 +52,7 @@ export const getInitData = withTenant(async function getInitData() {
                 workShifts: [],
                 rawMaterials: [],
                 customers: [],
+                machineStageMap: {},
             };
         }
     });

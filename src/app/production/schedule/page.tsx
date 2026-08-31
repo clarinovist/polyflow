@@ -1,5 +1,6 @@
 import { getMachines } from '@/actions/production/machines';
 import { getProductionOrders } from '@/actions/production/production-orders';
+import { getMachineStageMap } from '@/actions/production/machine-stage-settings';
 import { startOfDay, addDays, parseISO, isValid } from 'date-fns';
 import { Calendar as CalendarIcon, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,12 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
 
     const showCompleted = params.showCompleted !== '0';
 
+    // Per-tenant stage→machine-type override for the assign dialog's
+    // compatibility filter (empty = default map on the client).
+    const stageMapRes = await getMachineStageMap();
+    const machineStageMap =
+        stageMapRes.success && stageMapRes.data ? stageMapRes.data : {};
+
     const partitioned = partitionScheduleOrders(allOrders, timelineDays);
     const base = partitioned.ongoing;
     const orders = showCompleted
@@ -64,6 +71,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
         id: o.id,
         orderNumber: o.orderNumber,
         bomName: o.bom?.name ?? '',
+        bomCategory: o.bom?.category ?? '',
         status: o.status,
         plannedQuantity: o.plannedQuantity,
         machineId: o.machineId,
@@ -143,6 +151,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                 from={params.from ?? null}
                 showCompleted={showCompleted}
                 counts={counts}
+                machineStageMap={machineStageMap}
             />
         </div>
     );

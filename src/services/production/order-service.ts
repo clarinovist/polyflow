@@ -37,8 +37,46 @@ import {
 } from './routing-execution-guard';
 import {
     MACHINE_STAGE_MAP_SETTING_KEY,
+    isMachineCompatibleWithCategory,
     parseMachineStageMap,
 } from '@/lib/production/machine-compatibility';
+
+/**
+ * Generic (non-routed) SPK: machine type must match the BOM category,
+ * honoring the tenant override map. Routed SPKs are validated separately by
+ * assertMachineCapableForOrder (capability table first). Closes the assign /
+ * reassign path where any active machine could be attached to any SPK.
+ */
+async function assertGenericMachineCompatibleWithBom(
+    tx: Prisma.TransactionClient,
+    machineId: string,
+    bomId: string,
+): Promise<void> {
+    const [machine, bom, setting] = await Promise.all([
+        tx.machine.findUnique({
+            where: { id: machineId },
+            select: { type: true },
+        }),
+        tx.bom.findUnique({
+            where: { id: bomId },
+            select: { category: true },
+        }),
+        tx.appSetting.findUnique({
+            where: { key: MACHINE_STAGE_MAP_SETTING_KEY },
+            select: { value: true },
+        }),
+    ]);
+    if (!machine || !bom) return;
+
+    const stageMap = parseMachineStageMap(setting?.value);
+    if (!isMachineCompatibleWithCategory(machine.type, bom.category, stageMap)) {
+        throw new BusinessRuleError(
+            `Mesin ${machine.type} tidak compatible dengan stage ${bom.category}. Pilih mesin sesuai stage SPK.`,
+            { machineType: machine.type, bomCategory: bom.category },
+            'MACHINE_NOT_COMPATIBLE',
+        );
+    }
+}
 
 export class ProductionOrderService {
     /**
@@ -981,6 +1019,13 @@ export class ProductionOrderService {
                     tx,
                     existing as never,
                     machineId,
+                );
+            } else if (machineId) {
+                // Generic SPK: still must match machine type ↔ BOM category.
+                await assertGenericMachineCompatibleWithBom(
+                    tx,
+                    machineId,
+                    existing.bomId,
                 );
             }
 

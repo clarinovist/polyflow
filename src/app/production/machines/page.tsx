@@ -1,5 +1,6 @@
 import { getMachines } from '@/actions/production/machines';
 import { getProductionOrders } from '@/actions/production/production-orders';
+import { getMachineStageMap } from '@/actions/production/machine-stage-settings';
 import { getEmployees } from '@/actions/admin/employees';
 import { getWorkShifts } from '@/actions/admin/work-shifts';
 import {
@@ -84,6 +85,12 @@ export default async function ProductionMachinesPage() {
     const workShiftsRes = await getWorkShifts();
     const workShiftsRaw =
         workShiftsRes.success && workShiftsRes.data ? workShiftsRes.data : [];
+
+    // Per-tenant stage→machine-type override for the assign/reassign filters
+    // (empty = default map on the client).
+    const stageMapRes = await getMachineStageMap();
+    const machineStageMap =
+        stageMapRes.success && stageMapRes.data ? stageMapRes.data : {};
 
     // Serialize
     const machines = serializeData(
@@ -248,8 +255,14 @@ export default async function ProductionMachinesPage() {
                                                 orderNumber={
                                                     activeOrder.orderNumber
                                                 }
+                                                bomCategory={
+                                                    activeOrder.bom.category
+                                                }
                                                 currentMachineId={machine.id}
                                                 machines={machines}
+                                                machineStageMap={
+                                                    machineStageMap
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -327,8 +340,14 @@ export default async function ProductionMachinesPage() {
                                                 orderNumber={
                                                     assignedOrder.orderNumber
                                                 }
+                                                bomCategory={
+                                                    assignedOrder.bom.category
+                                                }
                                                 currentMachineId={machine.id}
                                                 machines={machines}
+                                                machineStageMap={
+                                                    machineStageMap
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -344,7 +363,9 @@ export default async function ProductionMachinesPage() {
                                         <AssignJobButton
                                             machineId={machine.id}
                                             machineCode={machine.code}
+                                            machineType={machine.type}
                                             releasedOrders={releasedOrders}
+                                            machineStageMap={machineStageMap}
                                         />
                                     </div>
                                 )}

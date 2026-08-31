@@ -33,16 +33,23 @@ export default async function ProductionDetailPage(props: PageProps) {
     }
 
     const formDataRes = await getProductionFormData();
-    const { locations, operators, helpers, machines, rawMaterials } =
-        formDataRes.success && formDataRes.data
-            ? formDataRes.data
-            : {
-                  locations: [],
-                  operators: [],
-                  helpers: [],
-                  machines: [],
-                  rawMaterials: [],
-              };
+    const {
+        locations,
+        operators,
+        helpers,
+        machines,
+        rawMaterials,
+        machineStageMap,
+    } = formDataRes.success && formDataRes.data
+        ? formDataRes.data
+        : {
+              locations: [],
+              operators: [],
+              helpers: [],
+              machines: [],
+              rawMaterials: [],
+              machineStageMap: {},
+          };
     const workShiftsResult = await getWorkShifts();
     const workShifts =
         workShiftsResult.success && workShiftsResult.data
@@ -72,6 +79,7 @@ export default async function ProductionDetailPage(props: PageProps) {
                     rawMaterials: serializeData(
                         rawMaterials,
                     ) as unknown as ProductVariant[],
+                    machineStageMap: serializeData(machineStageMap ?? {}),
                 }}
             />
         </div>

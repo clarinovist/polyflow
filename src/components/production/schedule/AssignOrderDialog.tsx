@@ -32,6 +32,10 @@ import { cn } from '@/lib/utils/utils';
 import { toast } from 'sonner';
 import { updateProductionOrder } from '@/actions/production/production';
 import { planningLabels } from '@/lib/labels/planning';
+import {
+    isMachineCompatibleWithCategory,
+    type MachineStageMap,
+} from '@/lib/production/machine-compatibility';
 import type { OrderChip, Machine } from './MachineAllocationMatrix';
 
 /* ---------- Props ---------- */
@@ -45,6 +49,8 @@ interface AssignOrderDialogProps {
     plannedStartDate?: Date;
     orders: OrderChip[];
     machines: Machine[];
+    /** Per-tenant stage→machine-type override; absent = default map. */
+    machineStageMap?: MachineStageMap | null;
 }
 
 /* ---------- Component ---------- */
@@ -56,6 +62,7 @@ export function AssignOrderDialog({
     plannedStartDate: presetDate,
     orders,
     machines,
+    machineStageMap,
 }: AssignOrderDialogProps) {
     const router = useRouter();
     const [selectedOrderId, setSelectedOrderId] = useState<string>(
@@ -88,6 +95,53 @@ export function AssignOrderDialog({
         if (a.machineId && !b.machineId) return 1;
         return 0;
     });
+
+    // Machine ↔ BOM-category compatibility: a MIXING SPK must not land on an
+    // EXTRUDER, etc. Filter both dropdowns against the current selection (the
+    // server re-validates anyway — this keeps the bad option out of the UI).
+    const activeMachine = machines.find(
+        (m) => m.id === (presetMachineId || selectedMachineId),
+    );
+    const selectableOrders = activeMachine
+        ? sortedOrders.filter((o) =>
+              isMachineCompatibleWithCategory(
+                  activeMachine.type,
+                  o.bomCategory,
+                  machineStageMap,
+              ),
+          )
+        : sortedOrders;
+
+    const selectedOrder = sortedOrders.find((o) => o.id === selectedOrderId);
+    const selectableMachines = machines.filter(
+        (m) =>
+            m.status === 'ACTIVE' &&
+            (!selectedOrder ||
+                isMachineCompatibleWithCategory(
+                    m.type,
+                    selectedOrder.bomCategory,
+                    machineStageMap,
+                )),
+    );
+
+    const handleOrderChange = (orderId: string) => {
+        setSelectedOrderId(orderId);
+        const order = sortedOrders.find((o) => o.id === orderId);
+        const machine = machines.find(
+            (m) => m.id === (presetMachineId || selectedMachineId),
+        );
+        if (
+            machine &&
+            order &&
+            !isMachineCompatibleWithCategory(
+                machine.type,
+                order.bomCategory,
+                machineStageMap,
+            )
+        ) {
+            setSelectedMachineId('');
+        }
+    };
 
     const handleSubmit = async () => {
         if (!selectedOrderId) {
@@ -147,7 +201,7 @@ export function AssignOrderDialog({
                             </Label>
                             <Select
                                 value={selectedOrderId}
-                                onValueChange={setSelectedOrderId}
+                                onValueChange={handleOrderChange}
                             >
                                 <SelectTrigger id="order">
                                     <SelectValue
@@ -155,12 +209,12 @@ export function AssignOrderDialog({
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {sortedOrders.length === 0 ? (
+                                    {selectableOrders.length === 0 ? (
                                         <SelectItem value="__none__" disabled>
                                             {planningLabels.noOrdersToAssign}
                                         </SelectItem>
                                     ) : (
-                                        sortedOrders.map((order) => (
+                                        selectableOrders.map((order) => (
                                             <SelectItem
                                                 key={order.id}
                                                 value={order.id}
@@ -194,16 +248,14 @@ export function AssignOrderDialog({
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {machines
-                                        .filter((m) => m.status === 'ACTIVE')
-                                        .map((machine) => (
-                                            <SelectItem
-                                                key={machine.id}
-                                                value={machine.id}
-                                            >
-                                                {machine.code} - {machine.type}
-                                            </SelectItem>
-                                        ))}
+                                    {selectableMachines.map((machine) => (
+                                        <SelectItem
+                                            key={machine.id}
+                                            value={machine.id}
+                                        >
+                                            {machine.code} - {machine.type}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

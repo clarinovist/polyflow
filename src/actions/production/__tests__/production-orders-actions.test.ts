@@ -140,6 +140,7 @@ describe('production order actions', () => {
                     workShifts: [],
                     rawMaterials: [],
                     customers: [],
+                    machineStageMap: {},
                 },
             });
         });

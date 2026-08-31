@@ -23,6 +23,7 @@ import {
 } from './components/order-costing-tab';
 import { OrderDetailHeader } from './components/order-detail-header';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
+import type { MachineStageMap } from '@/lib/production/machine-compatibility';
 
 interface PageProps {
     order: ExtendedProductionOrder;
@@ -33,6 +34,7 @@ interface PageProps {
         workShifts: WorkShift[];
         machines: Machine[];
         rawMaterials: ProductVariant[];
+        machineStageMap?: MachineStageMap | null;
     };
 }
 
