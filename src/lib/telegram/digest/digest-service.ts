@@ -14,6 +14,7 @@ import {
 } from '@/lib/telegram/notification-dedup';
 import {
     detectCriticalStock,
+    detectMissingFinanceJournals,
     detectStuckSalesOrders,
     detectOverdueAr,
     detectOverdueAp,
@@ -145,6 +146,13 @@ export async function runDigest(): Promise<DigestResult> {
             ? detectOverdueAp(tenantDb)
             : Promise.resolve(
                   emptyDetectionResult('overdue_ap', ['/purchasing/invoices']),
+              ),
+        financeEntitled
+            ? detectMissingFinanceJournals(tenantDb)
+            : Promise.resolve(
+                  emptyDetectionResult('missing_finance_journal', [
+                      '/finance/journals',
+                  ]),
               ),
         productionEntitled
             ? detectProductionNoProgress(tenantDb)

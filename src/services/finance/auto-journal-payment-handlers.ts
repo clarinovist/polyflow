@@ -1,6 +1,7 @@
 import { JournalStatus, ReferenceType } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
+import { NotFoundError } from '@/lib/errors/errors';
 import { AccountingService } from '../accounting/accounting-service';
 
 import {
@@ -17,7 +18,8 @@ export async function handleSalesPayment(
     // sama dengan paymentDate-nya, jadi jurnal dan payment selalu jatuh di hari yang sama.
     journalDate?: Date,
 ) {
-    // Validate amount
+    // Zero/negative amounts have no journal to post — skip by design. Anything
+    // else must be loud (call sites log it) so the repair pass can pick it up.
     if (!amount || amount <= 0 || !isFinite(amount)) {
         console.warn(
             `[AutoJournal] Invalid payment amount: ${amount} for paymentId=${paymentId}`,
@@ -31,11 +33,20 @@ export async function handleSalesPayment(
     });
     const invoice = payment?.invoice;
     if (!payment || !invoice) {
-        console.warn(
-            `[AutoJournal] Payment or invoice not found for paymentId=${paymentId}`,
-        );
-        return;
+        throw new NotFoundError('Payment', paymentId);
     }
+
+    // Idempotency guard: payment call sites run post-commit with swallowed
+    // errors — a retry must not double-credit AR for the same payment.
+    const existing = await prisma.journalEntry.findFirst({
+        where: {
+            referenceType: ReferenceType.SALES_PAYMENT,
+            referenceId: paymentId,
+            status: { not: JournalStatus.VOIDED },
+        },
+        select: { id: true },
+    });
+    if (existing) return;
 
     const paymentMethod = payment.method || method;
     const paymentAcc = await resolvePaymentBankAccount(
@@ -75,7 +86,7 @@ export async function handlePurchasePayment(
     method: string = 'Bank Transfer',
     journalDate?: Date,
 ) {
-    // Validate amount
+    // Zero/negative amounts have no journal to post — skip by design.
     if (!amount || amount <= 0 || !isFinite(amount)) {
         console.warn(
             `[AutoJournal] Invalid payment amount: ${amount} for paymentId=${paymentId}`,
@@ -89,11 +100,19 @@ export async function handlePurchasePayment(
     });
     const invoice = payment?.purchaseInvoice;
     if (!payment || !invoice) {
-        console.warn(
-            `[AutoJournal] Purchase payment or invoice not found for paymentId=${paymentId}`,
-        );
-        return;
+        throw new NotFoundError('Payment', paymentId);
     }
+
+    // Idempotency guard — same rationale as the sales side.
+    const existing = await prisma.journalEntry.findFirst({
+        where: {
+            referenceType: ReferenceType.PURCHASE_PAYMENT,
+            referenceId: paymentId,
+            status: { not: JournalStatus.VOIDED },
+        },
+        select: { id: true },
+    });
+    if (existing) return;
 
     const paymentMethod = payment.method || method;
     const paymentAcc = await resolvePaymentBankAccount(

@@ -210,15 +210,8 @@ export const createPurchaseInvoice = withTenant(
             revalidatePath('/purchasing/invoices');
             revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
 
-            // Auto-Journal: Purchase Invoice
-            await AutoJournalService.handlePurchaseInvoiceCreated(
-                invoice.id,
-            ).catch((error) => {
-                logger.error('Auto-Journal failed for purchase invoice', {
-                    error,
-                    module: 'AutoJournalService',
-                });
-            });
+            // Auto-journal sudah dipicu di dalam PurchaseService.createInvoice —
+            // memanggilnya di sini lagi akan double-posting jurnal PPN.
 
             return serializeData(invoice);
         });

@@ -366,11 +366,23 @@ export async function approveWalkInInvoice(invoiceId: string, _userId: string) {
         return updated;
     });
 
-    // Sync journal status
+    // Ensure journal exists (creation-time auto-journal may have failed) and
+    // promote any DRAFT journal to POSTED — the invoice just left DRAFT.
     try {
         const { AutoJournalService } =
             await import('@/services/finance/auto-journal-service');
-        await AutoJournalService.handlePurchaseInvoiceCreated(invoiceId);
+        await AutoJournalService.ensureDocumentJournal(
+            'PURCHASE_INVOICE',
+            invoiceId,
+        );
+        await prisma.journalEntry.updateMany({
+            where: {
+                referenceType: 'PURCHASE_INVOICE',
+                referenceId: invoiceId,
+                status: 'DRAFT',
+            },
+            data: { status: 'POSTED' },
+        });
     } catch (err) {
         logger.error('Auto-Journal sync failed on walk-in invoice approve', {
             error: err,

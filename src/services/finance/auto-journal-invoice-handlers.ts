@@ -33,7 +33,10 @@ async function loadRulesForInvoice(
     }
 }
 
-export async function handleSalesInvoiceCreated(invoiceId: string) {
+export async function handleSalesInvoiceCreated(
+    invoiceId: string,
+    options?: { journalDate?: Date },
+) {
     const invoice = await prisma.invoice.findUnique({
         where: { id: invoiceId },
         include: {
@@ -54,6 +57,20 @@ export async function handleSalesInvoiceCreated(invoiceId: string) {
     });
 
     if (!invoice) throw new NotFoundError('Invoice', invoiceId);
+
+    // Idempotency guard: creation-time call sites invoke this handler
+    // post-commit with swallowed errors, so a retry (repair/backfill) must not
+    // duplicate an existing journal. VOIDED journals don't count — the source
+    // invoice was cancelled and a fresh document state deserves a fresh check.
+    const existing = await prisma.journalEntry.findFirst({
+        where: {
+            referenceType: ReferenceType.SALES_INVOICE,
+            referenceId: invoiceId,
+            status: { not: JournalStatus.VOIDED },
+        },
+        select: { id: true },
+    });
+    if (existing) return;
 
     const arAccount = await resolveAccount('accounts-receivable');
     const vatAccount = await resolveAccount('vat-output');
@@ -228,7 +245,9 @@ export async function handleSalesInvoiceCreated(invoiceId: string) {
     ];
 
     await AccountingService.createJournalEntry({
-        entryDate: invoice.invoiceDate,
+        // journalDate override: repair/backfill paths post into the CURRENT
+        // open fiscal period instead of backdating into a closed one.
+        entryDate: options?.journalDate ?? invoice.invoiceDate,
         description: `Sales Invoice #${invoice.invoiceNumber}`,
         reference: invoice.invoiceNumber,
         referenceType: ReferenceType.SALES_INVOICE,
@@ -239,13 +258,29 @@ export async function handleSalesInvoiceCreated(invoiceId: string) {
     });
 }
 
-export async function handlePurchaseInvoiceCreated(invoiceId: string) {
+export async function handlePurchaseInvoiceCreated(
+    invoiceId: string,
+    options?: { journalDate?: Date },
+) {
     const invoice = await prisma.purchaseInvoice.findUnique({
         where: { id: invoiceId },
         include: { purchaseOrder: true },
     });
 
     if (!invoice) throw new NotFoundError('Purchase Invoice', invoiceId);
+
+    // Idempotency guard (same rationale as the sales side): the service AND
+    // some actions fire this handler for the same invoice — dedup keeps that
+    // harmless instead of posting the VAT journal twice.
+    const existing = await prisma.journalEntry.findFirst({
+        where: {
+            referenceType: ReferenceType.PURCHASE_INVOICE,
+            referenceId: invoiceId,
+            status: { not: JournalStatus.VOIDED },
+        },
+        select: { id: true },
+    });
+    if (existing) return;
 
     const totalAmount = Number(invoice.totalAmount);
     const poTotal = Number(invoice.purchaseOrder.totalAmount || 0);
@@ -267,7 +302,8 @@ export async function handlePurchaseInvoiceCreated(invoiceId: string) {
         invoice.status === 'DRAFT' ? JournalStatus.DRAFT : JournalStatus.POSTED;
 
     await AccountingService.createJournalEntry({
-        entryDate: invoice.invoiceDate,
+        // journalDate override: same repair rationale as the sales side.
+        entryDate: options?.journalDate ?? invoice.invoiceDate,
         description: `Purchase Invoice #${invoice.invoiceNumber} - PPN Masukan`,
         reference: invoice.invoiceNumber,
         referenceType: ReferenceType.PURCHASE_INVOICE,

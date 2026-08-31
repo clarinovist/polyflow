@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
+import { collectFinanceJournalIssues } from '@/services/finance/journal-health-service';
 import type { DetectedItem, DetectionResult } from './detection-types';
 
 // Safety cap on rows fetched per detector. Not a display limit (that lives in
@@ -273,5 +274,84 @@ export async function detectProductionNoProgress(
         );
     } catch (error) {
         return failedResult('production_no_progress', requiredResources, error);
+    }
+}
+
+const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+
+/**
+ * Documents that should carry a finance journal but don't (or whose AR leg is
+ * short of the document amount). These are exactly the silent auto-journal
+ * failures that produced the recap-vs-balance-sheet drift diagnosed in the
+ * 2026-08-31 local plan (docs/plan/ — gitignored).
+ */
+export async function detectMissingFinanceJournals(
+    tenantDb: PrismaClient,
+): Promise<DetectionResult> {
+    const requiredResources = ['/finance/journals'];
+    try {
+        const issues = await collectFinanceJournalIssues(tenantDb);
+        const items: DetectedItem[] = [];
+
+        for (const inv of issues.salesInvoicesMissing) {
+            items.push({
+                entityKey: `missing_finance_journal:SALES_INVOICE:${inv.id}`,
+                entityType: 'Invoice',
+                entityId: inv.id,
+                severity: 'critical',
+                headline: `Invoice ${inv.invoiceNumber} tanpa jurnal AR`,
+                detail: `${rupiah(inv.totalAmount)} — ${inv.customerName ?? 'Tanpa customer'}`,
+            });
+        }
+        for (const s of issues.salesInvoiceShortfalls) {
+            items.push({
+                entityKey: `missing_finance_journal:SALES_INVOICE_SHORTFALL:${s.id}`,
+                entityType: 'Invoice',
+                entityId: s.id,
+                severity: 'critical',
+                headline: `Invoice ${s.invoiceNumber} jurnal AR kurang`,
+                detail: `Dibukukan ${rupiah(s.arDebit)} dari ${rupiah(s.totalAmount)} (kurang ${rupiah(s.difference)})`,
+            });
+        }
+        for (const p of issues.salesPaymentsMissing) {
+            items.push({
+                entityKey: `missing_finance_journal:SALES_PAYMENT:${p.id}`,
+                entityType: 'Payment',
+                entityId: p.id,
+                severity: 'critical',
+                headline: `Payment pelanggan ${p.paymentNumber ?? p.id.slice(0, 8)} tanpa jurnal`,
+                detail: `${rupiah(p.amount)} — ${p.method ?? 'metode tidak dicatat'}`,
+            });
+        }
+        for (const inv of issues.purchaseInvoicesMissingVat) {
+            items.push({
+                entityKey: `missing_finance_journal:PURCHASE_INVOICE:${inv.id}`,
+                entityType: 'PurchaseInvoice',
+                entityId: inv.id,
+                severity: 'warning',
+                headline: `Invoice pembelian ${inv.invoiceNumber} tanpa jurnal PPN`,
+                detail: `PPN dihitung ${rupiah(inv.derivedTaxAmount)} dari ${rupiah(inv.totalAmount)}`,
+            });
+        }
+        for (const p of issues.purchasePaymentsMissing) {
+            items.push({
+                entityKey: `missing_finance_journal:PURCHASE_PAYMENT:${p.id}`,
+                entityType: 'Payment',
+                entityId: p.id,
+                severity: 'critical',
+                headline: `Payment supplier ${p.paymentNumber ?? p.id.slice(0, 8)} tanpa jurnal`,
+                detail: `${rupiah(p.amount)} — ${p.method ?? 'metode tidak dicatat'}`,
+            });
+        }
+
+        const capped = items.slice(0, FETCH_CAP);
+        return buildResult(
+            'missing_finance_journal',
+            requiredResources,
+            capped,
+            items.length >= FETCH_CAP,
+        );
+    } catch (error) {
+        return failedResult('missing_finance_journal', requiredResources, error);
     }
 }

@@ -1,3 +1,7 @@
+import { JournalStatus } from '@prisma/client';
+
+import { prisma } from '@/lib/core/prisma';
+
 import {
     handlePurchaseInvoiceCreated,
     handleSalesInvoiceCreated,
@@ -10,6 +14,18 @@ import {
     handlePurchaseReturnShipped,
     handleSalesReturnReceived,
 } from './auto-journal-return-handlers';
+
+export type EnsureJournalKind =
+    | 'SALES_INVOICE'
+    | 'PURCHASE_INVOICE'
+    | 'SALES_PAYMENT'
+    | 'PURCHASE_PAYMENT';
+
+export type EnsureJournalOutcome = {
+    action: 'created' | 'exists' | 'promoted' | 'skipped';
+    reason?: string;
+    journalId?: string;
+};
 
 export class AutoJournalService {
     static async handleSalesInvoiceCreated(invoiceId: string) {
@@ -44,6 +60,117 @@ export class AutoJournalService {
 
     static async handlePurchaseReturnShipped(returnId: string) {
         return handlePurchaseReturnShipped(returnId);
+    }
+
+    /**
+     * Idempotent "make sure this document has a journal in the right status".
+     *
+     * All creation-time call sites run post-commit with swallowed errors, so
+     * any transient failure (unresolvable account, closed period, ...) leaves
+     * the document permanently journal-less. This is the single entry point
+     * for repair paths (health checks, backfill scripts): safe to call any
+     * number of times — existing journals are kept (never duplicated), DRAFT
+     * journals of already-approved invoices are promoted to POSTED.
+     */
+    static async ensureDocumentJournal(
+        kind: EnsureJournalKind,
+        refId: string,
+        options?: { journalDate?: Date },
+    ): Promise<EnsureJournalOutcome> {
+        const existing = await prisma.journalEntry.findFirst({
+            where: {
+                referenceType: kind,
+                referenceId: refId,
+                status: { not: JournalStatus.VOIDED },
+            },
+            select: { id: true },
+        });
+
+        if (existing) {
+            if (kind === 'SALES_INVOICE' || kind === 'PURCHASE_INVOICE') {
+                return this.promoteIfApproved(kind, refId, existing.id);
+            }
+            return { action: 'exists', journalId: existing.id };
+        }
+
+        switch (kind) {
+            case 'SALES_INVOICE':
+                await handleSalesInvoiceCreated(refId, options);
+                return { action: 'created' };
+            case 'PURCHASE_INVOICE':
+                await handlePurchaseInvoiceCreated(refId, options);
+                return { action: 'created' };
+            case 'SALES_PAYMENT':
+            case 'PURCHASE_PAYMENT': {
+                const payment = await prisma.payment.findUnique({
+                    where: { id: refId },
+                    select: { amount: true, method: true },
+                });
+                if (!payment) {
+                    return { action: 'skipped', reason: 'payment_not_found' };
+                }
+                const amount = payment.amount.toNumber();
+                if (!amount || amount <= 0 || !isFinite(amount)) {
+                    return { action: 'skipped', reason: 'invalid_amount' };
+                }
+                const method = payment.method || 'Bank Transfer';
+                if (kind === 'SALES_PAYMENT') {
+                    await handleSalesPayment(
+                        refId,
+                        amount,
+                        method,
+                        options?.journalDate,
+                    );
+                } else {
+                    await handlePurchasePayment(
+                        refId,
+                        amount,
+                        method,
+                        options?.journalDate,
+                    );
+                }
+                return { action: 'created' };
+            }
+        }
+    }
+
+    /**
+     * An approved invoice must never sit on a DRAFT journal (reports read
+     * POSTED only). Promotes every DRAFT journal of the reference when the
+     * invoice has moved past DRAFT — mirrors updateInvoiceStatus mapping.
+     */
+    private static async promoteIfApproved(
+        kind: 'SALES_INVOICE' | 'PURCHASE_INVOICE',
+        refId: string,
+        journalId: string,
+    ): Promise<EnsureJournalOutcome> {
+        const invoice =
+            kind === 'SALES_INVOICE'
+                ? await prisma.invoice.findUnique({
+                      where: { id: refId },
+                      select: { status: true },
+                  })
+                : await prisma.purchaseInvoice.findUnique({
+                      where: { id: refId },
+                      select: { status: true },
+                  });
+
+        if (!invoice || invoice.status === 'DRAFT') {
+            return { action: 'exists', journalId };
+        }
+
+        const result = await prisma.journalEntry.updateMany({
+            where: {
+                referenceType: kind,
+                referenceId: refId,
+                status: JournalStatus.DRAFT,
+            },
+            data: { status: JournalStatus.POSTED },
+        });
+        return {
+            action: result.count > 0 ? 'promoted' : 'exists',
+            journalId,
+        };
     }
 
     // DELEGATED: Auto-journaling for material issues is handled directly via AccountingService.recordInventoryMovement.

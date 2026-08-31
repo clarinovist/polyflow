@@ -66,6 +66,7 @@ vi.mock('../detectors', () => ({
   detectStuckSalesOrders: vi.fn(),
   detectOverdueAr: vi.fn(),
   detectOverdueAp: vi.fn(),
+  detectMissingFinanceJournals: vi.fn(),
   detectProductionNoProgress: vi.fn(),
 }));
 
@@ -87,6 +88,7 @@ import { isDuplicate, recordNotificationAttempt } from '@/lib/telegram/notificat
 import { isFeatureEnabled } from '@/lib/bot/feature-flags';
 import {
   detectCriticalStock,
+  detectMissingFinanceJournals,
   detectStuckSalesOrders,
   detectOverdueAr,
   detectOverdueAp,
@@ -169,6 +171,9 @@ describe('runDigest', () => {
     );
     vi.mocked(detectOverdueAp).mockResolvedValue(
       emptyResult('overdue_ap', ['/purchasing/invoices']),
+    );
+    vi.mocked(detectMissingFinanceJournals).mockResolvedValue(
+      emptyResult('missing_finance_journal', ['/finance/journals']),
     );
     vi.mocked(detectProductionNoProgress).mockResolvedValue(
       emptyResult('production_no_progress', ['/production/orders']),

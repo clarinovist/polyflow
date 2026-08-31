@@ -10,7 +10,10 @@ const { mockGetTenantIdFromContext, mockGetMainPrisma, mockLoadActiveTenantReven
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         invoice: { findUnique: vi.fn() },
+        purchaseInvoice: { findUnique: vi.fn() },
         account: { findUnique: vi.fn(), findFirst: vi.fn() },
+        // Idempotency guard: default "no existing journal" for every test.
+        journalEntry: { findFirst: vi.fn().mockResolvedValue(null) },
     },
     getTenantIdFromContext: mockGetTenantIdFromContext,
     getMainPrisma: mockGetMainPrisma,
@@ -530,5 +533,62 @@ describe('handleSalesInvoiceCreated (tenant-backed rules)', () => {
         expect(call.lines.length).toBe(2);
         expect(call.lines[1].accountId).toBe('acc-rev');
         expect(call.lines[1].credit).toBe(100000);
+    });
+});
+
+describe('auto-journal idempotency & repair journalDate', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockGetTenantIdFromContext.mockReturnValue(undefined);
+        mockLoadActiveTenantRevenueRules.mockResolvedValue([]);
+        seedAccounts([]);
+        mockAccountLookup();
+        // clearAllMocks keeps implementations from earlier tests — restore the
+        // "no existing journal" default explicitly.
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
+    });
+
+    it('sales invoice handler skips when a non-VOIDED journal already exists', async () => {
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({
+            id: 'je-1',
+        } as never);
+
+        await handleSalesInvoiceCreated('inv-1');
+
+        expect(AccountingService.createJournalEntry).not.toHaveBeenCalled();
+    });
+
+    it('sales invoice handler uses journalDate override as entryDate (repair path)', async () => {
+        vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
+            mockInvoiceWithItems([]) as never,
+        );
+        const repairDate = new Date('2026-08-31T10:00:00.000Z');
+
+        await handleSalesInvoiceCreated('inv-1', { journalDate: repairDate });
+
+        expect(AccountingService.createJournalEntry).toHaveBeenCalledWith(
+            expect.objectContaining({ entryDate: repairDate }),
+        );
+    });
+
+    it('purchase invoice handler skips when a non-VOIDED journal already exists', async () => {
+        const { handlePurchaseInvoiceCreated } = await import(
+            '../auto-journal-invoice-handlers'
+        );
+        vi.mocked(prisma.purchaseInvoice.findUnique).mockResolvedValue({
+            id: 'pinv-1',
+            invoiceNumber: 'BILL-001',
+            invoiceDate: new Date('2026-06-01'),
+            totalAmount: dec(100000),
+            status: 'UNPAID',
+            purchaseOrder: { totalAmount: dec(0), taxAmount: dec(0) },
+        } as never);
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({
+            id: 'je-2',
+        } as never);
+
+        await handlePurchaseInvoiceCreated('pinv-1');
+
+        expect(AccountingService.createJournalEntry).not.toHaveBeenCalled();
     });
 });
