@@ -22,6 +22,7 @@ import {
     type ProductionExecutionOrder,
 } from './execution-helpers';
 import { resolveProductionOutputUnit } from './execution-unit-conversion';
+import { resolveShiftAwareLogTimes } from '@/lib/production/execution-business-date';
 import { buildPieceSnapshotForOperator } from '@/services/hrd/piece-rate-helpers';
 import {
     assertRoutedOrderCanStart,
@@ -610,6 +611,23 @@ export class ProductionExecutionService {
             });
 
             // 3. CREATE a new completed execution (not update the running one!)
+            // Shift-aware business time: entri otomatis setelah tengah malam yang
+            // masih dalam jangkauan shift di-backdate ke mulai shift (laporan Ika
+            // 2026-09-01 — hasil shift malam masuk tanggal shift, bukan tanggal input).
+            const shiftStartForLog = shiftId
+                ? (
+                      await tx.productionShift.findUnique({
+                          where: { id: shiftId },
+                          select: { startTime: true },
+                      })
+                  )?.startTime ?? null
+                : null;
+            const logTimes = resolveShiftAwareLogTimes({
+                logAt: new Date(),
+                clientStart: null,
+                clientEnd: null,
+                shiftStart: shiftStartForLog,
+            });
             const pieceSnap = await buildPieceSnapshotForOperator(tx, {
                 operatorId,
                 machineId: runningExecution.machineId,
@@ -630,8 +648,8 @@ export class ProductionExecutionService {
                     conversionFactorSnapshot: resolved.conversionSnapshot,
                     notes: notes ? `[Log]: ${notes}` : null,
                     photoUrl: photoUrl || null,
-                    startTime: new Date(),
-                    endTime: new Date(),
+                    startTime: logTimes.startTime,
+                    endTime: logTimes.endTime,
                     status: 'COMPLETED',
                     pieceRateSnapshot: pieceSnap.pieceRateSnapshot,
                     pieceEarnings: pieceSnap.pieceEarnings,
@@ -741,17 +759,30 @@ export class ProductionExecutionService {
             const resolvedBaseQty = resolved.baseQty;
 
             // Validate: shift must belong to the same production order
+            let shiftStartForLog: Date | null = null;
             if (shiftId) {
                 const shiftOk = await tx.productionShift.findFirst({
                     where: { id: shiftId, productionOrderId },
-                    select: { id: true },
+                    select: { id: true, startTime: true },
                 });
                 if (!shiftOk) {
                     throw new ProductionRuleViolationError(
                         'Shift tidak valid untuk SPK ini. Pilih shift yang terdaftar di SPK.',
                     );
                 }
+                shiftStartForLog = shiftOk.startTime;
             }
+
+            // Shift-aware business time: dialog desktop mengirim waktu submit;
+            // kalau entri nyebrang tengah malam namun masih dalam jangkauan shift,
+            // backdate ke mulai shift. Waktu yang sengaja diedit user (batch form,
+            // deviasi > 15 menit dari waktu submit) dihormati apa adanya.
+            const logTimes = resolveShiftAwareLogTimes({
+                logAt: new Date(),
+                clientStart: startTime ?? null,
+                clientEnd: endTime ?? null,
+                shiftStart: shiftStartForLog,
+            });
 
             // Validate: qty=0 needs something to record — either scrap (mesin trobel,
             // hasil bagus 0 tapi affal keluar) or a REWORK order. Blank entries stay blocked.
@@ -798,8 +829,8 @@ export class ProductionExecutionService {
                 machineId,
                 operatorId,
                 shiftId,
-                startTime,
-                endTime,
+                startTime: logTimes.startTime,
+                endTime: logTimes.endTime,
                 quantityProduced: resolvedBaseQty,
                 scrapQuantity: Number(scrapQuantity),
                 notes,

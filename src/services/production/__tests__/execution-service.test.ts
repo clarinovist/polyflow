@@ -14,6 +14,7 @@ vi.mock('@/lib/core/prisma', () => {
         },
         productionShift: {
             findFirst: vi.fn(),
+            findUnique: vi.fn().mockResolvedValue(null),
         },
         productionOrder: {
             findUniqueOrThrow: vi.fn(),
@@ -857,14 +858,17 @@ describe('ProductionExecutionService.addProductionOutput', () => {
 
         expect(tx.productionShift.findFirst).toHaveBeenCalledWith({
             where: { id: 'shift-from-other-wo', productionOrderId: 'po-1' },
-            select: { id: true },
+            select: { id: true, startTime: true },
         });
         expect(tx.productionExecution.create).not.toHaveBeenCalled();
     });
 
     it('should succeed when shiftId belongs to the production order', async () => {
         // Arrange
-        vi.mocked(tx.productionShift.findFirst).mockResolvedValue({ id: 'shift-1' } as never);
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue({
+            id: 'shift-1',
+            startTime: new Date(),
+        } as never);
         vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-1' } as never);
         vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
             id: 'po-1',

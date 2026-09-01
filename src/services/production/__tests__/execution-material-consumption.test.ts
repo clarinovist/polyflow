@@ -13,6 +13,7 @@ vi.mock('@/lib/core/prisma', () => {
         },
         productionShift: {
             findFirst: vi.fn(),
+            findUnique: vi.fn().mockResolvedValue(null),
         },
         productionOrder: {
             findUniqueOrThrow: vi.fn(),
