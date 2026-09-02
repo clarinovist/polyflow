@@ -176,7 +176,10 @@ export const getProductionSupervisorOverview = withTenant(
                     prisma.productionExecution
                         ? prisma.productionExecution
                               .aggregate({
-                                  where: { createdAt: { gte: startOfDay } },
+                                  // Bucket konsisten dgn Laporan Harian (startTime,
+                                  // shift-aware backdate 644c569d): entri backdated
+                                  // dini hari masuk tanggal shift, bukan tanggal input.
+                                  where: { startTime: { gte: startOfDay } },
                                   _sum: {
                                       quantityProduced: true,
                                       scrapQuantity: true,
@@ -203,6 +206,8 @@ export const getProductionSupervisorOverview = withTenant(
                     prisma.machineDowntime
                         ? prisma.machineDowntime
                               .findMany({
+                                  // createdAt sengaja: ini feed AKTIVITAS downtime
+                                  // (waktu kejadian riil), bukan atribusi hasil per tanggal shift.
                                   where: { createdAt: { gte: startOfDay } },
                                   take: 5,
                                   orderBy: { createdAt: 'desc' },

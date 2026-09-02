@@ -13,6 +13,7 @@ import {
     PlusCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { pickRekapShift } from '@/lib/production/kiosk-shift-status';
 import { startExecution } from '@/actions/production/production';
 import { KioskStopDialog } from '@/components/production/kiosk/KioskStopDialog';
 import { DowntimeDialog } from '@/components/production/kiosk/DowntimeDialog';
@@ -215,24 +216,11 @@ export default function KioskJobFocus({
     const recentLogs = (order.outputLogs || []).slice(0, 3);
 
     // ── Rekap shift: aggregate completed executions of the selected shift ──
-    const selectedShift =
-        shifts.length === 0
-            ? null
-            : (() => {
-                  const now = Date.now();
-                  const isActive = (s: Shift) => {
-                      const start = new Date(s.startTime).getTime();
-                      const end = new Date(s.endTime).getTime();
-                      return now >= start && now <= end;
-                  };
-                  const byOperator = shifts.find(
-                      (s) => s.operatorId === operatorId && isActive(s),
-                  );
-                  if (byOperator) return byOperator;
-                  const anyActive = shifts.find(isActive);
-                  if (anyActive) return anyActive;
-                  return shifts[shifts.length - 1];
-              })();
+    // Pure helper (kiosk-shift-status.ts) mempertahankan logika pilihan lama
+    // dan menambah flag `stale` = tidak ada shift aktif (semua window lewat).
+    const rekapShift = pickRekapShift(shifts, Date.now(), operatorId);
+    const selectedShift = rekapShift.shift;
+    const isShiftStale = rekapShift.stale;
 
     const shiftExecutions = (order.executions || []).filter(
         (e) =>
@@ -442,6 +430,17 @@ export default function KioskJobFocus({
             {/* Rekap shift */}
             {selectedShift && (
                 <div className="bg-muted/30 border rounded-xl p-4 space-y-3">
+                    {isShiftStale && (
+                        <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg p-3">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-800">
+                                Belum ada shift aktif untuk jadwal ini — rekap
+                                di bawah memakai shift terakhir (
+                                {selectedShift.shiftName}). Hubungi admin untuk
+                                menambahkan shift hari ini.
+                            </p>
+                        </div>
+                    )}
                     <div className="flex items-center justify-between">
                         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                             {kioskLabels.shiftRekapTitle} ·{' '}

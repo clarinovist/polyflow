@@ -764,7 +764,13 @@ export const getOperatorTodaySummary = withTenant(
                     where: {
                         operatorId,
                         status: { not: 'VOIDED' },
-                        createdAt: { gte: startOfDay, lte: endOfDay },
+                        // Bucket konsisten dengan Laporan Produksi Harian
+                        // (per startTime, shift-aware backdate fix 644c569d):
+                        // entri backdated dini hari masuk tanggal shift, bukan
+                        // tanggal input. createdAt tidak dipakai karena entri
+                        // shift malam yang di-backdate akan tampil "hari ini"
+                        // di sini tapi "kemarin" di laporan.
+                        startTime: { gte: startOfDay, lte: endOfDay },
                     },
                     select: {
                         id: true,
