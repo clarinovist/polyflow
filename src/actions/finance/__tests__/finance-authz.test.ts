@@ -255,7 +255,10 @@ vi.mock('@/lib/utils/timezone', () => ({
     parseBusinessDate: vi.fn((s: string) => s),
 }));
 
-vi.mock('@/lib/utils/sequence', () => ({
+vi.mock('@/lib/utils/sequence', async (importOriginal) => ({
+    ...(await importOriginal<
+        typeof import('@/lib/utils/sequence')
+    >()),
     getNextSequence: vi.fn().mockResolvedValue('PAY-001'),
 }));
 

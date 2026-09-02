@@ -143,34 +143,43 @@ export const recordCustomerPayment = withTenant(
                         ? InvoiceStatus.PAID
                         : InvoiceStatus.PARTIAL;
 
-                const { getNextSequence } =
+                const { getNextSequence, retryOnPaymentNumberConflict } =
                     await import('@/lib/utils/sequence');
-                const paymentNumber = await getNextSequence('PAYMENT_IN');
 
-                const payment = await prisma.$transaction(async (tx) => {
-                    const createdPayment = await tx.payment.create({
-                        data: {
-                            paymentNumber,
-                            paymentDate: new Date(data.paymentDate),
-                            amount: data.amount,
-                            method: paymentFields.method,
-                            notes: data.notes,
-                            referenceNumber: paymentFields.referenceNumber,
-                            destinationBank: paymentFields.destinationBank,
-                            invoiceId: data.invoiceId,
-                        },
-                    });
+                // Nomor dialokasikan DI DALAM transaksi (bukan sebelumnya) dan
+                // seluruh transaksi di-retry pada P2002 paymentNumber — race
+                // atomic sequence + counter tertinggal (backfill SQL) tetap
+                // menyelamatkan pembayaran tanpa gagal di sisi user.
+                const payment = await retryOnPaymentNumberConflict(() =>
+                    prisma.$transaction(async (tx) => {
+                        const paymentNumber =
+                            await getNextSequence('PAYMENT_IN');
 
-                    await tx.invoice.update({
-                        where: { id: data.invoiceId },
-                        data: {
-                            paidAmount: newPaidAmount,
-                            status: newStatus,
-                        },
-                    });
+                        const createdPayment = await tx.payment.create({
+                            data: {
+                                paymentNumber,
+                                paymentDate: new Date(data.paymentDate),
+                                amount: data.amount,
+                                method: paymentFields.method,
+                                notes: data.notes,
+                                referenceNumber: paymentFields.referenceNumber,
+                                destinationBank:
+                                    paymentFields.destinationBank,
+                                invoiceId: data.invoiceId,
+                            },
+                        });
 
-                    return createdPayment;
-                });
+                        await tx.invoice.update({
+                            where: { id: data.invoiceId },
+                            data: {
+                                paidAmount: newPaidAmount,
+                                status: newStatus,
+                            },
+                        });
+
+                        return createdPayment;
+                    }),
+                );
 
                 // Auto-journal must be called after transaction commits to avoid long-running transactions.
                 // If it fails, payment is recorded but no journal entry exists — this is logged and can be

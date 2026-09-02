@@ -165,99 +165,111 @@ export async function recordPayment(
         destinationBank?: string | null;
     },
 ) {
-    return await prisma.$transaction(async (tx) => {
-        const invoice = await tx.purchaseInvoice.findUnique({ where: { id } });
-        if (!invoice) throw new NotFoundError('Purchase Invoice', id);
+        const { getNextSequence, retryOnPaymentNumberConflict } =
+            await import('@/lib/utils/sequence');
 
-        // Prevent payment on already paid invoices
-        if (invoice.status === PurchaseInvoiceStatus.PAID) {
-            throw new BusinessRuleError(
-                'Invoice is already fully paid.',
-                { invoiceId: id, status: invoice.status },
-                'ALREADY_PAID',
-            );
-        }
+        return await retryOnPaymentNumberConflict(() =>
+            prisma.$transaction(async (tx) => {
+                const invoice = await tx.purchaseInvoice.findUnique({
+                    where: { id },
+                });
+                if (!invoice) throw new NotFoundError('Purchase Invoice', id);
 
-        // Prevent payment on DRAFT invoices (walk-in awaiting Finance approval)
-        if (invoice.status === PurchaseInvoiceStatus.DRAFT) {
-            throw new BusinessRuleError(
-                'Invoice masih DRAFT. Finance harus approve terlebih dahulu.',
-                { invoiceId: id, status: invoice.status },
-                'INVOICE_DRAFT',
-            );
-        }
+                // Prevent payment on already paid invoices
+                if (invoice.status === PurchaseInvoiceStatus.PAID) {
+                    throw new BusinessRuleError(
+                        'Invoice is already fully paid.',
+                        { invoiceId: id, status: invoice.status },
+                        'ALREADY_PAID',
+                    );
+                }
 
-        // Validate payment amount does not exceed remaining balance
-        const remainingBalance =
-            invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber();
-        if (amount > remainingBalance) {
-            throw new BusinessRuleError(
-                `Payment amount (${amount}) exceeds remaining balance (${remainingBalance})`,
-                { amount, remainingBalance, invoiceId: id },
-                'PAYMENT_EXCEEDS_BALANCE',
-            );
-        }
+                // Prevent payment on DRAFT invoices (walk-in awaiting Finance approval)
+                if (invoice.status === PurchaseInvoiceStatus.DRAFT) {
+                    throw new BusinessRuleError(
+                        'Invoice masih DRAFT. Finance harus approve terlebih dahulu.',
+                        { invoiceId: id, status: invoice.status },
+                        'INVOICE_DRAFT',
+                    );
+                }
 
-        const { getNextSequence } = await import('@/lib/utils/sequence');
-        const { normalizePaymentMethodFields } =
-            await import('@/lib/finance/payment-methods');
-        const { getPaymentBanksSetting } =
-            await import('@/services/settings/app-settings-service');
+                // Validate payment amount does not exceed remaining balance
+                const remainingBalance =
+                    invoice.totalAmount.toNumber() -
+                    invoice.paidAmount.toNumber();
+                if (amount > remainingBalance) {
+                    throw new BusinessRuleError(
+                        `Payment amount (${amount}) exceeds remaining balance (${remainingBalance})`,
+                        { amount, remainingBalance, invoiceId: id },
+                        'PAYMENT_EXCEEDS_BALANCE',
+                    );
+                }
 
-        const banks = await getPaymentBanksSetting();
-        const paymentFields = normalizePaymentMethodFields(
-            {
-                method: options?.method || 'Transfer BCA',
-                referenceNumber: options?.referenceNumber,
-                destinationBank: options?.destinationBank,
-            },
-            banks,
+                const { normalizePaymentMethodFields } =
+                    await import('@/lib/finance/payment-methods');
+                const { getPaymentBanksSetting } =
+                    await import('@/services/settings/app-settings-service');
+
+                const banks = await getPaymentBanksSetting();
+                const paymentFields = normalizePaymentMethodFields(
+                    {
+                        method: options?.method || 'Transfer BCA',
+                        referenceNumber: options?.referenceNumber,
+                        destinationBank: options?.destinationBank,
+                    },
+                    banks,
+                );
+
+                const newPaidAmount = invoice.paidAmount.toNumber() + amount;
+                let status: PurchaseInvoiceStatus =
+                    PurchaseInvoiceStatus.PARTIAL;
+
+                if (newPaidAmount >= invoice.totalAmount.toNumber()) {
+                    status = PurchaseInvoiceStatus.PAID;
+                }
+
+                // Nomor dialokasikan DI DALAM transaksi (bukan sebelumnya) dan
+                // seluruh transaksi di-retry pada P2002 paymentNumber — race
+                // atomic sequence + counter tertinggal (backfill SQL) tetap
+                // menyelamatkan pembayaran tanpa gagal di sisi user.
+                const paymentNumber = await getNextSequence('PAYMENT_OUT');
+
+                const payment = await tx.payment.create({
+                    data: {
+                        purchaseInvoiceId: id,
+                        paymentNumber,
+                        amount,
+                        paymentDate: options?.paymentDate || new Date(),
+                        method: paymentFields.method,
+                        notes: options?.notes,
+                        referenceNumber: paymentFields.referenceNumber,
+                        destinationBank: paymentFields.destinationBank,
+                    },
+                });
+
+                const updated = await tx.purchaseInvoice.update({
+                    where: { id },
+                    data: {
+                        paidAmount: newPaidAmount,
+                        status,
+                    },
+                });
+
+                await logActivity({
+                    userId,
+                    action: 'PAYMENT_PURCHASE',
+                    entityType: 'PurchaseInvoice',
+                    entityId: id,
+                    details: `Recorded payment of ${amount} for Invoice ${invoice.invoiceNumber}.New Status: ${status} `,
+                    tx,
+                });
+
+                return {
+                    ...updated,
+                    paymentId: payment.id,
+                };
+            }),
         );
-
-        const newPaidAmount = invoice.paidAmount.toNumber() + amount;
-        let status: PurchaseInvoiceStatus = PurchaseInvoiceStatus.PARTIAL;
-
-        if (newPaidAmount >= invoice.totalAmount.toNumber()) {
-            status = PurchaseInvoiceStatus.PAID;
-        }
-
-        const paymentNumber = await getNextSequence('PAYMENT_OUT');
-
-        const payment = await tx.payment.create({
-            data: {
-                purchaseInvoiceId: id,
-                paymentNumber,
-                amount,
-                paymentDate: options?.paymentDate || new Date(),
-                method: paymentFields.method,
-                notes: options?.notes,
-                referenceNumber: paymentFields.referenceNumber,
-                destinationBank: paymentFields.destinationBank,
-            },
-        });
-
-        const updated = await tx.purchaseInvoice.update({
-            where: { id },
-            data: {
-                paidAmount: newPaidAmount,
-                status,
-            },
-        });
-
-        await logActivity({
-            userId,
-            action: 'PAYMENT_PURCHASE',
-            entityType: 'PurchaseInvoice',
-            entityId: id,
-            details: `Recorded payment of ${amount} for Invoice ${invoice.invoiceNumber}.New Status: ${status} `,
-            tx,
-        });
-
-        return {
-            ...updated,
-            paymentId: payment.id,
-        };
-    });
 }
 
 export async function getPurchaseInvoiceById(id: string) {

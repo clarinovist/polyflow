@@ -41,7 +41,10 @@ vi.mock('@/lib/tools/audit', () => ({
     logActivity: vi.fn(),
 }));
 
-vi.mock('@/lib/utils/sequence', () => ({
+vi.mock('@/lib/utils/sequence', async (importOriginal) => ({
+    ...(await importOriginal<
+        typeof import('@/lib/utils/sequence')
+    >()),
     getNextSequence: vi.fn(),
 }));
 
