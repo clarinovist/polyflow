@@ -13,7 +13,14 @@
  * Invalidation contract — call invalidatePermissionsCache() after:
  * - rolePermission create/update/upsert (permissions actions)
  * - user role change or isActive toggle (admin users actions)
+ * - superadmin tenant-user suspend/reactivate/delete (admin tenant-users)
  * Missed invalidation self-heals within TTL (max 60s of stale access).
+ *
+ * Note on scope: entries are keyed `${tenantId}:${userId}` where tenantId
+ * comes from the browsing user's AsyncLocalStorage context. Superadmin
+ * actions run OUTSIDE that context and only know the target tenant by
+ * parameter, so they must invalidate by userId (sweeps every tenant entry
+ * for that user) rather than by key.
  */
 
 export type PermissionsValue = string[] | 'ALL';

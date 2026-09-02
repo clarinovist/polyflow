@@ -480,13 +480,18 @@ export const canViewPrices = withTenant(async function canViewPrices() {
         const session = await auth();
         if (!session?.user) return false;
 
-        if (session.user.id) {
-            const currentUser = await prisma.user.findUnique({
-                where: { id: session.user.id },
-                select: { isActive: true },
-            });
-            if (!currentUser?.isActive) return false;
-        }
+        // Fail-closed: session tanpa user.id tidak bisa diverifikasi keaktifannya,
+        // jadi tolak — sejajar dengan getMyPermissions. Sebelumnya cek isActive
+        // dilewati sepenuhnya saat id kosong, sehingga user non-aktif masih bisa
+        // lolos ke pengecekan role di bawah.
+        const userId = session.user.id;
+        if (!userId) return false;
+
+        const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { isActive: true },
+        });
+        if (!currentUser?.isActive) return false;
 
         if (hasRole(session.user, 'ADMIN')) return true;
 

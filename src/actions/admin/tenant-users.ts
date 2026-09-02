@@ -6,6 +6,7 @@ import { AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
 import { Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { logActivity } from '@/lib/tools/audit';
+import { invalidatePermissionsCache } from '@/lib/auth/permissions-cache';
 
 async function requireSuperAdmin() {
     const session = await auth();
@@ -74,6 +75,14 @@ export async function setTenantUserStatus(
         where: { id: userId },
         data: { isActive },
     });
+
+    // Suspend/reactivate mengubah hak akses efektif user. Cache permission
+    // di-key per `${tenantId}:${userId}`, tapi tenantId di key itu berasal
+    // dari AsyncLocalStorage saat user BROWSING — bukan tenantId parameter
+    // superadmin ini, dan action ini berjalan di luar tenantContext. Karena
+    // itu invalidasi dilakukan by-userId (menyapu semua tenant untuk user
+    // tersebut), bukan by-key.
+    invalidatePermissionsCache({ userId });
 
     await logActivity({
         userId: session.user.id!,
@@ -157,6 +166,10 @@ export async function deleteTenantUser(tenantId: string, userId: string) {
     if (!target) throw new BusinessRuleError('User tidak ditemukan.');
 
     await db.user.delete({ where: { id: userId } });
+
+    // User dihapus permanen — buang cache permission-nya agar tidak ada
+    // sisa hak akses yang terbaca sampai TTL habis.
+    invalidatePermissionsCache({ userId });
 
     await logActivity({
         userId: session.user.id!,
