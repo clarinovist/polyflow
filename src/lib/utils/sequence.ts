@@ -56,11 +56,20 @@ export async function getNextSequence(key: string): Promise<string> {
     // Upsert menutup dua kasus sekaligus: row belum ada (INSERT value=1) dan
     // row sudah ada (UPDATE value = value + 1). RETURNING mengambil nilai
     // yang benar-benar ditulis dalam lock yang sama, tanpa jendela race.
+    //
+    // "id" dan "updatedAt" WAJIB diisi eksplisit: `@default(uuid())` dan
+    // `@updatedAt` di schema.prisma adalah default sisi CLIENT Prisma, bukan
+    // default sisi database (information_schema: column_default kosong, NOT
+    // NULL). Raw SQL menyalip ORM, jadi tanpa kedua kolom ini Postgres menolak
+    // dengan 23502 — dan karena NOT NULL dievaluasi pada proposed row SEBELUM
+    // konflik terdeteksi, jalur DO UPDATE ikut gagal (100% gagal, bukan
+    // intermiten). Regresi produksi 2026-09-02, plan:
+    // docs/plan/2026-09-02-fix-systemsequence-null-id.md
     const result = await prisma.$queryRaw<Array<{ value: bigint }>>`
-        INSERT INTO "SystemSequence" ("key", "value")
-        VALUES (${key}, 1)
+        INSERT INTO "SystemSequence" ("id", "key", "value", "updatedAt")
+        VALUES (gen_random_uuid()::text, ${key}, 1, NOW())
         ON CONFLICT ("key")
-        DO UPDATE SET "value" = "SystemSequence"."value" + 1
+        DO UPDATE SET "value" = "SystemSequence"."value" + 1, "updatedAt" = NOW()
         RETURNING "value"`;
 
     const value = result[0]?.value;

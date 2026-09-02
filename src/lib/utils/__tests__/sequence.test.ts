@@ -73,6 +73,75 @@ describe('getNextSequence', () => {
     });
 });
 
+/**
+ * Regresi 2026-09-02: raw SQL menyalip Prisma ORM, jadi `@default(uuid())` dan
+ * `@updatedAt` (default sisi CLIENT, bukan sisi database) tidak terisi —
+ * Postgres menolak dengan 23502 `null value in column "id"`. Karena
+ * `$queryRaw` di-mock penuh, assertion terhadap HASIL tidak pernah bisa
+ * menangkap SQL yang salah; satu-satunya lapis yang menangkap kelas bug ini
+ * tanpa database nyata adalah assertion terhadap BENTUK SQL.
+ *
+ * Postgres mengevaluasi NOT NULL pada proposed row SEBELUM mendeteksi konflik,
+ * sehingga kolom yang hilang membuat jalur DO UPDATE ikut gagal — 100% gagal,
+ * bukan intermiten.
+ */
+describe('getNextSequence — bentuk SQL (anti-regresi 23502)', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        queryRawMock.mockResolvedValue([{ value: BigInt(1) }]);
+    });
+
+    async function capturedSql(): Promise<string> {
+        await getNextSequence('PAYMENT_IN');
+        const strings = queryRawMock.mock.calls[0]?.[0] as
+            | TemplateStringsArray
+            | undefined;
+        if (!strings) throw new Error('$queryRaw tidak dipanggil');
+        return Array.from(strings).join(' ? ');
+    }
+
+    it('dipanggil sebagai tagged template (bukan string mentah)', async () => {
+        await getNextSequence('PAYMENT_IN');
+        const first = queryRawMock.mock.calls[0]?.[0];
+
+        expect(Array.isArray(first)).toBe(true);
+    });
+
+    it('menyertakan kolom "id" pada daftar INSERT', async () => {
+        expect(await capturedSql()).toMatch(/INSERT INTO\s+"SystemSequence"[^)]*"id"/);
+    });
+
+    it('menyertakan kolom "updatedAt" pada daftar INSERT', async () => {
+        expect(await capturedSql()).toMatch(
+            /INSERT INTO\s+"SystemSequence"[^)]*"updatedAt"/,
+        );
+    });
+
+    it('mengisi "id" dengan gen_random_uuid() bertipe text', async () => {
+        expect(await capturedSql()).toMatch(/gen_random_uuid\(\)::text/);
+    });
+
+    it('menyetel "updatedAt" juga di jalur DO UPDATE', async () => {
+        const sql = await capturedSql();
+        const doUpdate = sql.slice(sql.indexOf('DO UPDATE'));
+
+        expect(doUpdate).toMatch(/"updatedAt"\s*=\s*NOW\(\)/);
+    });
+
+    it('tetap increment nilai di Postgres, bukan di JavaScript', async () => {
+        expect(await capturedSql()).toMatch(
+            /"value"\s*=\s*"SystemSequence"\."value"\s*\+\s*1/,
+        );
+    });
+
+    it('tetap memakai ON CONFLICT ("key") + RETURNING "value"', async () => {
+        const sql = await capturedSql();
+
+        expect(sql).toMatch(/ON CONFLICT\s*\(\s*"key"\s*\)/);
+        expect(sql).toMatch(/RETURNING\s+"value"/);
+    });
+});
+
 describe('retryOnPaymentNumberConflict', () => {
     beforeEach(() => {
         vi.clearAllMocks();
