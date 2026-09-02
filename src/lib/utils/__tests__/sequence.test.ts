@@ -6,12 +6,14 @@ vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         $queryRaw: vi.fn(),
     },
+    getTenantDbFromContext: vi.fn(),
 }));
 
 import { getNextSequence, retryOnPaymentNumberConflict } from '../sequence';
-import { prisma } from '@/lib/core/prisma';
+import { getTenantDbFromContext, prisma } from '@/lib/core/prisma';
 
 const queryRawMock = vi.mocked(prisma.$queryRaw);
+const getTenantDbMock = vi.mocked(getTenantDbFromContext);
 
 function conflictError(): Prisma.PrismaClientKnownRequestError {
     return new Prisma.PrismaClientKnownRequestError(
@@ -139,6 +141,63 @@ describe('getNextSequence — bentuk SQL (anti-regresi 23502)', () => {
 
         expect(sql).toMatch(/ON CONFLICT\s*\(\s*"key"\s*\)/);
         expect(sql).toMatch(/RETURNING\s+"value"/);
+    });
+});
+
+/**
+ * Insiden produksi 2026-09-02 (kedua): `prisma` yang di-import adalah Proxy
+ * yang me-route ke DB tenant HANYA di dalam tenantContext.run(); di luar itu
+ * jatuh ke Main/ref DB. Akibatnya nomor dialokasikan dari counter ref DB
+ * (tertinggal di 59, 0 Payment) sementara payment.create menulis ke DB tenant
+ * (MAX sudah 96) → P2002 beruntun PAY-IN-00059..63 yang tidak mungkin sembuh
+ * lewat retry, karena sumber nomornya memang salah.
+ */
+describe('getNextSequence — routing klien tenant', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('memakai klien tenant dari context, BUKAN proxy prisma', async () => {
+        const tenantQueryRaw = vi.fn().mockResolvedValue([{ value: BigInt(97) }]);
+        getTenantDbMock.mockReturnValue({
+            $queryRaw: tenantQueryRaw,
+        } as unknown as ReturnType<typeof getTenantDbFromContext>);
+
+        const result = await getNextSequence('PAYMENT_IN');
+
+        expect(result).toBe('PAY-IN-00097');
+        expect(tenantQueryRaw).toHaveBeenCalledTimes(1);
+        // Kunci regresi: proxy global tidak boleh tersentuh sama sekali.
+        expect(queryRawMock).not.toHaveBeenCalled();
+    });
+
+    it('memakai klien eksplisit bila diberikan, mengalahkan context', async () => {
+        const explicitQueryRaw = vi
+            .fn()
+            .mockResolvedValue([{ value: BigInt(5) }]);
+        const contextQueryRaw = vi.fn();
+        getTenantDbMock.mockReturnValue({
+            $queryRaw: contextQueryRaw,
+        } as unknown as ReturnType<typeof getTenantDbFromContext>);
+
+        const result = await getNextSequence('PAYMENT_OUT', {
+            $queryRaw: explicitQueryRaw,
+        } as unknown as Parameters<typeof getNextSequence>[1]);
+
+        expect(result).toBe('PAY-OUT-00005');
+        expect(explicitQueryRaw).toHaveBeenCalledTimes(1);
+        expect(contextQueryRaw).not.toHaveBeenCalled();
+        expect(queryRawMock).not.toHaveBeenCalled();
+    });
+
+    it('fallback ke proxy prisma hanya bila tidak ada context tenant', async () => {
+        getTenantDbMock.mockReturnValue(undefined);
+        queryRawMock.mockResolvedValue([{ value: BigInt(3) }]);
+
+        const result = await getNextSequence('PAYMENT_IN');
+
+        expect(result).toBe('PAY-IN-00003');
+        expect(queryRawMock).toHaveBeenCalledTimes(1);
     });
 });
 
