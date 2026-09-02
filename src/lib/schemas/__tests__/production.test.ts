@@ -128,5 +128,60 @@ describe('createBomSchema', () => {
       expect(issue?.message).toBe('Produk output tidak boleh menjadi bahan baku resep ini');
     }
   });
+
+  it('rejects when the same ingredient is added twice in the recipe', () => {
+    const duplicatePayload = {
+      ...validBomPayload,
+      items: [
+        { productVariantId: 'variant-ing-1', quantity: 1.9, scrapPercentage: 0 },
+        { productVariantId: 'variant-ing-1', quantity: 1.9, scrapPercentage: 0 },
+        { productVariantId: 'variant-ing-2', quantity: 1.9, scrapPercentage: 0 },
+      ],
+    };
+
+    const result = createBomSchema.safeParse(duplicatePayload);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.path[0] === 'items' && i.path[1] === 1 && i.path[2] === 'productVariantId'
+      );
+      expect(issue).toBeDefined();
+      expect(issue?.message).toContain('sudah ada di resep');
+    }
+  });
+
+  it('flags every extra duplicate row, not just the first repeat', () => {
+    const triplePayload = {
+      ...validBomPayload,
+      items: [
+        { productVariantId: 'variant-ing-1', quantity: 1, scrapPercentage: 0 },
+        { productVariantId: 'variant-ing-1', quantity: 1, scrapPercentage: 0 },
+        { productVariantId: 'variant-ing-1', quantity: 1, scrapPercentage: 0 },
+      ],
+    };
+
+    const result = createBomSchema.safeParse(triplePayload);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const duplicateIssues = result.error.issues.filter((i) =>
+        String(i.message).includes('sudah ada di resep')
+      );
+      expect(duplicateIssues.map((i) => i.path[1])).toEqual([1, 2]);
+    }
+  });
+
+  it('still accepts distinct ingredients that share the same quantity', () => {
+    const sameQtyPayload = {
+      ...validBomPayload,
+      items: [
+        { productVariantId: 'variant-ing-1', quantity: 1.9, scrapPercentage: 0 },
+        { productVariantId: 'variant-ing-2', quantity: 1.9, scrapPercentage: 0 },
+        { productVariantId: 'variant-ing-3', quantity: 1.9, scrapPercentage: 0 },
+      ],
+    };
+
+    const result = createBomSchema.safeParse(sameQtyPayload);
+    expect(result.success).toBe(true);
+  });
 });
 

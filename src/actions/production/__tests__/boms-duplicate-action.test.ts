@@ -243,4 +243,48 @@ describe('duplicateBom action', () => {
         // Should NOT call updateMany to unset defaults
         expect(mockTx.bom.updateMany).not.toHaveBeenCalled();
     });
+
+    it('refuses to copy a source BOM that lists the same ingredient twice', async () => {
+        // Regresi 2026-09-02: baris bahan kembar di BOM sumber terbawa ke salinan,
+        // dan backflush memotong stok SKU itu dua kali per entri hasil.
+        mockPrisma.bom.findUnique.mockResolvedValue({
+            ...SOURCE_BOM,
+            items: [
+                {
+                    id: 'item-1',
+                    productVariantId: 'pv-green',
+                    quantity: 1.9,
+                    scrapPercentage: 0,
+                },
+                {
+                    id: 'item-2',
+                    productVariantId: 'pv-green',
+                    quantity: 1.9,
+                    scrapPercentage: 0,
+                },
+                {
+                    id: 'item-3',
+                    productVariantId: 'pv-orange',
+                    quantity: 1.9,
+                    scrapPercentage: 0,
+                },
+            ],
+        });
+        mockPrisma.productVariant.findUnique.mockResolvedValue(TARGET_VARIANT);
+
+        const result = await duplicateBom({
+            sourceBomId: 'bom-source-1',
+            productVariantId: 'pv-kw05',
+            name: 'Salinan resep bermasalah',
+            quantityScale: 1,
+            isDefault: false,
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error).toContain('lebih dari satu baris');
+        }
+        // Nothing should be written when the source recipe is malformed
+        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
 });

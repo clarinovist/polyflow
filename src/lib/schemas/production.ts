@@ -250,6 +250,8 @@ export const createBomSchema = z
             .min(1, 'At least one ingredient is required'),
     })
     .superRefine((data, ctx) => {
+        const seenVariantIds = new Set<string>();
+
         data.items.forEach((item, index) => {
             if (
                 item.productVariantId &&
@@ -262,6 +264,20 @@ export const createBomSchema = z
                     path: ['items', index, 'productVariantId'],
                 });
             }
+
+            // Bahan yang sama tidak boleh muncul dua kali: backflush mengiterasi
+            // per BARIS resep, jadi baris kembar memotong stok berkali-kali.
+            if (!item.productVariantId) return;
+            if (seenVariantIds.has(item.productVariantId)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message:
+                        'Bahan ini sudah ada di resep. Gabungkan jumlahnya dalam satu baris, jangan tambah baris kembar.',
+                    path: ['items', index, 'productVariantId'],
+                });
+                return;
+            }
+            seenVariantIds.add(item.productVariantId);
         });
     });
 

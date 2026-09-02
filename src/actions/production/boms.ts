@@ -755,6 +755,19 @@ export const duplicateBom = withTenant(async function duplicateBom(
             );
         }
 
+        // Jangan menyalin baris bahan kembar dari BOM lama: backflush mengiterasi
+        // per baris, jadi SKU yang muncul dua kali memotong stok dua kali.
+        const duplicateVariantIds = scaledItems
+            .map((item) => item.productVariantId)
+            .filter(
+                (variantId, index, all) => all.indexOf(variantId) !== index,
+            );
+        if (duplicateVariantIds.length > 0) {
+            throw new BusinessRuleError(
+                'BOM sumber memuat bahan yang sama lebih dari satu baris. Perbaiki resep sumber dulu (gabungkan jadi satu baris) sebelum menduplikasi.',
+            );
+        }
+
         try {
             const outputQuantity =
                 validated.outputQuantity ?? Number(sourceBom.outputQuantity);
