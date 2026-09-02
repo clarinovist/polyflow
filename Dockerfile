@@ -28,15 +28,19 @@ RUN npx prisma generate
 # ENV NEXT_TELEMETRY_DISABLED 1
 
 
-# Compile seed script
-RUN npx tsc prisma/seed.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-RUN npx tsc prisma/seed-baseline.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-RUN npx tsc prisma/fix-coa.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-
-# Compile new multi-tenant CLI scripts
-RUN npx tsc scripts/provision-tenant.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-RUN npx tsc scripts/migrate-all-tenants.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-RUN npx tsc scripts/cleanup-performance-metrics.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+# Compile seed scripts + multi-tenant CLI scripts.
+# Satu invocation, bukan enam: tiap `npx tsc` mem-boot compiler dari nol, dan
+# tiap RUN menambah satu layer. Diukur lokal: 6x terpisah 4.65s vs 1x gabungan
+# 0.83s. Output identik (superset — seed-coa.js ikut ter-emit sebagai dependency
+# seed.ts, sama seperti sebelumnya).
+RUN npx tsc \
+  prisma/seed.ts \
+  prisma/seed-baseline.ts \
+  prisma/fix-coa.ts \
+  scripts/provision-tenant.ts \
+  scripts/migrate-all-tenants.ts \
+  scripts/cleanup-performance-metrics.ts \
+  --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
 RUN npm run build
 

@@ -1,0 +1,48 @@
+# Build context exclusions.
+#
+# Sebelum file ini ada, `COPY . .` (Dockerfile) menarik SELURUH direktori ke
+# build context — termasuk .git (58M), graphify-out (119M), coverage, docs.
+# Dua akibatnya: image layer membawa file yang tidak pernah dipakai runtime,
+# dan setiap perubahan file apa pun (docs/plan, graphify-out yang memang
+# sering dirty setelah `graphify update .`) membatalkan layer COPY beserta
+# semua layer sesudahnya — termasuk `npm run build` yang makan 127s di CI.
+#
+# JANGAN tambahkan prisma/, scripts/, atau public/ ke daftar ini: Dockerfile
+# butuh ketiganya (npx tsc prisma+scripts, COPY public, COPY prisma).
+
+# Dependencies & build output (di-generate ulang di dalam image)
+node_modules
+.next
+out
+build
+
+# Version control
+.git
+.gitignore
+.githooks
+
+# Tooling artefak berat
+graphify-out
+coverage
+
+# Dokumentasi (tidak dipakai runtime)
+docs
+README.md
+
+# Secrets & environment — jangan sampai masuk image
+.env
+.env.*
+!.env.example
+certs
+
+# Editor & OS
+.vscode
+.idea
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test artefak
+.vitest

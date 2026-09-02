@@ -42,7 +42,37 @@ jobs:
         run: bash scripts/check-agents-consistency.sh
 
   # ─────────────────────────────────────────────
-  # 2. Tests
+  # 2a. Lint
+  #     Split out of `test` deliberately: ESLint (~74s) and vitest (~166s) share
+  #     no output, so running them serially in one job just added ~74s to the
+  #     critical path. They now run side by side.
+  #     NOTE: `deploy` MUST keep `lint` in its `needs` list — dropping it would
+  #     silently demote lint from a deploy gate to a decorative red X.
+  # ─────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Required: eslint-config-next type-aware rules resolve imports that
+      # include the generated Prisma client. Without this the lint job fails on
+      # unresolved types rather than on real violations.
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run ESLint
+        run: npm run lint
+
+  # ─────────────────────────────────────────────
+  # 2b. Tests
   # ─────────────────────────────────────────────
   test:
     name: Test & Validate
@@ -64,9 +94,6 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
-
-      - name: Run ESLint
-        run: npm run lint
 
       - name: Run Tests with Coverage
         run: npx vitest run --coverage
@@ -134,15 +161,15 @@ jobs:
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
-    needs: [test, build-and-push]
+    needs: [test, lint, build-and-push]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      # `needs` above is the real gate: this job only starts when the tests are
-      # green AND the image exists. Promoting the tag here is what keeps `:latest`
-      # a "tested" marker rather than merely a "built" one.
+      # `needs` above is the real gate: this job only starts when tests AND lint
+      # are green AND the image exists. Promoting the tag here is what keeps
+      # `:latest` a "tested" marker rather than merely a "built" one.
       - name: Log in to Container Registry
         uses: docker/login-action@v4
         with:
