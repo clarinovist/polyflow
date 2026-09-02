@@ -12,6 +12,12 @@ import {
     AuthorizationError,
 } from '@/lib/errors/errors';
 import { getUserRoles, hasRole, isTenantAdmin } from '@/lib/auth/roles';
+import {
+    getCachedPermissions,
+    invalidatePermissionsCache,
+    permissionsCacheKey,
+} from '@/lib/auth/permissions-cache';
+import { getTenantIdFromContext } from '@/lib/core/prisma';
 
 async function checkAdmin() {
     const session = await auth();
@@ -164,6 +170,8 @@ export const updatePermission = withTenant(async function updatePermission(
             revalidatePath('/finance');
             revalidatePath('/hrd');
             revalidatePath('/maklon');
+            // Role permission changed — drop cached permission sets.
+            invalidatePermissionsCache();
             return null;
         } catch (error) {
             if (error instanceof AuthorizationError) throw error;
@@ -244,6 +252,9 @@ export const updatePermissionsBulk = withTenant(
                 revalidatePath('/finance');
                 revalidatePath('/hrd');
                 revalidatePath('/maklon');
+                // Role permissions changed — drop cached permission sets so
+                // all users of this tenant re-read them on next navigation.
+                invalidatePermissionsCache();
                 return null;
             } catch (error) {
                 if (error instanceof AuthorizationError) throw error;
@@ -409,46 +420,58 @@ export const getMyPermissions = withTenant(async function getMyPermissions() {
         const session = await auth();
         if (!session?.user) return [];
 
-        if (session.user.id) {
-            const currentUser = await prisma.user.findUnique({
-                where: { id: session.user.id },
-                select: { isActive: true },
-            });
-            if (!currentUser?.isActive) return [];
-        }
+        const userId = session.user.id;
+        if (!userId) return [];
 
-        if (hasRole(session.user, 'ADMIN')) {
-            return 'ALL';
-        }
-
-        const userRoles = getUserRoles(session.user) as Role[];
-
-        for (const r of userRoles) {
-            const count = await prisma.rolePermission.count({
-                where: { role: r },
-            });
-
-            if (count === 0) {
-                const defaults = DEFAULT_PERMISSIONS[r];
-                if (defaults && defaults.length > 0) {
-                    await seedDefaultPermissionsInternal(r, defaults);
-                }
-            }
-        }
-
-        const permissions = await prisma.rolePermission.findMany({
-            where: {
-                role: { in: userRoles },
-                canAccess: true,
-            },
-            select: { resource: true },
+        const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { isActive: true },
         });
+        if (!currentUser?.isActive) return [];
 
-        return [
-            ...new Set(
-                permissions.map((p: { resource: string }) => p.resource),
-            ),
-        ];
+        // Short-TTL cache: layouts call this on every navigation and the
+        // loader fans out 3-5 queries. Invalidation sites: updatePermission /
+        // updatePermissionsBulk (below) and user role/isActive mutations in
+        // admin/users.ts. Worst-case staleness after a missed invalidation:
+        // 60s (see permissions-cache.ts header).
+        const tenantId = getTenantIdFromContext() ?? 'no-tenant';
+        return getCachedPermissions(
+            permissionsCacheKey(tenantId, userId),
+            async () => {
+                if (hasRole(session.user, 'ADMIN')) {
+                    return 'ALL';
+                }
+
+                const userRoles = getUserRoles(session.user) as Role[];
+
+                for (const r of userRoles) {
+                    const count = await prisma.rolePermission.count({
+                        where: { role: r },
+                    });
+
+                    if (count === 0) {
+                        const defaults = DEFAULT_PERMISSIONS[r];
+                        if (defaults && defaults.length > 0) {
+                            await seedDefaultPermissionsInternal(r, defaults);
+                        }
+                    }
+                }
+
+                const permissions = await prisma.rolePermission.findMany({
+                    where: {
+                        role: { in: userRoles },
+                        canAccess: true,
+                    },
+                    select: { resource: true },
+                });
+
+                return [
+                    ...new Set(
+                        permissions.map((p: { resource: string }) => p.resource),
+                    ),
+                ];
+            },
+        );
     });
 });
 

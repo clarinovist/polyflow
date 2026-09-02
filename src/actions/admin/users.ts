@@ -7,6 +7,7 @@ import { Role, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';
+import { invalidatePermissionsCache } from '@/lib/auth/permissions-cache';
 import {
     safeAction,
     AuthorizationError,
@@ -252,6 +253,10 @@ export const setUserRoles = withTenant(async function setUserRoles(
             },
         });
 
+        // Roles drive permission lookups — drop the target user's cached
+        // permission set so the change applies on their next navigation.
+        invalidatePermissionsCache({ userId });
+
         revalidatePath('/dashboard/settings');
         return null;
     });
@@ -341,6 +346,9 @@ export const updateUser = withTenant(async function updateUser(
             },
         });
 
+        // Primary role affects permission lookups — drop the user's cached set.
+        invalidatePermissionsCache({ userId: validated.id });
+
         revalidatePath('/dashboard/settings');
         return null;
     });
@@ -386,6 +394,9 @@ export const deleteUser = withTenant(async function deleteUser(userId: string) {
             },
         });
 
+        // Deactivated user must not keep serving cached permissions.
+        invalidatePermissionsCache({ userId });
+
         revalidatePath('/dashboard/settings');
         return null;
     });
@@ -423,6 +434,9 @@ export const reactivateUser = withTenant(async function reactivateUser(
                 after: { isActive: true },
             },
         });
+
+        // Reactivation changes access — drop the user's cached set.
+        invalidatePermissionsCache({ userId });
 
         revalidatePath('/dashboard/settings');
         return null;

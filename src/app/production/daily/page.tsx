@@ -1,9 +1,5 @@
 import { auth } from '@/auth';
-import { getProductionOrders } from '@/actions/production/production-orders';
-import { getBoms } from '@/actions/production/boms';
-import { getMachines } from '@/actions/production/machines';
-import { getMachineStageMap } from '@/actions/production/machine-stage-settings';
-import { ProductionStatus } from '@prisma/client';
+import { getDailyBoardData } from '@/actions/production/daily-board-data';
 import { serializeData } from '@/lib/utils/utils';
 import Link from 'next/link';
 import {
@@ -18,35 +14,16 @@ export const dynamic = 'force-dynamic';
 export default async function DailyProductionPage() {
     const session = await auth();
 
-    // Fetch all production orders, then filter by active status
-    // This includes orders from previous days that are still in progress
-    const ordersRes = await getProductionOrders();
-    const allOrders = ordersRes;
-    const orders = allOrders.filter((o) =>
-        (
-            [
-                ProductionStatus.RELEASED,
-                ProductionStatus.IN_PROGRESS,
-                ProductionStatus.WAITING_MATERIAL,
-            ] as ProductionStatus[]
-        ).includes(o.status),
-    );
-
-    // Fetch BOMs with default flag for Quick Produce dialog
-    const bomsRes = await getBoms();
-    const allBoms = bomsRes.success && bomsRes.data ? bomsRes.data : [];
-    const boms = allBoms.filter((b) => b.isDefault);
-
-    // Fetch active machines
-    const machinesRes = await getMachines();
-    const allMachines =
-        machinesRes.success && machinesRes.data ? machinesRes.data : [];
-    const machines = allMachines.filter((m) => m.status === 'ACTIVE');
-
-    // Fetch per-tenant machine stage map (may be empty → default behavior)
-    const stageMapRes = await getMachineStageMap();
-    const machineStageMap =
-        stageMapRes.success && stageMapRes.data ? stageMapRes.data : {};
+    // Single round-trip: active orders (+executions), default BOMs,
+    // active machines, and the per-tenant machine stage map.
+    // (Previously 4 actions fetched ALL orders incl. COMPLETED/CANCELLED,
+    // all BOMs with items/inventories, and nested machine executions —
+    // plan: docs/plan/2026-09-02-production-daily-slim-and-permissions-cache.md)
+    const res = await getDailyBoardData();
+    const { orders, boms, machines, machineStageMap } =
+        res.success && res.data
+            ? res.data
+            : { orders: [], boms: [], machines: [], machineStageMap: {} };
 
     return (
         <div className="flex flex-col gap-6">
