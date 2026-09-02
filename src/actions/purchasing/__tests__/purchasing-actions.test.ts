@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockPrisma, mockPurchaseService, mockAutoJournalService, mockApproveWalkIn, mockRejectWalkIn } = vi.hoisted(() => {
-    const mockPrisma = {};
+    const mockPrisma = {
+        warehouseOperationalAttachment: { updateMany: vi.fn() },
+    };
     const mockPurchaseService = {
         createOrder: vi.fn(),
         updateOrder: vi.fn(),
@@ -16,6 +18,7 @@ const { mockPrisma, mockPurchaseService, mockAutoJournalService, mockApproveWalk
         getPurchaseInvoiceById: vi.fn(),
         getPurchaseInvoices: vi.fn(),
         updatePurchaseInvoiceDueDate: vi.fn(),
+        createGoodsReceipt: vi.fn(),
     };
     const mockAutoJournalService = {
         handlePurchaseInvoiceCreated: vi.fn().mockResolvedValue(undefined),
@@ -116,6 +119,7 @@ import {
     approveWalkInPurchaseInvoice,
     rejectWalkInPurchaseInvoice,
     updatePurchaseInvoiceDueDate,
+    createGoodsReceipt,
 } from '../purchasing';
 
 function session(userId: string, roles: string[]) {
@@ -355,5 +359,69 @@ describe('purchasing.ts remaining auth guards', () => {
             const result = await updatePurchaseInvoiceDueDate('inv-1', { dueDate: '2026-12-01' });
             expect(result.success).toBe(false);
         });
+    });
+});
+
+describe('createGoodsReceipt — migrasi bukti foto PO → GR', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockRequireWarehouseResourcePermission.mockResolvedValue(
+            session('u-wh', ['WAREHOUSE']),
+        );
+        mockPurchaseService.createGoodsReceipt.mockResolvedValue({
+            id: 'gr-1',
+            receiptNumber: 'GR-2026-0001',
+        });
+        mockPrisma.warehouseOperationalAttachment.updateMany.mockResolvedValue({
+            count: 2,
+        });
+    });
+
+    const payload = {
+        purchaseOrderId: 'po-1',
+        receivedDate: new Date('2026-09-03'),
+        locationId: 'loc-1',
+        notes: '',
+        isMaklon: false,
+        items: [],
+    } as any;
+
+    it('moves PO-scoped attachments onto the new goods receipt', async () => {
+        // Evidence is uploaded against the PO because the GR does not exist yet.
+        // Without this migration the GR detail page (which queries by
+        // goodsReceiptId) would silently show zero photos.
+        const result = await createGoodsReceipt(payload);
+
+        expect(result.success).toBe(true);
+        expect(
+            mockPrisma.warehouseOperationalAttachment.updateMany,
+        ).toHaveBeenCalledWith({
+            where: { purchaseOrderId: 'po-1' },
+            data: { goodsReceiptId: 'gr-1', purchaseOrderId: null },
+        });
+    });
+
+    it('still records the receipt when attachment migration fails', async () => {
+        mockPrisma.warehouseOperationalAttachment.updateMany.mockRejectedValue(
+            new Error('db down'),
+        );
+
+        const result = await createGoodsReceipt(payload);
+
+        // Attachments are optional evidence — they must never block receiving.
+        expect(result.success).toBe(true);
+        expect(mockPurchaseService.createGoodsReceipt).toHaveBeenCalled();
+    });
+
+    it('skips migration when there is no purchase order', async () => {
+        const result = await createGoodsReceipt({
+            ...payload,
+            purchaseOrderId: undefined,
+        });
+
+        expect(result.success).toBe(true);
+        expect(
+            mockPrisma.warehouseOperationalAttachment.updateMany,
+        ).not.toHaveBeenCalled();
     });
 });

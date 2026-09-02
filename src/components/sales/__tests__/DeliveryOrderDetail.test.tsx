@@ -39,6 +39,15 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
+// The legacy photo card renders next/image; without this the image branch throws
+// "Element type is invalid" in jsdom.
+vi.mock('next/image', () => ({
+    __esModule: true,
+    default: ({ alt }: { alt?: string }) => (
+        <span data-testid="next-image" aria-label={alt ?? ''} />
+    ),
+}));
+
 vi.mock('@/components/warehouse/outgoing/LoadVerifyPanel', () => ({
     LoadVerifyPanel: () => null,
 }));
@@ -56,7 +65,9 @@ vi.mock('@/components/sales/EditDeliveryPricingDialog', () => ({
 }));
 
 vi.mock('@/components/warehouse/WarehouseAttachmentPanel', () => ({
-    WarehouseAttachmentPanel: () => null,
+    WarehouseAttachmentPanel: ({ checkpoint }: { checkpoint: string }) => (
+        <div data-testid={`attachment-panel-${checkpoint}`} />
+    ),
 }));
 
 vi.mock('@/components/ui/print-preview-modal', () => ({
@@ -283,5 +294,69 @@ describe('DeliveryOrderDetail — item Keterangan', () => {
         });
 
         expect(screen.getByText(salesLabels.saveSjQty)).toBeDefined();
+    });
+});
+
+describe('DeliveryOrderDetail — bukti foto (legacy vs attachment panel)', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockFetchDeliveryStockReadiness.mockResolvedValue({
+            success: true,
+            data: [],
+        });
+    });
+
+    it('hides the legacy photo card when the DO has no legacy photos and can no longer take one', () => {
+        // DELIVERED is outside VEHICLE_PHOTO_STATUS_LIST and the POD upload needs
+        // a legacy URL to be useful — an empty legacy card here is the decoy that
+        // made operators believe their photos were missing.
+        render(
+            <DeliveryOrderDetail
+                order={makeOrder({ status: 'CANCELLED' })}
+                attachments={[]}
+            />,
+        );
+
+        expect(screen.queryByText('Foto Pengiriman')).toBeNull();
+        expect(screen.queryByText('Belum ada foto truk')).toBeNull();
+    });
+
+    it('still shows the legacy photo card when legacy photo data exists', () => {
+        render(
+            <DeliveryOrderDetail
+                order={makeOrder({
+                    status: 'CANCELLED',
+                    vehiclePhotoUrl: 'https://r2.example/veh.jpg',
+                })}
+                attachments={[]}
+            />,
+        );
+
+        expect(screen.getByText('Foto Pengiriman')).toBeDefined();
+    });
+
+    it('keeps the operational attachment panels available on a PENDING DO', () => {
+        // Server policy (ALLOWED_DO_STATUSES) accepts PENDING, so the UI must not
+        // hide the only working upload path at that status.
+        render(
+            <DeliveryOrderDetail
+                order={makeOrder({ status: 'PENDING' })}
+                attachments={[]}
+            />,
+        );
+
+        expect(screen.getByTestId('attachment-panel-LOAD')).toBeDefined();
+        expect(screen.getByTestId('attachment-panel-DAMAGE')).toBeDefined();
+    });
+
+    it('renders the attachment panel even when the legacy card is hidden', () => {
+        render(
+            <DeliveryOrderDetail
+                order={makeOrder({ status: 'DELIVERED' })}
+                attachments={[]}
+            />,
+        );
+
+        expect(screen.getByTestId('attachment-panel-LOAD')).toBeDefined();
     });
 });

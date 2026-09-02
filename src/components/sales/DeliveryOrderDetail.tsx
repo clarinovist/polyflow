@@ -345,6 +345,20 @@ export function DeliveryOrderDetail({
         'proof_of_delivery',
     );
 
+    /**
+     * Legacy scalar photo fields (`vehiclePhotoUrl` / `proofOfDeliveryUrl`) predate
+     * `WarehouseOperationalAttachment`. Tenants that only ever used the attachment
+     * panel have them empty, so the legacy card rendered a permanent
+     * "Belum ada foto" next to a panel that actually held the photos — readers
+     * concluded the photos were missing. Show the legacy card only where it still
+     * carries data (or can still receive an upload), never as an empty decoy.
+     */
+    const hasLegacyDeliveryPhotos = Boolean(
+        order.vehiclePhotoUrl || order.proofOfDeliveryUrl,
+    );
+    const showLegacyPhotoCard =
+        hasLegacyDeliveryPhotos || canUploadVehicle || canUploadPOD;
+
     const handlePhotoUpload = async (
         file: File,
         photoType: 'vehicle' | 'proof_of_delivery',
@@ -1388,173 +1402,178 @@ export function DeliveryOrderDetail({
                 </div>
             </div>
 
-            {/* Photos Section */}
-            <Card className="md:col-span-2">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Camera className="h-5 w-5" />
-                        Foto Pengiriman
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Vehicle Photo */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium text-muted-foreground uppercase">
-                                Foto Truk Saat Muat
-                            </label>
-                            {order.vehiclePhotoUrl ? (
-                                <div className="relative border rounded-lg overflow-hidden h-48">
-                                    <Image
-                                        src={order.vehiclePhotoUrl}
-                                        alt="Foto Truk"
-                                        fill
-                                        unoptimized
-                                        className="object-cover"
-                                        sizes="(max-width: 768px) 100vw, 50vw"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-                                    Belum ada foto truk
-                                </div>
-                            )}
-                            {canUploadVehicle && (
-                                <>
-                                    <input
-                                        ref={vehicleInputRef}
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file)
-                                                handlePhotoUpload(
-                                                    file,
-                                                    'vehicle',
-                                                );
-                                        }}
-                                    />
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full"
-                                        onClick={() =>
-                                            vehicleInputRef.current?.click()
-                                        }
-                                        disabled={uploadingVehicle}
-                                    >
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        {uploadingVehicle
-                                            ? 'Mengupload...'
-                                            : order.vehiclePhotoUrl
-                                              ? 'Ganti Foto Truk'
-                                              : 'Upload Foto Truk'}
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Proof of Delivery */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium text-muted-foreground uppercase">
-                                Bukti Terima
-                            </label>
-                            {order.proofOfDeliveryUrl ? (
-                                <>
+            {/* Photos Section — legacy scalar fields, hidden when empty & unusable */}
+            {showLegacyPhotoCard && (
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Camera className="h-5 w-5" />
+                            Foto Pengiriman
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Vehicle Photo */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-muted-foreground uppercase">
+                                    Foto Truk Saat Muat
+                                </label>
+                                {order.vehiclePhotoUrl ? (
                                     <div className="relative border rounded-lg overflow-hidden h-48">
                                         <Image
-                                            src={order.proofOfDeliveryUrl}
-                                            alt="Bukti Terima"
+                                            src={order.vehiclePhotoUrl}
+                                            alt="Foto Truk"
                                             fill
                                             unoptimized
                                             className="object-cover"
                                             sizes="(max-width: 768px) 100vw, 50vw"
                                         />
                                     </div>
-                                    {order.receivedBy && (
-                                        <p className="text-sm text-muted-foreground">
-                                            Diterima oleh:{' '}
-                                            <span className="font-medium">
-                                                {order.receivedBy}
-                                            </span>
-                                        </p>
-                                    )}
-                                    {order.proofOfDeliveryAt && (
-                                        <p className="text-xs text-muted-foreground">
-                                            Pada:{' '}
-                                            {format(
-                                                new Date(
-                                                    order.proofOfDeliveryAt,
-                                                ),
-                                                'PPpp',
-                                            )}
-                                        </p>
-                                    )}
-                                </>
-                            ) : (
-                                <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
-                                    Belum ada bukti terima
-                                </div>
-                            )}
-                            {canUploadPOD && (
-                                <>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-medium text-muted-foreground">
-                                            Nama Penerima *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={receivedByName}
-                                            onChange={(e) =>
-                                                setReceivedByName(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="Nama penerima"
-                                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                                        />
+                                ) : (
+                                    <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+                                        Belum ada foto truk
                                     </div>
-                                    <input
-                                        ref={podInputRef}
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file)
-                                                handlePhotoUpload(
-                                                    file,
-                                                    'proof_of_delivery',
-                                                );
-                                        }}
-                                    />
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full"
-                                        onClick={() =>
-                                            podInputRef.current?.click()
-                                        }
-                                        disabled={
-                                            uploadingPOD ||
-                                            !receivedByName.trim()
-                                        }
-                                    >
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        {uploadingPOD
-                                            ? 'Mengupload...'
-                                            : 'Upload Bukti Terima'}
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                                )}
+                                {canUploadVehicle && (
+                                    <>
+                                        <input
+                                            ref={vehicleInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file =
+                                                    e.target.files?.[0];
+                                                if (file)
+                                                    handlePhotoUpload(
+                                                        file,
+                                                        'vehicle',
+                                                    );
+                                            }}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() =>
+                                                vehicleInputRef.current?.click()
+                                            }
+                                            disabled={uploadingVehicle}
+                                        >
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            {uploadingVehicle
+                                                ? 'Mengupload...'
+                                                : order.vehiclePhotoUrl
+                                                  ? 'Ganti Foto Truk'
+                                                  : 'Upload Foto Truk'}
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
 
-            {/* Bukti Operasional — optional, shown when there are attachments or during active states */}
+                            {/* Proof of Delivery */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-muted-foreground uppercase">
+                                    Bukti Terima
+                                </label>
+                                {order.proofOfDeliveryUrl ? (
+                                    <>
+                                        <div className="relative border rounded-lg overflow-hidden h-48">
+                                            <Image
+                                                src={order.proofOfDeliveryUrl}
+                                                alt="Bukti Terima"
+                                                fill
+                                                unoptimized
+                                                className="object-cover"
+                                                sizes="(max-width: 768px) 100vw, 50vw"
+                                            />
+                                        </div>
+                                        {order.receivedBy && (
+                                            <p className="text-sm text-muted-foreground">
+                                                Diterima oleh:{' '}
+                                                <span className="font-medium">
+                                                    {order.receivedBy}
+                                                </span>
+                                            </p>
+                                        )}
+                                        {order.proofOfDeliveryAt && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Pada:{' '}
+                                                {format(
+                                                    new Date(
+                                                        order.proofOfDeliveryAt,
+                                                    ),
+                                                    'PPpp',
+                                                )}
+                                            </p>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+                                        Belum ada bukti terima
+                                    </div>
+                                )}
+                                {canUploadPOD && (
+                                    <>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-muted-foreground">
+                                                Nama Penerima *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={receivedByName}
+                                                onChange={(e) =>
+                                                    setReceivedByName(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="Nama penerima"
+                                                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                                            />
+                                        </div>
+                                        <input
+                                            ref={podInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file =
+                                                    e.target.files?.[0];
+                                                if (file)
+                                                    handlePhotoUpload(
+                                                        file,
+                                                        'proof_of_delivery',
+                                                    );
+                                            }}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() =>
+                                                podInputRef.current?.click()
+                                            }
+                                            disabled={
+                                                uploadingPOD ||
+                                                !receivedByName.trim()
+                                            }
+                                        >
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            {uploadingPOD
+                                                ? 'Mengupload...'
+                                                : 'Upload Bukti Terima'}
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Bukti Operasional — the live evidence store (WarehouseOperationalAttachment) */}
             {(safeAttachments.length > 0 ||
+                order.status === 'PENDING' ||
                 order.status === 'LOADING' ||
                 order.status === 'SHIPPED' ||
                 order.status === 'IN_TRANSIT' ||

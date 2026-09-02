@@ -1,9 +1,11 @@
 import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
 import { getSalesOrderById } from '@/actions/sales/sales';
+import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
 import {
     DeliveryOrderDetail,
     type DeliveryOrderDetailData,
 } from '@/components/sales/DeliveryOrderDetail';
+import type { AttachmentItem } from '@/components/warehouse/WarehouseAttachmentPanel';
 import { notFound, redirect } from 'next/navigation';
 import { serializeData } from '@/lib/utils/utils';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
@@ -21,13 +23,21 @@ export default async function WarehouseOutgoingDoDetailPage({
 }: PageProps) {
     const { id } = await params;
 
-    const [doResult, companyConfig] = await Promise.all([
+    const [doResult, companyConfig, attachmentsRes] = await Promise.all([
         getDeliveryOrderById(id),
         getCompanyConfigWithOverridesAsync(),
+        listWarehouseAttachments({ deliveryOrderId: id }),
     ]);
 
     if (doResult?.success && doResult.data) {
         const serializedOrder = serializeData(doResult.data);
+        // Attachments are always optional evidence — never fail the page on them.
+        const attachments =
+            attachmentsRes.success && Array.isArray(attachmentsRes.data)
+                ? (serializeData(
+                      attachmentsRes.data,
+                  ) as unknown as AttachmentItem[])
+                : [];
         return (
             <div className="p-6">
                 <DeliveryOrderDetail
@@ -37,6 +47,7 @@ export default async function WarehouseOutgoingDoDetailPage({
                     companyConfig={companyConfig}
                     basePath="/warehouse/outgoing"
                     warehouseMode={true}
+                    attachments={attachments}
                 />
             </div>
         );

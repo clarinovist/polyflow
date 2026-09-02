@@ -42,6 +42,10 @@ import {
 } from '@/components/ui/card';
 import { Package, Download, Info, CheckCircle } from 'lucide-react';
 import { purchasingLabels, formLabels } from '@/lib/labels';
+import {
+    WarehouseAttachmentPanel,
+    type AttachmentItem,
+} from '@/components/warehouse/WarehouseAttachmentPanel';
 
 interface GoodsReceiptFormProps {
     purchaseOrderId: string;
@@ -59,6 +63,8 @@ interface GoodsReceiptFormProps {
     locations: { id: string; name: string }[];
     defaultLocationId?: string;
     basePath?: string;
+    /** Operational photo evidence already attached to this PO. */
+    attachments?: AttachmentItem[];
 }
 
 /** Parse decimal string; accepts Indonesian comma (247,62) and period (247.62). */
@@ -74,6 +80,7 @@ export function GoodsReceiptForm({
     locations,
     defaultLocationId,
     basePath = '/purchasing/orders',
+    attachments = [],
 }: GoodsReceiptFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -155,7 +162,8 @@ export function GoodsReceiptForm({
                                     Penerimaan Item
                                 </CardTitle>
                                 <CardDescription>
-                                    Verifikasi kuantitas untuk item yang diterima.
+                                    Verifikasi kuantitas untuk item yang
+                                    diterima.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -353,6 +361,18 @@ export function GoodsReceiptForm({
                                 />
                             </CardContent>
                         </Card>
+
+                        {/* Bukti Penerimaan — optional photo evidence.
+                            Attached to the PO here (the GR does not exist yet);
+                            `createGoodsReceipt` migrates it to the new GR. */}
+                        <WarehouseAttachmentPanel
+                            entityId={purchaseOrderId}
+                            entityLabel={orderNumber}
+                            entityType="purchaseOrderId"
+                            checkpoint="RECEIPT"
+                            attachments={attachments}
+                            onAttachmentChange={() => router.refresh()}
+                        />
                     </div>
 
                     <div className="space-y-6">

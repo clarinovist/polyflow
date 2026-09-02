@@ -4,6 +4,8 @@ import { getLocations } from '@/actions/inventory/inventory';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { GoodsReceiptForm } from '@/components/purchasing/orders/GoodsReceiptForm';
+import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
+import type { AttachmentItem } from '@/components/warehouse/WarehouseAttachmentPanel';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
@@ -74,9 +76,19 @@ export default async function WarehouseCreateReceiptPage({
     }
 
     const order = serializeData(rawOrder);
-    const locationsRes = await getLocations();
+    const [locationsRes, attachmentsRes] = await Promise.all([
+        getLocations(),
+        listWarehouseAttachments({ purchaseOrderId: poId }),
+    ]);
     const locations =
         locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    // Attachments are optional evidence — never block receiving on them.
+    const attachments =
+        attachmentsRes.success && Array.isArray(attachmentsRes.data)
+            ? (serializeData(
+                  attachmentsRes.data,
+              ) as unknown as AttachmentItem[])
+            : [];
 
     // Map order to GoodsReceiptForm props
     const formProps = {
@@ -94,12 +106,19 @@ export default async function WarehouseCreateReceiptPage({
             receivedQty: Number(item.receivedQty || 0),
             unit: item.enteredUnit || item.productVariant?.primaryUnit || 'pcs',
         })),
-        locations: locations.map((loc) => ({ id: loc.id, name: loc.name })),
+        locations: locations.map((loc: { id: string; name: string }) => ({
+            id: loc.id,
+            name: loc.name,
+        })),
     };
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            <GoodsReceiptForm {...formProps} basePath="/warehouse/incoming" />
+            <GoodsReceiptForm
+                {...formProps}
+                basePath="/warehouse/incoming"
+                attachments={attachments}
+            />
         </div>
     );
 }
