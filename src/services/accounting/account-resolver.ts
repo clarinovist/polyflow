@@ -212,22 +212,32 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
         { nameContains: 'Laba Ditahan' },
         { nameContains: 'Retained Earnings' },
     ],
-    // === Adjustment === — Melindo-first
+    // === Adjustment ===
+    // Akun KHUSUS selisih persediaan didahulukan; akun laba-rugi umum
+    // (7-101/8-202) dan akun header (7-1000/8-1000) hanya fallback terakhir.
+    // Urutan sebelumnya menaruh 7-101/8-202 di depan, sehingga tenant dengan COA
+    // gaya Indonesia mengirim SELURUH penyesuaian stok ke Pendapatan/Biaya
+    // Lain-lain — mencemari laba-rugi (satu instalasi produksi Jun–Agu 2026:
+    // 440 baris STOCK_ADJUSTMENT, laporan sempat tampak rugi padahal laba
+    // usaha positif). Fallback tetap dipertahankan agar tenant
+    // tanpa akun selisih persediaan tidak throw dan memblokir stock adjustment.
     'adjustment-gain': [
-        { code: '7-101' },
-        { code: '7-1000' },
+        { code: '7-103' },
         { code: '81100' },
         { nameContains: 'Selisih Lebih' },
-        { nameContains: 'Pendapatan Lain-lain' },
         { nameContains: 'Adjustment Gain' },
+        { code: '7-101' },
+        { code: '7-1000' },
+        { nameContains: 'Pendapatan Lain-lain' },
     ],
     'adjustment-loss': [
-        { code: '8-202' },
-        { code: '8-1000' },
+        { code: '8-203' },
         { code: '91100' },
         { nameContains: 'Selisih Kurang' },
-        { nameContains: 'Biaya Lain-lain' },
         { nameContains: 'Adjustment Loss' },
+        { code: '8-202' },
+        { code: '8-1000' },
+        { nameContains: 'Biaya Lain-lain' },
     ],
     // === Overhead / Accrual ===
     'manufacturing-overhead': [
