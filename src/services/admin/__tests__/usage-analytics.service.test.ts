@@ -57,6 +57,16 @@ describe('UsageAnalyticsService Hardened', () => {
             .mockResolvedValueOnce([]) // active users today raw
             .mockResolvedValueOnce([
                 {
+                    tenantId: 'tenant-1',
+                    userId: 'user-a',
+                    totalViews: BigInt(120),
+                    featuresUsed: BigInt(6),
+                    activeDays: BigInt(9),
+                    lastActiveAt: new Date('2026-07-27T10:00:00Z'),
+                },
+            ]) // user summaries raw (per selected range)
+            .mockResolvedValueOnce([
+                {
                     dateStr: '2026-07-27',
                     totalViews: BigInt(50),
                     activeUsers: BigInt(10),
@@ -96,7 +106,7 @@ describe('UsageAnalyticsService Hardened', () => {
         // (correctly computed) zero-filled dates on the JS side and the chart
         // renders as flat/empty. The fix must convert in two explicit steps:
         // treat as UTC first, then convert to Asia/Jakarta.
-        const dailyTrendsQueryCall = vi.mocked(prisma.$queryRaw).mock.calls[5];
+        const dailyTrendsQueryCall = vi.mocked(prisma.$queryRaw).mock.calls[6];
         const dailyTrendsSql = (dailyTrendsQueryCall[0] as unknown as string[]).join('?');
         expect(dailyTrendsSql).toMatch(
             /"occurredAt"\s+AT TIME ZONE\s+'UTC'\)\s+AT TIME ZONE\s+'Asia\/Jakarta'/,

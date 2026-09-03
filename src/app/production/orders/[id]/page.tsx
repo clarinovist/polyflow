@@ -3,7 +3,9 @@ import {
     getProductionFormData,
 } from '@/actions/production/production';
 import { getWorkShifts } from '@/actions/admin/work-shifts';
+import { getActiveOrderNav } from '@/actions/production/active-order-nav';
 import { ProductionOrderDetail } from './production-order-detail';
+import { ActiveOrderStrip } from '@/components/production/ActiveOrderStrip';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -56,6 +58,13 @@ export default async function ProductionDetailPage(props: PageProps) {
             ? workShiftsResult.data
             : [];
 
+    // Active-SPK strip: lets the operator hop to the next work order without
+    // going back to /production/daily (telemetry showed 939 such round trips
+    // in 30 days). Failure here must not break the detail page.
+    const navResult = await getActiveOrderNav();
+    const activeOrderNav =
+        navResult.success && navResult.data ? navResult.data : [];
+
     return (
         <div className="p-8 max-w-7xl mx-auto">
             <Link
@@ -67,6 +76,11 @@ export default async function ProductionDetailPage(props: PageProps) {
                     Kembali ke Daftar SPK
                 </span>
             </Link>
+
+            <ActiveOrderStrip
+                orders={activeOrderNav}
+                currentOrderId={params.id}
+            />
 
             <ProductionOrderDetail
                 order={order as unknown as ExtendedProductionOrder}

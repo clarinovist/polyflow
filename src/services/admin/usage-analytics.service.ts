@@ -58,6 +58,41 @@ interface ActiveUserToday {
     lastActiveAt: Date;
 }
 
+/**
+ * Per-user usage within the SELECTED filter range.
+ *
+ * Deliberately separate from ActiveUserToday, which is pinned to "today"
+ * regardless of the filter. Without this, the dashboard could not answer
+ * "who used what over the last 30 days" at all — the question that surfaced
+ * the production ping-pong pattern on 2026-09-03.
+ *
+ * `featuresUsed` + `activeDays` are what separate a work pattern (few
+ * features, many days) from an inspection pattern (many features, sporadic).
+ */
+interface UserUsageSummary {
+    tenantId: string;
+    tenantName: string;
+    subdomain: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    totalViews: number;
+    featuresUsed: number;
+    activeDays: number;
+    lastActiveAt: Date;
+}
+
+/**
+ * A feature that exists in the registry but was never opened in the selected
+ * period. Scoped by the active tenant/module filter — with a tenant filter on,
+ * "untouched" means untouched BY THAT TENANT, not globally.
+ */
+interface UntouchedFeature {
+    featureKey: string;
+    label: string;
+    moduleKey: string;
+}
+
 export interface UsageAnalyticsOverviewData {
     periodLabel: string;
     metrics: {
@@ -68,6 +103,8 @@ export interface UsageAnalyticsOverviewData {
     };
     topFeatures: FeatureUsageSummary[];
     tenantSummaries: TenantUsageSummary[];
+    userSummaries: UserUsageSummary[];
+    untouchedFeatures: UntouchedFeature[];
     dailyTrends: DailyTrendPoint[];
     activeUsersToday: ActiveUserToday[];
     availableTenants: { id: string; name: string; subdomain: string }[];
@@ -271,63 +308,109 @@ async function resolveActiveUsersToday(
         lastActiveAt: Date;
     }[],
 ): Promise<ActiveUserToday[]> {
-    if (rows.length === 0) return [];
+    const identities = await resolveUserIdentities(
+        rows.map((r) => ({ tenantId: r.tenantId, userId: r.userId })),
+    );
 
-    const tenantIds = Array.from(new Set(rows.map((r) => r.tenantId)));
+    const merged = rows.flatMap((r): ActiveUserToday[] => {
+        const identity = identities.get(`${r.tenantId}:${r.userId}`);
+        if (!identity) return [];
+        return [
+            {
+                tenantId: r.tenantId,
+                tenantName: identity.tenantName,
+                subdomain: identity.subdomain,
+                userId: r.userId,
+                userName: identity.userName,
+                userEmail: identity.userEmail,
+                viewCount: Number(r.viewCount),
+                lastActiveAt: r.lastActiveAt,
+            },
+        ];
+    });
+
+    merged.sort((a, b) => b.lastActiveAt.getTime() - a.lastActiveAt.getTime());
+    return merged;
+}
+
+interface ResolvedIdentity {
+    tenantName: string;
+    subdomain: string;
+    userName: string;
+    userEmail: string;
+}
+
+/**
+ * Resolve tenant + user display names for (tenantId, userId) pairs.
+ *
+ * UsageEvent lives in the MAIN db but User rows live in each TENANT db, so
+ * names can only be resolved by fanning out per tenant via `dbUrl`. Shared by
+ * activeUsersToday and userSummaries — duplicating this fan-out risks the two
+ * lists disagreeing about who someone is.
+ *
+ * A tenant whose db is unreachable is skipped (Promise.allSettled), so one
+ * broken tenant cannot blank out the whole dashboard.
+ */
+async function resolveUserIdentities(
+    pairs: { tenantId: string; userId: string }[],
+): Promise<Map<string, ResolvedIdentity>> {
+    const result = new Map<string, ResolvedIdentity>();
+    if (pairs.length === 0) return result;
+
+    const tenantIds = Array.from(new Set(pairs.map((p) => p.tenantId)));
     const tenants = await prisma.tenant.findMany({
         where: { id: { in: tenantIds } },
         select: { id: true, name: true, subdomain: true, dbUrl: true },
     });
     const tenantInfoMap = new Map(tenants.map((t) => [t.id, t]));
 
-    const rowsByTenant = new Map<string, typeof rows>();
-    for (const row of rows) {
-        const list = rowsByTenant.get(row.tenantId) || [];
-        list.push(row);
-        rowsByTenant.set(row.tenantId, list);
+    const userIdsByTenant = new Map<string, Set<string>>();
+    for (const pair of pairs) {
+        const set = userIdsByTenant.get(pair.tenantId) || new Set<string>();
+        set.add(pair.userId);
+        userIdsByTenant.set(pair.tenantId, set);
     }
 
     const settled = await Promise.allSettled(
-        Array.from(rowsByTenant.entries()).map(
-            async ([tenantId, tenantRows]) => {
+        Array.from(userIdsByTenant.entries()).map(
+            async ([tenantId, userIds]) => {
                 const tenantInfo = tenantInfoMap.get(tenantId);
                 if (!tenantInfo) return [];
 
-                const userIds = tenantRows.map((r) => r.userId);
                 const users = await getTenantDb(tenantInfo.dbUrl).user.findMany(
                     {
-                        where: { id: { in: userIds } },
+                        where: { id: { in: Array.from(userIds) } },
                         select: { id: true, name: true, email: true },
                     },
                 );
                 const userMap = new Map(users.map((u) => [u.id, u]));
 
-                return tenantRows.map((r): ActiveUserToday => {
-                    const user = userMap.get(r.userId);
-                    return {
-                        tenantId,
-                        tenantName: tenantInfo.name,
-                        subdomain: tenantInfo.subdomain,
-                        userId: r.userId,
-                        userName: user?.name || user?.email || r.userId,
-                        userEmail: user?.email || '-',
-                        viewCount: Number(r.viewCount),
-                        lastActiveAt: r.lastActiveAt,
-                    };
-                });
+                return Array.from(userIds).map(
+                    (userId): [string, ResolvedIdentity] => {
+                        const user = userMap.get(userId);
+                        return [
+                            `${tenantId}:${userId}`,
+                            {
+                                tenantName: tenantInfo.name,
+                                subdomain: tenantInfo.subdomain,
+                                userName: user?.name || user?.email || userId,
+                                userEmail: user?.email || '-',
+                            },
+                        ];
+                    },
+                );
             },
         ),
     );
 
-    const merged = settled
-        .filter(
-            (r): r is PromiseFulfilledResult<ActiveUserToday[]> =>
-                r.status === 'fulfilled',
-        )
-        .flatMap((r) => r.value);
+    for (const outcome of settled) {
+        if (outcome.status !== 'fulfilled') continue;
+        for (const [key, identity] of outcome.value) {
+            result.set(key, identity);
+        }
+    }
 
-    merged.sort((a, b) => b.lastActiveAt.getTime() - a.lastActiveAt.getTime());
-    return merged;
+    return result;
 }
 
 export class UsageAnalyticsService {
@@ -638,6 +721,86 @@ export class UsageAnalyticsService {
         const activeUsersToday =
             await resolveActiveUsersToday(activeUsersTodayRaw);
 
+        // 7b. Per-user summary for the SELECTED range (not pinned to today).
+        // COUNT(DISTINCT featureKey) and the WIB day count are what make a work
+        // pattern legible: few features over many days = daily operator; many
+        // features over few days = occasional inspection.
+        const userSummariesRaw = await prisma.$queryRaw<
+            {
+                tenantId: string;
+                userId: string;
+                totalViews: bigint;
+                featuresUsed: bigint;
+                activeDays: bigint;
+                lastActiveAt: Date;
+            }[]
+        >`
+            SELECT
+                "tenantId",
+                "userId",
+                COUNT(*) as "totalViews",
+                COUNT(DISTINCT "featureKey") as "featuresUsed",
+                COUNT(DISTINCT TO_CHAR(("occurredAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD')) as "activeDays",
+                MAX("occurredAt") as "lastActiveAt"
+            FROM "UsageEvent"
+            WHERE "eventType" = 'FEATURE_VIEW'
+              AND "occurredAt" >= ${start} AND "occurredAt" <= ${end}
+              AND "tenantId" NOT IN ('main', 'admin')
+              ${tenantSqlClause}
+              ${moduleSqlClause}
+            GROUP BY "tenantId", "userId"
+            ORDER BY "totalViews" DESC
+            LIMIT 50
+        `;
+
+        const userIdentities = await resolveUserIdentities(
+            userSummariesRaw.map((r) => ({
+                tenantId: r.tenantId,
+                userId: r.userId,
+            })),
+        );
+
+        const userSummaries: UserUsageSummary[] = userSummariesRaw.flatMap(
+            (r) => {
+                const identity = userIdentities.get(`${r.tenantId}:${r.userId}`);
+                if (!identity) return [];
+                return [
+                    {
+                        tenantId: r.tenantId,
+                        tenantName: identity.tenantName,
+                        subdomain: identity.subdomain,
+                        userId: r.userId,
+                        userName: identity.userName,
+                        userEmail: identity.userEmail,
+                        totalViews: Number(r.totalViews),
+                        featuresUsed: Number(r.featuresUsed),
+                        activeDays: Number(r.activeDays),
+                        lastActiveAt: r.lastActiveAt,
+                    },
+                ];
+            },
+        );
+
+        // 7c. Features in the registry that nobody opened in this period.
+        // topFeatures cannot answer this: it is ORDER BY views DESC LIMIT 25,
+        // so a zero-view feature has no row to rank. Set difference in memory —
+        // no extra query.
+        const touchedFeatureKeys = new Set(
+            currFeaturesGroup.map((f) => f.featureKey),
+        );
+        const untouchedFeatures: UntouchedFeature[] = registeredFeatures
+            .filter((f) => !touchedFeatureKeys.has(f.featureKey))
+            .map((f) => ({
+                featureKey: f.featureKey,
+                label: f.label,
+                moduleKey: f.moduleKey,
+            }))
+            .sort(
+                (a, b) =>
+                    a.moduleKey.localeCompare(b.moduleKey) ||
+                    a.featureKey.localeCompare(b.featureKey),
+            );
+
         // 8. Daily Trends Grouping (PostgreSQL GroupBy + WIB Zero-Filling) (Finding 6 & 17)
         const dailyTrendsRaw = await prisma.$queryRaw<
             {
@@ -698,6 +861,8 @@ export class UsageAnalyticsService {
             metrics,
             topFeatures,
             tenantSummaries,
+            userSummaries,
+            untouchedFeatures,
             dailyTrends,
             activeUsersToday,
             availableTenants: tenants,

@@ -72,6 +72,27 @@ function buildMockData(): UsageAnalyticsOverviewData {
                 lastActiveAt: new Date('2026-08-13T02:00:00Z'),
             },
         ],
+        userSummaries: [
+            {
+                tenantId: 'tenant-1',
+                tenantName: 'Tenant Alpha',
+                subdomain: 'alpha',
+                userId: 'user-a',
+                userName: 'Alice',
+                userEmail: 'alice@alpha.test',
+                totalViews: 120,
+                featuresUsed: 6,
+                activeDays: 9,
+                lastActiveAt: new Date('2026-08-13T02:00:00Z'),
+            },
+        ],
+        untouchedFeatures: [
+            {
+                featureKey: 'hrd.leave',
+                label: 'Cuti',
+                moduleKey: 'hrd',
+            },
+        ],
         availableTenants: [
             { id: 'tenant-1', name: 'Tenant Alpha', subdomain: 'alpha' },
         ],
@@ -110,13 +131,41 @@ describe('UsageAnalyticsClient daily trend chart', () => {
     });
 
     it('shows the active-users-today card with resolved user name and email', () => {
+        const { getAllByText } = render(
+            <UsageAnalyticsClient initialData={buildMockData()} />,
+        );
+
+        expect(getAllByText('Pengguna Aktif Hari Ini').length).toBe(1);
+        // Alice now appears in BOTH the today card and the per-range table,
+        // so uniqueness cannot be asserted here.
+        expect(getAllByText('Alice').length).toBeGreaterThan(0);
+        expect(getAllByText('alice@alpha.test').length).toBeGreaterThan(0);
+    });
+
+    it('renders per-user usage for the selected range, not just today', () => {
+        // Regression guard: activeUsersToday is pinned to "today" no matter the
+        // filter, so before userSummaries existed the dashboard could not show
+        // a user's behaviour over the selected period at all. featuresUsed and
+        // activeDays are the two numbers that make a work pattern legible.
+        const { getByText, getAllByText } = render(
+            <UsageAnalyticsClient initialData={buildMockData()} />,
+        );
+
+        expect(getByText('Pemakaian per Pengguna')).toBeTruthy();
+        expect(getAllByText('120').length).toBeGreaterThan(0); // totalViews
+        expect(getAllByText('9').length).toBeGreaterThan(0); // activeDays
+    });
+
+    it('lists registry features with zero views in the period', () => {
+        // Regression guard: topFeatures is ORDER BY views DESC LIMIT 25, so a
+        // never-opened feature has no row and can never surface there. This
+        // panel is the only place that answers "what does nobody open?".
         const { getByText } = render(
             <UsageAnalyticsClient initialData={buildMockData()} />,
         );
 
-        expect(getByText('Pengguna Aktif Hari Ini')).toBeTruthy();
-        expect(getByText('Alice')).toBeTruthy();
-        expect(getByText('alice@alpha.test')).toBeTruthy();
+        expect(getByText('Fitur Tidak Tersentuh')).toBeTruthy();
+        expect(getByText('Cuti')).toBeTruthy();
     });
 });
 

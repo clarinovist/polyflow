@@ -32,7 +32,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     const [range, setRange] = useState<'today' | 'yesterday' | '7d' | '30d'>(
-        '7d',
+        // Must match the server default in page.tsx, otherwise the highlighted
+        // range button contradicts the data actually rendered on first paint.
+        '30d',
     );
     const [tenantId, setTenantId] = useState<string>('all');
     const [moduleKey, setModuleKey] = useState<string>('all');
@@ -711,6 +713,129 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Per-user usage across the SELECTED range */}
+                    <div className="p-5 rounded-xl bg-card border border-border shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                            <div>
+                                <h3 className="font-semibold text-sm text-foreground">
+                                    Pemakaian per Pengguna
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Periode: {data.periodLabel}. Banyak hari
+                                    aktif dengan sedikit fitur = pola kerja
+                                    harian; banyak fitur dalam sedikit hari =
+                                    pola inspeksi.
+                                </p>
+                            </div>
+                            <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium text-muted-foreground">
+                                {data.userSummaries.length} Pengguna
+                            </span>
+                        </div>
+
+                        {data.userSummaries.length === 0 ? (
+                            <div className="py-12 text-center text-muted-foreground text-xs">
+                                Belum ada aktivitas pada periode ini.
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="border-b border-border text-muted-foreground font-semibold">
+                                            <th className="pb-2">Pengguna</th>
+                                            <th className="pb-2">Tenant</th>
+                                            <th className="pb-2 text-right">
+                                                Views
+                                            </th>
+                                            <th className="pb-2 text-right">
+                                                Fitur
+                                            </th>
+                                            <th className="pb-2 text-right">
+                                                Hari Aktif
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/60">
+                                        {data.userSummaries.map((u) => (
+                                            <tr
+                                                key={`${u.tenantId}:${u.userId}`}
+                                                className="hover:bg-muted/40 transition-colors"
+                                            >
+                                                <td className="py-2.5 font-medium">
+                                                    <div className="font-semibold text-foreground">
+                                                        {u.userName}
+                                                    </div>
+                                                    <div className="text-[10px] text-muted-foreground">
+                                                        {u.userEmail}
+                                                    </div>
+                                                </td>
+                                                <td className="py-2.5 text-muted-foreground">
+                                                    {u.tenantName}
+                                                </td>
+                                                <td className="py-2.5 text-right font-bold text-foreground">
+                                                    {u.totalViews.toLocaleString(
+                                                        'id-ID',
+                                                    )}
+                                                </td>
+                                                <td className="py-2.5 text-right text-muted-foreground">
+                                                    {u.featuresUsed}
+                                                </td>
+                                                <td className="py-2.5 text-right text-muted-foreground">
+                                                    {u.activeDays}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Registry features with zero views this period */}
+                    <div className="p-5 rounded-xl bg-card border border-border shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                            <div>
+                                <h3 className="font-semibold text-sm text-foreground">
+                                    Fitur Tidak Tersentuh
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Terdaftar tapi nol dibuka pada periode{' '}
+                                    {data.periodLabel}
+                                    {tenantId !== 'all'
+                                        ? ' (tenant terpilih saja)'
+                                        : ''}
+                                    {moduleKey !== 'all'
+                                        ? ' (modul terpilih saja)'
+                                        : ''}
+                                    .
+                                </p>
+                            </div>
+                            <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium text-muted-foreground">
+                                {data.untouchedFeatures.length} Fitur
+                            </span>
+                        </div>
+
+                        {data.untouchedFeatures.length === 0 ? (
+                            <div className="py-12 text-center text-muted-foreground text-xs">
+                                Semua fitur terdaftar tersentuh pada periode ini.
+                            </div>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {data.untouchedFeatures.map((f) => (
+                                    <span
+                                        key={f.featureKey}
+                                        className="text-[11px] px-2.5 py-1 rounded-full bg-muted text-muted-foreground"
+                                        title={f.featureKey}
+                                    >
+                                        {f.label}
+                                        <span className="ml-1.5 opacity-60">
+                                            {f.moduleKey}
+                                        </span>
+                                    </span>
+                                ))}
                             </div>
                         )}
                     </div>
