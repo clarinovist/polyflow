@@ -74,6 +74,8 @@ vi.mock('@/services/accounting/accounting-service', () => ({
         getCashFlowStatement: vi.fn().mockResolvedValue({}),
         getBalanceSheet: vi.fn().mockResolvedValue({}),
         getGeneralLedger: vi.fn().mockResolvedValue({}),
+        getGeneralLedgerSummary: vi.fn().mockResolvedValue({}),
+        getGeneralLedgerAccountEntries: vi.fn().mockResolvedValue({}),
         getFiscalPeriods: vi.fn().mockResolvedValue([]),
         createFiscalPeriod: vi.fn().mockResolvedValue({ id: 'p1' }),
         closeFiscalPeriod: vi.fn().mockResolvedValue({ id: 'p1' }),
@@ -1205,6 +1207,30 @@ describe('Pass 5: coverage — accounting.ts read/query functions', () => {
         setupAuth('FINANCE');
         const { getGeneralLedger } = await import('../accounting');
         await expectAllowed(() => getGeneralLedger(new Date('2026-01-01'), new Date('2026-01-31')));
+    });
+
+    it('getGeneralLedgerSummary: FINANCE allowed', async () => {
+        setupAuth('FINANCE');
+        const { getGeneralLedgerSummary } = await import('../accounting');
+        await expectAllowed(() => getGeneralLedgerSummary(new Date('2026-01-01'), new Date('2026-01-31')));
+    });
+
+    it('getGeneralLedgerSummary: SALES denied', async () => {
+        setupAuth('SALES');
+        const { getGeneralLedgerSummary } = await import('../accounting');
+        await expectDenied(() => getGeneralLedgerSummary(new Date('2026-01-01'), new Date('2026-01-31')));
+    });
+
+    it('getGeneralLedgerAccountEntries: FINANCE allowed', async () => {
+        setupAuth('FINANCE');
+        const { getGeneralLedgerAccountEntries } = await import('../accounting');
+        await expectAllowed(() => getGeneralLedgerAccountEntries('acc1', new Date('2026-01-01'), new Date('2026-01-31')));
+    });
+
+    it('getGeneralLedgerAccountEntries: SALES denied', async () => {
+        setupAuth('SALES');
+        const { getGeneralLedgerAccountEntries } = await import('../accounting');
+        await expectDenied(() => getGeneralLedgerAccountEntries('acc1', new Date('2026-01-01'), new Date('2026-01-31')));
     });
 
     it('getFiscalPeriods: FINANCE allowed', async () => {

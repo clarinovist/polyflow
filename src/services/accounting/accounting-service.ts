@@ -45,7 +45,11 @@ import {
     recordInventoryMovement,
     recordMaklonCosts,
 } from './inventory-link-service';
-import { getGeneralLedger } from './general-ledger-service';
+import {
+    getGeneralLedger,
+    getGeneralLedgerSummary,
+    getGeneralLedgerAccountEntries,
+} from './general-ledger-service';
 
 export type { CreateJournalEntryInput } from './types';
 
@@ -284,6 +288,25 @@ export class AccountingService {
      */
     static async getGeneralLedger(startDate?: Date, endDate?: Date) {
         return getGeneralLedger(startDate, endDate);
+    }
+
+    /**
+     * Account-level Buku Besar summary (POSTED ONLY).
+     * Aggregated in DB — payload scales with account count, not line count.
+     */
+    static async getGeneralLedgerSummary(startDate?: Date, endDate?: Date) {
+        return getGeneralLedgerSummary(startDate, endDate);
+    }
+
+    /**
+     * Transaction lines for a single account (drill-down companion).
+     */
+    static async getGeneralLedgerAccountEntries(
+        accountId: string,
+        startDate?: Date,
+        endDate?: Date,
+    ) {
+        return getGeneralLedgerAccountEntries(accountId, startDate, endDate);
     }
 
     /**

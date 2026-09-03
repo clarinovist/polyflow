@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getGeneralLedger } from '@/actions/finance/accounting';
+import {
+    getGeneralLedger,
+    getGeneralLedgerSummary,
+    getGeneralLedgerAccountEntries,
+} from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,7 +21,7 @@ import { format } from 'date-fns';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
-import { RotateCw, Download, Search } from 'lucide-react';
+import { RotateCw, Download, Search, ChevronRight, ChevronDown } from 'lucide-react';
 import {
     downloadCsv,
     rupiahForCsv,
@@ -54,112 +58,223 @@ interface GeneralLedgerData {
     grandTotalCredit: number;
 }
 
+interface SummaryAccount {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+    category: string;
+    entryCount: number;
+    beginningBalance: number;
+    totalDebit: number;
+    totalCredit: number;
+    endingBalance: number;
+}
+
+interface SummaryData {
+    accounts: SummaryAccount[];
+    grandTotalDebit: number;
+    grandTotalCredit: number;
+}
+
+interface AccountDetail {
+    accountId: string;
+    beginningBalance: number;
+    entries: LedgerEntry[];
+    totalDebit: number;
+    totalCredit: number;
+    endingBalance: number;
+}
+
+/** Default view is the current month — a deliberate wide range stays opt-in. */
+function currentMonthRange(): DateRange {
+    const now = new Date();
+    return {
+        from: new Date(now.getFullYear(), now.getMonth(), 1),
+        to: now,
+    };
+}
+
 export function GeneralLedgerClient() {
-    const [data, setData] = useState<GeneralLedgerData | null>(null);
+    const [summary, setSummary] = useState<SummaryData | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: new Date(new Date().getFullYear(), 0, 1),
-        to: new Date(),
-    });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(
+        currentMonthRange,
+    );
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [details, setDetails] = useState<Record<string, AccountDetail>>({});
+    const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
+    const [exporting, setExporting] = useState(false);
 
-    const fetchData = useCallback(async () => {
+    const fetchSummary = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await getGeneralLedger(
+            const result = await getGeneralLedgerSummary(
                 dateRange?.from,
                 dateRange?.to,
             );
             if (result && 'success' in result && result.success) {
-                setData(result.data as unknown as GeneralLedgerData);
+                setSummary(result.data as unknown as SummaryData);
             } else {
                 console.error(
-                    'Failed to load general ledger:',
+                    'Failed to load general ledger summary:',
                     result && 'error' in result
                         ? result.error
                         : 'Unknown error',
                 );
-                setData(null);
+                setSummary(null);
             }
         } catch (error) {
-            console.error('Failed to load general ledger', error);
-            setData(null);
+            console.error('Failed to load general ledger summary', error);
+            setSummary(null);
         } finally {
             setLoading(false);
         }
     }, [dateRange]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchSummary();
+        // A new period invalidates every cached drill-down.
+        setDetails({});
+        setExpandedId(null);
+    }, [fetchSummary]);
 
-    const handleDownload = () => {
-        if (!data || data.accounts.length === 0) return;
-
-        const headers = [
-            'Kode Akun',
-            'Nama Akun',
-            'Tanggal',
-            'No. Jurnal',
-            'Keterangan',
-            'Referensi',
-            'Debit',
-            'Kredit',
-            'Saldo',
-        ];
-        const rows: (string | number)[][] = [];
-
-        for (const account of data.accounts) {
-            rows.push([
-                `(${account.code}) ${account.name}`,
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-            ]);
-
-            for (const entry of account.entries) {
-                rows.push([
-                    '',
-                    '',
-                    format(new Date(entry.date), 'dd/MM/yyyy'),
-                    entry.entryNumber,
-                    entry.description,
-                    entry.reference || '',
-                    rupiahForCsv(entry.debit),
-                    rupiahForCsv(entry.credit),
-                    rupiahForCsv(entry.balance),
-                ]);
+    const toggleAccount = useCallback(
+        async (accountId: string) => {
+            if (expandedId === accountId) {
+                setExpandedId(null);
+                return;
             }
 
-            rows.push([
-                '',
-                `${reportLabels.saldoAkhir}`,
-                '',
-                '',
-                '',
-                '',
-                rupiahForCsv(account.totalDebit),
-                rupiahForCsv(account.totalCredit),
-                rupiahForCsv(account.endingBalance),
-            ]);
+            setExpandedId(accountId);
+            if (details[accountId]) return;
 
-            rows.push(['', '', '', '', '', '', '', '', '']);
+            setDetailLoadingId(accountId);
+            try {
+                const result = await getGeneralLedgerAccountEntries(
+                    accountId,
+                    dateRange?.from,
+                    dateRange?.to,
+                );
+                if (result && 'success' in result && result.success) {
+                    setDetails((prev) => ({
+                        ...prev,
+                        [accountId]: result.data as unknown as AccountDetail,
+                    }));
+                } else {
+                    console.error(
+                        'Failed to load account entries:',
+                        result && 'error' in result
+                            ? result.error
+                            : 'Unknown error',
+                    );
+                }
+            } catch (error) {
+                console.error('Failed to load account entries', error);
+            } finally {
+                setDetailLoadingId(null);
+            }
+        },
+        [expandedId, details, dateRange],
+    );
+
+    /**
+     * CSV keeps the full ledger. It fetches the complete dataset on demand —
+     * an explicit user action whose output lands in a file, not the DOM — so
+     * the export stays identical to before the drill-down change.
+     */
+    const handleDownload = async () => {
+        setExporting(true);
+        try {
+            const result = await getGeneralLedger(
+                dateRange?.from,
+                dateRange?.to,
+            );
+            if (!result || !('success' in result) || !result.success) {
+                console.error(
+                    'Failed to export general ledger:',
+                    result && 'error' in result
+                        ? result.error
+                        : 'Unknown error',
+                );
+                return;
+            }
+
+            const data = result.data as unknown as GeneralLedgerData;
+            if (!data || data.accounts.length === 0) return;
+
+            const headers = [
+                'Kode Akun',
+                'Nama Akun',
+                'Tanggal',
+                'No. Jurnal',
+                'Keterangan',
+                'Referensi',
+                'Debit',
+                'Kredit',
+                'Saldo',
+            ];
+            const rows: (string | number)[][] = [];
+
+            for (const account of data.accounts) {
+                rows.push([
+                    `(${account.code}) ${account.name}`,
+                    '',
+                    '',
+                    '',
+                    '',
+                    '',
+                    '',
+                    '',
+                    '',
+                ]);
+
+                for (const entry of account.entries) {
+                    rows.push([
+                        '',
+                        '',
+                        format(new Date(entry.date), 'dd/MM/yyyy'),
+                        entry.entryNumber,
+                        entry.description,
+                        entry.reference || '',
+                        rupiahForCsv(entry.debit),
+                        rupiahForCsv(entry.credit),
+                        rupiahForCsv(entry.balance),
+                    ]);
+                }
+
+                rows.push([
+                    '',
+                    `${reportLabels.saldoAkhir}`,
+                    '',
+                    '',
+                    '',
+                    '',
+                    rupiahForCsv(account.totalDebit),
+                    rupiahForCsv(account.totalCredit),
+                    rupiahForCsv(account.endingBalance),
+                ]);
+
+                rows.push(['', '', '', '', '', '', '', '', '']);
+            }
+
+            const fromStr = dateRange?.from
+                ? format(dateRange.from, 'yyyy-MM-dd')
+                : '';
+            const toStr = dateRange?.to
+                ? format(dateRange.to, 'yyyy-MM-dd')
+                : '';
+            downloadCsv(
+                reportFilename('Buku_Besar', `${fromStr}_${toStr}`),
+                headers,
+                rows,
+            );
+        } catch (error) {
+            console.error('Failed to export general ledger', error);
+        } finally {
+            setExporting(false);
         }
-
-        const fromStr = dateRange?.from
-            ? format(dateRange.from, 'yyyy-MM-dd')
-            : '';
-        const toStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '';
-        downloadCsv(
-            reportFilename('Buku_Besar', `${fromStr}_${toStr}`),
-            headers,
-            rows,
-        );
     };
 
     const fmt = (amount: number) => {
@@ -169,50 +284,14 @@ export function GeneralLedgerClient() {
         }).format(amount);
     };
 
-    // Filter accounts and entries by search term
-    const filteredAccounts = data?.accounts
-        .map((account) => {
-            if (!searchTerm.trim()) return account;
-
-            const lowerSearch = searchTerm.toLowerCase();
-            const accountMatch =
-                account.code.toLowerCase().includes(lowerSearch) ||
-                account.name.toLowerCase().includes(lowerSearch);
-
-            if (accountMatch) return account; // Show whole account if name/code matches
-
-            // Filter entries within account
-            const filteredEntries = account.entries.filter(
-                (entry) =>
-                    entry.description.toLowerCase().includes(lowerSearch) ||
-                    entry.entryNumber.toLowerCase().includes(lowerSearch) ||
-                    (entry.reference &&
-                        entry.reference.toLowerCase().includes(lowerSearch)),
-            );
-
-            if (filteredEntries.length === 0) return null; // No matching entries
-
-            // Recalculate totals for filtered entries
-            const totalDebit = filteredEntries.reduce(
-                (sum, e) => sum + e.debit,
-                0,
-            );
-            const totalCredit = filteredEntries.reduce(
-                (sum, e) => sum + e.credit,
-                0,
-            );
-
-            return {
-                ...account,
-                entries: filteredEntries,
-                totalDebit,
-                totalCredit,
-                endingBalance:
-                    filteredEntries[filteredEntries.length - 1]?.balance ??
-                    account.endingBalance,
-            };
-        })
-        .filter(Boolean) as LedgerAccount[] | undefined;
+    // Account-level search only — transaction text lives server-side now.
+    const lowerSearch = searchTerm.trim().toLowerCase();
+    const filteredAccounts = (summary?.accounts ?? []).filter(
+        (account) =>
+            !lowerSearch ||
+            account.code.toLowerCase().includes(lowerSearch) ||
+            account.name.toLowerCase().includes(lowerSearch),
+    );
 
     return (
         <div className="space-y-6">
@@ -229,7 +308,7 @@ export function GeneralLedgerClient() {
                     <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Cari akun, keterangan, atau no jurnal..."
+                            placeholder="Cari kode atau nama akun..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-9 w-[280px]"
@@ -239,14 +318,18 @@ export function GeneralLedgerClient() {
                         date={dateRange}
                         onDateChange={setDateRange}
                     />
-                    <Button variant="outline" size="icon" onClick={fetchData}>
+                    <Button variant="outline" size="icon" onClick={fetchSummary}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="outline"
                         size="icon"
                         onClick={handleDownload}
-                        disabled={!data || data.accounts.length === 0}
+                        disabled={
+                            !summary ||
+                            summary.accounts.length === 0 ||
+                            exporting
+                        }
                     >
                         <Download className="h-4 w-4" />
                     </Button>
@@ -259,7 +342,7 @@ export function GeneralLedgerClient() {
                         Memuat data...
                     </CardContent>
                 </Card>
-            ) : !data || data.accounts.length === 0 ? (
+            ) : !summary || summary.accounts.length === 0 ? (
                 <Card>
                     <CardContent className="h-24 flex items-center justify-center text-muted-foreground">
                         Tidak ada data untuk periode ini
@@ -271,6 +354,7 @@ export function GeneralLedgerClient() {
                         <CardTitle className="flex items-center justify-between">
                             <span>{reportLabels.generalLedger}</span>
                             <span className="text-sm font-normal text-muted-foreground">
+                                {reportLabels.klikAkunUntukDetail} ·{' '}
                                 {reportLabels.dalamIDR}
                             </span>
                         </CardTitle>
@@ -280,17 +364,14 @@ export function GeneralLedgerClient() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[180px]">
+                                        <TableHead className="w-[320px]">
                                             {reportLabels.namaAkun}
                                         </TableHead>
-                                        <TableHead className="w-[90px]">
-                                            {reportLabels.tanggal}
+                                        <TableHead className="text-right w-[110px]">
+                                            {reportLabels.jumlahTransaksi}
                                         </TableHead>
-                                        <TableHead className="w-[120px]">
-                                            {reportLabels.nomor}
-                                        </TableHead>
-                                        <TableHead className="w-[200px]">
-                                            {reportLabels.keterangan}
+                                        <TableHead className="text-right w-[140px]">
+                                            {reportLabels.saldoAwal}
                                         </TableHead>
                                         <TableHead className="text-right w-[130px]">
                                             {reportLabels.debit}
@@ -299,27 +380,34 @@ export function GeneralLedgerClient() {
                                             {reportLabels.kredit}
                                         </TableHead>
                                         <TableHead className="text-right w-[140px]">
-                                            {reportLabels.saldo}
+                                            {reportLabels.saldoAkhir}
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {(filteredAccounts ?? []).map((account) => (
-                                        <AccountSection
+                                    {filteredAccounts.map((account) => (
+                                        <AccountRow
                                             key={account.id}
                                             account={account}
                                             fmt={fmt}
+                                            expanded={expandedId === account.id}
+                                            detail={details[account.id]}
+                                            detailLoading={
+                                                detailLoadingId === account.id
+                                            }
+                                            onToggle={toggleAccount}
                                         />
                                     ))}
-                                    {/* Grand total row */}
                                     <TableRow className="bg-slate-100 dark:bg-slate-800 font-bold border-t-2">
-                                        <TableCell colSpan={4}>TOTAL</TableCell>
+                                        <TableCell colSpan={3}>TOTAL</TableCell>
                                         <TableCell className="text-right font-mono">
-                                            {formatRupiah(data.grandTotalDebit)}
+                                            {formatRupiah(
+                                                summary.grandTotalDebit,
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right font-mono">
                                             {formatRupiah(
-                                                data.grandTotalCredit,
+                                                summary.grandTotalCredit,
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -336,68 +424,44 @@ export function GeneralLedgerClient() {
     );
 }
 
-function AccountSection({
+function AccountRow({
     account,
     fmt,
+    expanded,
+    detail,
+    detailLoading,
+    onToggle,
 }: {
-    account: LedgerAccount;
+    account: SummaryAccount;
     fmt: (n: number) => string;
+    expanded: boolean;
+    detail?: AccountDetail;
+    detailLoading: boolean;
+    onToggle: (accountId: string) => void;
 }) {
     return (
         <>
-            {/* Account header row */}
-            <TableRow className="bg-blue-50/50 dark:bg-blue-900/10">
-                <TableCell
-                    colSpan={7}
-                    className="font-semibold text-blue-700 dark:text-blue-400"
-                >
-                    ({account.code}) {account.name}
+            <TableRow
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onToggle(account.id)}
+            >
+                <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                        {expanded ? (
+                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="text-blue-700 dark:text-blue-400">
+                            ({account.code}) {account.name}
+                        </span>
+                    </div>
                 </TableCell>
-            </TableRow>
-
-            {/* Transaction rows */}
-            {account.entries.map((entry, idx) => (
-                <TableRow key={idx}>
-                    <TableCell className="text-muted-foreground text-sm pl-6">
-                        -
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                        {format(new Date(entry.date), 'dd/MM/yyyy')}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm whitespace-nowrap">
-                        {entry.entryNumber}
-                    </TableCell>
-                    <TableCell className="max-w-[200px]">
-                        <div
-                            className="flex items-center gap-1"
-                            title={`${entry.description}${entry.reference ? ` (${entry.reference})` : ''}`}
-                        >
-                            <span className="truncate">
-                                {entry.description}
-                            </span>
-                            {entry.reference && (
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                    ({entry.reference})
-                                </span>
-                            )}
-                        </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono whitespace-nowrap">
-                        {entry.debit > 0 ? fmt(entry.debit) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono whitespace-nowrap">
-                        {entry.credit > 0 ? fmt(entry.credit) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-medium whitespace-nowrap">
-                        {fmt(entry.balance)}
-                    </TableCell>
-                </TableRow>
-            ))}
-
-            {/* Closing balance row */}
-            <TableRow className="bg-muted/30 font-semibold border-b-2">
-                <TableCell colSpan={4} className="text-sm">
-                    ({account.code}) {account.name} | {reportLabels.saldoAkhir}
+                <TableCell className="text-right text-muted-foreground">
+                    {account.entryCount}
+                </TableCell>
+                <TableCell className="text-right font-mono whitespace-nowrap">
+                    {fmt(account.beginningBalance)}
                 </TableCell>
                 <TableCell className="text-right font-mono whitespace-nowrap">
                     {fmt(account.totalDebit)}
@@ -405,10 +469,107 @@ function AccountSection({
                 <TableCell className="text-right font-mono whitespace-nowrap">
                     {fmt(account.totalCredit)}
                 </TableCell>
-                <TableCell className="text-right font-mono whitespace-nowrap">
+                <TableCell className="text-right font-mono font-medium whitespace-nowrap">
                     {fmt(account.endingBalance)}
                 </TableCell>
             </TableRow>
+
+            {expanded && detailLoading && (
+                <TableRow>
+                    <TableCell
+                        colSpan={6}
+                        className="text-center text-muted-foreground py-6"
+                    >
+                        {reportLabels.memuatTransaksi}
+                    </TableCell>
+                </TableRow>
+            )}
+
+            {expanded && !detailLoading && detail && (
+                <TableRow>
+                    <TableCell colSpan={6} className="bg-muted/20 p-0">
+                        <div className="p-3">
+                            {detail.entries.length === 0 ? (
+                                <div className="text-center text-muted-foreground py-4 text-sm">
+                                    {reportLabels.tidakAdaTransaksiAkun}
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[100px]">
+                                                {reportLabels.tanggal}
+                                            </TableHead>
+                                            <TableHead className="w-[130px]">
+                                                {reportLabels.nomor}
+                                            </TableHead>
+                                            <TableHead>
+                                                {reportLabels.keterangan}
+                                            </TableHead>
+                                            <TableHead className="text-right w-[130px]">
+                                                {reportLabels.debit}
+                                            </TableHead>
+                                            <TableHead className="text-right w-[130px]">
+                                                {reportLabels.kredit}
+                                            </TableHead>
+                                            <TableHead className="text-right w-[140px]">
+                                                {reportLabels.saldo}
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {detail.entries.map((entry, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell className="whitespace-nowrap">
+                                                    {format(
+                                                        new Date(entry.date),
+                                                        'dd/MM/yyyy',
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="font-mono text-sm whitespace-nowrap">
+                                                    {entry.entryNumber}
+                                                </TableCell>
+                                                <TableCell className="max-w-[280px]">
+                                                    <div
+                                                        className="flex items-center gap-1"
+                                                        title={`${entry.description}${entry.reference ? ` (${entry.reference})` : ''}`}
+                                                    >
+                                                        <span className="truncate">
+                                                            {entry.description}
+                                                        </span>
+                                                        {entry.reference && (
+                                                            <span className="shrink-0 text-xs text-muted-foreground">
+                                                                (
+                                                                {
+                                                                    entry.reference
+                                                                }
+                                                                )
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono whitespace-nowrap">
+                                                    {entry.debit > 0
+                                                        ? fmt(entry.debit)
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono whitespace-nowrap">
+                                                    {entry.credit > 0
+                                                        ? fmt(entry.credit)
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono font-medium whitespace-nowrap">
+                                                    {fmt(entry.balance)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
+                    </TableCell>
+                </TableRow>
+            )}
         </>
     );
 }

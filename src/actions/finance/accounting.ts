@@ -137,6 +137,37 @@ export const getGeneralLedger = withTenant(async function getGeneralLedger(
     });
 });
 
+export const getGeneralLedgerSummary = withTenant(
+    async function getGeneralLedgerSummary(startDate?: Date, endDate?: Date) {
+        return safeAction(async () => {
+            await requireFinanceAccess();
+            const data = await AccountingService.getGeneralLedgerSummary(
+                startDate ? new Date(startDate) : undefined,
+                endDate ? new Date(endDate) : undefined,
+            );
+            return serializeData(data);
+        });
+    },
+);
+
+export const getGeneralLedgerAccountEntries = withTenant(
+    async function getGeneralLedgerAccountEntries(
+        accountId: string,
+        startDate?: Date,
+        endDate?: Date,
+    ) {
+        return safeAction(async () => {
+            await requireFinanceAccess();
+            const data = await AccountingService.getGeneralLedgerAccountEntries(
+                accountId,
+                startDate ? new Date(startDate) : undefined,
+                endDate ? new Date(endDate) : undefined,
+            );
+            return serializeData(data);
+        });
+    },
+);
+
 export const getFiscalPeriods = withTenant(async function getFiscalPeriods() {
     return safeAction(async () => {
         await requireFinanceAccess();

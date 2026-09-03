@@ -143,5 +143,10 @@ export const reportLabels = {
     keterangan: 'Keterangan',
     saldo: 'Saldo',
     saldoAkhir: 'Saldo Akhir',
+    saldoAwal: 'Saldo Awal',
+    jumlahTransaksi: 'Transaksi',
+    memuatTransaksi: 'Memuat transaksi...',
+    klikAkunUntukDetail: 'Klik akun untuk melihat rincian transaksi',
+    tidakAdaTransaksiAkun: 'Tidak ada transaksi pada periode ini',
     dalamIDR: '(dalam IDR)',
 } as const;
