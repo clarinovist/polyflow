@@ -7,6 +7,10 @@ import {
     PURCHASE_ORDERS_LIST_ROUTE,
     DELIVERY_ORDERS_LIST_ROUTE,
     SALES_INVOICES_LIST_ROUTE,
+    GENERAL_LEDGER_SUMMARY_ROUTE,
+    BALANCE_SHEET_ROUTE,
+    INCOME_STATEMENT_ROUTE,
+    TRIAL_BALANCE_ROUTE,
 } from '@/lib/constants/performance';
 import { PerformanceRouteCard } from '@/components/admin/PerformanceRouteCard';
 import { performanceLabels as L } from '@/lib/labels/admin';
@@ -19,6 +23,10 @@ const MONITORED_ROUTES = [
     { key: PURCHASE_ORDERS_LIST_ROUTE, label: L.routePurchaseOrdersList },
     { key: DELIVERY_ORDERS_LIST_ROUTE, label: L.routeDeliveryOrdersList },
     { key: SALES_INVOICES_LIST_ROUTE, label: L.routeSalesInvoicesList },
+    { key: GENERAL_LEDGER_SUMMARY_ROUTE, label: L.routeGeneralLedgerSummary },
+    { key: BALANCE_SHEET_ROUTE, label: L.routeBalanceSheet },
+    { key: INCOME_STATEMENT_ROUTE, label: L.routeIncomeStatement },
+    { key: TRIAL_BALANCE_ROUTE, label: L.routeTrialBalance },
 ];
 
 export default async function PerformancePage() {

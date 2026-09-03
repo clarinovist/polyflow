@@ -9,6 +9,13 @@ import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
 import { AccountType, AccountCategory } from '@prisma/client';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { recordPerformanceSample } from '@/lib/tools/performance-sample';
+import {
+    GENERAL_LEDGER_SUMMARY_ROUTE,
+    BALANCE_SHEET_ROUTE,
+    INCOME_STATEMENT_ROUTE,
+    TRIAL_BALANCE_ROUTE,
+} from '@/lib/constants/performance';
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
 import { BudgetService } from '@/services/finance/budget-service';
 
@@ -75,10 +82,12 @@ export const getTrialBalance = withTenant(async function getTrialBalance(
 ) {
     return safeAction(async () => {
         await requireFinanceAccess();
+        const startedAt = performance.now();
         const data = await AccountingService.getTrialBalance(
             startDate,
             endDate,
         );
+        recordPerformanceSample(TRIAL_BALANCE_ROUTE, startedAt, 'finance');
         return serializeData(data);
     });
 });
@@ -92,7 +101,9 @@ export const getIncomeStatement = withTenant(async function getIncomeStatement(
         // Ensure dates are dates (serialization might make them strings if passed from client directly differently)
         const start = new Date(startDate);
         const end = new Date(endDate);
+        const startedAt = performance.now();
         const data = await AccountingService.getIncomeStatement(start, end);
+        recordPerformanceSample(INCOME_STATEMENT_ROUTE, startedAt, 'finance');
         return serializeData(data);
     });
 });
@@ -118,7 +129,9 @@ export const getBalanceSheet = withTenant(async function getBalanceSheet(
     return safeAction(async () => {
         await requireFinanceAccess();
         const date = new Date(asOfDate);
+        const startedAt = performance.now();
         const data = await AccountingService.getBalanceSheet(date);
+        recordPerformanceSample(BALANCE_SHEET_ROUTE, startedAt, 'finance');
         return serializeData(data);
     });
 });
@@ -141,9 +154,15 @@ export const getGeneralLedgerSummary = withTenant(
     async function getGeneralLedgerSummary(startDate?: Date, endDate?: Date) {
         return safeAction(async () => {
             await requireFinanceAccess();
+            const startedAt = performance.now();
             const data = await AccountingService.getGeneralLedgerSummary(
                 startDate ? new Date(startDate) : undefined,
                 endDate ? new Date(endDate) : undefined,
+            );
+            recordPerformanceSample(
+                GENERAL_LEDGER_SUMMARY_ROUTE,
+                startedAt,
+                'finance',
             );
             return serializeData(data);
         });
