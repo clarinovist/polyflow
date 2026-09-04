@@ -515,17 +515,60 @@ export function InvoiceDotMatrixPrint({
           margin-bottom: 8px;
         }
 
+        .customer-info-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 10px;
+          margin-bottom: 8px;
+        }
+
+        .customer-left,
+        .customer-right {
+          flex: 1;
+          min-width: 0;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
         .customer-row {
+          display: flex;
+          gap: 6px;
           margin-bottom: 1px;
         }
 
         .customer-label {
           font-weight: bold;
+          white-space: nowrap;
         }
 
         .customer-value {
-          margin-left: 6px;
           font-weight: 500;
+          flex: 1;
+          min-width: 0;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+          white-space: pre-line;
+        }
+
+        .bottom-section {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 10px;
+          margin-top: 8px;
+          font-size: 11px;
+        }
+
+        .bottom-left {
+          flex: 1.2;
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+
+        .bottom-right {
+          flex: 1;
+          min-width: 0;
         }
 
         /* === ITEMS TABLE === */

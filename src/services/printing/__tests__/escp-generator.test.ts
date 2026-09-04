@@ -463,6 +463,28 @@ describe('generateEscpInvoice — printed width', () => {
         }
     });
 
+    it('wraps a long customer address instead of truncating it into the NPWP label', () => {
+        // Kasus foto invoice: "JL. Raya Banjaran - balamoa. kaNPWP : -" —
+        // alamat kepotong mid-word oleh pad() lalu label NPWP kolom kanan
+        // nempel tepat di belakangnya.
+        const customerAddress =
+            'JL. Raya Banjaran - Balamowa, Kecamatan Kramat, Kabupaten Tegal, Jawa Tengah 52181';
+        const text = decodeText(
+            generateEscpInvoice(
+                baseData({
+                    paperWidthCm: 24.13,
+                    customerAddress,
+                }),
+            ),
+        );
+
+        expect(text).not.toContain('kaNPWP');
+        for (const word of customerAddress.split(' ')) {
+            expect(text).toContain(word);
+        }
+        expect(text).toContain('NPWP');
+    });
+
     it('does not truncate a 42-character item name on 9.5" paper', () => {
         // "Sedotan Hitam Steril Full Printing Isi 250" is exactly 42
         // characters — the name column width at the default 9.5" layout.

@@ -278,8 +278,18 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     const leftCol = [
         ...wrapText(data.companyAddress, infoLeftWidth - 1),
         ...wrapText(contactParts.join('  '), infoLeftWidth - 1),
-        `NAMA PELANGGAN  : ${data.customerName}`,
-        `ALAMAT          : ${data.customerAddress}`,
+        // Nama + alamat pelanggan di-wrap (bukan truncate): alamat panjang
+        // sebelumnya kepotong mid-word oleh pad() lalu label NPWP nempel
+        // tepat di belakangnya ("...balamoa. kaNPWP : -"). Pola yang sama
+        // sudah dipakai surat jalan untuk ALAMAT KIRIM (escp-delivery.ts).
+        ...wrapText(
+            `NAMA PELANGGAN  : ${data.customerName}`,
+            infoLeftWidth - 1,
+        ),
+        ...wrapText(
+            `ALAMAT          : ${data.customerAddress}`,
+            infoLeftWidth - 1,
+        ),
     ];
     const rightCol = [
         `NO INVOICE      : ${data.invoiceNumber}`,
