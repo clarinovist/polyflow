@@ -70,7 +70,7 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
         items: [
             {
                 title: mainNavLabels.findings,
-                href: '/findings',
+                href: '/ceo-notes',
                 icon: AlertTriangle,
             },
             { title: mainNavLabels.sales, href: '/sales', icon: ShoppingCart },
@@ -191,11 +191,10 @@ export function SidebarNav({
                 // Permission filter
                 if (permissions === 'ALL') return true;
 
-                // /findings isn't itself a resource — it surfaces findings
+                // /ceo-notes isn't itself a resource — it surfaces notes
                 // from whichever detector resources the user can already
-                // reach. Rollout scope: production + warehouse only (see
-                // docs/plan/2026-08-14-ai-manager-l2-finding-lifecycle.md).
-                if (item.href === '/findings') {
+                // reach. Rollout scope: production + warehouse only.
+                if (item.href === '/ceo-notes') {
                     return permissions.some(
                         (p) =>
                             p === '/warehouse/inventory' ||

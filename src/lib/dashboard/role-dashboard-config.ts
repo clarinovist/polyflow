@@ -53,16 +53,6 @@ export interface DashboardKpi {
     href?: string;
 }
 
-export interface AttentionItem {
-    id: string;
-    label: string;
-    count: number;
-    href: string;
-    severity: 'critical' | 'warning' | 'info';
-    /** Permission prefix required (skipped when permissions === 'ALL') */
-    resourceHint?: string;
-}
-
 export interface QuickActionItem {
     href: string;
     label: string;
@@ -344,137 +334,6 @@ export function buildKpis(
         default:
             return [revenue, spending, machines, cashPressure];
     }
-}
-
-export function buildAttentionItems(
-    role: DashboardRole,
-    stats: ExecutiveStats,
-): AttentionItem[] {
-    const r = role.toUpperCase();
-
-    const all: AttentionItem[] = [
-        {
-            id: 'overdue-ar',
-            label: 'Piutang overdue',
-            count: stats.cashflow.overdueReceivables > 0 ? 1 : 0,
-            href: '/finance/invoices/sales?status=OVERDUE',
-            severity: 'critical',
-            resourceHint: '/finance',
-            // Use amount as signal; count 1 if amount > 0. Better: use pending if we only have amount.
-        },
-        {
-            id: 'overdue-ap',
-            label: 'Hutang overdue',
-            count: stats.cashflow.overduePayables > 0 ? 1 : 0,
-            href: '/finance/invoices/purchase?status=OVERDUE',
-            severity: 'critical',
-            resourceHint: '/finance',
-        },
-        {
-            id: 'due-week',
-            label: 'Invoice jatuh tempo minggu ini',
-            count: stats.cashflow.invoicesDueThisWeek,
-            // No meaningful filter in InvoiceTable for due-this-week range; leave plain link (known limitation - Gap 3)
-            href: '/finance/invoices/sales',
-            severity: 'warning',
-            resourceHint: '/finance',
-        },
-        {
-            id: 'pending-invoices',
-            label: 'Invoice penjualan belum lunas',
-            count: stats.sales.pendingInvoices,
-            href: '/sales/invoices?status=PENDING',
-            severity: 'warning',
-            resourceHint: '/sales',
-        },
-        {
-            id: 'pending-po',
-            label: 'PO tertunda (draft/sent)',
-            count: stats.purchasing.pendingPOs,
-            href: '/purchasing/orders?status=DRAFT,SENT',
-            severity: 'warning',
-            resourceHint: '/purchasing',
-        },
-        {
-            id: 'delayed-jobs',
-            label: 'SPK lewat jadwal',
-            count: stats.production.delayedJobs,
-            href: '/production/orders?late=1',
-            severity: 'critical',
-            resourceHint: '/production',
-        },
-        {
-            id: 'active-jobs',
-            label: 'SPK aktif',
-            count: stats.production.activeJobs,
-            href: '/production/daily',
-            severity: 'info',
-            resourceHint: '/production',
-        },
-        {
-            id: 'low-stock',
-            label: 'Item stok rendah',
-            count: stats.inventory.lowStockCount,
-            href: '/warehouse/inventory?lowStock=true',
-            severity: 'warning',
-            resourceHint: '/warehouse',
-        },
-        {
-            id: 'scrap',
-            label: 'Scrap tercatat (MTD, kg)',
-            count: Math.round(stats.production.totalScrapKg),
-            href: '/production/analytics',
-            severity: stats.production.totalScrapKg > 50 ? 'warning' : 'info',
-            resourceHint: '/production',
-        },
-    ];
-
-    // Enrich AR/AP labels with amounts; badge shows 1 when amount > 0 (no discrete count)
-    const enriched = all.map((item) => {
-        if (item.id === 'overdue-ar' && stats.cashflow.overdueReceivables > 0) {
-            return {
-                ...item,
-                label: `Piutang overdue · ${formatRupiah(stats.cashflow.overdueReceivables)}`,
-                count: 1,
-            };
-        }
-        if (item.id === 'overdue-ap' && stats.cashflow.overduePayables > 0) {
-            return {
-                ...item,
-                label: `Hutang overdue · ${formatRupiah(stats.cashflow.overduePayables)}`,
-                count: 1,
-            };
-        }
-        return item;
-    });
-
-    const roleAllow: Record<string, string[]> = {
-        ADMIN: [
-            'overdue-ar',
-            'overdue-ap',
-            'due-week',
-            'delayed-jobs',
-            'low-stock',
-            'pending-po',
-            'pending-invoices',
-        ],
-        FINANCE: ['overdue-ar', 'overdue-ap', 'due-week', 'pending-invoices'],
-        SALES: ['pending-invoices', 'overdue-ar', 'due-week', 'low-stock'],
-        PROCUREMENT: ['pending-po', 'overdue-ap', 'low-stock'],
-        PLANNING: ['delayed-jobs', 'active-jobs', 'low-stock', 'pending-po'],
-        WAREHOUSE: ['low-stock', 'active-jobs', 'pending-po'],
-        PRODUCTION: ['delayed-jobs', 'active-jobs', 'scrap', 'low-stock'],
-        HRD: [],
-    };
-
-    const allowed = roleAllow[r] ?? roleAllow.ADMIN;
-    return enriched
-        .filter((i) => allowed.includes(i.id))
-        .filter((i) => i.count > 0)
-        .sort((a, b) => {
-            const sev = { critical: 0, warning: 1, info: 2 };
-            return sev[a.severity] - sev[b.severity];
-        });
 }
 
 export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
@@ -954,27 +813,6 @@ function dayOfYear(date: Date): number {
     const start = new Date(date.getFullYear(), 0, 0);
     const diff = date.getTime() - start.getTime();
     return Math.floor(diff / 86_400_000);
-}
-
-/**
- * Generates a data-driven personal attention line for the dashboard header subtitle.
- */
-export function personalAttentionLine(items: AttentionItem[]): string {
-    if (!items || items.length === 0) {
-        return 'Semua area operasional aman & lancar.';
-    }
-
-    const top = items[0];
-    const topDetail =
-        top.label.includes('·') || top.label.includes('(')
-            ? top.label
-            : `${top.label} (${top.count})`;
-
-    if (items.length === 1) {
-        return `Hari ini untukmu: 1 area perlu perhatian — teratas: ${topDetail}.`;
-    }
-
-    return `Hari ini untukmu: ${items.length} area perlu perhatian — teratas: ${topDetail}.`;
 }
 
 /**

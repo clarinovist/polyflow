@@ -8,7 +8,6 @@ import { type ExecutiveStats } from '@/services/dashboard/executive-stats-servic
 import { formatRupiah } from '@/lib/utils/utils';
 import { dashboardLabels } from '@/lib/labels';
 import {
-    buildAttentionItems,
     buildKpis,
     buildModuleShortcuts,
     buildQuickActions,
@@ -19,7 +18,6 @@ import {
     greetingForHour,
     isOpsPortalRole,
     roleDisplayName,
-    type AttentionItem,
     type DashboardKpi,
     type DashboardRole,
     type QuickActionItem,
@@ -47,8 +45,17 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils/utils';
 
+interface DashboardCeoNote {
+    id: string;
+    priority: 'CRITICAL' | 'NORMAL';
+    status: string;
+    title: string;
+    occurrences: number;
+}
+
 interface DashboardClientProps {
     stats: ExecutiveStats | null;
+    ceoNotes: DashboardCeoNote[];
     userName: string;
     userRole: string;
     permissions: string[] | 'ALL';
@@ -57,6 +64,7 @@ interface DashboardClientProps {
 
 export default function DashboardClient({
     stats,
+    ceoNotes,
     userName,
     userRole,
     permissions,
@@ -116,9 +124,6 @@ export default function DashboardClient({
     }
 
     const kpis = buildKpis(role, stats);
-    const attention = buildAttentionItems(role, stats).filter((item) =>
-        canAccessResource(permissions, item.resourceHint),
-    );
     const quickActions = buildQuickActions(role).filter((a) =>
         canAccessResource(permissions, a.resourceHint),
     );
@@ -197,34 +202,34 @@ export default function DashboardClient({
                 </Card>
             )}
 
-            {/* Attention queue */}
-            <section aria-labelledby="attention-heading" className="space-y-3">
+            {/* CEO Notes queue */}
+            <section aria-labelledby="ceonotes-heading" className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                     <h2
-                        id="attention-heading"
+                        id="ceonotes-heading"
                         className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2"
                     >
                         <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        {dashboardLabels.needsAttentionTitle}
+                        {dashboardLabels.ceoNotesTitle}
                     </h2>
-                    {attention.length > 0 && (
+                    {ceoNotes.length > 0 && (
                         <Badge variant="outline" className="tabular-nums">
-                            {attention.length}
+                            {ceoNotes.length}
                         </Badge>
                     )}
                 </div>
 
-                {attention.length === 0 ? (
+                {ceoNotes.length === 0 ? (
                     <Card className="shadow-sm border-dashed bg-card">
                         <CardContent className="py-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                            {dashboardLabels.needsAttentionEmpty}
+                            {dashboardLabels.ceoNotesEmpty}
                         </CardContent>
                     </Card>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {attention.map((item) => (
-                            <AttentionCard key={item.id} item={item} />
+                        {ceoNotes.map((note) => (
+                            <CeoNoteCard key={note.id} note={note} />
                         ))}
                     </div>
                 )}
@@ -460,46 +465,33 @@ export default function DashboardClient({
 
 // --- Subcomponents ---
 
-function AttentionCard({ item }: { item: AttentionItem }) {
-    const severityStyles = {
-        critical:
-            'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20',
-        warning:
-            'border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/15',
-        info: 'border-border bg-card',
-    };
-    const countStyles = {
-        critical: 'text-red-600 dark:text-red-400',
-        warning: 'text-amber-600 dark:text-amber-400',
-        info: 'text-foreground',
-    };
-
+function CeoNoteCard({ note }: { note: DashboardCeoNote }) {
+    const critical = note.priority === 'CRITICAL';
     return (
-        <Link href={item.href} className="group block min-h-[44px]">
+        <Link href="/ceo-notes" className="group block min-h-[44px]">
             <Card
                 className={cn(
                     'h-full shadow-sm transition-all hover:shadow-md cursor-pointer',
-                    severityStyles[item.severity],
+                    critical
+                        ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20'
+                        : 'border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/15',
                 )}
             >
                 <CardContent className="p-3.5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">
-                            {item.label}
+                            {note.title}
                         </p>
                         <p className="text-xs text-primary font-semibold flex items-center gap-1 mt-1.5 group-hover:underline">
                             {dashboardLabels.openItem}{' '}
                             <ArrowRight className="h-3 w-3" />
                         </p>
                     </div>
-                    <span
-                        className={cn(
-                            'text-2xl font-bold tabular-nums shrink-0',
-                            countStyles[item.severity],
-                        )}
-                    >
-                        {item.count}
-                    </span>
+                    {note.occurrences > 1 && (
+                        <span className="text-2xl font-bold tabular-nums shrink-0 text-amber-600 dark:text-amber-400">
+                            {note.occurrences}x
+                        </span>
+                    )}
                 </CardContent>
             </Card>
         </Link>

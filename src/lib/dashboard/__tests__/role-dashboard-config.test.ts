@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import {
-  buildAttentionItems,
   buildKpis,
   buildQuickActions,
   canAccessResource,
@@ -9,7 +8,6 @@ import {
   encouragementForDate,
   getPortalCta,
   greetingForHour,
-  personalAttentionLine,
   isOpsPortalRole,
   roleDisplayName,
 } from '../role-dashboard-config';
@@ -99,38 +97,6 @@ describe('role-dashboard-config', () => {
     expect(flatRevenue?.trendValue).toBe('0.0% vs bulan lalu');
   });
 
-  it('filters attention items with count > 0 for role', () => {
-    const admin = buildAttentionItems('ADMIN', baseStats);
-    expect(admin.some((i) => i.id === 'overdue-ar')).toBe(true);
-    expect(admin.some((i) => i.id === 'low-stock')).toBe(true);
-    // overdue-ap amount is 0 → filtered out
-    expect(admin.some((i) => i.id === 'overdue-ap')).toBe(false);
-
-    const production = buildAttentionItems('PRODUCTION', baseStats);
-    expect(production.every((i) =>
-      ['delayed-jobs', 'active-jobs', 'scrap', 'low-stock'].includes(i.id)
-    )).toBe(true);
-  });
-
-  it('adds deep-link query params to attention items', () => {
-    const statsWithAll = {
-      ...baseStats,
-      cashflow: { overdueReceivables: 10_000, overduePayables: 5_000, invoicesDueThisWeek: 3 },
-    };
-    const admin = buildAttentionItems('ADMIN', statsWithAll as ExecutiveStats);
-    const find = (id: string) => admin.find((i) => i.id === id)?.href;
-
-    expect(find('overdue-ar')).toBe('/finance/invoices/sales?status=OVERDUE');
-    expect(find('overdue-ap')).toBe('/finance/invoices/purchase?status=OVERDUE');
-    expect(find('pending-invoices')).toBe('/sales/invoices?status=PENDING');
-    expect(find('pending-po')).toBe('/purchasing/orders?status=DRAFT,SENT');
-    expect(find('low-stock')).toBe('/warehouse/inventory?lowStock=true');
-    // due-week has no meaningful due-date filter in InvoiceTable - keep plain link (Gap 3)
-    expect(find('due-week')).toBe('/finance/invoices/sales');
-    // delayed-jobs must deep-link into the Terlambat filter, not the bare list
-    expect(find('delayed-jobs')).toBe('/production/orders?late=1');
-  });
-
   it('returns role-specific quick actions', () => {
     expect(buildQuickActions('FINANCE').some((a) => a.href.includes('/finance'))).toBe(true);
     expect(buildQuickActions('SALES').some((a) => a.href.includes('/sales'))).toBe(true);
@@ -165,25 +131,6 @@ describe('role-dashboard-config', () => {
     expect(nextDay).not.toBe(morningA); // next day → different pick
     expect(evening).not.toBe(morningA); // different period → different pool
     expect(typeof evening).toBe('string');
-  });
-
-  it('builds personal attention line correctly', () => {
-    expect(personalAttentionLine([])).toBe('Semua area operasional aman & lancar.');
-
-    const singleItem = [
-      { id: 'delayed-jobs', label: 'SPK lewat jadwal', count: 2, href: '/production/orders', severity: 'critical' as const },
-    ];
-    expect(personalAttentionLine(singleItem)).toBe(
-      'Hari ini untukmu: 1 area perlu perhatian — teratas: SPK lewat jadwal (2).'
-    );
-
-    const multiItem = [
-      { id: 'overdue-ar', label: 'Piutang overdue · Rp 15.000.000', count: 1, href: '/finance', severity: 'critical' as const },
-      { id: 'low-stock', label: 'Item stok rendah', count: 5, href: '/warehouse', severity: 'warning' as const },
-    ];
-    expect(personalAttentionLine(multiItem)).toBe(
-      'Hari ini untukmu: 2 area perlu perhatian — teratas: Piutang overdue · Rp 15.000.000.'
-    );
   });
 });
 

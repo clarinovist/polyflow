@@ -57,6 +57,8 @@ model User {
   notifications                  Notification[]
   claimedFindings                Finding[]                        @relation("FindingClaimedBy")
   resolvedFindings               Finding[]                        @relation("FindingResolvedBy")
+  claimedCeoNotes                CeoNote[]                        @relation("CeoNoteClaimedBy")
+  resolvedCeoNotes               CeoNote[]                        @relation("CeoNoteResolvedBy")
   pettyCashTransactions          PettyCashTransaction[]           @relation("PettyCashCreator")
   maklonReturns                  MaklonMaterialReturn[]           @relation("MaklonReturnCreator")
   createdPettyCashReports        PettyCashDailyReport[]           @relation("PettyCashReportCreator")
@@ -2809,6 +2811,106 @@ model FindingEvent {
   finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
 
   @@index([findingId, createdAt])
+}
+
+enum CeoNoteStatus {
+  DRAFT
+  PUBLISHED
+  CLAIMED
+  BLOCKED
+  RESOLVED
+  DISCARDED
+}
+
+enum CeoNotePriority {
+  CRITICAL
+  NORMAL
+}
+
+enum CeoNoteOrigin {
+  AI
+  MANUAL
+}
+
+// CEO Notes — otak pertama terjadwal (docs/plan/2026-09-04-ceo-notes-otak-memori.md).
+// Detector tetap sumber fakta; AI hanya penyaji. Setiap catatan menyimpan
+// sourceFingerprints[] supaya angka bisa dilacak balik ke baris detector.
+// Seperti Finding: catatan adalah fakta bisnis yang survive hapus akun user,
+// hence SetNull pada relasi user.
+model CeoNote {
+  id       String         @id @default(uuid())
+  origin   CeoNoteOrigin  @default(AI)
+  status   CeoNoteStatus  @default(DRAFT)
+  priority CeoNotePriority
+
+  title          String
+  body           String   @db.Text
+  suggestedSteps String[]
+
+  sourceDetectors    String[]
+  sourceFingerprints String[]
+  aiModel            String?
+  aiGeneratedAt      DateTime?
+  editedByCeo        Boolean  @default(false)
+
+  assignedUserIds   String[]
+  assignedRoles     String[]
+  requiredResources String[]
+
+  dueAt DateTime?
+
+  occurrences Int      @default(1)
+  lastSeenAt  DateTime @default(now())
+  remindedAt  DateTime?
+  escalatedAt DateTime?
+
+  claimedById String?
+  claimedAt   DateTime?
+  resolvedById String?
+  resolvedAt   DateTime?
+  resolutionNote String? @db.Text
+  publishedAt DateTime?
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  claimedBy  User? @relation("CeoNoteClaimedBy", fields: [claimedById], references: [id], onDelete: SetNull)
+  resolvedBy User? @relation("CeoNoteResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  events   CeoNoteEvent[]
+  comments CeoNoteComment[]
+
+  @@index([status, priority])
+  @@index([status, publishedAt])
+  @@index([claimedById])
+}
+
+model CeoNoteEvent {
+  id        String   @id @default(uuid())
+  noteId    String
+  action    String
+  actorId   String?
+  fromStatus String?
+  toStatus  String?
+  note      String?  @db.Text
+  createdAt DateTime @default(now())
+
+  noteRef CeoNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, createdAt])
+}
+
+model CeoNoteComment {
+  id        String   @id @default(uuid())
+  noteId    String
+  authorId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  noteRef CeoNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, createdAt])
 }
 
 model PettyCashTransaction {
