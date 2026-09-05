@@ -148,6 +148,9 @@ export class ProductionRoutingRunService {
                         sourceLocation: {
                             select: { id: true, name: true, slug: true },
                         },
+                        materialConsumptionLocation: {
+                            select: { id: true, name: true, slug: true },
+                        },
                         routeStep: {
                             select: {
                                 id: true,
@@ -478,6 +481,16 @@ export class ProductionRoutingRunService {
                                               sourceLocation: {
                                                   connect: {
                                                       id: step.materialSourceLocationId,
+                                                  },
+                                              },
+                                          }
+                                        : {}),
+                                    ...(step.outputLocationId &&
+                                    step.outputLocationId !== outputLocId
+                                        ? {
+                                              materialConsumptionLocation: {
+                                                  connect: {
+                                                      id: outputLocId,
                                                   },
                                               },
                                           }

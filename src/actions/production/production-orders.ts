@@ -775,6 +775,9 @@ export const getProductionOrder = withTenant(async function getProductionOrder(
                 },
             },
             sourceLocation: { select: { id: true, name: true, slug: true } },
+            materialConsumptionLocation: {
+                select: { id: true, name: true, slug: true },
+            },
         },
     });
 

@@ -430,6 +430,7 @@ model Location {
   routeStepsSource      ProductionRouteStep[]  @relation("RouteStepSourceLocation")
   routeStepsOutput      ProductionRouteStep[]  @relation("RouteStepOutputLocation")
   productionOrderSource ProductionOrder[]      @relation("ProductionOrderSourceLocation")
+  productionOrderMaterialConsumption ProductionOrder[] @relation("ProductionOrderMaterialConsumptionLocation")
 }
 
 // ==========================================
@@ -773,6 +774,7 @@ model ProductionOrder {
   executionModeSnapshot           ProductionExecutionMode? @default(GENERIC)
   clientRequestId                 String?                  @unique
   materialSourceLocationId        String?
+  materialConsumptionLocationId   String?
   maklonCustomer                  Customer?                @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   maklonCostItems                 MaklonCostItem[]
   materialIssues                  MaterialIssue[]
@@ -794,6 +796,7 @@ model ProductionOrder {
   productionRun                   ProductionRun?           @relation("ProductionRunOrders", fields: [productionRunId], references: [id])
   routeStep                       ProductionRouteStep?     @relation("RouteStepOrders", fields: [routeStepId], references: [id])
   sourceLocation                  Location?                @relation("ProductionOrderSourceLocation", fields: [materialSourceLocationId], references: [id])
+  materialConsumptionLocation     Location?                @relation("ProductionOrderMaterialConsumptionLocation", fields: [materialConsumptionLocationId], references: [id])
 
   @@index([actualEndDate])
   @@index([updatedAt, status])

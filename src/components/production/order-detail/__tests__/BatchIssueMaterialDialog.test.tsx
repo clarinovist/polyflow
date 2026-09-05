@@ -252,7 +252,7 @@ describe('BatchIssueMaterialDialog — WIP self-consumption', () => {
 
         fireEvent.click(
             screen.getByRole('button', {
-                name: /Ubah asal stok per material/i,
+                name: /Ubah asal bahan per material/i,
             }),
         );
         expect(

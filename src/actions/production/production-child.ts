@@ -31,6 +31,7 @@ export const createChildProductionOrder = withTenant(
                         select: {
                             salesOrderId: true,
                             locationId: true,
+                            materialConsumptionLocationId: true,
                             status: true,
                             location: true,
                         },
@@ -77,6 +78,15 @@ export const createChildProductionOrder = withTenant(
                             location: {
                                 connect: { id: parentOrder.locationId },
                             },
+                            ...(parentOrder.materialConsumptionLocationId
+                                ? {
+                                      materialConsumptionLocation: {
+                                          connect: {
+                                              id: parentOrder.materialConsumptionLocationId,
+                                          },
+                                      },
+                                  }
+                                : {}),
                             parentOrder: { connect: { id: parentOrderId } },
                             notes: `Sub-order for ${parentOrder.status} parent`,
                         },

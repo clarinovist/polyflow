@@ -71,6 +71,7 @@ vi.mock("@/lib/core/prisma", () => ({
     },
     productionExecution: {
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
     productionRouteStep: {
       findUnique: vi.fn(),
@@ -81,9 +82,14 @@ vi.mock("@/lib/core/prisma", () => ({
     },
     stockMovement: {
       updateMany: vi.fn(),
+      count: vi.fn(),
     },
     materialIssue: {
       deleteMany: vi.fn(),
+      count: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
     },
     scrapRecord: {
       deleteMany: vi.fn(),
@@ -1005,8 +1011,82 @@ describe("ProductionOrderService", () => {
       });
     });
 
-    it("should not connect salesOrder when not provided", async () => {
+    it("should persist materialSourceLocationId and materialConsumptionLocationId separately from the output location", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", ...a.data }) as any,
+      );
+      await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-1",
+        locationId: "loc-fg",
+        materialSourceLocationId: "loc-rm",
+        materialConsumptionLocationId: "loc-wip",
+        items: [{ productVariantId: "pv-1", quantity: 100 }],
+      });
+      expect(prisma.productionOrder.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          location: { connect: { id: "loc-fg" } },
+          sourceLocation: { connect: { id: "loc-rm" } },
+          materialConsumptionLocation: { connect: { id: "loc-wip" } },
+        }),
+      });
+    });
+
+    it("should default materialConsumptionLocationId to the WIP role for mixing when not provided", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(
+        activeBom({ category: BomCategory.MIXING }),
+      );
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", ...a.data }) as any,
+      );
+      await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-1",
+        locationId: "loc-1",
+        items: [{ productVariantId: "pv-1", quantity: 100 }],
+      });
+      expect(prisma.productionOrder.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          materialConsumptionLocation: { connect: { id: "wip-1" } },
+        }),
+      });
+    });
+
+    it("should reject a raw-material or inactive material consumption location", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.location.findUnique).mockImplementation(
+        async ({ where }: { where: { id: string } }) => {
+          if (where.id === "loc-1") {
+            return {
+              id: "loc-1",
+              name: "Finished Goods WH",
+              slug: "fg_warehouse",
+              locationPurpose: "FINISHED_GOOD",
+            } as any;
+          }
+          return {
+            id: "loc-rm",
+            name: "Gudang Bahan Baku",
+            slug: "gudang-bahan-baku",
+            locationPurpose: "RAW_MATERIAL",
+          } as any;
+        },
+      );
+      await expect(
+        ProductionOrderService.createOrder({
+          ...base,
+          orderNumber: "WO-1",
+          locationId: "loc-1",
+          materialConsumptionLocationId: "loc-rm",
+          items: [{ productVariantId: "pv-1", quantity: 100 }],
+        }),
+      ).rejects.toThrow("Lokasi pemakaian bahan tidak valid untuk SPK");
+    });
+
+    it("should not connect salesOrder when not provided", async () => {      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", ...a.data }) as any,
@@ -1579,6 +1659,56 @@ describe("ProductionOrderService", () => {
       vi.mocked(prisma.productionRouteStep.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.machineProcessCapability.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.productionOrder.findFirst).mockResolvedValue(null);
+    });
+
+    it("locks material consumption location once any transfer or material issue exists", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+        mockExistingOrder({
+          status: "IN_PROGRESS",
+          materialConsumptionLocationId: "loc-wip",
+        }),
+      );
+      vi.mocked(prisma.stockMovement.count).mockResolvedValue(1 as any);
+      vi.mocked(prisma.materialIssue.count).mockResolvedValue(1 as any);
+      await expect(
+        ProductionOrderService.updateOrder({
+          id: "po-1",
+          materialConsumptionLocationId: "loc-fg",
+        }),
+      ).rejects.toThrow("Lokasi pemakaian bahan tidak bisa diubah");
+      expect(prisma.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects a raw-material material consumption location", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+        mockExistingOrder(),
+      );
+      vi.mocked(prisma.stockMovement.count).mockResolvedValue(0 as any);
+      vi.mocked(prisma.materialIssue.count).mockResolvedValue(0 as any);
+      vi.mocked(prisma.location.findUnique).mockImplementation(
+        async ({ where }: { where: { id: string } }) => {
+          if (where.id === "loc-1") {
+            return {
+              id: "loc-1",
+              name: "Finished Goods WH",
+              slug: "fg_warehouse",
+              locationPurpose: "FINISHED_GOOD",
+            } as any;
+          }
+          return {
+            id: "loc-rm",
+            name: "Gudang Bahan Baku",
+            slug: "gudang-bahan-baku",
+            locationPurpose: "RAW_MATERIAL",
+          } as any;
+        },
+      );
+      await expect(
+        ProductionOrderService.updateOrder({
+          id: "po-1",
+          materialConsumptionLocationId: "loc-rm",
+        }),
+      ).rejects.toThrow("Lokasi pemakaian bahan tidak valid untuk SPK");
     });
 
     it("should update status and quantities", async () => {

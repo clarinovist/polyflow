@@ -15,6 +15,7 @@ import {
 
 import { ISSUABLE_MATERIAL_TYPES } from '@/lib/constants/products';
 import { resolveMaterialSources } from './material-source-resolver';
+import { logActivity } from '@/lib/tools/audit';
 import {
     BusinessRuleError,
     NotFoundError,
@@ -26,6 +27,7 @@ import { createProductionOrderWithGeneratedNumber } from './order-number-service
 import {
     isInactiveLocation,
     isRiskyOutputLocation,
+    resolveMaterialConsumptionLocationId,
     resolveSourceLocationId,
     stageFromBomCategory,
 } from '@/lib/locations/resolve-location';
@@ -299,8 +301,9 @@ export class ProductionOrderService {
             plannedEnteredUnit,
             plannedConversionFactorSnapshot,
             materialSourceLocationId,
+            materialConsumptionLocationId,
             clientRequestId,
-        } = data;
+            } = data;
 
         const execute = async (transaction: Prisma.TransactionClient) => {
             // 0. BOM must exist and be active for new production orders
@@ -391,6 +394,67 @@ export class ProductionOrderService {
                         );
                     }
                 }
+            }
+
+            // Validate material consumption location (Lokasi Pemakaian Bahan).
+            // Separate from the output location: this is where transferred
+            // stock lands and where backflush deducts from. RM/supplies and
+            // inactive locations are rejected so consumption can never point
+            // at a pure storage warehouse.
+            let resolvedConsumptionLocationId: string | null = null;
+            if (materialConsumptionLocationId) {
+                const consumptionLoc = await transaction.location.findUnique({
+                    where: { id: materialConsumptionLocationId },
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        locationPurpose: true,
+                    },
+                });
+                if (!consumptionLoc) {
+                    throw new NotFoundError(
+                        'Location',
+                        materialConsumptionLocationId,
+                    );
+                }
+                if (isInactiveLocation(consumptionLoc)) {
+                    throw new BusinessRuleError(
+                        'Tidak bisa memakai lokasi nonaktif sebagai pemakaian bahan SPK.',
+                        {
+                            locationId: materialConsumptionLocationId,
+                            slug: consumptionLoc.slug,
+                        },
+                        'INVALID_LOCATION',
+                    );
+                }
+                if (isRiskyOutputLocation(consumptionLoc)) {
+                    throw new BusinessRuleError(
+                        'Lokasi pemakaian bahan tidak valid untuk SPK (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan pilih Gudang WIP atau Area Proses.',
+                        {
+                            locationId: materialConsumptionLocationId,
+                            locationName: consumptionLoc.name,
+                        },
+                        'RISKY_OUTPUT_LOCATION',
+                    );
+                }
+                resolvedConsumptionLocationId = materialConsumptionLocationId;
+            } else if (bomForOrder.category === BomCategory.MIXING) {
+                // MIXING orders consume at the WIP/mixing floor by default —
+                // resolves to the canonical WIP warehouse, never Telukan-only
+                // because both share purpose WIP.
+                const stage = stageFromBomCategory(bomForOrder.category);
+                const allLocations = await transaction.location.findMany({
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        locationPurpose: true,
+                    },
+                });
+                resolvedConsumptionLocationId =
+                    resolveMaterialConsumptionLocationId(allLocations, stage) ||
+                    null;
             }
 
             // 1. Validate Machine Type against BOM Category if machineId is provided
@@ -577,6 +641,16 @@ export class ProductionOrderService {
                     : undefined,
                 estimatedConversionCost: estimatedConversionCost,
                 clientRequestId: clientRequestId,
+                ...(materialSourceLocationId
+                    ? {
+                          sourceLocation: {
+                              connect: { id: materialSourceLocationId },
+                          },
+                      }
+                    : {}),
+                materialConsumptionLocation: resolvedConsumptionLocationId
+                    ? { connect: { id: resolvedConsumptionLocationId } }
+                    : undefined,
             } satisfies Omit<Prisma.ProductionOrderCreateInput, 'orderNumber'>;
 
             const newOrder = orderNumber
@@ -954,6 +1028,7 @@ export class ProductionOrderService {
             actualEndDate,
             machineId,
             locationId,
+            materialConsumptionLocationId,
             plannedStartDate,
         } = data;
 
@@ -974,6 +1049,106 @@ export class ProductionOrderService {
                 },
             });
             if (!existing) throw new NotFoundError('Production Order', id);
+
+            if (materialConsumptionLocationId) {
+                // Lokasi Pemakaian Bahan dikunci begitu ada material yang
+                // bergerak: transfer terkait SPK, MaterialIssue non-VOIDED,
+                // execution, atau SPK sudah IN_PROGRESS. Mengubahnya di titik
+                // itu meninggalkan stok yatim di lokasi lama — koreksi harus
+                // lewat transfer balik/alur data-repair eksplisit.
+                if (
+                    existing.status === 'COMPLETED' ||
+                    existing.status === 'CANCELLED' ||
+                    existing.status === 'IN_PROGRESS'
+                ) {
+                    throw new BusinessRuleError(
+                        'Lokasi pemakaian bahan tidak bisa diubah untuk SPK yang sudah berjalan, selesai, atau dibatalkan.',
+                        { status: existing.status, orderId: id },
+                        'INVALID_ORDER_STATUS',
+                    );
+                }
+                const [
+                    transferCount,
+                    issueCount,
+                    executionCount,
+                ] = await Promise.all([
+                    tx.stockMovement.count({
+                        where: {
+                            productionOrderId: id,
+                            type: 'TRANSFER',
+                        },
+                    }),
+                    tx.materialIssue.count({
+                        where: {
+                            productionOrderId: id,
+                            status: { not: 'VOIDED' },
+                        },
+                    }),
+                    tx.productionExecution.count({
+                        where: { productionOrderId: id },
+                    }),
+                ]);
+                if (transferCount > 0 || issueCount > 0 || executionCount > 0) {
+                    throw new BusinessRuleError(
+                        'Lokasi pemakaian bahan sudah terpakai — bahan pernah ditransfer/dicatat di SPK ini. Gunakan transfer balik atau koreksi stok yang eksplisit.',
+                        {
+                            orderId: id,
+                            transferCount,
+                            issueCount,
+                            executionCount,
+                        },
+                        'CONSUMPTION_LOCATION_LOCKED',
+                    );
+                }
+
+                await logActivity({
+                    userId: 'system',
+                    action: 'UPDATE_CONSUMPTION_LOCATION',
+                    entityType: 'ProductionOrder',
+                    entityId: id,
+                    changes: {
+                        materialConsumptionLocationId:
+                            materialConsumptionLocationId,
+                    },
+                    tx,
+                });
+
+                const consumptionLoc = await tx.location.findUnique({
+                    where: { id: materialConsumptionLocationId },
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        locationPurpose: true,
+                    },
+                });
+                if (!consumptionLoc) {
+                    throw new NotFoundError(
+                        'Location',
+                        materialConsumptionLocationId,
+                    );
+                }
+                if (isInactiveLocation(consumptionLoc)) {
+                    throw new BusinessRuleError(
+                        'Tidak bisa memakai lokasi nonaktif sebagai pemakaian bahan SPK.',
+                        {
+                            locationId: materialConsumptionLocationId,
+                            slug: consumptionLoc.slug,
+                        },
+                        'INVALID_LOCATION',
+                    );
+                }
+                if (isRiskyOutputLocation(consumptionLoc)) {
+                    throw new BusinessRuleError(
+                        'Lokasi pemakaian bahan tidak valid untuk SPK (tidak boleh menggunakan Gudang Bahan Baku atau Gudang Supplies Kemasan). Silakan pilih Gudang WIP atau Area Proses.',
+                        {
+                            locationId: materialConsumptionLocationId,
+                            locationName: consumptionLoc.name,
+                        },
+                        'RISKY_OUTPUT_LOCATION',
+                    );
+                }
+            }
 
             if (locationId) {
                 if (
@@ -1044,17 +1219,29 @@ export class ProductionOrderService {
             const updated = await tx.productionOrder.update({
                 where: { id },
                 data: {
-                    status,
-                    priority,
-                    actualQuantity,
-                    actualStartDate,
-                    actualEndDate,
-                    machineId,
-                    ...(locationId ? { locationId } : {}),
-                    plannedStartDate,
-                },
+                    ...(status !== undefined ? { status } : {}),
+                    ...(priority !== undefined ? { priority } : {}),
+                    ...(actualQuantity !== undefined
+                        ? { actualQuantity }
+                        : {}),
+                    ...(actualStartDate !== undefined
+                        ? { actualStartDate }
+                        : {}),
+                    ...(actualEndDate !== undefined
+                        ? { actualEndDate }
+                        : {}),
+                    ...(machineId !== undefined ? { machineId } : {}),
+                    ...(locationId !== undefined
+                        ? { locationId }
+                        : {}),
+                    ...(materialConsumptionLocationId !== undefined
+                        ? { materialConsumptionLocationId }
+                        : {}),
+                    ...(plannedStartDate !== undefined
+                        ? { plannedStartDate }
+                        : {}),
+                } as Prisma.ProductionOrderUpdateInput,
             });
-
             if (status && existing.productionRunId && existing.routeStepId) {
                 if (status === 'COMPLETED' || status === 'CANCELLED') {
                     await tx.stockReservation.updateMany({

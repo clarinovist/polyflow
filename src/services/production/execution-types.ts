@@ -9,6 +9,7 @@ import {
 export interface BackflushOrder {
     isMaklon: boolean;
     locationId: string;
+    materialConsumptionLocationId?: string | null;
     bom?: { category: string | null } | null;
 }
 

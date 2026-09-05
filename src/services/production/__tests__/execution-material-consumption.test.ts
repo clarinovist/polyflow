@@ -211,6 +211,62 @@ describe('backflushMaterials — STAGED→ISSUED conversion & manual-issue guard
         expect(tx.stockMovement.create).toHaveBeenCalled();
     });
 
+    it('keeps backflush consuming at the explicit consumption location while output lands elsewhere', async () => {
+        vi.mocked(resolveMaterialLocation).mockClear();
+        const mockTx = {
+            location: { findUnique: vi.fn() },
+            inventory: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
+            stockMovement: {
+                findFirst: vi.fn().mockResolvedValue(null),
+                create: vi.fn().mockResolvedValue({ id: 'm-1' }),
+            },
+            materialIssue: {
+                findMany: vi.fn().mockResolvedValue([]),
+                create: vi.fn(),
+            },
+        };
+        const order = {
+            id: 'po-1',
+            orderNumber: 'WO-X',
+            locationId: 'loc-output',
+            isMaklon: false,
+            bom: { category: 'MIXING', productVariantId: 'pv-1', outputQuantity: 100, items: [] },
+            plannedQuantity: 100,
+            plannedMaterials: [
+                {
+                    productVariantId: 'pv-rm',
+                    quantity: 10,
+                    productVariant: {
+                        name: 'PP Hitam',
+                        product: { productType: 'RAW_MATERIAL' },
+                    },
+                },
+            ],
+        };
+
+        const { backflushMaterials } = await import(
+            '../execution-material-consumption'
+        );
+        vi.mocked(resolveMaterialLocation).mockResolvedValue('loc-wip');
+        await backflushMaterials({
+            tx: mockTx as any,
+            order: order as any,
+            productionOrderId: 'po-1',
+            totalConsumed: 10,
+            reference: 'Backflush (Batch): WO-X',
+            userId: 'u-1',
+        });
+
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            mockTx,
+            'loc-wip',
+            'pv-rm',
+            1,
+        );
+        const movement = vi.mocked(mockTx.stockMovement.create).mock.calls[0][0];
+        expect(movement.data.fromLocationId).toBe('loc-wip');
+    });
+
     it('converts full STAGED material issues to ISSUED on backflush', async () => {
         vi.mocked(resolveMaterialLocation).mockResolvedValue('loc-wip');
         vi.mocked(tx.materialIssue.findMany).mockResolvedValue([

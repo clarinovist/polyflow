@@ -28,6 +28,8 @@ export const createProductionOrderSchema = z
         machineId: z.string().optional(),
         /** Source location for material stock check (shortage). Defaults to BOM-category resolver if omitted. */
         materialSourceLocationId: z.string().optional(),
+        /** Material consumption / transfer destination (Lokasi Pemakaian Bahan). Falls back to output location when omitted. */
+        materialConsumptionLocationId: z.string().optional(),
 
         // Flexible BOM Items
         items: z
@@ -76,6 +78,8 @@ export const updateProductionOrderSchema = z.object({
     machineId: z.string().optional(),
     /** Output / staging warehouse (WO location) */
     locationId: z.string().min(1).optional(),
+    /** Material consumption / transfer destination (Lokasi Pemakaian Bahan) */
+    materialConsumptionLocationId: z.string().min(1).optional(),
     plannedStartDate: z.date().optional(),
 });
 

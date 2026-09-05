@@ -120,6 +120,14 @@ export async function resolveMaterialLocation(
     order: BackflushOrder & { materialSourceLocationId?: string | null; routeStepId?: string | null },
     productVariantId: string,
 ): Promise<string> {
+    // ── Explicit material consumption location (Lokasi Pemakaian Bahan) ──
+    // Set when the SPK separates the transfer/consumption warehouse from the
+    // output warehouse: transfer and backflush must consume from the same
+    // place, otherwise stock moved to WIP would be deducted elsewhere.
+    if (order.materialConsumptionLocationId) {
+        return order.materialConsumptionLocationId;
+    }
+
     // ── Phase 5: routed orders use persisted source location first ──
     if (order.materialSourceLocationId) {
         // Verify stock at persisted location — if has stock, use it

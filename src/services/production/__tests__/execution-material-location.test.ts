@@ -154,6 +154,29 @@ describe('resolveMaterialLocation', () => {
         expect(result).toBe('loc-1');
     });
 
+    it('prefers the explicit material consumption location over the output location', async () => {
+        const mockTx = {
+            location: { findUnique: vi.fn() },
+            inventory: { findUnique: vi.fn(), findFirst: vi.fn() },
+        };
+        const order = {
+            id: 'po-1',
+            locationId: 'loc-output',
+            materialConsumptionLocationId: 'loc-wip',
+            isMaklon: false,
+            bom: { category: 'MIXING' },
+        };
+
+        const result = await resolveMaterialLocation(
+            mockTx as any,
+            order,
+            'pv-1',
+        );
+
+        expect(result).toBe('loc-wip');
+        expect(mockTx.location.findUnique).not.toHaveBeenCalled();
+    });
+
     it('should return order location as fallback', async () => {
         // Arrange
         const mockTx = {

@@ -39,6 +39,15 @@ const EDITABLE_STATUSES = new Set([
     'IN_PROGRESS',
 ]);
 
+interface ReassignLocationButtonProps {
+    orderId: string;
+    orderNumber: string;
+    orderStatus: string;
+    currentLocationId: string;
+    currentLocationName: string;
+    locations: LocationOption[];
+}
+
 export function ReassignOutputLocationButton({
     orderId,
     orderNumber,
@@ -46,14 +55,7 @@ export function ReassignOutputLocationButton({
     currentLocationId,
     currentLocationName,
     locations,
-}: {
-    orderId: string;
-    orderNumber: string;
-    orderStatus: string;
-    currentLocationId: string;
-    currentLocationName: string;
-    locations: LocationOption[];
-}) {
+}: ReassignLocationButtonProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [selectedLocationId, setSelectedLocationId] =
@@ -67,7 +69,7 @@ export function ReassignOutputLocationButton({
 
     const handleSave = async () => {
         if (!selectedLocationId) {
-            toast.error('Pilih lokasi output terlebih dahulu');
+            toast.error('Pilih lokasi terlebih dahulu');
             return;
         }
         if (selectedLocationId === currentLocationId) {
@@ -87,10 +89,15 @@ export function ReassignOutputLocationButton({
                 setOpen(false);
                 router.refresh();
             } else {
-                toast.error(result.error || 'Gagal mengubah lokasi output');
+                toast.error(
+                    result.error ||
+                        'Gagal mengubah Lokasi Penyimpanan Hasil',
+                );
             }
         } catch {
-            toast.error('Gagal mengubah lokasi output. Silakan coba lagi.');
+            toast.error(
+                'Gagal mengubah Lokasi Penyimpanan Hasil. Silakan coba lagi.',
+            );
         } finally {
             setIsPending(false);
         }
@@ -196,6 +203,202 @@ export function ReassignOutputLocationButton({
                                 <span className="leading-relaxed">
                                     {
                                         productionComponentLabels.outputLocationRisky
+                                    }
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={onClose}
+                            disabled={isPending}
+                        >
+                            {productionComponentLabels.cancel}
+                        </Button>
+                        <Button
+                            onClick={handleSave}
+                            disabled={
+                                isPending ||
+                                !selectedLocationId ||
+                                selectedLocationId === currentLocationId ||
+                                risky
+                            }
+                        >
+                            {isPending && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            {productionComponentLabels.saveOutputLocation}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
+/**
+ * Editor Lokasi Pemakaian Bahan — separate from output reassignment so the
+ * transfer/backflush warehouse can differ from the finished-goods warehouse.
+ * Locked server-side once any transfer/issue/execution exists on the SPK.
+ */
+export function ReassignConsumptionLocationButton({
+    orderId,
+    orderNumber,
+    orderStatus,
+    currentLocationId,
+    currentLocationName,
+    locations,
+}: ReassignLocationButtonProps) {
+    const router = useRouter();
+    const [open, setOpen] = useState(false);
+    const [selectedLocationId, setSelectedLocationId] =
+        useState(currentLocationId);
+    const [isPending, setIsPending] = useState(false);
+
+    const canEdit = EDITABLE_STATUSES.has(orderStatus);
+    const activeLocations = locations.filter((l) => !isInactiveLocation(l));
+    const selected = activeLocations.find((l) => l.id === selectedLocationId);
+    const risky = isRiskyOutputLocation(selected);
+
+    const handleSave = async () => {
+        if (!selectedLocationId) {
+            toast.error('Pilih lokasi terlebih dahulu');
+            return;
+        }
+        if (selectedLocationId === currentLocationId) {
+            onClose();
+            return;
+        }
+
+        setIsPending(true);
+        try {
+            const result = await updateProductionOrder({
+                id: orderId,
+                materialConsumptionLocationId: selectedLocationId,
+            });
+
+            if (result.success) {
+                toast.success(
+                    productionComponentLabels.consumptionLocationUpdated,
+                );
+                setOpen(false);
+                router.refresh();
+            } else {
+                toast.error(
+                    result.error ||
+                        productionComponentLabels.consumptionLocationLocked,
+                );
+            }
+        } catch {
+            toast.error(
+                'Gagal mengubah Lokasi Pemakaian Bahan. Silakan coba lagi.',
+            );
+        } finally {
+            setIsPending(false);
+        }
+    };
+
+    const onClose = () => {
+        if (!isPending) {
+            setSelectedLocationId(currentLocationId);
+            setOpen(false);
+        }
+    };
+
+    if (!canEdit) {
+        return null;
+    }
+
+    return (
+        <>
+            <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                    setSelectedLocationId(currentLocationId);
+                    setOpen(true);
+                }}
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                title={productionComponentLabels.consumptionLocation}
+            >
+                <MapPin className="h-3 w-3" />
+            </Button>
+
+            <Dialog
+                open={open}
+                onOpenChange={(o) => (o ? setOpen(true) : onClose())}
+            >
+                <DialogContent className="sm:max-w-[440px]">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {productionComponentLabels.consumptionLocation}
+                        </DialogTitle>
+                        <DialogDescription className="space-y-1">
+                            <span className="block">
+                                SPK{' '}
+                                <span className="font-semibold text-foreground">
+                                    {orderNumber}
+                                </span>
+                            </span>
+                            <span className="block text-xs">
+                                {
+                                    productionComponentLabels.consumptionLocationHelp
+                                }
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                                Saat ini:{' '}
+                                <span className="font-medium text-foreground">
+                                    {currentLocationName}
+                                </span>
+                            </span>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid gap-3 py-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="consumption-loc">
+                                {productionComponentLabels.consumptionLocation}
+                            </Label>
+                            <Select
+                                value={selectedLocationId}
+                                onValueChange={setSelectedLocationId}
+                            >
+                                <SelectTrigger
+                                    id="consumption-loc"
+                                    className={cn(
+                                        risky &&
+                                            'border-destructive text-destructive',
+                                    )}
+                                >
+                                    <SelectValue placeholder="Pilih lokasi" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {activeLocations.map((loc) => {
+                                        const isRisky =
+                                            isRiskyOutputLocation(loc);
+                                        return (
+                                            <SelectItem
+                                                key={loc.id}
+                                                value={loc.id}
+                                                disabled={isRisky}
+                                            >
+                                                {loc.name}{' '}
+                                                {isRisky ? '(Terlarang)' : ''}
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {risky && (
+                            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+                                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                <span className="leading-relaxed">
+                                    {
+                                        productionComponentLabels.consumptionLocationRisky
                                     }
                                 </span>
                             </div>

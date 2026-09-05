@@ -366,6 +366,21 @@ export function resolveOutputLocationId(
     return '';
 }
 
+export function resolveMaterialConsumptionLocationId(
+    locations: LocationLike[],
+    stage: ProductionStage,
+    isMaklon = false,
+): string {
+    if (stage === 'mixing') {
+        return (
+            resolveLocationIdByRole(locations, 'WIP') ||
+            resolveLocationIdByRole(locations, 'MIXING')
+        );
+    }
+
+    return resolveOutputLocationId(locations, stage, isMaklon);
+}
+
 /**
  * Default location for packaging *materials* (etiket, karung) consumption/source.
  * Melindo: gudang-packaging. Kiyowo: packing_area if supplies live there, else PACKING role.

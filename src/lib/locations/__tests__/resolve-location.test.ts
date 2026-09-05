@@ -6,6 +6,7 @@ import {
   locationMatchesRole,
   resolveLocationByRole,
   resolveLocationIdByRole,
+  resolveMaterialConsumptionLocationId,
   resolveMaterialSourceLocationId,
   resolveOutputLocationId,
   resolvePackagingSuppliesLocationId,
@@ -175,6 +176,28 @@ describe("resolveSourceLocationId / resolveLocationIdByRole — melindo_rafia CU
 
   it("resolveLocationIdByRole RAW_MATERIAL still prefers the internal warehouse over the maklon location (slug wins before purpose)", () => {
     expect(resolveLocationIdByRole(melindoRafia, "RAW_MATERIAL")).toBe("rm-m2");
+  });
+});
+
+describe("resolveMaterialConsumptionLocationId", () => {
+  it("prefers the canonical WIP warehouse for mixing when several WIP-purpose locations exist", () => {
+    const locations: LocationLike[] = [
+      { id: "telukan", name: "Gudang Telukan", slug: "gudang_telukan", locationPurpose: "WIP" },
+      { id: "wip", name: "Gudang WIP", slug: "gudang-wip-intermediate", locationPurpose: "WIP" },
+      { id: "rm", name: "Gudang Bahan Baku", slug: "gudang-bahan-baku", locationPurpose: "RAW_MATERIAL" },
+    ];
+
+    expect(resolveMaterialConsumptionLocationId(locations, "mixing")).toBe("wip");
+  });
+
+  it("never selects raw-material, inactive, or supplies-only locations", () => {
+    const locations: LocationLike[] = [
+      { id: "rm", name: "Gudang Bahan Baku", slug: "gudang-bahan-baku", locationPurpose: "RAW_MATERIAL" },
+      { id: "dead", name: "[NONAKTIF] Gudang WIP", slug: "inactive-gudang-wip", locationPurpose: "WIP" },
+      { id: "pack", name: "Gudang Packaging", slug: "gudang-packaging", locationPurpose: "PACKING" },
+    ];
+
+    expect(resolveMaterialConsumptionLocationId(locations, "mixing")).toBe("");
   });
 });
 

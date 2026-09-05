@@ -13,8 +13,9 @@ import { Label } from '@/components/ui/label';
 import { ArrowRightLeft, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import {
-    stageLabelId,
+    isPackagingSuppliesWarehouse,
     isRiskyOutputLocation,
+    stageLabelId,
     type ProductionStage,
     type LocationLike,
 } from '@/lib/locations/resolve-location';
@@ -26,13 +27,19 @@ interface LocationFlowCardProps {
     materialSourceNames?: string[];
     outputLocationId: string;
     onOutputLocationChange: (id: string) => void;
+    /** Lokasi Pemakaian Bahan — transfer destination + backflush source */
+    consumptionLocationId: string;
+    onConsumptionLocationChange: (id: string) => void;
     activeLocations: LocationLike[];
     recommendedOutputId: string;
     recommendedOutputName: string;
+    recommendedConsumptionId: string;
     outputIsRisky: boolean;
     outputIsRecommended: boolean;
+    consumptionManuallyOverridden: boolean;
     outputManuallyOverridden: boolean;
     onResetToDefault: () => void;
+    onResetConsumptionToDefault: () => void;
 }
 
 export function LocationFlowCard({
@@ -41,14 +48,26 @@ export function LocationFlowCard({
     materialSourceNames = [],
     outputLocationId,
     onOutputLocationChange,
+    consumptionLocationId,
+    onConsumptionLocationChange,
     activeLocations,
     recommendedOutputId,
     recommendedOutputName,
+    recommendedConsumptionId,
     outputIsRisky,
     outputIsRecommended,
+    consumptionManuallyOverridden,
     outputManuallyOverridden,
     onResetToDefault,
+    onResetConsumptionToDefault,
 }: LocationFlowCardProps) {
+    // A location is only a valid Lokasi Pemakaian Bahan when it is a real
+    // production/WIP floor — never the raw-material warehouse or a supplies
+    // store, so bahan cannot be "consumed" out of a storage warehouse.
+    const consumptionEligible = activeLocations.filter(
+        (l) =>
+            !isRiskyOutputLocation(l) && !isPackagingSuppliesWarehouse(l),
+    );
     return (
         <div
             className={cn(
@@ -74,7 +93,7 @@ export function LocationFlowCard({
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
                 <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">
-                        Asal bahan (cek stok)
+                        Lokasi Asal Bahan (cek stok)
                     </Label>
                     <div className="flex min-h-10 items-center rounded-md border bg-background px-3 py-1.5 text-sm">
                         {materialSourceNames.length > 0
@@ -84,7 +103,7 @@ export function LocationFlowCard({
                     <p className="text-[10px] text-muted-foreground">
                         {materialSourceNames.length > 1
                             ? 'Ditentukan per bahan — kemasan dari gudang pengemas, adonan dari WIP.'
-                            : 'Dipakai untuk cek ketersediaan material. Bukan tujuan transfer staging.'}
+                            : 'Dipakai untuk cek ketersediaan material. Bukan tujuan transfer.'}
                     </p>
                 </div>
                 <div className="hidden sm:flex items-center justify-center pb-6 text-muted-foreground">
@@ -92,7 +111,61 @@ export function LocationFlowCard({
                 </div>
                 <div className="space-y-1.5">
                     <FormLabel className="text-xs">
-                        Output / staging (lokasi SPK)
+                        Lokasi Pemakaian Bahan
+                    </FormLabel>
+                    <Select
+                        value={consumptionLocationId || ''}
+                        onValueChange={onConsumptionLocationChange}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Pilih lokasi pemakaian" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {consumptionEligible.map((l) => (
+                                <SelectItem key={l.id} value={l.id}>
+                                    {l.name}
+                                    {l.id === recommendedConsumptionId
+                                        ? ' · disarankan'
+                                        : ''}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                        Tujuan transfer bahan; bahan dipotong otomatis di sini
+                        saat hasil dicatat.
+                        {consumptionManuallyOverridden &&
+                            recommendedConsumptionId && (
+                                <>
+                                    {' · '}
+                                    <button
+                                        type="button"
+                                        className="underline underline-offset-2 text-primary"
+                                        onClick={onResetConsumptionToDefault}
+                                    >
+                                        Kembalikan ke default
+                                    </button>
+                                </>
+                            )}
+                    </p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                        Tahap produksi
+                    </Label>
+                    <div className="flex min-h-10 items-center rounded-md border bg-background px-3 py-1.5 text-sm">
+                        {stageLabelId(stage)}
+                    </div>
+                </div>
+                <div className="hidden sm:flex items-center justify-center pb-6 text-muted-foreground">
+                    <ArrowRightLeft className="h-4 w-4" />
+                </div>
+                <div className="space-y-1.5">
+                    <FormLabel className="text-xs">
+                        Lokasi Penyimpanan Hasil
                     </FormLabel>
                     <Select
                         value={outputLocationId || ''}
@@ -104,7 +177,7 @@ export function LocationFlowCard({
                                     'border-destructive text-destructive focus:ring-destructive',
                             )}
                         >
-                            <SelectValue placeholder="Pilih lokasi output" />
+                            <SelectValue placeholder="Pilih lokasi hasil" />
                         </SelectTrigger>
                         <SelectContent>
                             {activeLocations.map((l) => {
@@ -152,9 +225,9 @@ export function LocationFlowCard({
                 <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>
-                        Lokasi output ini gudang bahan baku atau nonaktif.
-                        Transfer material staging akan gagal (asal = tujuan) dan
-                        backflush bisa salah. Pilih WIP / FG / packing area.
+                        Lokasi hasil ini gudang bahan baku atau nonaktif.
+                        Transfer material akan gagal (asal = tujuan) dan stok
+                        hasil bisa salah. Pilih WIP / FG / packing area.
                     </span>
                 </div>
             )}

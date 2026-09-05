@@ -6,6 +6,7 @@ import { createProductionOrderSchema } from '@/lib/schemas/production';
 import {
     recommendedOutputHint,
     stageLabelId,
+    resolveMaterialConsumptionLocationId,
     resolveOutputLocationId,
     stageFromBomCategory,
     isEligibleMaterialSourceLocation,
@@ -216,6 +217,11 @@ export function ProductionOrderForm({
         },
     });
 
+    // Lokasi Pemakaian Bahan state (separate from output locationId).
+    const [consumptionOverrideId, setConsumptionOverrideId] = useState<
+        string | null
+    >(null);
+
     // Watched values
     const watchBomId = useWatch({ control: form.control, name: 'bomId' });
     const watchPlannedQty = useWatch({
@@ -260,6 +266,12 @@ export function ProductionOrderForm({
     });
 
     const effectiveSourceId = sourceOverrideId ?? defaultSourceId;
+    const recommendedConsumptionId = useMemo(
+        () => resolveMaterialConsumptionLocationId(locationLikes, stage, false),
+        [locationLikes, stage],
+    );
+    const effectiveConsumptionId =
+        consumptionOverrideId ?? recommendedConsumptionId;
 
     const selectedBom = boms.find((b) => b.id === watchBomId);
     const bomOutputQty = selectedBom?.outputQuantity || 0;
@@ -325,6 +337,9 @@ export function ProductionOrderForm({
 
     const outputIsRisky = isRiskyOutput(watchLocationId as string);
     const outputIsRecommended = isRecommendedOutput(watchLocationId as string);
+    const consumptionManuallyOverridden =
+        !!consumptionOverrideId &&
+        consumptionOverrideId !== recommendedConsumptionId;
     const sourceLocationName =
         locations.find((l) => l.id === effectiveSourceId)?.name || '—';
     const recommendedOutputName =
@@ -611,6 +626,14 @@ export function ProductionOrderForm({
         [form, outputLocationId],
     );
 
+    const handleConsumptionLocationChange = useCallback((val: string) => {
+        setConsumptionOverrideId(val);
+    }, []);
+
+    const handleResetConsumptionToDefault = useCallback(() => {
+        setConsumptionOverrideId(null);
+    }, []);
+
     const handleResetToDefault = useCallback(() => {
         form.setValue('locationId', outputLocationId);
         setOutputManuallyOverridden(false);
@@ -738,6 +761,8 @@ export function ProductionOrderForm({
                     ...form.getValues(),
                     locationId: form.getValues('locationId'),
                     materialSourceLocationId: effectiveSourceId || undefined,
+                    materialConsumptionLocationId:
+                        effectiveConsumptionId || undefined,
                     plannedQuantity: effectiveQty,
                     plannedEnteredQuantity:
                         planning.planningMode === 'sales' &&
@@ -797,6 +822,7 @@ export function ProductionOrderForm({
             materialPreview.isCalculating,
             outputIsRisky,
             effectiveSourceId,
+            effectiveConsumptionId,
             planning,
             bomOutputQty,
             salesOrderId,
@@ -966,19 +992,34 @@ export function ProductionOrderForm({
                                         onOutputLocationChange={
                                             handleOutputLocationChange
                                         }
+                                        consumptionLocationId={
+                                            effectiveConsumptionId || ''
+                                        }
+                                        onConsumptionLocationChange={
+                                            handleConsumptionLocationChange
+                                        }
                                         activeLocations={activeLocations}
                                         recommendedOutputId={outputLocationId}
                                         recommendedOutputName={
                                             recommendedOutputName
                                         }
+                                        recommendedConsumptionId={
+                                            recommendedConsumptionId
+                                        }
                                         outputIsRisky={outputIsRisky}
                                         outputIsRecommended={
                                             outputIsRecommended
+                                        }
+                                        consumptionManuallyOverridden={
+                                            consumptionManuallyOverridden
                                         }
                                         outputManuallyOverridden={
                                             outputManuallyOverridden
                                         }
                                         onResetToDefault={handleResetToDefault}
+                                        onResetConsumptionToDefault={
+                                            handleResetConsumptionToDefault
+                                        }
                                     />
 
                                     <MaklonSection

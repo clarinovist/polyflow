@@ -41,6 +41,8 @@ import { cn } from '@/lib/utils/utils';
 import { productionComponentLabels } from '@/lib/labels';
 import type { CappedIssueItem } from '@/services/production/material-service';
 import {
+    isPackagingSuppliesWarehouse,
+    isRiskyOutputLocation,
     resolveMaterialSourceLocationId,
     resolveTransferSourceLocationId,
     type LocationLike,
@@ -106,6 +108,19 @@ export function BatchIssueMaterialDialog({
     const router = useRouter();
 
     /**
+     * Lokasi Pemakaian Bahan — where transferred material lands and where
+     * backflush deducts from. Uses the SPK's explicit consumption location
+     * when set (new split-location contract), falling back to the output
+     * location for legacy SPKs so nothing changes for existing orders.
+     */
+    const consumptionLocationId =
+        (order as unknown as { materialConsumptionLocationId?: string | null })
+            .materialConsumptionLocationId || order.location.id;
+    const consumptionLocation =
+        locations.find((l) => l.id === consumptionLocationId) ||
+        order.location;
+
+    /**
      * Warehouse a single line defaults to. Packaging supplies and WIP batches
      * live apart from raw materials, so one source for the whole order reported
      * stock that was on the shelf as missing.
@@ -129,7 +144,7 @@ export function BatchIssueMaterialDialog({
      */
     const isSelfConsumptionWip = (item: BatchItem) =>
         ['WIP', 'INTERMEDIATE'].includes(item.productType || '') &&
-        effectiveSourceForItem(item) === order.location.id;
+        effectiveSourceForItem(item) === consumptionLocationId;
 
     // Check if transfer mode (Backflush) based on machine type OR bom category
     const isTransferMode =
@@ -224,17 +239,17 @@ export function BatchIssueMaterialDialog({
                         isTransferMode &&
                         item.packagingContainerSize &&
                         item.packagingContainerSize > 0 &&
-                        locToUse !== order.location.id
+                        locToUse !== consumptionLocationId
                     ) {
                         const floorRes = await getRealtimeStock(
-                            order.location.id,
+                            consumptionLocationId,
                             item.productVariantId,
                         );
                         if (
                             floorRes.success &&
                             typeof floorRes.data === 'number'
                         ) {
-                            const floorKey = `${order.location.id}_${item.productVariantId}`;
+                            const floorKey = `${consumptionLocationId}_${item.productVariantId}`;
                             newStocks[floorKey] = floorRes.data;
                         }
                     }
@@ -420,7 +435,7 @@ export function BatchIssueMaterialDialog({
                 // there, and transferring it onto itself would fail.
                 const itemsToMove = validItems.filter(
                     (item) =>
-                        effectiveSourceForItem(item) !== order.location.id,
+                        effectiveSourceForItem(item) !== consumptionLocationId,
                 );
                 // Packaging supplies are handed out by whole container, not
                 // weighed to the plan figure: transfer only the shortfall
@@ -435,7 +450,7 @@ export function BatchIssueMaterialDialog({
                         item.packagingContainerSize &&
                         item.packagingContainerSize > 0
                     ) {
-                        const floorKey = `${order.location.id}_${item.productVariantId}`;
+                        const floorKey = `${consumptionLocationId}_${item.productVariantId}`;
                         return resolvePackagingTransferQuantity({
                             plannedQty: item.quantity,
                             floorStock: stockLevels[floorKey] ?? 0,
@@ -468,7 +483,7 @@ export function BatchIssueMaterialDialog({
                         ([sourceLocId, itemsToTransfer]) =>
                             transferStockBulk({
                                 sourceLocationId: sourceLocId,
-                                destinationLocationId: order.location.id, // Target is the Production Location
+                                destinationLocationId: consumptionLocationId, // Lokasi Pemakaian Bahan
                                 items: itemsToTransfer,
                                 date: new Date(),
                                 notes: `Transfer for Order ${order.orderNumber}`,
@@ -486,7 +501,7 @@ export function BatchIssueMaterialDialog({
                     // Plan qty is NOT overwritten with transfer qty (that was a latent bug).
                     const stageResult = await batchIssueMaterials({
                         productionOrderId: order.id,
-                        locationId: order.location.id, // destination / staging location
+                        locationId: consumptionLocationId, // Lokasi Pemakaian Bahan / staging
                         items: validItems.map((i) => ({
                             productVariantId: i.productVariantId,
                             quantity: i.quantity,
@@ -521,7 +536,7 @@ export function BatchIssueMaterialDialog({
                         );
                     } else {
                         toast.success(
-                            `Bahan baku berhasil ditransfer ke Gudang ${order.location.name}.`,
+                            `Bahan berhasil ditransfer ke ${consumptionLocation.name}.`,
                         );
                     }
                     setOpen(false);
@@ -676,12 +691,12 @@ export function BatchIssueMaterialDialog({
                                                 className={cn(
                                                     'w-full min-w-0 rounded-md border px-3 py-2.5 text-sm font-medium leading-snug break-words',
                                                     selectedLocation ===
-                                                        order.location.id
+                                                        consumptionLocationId
                                                         ? 'border-destructive/50 bg-destructive/10 text-destructive'
                                                         : 'border-input bg-background',
                                                 )}
                                             >
-                                                {order.location.name}
+                                                {consumptionLocation.name}
                                             </div>
                                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                                                 <span>
@@ -707,7 +722,7 @@ export function BatchIssueMaterialDialog({
                                         </div>
                                     </div>
 
-                                    {selectedLocation === order.location.id && (
+                                    {selectedLocation === consumptionLocationId && (
                                         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
                                             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                                             <span className="min-w-0 leading-relaxed">
@@ -739,18 +754,12 @@ export function BatchIssueMaterialDialog({
                                                     productionComponentLabels.backflushConsumeHint
                                                 }
                                             </p>
-                                            {!order.location.name
-                                                .toLowerCase()
-                                                .includes('production') &&
-                                                !order.location.name
-                                                    .toLowerCase()
-                                                    .includes('staging') &&
-                                                !order.location.name
-                                                    .toLowerCase()
-                                                    .includes('produksi') &&
-                                                !order.location.name
-                                                    .toLowerCase()
-                                                    .includes('wip') && (
+                                            {!isRiskyOutputLocation(
+                                                consumptionLocation as LocationLike,
+                                            ) &&
+                                                !isPackagingSuppliesWarehouse(
+                                                    consumptionLocation as LocationLike,
+                                                ) && (
                                                     <p className="font-semibold text-red-600 dark:text-red-400">
                                                         {
                                                             productionComponentLabels.warningTargetWarehouse
@@ -924,9 +933,7 @@ export function BatchIssueMaterialDialog({
                                                                         effectiveSourceForItem(
                                                                             item,
                                                                         ) ===
-                                                                            order
-                                                                                .location
-                                                                                .id &&
+                                                                            consumptionLocationId &&
                                                                         'border-destructive/60 text-destructive',
                                                                 )}
                                                             >
@@ -988,8 +995,7 @@ export function BatchIssueMaterialDialog({
                                                                 :{' '}
                                                                 <span className="font-medium text-foreground">
                                                                     {
-                                                                        order
-                                                                            .location
+                                                                        consumptionLocation
                                                                             .name
                                                                     }
                                                                 </span>

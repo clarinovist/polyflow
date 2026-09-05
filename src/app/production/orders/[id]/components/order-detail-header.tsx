@@ -10,7 +10,10 @@ import { id as idLocale } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
 import { OrderStatusActions } from './order-status-actions';
 import { ReassignMachineButton } from '@/components/production/ReassignMachineButton';
-import { ReassignOutputLocationButton } from '@/components/production/ReassignOutputLocationButton';
+import {
+    ReassignConsumptionLocationButton,
+    ReassignOutputLocationButton,
+} from '@/components/production/ReassignOutputLocationButton';
 import {
     Location,
     Machine,
@@ -70,6 +73,18 @@ export function OrderDetailHeader({ order, formData }: Props) {
     const seqSnap = (order as unknown as { routeSequenceSnapshot?: number }).routeSequenceSnapshot;
     const runStub = (order as unknown as { productionRun?: { runNumber?: string; route?: { name?: string; version?: number } } | null }).productionRun;
 
+    // Lokasi Pemakaian Bahan: explicit consumption location with legacy
+    // fallback to the output location for SPKs created before the split.
+    const orderWithConsumption = order as unknown as {
+        materialConsumptionLocationId?: string | null;
+    };
+    const consumptionLocationId =
+        orderWithConsumption.materialConsumptionLocationId ||
+        order.locationId;
+    const consumptionLocationName =
+        formData.locations.find((l) => l.id === consumptionLocationId)?.name ||
+        order.location.name;
+
     return (
         <div className="space-y-4">
             {hasRun && (
@@ -128,7 +143,22 @@ export function OrderDetailHeader({ order, formData }: Props) {
                         </span>
                         <span>·</span>
                         <span className="flex items-center gap-1">
-                            Output:{' '}
+                            Pemakaian Bahan:{' '}
+                            <span className="font-medium text-foreground">
+                                {consumptionLocationName}
+                            </span>
+                            <ReassignConsumptionLocationButton
+                                orderId={order.id}
+                                orderNumber={order.orderNumber}
+                                orderStatus={order.status}
+                                currentLocationId={consumptionLocationId}
+                                currentLocationName={consumptionLocationName}
+                                locations={formData.locations}
+                            />
+                        </span>
+                        <span>·</span>
+                        <span className="flex items-center gap-1">
+                            Penyimpanan Hasil:{' '}
                             <span className="font-medium text-foreground">
                                 {order.location.name}
                             </span>

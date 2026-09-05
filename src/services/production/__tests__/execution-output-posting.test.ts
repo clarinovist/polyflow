@@ -127,6 +127,46 @@ describe('execution-output-posting', () => {
             expect(createStockReservation).not.toHaveBeenCalled();
         });
 
+    it('keeps finished output at the output location when material consumption uses another location', async () => {
+            const { ProductionCostService } = await import('../cost-service');
+            vi.mocked(ProductionCostService.calculateBatchCOGM).mockResolvedValue(50);
+            const mockTx = {
+                productVariant: { findUnique: vi.fn() },
+                bom: { findFirst: vi.fn() },
+                stockMovement: {
+                    create: vi.fn().mockResolvedValue({ id: 'movement-1' }),
+                },
+            };
+            const order = {
+                id: 'po-1',
+                locationId: 'loc-output',
+                materialConsumptionLocationId: 'loc-wip',
+                bom: { productVariantId: 'pv-1' },
+            };
+
+            await recordFinishedGoodsOutput({
+                tx: mockTx as any,
+                productionOrderId: 'po-1',
+                order: order as any,
+                quantityProduced: 100,
+                reference: 'Production Output',
+            });
+
+            const { InventoryCoreService } = await import(
+                '@/services/inventory/core-service'
+            );
+            expect(InventoryCoreService.incrementStockWithCost).toHaveBeenCalledWith(
+                mockTx,
+                'loc-output',
+                'pv-1',
+                100,
+                50,
+            );
+            expect(mockTx.stockMovement.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({ toLocationId: 'loc-output' }),
+            });
+        });
+
         it('should fallback to variant cost when COGM is 0', async () => {
             // Arrange
             const { ProductionCostService } = await import('../cost-service');
