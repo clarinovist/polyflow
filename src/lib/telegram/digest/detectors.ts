@@ -286,7 +286,7 @@ const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
  * 2026-08-31 local plan (docs/plan/ — gitignored).
  */
 export async function detectMissingFinanceJournals(
-    tenantDb: PrismaClient,
+    tenantDb: Prisma.TransactionClient | PrismaClient,
 ): Promise<DetectionResult> {
     const requiredResources = ['/finance/journals'];
     try {
