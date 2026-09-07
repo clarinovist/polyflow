@@ -17,7 +17,6 @@ import {
 } from '@/lib/errors/errors';
 import { requireFinanceMutation } from '@/lib/auth/finance-access';
 import { logActivity } from '@/lib/tools/audit';
-import { formatRupiah } from '@/lib/utils/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { normalizePaymentMethodFields } from '@/lib/finance/payment-methods';
@@ -60,153 +59,14 @@ export const recordCustomerPayment = withTenant(
                     );
                 }
 
-                const invoice = await prisma.invoice.findUnique({
-                    where: { id: data.invoiceId },
-                });
-
-                if (!invoice) {
-                    throw new NotFoundError('Invoice', data.invoiceId);
-                }
-
-                // Validate payment date falls in an open fiscal period
-                const { isPeriodOpen } =
-                    await import('@/services/accounting/periods-service');
-                const paymentDate = new Date(data.paymentDate);
-                const isOpen = await isPeriodOpen(paymentDate);
-                if (!isOpen) {
-                    throw new BusinessRuleError(
-                        'Payment date falls in a closed fiscal period',
-                    );
-                }
-
-                const totalAmount = Number(invoice.totalAmount);
-                const currentPaid = Number(invoice.paidAmount);
-                const remainingBalance = totalAmount - currentPaid;
-
-                // Validate: invoice not already fully paid
-                if (remainingBalance <= 0) {
-                    throw new BusinessRuleError(
-                        `Invoice ${invoice.invoiceNumber} sudah lunas. Tidak bisa menambah pembayaran.`,
-                    );
-                }
-
-                // Validate: payment amount does not exceed remaining balance
-                if (data.amount > remainingBalance) {
-                    throw new BusinessRuleError(
-                        `Pembayaran ${formatRupiah(data.amount)} melebihi sisa tagihan ${formatRupiah(remainingBalance)}. Sisa yang bisa dibayar: ${formatRupiah(remainingBalance)}`,
-                    );
-                }
-
-                // Validate: check for existing payments to prevent duplicates
-                const existingPayments = await prisma.payment.findMany({
-                    where: { invoiceId: data.invoiceId },
-                    orderBy: { paymentDate: 'desc' },
-                });
-
-                if (existingPayments.length > 0) {
-                    const totalExistingPayments = existingPayments.reduce(
-                        (sum, p) => sum + Number(p.amount),
-                        0,
-                    );
-                    logger.warn('Invoice already has payment records', {
-                        invoiceId: data.invoiceId,
-                        existingPayments: existingPayments.length,
-                        totalExistingPayments,
-                        newPaymentAmount: data.amount,
-                        module: 'FinancePaymentActions',
-                    });
-                }
-
-                // Validate: check for existing journal entries for this invoice
-                const existingJournals = await prisma.journalEntry.findMany({
-                    where: {
-                        referenceId: data.invoiceId,
-                        referenceType: 'SALES_INVOICE',
-                        status: 'POSTED',
-                    },
-                });
-
-                if (existingJournals.length > 0) {
-                    logger.warn('Invoice already has journal entries', {
-                        invoiceId: data.invoiceId,
-                        journalCount: existingJournals.length,
-                        journalNumbers: existingJournals.map(
-                            (j) => j.entryNumber,
-                        ),
-                        module: 'FinancePaymentActions',
-                    });
-                }
-
-                const newPaidAmount = currentPaid + data.amount;
-                const newStatus =
-                    newPaidAmount >= totalAmount
-                        ? InvoiceStatus.PAID
-                        : InvoiceStatus.PARTIAL;
-
-                const { getNextSequence, retryOnPaymentNumberConflict } =
-                    await import('@/lib/utils/sequence');
-
-                // Nomor dialokasikan DI DALAM transaksi (bukan sebelumnya) dan
-                // seluruh transaksi di-retry pada P2002 paymentNumber — race
-                // atomic sequence + counter tertinggal (backfill SQL) tetap
-                // menyelamatkan pembayaran tanpa gagal di sisi user.
-                const payment = await retryOnPaymentNumberConflict(() =>
-                    prisma.$transaction(async (tx) => {
-                        const paymentNumber =
-                            await getNextSequence('PAYMENT_IN');
-
-                        const createdPayment = await tx.payment.create({
-                            data: {
-                                paymentNumber,
-                                paymentDate: new Date(data.paymentDate),
-                                amount: data.amount,
-                                method: paymentFields.method,
-                                notes: data.notes,
-                                referenceNumber: paymentFields.referenceNumber,
-                                destinationBank:
-                                    paymentFields.destinationBank,
-                                invoiceId: data.invoiceId,
-                            },
-                        });
-
-                        await tx.invoice.update({
-                            where: { id: data.invoiceId },
-                            data: {
-                                paidAmount: newPaidAmount,
-                                status: newStatus,
-                            },
-                        });
-
-                        return createdPayment;
-                    }),
-                );
-
-                // Auto-journal must be called after transaction commits to avoid long-running transactions.
-                // If it fails, payment is recorded but no journal entry exists — this is logged and can be
-                // reconciled manually. Moving this inside the transaction would hold locks too long.
-                try {
-                    await AutoJournalService.handleSalesPayment(
-                        payment.id,
-                        data.amount,
-                        paymentFields.method,
-                        data.journalDate
-                            ? new Date(data.journalDate)
-                            : undefined,
-                    );
-                } catch (journalError) {
-                    logger.error('Auto-journal failed after payment recorded', {
-                        error: journalError,
-                        paymentId: payment.id,
-                        module: 'FinancePaymentActions',
-                    });
-                }
-
-                await logActivity({
-                    userId: session.user.id,
-                    action: 'RECORD_CUSTOMER_PAYMENT',
-                    entityType: 'Invoice',
-                    entityId: data.invoiceId,
-                    details: `Recorded payment of ${data.amount} for Sales Invoice ${data.invoiceId}`,
+                const { getNextSequence, retryOnPaymentNumberConflict } = await import('@/lib/utils/sequence');
+                const { recordCustomerPaymentInTransaction } = await import('@/services/finance/customer-payment-service');
+                await retryOnPaymentNumberConflict(async () => {
+                    // Allocate outside the retried transaction: rollback must not reuse a conflicting number.
+                    const paymentNumber = await getNextSequence('PAYMENT_IN');
+                    return prisma.$transaction(tx => recordCustomerPaymentInTransaction(
+                        tx, { ...data, ...paymentFields }, paymentNumber, session.user.id,
+                    ));
                 });
 
                 revalidatePath('/finance/payments/received');

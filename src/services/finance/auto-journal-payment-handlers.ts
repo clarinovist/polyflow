@@ -1,4 +1,4 @@
-import { JournalStatus, ReferenceType } from '@prisma/client';
+import { JournalStatus, ReferenceType, type Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
 import { NotFoundError } from '@/lib/errors/errors';
@@ -17,7 +17,9 @@ export async function handleSalesPayment(
     // sendiri saat itu). Jalur verifikasi remittance mengirim tanggal verifikasi finance —
     // sama dengan paymentDate-nya, jadi jurnal dan payment selalu jatuh di hari yang sama.
     journalDate?: Date,
+    tx?: Prisma.TransactionClient,
 ) {
+    const db = tx ?? prisma;
     // Zero/negative amounts have no journal to post — skip by design. Anything
     // else must be loud (call sites log it) so the repair pass can pick it up.
     if (!amount || amount <= 0 || !isFinite(amount)) {
@@ -27,7 +29,7 @@ export async function handleSalesPayment(
         return;
     }
 
-    const payment = await prisma.payment.findUnique({
+    const payment = await db.payment.findUnique({
         where: { id: paymentId },
         include: { invoice: true },
     });
@@ -38,7 +40,7 @@ export async function handleSalesPayment(
 
     // Idempotency guard: payment call sites run post-commit with swallowed
     // errors — a retry must not double-credit AR for the same payment.
-    const existing = await prisma.journalEntry.findFirst({
+    const existing = await db.journalEntry.findFirst({
         where: {
             referenceType: ReferenceType.SALES_PAYMENT,
             referenceId: paymentId,
@@ -55,7 +57,7 @@ export async function handleSalesPayment(
     );
     const arAcc = await getAccountByRole('accounts-receivable');
 
-    await AccountingService.createJournalEntry({
+    const entry = {
         entryDate: journalDate ?? payment.paymentDate,
         description: `Payment Receipt (${paymentMethod}) for ${invoice.invoiceNumber}`,
         reference: payment.paymentNumber || `PAY-${invoice.invoiceNumber}`,
@@ -77,7 +79,9 @@ export async function handleSalesPayment(
                 description: 'AR Payment',
             },
         ],
-    });
+    };
+    if (tx) await AccountingService.createJournalEntry(entry, tx);
+    else await AccountingService.createJournalEntry(entry);
 }
 
 export async function handlePurchasePayment(

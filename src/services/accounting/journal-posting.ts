@@ -56,7 +56,7 @@ export async function createJournalEntry(
         }
     }
 
-    const isOpen = await isPeriodOpen(input.entryDate);
+    const isOpen = await isPeriodOpen(input.entryDate, tx);
     if (!isOpen) {
         throw new BusinessRuleError(
             'Tidak dapat membuat jurnal di periode fiskal yang sudah ditutup.',

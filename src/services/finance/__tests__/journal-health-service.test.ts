@@ -253,6 +253,42 @@ describe('collectFinanceJournalIssues', () => {
         expect(issues.purchasePaymentsMissing).toHaveLength(0);
     });
 
+    it('classifies a paid invoice with only a DRAFT journal as unposted, not missing', async () => {
+        db = makeFakeDb({
+            ...baseConfig,
+            invoices: [{ id: 'paid-draft', invoiceNumber: 'INV-PAID', status: 'PAID', totalAmount: 4382000, invoiceDate: new Date('2026-08-19') }],
+            journalByType: { ...baseConfig.journalByType, SALES_INVOICE: [{ referenceId: 'paid-draft', status: 'DRAFT' }] },
+            arDebitEntries: [{ id: 'draft-je', referenceId: 'paid-draft' }],
+            arDebitGroups: [{ journalEntryId: 'draft-je', _sum: { debit: 4382000 } }],
+        });
+        const issues = await collectFinanceJournalIssues(db);
+        expect(issues).toMatchObject({
+            salesInvoicesMissing: [],
+            salesInvoicesUnposted: [{ id: 'paid-draft', invoiceNumber: 'INV-PAID', totalAmount: 4382000 }],
+            salesInvoiceShortfalls: [],
+        });
+    });
+
+    it('only counts POSTED AR amounts when checking invoice shortfalls', async () => {
+        await collectFinanceJournalIssues(db);
+        expect(db.journalEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: expect.objectContaining({ id: expect.anything(), status: 'POSTED' }),
+        }));
+    });
+
+    it.each([
+        ['SALES_PAYMENT', 'salesPaymentsMissing', 'pay-ok'],
+        ['PURCHASE_INVOICE', 'purchaseInvoicesMissing', 'pinv-ok'],
+        ['PURCHASE_PAYMENT', 'purchasePaymentsMissing', 'ppay-missing'],
+    ] as const)('requires POSTED journals for %s health', async (kind, collection, id) => {
+        db = makeFakeDb({
+            ...baseConfig,
+            journalByType: { ...baseConfig.journalByType, [kind]: [{ referenceId: id, status: 'DRAFT' }] },
+        });
+        const issues = await collectFinanceJournalIssues(db);
+        expect(issues[collection].map(row => row.id)).toContain(id);
+    });
+
     it('skips shortfall detection when the AR control account cannot be resolved', async () => {
         db = makeFakeDb({ ...baseConfig, accounts: { ar: null, ap: null } });
 

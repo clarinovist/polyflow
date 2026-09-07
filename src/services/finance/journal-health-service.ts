@@ -58,6 +58,7 @@ export type FinanceJournalIssues = {
     arAccountCode: string | null;
     apAccountCode: string | null;
     salesInvoicesMissing: MissingInvoiceIssue[];
+    salesInvoicesUnposted: MissingInvoiceIssue[];
     salesInvoiceShortfalls: ShortfallIssue[];
     salesPaymentsMissing: MissingPaymentIssue[];
     purchaseInvoicesMissing: PurchaseInvoiceMissingIssue[];
@@ -127,7 +128,7 @@ async function loadArDebitByInvoice(
             id: { in: groups.map((g) => g.journalEntryId) },
             referenceType: 'SALES_INVOICE',
             referenceId: { not: null },
-            status: { not: 'VOIDED' },
+            status: 'POSTED',
         },
         select: { id: true, referenceId: true },
     });
@@ -201,6 +202,7 @@ export async function collectFinanceJournalIssues(
     ]);
 
     const salesInvoicesMissing: MissingInvoiceIssue[] = [];
+    const salesInvoicesUnposted: MissingInvoiceIssue[] = [];
     const salesInvoiceShortfalls: ShortfallIssue[] = [];
 
     const arDebits = arAccount
@@ -216,6 +218,14 @@ export async function collectFinanceJournalIssues(
                 status: inv.status,
                 invoiceDate: inv.invoiceDate,
                 totalAmount: Number(inv.totalAmount),
+                customerName: inv.salesOrder?.customer?.name ?? null,
+            });
+            continue;
+        }
+        if (!salesInvoiceJournalIndex.get(inv.id)?.statuses.has('POSTED')) {
+            salesInvoicesUnposted.push({
+                id: inv.id, invoiceNumber: inv.invoiceNumber, status: inv.status,
+                invoiceDate: inv.invoiceDate, totalAmount: Number(inv.totalAmount),
                 customerName: inv.salesOrder?.customer?.name ?? null,
             });
             continue;
@@ -237,7 +247,7 @@ export async function collectFinanceJournalIssues(
     }
 
     const salesPaymentsMissing: MissingPaymentIssue[] = payments
-        .filter((p) => !salesPaymentJournalIndex.has(p.id))
+        .filter((p) => !salesPaymentJournalIndex.get(p.id)?.statuses.has('POSTED'))
         .map((p) => ({
             id: p.id,
             paymentNumber: p.paymentNumber,
@@ -250,7 +260,7 @@ export async function collectFinanceJournalIssues(
     // invoice-based). Pra-cutoff dikecualikan (historis terparkir di 1-199).
     const purchaseInvoicesMissing: PurchaseInvoiceMissingIssue[] =
         purchaseInvoices
-            .filter((inv) => !purchaseInvoiceJournalIndex.has(inv.id))
+            .filter((inv) => !purchaseInvoiceJournalIndex.get(inv.id)?.statuses.has('POSTED'))
             .map((inv) => ({
                 id: inv.id,
                 invoiceNumber: inv.invoiceNumber,
@@ -274,7 +284,7 @@ export async function collectFinanceJournalIssues(
         },
     });
     const purchasePaymentsMissing: MissingPaymentIssue[] = supplierPayments
-        .filter((p) => !purchasePaymentJournalIndex.has(p.id))
+        .filter((p) => !purchasePaymentJournalIndex.get(p.id)?.statuses.has('POSTED'))
         .map((p) => ({
             id: p.id,
             paymentNumber: p.paymentNumber,
@@ -287,6 +297,7 @@ export async function collectFinanceJournalIssues(
         arAccountCode: arAccount?.code ?? null,
         apAccountCode: apAccount?.code ?? null,
         salesInvoicesMissing,
+        salesInvoicesUnposted,
         salesInvoiceShortfalls,
         salesPaymentsMissing,
         purchaseInvoicesMissing,

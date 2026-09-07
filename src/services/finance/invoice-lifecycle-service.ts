@@ -1,7 +1,6 @@
 import { addDays } from 'date-fns';
 import {
     InvoiceStatus,
-    JournalStatus,
     SalesOrderStatus,
     Prisma,
 } from '@prisma/client';
@@ -296,82 +295,40 @@ export async function updateInvoiceStatus(
     data: UpdateInvoiceStatusValues,
     userId: string,
     tx?: Prisma.TransactionClient,
-) {
-    const db = tx ?? prisma;
+): Promise<void> {
+    if (!tx) return prisma.$transaction(db => updateInvoiceStatus(data, userId, db));
+    const { lockSalesInvoice, postSalesInvoiceJournal, requireOpenJournalPeriod, RECOGNIZED_INVOICE_STATUSES } = await import('./sales-recognition-service');
     const { id, status, paidAmount } = data;
-
-    const invoice = await db.invoice.findUnique({
-        where: { id },
-        include: { salesOrder: { select: { entrySource: true } } },
-    });
-
-    if (!invoice) {
-        throw new NotFoundError('Invoice', id);
-    }
-
-    // Prevent direct status change from DRAFT to payment states only for emergency dispatch invoices
-    // STANDARD invoices (majority case, including "Konfirmasi Invoice" UI button) must not be blocked
-    if (
-        invoice.status === 'DRAFT' &&
-        invoice.salesOrder.entrySource === 'EMERGENCY_DISPATCH' &&
-        (status === 'UNPAID' || status === 'PARTIAL' || status === 'PAID')
-    ) {
+    const invoice = await lockSalesInvoice(tx, id);
+    if (invoice.status === 'DRAFT' && invoice.salesOrder.entrySource === 'EMERGENCY_DISPATCH' &&
+        (RECOGNIZED_INVOICE_STATUSES as readonly string[]).includes(status)) {
         throw new BusinessRuleError(
             'Invoice masih DRAFT. Finance harus approve terlebih dahulu sebelum bisa dibayar.',
-            {
-                invoiceId: id,
-                currentStatus: invoice.status,
-                targetStatus: status,
-            },
-            'INVOICE_DRAFT',
+            { invoiceId: id, currentStatus: invoice.status, targetStatus: status }, 'INVOICE_DRAFT',
         );
     }
-
-    await db.invoice.update({
-        where: { id },
-        data: {
-            status,
-            ...(paidAmount !== undefined && { paidAmount }),
-        },
-    });
-
-    await logActivity({
-        userId,
-        action: 'UPDATE_INVOICE',
-        entityType: 'Invoice',
-        entityId: id,
-        details: `Invoice ${invoice.invoiceNumber} status updated to ${status}`,
-        tx,
-    });
-
-    let journalStatus: JournalStatus | undefined;
-
-    switch (status) {
-        case 'UNPAID':
-        case 'PAID':
-        case 'PARTIAL':
-        case 'OVERDUE':
-            journalStatus = JournalStatus.POSTED;
-            break;
-        case 'CANCELLED':
-            journalStatus = JournalStatus.VOIDED;
-            break;
-        case 'DRAFT':
-            journalStatus = JournalStatus.DRAFT;
-            break;
+    if (status === 'DRAFT' && invoice.status !== 'DRAFT') {
+        throw new BusinessRuleError('Invoice yang sudah dikonfirmasi tidak dapat dikembalikan ke DRAFT.', { invoiceId: id }, 'INVALID_STATUS_TRANSITION');
     }
-
-    if (journalStatus) {
-        await db.journalEntry.updateMany({
-            where: {
-                referenceId: id,
-                referenceType: 'SALES_INVOICE',
-            },
-            data: {
-                status: journalStatus,
-            },
+    await tx.invoice.update({ where: { id }, data: { status, ...(paidAmount !== undefined && { paidAmount }) } });
+    if ((RECOGNIZED_INVOICE_STATUSES as readonly string[]).includes(status)) {
+        await postSalesInvoiceJournal(tx, id, userId);
+    } else if (status === 'CANCELLED') {
+        const journals = await tx.journalEntry.findMany({
+            where: { referenceId: id, referenceType: 'SALES_INVOICE', status: { not: 'VOIDED' } },
+            select: { entryDate: true },
+        });
+        for (const journal of journals) await requireOpenJournalPeriod(tx, journal.entryDate);
+        await tx.journalEntry.updateMany({
+            where: { referenceId: id, referenceType: 'SALES_INVOICE', status: { not: 'VOIDED' } },
+            data: { status: 'VOIDED' },
         });
     }
+    await logActivity({
+        userId, action: 'UPDATE_INVOICE', entityType: 'Invoice', entityId: id,
+        details: `Invoice ${invoice.invoiceNumber} status updated to ${status}`,
+        fromStatus: invoice.status, toStatus: status, tx,
+    });
 }
 
 export async function createDraftInvoiceFromOrder(

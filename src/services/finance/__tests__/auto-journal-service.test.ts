@@ -3,6 +3,7 @@ import { JournalStatus, ReferenceType } from "@prisma/client";
 
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
+    $transaction: vi.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma)),
     payment: {
       findUnique: vi.fn(),
     },
@@ -44,6 +45,8 @@ vi.mock("../../accounting/account-resolver", () => ({
 import { prisma } from "@/lib/core/prisma";
 import { AccountingService } from "../../accounting/accounting-service";
 import { AutoJournalService } from "../auto-journal-service";
+import { postSalesInvoiceJournal } from '../sales-recognition-service';
+vi.mock('../sales-recognition-service', () => ({ postSalesInvoiceJournal: vi.fn() }));
 
 describe("AutoJournalService payment journals", () => {
   beforeEach(() => {
@@ -77,6 +80,16 @@ describe("AutoJournalService payment journals", () => {
         status: JournalStatus.POSTED,
       }),
     );
+  });
+
+  it("keeps sales receipt reads and writes on the supplied transaction", async () => {
+    const tx = {
+      payment: { findUnique: vi.fn().mockResolvedValue({ id: 'pay-tx', paymentDate: new Date('2026-08-20'), paymentNumber: 'PAY-TX', method: 'Cash', invoice: { invoiceNumber: 'INV-TX' } }) },
+      journalEntry: { findFirst: vi.fn().mockResolvedValue(null) },
+    } as unknown as import('@prisma/client').Prisma.TransactionClient;
+    await AutoJournalService.handleSalesPayment('pay-tx', 100, 'Cash', undefined, tx);
+    expect(tx.payment.findUnique).toHaveBeenCalled();
+    expect(AccountingService.createJournalEntry).toHaveBeenCalledWith(expect.objectContaining({ referenceId: 'pay-tx', status: 'POSTED' }), tx);
   });
 
   it("uses purchase payment id as journal referenceId", async () => {
@@ -200,6 +213,7 @@ describe("AutoJournalService.ensureDocumentJournal", () => {
   });
 
   it("approved invoice with DRAFT journal → promoted to POSTED", async () => {
+    vi.mocked(postSalesInvoiceJournal).mockResolvedValue({ action: "promoted", journalId: "je-2" });
     vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({
       id: "je-2",
     } as never);
@@ -214,17 +228,11 @@ describe("AutoJournalService.ensureDocumentJournal", () => {
     );
 
     expect(outcome.action).toBe("promoted");
-    expect(prisma.journalEntry.updateMany).toHaveBeenCalledWith({
-      where: {
-        referenceType: "SALES_INVOICE",
-        referenceId: "inv-1",
-        status: JournalStatus.DRAFT,
-      },
-      data: { status: JournalStatus.POSTED },
-    });
+    expect(postSalesInvoiceJournal).toHaveBeenCalledWith(prisma, "inv-1");
   });
 
   it("DRAFT invoice keeps its DRAFT journal (exists, no promotion)", async () => {
+    vi.mocked(postSalesInvoiceJournal).mockResolvedValue({ action: "exists", journalId: "je-3" });
     vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({
       id: "je-3",
     } as never);

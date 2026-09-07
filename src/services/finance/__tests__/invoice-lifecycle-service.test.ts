@@ -18,6 +18,7 @@ import { AutoJournalService } from "../auto-journal-service";
 // Mock prisma
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
+    $transaction: vi.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma)),
     invoice: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("@/lib/core/prisma", () => ({
       findUnique: vi.fn(),
     },
     journalEntry: {
+      findMany: vi.fn().mockResolvedValue([]),
       updateMany: vi.fn(),
     },
   },
@@ -44,6 +46,18 @@ vi.mock("../auto-journal-service", () => ({
   AutoJournalService: {
     handleSalesInvoiceCreated: vi.fn().mockResolvedValue(undefined),
   },
+}));
+
+import { postSalesInvoiceJournal } from '../sales-recognition-service';
+vi.mock('../sales-recognition-service', () => ({
+  lockSalesInvoice: async (_tx: unknown, id: string) => {
+    const invoice = await prisma.invoice.findUnique({ where: { id } });
+    if (!invoice) throw new Error('Invoice not found');
+    return invoice;
+  },
+  postSalesInvoiceJournal: vi.fn(),
+  requireOpenJournalPeriod: vi.fn(),
+  RECOGNIZED_INVOICE_STATUSES: ['UNPAID', 'PARTIAL', 'PAID', 'OVERDUE'],
 }));
 
 // Mock logger
@@ -543,10 +557,7 @@ describe("invoice-lifecycle-service", () => {
       );
 
       // Assert
-      expect(prisma.journalEntry.updateMany).toHaveBeenCalledWith({
-        where: { referenceId: "inv-1", referenceType: "SALES_INVOICE" },
-        data: { status: JournalStatus.POSTED },
-      });
+      expect(postSalesInvoiceJournal).toHaveBeenCalledWith(prisma, "inv-1", "user-1");
     });
 
     it("should set journal to POSTED for PARTIAL status", async () => {
@@ -567,10 +578,7 @@ describe("invoice-lifecycle-service", () => {
       );
 
       // Assert
-      expect(prisma.journalEntry.updateMany).toHaveBeenCalledWith({
-        where: { referenceId: "inv-1", referenceType: "SALES_INVOICE" },
-        data: { status: JournalStatus.POSTED },
-      });
+      expect(postSalesInvoiceJournal).toHaveBeenCalledWith(prisma, "inv-1", "user-1");
     });
 
     it("should set journal to POSTED for OVERDUE status", async () => {
@@ -591,10 +599,7 @@ describe("invoice-lifecycle-service", () => {
       );
 
       // Assert
-      expect(prisma.journalEntry.updateMany).toHaveBeenCalledWith({
-        where: { referenceId: "inv-1", referenceType: "SALES_INVOICE" },
-        data: { status: JournalStatus.POSTED },
-      });
+      expect(postSalesInvoiceJournal).toHaveBeenCalledWith(prisma, "inv-1", "user-1");
     });
 
     it("should set journal to VOIDED for CANCELLED status", async () => {
@@ -616,33 +621,15 @@ describe("invoice-lifecycle-service", () => {
 
       // Assert
       expect(prisma.journalEntry.updateMany).toHaveBeenCalledWith({
-        where: { referenceId: "inv-1", referenceType: "SALES_INVOICE" },
+        where: { referenceId: "inv-1", referenceType: "SALES_INVOICE", status: { not: 'VOIDED' } },
         data: { status: JournalStatus.VOIDED },
       });
     });
 
-    it("should set journal to DRAFT for DRAFT status", async () => {
-      // Arrange
-      vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
-        mockInvoice as any,
-      );
-      vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
-      vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
-
-      // Act
-      await updateInvoiceStatus(
-        {
-          id: "inv-1",
-          status: InvoiceStatus.DRAFT,
-        },
-        "user-1",
-      );
-
-      // Assert
-      expect(prisma.journalEntry.updateMany).toHaveBeenCalledWith({
-        where: { referenceId: "inv-1", referenceType: "SALES_INVOICE" },
-        data: { status: JournalStatus.DRAFT },
-      });
+    it("rejects downgrading an approved invoice to DRAFT", async () => {
+      vi.mocked(prisma.invoice.findUnique).mockResolvedValue(mockInvoice as never);
+      await expect(updateInvoiceStatus({ id: 'inv-1', status: InvoiceStatus.DRAFT }, 'user-1')).rejects.toMatchObject({ code: 'INVALID_STATUS_TRANSITION' });
+      expect(prisma.invoice.update).not.toHaveBeenCalled();
     });
 
     it("should log activity after status update", async () => {
@@ -669,6 +656,7 @@ describe("invoice-lifecycle-service", () => {
         entityType: "Invoice",
         entityId: "inv-1",
         details: "Invoice INV-001 status updated to PAID",
+        fromStatus: mockInvoice.status, toStatus: "PAID", tx: prisma,
       });
     });
 

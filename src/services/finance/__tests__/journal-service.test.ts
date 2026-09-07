@@ -177,7 +177,7 @@ describe("JournalsService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(prisma.journalEntry.create).toHaveBeenCalled();
-      expect(isPeriodOpen).toHaveBeenCalledWith(input.entryDate);
+      expect(isPeriodOpen).toHaveBeenCalledWith(input.entryDate, undefined);
     });
 
     it("throws when entry is unbalanced", async () => {

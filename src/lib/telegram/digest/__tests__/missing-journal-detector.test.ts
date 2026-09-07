@@ -22,6 +22,7 @@ describe('detectMissingFinanceJournals', () => {
         mockCollect.mockResolvedValue({
             arAccountCode: '1-115b',
             apAccountCode: '2-110b',
+            salesInvoicesUnposted: [],
             salesInvoicesMissing: [
                 {
                     id: 'inv-1',
@@ -96,12 +97,17 @@ describe('detectMissingFinanceJournals', () => {
 
         expect(result.items[0].headline).toContain('INV-049');
         expect(result.items[0].detail).toContain('Toko Jantan');
+        for (const item of result.items.slice(2)) {
+            expect(item.headline).toContain('POSTED');
+            expect(item.detail).toContain('Periksa jurnal yang ada');
+        }
     });
 
     it('returns ok with no items when everything is journalled', async () => {
         mockCollect.mockResolvedValue({
             arAccountCode: '1-115b',
             apAccountCode: '2-110b',
+            salesInvoicesUnposted: [],
             salesInvoicesMissing: [],
             salesInvoiceShortfalls: [],
             salesPaymentsMissing: [],
@@ -113,6 +119,21 @@ describe('detectMissingFinanceJournals', () => {
 
         expect(result.status).toBe('ok');
         expect(result.items).toHaveLength(0);
+    });
+
+    it('reports an unposted sales journal distinctly from a missing journal', async () => {
+        mockCollect.mockResolvedValue({
+            salesInvoicesMissing: [], salesInvoiceShortfalls: [], salesPaymentsMissing: [],
+            purchaseInvoicesMissing: [], purchasePaymentsMissing: [],
+            salesInvoicesUnposted: [{ id: 'inv-draft-je', invoiceNumber: 'INV-PAID', status: 'PAID', totalAmount: 4382000, customerName: null }],
+        });
+        const result = await detectMissingFinanceJournals(tenantDb);
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0]).toMatchObject({
+            entityKey: 'missing_finance_journal:SALES_INVOICE_UNPOSTED:inv-draft-je',
+            severity: 'critical', entityType: 'Invoice',
+        });
+        expect(result.items[0].headline).toContain('belum POSTED');
     });
 
     it('reports failed status when collection throws', async () => {

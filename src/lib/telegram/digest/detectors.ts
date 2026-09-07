@@ -303,6 +303,14 @@ export async function detectMissingFinanceJournals(
                 detail: `${rupiah(inv.totalAmount)} — ${inv.customerName ?? 'Tanpa customer'}`,
             });
         }
+        for (const inv of issues.salesInvoicesUnposted) {
+            items.push({
+                entityKey: `missing_finance_journal:SALES_INVOICE_UNPOSTED:${inv.id}`,
+                entityType: 'Invoice', entityId: inv.id, severity: 'critical',
+                headline: `Invoice ${inv.invoiceNumber} jurnal belum POSTED`,
+                detail: `${rupiah(inv.totalAmount)} — status ${inv.status}. Periksa dan posting jurnal yang ada; jangan membuat duplikat.`,
+            });
+        }
         for (const s of issues.salesInvoiceShortfalls) {
             items.push({
                 entityKey: `missing_finance_journal:SALES_INVOICE_SHORTFALL:${s.id}`,
@@ -319,8 +327,8 @@ export async function detectMissingFinanceJournals(
                 entityType: 'Payment',
                 entityId: p.id,
                 severity: 'critical',
-                headline: `Payment pelanggan ${p.paymentNumber ?? p.id.slice(0, 8)} tanpa jurnal`,
-                detail: `${rupiah(p.amount)} — ${p.method ?? 'metode tidak dicatat'}`,
+                headline: `Payment pelanggan ${p.paymentNumber ?? p.id.slice(0, 8)} belum ada jurnal POSTED`,
+                detail: `${rupiah(p.amount)} — ${p.method ?? 'metode tidak dicatat'}. Periksa jurnal yang ada sebelum membuat jurnal baru.`,
             });
         }
         for (const inv of issues.purchaseInvoicesMissing) {
@@ -329,8 +337,8 @@ export async function detectMissingFinanceJournals(
                 entityType: 'PurchaseInvoice',
                 entityId: inv.id,
                 severity: 'critical',
-                headline: `Invoice pembelian ${inv.invoiceNumber} tanpa jurnal AP`,
-                detail: `${rupiah(inv.totalAmount)} — status ${inv.status}`,
+                headline: `Invoice pembelian ${inv.invoiceNumber} belum ada jurnal AP POSTED`,
+                detail: `${rupiah(inv.totalAmount)} — status ${inv.status}. Periksa jurnal yang ada sebelum membuat jurnal baru.`,
             });
         }
         for (const p of issues.purchasePaymentsMissing) {
@@ -339,8 +347,8 @@ export async function detectMissingFinanceJournals(
                 entityType: 'Payment',
                 entityId: p.id,
                 severity: 'critical',
-                headline: `Payment supplier ${p.paymentNumber ?? p.id.slice(0, 8)} tanpa jurnal`,
-                detail: `${rupiah(p.amount)} — ${p.method ?? 'metode tidak dicatat'}`,
+                headline: `Payment supplier ${p.paymentNumber ?? p.id.slice(0, 8)} belum ada jurnal POSTED`,
+                detail: `${rupiah(p.amount)} — ${p.method ?? 'metode tidak dicatat'}. Periksa jurnal yang ada sebelum membuat jurnal baru.`,
             });
         }
 

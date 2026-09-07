@@ -1,4 +1,4 @@
-import { JournalStatus } from '@prisma/client';
+import { JournalStatus, type Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
 
@@ -41,8 +41,9 @@ export class AutoJournalService {
         amount: number,
         method: string = 'Bank Transfer',
         journalDate?: Date,
+        tx?: Prisma.TransactionClient,
     ) {
-        return handleSalesPayment(paymentId, amount, method, journalDate);
+        return handleSalesPayment(paymentId, amount, method, journalDate, tx);
     }
 
     static async handlePurchasePayment(
@@ -88,6 +89,10 @@ export class AutoJournalService {
 
         if (existing) {
             if (kind === 'SALES_INVOICE' || kind === 'PURCHASE_INVOICE') {
+                if (kind === 'SALES_INVOICE') {
+                    const { postSalesInvoiceJournal } = await import('./sales-recognition-service');
+                    return prisma.$transaction(tx => postSalesInvoiceJournal(tx, refId));
+                }
                 return this.promoteIfApproved(kind, refId, existing.id);
             }
             return { action: 'exists', journalId: existing.id };

@@ -213,11 +213,20 @@ describe('UsageAnalyticsClient filter interactions', () => {
         });
         expect(fetchUsageAnalytics).toHaveBeenCalledTimes(4);
 
-        await act(async () => {
-            fireEvent.click(
-                getByTitle('Ekspor daftar fitur teratas ke CSV'),
-            );
-        });
+        // jsdom cannot navigate a download; verify its contract without navigating.
+        const download = vi.spyOn(HTMLAnchorElement.prototype, 'click')
+            .mockImplementation(function (this: HTMLAnchorElement) {
+                expect(this.download).toMatch(/^usage-analytics-top25-30d-.*\.csv$/);
+                expect(this.href).toMatch(/^data:text\/csv;charset=utf-8,/);
+            });
+        try {
+            await act(async () => {
+                fireEvent.click(getByTitle('Ekspor daftar fitur teratas ke CSV'));
+            });
+            expect(download).toHaveBeenCalledOnce();
+        } finally {
+            download.mockRestore();
+        }
     });
 
     it('surfaces an error message when the refresh request fails', async () => {
