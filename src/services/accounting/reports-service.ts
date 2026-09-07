@@ -56,9 +56,9 @@ export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     return result;
 }
 
-export async function getIncomeStatement(startDate: Date, endDate: Date) {
+export async function getIncomeStatement(startDate: Date, endDate: Date, tx?: Prisma.TransactionClient) {
     const entryDate = wibRangeBounds(startDate, endDate);
-    const accounts = await prisma.account.findMany({
+    const accounts = await (tx ?? prisma).account.findMany({
         where: {
             type: { in: ['REVENUE', 'EXPENSE'] },
         },

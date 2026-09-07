@@ -9,6 +9,7 @@ import type {
 } from './assistant-types';
 import { createEvidence } from './evidence';
 import { checkToolAuthorization } from './tool-authorization';
+import { financeTools } from './finance-tools';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -559,87 +560,6 @@ export const toolRegistry: AssistantToolDefinition[] = [
 
             return createEvidence({
                 summary: `Status pengiriman untuk '${searchTerm}':`,
-                facts,
-                entities,
-                source: 'tenant-data',
-            });
-        },
-    },
-
-    // get_invoice_status
-    {
-        name: 'get_invoice_status',
-        description:
-            'Cek status invoice penjualan, apakah sudah lunas, partial, atau overdue.',
-        requiredResources: ['/finance/invoices/sales'],
-        sensitivity: 'financial',
-        inputSchema: z.object({
-            searchTerm: z
-                .string()
-                .min(1, 'Nomor invoice atau nama customer harus diisi'),
-        }),
-        execute: async (args, _ctx): Promise<ToolEvidence> => {
-            const { searchTerm } = args as { searchTerm: string };
-            const rows = await prisma.$queryRaw<
-                {
-                    id: string;
-                    invoiceNumber: string;
-                    status: string;
-                    totalAmount: Prisma.Decimal;
-                    paidAmount: Prisma.Decimal;
-                    dueDate: Date | null;
-                    customer: string | null;
-                }[]
-            >(Prisma.sql`
-        SELECT i.id, i."invoiceNumber", i.status, i."totalAmount", i."paidAmount",
-               i."dueDate", c.name AS customer
-        FROM "Invoice" i
-        LEFT JOIN "Customer" c ON i."customerId" = c.id
-        WHERE i."invoiceNumber" ILIKE ${'%' + searchTerm + '%'}
-           OR c.name ILIKE ${'%' + searchTerm + '%'}
-        ORDER BY i."createdAt" DESC
-        LIMIT 5
-      `);
-
-            if (!rows.length) {
-                return createEvidence({
-                    summary: `Invoice dengan kata kunci '${searchTerm}' tidak ditemukan.`,
-                    facts: [{ label: 'Pencarian', value: searchTerm }],
-                    source: 'tenant-data',
-                    completeness: 'partial',
-                });
-            }
-
-            const facts = rows.map(
-                (r: {
-                    invoiceNumber: string;
-                    status: string;
-                    totalAmount: Prisma.Decimal;
-                    paidAmount: Prisma.Decimal;
-                    customer: string | null;
-                    dueDate: Date | null;
-                }) => {
-                    const total = Number(r.totalAmount);
-                    const paid = Number(r.paidAmount);
-                    const remaining = total - paid;
-                    return {
-                        label: r.invoiceNumber,
-                        value: `${r.status} — ${r.customer || '-'} — Total: ${formatCurrency(total)} — Sisa: ${formatCurrency(remaining)} — Jatuh tempo: ${r.dueDate ? new Date(r.dueDate).toLocaleDateString('id-ID') : '-'}`,
-                    };
-                },
-            );
-
-            const entities = rows.map(
-                (r: { id: string; invoiceNumber: string }) => ({
-                    type: 'Invoice',
-                    id: r.id,
-                    label: r.invoiceNumber,
-                    href: '/finance/invoices/sales',
-                }),
-            );
-
-            return createEvidence({
-                summary: `Status invoice untuk '${searchTerm}':`,
                 facts,
                 entities,
                 source: 'tenant-data',
@@ -1335,127 +1255,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
         },
     },
 
-    // diagnose_invoice_payment
-    {
-        name: 'diagnose_invoice_payment',
-        description:
-            'Diagnosa mengapa invoice tampak belum lunas: cek payment allocation, amount, dan status.',
-        requiredResources: ['/finance/invoices/sales'],
-        sensitivity: 'financial',
-        inputSchema: z.object({
-            searchTerm: z.string().min(1, 'Nomor invoice harus diisi'),
-        }),
-        execute: async (args, _ctx): Promise<ToolEvidence> => {
-            const { searchTerm } = args as { searchTerm: string };
-            const facts: { label: string; value: string }[] = [];
-            const entities: {
-                type: string;
-                id: string;
-                label: string;
-                href: string;
-            }[] = [];
-
-            const invoices = await prisma.$queryRaw<
-                {
-                    id: string;
-                    invoiceNumber: string;
-                    status: string;
-                    totalAmount: Prisma.Decimal;
-                    paidAmount: Prisma.Decimal;
-                    dueDate: Date | null;
-                    customer: string | null;
-                }[]
-            >(Prisma.sql`
-        SELECT i.id, i."invoiceNumber", i.status, i."totalAmount", i."paidAmount", i."dueDate",
-               c.name AS customer
-        FROM "Invoice" i
-        LEFT JOIN "Customer" c ON i."customerId" = c.id
-        WHERE i."invoiceNumber" ILIKE ${'%' + searchTerm + '%'}
-        ORDER BY i."createdAt" DESC LIMIT 1
-      `);
-
-            if (!invoices.length) {
-                return createEvidence({
-                    summary: `Invoice dengan kata kunci '${searchTerm}' tidak ditemukan.`,
-                    facts: [{ label: 'Pencarian', value: searchTerm }],
-                    source: 'tenant-data',
-                    completeness: 'partial',
-                });
-            }
-
-            const inv = invoices[0];
-            const total = Number(inv.totalAmount);
-            const paid = Number(inv.paidAmount);
-            const remaining = total - paid;
-
-            facts.push({
-                label: 'Status Invoice',
-                value: `${inv.invoiceNumber} [${inv.status}] — ${inv.customer || '-'}`,
-            });
-            facts.push({ label: 'Total Amount', value: formatCurrency(total) });
-            facts.push({ label: 'Paid Amount', value: formatCurrency(paid) });
-            facts.push({
-                label: 'Remaining',
-                value: formatCurrency(remaining),
-            });
-            facts.push({
-                label: 'Due Date',
-                value: inv.dueDate
-                    ? new Date(inv.dueDate).toLocaleDateString('id-ID')
-                    : '-',
-            });
-            entities.push({
-                type: 'Invoice',
-                id: inv.id,
-                label: inv.invoiceNumber,
-                href: '/finance/invoices/sales',
-            });
-
-            // Check payments directly (PaymentAllocation table removed, Payment has invoiceId FK)
-            const payments = await prisma.$queryRaw<
-                {
-                    id: string;
-                    paymentNumber: string;
-                    amount: Prisma.Decimal;
-                    status: string;
-                    paymentDate: Date;
-                }[]
-            >(Prisma.sql`
-        SELECT p.id, p."paymentNumber", p.amount, p."paymentDate"
-        , 'PAID'::text as status
-        FROM "Payment" p
-        WHERE p."invoiceId" = ${inv.id}
-      `);
-
-            if (payments.length > 0) {
-                for (const pmt of payments) {
-                    facts.push({
-                        label: `Payment: ${pmt.paymentNumber}`,
-                        value: `${formatCurrency(Number(pmt.amount))} — ${pmt.status}`,
-                    });
-                }
-            } else {
-                facts.push({
-                    label: 'Payments',
-                    value: 'Tidak ada pembayaran tercatat',
-                });
-            }
-
-            const diagnosis =
-                remaining <= 0
-                    ? 'Invoice sudah lunas'
-                    : payments.length === 0
-                      ? 'Belum ada pembayaran'
-                      : `Sisa ${formatCurrency(remaining)} belum teralokasi`;
-
-            return createEvidence({
-                summary: `Diagnosa Invoice ${inv.invoiceNumber}: ${diagnosis}`,
-                facts,
-                entities,
-                source: 'tenant-data',
-            });
-        },
-    },
+    ...financeTools,
 ];
 
 /**
