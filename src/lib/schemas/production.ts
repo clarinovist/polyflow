@@ -30,6 +30,7 @@ export const createProductionOrderSchema = z
         materialSourceLocationId: z.string().optional(),
         /** Material consumption / transfer destination (Lokasi Pemakaian Bahan). Falls back to output location when omitted. */
         materialConsumptionLocationId: z.string().optional(),
+        materialConsumptionMode: z.enum(['TRANSFER', 'DIRECT']).optional(),
 
         // Flexible BOM Items
         items: z
@@ -37,6 +38,7 @@ export const createProductionOrderSchema = z
                 z.object({
                     productVariantId: z.string(),
                     quantity: z.coerce.number(),
+                    sourceLocationId: z.string().trim().min(1).optional(),
                 }),
             )
             .optional(),
@@ -50,6 +52,20 @@ export const createProductionOrderSchema = z
             .default(0),
     })
     .superRefine((data, ctx) => {
+        if (data.materialConsumptionMode === 'DIRECT') {
+            const items = data.items || [];
+            const invalid = items.length === 0 || items.some((item) =>
+                !item.sourceLocationId || !item.productVariantId ||
+                !Number.isFinite(item.quantity) || item.quantity <= 0,
+            );
+            const duplicate = new Set(items.map((item) => item.productVariantId)).size !== items.length;
+            if (invalid || duplicate || data.materialConsumptionLocationId || data.isMaklon) {
+                ctx.addIssue({
+                    code: 'custom', path: ['items'],
+                    message: 'Pemakaian langsung memerlukan bahan unik, jumlah positif, dan lokasi asal setiap bahan; tanpa tujuan transfer atau maklon.',
+                });
+            }
+        }
         if (data.isMaklon && !data.maklonCustomerId) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,

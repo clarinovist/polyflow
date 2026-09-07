@@ -46,6 +46,7 @@ interface OrderExecutionTabProps {
 }
 
 export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
+    const isDirect = order.materialConsumptionMode === 'DIRECT';
     const category = order.bom?.category || '';
     const materialPath = resolveMaterialPath(category);
     const isFloorPath = materialPath === 'floor_wip';
@@ -65,8 +66,8 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                             <Package className="w-4 h-4" /> Kebutuhan Bahan
                         </CardTitle>
                         <div className="flex items-center gap-2">
-                            <ManualProcurementDialog order={order} />
-                            {isActive && isFloorPath && (
+                            {!isDirect && <ManualProcurementDialog order={order} />}
+                            {isActive && isFloorPath && !isDirect && (
                                 <BatchIssueMaterialDialog
                                     order={order}
                                     locations={formData.locations}
@@ -78,8 +79,14 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <ChildOrderList order={order} />
+                    {isDirect && <section aria-label="Pemakaian langsung" className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/30 space-y-2">
+                        <h3 className="text-sm font-semibold">Langsung per bahan</h3>
+                        <p className="text-sm text-muted-foreground">Tidak perlu transfer atau issue manual. Saat hasil dicatat, stok dipotong dari gudang asal setiap bahan.</p>
+                        {isWaitingMaterial && <p className="text-sm">Stok belum cukup saat SPK dibuat. Lengkapi stok di gudang asal sebelum mencatat hasil.</p>}
+                        <ul className="space-y-2 text-sm">{order.plannedMaterials.map((item) => <li key={item.id} className="grid gap-1 sm:grid-cols-2"><span className="font-medium break-words">{item.productVariant.name}</span><span className="break-words">{formData.locations.find((l) => l.id === item.sourceLocationId)?.name || 'Lokasi asal belum ditentukan'}</span></li>)}</ul>
+                    </section>}
 
-                    {isWaitingMaterial && (
+                    {isWaitingMaterial && !isDirect && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-3 dark:border-amber-800/50 dark:bg-amber-900/20">
                             <Package className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                             <div className="flex-1">
@@ -107,7 +114,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                         </div>
                     )}
 
-                    {isActive && !isWaitingMaterial && (
+                    {isActive && !isWaitingMaterial && !isDirect && (
                         <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-2">
                             <div className="flex items-start gap-2">
                                 <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />

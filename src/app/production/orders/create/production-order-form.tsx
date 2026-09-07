@@ -28,6 +28,7 @@ import { z } from 'zod';
 // Hooks
 import { usePlanningIntent } from './hooks/use-planning-intent';
 import { useBomMaterialPreview } from './hooks/use-bom-material-preview';
+import { useDirectMaterialSources } from './hooks/use-direct-material-sources';
 import { useCompatibleMachines } from './hooks/use-compatible-machines';
 import { useCreateSpkDefaults } from './hooks/use-create-spk-defaults';
 
@@ -51,6 +52,7 @@ export interface ProductionOrderFormProps {
         slug: string;
         name: string;
         locationPurpose?: string | null;
+        locationType?: string;
     }[];
     machines: { id: string; name: string; type: string }[];
     machineStageMap?: Record<string, readonly string[]> | null;
@@ -144,6 +146,7 @@ export function ProductionOrderForm({
 }: ProductionOrderFormProps) {
     const router = useRouter();
     const [step, setStep] = useState<StepNumber>(1);
+    const [consumptionChoice, setConsumptionChoice] = useState<'TRANSFER' | 'DIRECT'>('TRANSFER');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [stage, setStage] = useState<ProductionStage>('mixing');
     const [selectedProductVariantId, setSelectedProductVariantId] =
@@ -229,6 +232,9 @@ export function ProductionOrderForm({
         name: 'plannedQuantity',
     });
     const watchIsMaklon = useWatch({ control: form.control, name: 'isMaklon' });
+    const allowDirect = stage === 'packing' && !watchIsMaklon;
+    const consumptionMode = allowDirect ? consumptionChoice : 'TRANSFER';
+    const isDirect = consumptionMode === 'DIRECT';
     const watchLocationId = useWatch({
         control: form.control,
         name: 'locationId',
@@ -452,6 +458,15 @@ export function ProductionOrderForm({
         materialPreview.materialInfo,
     ]);
 
+    const directSourceLocations = locations.filter((l) =>
+        (!l.locationType || l.locationType === 'INTERNAL') && isEligibleMaterialSourceLocation(l),
+    );
+    const directSources = useDirectMaterialSources({
+        enabled: isDirect, bomId: (watchBomId as string) || '', items: displayItems,
+        materialInfo: mergedMaterialInfo, locations: directSourceLocations,
+    });
+    const effectiveMaterialInfo = directSources.materialInfo;
+
     // Distinct warehouses the materials resolve to — a SPK regularly spans more
     // than one (packaging supplies, WIP batches, raw materials).
     const materialSourceNames = useMemo(() => {
@@ -460,13 +475,13 @@ export function ProductionOrderForm({
                 displayItems
                     .map(
                         (item) =>
-                            materialPreview.materialInfo[item.productVariantId]
+                            effectiveMaterialInfo[item.productVariantId]
                                 ?.sourceLocationName || '',
                     )
                     .filter(Boolean),
             ),
         );
-    }, [displayItems, materialPreview.materialInfo]);
+    }, [displayItems, effectiveMaterialInfo]);
 
     // Stock issues: BOM lines always have an inventory snapshot; ad-hoc lines
     // do too once the user has picked a warehouse (stdQty sentinel = 1, see
@@ -475,11 +490,11 @@ export function ProductionOrderForm({
     // as missing; ad-hoc lines compare against the one warehouse the user chose.
     const hasStockIssues = useMemo(() => {
         return displayItems.some((item) => {
-            const info = mergedMaterialInfo[item.productVariantId];
+            const info = effectiveMaterialInfo[item.productVariantId];
             if (!info || info.stdQty <= 0) return false; // no stock data yet
             return item.quantity > (info.totalStock ?? info.currentStock);
         });
-    }, [displayItems, mergedMaterialInfo]);
+    }, [displayItems, effectiveMaterialInfo]);
 
     // ── Effects ─────────────────────────────────────────────────────
 
@@ -666,6 +681,7 @@ export function ProductionOrderForm({
 
     const handleAddItem = useCallback(
         (productVariantId: string, qty: number, locationId: string) => {
+            if (isDirect) directSources.setSource(productVariantId, locationId);
             const current = (form.getValues('items') || []) as {
                 productVariantId: string;
                 quantity: number;
@@ -689,7 +705,7 @@ export function ProductionOrderForm({
                 },
             }));
         },
-        [form, locations, rawMaterialStockMap],
+        [form, locations, rawMaterialStockMap, isDirect, directSources],
     );
 
     const handleRemoveItem = useCallback(
@@ -740,6 +756,10 @@ export function ProductionOrderForm({
                 return;
             }
 
+            if (!directSources.ready) {
+                toast.error(directSources.error || 'Lengkapi gudang asal bahan dan tunggu pemeriksaan stok.');
+                return;
+            }
             if (materialPreview.isCalculating) {
                 toast.warning('Tunggu perhitungan bahan selesai');
                 return;
@@ -761,8 +781,9 @@ export function ProductionOrderForm({
                     ...form.getValues(),
                     locationId: form.getValues('locationId'),
                     materialSourceLocationId: effectiveSourceId || undefined,
+                    materialConsumptionMode: consumptionMode,
                     materialConsumptionLocationId:
-                        effectiveConsumptionId || undefined,
+                        isDirect ? undefined : effectiveConsumptionId || undefined,
                     plannedQuantity: effectiveQty,
                     plannedEnteredQuantity:
                         planning.planningMode === 'sales' &&
@@ -780,7 +801,10 @@ export function ProductionOrderForm({
                             ? planning.unitMeta.conversionFactor
                             : undefined,
                     // P0: Always use form items (edited truth)
-                    items: formItems,
+                    items: formItems.map((item) => ({
+                        productVariantId: item.productVariantId, quantity: item.quantity,
+                        ...(isDirect ? { sourceLocationId: effectiveMaterialInfo[item.productVariantId]?.sourceLocationId } : {}),
+                    })),
                     createPath: salesOrderId
                         ? 'sales_order'
                         : variantId
@@ -820,6 +844,7 @@ export function ProductionOrderForm({
         },
         [
             materialPreview.isCalculating,
+            directSources.ready, directSources.error, consumptionMode, isDirect, effectiveMaterialInfo,
             outputIsRisky,
             effectiveSourceId,
             effectiveConsumptionId,
@@ -839,7 +864,7 @@ export function ProductionOrderForm({
     // Step validation
     const canAdvanceFromStep1 = !!watchBomId && getEffectiveQty() > 0;
     const canAdvanceFromStep2 =
-        !!watchLocationId && (!watchIsMaklon || !!watchMaklonCustomerId);
+        !!watchLocationId && (!watchIsMaklon || !!watchMaklonCustomerId) && directSources.ready;
 
     // P2: Risky dialog confirm — no setTimeout, direct call
     const handleRiskyConfirm = useCallback(() => {
@@ -853,9 +878,9 @@ export function ProductionOrderForm({
         <MaterialPreviewPanel
             sourceLocationName={sourceLocationName}
             items={displayItems}
-            materialInfo={mergedMaterialInfo}
-            suggestedSource={materialPreview.suggestedSource}
-            isCalculating={materialPreview.isCalculating}
+            materialInfo={effectiveMaterialInfo}
+            suggestedSource={isDirect ? null : materialPreview.suggestedSource}
+            isCalculating={materialPreview.isCalculating || directSources.pending}
             hasStockIssues={hasStockIssues}
             error={materialPreview.error}
             onAcceptSuggestedSource={handleAcceptSuggestedSource}
@@ -982,6 +1007,21 @@ export function ProductionOrderForm({
                                 <CardContent className="space-y-6">
                                     <LocationFlowCard
                                         stage={stage}
+                                        consumptionMode={consumptionMode}
+                                        onConsumptionModeChange={setConsumptionChoice}
+                                        allowDirect={allowDirect}
+                                        materials={displayItems.map((item) => ({
+                                            ...item, name: effectiveMaterialInfo[item.productVariantId]?.name || item.productVariantId,
+                                            unit: effectiveMaterialInfo[item.productVariantId]?.unit || '',
+                                            sourceLocationId: effectiveMaterialInfo[item.productVariantId]?.sourceLocationId || '',
+                                            sourceLocationName: effectiveMaterialInfo[item.productVariantId]?.sourceLocationName || '',
+                                            currentStock: effectiveMaterialInfo[item.productVariantId]?.currentStock,
+                                        }))}
+                                        sourceLocations={directSourceLocations}
+                                        onMaterialSourceChange={directSources.setSource}
+                                        checkingStock={directSources.pending}
+                                        stockError={directSources.error}
+                                        onRetryStock={directSources.retry}
                                         sourceLocationName={sourceLocationName}
                                         materialSourceNames={
                                             materialSourceNames
@@ -1085,7 +1125,9 @@ export function ProductionOrderForm({
                                           )
                                         : undefined
                                 }
-                                sourceName={sourceLocationName}
+                                sourceName={materialSourceNames.join(' · ') || sourceLocationName}
+                                consumptionMode={consumptionMode}
+                                consumptionName={locations.find((l) => l.id === effectiveConsumptionId)?.name || '—'}
                                 outputName={
                                     locations.find(
                                         (l) =>
@@ -1100,7 +1142,7 @@ export function ProductionOrderForm({
                                 }
                                 outputIsRisky={outputIsRisky}
                                 isSubmitting={isSubmitting}
-                                isCalculating={materialPreview.isCalculating}
+                                isCalculating={materialPreview.isCalculating || directSources.pending}
                                 isFormValid={
                                     canAdvanceFromStep1 && canAdvanceFromStep2
                                 }

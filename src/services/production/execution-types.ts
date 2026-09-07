@@ -10,6 +10,8 @@ export interface BackflushOrder {
     isMaklon: boolean;
     locationId: string;
     materialConsumptionLocationId?: string | null;
+    materialConsumptionMode?: 'TRANSFER' | 'DIRECT';
+    plannedMaterials?: { productVariantId: string; sourceLocationId?: string | null }[];
     bom?: { category: string | null } | null;
 }
 
@@ -17,6 +19,7 @@ export type MaterialLike = (
     | Pick<ProductionMaterial, 'productVariantId' | 'quantity'>
     | Pick<BomItem, 'productVariantId' | 'quantity'>
 ) & {
+    sourceLocationId?: string | null;
     productVariant?: {
         name?: string | null;
         skuCode?: string | null;

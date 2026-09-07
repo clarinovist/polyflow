@@ -67,9 +67,10 @@ interface WarehouseRefreshWrapperProps {
 }
 
 export default function WarehouseRefreshWrapper({
-    initialOrders,
+    initialOrders: allOrders,
     formData,
 }: WarehouseRefreshWrapperProps) {
+    const initialOrders = useMemo(() => allOrders.filter((order) => order.materialConsumptionMode !== 'DIRECT'), [allOrders]);
     const router = useRouter();
     const [isConsolDialogOpen, setIsConsolDialogOpen] = useState(false);
     const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');

@@ -68,6 +68,18 @@ vi.mock('@/lib/config/logger', () => ({
     logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
+describe('direct material list projection', () => {
+    it('selects consumption mode and locations for downstream warehouse screens', async () => {
+        vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([]);
+        await getProductionOrders();
+        expect(prisma.productionOrder.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ select: expect.objectContaining({
+            materialConsumptionMode: true,
+            materialConsumptionLocationId: true,
+            plannedMaterials: expect.objectContaining({ select: expect.objectContaining({ sourceLocationId: true }) }),
+        }) }));
+    });
+});
+
 const SESSION = { user: { id: 'user-1' } };
 
 /** Prisma Decimal stand-in — the actions call .toNumber() on these. */

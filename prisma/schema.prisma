@@ -402,6 +402,7 @@ model ApiKey {
 }
 
 model Location {
+  directProductionMaterials ProductionMaterial[] @relation("DirectMaterialSource")
   id                    String                 @id @default(uuid())
   name                  String
   slug                  String                 @unique
@@ -739,6 +740,11 @@ model StockOpnameEntry {
   @@index([opnameItemId, createdAt])
 }
 
+enum MaterialConsumptionMode {
+  TRANSFER
+  DIRECT
+}
+
 model ProductionOrder {
   id                              String                   @id @default(uuid())
   orderNumber                     String                   @unique
@@ -775,6 +781,7 @@ model ProductionOrder {
   clientRequestId                 String?                  @unique
   materialSourceLocationId        String?
   materialConsumptionLocationId   String?
+  materialConsumptionMode         MaterialConsumptionMode @default(TRANSFER)
   maklonCustomer                  Customer?                @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   maklonCostItems                 MaklonCostItem[]
   materialIssues                  MaterialIssue[]
@@ -1079,6 +1086,10 @@ model QualityInspectionMeasurement {
 }
 
 model ProductionMaterial {
+  sourceLocationId  String?
+  sourceLocation    Location? @relation("DirectMaterialSource", fields: [sourceLocationId], references: [id], onDelete: Restrict)
+
+  @@index([sourceLocationId])
   id                String          @id @default(uuid())
   productionOrderId String
   productVariantId  String

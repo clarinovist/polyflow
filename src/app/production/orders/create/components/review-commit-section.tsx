@@ -15,6 +15,8 @@ interface ReviewCommitSectionProps {
     endDate?: string;
     sourceName: string;
     outputName: string;
+    consumptionMode?: 'TRANSFER' | 'DIRECT';
+    consumptionName?: string;
     priority: string;
     isMaklon: boolean;
     salesOrderNumber?: string;
@@ -35,6 +37,8 @@ export function ReviewCommitSection({
     endDate,
     sourceName,
     outputName,
+    consumptionMode = 'TRANSFER',
+    consumptionName,
     priority,
     isMaklon,
     salesOrderNumber,
@@ -82,10 +86,13 @@ export function ReviewCommitSection({
                         </>
                     )}
 
-                    <span className="text-muted-foreground">Alur material</span>
-                    <span className="font-medium">
-                        {sourceName} → {outputName}
-                    </span>
+                    <span className="text-muted-foreground">Pemakaian bahan</span>
+                    <span className="font-medium break-words">{consumptionMode === 'DIRECT' ? 'Langsung per bahan' : 'Transfer ke satu lokasi'}</span>
+                    <span className="text-muted-foreground">Gudang asal</span>
+                    <span className="font-medium break-words">{sourceName}</span>
+                    {consumptionMode === 'TRANSFER' && <><span className="text-muted-foreground">Tujuan transfer</span><span className="font-medium break-words">{consumptionName || outputName}</span></>}
+                    <span className="text-muted-foreground">Penyimpanan hasil</span>
+                    <span className="font-medium break-words">{outputName}</span>
 
                     <span className="text-muted-foreground">Prioritas</span>
                     <span className="font-medium">{priority}</span>

@@ -379,6 +379,8 @@ export const getProductionOrders = withTenant(
                 isMaklon: true,
                 priority: true,
                 machineId: true,
+                materialConsumptionMode: true,
+                materialConsumptionLocationId: true,
                 bom: {
                     select: {
                         id: true,
@@ -456,6 +458,7 @@ export const getProductionOrders = withTenant(
                 },
                 plannedMaterials: {
                     select: {
+                        sourceLocationId: true,
                         id: true,
                         productVariantId: true,
                         quantity: true,

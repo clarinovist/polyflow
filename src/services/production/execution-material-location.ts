@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { BusinessRuleError } from '@/lib/errors/errors';
 
 import { MAKLON_STAGE_SLUGS, WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
@@ -120,6 +121,17 @@ export async function resolveMaterialLocation(
     order: BackflushOrder & { materialSourceLocationId?: string | null; routeStepId?: string | null },
     productVariantId: string,
 ): Promise<string> {
+    if (order.materialConsumptionMode === 'DIRECT') {
+        const sources = order.plannedMaterials?.filter((item) => item.productVariantId === productVariantId) || [];
+        const sourceLocationId = sources.length === 1 ? sources[0].sourceLocationId : null;
+        if (!sourceLocationId) {
+            throw new BusinessRuleError(
+                'Lokasi asal bahan belum ditentukan untuk pemakaian langsung.',
+                { productVariantId }, 'DIRECT_MATERIAL_SOURCE_REQUIRED',
+            );
+        }
+        return sourceLocationId;
+    }
     // ── Explicit material consumption location (Lokasi Pemakaian Bahan) ──
     // Set when the SPK separates the transfer/consumption warehouse from the
     // output warehouse: transfer and backflush must consume from the same

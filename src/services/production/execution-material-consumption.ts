@@ -1,4 +1,5 @@
 import { MovementType, Prisma } from '@prisma/client';
+import { BusinessRuleError } from '@/lib/errors/errors';
 
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
@@ -120,6 +121,10 @@ export async function backflushMaterials(params: {
         return;
     }
 
+    if (order.materialConsumptionMode === 'DIRECT' && order.plannedMaterials.length === 0) {
+        throw new BusinessRuleError('Rencana bahan pemakaian langsung tidak tersedia.', {}, 'DIRECT_MATERIAL_PLAN_REQUIRED');
+    }
+
     const itemsToBackflush =
         order.plannedMaterials.length > 0
             ? order.plannedMaterials
@@ -161,6 +166,9 @@ export async function backflushMaterials(params: {
         });
 
         if (manualIssueMovement || consolIssueMovement) {
+            if (order.materialConsumptionMode === 'DIRECT') {
+                throw new BusinessRuleError('SPK pemakaian langsung memiliki issue manual yang bertentangan. Hubungi admin.', { productionOrderId }, 'DIRECT_MATERIAL_CONFLICT');
+            }
             console.log(
                 `Guard: Skipping backflush for ${item.productVariantId} on PO ${productionOrderId} because it was manually issued.`,
             );

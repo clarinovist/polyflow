@@ -32,6 +32,7 @@ export const createChildProductionOrder = withTenant(
                             salesOrderId: true,
                             locationId: true,
                             materialConsumptionLocationId: true,
+                            materialConsumptionMode: true,
                             status: true,
                             location: true,
                         },
@@ -42,6 +43,10 @@ export const createChildProductionOrder = withTenant(
                             'Production Order',
                             parentOrderId,
                         );
+
+                    if (parentOrder.materialConsumptionMode === 'DIRECT') {
+                        throw new BusinessRuleError('Buat SPK bahan secara terpisah dengan penyimpanan hasil sesuai gudang asal bahan pada SPK pemakaian langsung.', {}, 'DIRECT_MATERIAL_ORDER');
+                    }
 
                     if (isRiskyOutputLocation(parentOrder.location)) {
                         throw new BusinessRuleError(

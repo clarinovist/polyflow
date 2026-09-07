@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { assertTransferMaterialOrder } from '@/services/production/direct-material-service';
 import {
     MovementType,
     Prisma,
@@ -166,6 +167,10 @@ export class InventoryMovementService {
         } = data;
 
         await prisma.$transaction(async (tx) => {
+            if (productionOrderId) {
+                const order = await tx.productionOrder.findUnique({ where: { id: productionOrderId }, select: { materialConsumptionMode: true } });
+                assertTransferMaterialOrder(order);
+            }
             // 1. Fetch and Lock all Source Inventory
             const productVariantIds = items.map((i) => i.productVariantId);
 

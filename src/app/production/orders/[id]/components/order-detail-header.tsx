@@ -41,6 +41,7 @@ interface Props {
 }
 
 export function OrderDetailHeader({ order, formData }: Props) {
+    const isDirect = order.materialConsumptionMode === 'DIRECT';
     const plannedQty = Number(order.plannedQuantity);
     const actualQty = Number(order.actualQuantity || 0);
     const progress = Math.min((actualQty / (plannedQty || 1)) * 100, 100);
@@ -145,16 +146,16 @@ export function OrderDetailHeader({ order, formData }: Props) {
                         <span className="flex items-center gap-1">
                             Pemakaian Bahan:{' '}
                             <span className="font-medium text-foreground">
-                                {consumptionLocationName}
+                                {isDirect ? 'Langsung per bahan' : consumptionLocationName}
                             </span>
-                            <ReassignConsumptionLocationButton
+                            {!isDirect && <ReassignConsumptionLocationButton
                                 orderId={order.id}
                                 orderNumber={order.orderNumber}
                                 orderStatus={order.status}
                                 currentLocationId={consumptionLocationId}
                                 currentLocationName={consumptionLocationName}
                                 locations={formData.locations}
-                            />
+                            />}
                         </span>
                         <span>·</span>
                         <span className="flex items-center gap-1">
@@ -198,7 +199,7 @@ export function OrderDetailHeader({ order, formData }: Props) {
                                 {progress.toFixed(0)}%)
                             </span>
                         </div>
-                        {totalMaterials > 0 && (
+                        {totalMaterials > 0 && !isDirect && (
                             <div className="flex items-center gap-1.5">
                                 <Package className="w-3 h-3 text-muted-foreground" />
                                 <span className="text-xs text-muted-foreground">

@@ -3,7 +3,10 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { ProductionOrderForm } from '../production-order-form';
-import { getBomWithInventory } from '@/actions/production/production';
+import { getBomWithInventory, createProductionOrder } from '@/actions/production/production';
+import { getRealtimeStock } from '@/actions/inventory/inventory';
+
+vi.mock('@/actions/inventory/inventory', () => ({ getRealtimeStock: vi.fn() }));
 
 vi.stubGlobal(
     'ResizeObserver',
@@ -186,6 +189,42 @@ function removeRow(name: string) {
     const buttons = Array.from(row.querySelectorAll('button'));
     fireEvent.click(buttons[buttons.length - 1]);
 }
+
+describe('ProductionOrderForm — direct packing', () => {
+    it.each([false, true])('submits per-material sources; switching back to transfer=%s', async (switchBack) => {
+        vi.mocked(createProductionOrder).mockReset();
+        vi.mocked(createProductionOrder).mockResolvedValue({ success: true, data: { id: 'po' } } as never);
+        vi.mocked(getRealtimeStock).mockResolvedValue({ success: true, data: 100 });
+        mockedGetBom.mockResolvedValue({ success: true, data: { data: ['a', 'b'].map((id, index) => ({
+            productVariantId: id, name: `Bahan ${id.toUpperCase()}`, unit: 'KG', stdQty: 10, bomOutput: 1000,
+            requiredQty: index === 0 ? 3 : 6, currentStock: 100, totalStock: 100,
+            sourceLocationId: index === 0 ? 'loc-fg' : 'loc-rm', sourceLocationName: index === 0 ? 'Gudang Hasil' : 'Gudang Pengemas',
+        })), meta: {} } } as never);
+        const packingLocations = [
+            { id: 'loc-rm', name: 'Gudang Pengemas', slug: 'gudang-packaging', locationPurpose: 'PACKING' },
+            { id: 'loc-fg', name: 'Gudang Hasil', slug: 'fg_warehouse', locationPurpose: 'FINISHED_GOOD' },
+        ];
+        const bom = { ...makeBom('packing-bom', 'Resep Packing'), category: 'PACKING' as const, productVariant: { ...productVariant, name: 'Produk Packing', product: { productType: 'FINISHED_GOOD' } } };
+        render(<ProductionOrderForm locations={packingLocations} machines={[]} boms={[bom]} rawMaterials={[]} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Packing' }));
+        fireEvent.change(document.querySelector('input[type="number"]')!, { target: { value: '300' } });
+        await act(async () => { vi.advanceTimersByTime(500); });
+        fireEvent.click(screen.getByText('Lanjut →'));
+        fireEvent.click(screen.getByRole('radio', { name: /Langsung per bahan/i }));
+        await act(async () => { await Promise.resolve(); });
+        if (switchBack) fireEvent.click(screen.getByRole('radio', { name: /Transfer ke satu lokasi/i }));
+        fireEvent.click(screen.getByText('Lanjut →'));
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Buat SPK' })); });
+        expect(createProductionOrder).toHaveBeenCalledWith(expect.objectContaining({
+            materialConsumptionMode: switchBack ? 'TRANSFER' : 'DIRECT',
+            materialConsumptionLocationId: switchBack ? 'loc-fg' : undefined,
+            items: [
+                { productVariantId: 'a', quantity: 3, ...(switchBack ? {} : { sourceLocationId: 'loc-fg' }) },
+                { productVariantId: 'b', quantity: 6, ...(switchBack ? {} : { sourceLocationId: 'loc-rm' }) },
+            ],
+        }));
+    });
+});
 
 describe('ProductionOrderForm — editable material list (step 3)', () => {
     it('keeps a removed material line removed after the debounce window passes again', async () => {

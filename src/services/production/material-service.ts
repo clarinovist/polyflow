@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { assertTransferMaterialOrder } from './direct-material-service';
 import {
     BatchMaterialIssueValues,
     ConsolidatedBatchMaterialIssueValues,
@@ -106,6 +107,8 @@ export class ProductionMaterialService {
                     },
                 },
             });
+
+            assertTransferMaterialOrder(order);
 
             // Handle plan changes (remove/add)
             if (
@@ -531,6 +534,8 @@ export class ProductionMaterialService {
                 },
             });
 
+            orders.forEach(assertTransferMaterialOrder);
+
             if (orders.length === 0) {
                 throw new ValidationError(
                     'Tidak ada production order yang ditemukan dengan ID tersebut.',
@@ -819,6 +824,11 @@ export class ProductionMaterialService {
         } = data;
 
         await prisma.$transaction(async (tx) => {
+            const order = await tx.productionOrder.findUnique({
+                where: { id: productionOrderId },
+                select: { orderNumber: true, materialConsumptionMode: true },
+            });
+            assertTransferMaterialOrder(order);
             await InventoryCoreService.validateAndLockStock(
                 tx,
                 locationId,
@@ -843,12 +853,6 @@ export class ProductionMaterialService {
                 },
             });
             const wacCost = inv?.averageCost?.toNumber() || 0;
-
-            // Fetch orderNumber for tracking
-            const order = await tx.productionOrder.findUnique({
-                where: { id: productionOrderId },
-                select: { orderNumber: true },
-            });
 
             const movement = await tx.stockMovement.create({
                 data: {
@@ -931,6 +935,8 @@ export class ProductionMaterialService {
                     plannedMaterials: true,
                 },
             });
+
+            assertTransferMaterialOrder(order);
 
             if (order.status !== 'RELEASED' && order.status !== 'IN_PROGRESS') {
                 throw new ProductionRuleViolationError(

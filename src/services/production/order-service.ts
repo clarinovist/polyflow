@@ -15,6 +15,7 @@ import {
 
 import { ISSUABLE_MATERIAL_TYPES } from '@/lib/constants/products';
 import { resolveMaterialSources } from './material-source-resolver';
+import { validateDirectMaterialOrder, assertTransferMaterialOrder } from './direct-material-service';
 import { logActivity } from '@/lib/tools/audit';
 import {
     BusinessRuleError,
@@ -322,6 +323,10 @@ export class ProductionOrderService {
                 );
             }
 
+            const directShortage = data.materialConsumptionMode === 'DIRECT'
+                ? await validateDirectMaterialOrder(transaction, data, bomForOrder.category)
+                : null;
+
             // Validate output locationId
             if (locationId) {
                 const targetLoc = await transaction.location.findUnique({
@@ -561,7 +566,9 @@ export class ProductionOrderService {
             // Shortage check uses materialSourceLocationId (source warehouse), NOT output locationId.
             // Falls back to resolve from BOM category if not provided.
             let initialStatus: ProductionStatus = ProductionStatus.DRAFT;
-            if (materialsToCreate.length > 0) {
+            if (directShortage !== null) {
+                initialStatus = directShortage ? ProductionStatus.WAITING_MATERIAL : ProductionStatus.DRAFT;
+            } else if (materialsToCreate.length > 0) {
                 const variantIds = materialsToCreate.map(
                     (m) => m.productVariantId,
                 );
@@ -641,6 +648,7 @@ export class ProductionOrderService {
                     : undefined,
                 estimatedConversionCost: estimatedConversionCost,
                 clientRequestId: clientRequestId,
+                ...(data.materialConsumptionMode ? { materialConsumptionMode: data.materialConsumptionMode } : {}),
                 ...(materialSourceLocationId
                     ? {
                           sourceLocation: {
@@ -672,6 +680,7 @@ export class ProductionOrderService {
                         productionOrderId: newOrder.id,
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
+                        ...(data.materialConsumptionMode === 'DIRECT' ? { sourceLocationId: item.sourceLocationId } : {}),
                     })),
                 });
             }
@@ -1043,6 +1052,7 @@ export class ProductionOrderService {
                     routeSequenceSnapshot: true,
                     plannedQuantity: true,
                     materialSourceLocationId: true,
+                    materialConsumptionMode: true,
                     locationId: true,
                     machineId: true,
                     bomId: true,
@@ -1051,6 +1061,7 @@ export class ProductionOrderService {
             if (!existing) throw new NotFoundError('Production Order', id);
 
             if (materialConsumptionLocationId) {
+                assertTransferMaterialOrder(existing);
                 // Lokasi Pemakaian Bahan dikunci begitu ada material yang
                 // bergerak: transfer terkait SPK, MaterialIssue non-VOIDED,
                 // execution, atau SPK sudah IN_PROGRESS. Mengubahnya di titik
