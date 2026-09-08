@@ -3,11 +3,16 @@
  * Client-side only — triggers browser download.
  */
 
-function escapeCsvField(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-        return `"${value.replace(/"/g, '""')}"`;
-    }
-    return value;
+/** Quote CSV text and prevent spreadsheet formulas without changing numbers. */
+export function encodeCsvField(value: string | number): string {
+    const text = String(value);
+    const numeric = /^-?\d+(?:\.\d+)?$/.test(text);
+    const dangerous =
+        /^[\s\u0000-\u001f\u200b-\u200d\ufeff]*[=+@-]/.test(text) ||
+        /^[\t\r\n]/.test(text);
+    const safe =
+        typeof value === 'string' && !numeric && dangerous ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
 }
 
 /**
@@ -21,22 +26,12 @@ export function downloadCsv(
     headers: string[],
     rows: (string | number)[][],
 ): void {
-    const csvLines: string[] = [];
-
-    // Header row
-    csvLines.push(headers.map(escapeCsvField).join(','));
-
-    // Data rows
-    for (const row of rows) {
-        csvLines.push(
-            row
-                .map((cell) => {
-                    const str = String(cell ?? '');
-                    return escapeCsvField(str);
-                })
-                .join(','),
-        );
-    }
+    const csvLines = [
+        headers.map(encodeCsvField).join(','),
+        ...rows.map((row) =>
+            row.map((cell) => encodeCsvField(cell ?? '')).join(','),
+        ),
+    ];
 
     const csvContent = '\uFEFF' + csvLines.join('\n'); // BOM for Excel Indonesian chars
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

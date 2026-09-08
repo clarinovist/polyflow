@@ -16,6 +16,8 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
 import { cn } from '@/lib/utils/utils';
+import { toBusinessDateString } from '@/lib/utils/timezone';
+import { parseLocalDate } from '@/lib/dates/parse-local-date';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -31,6 +33,7 @@ interface TransactionDateFilterProps {
     onDateChange?: (date: DateRange | undefined) => void;
     defaultPreset?: 'today' | 'this_week' | 'this_month' | 'all';
     showAll?: boolean;
+    presetTimeZone?: 'Asia/Jakarta';
     align?: 'start' | 'center' | 'end';
 }
 
@@ -40,15 +43,31 @@ export function TransactionDateFilter({
     onDateChange,
     defaultPreset,
     showAll = true,
+    presetTimeZone,
     align = 'start',
 }: TransactionDateFilterProps) {
     const [isOpen, setIsOpen] = React.useState(false);
+    const anchorTime = (date?.from ?? date?.to)?.getTime();
+    const [displayedMonth, setDisplayedMonth] = React.useState(
+        () => date?.from ?? date?.to ?? new Date(),
+    );
+
+    // URL/history changes must move the open calendar as well as its selection.
+    // The timestamp dependency leaves manual month navigation undisturbed.
+    React.useEffect(() => {
+        if (anchorTime !== undefined) {
+            setDisplayedMonth(new Date(anchorTime));
+        }
+    }, [anchorTime]);
 
     // Helper to check active preset
     const getActivePreset = React.useCallback(() => {
-        if (!date?.from) return date?.to ? 'custom' : showAll ? 'all' : undefined;
+        if (!date?.from)
+            return date?.to ? 'custom' : showAll ? 'all' : undefined;
 
-        const now = new Date();
+        const now = presetTimeZone
+            ? parseLocalDate(toBusinessDateString(new Date()))
+            : new Date();
         const todayStart = startOfDay(now);
         const todayEnd = endOfDay(now);
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -76,14 +95,16 @@ export function TransactionDateFilter({
             return 'this_month';
 
         return 'custom';
-    }, [date, showAll]);
+    }, [date, showAll, presetTimeZone]);
 
     const activePreset = getActivePreset();
 
     const handlePreset = (
         preset: 'today' | 'this_week' | 'this_month' | 'all',
     ) => {
-        const now = new Date();
+        const now = presetTimeZone
+            ? parseLocalDate(toBusinessDateString(new Date()))
+            : new Date();
         switch (preset) {
             case 'today':
                 onDateChange?.({ from: startOfDay(now), to: endOfDay(now) });
@@ -150,7 +171,9 @@ export function TransactionDateFilter({
                                 format(date.from, 'MMM dd, y', { locale: id })
                             )
                         ) : date?.to ? (
-                            <span>Sampai {format(date.to, 'PPP', { locale: id })}</span>
+                            <span>
+                                Sampai {format(date.to, 'PPP', { locale: id })}
+                            </span>
                         ) : (
                             <span>Semua Waktu</span>
                         )}
@@ -216,7 +239,8 @@ export function TransactionDateFilter({
                     <Calendar
                         initialFocus
                         mode="range"
-                        defaultMonth={date?.from}
+                        month={displayedMonth}
+                        onMonthChange={setDisplayedMonth}
                         selected={date}
                         onSelect={onDateChange}
                         numberOfMonths={2}

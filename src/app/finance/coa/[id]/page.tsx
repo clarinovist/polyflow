@@ -2,13 +2,17 @@ import { getAccountLedger } from '@/actions/finance/account-actions';
 import { AccountLedgerClient } from '@/components/finance/coa/AccountLedgerClient';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { getWibDayBounds } from '@/lib/utils/timezone';
+import { resolveAccountLedgerRange } from '@/lib/finance/account-ledger-range';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
     params: Promise<{ id: string }>;
-    searchParams: Promise<{ startDate?: string; endDate?: string }>;
+    searchParams: Promise<{
+        startDate?: string | string[];
+        endDate?: string | string[];
+    }>;
 }
 
 export default async function AccountLedgerPage({
@@ -16,17 +20,23 @@ export default async function AccountLedgerPage({
     searchParams,
 }: PageProps) {
     const { id } = await params;
-    const { startDate, endDate } = await searchParams;
-
-    // Default to current month if no dates provided
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
+    const query = await searchParams;
+    let dateRange;
+    try {
+        dateRange = resolveAccountLedgerRange(query);
+    } catch {
+        return (
+            <p role="alert">
+                Rentang tanggal tidak valid. Gunakan tanggal YYYY-MM-DD dengan
+                tanggal awal tidak melewati tanggal akhir.
+            </p>
+        );
+    }
 
     const ledgerData = await getAccountLedger(
         id,
-        startDate ? new Date(startDate) : defaultStart,
-        endDate ? new Date(endDate) : defaultEnd,
+        getWibDayBounds(dateRange.from).startOfDay,
+        getWibDayBounds(dateRange.to).endOfDay,
     ).catch((error) => {
         console.error('Error fetching account ledger:', error);
         notFound();
@@ -36,5 +46,11 @@ export default async function AccountLedgerPage({
         notFound();
     }
 
-    return <AccountLedgerClient ledgerData={serializeData(ledgerData.data)} />;
+    return (
+        <AccountLedgerClient
+            key={id}
+            ledgerData={serializeData(ledgerData.data)}
+            initialDateRange={dateRange}
+        />
+    );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Card,
     CardContent,
@@ -20,7 +20,14 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ArrowLeft, Download, Search } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
+import { formatWibDate } from '@/lib/utils/timezone';
+import { parseLocalDate } from '@/lib/dates/parse-local-date';
+import {
+    resolveAccountLedgerRange,
+    type AccountLedgerCalendarRange,
+} from '@/lib/finance/account-ledger-range';
+import { encodeCsvField } from '@/lib/utils/csv-export';
 import { TransactionDateFilter } from '@/components/common/transaction-date-filter';
 import { DateRange } from 'react-day-picker';
 interface LedgerEntry {
@@ -57,31 +64,43 @@ interface LedgerData {
 
 interface AccountLedgerClientProps {
     ledgerData: LedgerData;
+    initialDateRange: AccountLedgerCalendarRange;
 }
 
-export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
+export function AccountLedgerClient({
+    ledgerData,
+    initialDateRange,
+}: AccountLedgerClientProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { account, entries, summary } = ledgerData;
     const [isExporting, setIsExporting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Default to current month if no search params
-    const now = new Date();
-    const defaultStartDate = startOfMonth(now);
-    const defaultEndDate = endOfMonth(now);
-
+    // Keep the picker mounted while the server applies a new calendar range.
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: searchParams.get('startDate')
-            ? new Date(searchParams.get('startDate')!)
-            : defaultStartDate,
-        to: searchParams.get('endDate')
-            ? new Date(searchParams.get('endDate')!)
-            : defaultEndDate,
+        from: parseLocalDate(initialDateRange.from),
+        to: parseLocalDate(initialDateRange.to),
     });
 
+    useEffect(() => {
+        setDateRange({
+            from: parseLocalDate(initialDateRange.from),
+            to: parseLocalDate(initialDateRange.to),
+        });
+    }, [initialDateRange.from, initialDateRange.to]);
+
     const applyDateFilter = (newRange: DateRange | undefined) => {
-        setDateRange(newRange);
+        const defaults = newRange ? undefined : resolveAccountLedgerRange({});
+        setDateRange(
+            defaults
+                ? {
+                      from: parseLocalDate(defaults.from),
+                      to: parseLocalDate(defaults.to),
+                  }
+                : newRange,
+        );
+        // A partial selection is a draft, not a query with an unrelated default end.
+        if (newRange?.from && !newRange.to) return;
 
         // Immediate update on selection (or we can keep the Apply button, but TransactionDateFilter usually implies immediate effect or we can wrap it)
         // The previous design had an "Apply Filter" button.
@@ -111,7 +130,7 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
             'Balance',
         ];
         const rows = entries.map((entry) => [
-            format(new Date(entry.date), 'yyyy-MM-dd'),
+            formatWibDate(entry.date, 'yyyy-MM-dd'),
             entry.entryNumber,
             entry.description,
             entry.reference || '',
@@ -122,7 +141,7 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
 
         const csvContent = [
             headers.join(','),
-            ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+            ...rows.map((row) => row.map(encodeCsvField).join(',')),
         ].join('\n');
 
         // Download
@@ -197,6 +216,7 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                             date={dateRange}
                             onDateChange={applyDateFilter}
                             defaultPreset="this_month"
+                            presetTimeZone="Asia/Jakarta"
                             className="w-[300px]"
                         />
                         <div className="relative">
@@ -320,10 +340,7 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                                     filteredEntries.map((entry) => (
                                         <TableRow key={entry.id}>
                                             <TableCell className="whitespace-nowrap">
-                                                {format(
-                                                    new Date(entry.date),
-                                                    'dd MMM yyyy',
-                                                )}
+                                                {formatWibDate(entry.date)}
                                             </TableCell>
                                             <TableCell className="font-mono text-sm">
                                                 {entry.entryNumber}

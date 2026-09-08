@@ -9,6 +9,7 @@ import {
     BusinessRuleError,
     NotFoundError,
 } from '@/lib/errors/errors';
+import { wibRangeBounds } from '@/lib/utils/timezone';
 import {
     requireFinanceAccess,
     requireFinanceMutation,
@@ -164,31 +165,21 @@ export const getAccountLedger = withTenant(async function getAccountLedger(
             throw new NotFoundError('Account', accountId);
         }
 
-        // Build date filter
-        const dateFilter: {
-            journalEntry?: {
-                status?: 'POSTED';
-                entryDate?: {
-                    gte?: Date;
-                    lte?: Date;
-                };
-            };
-        } = {
-            journalEntry: {
-                status: 'POSTED',
-            },
-        };
-        if (startDate || endDate) {
-            if (startDate) {
-                dateFilter.journalEntry!.entryDate = { gte: startDate };
-            }
-            if (endDate) {
-                if (dateFilter.journalEntry!.entryDate) {
-                    dateFilter.journalEntry!.entryDate.lte = endDate;
-                } else {
-                    dateFilter.journalEntry!.entryDate = { lte: endDate };
-                }
-            }
+        // A date-only filter covers the full WIB business day at both ends.
+        if (
+            [startDate, endDate].some(
+                (date) =>
+                    date !== undefined &&
+                    (!(date instanceof Date) || Number.isNaN(date.getTime())),
+            )
+        ) {
+            throw new BusinessRuleError('Tanggal laporan tidak valid.');
+        }
+        const bounds = wibRangeBounds(startDate, endDate);
+        if (bounds.gte && bounds.lte && bounds.gte > bounds.lte) {
+            throw new BusinessRuleError(
+                'Tanggal awal tidak boleh melewati tanggal akhir.',
+            );
         }
 
         // Get journal lines for this account
@@ -197,8 +188,8 @@ export const getAccountLedger = withTenant(async function getAccountLedger(
                 accountId,
                 journalEntry: {
                     status: 'POSTED',
-                    ...(dateFilter.journalEntry?.entryDate
-                        ? { entryDate: dateFilter.journalEntry.entryDate }
+                    ...(Object.keys(bounds).length
+                        ? { entryDate: bounds }
                         : {}),
                 },
             },
@@ -222,13 +213,13 @@ export const getAccountLedger = withTenant(async function getAccountLedger(
 
         // Calculate beginning balance (all entries before startDate)
         let beginningBalance = 0;
-        if (startDate) {
+        if (bounds.gte) {
             const preLines = await prisma.journalLine.findMany({
                 where: {
                     accountId,
                     journalEntry: {
                         status: 'POSTED',
-                        entryDate: { lt: startDate },
+                        entryDate: { lt: bounds.gte },
                     },
                 },
             });
