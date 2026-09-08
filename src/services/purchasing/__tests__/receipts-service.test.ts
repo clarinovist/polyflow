@@ -12,7 +12,6 @@ import { AccountingService } from "@/services/accounting/accounting-service";
 import { logActivity } from "@/lib/tools/audit";
 import { createDraftBillFromPo } from "@/services/purchasing/invoices-service";
 import { NotificationService } from "@/services/core/notification-service";
-import { logger } from "@/lib/config/logger";
 import { MovementType, PurchaseOrderStatus } from "@prisma/client";
 
 // Mock prisma
@@ -132,7 +131,8 @@ vi.mock("@/lib/config/logger", () => ({
 describe("receipts-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Re-set $transaction mock (clearAllMocks resets implementations)
+    mockPrisma.goodsReceipt.findMany.mockResolvedValue([]);
+    // Reset implementations explicitly so scoped tests do not depend on order.
     mockPrisma.$transaction.mockImplementation((callback) => callback(mockPrisma));
     // Re-set productVariant mock (clearAllMocks resets implementations)
     mockPrisma.productVariant.findUnique.mockResolvedValue({
@@ -1160,7 +1160,7 @@ describe("receipts-service", () => {
       expect(mockPoUpdate).not.toHaveBeenCalled();
     });
 
-    it("should call createDraftBillFromPo after commit when purchaseOrderId provided", async () => {
+    it("should call createDraftBillFromPo inside receipt transaction", async () => {
       // Arrange
       const data = { ...baseData, purchaseOrderId: "po-1" };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
@@ -1201,6 +1201,7 @@ describe("receipts-service", () => {
       expect(vi.mocked(createDraftBillFromPo)).toHaveBeenCalledWith(
         "po-1",
         userId,
+        { tx: expect.objectContaining({ goodsReceipt: expect.any(Object) }) },
       );
       expect(vi.mocked(NotificationService.createBulkNotifications)).toHaveBeenCalledWith([
         expect.objectContaining({
@@ -1258,7 +1259,7 @@ describe("receipts-service", () => {
       expect(vi.mocked(createDraftBillFromPo)).not.toHaveBeenCalled();
     });
 
-    it("should log error when createDraftBillFromPo fails", async () => {
+    it("should reject receipt when createDraftBillFromPo fails", async () => {
       // Arrange
       const data = { ...baseData, purchaseOrderId: "po-1" };
       const billError = new Error("Bill creation failed");
@@ -1290,14 +1291,7 @@ describe("receipts-service", () => {
       vi.mocked(createDraftBillFromPo).mockRejectedValueOnce(billError);
 
       // Act
-      const result = await createGoodsReceipt(data, userId);
-
-      // Assert
-      expect(result.id).toBe("gr-1");
-      expect(vi.mocked(logger.error)).toHaveBeenCalledWith(
-        "Failed to auto-generate draft bill after GR",
-        { error: billError, module: "ReceiptsService" },
-      );
+      await expect(createGoodsReceipt(data, userId)).rejects.toThrow(billError);
     });
 
     it("should log maklon details when isMaklon is true", async () => {
@@ -1596,6 +1590,7 @@ describe("receipts-service", () => {
       expect(vi.mocked(createDraftBillFromPo)).toHaveBeenCalledWith(
         "po-5",
         userId,
+        { tx: expect.objectContaining({ goodsReceipt: expect.any(Object) }) },
       );
     });
 
@@ -1954,6 +1949,7 @@ describe("receipts-service", () => {
         ],
       };
 
+      let usedTx: Record<string, unknown> | undefined;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
@@ -1983,6 +1979,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { update: vi.fn() },
         };
+        usedTx = tx;
         return cb(tx);
       });
 
@@ -1990,6 +1987,9 @@ describe("receipts-service", () => {
 
       expect(result.success).toBe(true);
       expect(result.receiptNumber).toBe("GR-2026-0001");
+      expect(createDraftBillFromPo).toHaveBeenCalledWith("po-1", userId, {
+        tx: usedTx,
+      });
     });
 
     it("should set inventory to 0 when current qty < reversal qty", async () => {

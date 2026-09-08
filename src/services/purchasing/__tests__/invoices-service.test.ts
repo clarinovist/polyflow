@@ -41,6 +41,23 @@ vi.mock('@/lib/tools/audit', () => ({
     logActivity: vi.fn(),
 }));
 
+vi.mock('../finance/purchase-bill-journal-sync', () => ({
+    resolvePurchaseBillJournalAccounts: vi.fn().mockResolvedValue({
+        grClearingAccountId: 'acc-grir',
+        vatInputAccountId: 'acc-vat',
+        accountsPayableAccountId: 'acc-ap',
+    }),
+    syncPurchaseBillAndJournal: vi.fn().mockImplementation(
+        async (_tx, input: { invoiceId: string; targetTotal: Prisma.Decimal }) => ({
+            action: 'updated',
+            invoice: {
+                id: input.invoiceId,
+                totalAmount: input.targetTotal,
+            },
+        }),
+    ),
+}));
+
 vi.mock('@/lib/utils/sequence', async (importOriginal) => ({
     ...(await importOriginal<
         typeof import('@/lib/utils/sequence')
@@ -50,8 +67,18 @@ vi.mock('@/lib/utils/sequence', async (importOriginal) => ({
 
 import { prisma } from '@/lib/core/prisma';
 import { getNextSequence } from '@/lib/utils/sequence';
+import {
+    resolvePurchaseBillJournalAccounts,
+    syncPurchaseBillAndJournal,
+} from '../finance/purchase-bill-journal-sync';
 import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, getOutstandingPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment, calculatePoInvoiceTotalFromReceipts, updatePurchaseInvoiceDueDate, checkOverduePurchasingInvoices } from '../invoices-service';
-import { PurchaseInvoiceStatus } from '@prisma/client';
+import { Prisma, PurchaseInvoiceStatus } from '@prisma/client';
+
+const accounts = {
+    grClearingAccountId: 'acc-grir',
+    vatInputAccountId: 'acc-vat',
+    accountsPayableAccountId: 'acc-ap',
+};
 
 // Mock auto-journal
 vi.mock('../../finance/auto-journal-service', () => ({
@@ -74,6 +101,7 @@ describe('Purchasing invoices service', () => {
 
     it('records purchase invoice payments in canonical Payment model', async () => {
         const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
             purchaseInvoice: {
                 findUnique: vi.fn().mockResolvedValue({
                     id: 'pinv-1',
@@ -105,6 +133,10 @@ describe('Purchasing invoices service', () => {
         });
 
         expect(getNextSequence).toHaveBeenCalledWith('PAYMENT_OUT');
+        expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+        expect(tx.purchaseInvoice.findUnique).toHaveBeenCalledAfter(
+            tx.$queryRaw,
+        );
         expect(tx.payment.create).toHaveBeenCalledWith({
             data: expect.objectContaining({
                 purchaseInvoiceId: 'pinv-1',
@@ -117,8 +149,25 @@ describe('Purchasing invoices service', () => {
         expect(result).toEqual(expect.objectContaining({ paymentId: 'pay-1' }));
     });
 
+    it.each([
+        ['negative', -1],
+        ['zero', 0],
+        ['NaN', Number.NaN],
+        ['Infinity', Number.POSITIVE_INFINITY],
+        ['sub-cent', 10.001],
+        ['above database precision', 10_000_000_000_000],
+    ])('rejects %s payment amounts before any database or sequence work', async (_label, amount) => {
+        await expect(
+            recordPayment('pinv-1', amount, 'user-1'),
+        ).rejects.toMatchObject({ code: 'PURCHASE_PAYMENT_INVALID_AMOUNT' });
+
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(getNextSequence).not.toHaveBeenCalled();
+    });
+
     it('defaults supplier payment method when legacy callers do not provide one', async () => {
         const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
             purchaseInvoice: {
                 findUnique: vi.fn().mockResolvedValue({
                     id: 'pinv-1',
@@ -478,6 +527,12 @@ describe('generateBillNumber', () => {
 describe('createDraftBillFromPo', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(prisma.$transaction).mockImplementation(async (callback) =>
+            callback({
+                ...prisma,
+                $queryRaw: vi.fn().mockResolvedValue([]),
+            } as never),
+        );
     });
 
     it('should create draft bill using GR received qty (not PO qty)', async () => {
@@ -503,6 +558,7 @@ describe('createDraftBillFromPo', () => {
         };
 
         vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
         vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue(null);
         vi.mocked(prisma.purchaseInvoice.create).mockResolvedValue(mockInvoice as any);
 
@@ -537,16 +593,22 @@ describe('createDraftBillFromPo', () => {
         };
 
         vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);
-        vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue(existingInvoice as any);
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([
+            existingInvoice,
+        ] as any);
         vi.mocked(prisma.purchaseInvoice.update).mockResolvedValue({} as any);
 
         const result = await createDraftBillFromPo('po-1', 'user-1');
 
         expect(result).toBeDefined();
-        expect(prisma.purchaseInvoice.update).toHaveBeenCalledWith({
-            where: { id: 'inv-existing' },
-            data: { totalAmount: 2500000 },
-        });
+        expect(syncPurchaseBillAndJournal).toHaveBeenCalledWith(
+            expect.any(Object),
+            expect.objectContaining({
+                invoiceId: 'inv-existing',
+                targetTotal: new Prisma.Decimal(2500000),
+            }),
+        );
+        expect(prisma.purchaseInvoice.update).not.toHaveBeenCalled();
     });
 
     it('should return undefined when purchase order not found', async () => {
@@ -575,18 +637,291 @@ describe('createDraftBillFromPo', () => {
         const existingInvoice = {
             id: 'inv-existing',
             invoiceNumber: 'BILL-001',
-            totalAmount: { toNumber: () => 2500000 },
+            totalAmount: new Prisma.Decimal(2500000),
             status: PurchaseInvoiceStatus.UNPAID,
-            paidAmount: { toNumber: () => 1000 },
+            paidAmount: new Prisma.Decimal(1000),
         };
 
         vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);
-        vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue(existingInvoice as any);
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([
+            existingInvoice,
+        ] as any);
 
         const result = await createDraftBillFromPo('po-1', 'user-1');
 
         expect(result).toBeDefined();
         expect(prisma.purchaseInvoice.update).not.toHaveBeenCalled();
+    });
+
+    it('recomputes and reconciles an existing bill through one transaction client', async () => {
+        const existingInvoice = {
+            id: 'inv-existing',
+            invoiceNumber: 'BILL-001',
+            invoiceDate: new Date('2026-09-08T03:00:00.000Z'),
+            totalAmount: new Prisma.Decimal(100),
+            paidAmount: new Prisma.Decimal(0),
+            status: PurchaseInvoiceStatus.UNPAID,
+        };
+        const po = {
+            id: 'po-1',
+            totalAmount: new Prisma.Decimal(150),
+            taxAmount: new Prisma.Decimal(0),
+            shippingCost: new Prisma.Decimal(0),
+            orderNumber: 'PO-001',
+            status: 'RECEIVED',
+            supplier: { paymentTermDays: 30 },
+            items: [{
+                productVariantId: 'pv-1',
+                quantity: new Prisma.Decimal(15),
+                unitPrice: new Prisma.Decimal(10),
+                discountPercent: new Prisma.Decimal(0),
+                taxPercent: new Prisma.Decimal(0),
+                ppnMode: 'EXCLUDE',
+            }],
+            goodsReceipts: [{
+                items: [{ productVariantId: 'pv-1', receivedQty: new Prisma.Decimal(15) }],
+            }],
+        };
+        const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
+            purchaseOrder: { findUnique: vi.fn().mockResolvedValue(po) },
+            purchaseInvoice: {
+                findMany: vi.fn().mockResolvedValue([existingInvoice]),
+            },
+        };
+        vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) =>
+            callback(tx as never),
+        );
+        vi.mocked(syncPurchaseBillAndJournal).mockResolvedValueOnce({
+            action: 'updated',
+            invoice: { ...existingInvoice, totalAmount: new Prisma.Decimal(150) },
+        } as never);
+
+        await createDraftBillFromPo('po-1', 'user-1');
+
+        expect(resolvePurchaseBillJournalAccounts).toHaveBeenCalledTimes(1);
+        expect(syncPurchaseBillAndJournal).toHaveBeenCalledWith(tx, {
+            invoiceId: 'inv-existing',
+            targetTotal: new Prisma.Decimal(150),
+            poTotal: new Prisma.Decimal(150),
+            poTax: new Prisma.Decimal(0),
+            userId: 'user-1',
+            accounts,
+        });
+        expect(prisma.purchaseInvoice.update).not.toHaveBeenCalled();
+    });
+
+    it('recognizes only a protected original plus its generated DRAFT supplement and revalidates the supplement', async () => {
+        const original = {
+            id: 'bill-original',
+            invoiceNumber: 'BILL-001',
+            totalAmount: new Prisma.Decimal(60),
+            paidAmount: new Prisma.Decimal(60),
+            status: PurchaseInvoiceStatus.PAID,
+            notes: null,
+        };
+        const supplementary = {
+            id: 'bill-supplementary',
+            invoiceNumber: 'BILL-002',
+            totalAmount: new Prisma.Decimal(40),
+            paidAmount: new Prisma.Decimal(0),
+            status: PurchaseInvoiceStatus.DRAFT,
+            notes: 'Suplementer: tambahan GR setelah BILL-001 (sisa 40) — PO PO-001',
+        };
+        const po = {
+            id: 'po-1',
+            totalAmount: new Prisma.Decimal(100),
+            taxAmount: new Prisma.Decimal(0),
+            shippingCost: new Prisma.Decimal(0),
+            orderNumber: 'PO-001',
+            status: 'RECEIVED',
+            supplier: { paymentTermDays: 30 },
+            entrySource: null,
+            items: [{
+                productVariantId: 'pv-1',
+                quantity: new Prisma.Decimal(10),
+                unitPrice: new Prisma.Decimal(10),
+                discountPercent: new Prisma.Decimal(0),
+                taxPercent: new Prisma.Decimal(0),
+                ppnMode: 'EXCLUDE',
+            }],
+            goodsReceipts: [{
+                items: [{ productVariantId: 'pv-1', receivedQty: new Prisma.Decimal(10) }],
+            }],
+        };
+        const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
+            purchaseOrder: { findUnique: vi.fn().mockResolvedValue(po) },
+            purchaseInvoice: {
+                findMany: vi.fn().mockResolvedValue([original, supplementary]),
+            },
+        };
+        vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) =>
+            callback(tx as never),
+        );
+
+        const result = await createDraftBillFromPo('po-1', 'user-1');
+
+        expect(result).toBe(original);
+        expect(syncPurchaseBillAndJournal).toHaveBeenCalledWith(tx, {
+            invoiceId: supplementary.id,
+            targetTotal: new Prisma.Decimal(40),
+            poTotal: new Prisma.Decimal(100),
+            poTax: new Prisma.Decimal(0),
+            userId: 'user-1',
+            accounts,
+        });
+    });
+
+    it.each([
+        [
+            'duplicate DRAFT bills',
+            [
+                {
+                    id: 'bill-1',
+                    invoiceNumber: 'BILL-001',
+                    totalAmount: new Prisma.Decimal(50),
+                    paidAmount: new Prisma.Decimal(0),
+                    status: PurchaseInvoiceStatus.DRAFT,
+                    notes: null,
+                },
+                {
+                    id: 'bill-2',
+                    invoiceNumber: 'BILL-002',
+                    totalAmount: new Prisma.Decimal(50),
+                    paidAmount: new Prisma.Decimal(0),
+                    status: PurchaseInvoiceStatus.DRAFT,
+                    notes: null,
+                },
+            ],
+        ],
+        [
+            'unrelated UNPAID bills',
+            [
+                {
+                    id: 'bill-1',
+                    invoiceNumber: 'BILL-001',
+                    totalAmount: new Prisma.Decimal(50),
+                    paidAmount: new Prisma.Decimal(0),
+                    status: PurchaseInvoiceStatus.UNPAID,
+                    notes: null,
+                },
+                {
+                    id: 'bill-2',
+                    invoiceNumber: 'BILL-002',
+                    totalAmount: new Prisma.Decimal(50),
+                    paidAmount: new Prisma.Decimal(0),
+                    status: PurchaseInvoiceStatus.UNPAID,
+                    notes: null,
+                },
+            ],
+        ],
+    ])('rejects equal-sum %s as ambiguous', async (_label, bills) => {
+        const po = {
+            id: 'po-1',
+            totalAmount: new Prisma.Decimal(100),
+            taxAmount: new Prisma.Decimal(0),
+            shippingCost: new Prisma.Decimal(0),
+            orderNumber: 'PO-001',
+            status: 'RECEIVED',
+            supplier: { paymentTermDays: 30 },
+            entrySource: null,
+            items: [{
+                productVariantId: 'pv-1',
+                quantity: new Prisma.Decimal(10),
+                unitPrice: new Prisma.Decimal(10),
+                discountPercent: new Prisma.Decimal(0),
+                taxPercent: new Prisma.Decimal(0),
+                ppnMode: 'EXCLUDE',
+            }],
+            goodsReceipts: [{
+                items: [{ productVariantId: 'pv-1', receivedQty: new Prisma.Decimal(10) }],
+            }],
+        };
+        const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
+            purchaseOrder: { findUnique: vi.fn().mockResolvedValue(po) },
+            purchaseInvoice: { findMany: vi.fn().mockResolvedValue(bills) },
+        };
+        vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) =>
+            callback(tx as never),
+        );
+
+        await expect(createDraftBillFromPo('po-1', 'user-1')).rejects.toMatchObject({
+            code: 'PURCHASE_BILL_AMBIGUOUS',
+        });
+        expect(syncPurchaseBillAndJournal).not.toHaveBeenCalled();
+    });
+
+    it('rejects multiple pre-existing bills instead of applying the aggregate to one bill', async () => {
+        const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
+            purchaseOrder: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'po-1',
+                    totalAmount: new Prisma.Decimal(100),
+                    taxAmount: new Prisma.Decimal(0),
+                    shippingCost: new Prisma.Decimal(0),
+                    orderNumber: 'PO-001',
+                    status: 'RECEIVED',
+                    supplier: { paymentTermDays: 30 },
+                    items: [],
+                    goodsReceipts: [],
+                }),
+            },
+            purchaseInvoice: {
+                findMany: vi.fn().mockResolvedValue([
+                    { id: 'bill-1', totalAmount: new Prisma.Decimal(50) },
+                    { id: 'bill-2', totalAmount: new Prisma.Decimal(50) },
+                ]),
+            },
+        };
+        vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) =>
+            callback(tx as never),
+        );
+
+        await expect(createDraftBillFromPo('po-1', 'user-1')).rejects.toMatchObject({
+            code: 'PURCHASE_BILL_AMBIGUOUS',
+        });
+        expect(syncPurchaseBillAndJournal).not.toHaveBeenCalled();
+    });
+
+    it('uses an injected transaction and does not swallow journal sync failures', async () => {
+        const existingInvoice = {
+            id: 'inv-existing',
+            invoiceNumber: 'BILL-001',
+            totalAmount: new Prisma.Decimal(100),
+            paidAmount: new Prisma.Decimal(0),
+            status: PurchaseInvoiceStatus.UNPAID,
+        };
+        const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
+            purchaseOrder: {
+                findUnique: vi.fn().mockResolvedValue({
+                    id: 'po-1',
+                    totalAmount: new Prisma.Decimal(150),
+                    taxAmount: new Prisma.Decimal(0),
+                    shippingCost: new Prisma.Decimal(0),
+                    orderNumber: 'PO-001',
+                    status: 'RECEIVED',
+                    supplier: { paymentTermDays: 30 },
+                    items: [],
+                    goodsReceipts: [],
+                }),
+            },
+            purchaseInvoice: {
+                findMany: vi.fn().mockResolvedValue([existingInvoice]),
+            },
+        };
+        vi.mocked(syncPurchaseBillAndJournal).mockRejectedValueOnce(
+            new Error('journal failed'),
+        );
+
+        await expect(
+            createDraftBillFromPo('po-1', 'user-1', { tx: tx as never }),
+        ).rejects.toThrow('journal failed');
+
+        expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 });
 

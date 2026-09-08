@@ -11,6 +11,10 @@ import { AutoJournalService } from '../finance/auto-journal-service';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
+import {
+    resolvePurchaseBillJournalAccounts,
+    syncPurchaseBillAndJournal,
+} from './finance/purchase-bill-journal-sync';
 
 /**
  * Calculate invoice total from actual GR received quantities (not PO ordered qty).
@@ -19,8 +23,13 @@ import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
  */
 export async function calculatePoInvoiceTotalFromReceipts(
     purchaseOrderId: string,
+    options?: {
+        tx?: Prisma.TransactionClient;
+        fallbackToPoTotal?: boolean;
+    },
 ): Promise<number> {
-    const po = await prisma.purchaseOrder.findUnique({
+    const db = options?.tx ?? prisma;
+    const po = await db.purchaseOrder.findUnique({
         where: { id: purchaseOrderId },
         select: {
             totalAmount: true,
@@ -53,7 +62,9 @@ export async function calculatePoInvoiceTotalFromReceipts(
         typeof po.totalAmount?.toNumber === 'function'
             ? po.totalAmount.toNumber()
             : Number(po.totalAmount) || 0;
-    if (po.goodsReceipts.length === 0) return poTotal;
+    if (po.goodsReceipts.length === 0) {
+        return options?.fallbackToPoTotal === false ? 0 : poTotal;
+    }
 
     // Aggregate receivedQty per productVariantId across all GRs
     const receivedMap = new Map<string, number>();
@@ -165,11 +176,26 @@ export async function recordPayment(
         destinationBank?: string | null;
     },
 ) {
+    const paymentAmount = new Prisma.Decimal(amount);
+    if (
+        !paymentAmount.isFinite() ||
+        !paymentAmount.gt(0) ||
+        paymentAmount.decimalPlaces() > 2 ||
+        paymentAmount.gt('9999999999999.99')
+    ) {
+        throw new BusinessRuleError(
+            'Payment amount must be positive, finite, at most two decimal places, and within the supported limit.',
+            { amount },
+            'PURCHASE_PAYMENT_INVALID_AMOUNT',
+        );
+    }
+
         const { getNextSequence, retryOnPaymentNumberConflict } =
             await import('@/lib/utils/sequence');
 
         return await retryOnPaymentNumberConflict(() =>
             prisma.$transaction(async (tx) => {
+                await tx.$queryRaw`SELECT id FROM "PurchaseInvoice" WHERE id = ${id} FOR UPDATE`;
                 const invoice = await tx.purchaseInvoice.findUnique({
                     where: { id },
                 });
@@ -380,11 +406,16 @@ export async function getOutstandingPurchaseInvoices() {
     });
 }
 
-export async function generateBillNumber(): Promise<string> {
+export async function generateBillNumber(
+    tx?: Prisma.TransactionClient,
+): Promise<string> {
+    const db = tx ?? prisma;
+    // Held until the new bill commits, including concurrent different-PO receipts.
+    if (tx) await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtext('purchase-bill-number'))`;
     const dateStr = new Date().getFullYear().toString();
     const prefix = `BILL - ${dateStr} -`;
 
-    const lastBill = await prisma.purchaseInvoice.findFirst({
+    const lastBill = await db.purchaseInvoice.findFirst({
         where: { invoiceNumber: { startsWith: prefix } },
         orderBy: { invoiceNumber: 'desc' },
     });
@@ -401,177 +432,177 @@ export async function generateBillNumber(): Promise<string> {
     return `${prefix}${nextSequence.toString().padStart(4, '0')} `;
 }
 
+function isProtectedPurchaseBill(bill: {
+    status: PurchaseInvoiceStatus;
+    paidAmount: Prisma.Decimal;
+}): boolean {
+    const paidAmount =
+        bill.paidAmount instanceof Prisma.Decimal
+            ? bill.paidAmount
+            : new Prisma.Decimal(
+                  typeof (bill.paidAmount as { toNumber?: () => number })
+                      ?.toNumber === 'function'
+                      ? (
+                          bill.paidAmount as unknown as {
+                              toNumber: () => number;
+                          }
+                      ).toNumber()
+                      : 0,
+              );
+    return (
+        paidAmount.gt(0) ||
+        bill.status === PurchaseInvoiceStatus.PAID ||
+        bill.status === PurchaseInvoiceStatus.PARTIAL ||
+        bill.status === PurchaseInvoiceStatus.OVERDUE
+    );
+}
+
 export async function createDraftBillFromPo(
     purchaseOrderId: string,
     userId: string,
+    options?: { tx?: Prisma.TransactionClient },
 ) {
-    const po = await prisma.purchaseOrder.findUnique({
-        where: { id: purchaseOrderId },
-        select: {
-            totalAmount: true,
-            orderNumber: true,
-            status: true,
-            supplier: { select: { paymentTermDays: true } },
-        },
-    });
-
-    if (!po || !po.totalAmount) return;
-
-    // Calculate total from GR received qty
-    const calculatedTotal =
-        await calculatePoInvoiceTotalFromReceipts(purchaseOrderId);
-
-    const existing = await prisma.purchaseInvoice.findFirst({
-        where: { purchaseOrderId },
-    });
-
-    // Upsert: only auto-sync when invoice is DRAFT (or UNPAID with paidAmount==0).
-    // If UNPAID/PARTIAL already paid>0 etc, don't silently mutate (align with SO DRAFT-only policy).
-    if (existing) {
-        const existingPaid = existing.paidAmount?.toNumber?.() ?? 0;
-        const isDraftLike =
-            existing.status === PurchaseInvoiceStatus.DRAFT ||
-            (existing.status === PurchaseInvoiceStatus.UNPAID &&
-                existingPaid === 0);
-        if (isDraftLike) {
-            const existingTotal = existing.totalAmount.toNumber();
-            if (Math.abs(existingTotal - calculatedTotal) > 0.01) {
-                await prisma.purchaseInvoice.update({
-                    where: { id: existing.id },
-                    data: { totalAmount: calculatedTotal },
-                });
-                await logActivity({
-                    userId,
-                    action: 'SYNC_BILL_FROM_GR',
-                    entityType: 'PurchaseInvoice',
-                    entityId: existing.id,
-                    details: `Bill ${existing.invoiceNumber} total updated from ${existingTotal} to ${calculatedTotal} based on GR received quantities`,
-                });
-            }
-            return {
-                ...existing,
-                totalAmount: { toNumber: () => calculatedTotal } as never,
-            };
-        }
-        // #3 PO side: UNPAID already + GR new arrives → create supplementary DRAFT bill if delta >0
-        if (
-            existing.status === PurchaseInvoiceStatus.UNPAID ||
-            existing.status === PurchaseInvoiceStatus.PARTIAL ||
-            existing.status === PurchaseInvoiceStatus.OVERDUE
-        ) {
-            const existingTotal = existing.totalAmount.toNumber();
-            if (calculatedTotal > existingTotal + 0.01) {
-                const remaining = calculatedTotal - existingTotal;
-                try {
-                    const rawTerm = po.supplier?.paymentTermDays;
-                    const termOfPaymentDays =
-                        rawTerm != null && rawTerm >= 0 && rawTerm <= 365
-                            ? rawTerm
-                            : 30;
-                    const invoiceNumber = await generateBillNumber();
-                    const invoiceDate = new Date();
-                    const dueDate = addDays(invoiceDate, termOfPaymentDays);
-                    const supplementary = await prisma.purchaseInvoice.create({
-                        data: {
-                            invoiceNumber,
-                            purchaseOrderId,
-                            invoiceDate,
-                            dueDate,
-                            termOfPaymentDays,
-                            totalAmount: remaining,
-                            status: PurchaseInvoiceStatus.DRAFT,
-                            notes: `Suplementer: tambahan GR setelah ${existing.invoiceNumber} (sisa ${remaining}) — PO ${po.orderNumber}`,
-                        },
-                    });
-                    await logActivity({
-                        userId,
-                        action: 'CREATE_SUPPLEMENTARY_BILL',
-                        entityType: 'PurchaseInvoice',
-                        entityId: supplementary.id,
-                        details: `Supplementary bill ${invoiceNumber} for remaining ${remaining} after ${existing.invoiceNumber} (total GR now ${calculatedTotal})`,
-                    });
-                    await AutoJournalService.handlePurchaseInvoiceCreated(
-                        supplementary.id,
-                    ).catch((err) => {
-                        logger.error(
-                            'Auto-Journal failed for supplementary bill',
-                            {
-                                error: err,
-                                invoiceId: supplementary.id,
-                                module: 'PurchasingInvoicesService',
-                            },
-                        );
-                    });
-                } catch (e) {
-                    logger.error('Failed to create supplementary bill', {
-                        error: e,
-                        purchaseOrderId,
-                        module: 'PurchasingInvoicesService',
-                    });
-                }
-            }
-        }
-        // UNPAID/PARTIAL(paid>0)/OVERDUE/PAID: don't overwrite, but keep for second invoice gap handling (#3)
-        return existing;
-    }
-
-    // Create new bill
-    const rawTerm = po.supplier?.paymentTermDays;
-    const termOfPaymentDays =
-        rawTerm != null && rawTerm >= 0 && rawTerm <= 365 ? rawTerm : 30;
-    const invoiceNumber = await generateBillNumber();
-    const invoiceDate = new Date();
-    const dueDate = addDays(invoiceDate, termOfPaymentDays);
-
-    // Set status: walk-in always DRAFT (Finance must approve), standard follows PO status
-    const isWalkIn =
-        po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED';
-    const isWalkInSource = await prisma.purchaseOrder
-        .findUnique({
+    const run = async (tx: Prisma.TransactionClient) => {
+        await tx.$queryRaw`SELECT id FROM "PurchaseOrder" WHERE id = ${purchaseOrderId} FOR UPDATE`;
+        const po = await tx.purchaseOrder.findUnique({
             where: { id: purchaseOrderId },
-            select: { entrySource: true },
-        })
-        .then((o) => o?.entrySource === 'WALK_IN_RECEIPT');
+            select: {
+                totalAmount: true,
+                taxAmount: true,
+                orderNumber: true,
+                status: true,
+                supplier: { select: { paymentTermDays: true } },
+                entrySource: true,
+            },
+        });
+        if (!po || !po.totalAmount) return;
 
-    const status =
-        isWalkIn && isWalkInSource
-            ? PurchaseInvoiceStatus.DRAFT
-            : isWalkIn
-              ? PurchaseInvoiceStatus.UNPAID
-              : PurchaseInvoiceStatus.DRAFT;
+        await tx.$queryRaw`SELECT id FROM "PurchaseInvoice" WHERE "purchaseOrderId" = ${purchaseOrderId} AND status <> 'CANCELLED' FOR UPDATE`;
+        const existingBills = await tx.purchaseInvoice.findMany({
+            where: {
+                purchaseOrderId,
+                status: { not: PurchaseInvoiceStatus.CANCELLED },
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+        const calculatedTotal = await calculatePoInvoiceTotalFromReceipts(
+            purchaseOrderId, { tx, fallbackToPoTotal: existingBills.length === 0 },
+        );
+        if (existingBills.length > 1) {
+            const protectedBills = existingBills.filter(isProtectedPurchaseBill);
+            const original = protectedBills.length === 1 ? protectedBills[0] : undefined;
+            const supplementary = original
+                ? existingBills.find((bill) => bill.id !== original.id)
+                : undefined;
+            const isRecognizedSupplementary = Boolean(
+                existingBills.length === 2 &&
+                    original &&
+                    supplementary &&
+                    supplementary.status === PurchaseInvoiceStatus.DRAFT &&
+                    new Prisma.Decimal(supplementary.paidAmount).isZero() &&
+                    supplementary.notes?.startsWith(
+                        `Suplementer: tambahan GR setelah ${original.invoiceNumber}`,
+                    ) &&
+                    new Prisma.Decimal(original.totalAmount)
+                        .plus(supplementary.totalAmount)
+                        .equals(calculatedTotal),
+            );
 
-    const invoice = await prisma.purchaseInvoice.create({
-        data: {
-            invoiceNumber,
-            purchaseOrderId,
-            invoiceDate,
-            dueDate,
-            termOfPaymentDays,
-            totalAmount: calculatedTotal,
-            status,
-            notes: `System generated bill for PO ${po.orderNumber} (based on GR received quantities)`,
-        },
-    });
+            if (!isRecognizedSupplementary || !original || !supplementary) {
+                throw new BusinessRuleError(
+                    'Ditemukan lebih dari satu bill aktif untuk PO ini. Rekonsiliasi bill terlebih dahulu.',
+                    {
+                        purchaseOrderId,
+                        invoiceIds: existingBills.map((invoice) => invoice.id),
+                    },
+                    'PURCHASE_BILL_AMBIGUOUS',
+                );
+            }
 
-    await logActivity({
-        userId,
-        action: 'AUTO_GENERATE_BILL',
-        entityType: 'PurchaseInvoice',
-        entityId: invoice.id,
-        details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status} (total from GR: ${calculatedTotal})`,
-    });
-
-    // Auto-Journaling Trigger
-    await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(
-        (err) => {
-            logger.error('Auto-Journal failed for automated bill', {
-                error: err,
-                module: 'PurchasingInvoicesService',
+            const accounts = await resolvePurchaseBillJournalAccounts();
+            await syncPurchaseBillAndJournal(tx, {
+                invoiceId: supplementary.id,
+                targetTotal: new Prisma.Decimal(supplementary.totalAmount),
+                poTotal: new Prisma.Decimal(po.totalAmount),
+                poTax: new Prisma.Decimal(po.taxAmount ?? 0),
+                userId,
+                accounts,
             });
-        },
-    );
+            return original;
+        }
+        const existing = existingBills[0];
+        const isProtected = existing
+            ? isProtectedPurchaseBill(existing)
+            : false;
+        const billTotal = isProtected
+            ? new Prisma.Decimal(calculatedTotal).minus(existing.totalAmount).toNumber()
+            : calculatedTotal;
+        if (isProtected && billTotal === 0) return existing;
+        if (isProtected && billTotal < 0) {
+            throw new BusinessRuleError('Bill sudah dibayar sebagian/seluruhnya. Koreksi penerimaan memerlukan penyesuaian finance.', { invoiceId: existing.id }, 'PURCHASE_BILL_PROTECTED');
+        }
+        const accounts = await resolvePurchaseBillJournalAccounts();
 
-    return invoice;
+        if (existing && !isProtected) {
+            const synced = await syncPurchaseBillAndJournal(tx, {
+                invoiceId: existing.id,
+                targetTotal: new Prisma.Decimal(calculatedTotal),
+                poTotal: new Prisma.Decimal(po.totalAmount),
+                poTax: new Prisma.Decimal(po.taxAmount ?? 0),
+                userId,
+                accounts,
+            });
+            return synced.invoice;
+        }
+
+        const rawTerm = po.supplier?.paymentTermDays;
+        const termOfPaymentDays =
+            rawTerm != null && rawTerm >= 0 && rawTerm <= 365 ? rawTerm : 30;
+        const invoiceNumber = await generateBillNumber(tx);
+        const invoiceDate = new Date();
+        const dueDate = addDays(invoiceDate, termOfPaymentDays);
+        const isWalkIn =
+            po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED';
+        const status =
+            isProtected || isWalkIn && po.entrySource === 'WALK_IN_RECEIPT'
+                ? PurchaseInvoiceStatus.DRAFT
+                : isWalkIn
+                  ? PurchaseInvoiceStatus.UNPAID
+                  : PurchaseInvoiceStatus.DRAFT;
+
+        const invoice = await tx.purchaseInvoice.create({
+            data: {
+                invoiceNumber,
+                purchaseOrderId,
+                invoiceDate,
+                dueDate,
+                termOfPaymentDays,
+                totalAmount: billTotal,
+                status,
+                notes: isProtected
+                    ? `Suplementer: tambahan GR setelah ${existing.invoiceNumber} (sisa ${billTotal}) — PO ${po.orderNumber}`
+                    : `System generated bill for PO ${po.orderNumber} (based on GR received quantities)`,
+            },
+        });
+
+        const synced = await syncPurchaseBillAndJournal(tx, {
+            invoiceId: invoice.id,
+            targetTotal: new Prisma.Decimal(billTotal),
+            poTotal: new Prisma.Decimal(po.totalAmount),
+            poTax: new Prisma.Decimal(po.taxAmount ?? 0),
+            userId,
+            accounts,
+        });
+        return synced.invoice;
+    };
+
+    return options?.tx
+        ? run(options.tx)
+        : prisma.$transaction(run, {
+              // Row locks serialize PO/bill changes; each read after waiting must
+              // see the latest commit rather than a stale serializable snapshot.
+              isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+          });
 }
 
 export async function updatePurchaseInvoiceDueDate(

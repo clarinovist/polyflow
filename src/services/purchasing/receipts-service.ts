@@ -436,20 +436,14 @@ export async function createGoodsReceipt(
             tx,
         });
 
+        if (data.purchaseOrderId) {
+            await createDraftBillFromPo(data.purchaseOrderId, userId, { tx });
+        }
         return { ...receiptTx, resolvedItems };
     });
 
-    // Auto-generate draft bill and notify Finance after the GR transaction commits.
+    // Notifications are non-financial and run only after receipt/bill/GL commit.
     if (data.purchaseOrderId) {
-        await createDraftBillFromPo(data.purchaseOrderId, userId).catch(
-            (err) => {
-                logger.error('Failed to auto-generate draft bill after GR', {
-                    error: err,
-                    module: 'ReceiptsService',
-                });
-            },
-        );
-
         await notifyFinanceOfGoodsReceipt(
             receipt.id,
             data.purchaseOrderId,
@@ -540,6 +534,7 @@ export async function reverseGoodsReceipt(
     goodsReceiptId: string,
     userId: string,
     tx?: Prisma.TransactionClient,
+    options?: { syncBill?: boolean },
 ) {
     const run = async (db: Prisma.TransactionClient) => {
         const gr = await db.goodsReceipt.findUnique({
@@ -759,6 +754,10 @@ export async function reverseGoodsReceipt(
             tx: db,
         });
 
+        if (gr.purchaseOrderId && options?.syncBill !== false) {
+            await createDraftBillFromPo(gr.purchaseOrderId, userId, { tx: db });
+        }
+
         return {
             success: true,
             receiptNumber: gr.receiptNumber,
@@ -766,25 +765,7 @@ export async function reverseGoodsReceipt(
         };
     };
 
-    const result = tx ? await run(tx) : await prisma.$transaction(run);
-
-    // #4: after commit, recalc linked invoice from remaining GRs and sync DRAFT invoice total
-    if (result.purchaseOrderId) {
-        try {
-            const { createDraftBillFromPo } =
-                await import('@/services/purchasing/invoices-service');
-            await createDraftBillFromPo(result.purchaseOrderId, userId);
-        } catch (e) {
-            const { logger } = await import('@/lib/config/logger');
-            logger.error('Failed to recalc bill after reverseGoodsReceipt', {
-                error: e,
-                purchaseOrderId: result.purchaseOrderId,
-                module: 'ReceiptsService',
-            });
-        }
-    }
-
-    return result;
+    return tx ? run(tx) : prisma.$transaction(run);
 }
 
 /**
@@ -803,7 +784,9 @@ export async function reverseAllGoodsReceiptsForPO(
         });
 
         for (const receipt of receipts) {
-            await reverseGoodsReceipt(receipt.id, userId, db);
+            await reverseGoodsReceipt(receipt.id, userId, db, {
+                syncBill: false,
+            });
         }
 
         return { reversedCount: receipts.length };

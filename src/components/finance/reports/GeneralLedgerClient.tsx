@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     getGeneralLedger,
     getGeneralLedgerSummary,
@@ -28,6 +28,10 @@ import {
     reportFilename,
 } from '@/lib/utils/csv-export';
 import { reportLabels } from '@/lib/labels';
+import {
+    businessDateToEntryDate,
+    parseBusinessDate,
+} from '@/lib/utils/timezone';
 
 interface LedgerEntry {
     date: string;
@@ -95,27 +99,125 @@ function currentMonthRange(): DateRange {
     };
 }
 
-export function GeneralLedgerClient() {
+function initialDateRange(toDate?: string): DateRange {
+    if (!toDate) return currentMonthRange();
+    try {
+        const validTo = parseBusinessDate(toDate);
+        return {
+            from: undefined,
+            to: businessDateToEntryDate(validTo),
+        };
+    } catch {
+        return currentMonthRange();
+    }
+}
+
+interface GeneralLedgerClientProps {
+    initialAccountId?: string;
+    initialToDate?: string;
+}
+
+export function GeneralLedgerClient({
+    initialAccountId,
+    initialToDate,
+}: GeneralLedgerClientProps = {}) {
     const [summary, setSummary] = useState<SummaryData | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(
-        currentMonthRange,
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(() =>
+        initialDateRange(initialToDate),
     );
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [details, setDetails] = useState<Record<string, AccountDetail>>({});
+    const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
     const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
+    const requestGenerationRef = useRef(0);
+
+    const loadAccountDetail = useCallback(
+        async (accountId: string, generation: number) => {
+            if (generation !== requestGenerationRef.current) return;
+
+            setDetailLoadingId(accountId);
+            setDetailErrors((current) => {
+                if (!current[accountId]) return current;
+                const next = { ...current };
+                delete next[accountId];
+                return next;
+            });
+
+            try {
+                const result = await getGeneralLedgerAccountEntries(
+                    accountId,
+                    dateRange?.from,
+                    dateRange?.to,
+                );
+                if (generation !== requestGenerationRef.current) return;
+
+                if (result && 'success' in result && result.success) {
+                    setDetails((current) => ({
+                        ...current,
+                        [accountId]: result.data as unknown as AccountDetail,
+                    }));
+                } else {
+                    console.error(
+                        'Failed to load account entries:',
+                        result && 'error' in result
+                            ? result.error
+                            : 'Unknown error',
+                    );
+                    setDetailErrors((current) => ({
+                        ...current,
+                        [accountId]: 'Gagal memuat transaksi akun.',
+                    }));
+                }
+            } catch (error) {
+                if (generation !== requestGenerationRef.current) return;
+                console.error('Failed to load account entries', error);
+                setDetailErrors((current) => ({
+                    ...current,
+                    [accountId]: 'Gagal memuat transaksi akun.',
+                }));
+            } finally {
+                if (generation === requestGenerationRef.current) {
+                    setDetailLoadingId((current) =>
+                        current === accountId ? null : current,
+                    );
+                }
+            }
+        },
+        [dateRange],
+    );
 
     const fetchSummary = useCallback(async () => {
+        const generation = ++requestGenerationRef.current;
         setLoading(true);
+        setDetails({});
+        setDetailErrors({});
+        setDetailLoadingId(null);
+        setExpandedId(null);
+
         try {
             const result = await getGeneralLedgerSummary(
                 dateRange?.from,
                 dateRange?.to,
             );
+            if (generation !== requestGenerationRef.current) return;
+
             if (result && 'success' in result && result.success) {
-                setSummary(result.data as unknown as SummaryData);
+                const nextSummary = result.data as unknown as SummaryData;
+                setSummary(nextSummary);
+
+                const selectedAccount = initialAccountId
+                    ? nextSummary.accounts.find(
+                          (account) => account.id === initialAccountId,
+                      )
+                    : undefined;
+                if (selectedAccount) {
+                    setSearchTerm(selectedAccount.code);
+                    setExpandedId(selectedAccount.id);
+                    await loadAccountDetail(selectedAccount.id, generation);
+                }
             } else {
                 console.error(
                     'Failed to load general ledger summary:',
@@ -126,19 +228,32 @@ export function GeneralLedgerClient() {
                 setSummary(null);
             }
         } catch (error) {
+            if (generation !== requestGenerationRef.current) return;
             console.error('Failed to load general ledger summary', error);
             setSummary(null);
         } finally {
-            setLoading(false);
+            if (generation === requestGenerationRef.current) {
+                setLoading(false);
+            }
         }
-    }, [dateRange]);
+    }, [dateRange, initialAccountId, loadAccountDetail]);
 
     useEffect(() => {
-        fetchSummary();
-        // A new period invalidates every cached drill-down.
-        setDetails({});
-        setExpandedId(null);
+        void fetchSummary();
     }, [fetchSummary]);
+
+    const handleDateRangeChange = useCallback(
+        (nextRange: DateRange | undefined) => {
+            requestGenerationRef.current += 1;
+            setLoading(true);
+            setDetails({});
+            setDetailErrors({});
+            setDetailLoadingId(null);
+            setExpandedId(null);
+            setDateRange(nextRange);
+        },
+        [],
+    );
 
     const toggleAccount = useCallback(
         async (accountId: string) => {
@@ -150,33 +265,17 @@ export function GeneralLedgerClient() {
             setExpandedId(accountId);
             if (details[accountId]) return;
 
-            setDetailLoadingId(accountId);
-            try {
-                const result = await getGeneralLedgerAccountEntries(
-                    accountId,
-                    dateRange?.from,
-                    dateRange?.to,
-                );
-                if (result && 'success' in result && result.success) {
-                    setDetails((prev) => ({
-                        ...prev,
-                        [accountId]: result.data as unknown as AccountDetail,
-                    }));
-                } else {
-                    console.error(
-                        'Failed to load account entries:',
-                        result && 'error' in result
-                            ? result.error
-                            : 'Unknown error',
-                    );
-                }
-            } catch (error) {
-                console.error('Failed to load account entries', error);
-            } finally {
-                setDetailLoadingId(null);
-            }
+            await loadAccountDetail(accountId, requestGenerationRef.current);
         },
-        [expandedId, details, dateRange],
+        [expandedId, details, loadAccountDetail],
+    );
+
+    const retryAccount = useCallback(
+        async (accountId: string) => {
+            setExpandedId(accountId);
+            await loadAccountDetail(accountId, requestGenerationRef.current);
+        },
+        [loadAccountDetail],
     );
 
     /**
@@ -316,7 +415,7 @@ export function GeneralLedgerClient() {
                     </div>
                     <DatePickerWithRange
                         date={dateRange}
-                        onDateChange={setDateRange}
+                        onDateChange={handleDateRangeChange}
                     />
                     <Button variant="outline" size="icon" onClick={fetchSummary}>
                         <RotateCw className="h-4 w-4" />
@@ -395,7 +494,9 @@ export function GeneralLedgerClient() {
                                             detailLoading={
                                                 detailLoadingId === account.id
                                             }
+                                            detailError={detailErrors[account.id]}
                                             onToggle={toggleAccount}
+                                            onRetry={retryAccount}
                                         />
                                     ))}
                                     <TableRow className="bg-slate-100 dark:bg-slate-800 font-bold border-t-2">
@@ -430,14 +531,18 @@ function AccountRow({
     expanded,
     detail,
     detailLoading,
+    detailError,
     onToggle,
+    onRetry,
 }: {
     account: SummaryAccount;
     fmt: (n: number) => string;
     expanded: boolean;
     detail?: AccountDetail;
     detailLoading: boolean;
+    detailError?: string;
     onToggle: (accountId: string) => void;
+    onRetry: (accountId: string) => void;
 }) {
     return (
         <>
@@ -485,7 +590,25 @@ function AccountRow({
                 </TableRow>
             )}
 
-            {expanded && !detailLoading && detail && (
+            {expanded && !detailLoading && detailError && (
+                <TableRow>
+                    <TableCell colSpan={6} className="bg-destructive/5 py-5">
+                        <div className="flex items-center justify-center gap-3 text-sm text-destructive">
+                            <span>{detailError}</span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onRetry(account.id)}
+                            >
+                                Coba lagi
+                            </Button>
+                        </div>
+                    </TableCell>
+                </TableRow>
+            )}
+
+            {expanded && !detailLoading && !detailError && detail && (
                 <TableRow>
                     <TableCell colSpan={6} className="bg-muted/20 p-0">
                         <div className="p-3">

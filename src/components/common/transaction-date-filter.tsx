@@ -46,7 +46,7 @@ export function TransactionDateFilter({
 
     // Helper to check active preset
     const getActivePreset = React.useCallback(() => {
-        if (!date?.from) return showAll ? 'all' : undefined;
+        if (!date?.from) return date?.to ? 'custom' : showAll ? 'all' : undefined;
 
         const now = new Date();
         const todayStart = startOfDay(now);
@@ -112,7 +112,7 @@ export function TransactionDateFilter({
 
     // Apply default preset on mount if date is undefined and defaultPreset is provided
     React.useEffect(() => {
-        if (!date?.from && defaultPreset) {
+        if (!date?.from && !date?.to && defaultPreset) {
             handlePreset(defaultPreset);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,6 +149,8 @@ export function TransactionDateFilter({
                             ) : (
                                 format(date.from, 'MMM dd, y', { locale: id })
                             )
+                        ) : date?.to ? (
+                            <span>Sampai {format(date.to, 'PPP', { locale: id })}</span>
                         ) : (
                             <span>Semua Waktu</span>
                         )}
