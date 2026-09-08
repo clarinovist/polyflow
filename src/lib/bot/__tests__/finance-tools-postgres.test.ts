@@ -67,6 +67,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('finance tools on disposable Pos
         await entry('DRAFT', 'cogs', 2000, { status: 'DRAFT' });
         await entry('VOIDED', 'cogs', 2000, { status: 'VOIDED' });
         await entry('CLOSING', 'cogs', 2000, { reference: 'CLOSING-AUG' });
+        await entry('LEGACY-CLOSING', 'cogs', -2000, { reference: 'CLOSE-JULY', entryDate: new Date('2026-07-31T23:59:59Z') });
+        await entry('LEGACY-REVENUE', 'revenue', 5000, { reference: 'CLOSE-JULY' });
         await entry('NULL', 'cogs', 2000, { reference: null });
         const result = await db.$transaction(tx => reconcileFinance(tx, period));
         expect(result.report).toMatchObject({ totalRevenue: 1000, totalCOGS: 260, grossProfit: 740, totalOpEx: 50, totalOther: 10, netIncome: 700 });

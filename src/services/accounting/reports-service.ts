@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
+import { nonClosingJournalFilter } from './closing-reference-filter';
 import { resolveAccount } from './account-resolver';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import {
@@ -69,9 +70,7 @@ export async function getIncomeStatement(startDate: Date, endDate: Date, tx?: Pr
                     journalEntry: {
                         entryDate,
                         status: 'POSTED',
-                        NOT: {
-                            reference: { startsWith: 'CLOSING-' },
-                        },
+                        ...nonClosingJournalFilter(),
                     },
                 },
             },
@@ -414,7 +413,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
                     journalEntry: {
                         entryDate: { gte: startDate, lte: endOfDay },
                         status: 'POSTED',
-                        NOT: { reference: { startsWith: 'CLOSING-' } },
+                        ...nonClosingJournalFilter(),
                     },
                 },
             },
@@ -567,9 +566,7 @@ export async function getClosingBalances(startDate: Date, endDate: Date) {
                     journalEntry: {
                         entryDate,
                         status: 'POSTED',
-                        NOT: {
-                            reference: { startsWith: 'CLOSING-' },
-                        },
+                        ...nonClosingJournalFilter(),
                     },
                 },
             },

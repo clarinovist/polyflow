@@ -60,7 +60,7 @@ export function reconciliationEvidence(result: Awaited<ReturnType<typeof reconci
         summary: `Rekonsiliasi laba-rugi/COGS ${range.startDate} s.d. ${range.endDate} WIB (read-only).`,
         source: 'tenant-data', completeness: cogs.truncated || invoices.truncated || accounts.length > 20 || result.cogsDifference !== 0 ? 'partial' : 'complete',
         facts: [
-            { label: 'Basis laporan', value: 'Tanggal jurnal (entryDate) WIB; POSTED saja; kategori akun mengikuti laporan existing, bukan prefix COA; CLOSING- dikecualikan. Reference NULL mengikuti filter laporan existing (tidak termasuk).' },
+            { label: 'Basis laporan', value: 'Tanggal jurnal (entryDate) WIB; POSTED saja; kategori akun mengikuti laporan existing, bukan prefix COA; CLOSING- dan CLOSE- dikecualikan. Reference NULL mengikuti filter laporan existing (tidak termasuk).' },
             ...totals.map(([label, value]) => ({ label, value: money(value) })),
             { label: 'Sumber COGS', value: `${cogs.count} jurnal, neto seluruhnya ${money(cogs.total)}; sampel ${cogs.rows.length} terbesar berdasarkan absolut neto. Penyesuaian negatif tetap disertakan.` },
             { label: 'Selisih laporan vs sumber COGS', value: money(result.cogsDifference) },

@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { getIncomeStatement } from '@/services/accounting/reports-service';
+import { nonClosingReferenceSql } from '@/services/accounting/closing-reference-filter';
 import { financeRange } from './finance-diagnostic-input';
 
 const SAMPLE_LIMIT = 20;
@@ -24,7 +25,7 @@ async function cogsSources(tx: Prisma.TransactionClient, start: Date, end: Date)
                 SUM(CASE WHEN a.type = 'REVENUE' THEN l.credit-l.debit ELSE l.debit-l.credit END) AS net
             FROM "JournalEntry" j JOIN "JournalLine" l ON l."journalEntryId" = j.id
             JOIN "Account" a ON a.id = l."accountId"
-            WHERE j.status = 'POSTED' AND j.reference NOT LIKE 'CLOSING-%'
+            WHERE j.status = 'POSTED' AND ${nonClosingReferenceSql(Prisma.sql`j.reference`)}
                 AND j."entryDate" >= ${start} AND j."entryDate" <= ${end}
                 AND a.category = 'COGS' AND a.type IN ('REVENUE', 'EXPENSE')
             GROUP BY j.id

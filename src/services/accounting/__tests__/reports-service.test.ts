@@ -440,7 +440,7 @@ describe("reports-service", () => {
             journalLines: expect.objectContaining({
               where: expect.objectContaining({
                 journalEntry: expect.objectContaining({
-                  NOT: { reference: { startsWith: "CLOSING-" } },
+                  NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }],
                 }),
               }),
             }),
@@ -772,9 +772,7 @@ describe("reports-service", () => {
       // 11300 not in expandCodes -> grouped
       const result = await getBalanceSheet(new Date("2026-06-30"));
 
-      const codes = result.assetGroups.map((g: any) =>
-        "code" in g ? g.code : g.id,
-      );
+      const codes = result.assetGroups.map((g) => g.code);
 
       // 11000 expanded -> 11100 and 11300 visible
       // 11100 expanded -> 11110 and 11120 visible
@@ -883,10 +881,11 @@ describe("reports-service", () => {
         }),
       );
 
-      const call = vi.mocked(prisma.account.findMany).mock.calls[0][0] as any;
-      const lteDate =
-        call.include.journalLines.where.journalEntry.entryDate.lte as Date;
-      expect(lteDate.toISOString()).toBe("2026-06-15T16:59:59.999Z");
+      expect(vi.mocked(prisma.account.findMany).mock.calls[0][0]).toMatchObject({
+        include: { journalLines: { where: { journalEntry: {
+          entryDate: { lte: new Date("2026-06-15T16:59:59.999Z") },
+        } } } },
+      });
     });
 
     it("groups liabilities and equity separately", async () => {
@@ -1196,7 +1195,7 @@ describe("reports-service", () => {
             journalLines: expect.objectContaining({
               where: expect.objectContaining({
                 journalEntry: expect.objectContaining({
-                  NOT: { reference: { startsWith: "CLOSING-" } },
+                  NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }],
                 }),
               }),
             }),
@@ -1372,13 +1371,11 @@ describe("reports-service", () => {
 
       // Verify the earnings line is a debit (loss)
       const journalEntryCall = vi.mocked(createJournalEntry).mock
-        .calls[0][0] as any;
+        .calls[0][0];
       const earningsLine = journalEntryCall.lines.find(
-        (l: any) => l.accountId === "earn1",
+        (l) => l.accountId === "earn1",
       );
-      expect(earningsLine.debit).toBe(3000000);
-      expect(earningsLine.credit).toBe(0);
-      expect(earningsLine.description).toContain("Rugi Bersih");
+      expect(earningsLine).toMatchObject({ debit: 3000000, credit: 0, description: expect.stringContaining("Rugi Bersih") });
     });
 
     it("creates closing entry for profit scenario with credit on earnings", async () => {
@@ -1418,13 +1415,11 @@ describe("reports-service", () => {
       await closePeriod(new Date("2026-06-30"), "user1");
 
       const journalEntryCall = vi.mocked(createJournalEntry).mock
-        .calls[0][0] as any;
+        .calls[0][0];
       const earningsLine = journalEntryCall.lines.find(
-        (l: any) => l.accountId === "earn1",
+        (l) => l.accountId === "earn1",
       );
-      expect(earningsLine.debit).toBe(0);
-      expect(earningsLine.credit).toBe(5000000);
-      expect(earningsLine.description).toContain("Laba Bersih");
+      expect(earningsLine).toMatchObject({ debit: 0, credit: 5000000, description: expect.stringContaining("Laba Bersih") });
     });
 
     it("skips accounts with zero netBalance (absolute value < 0.01)", async () => {
@@ -1471,7 +1466,7 @@ describe("reports-service", () => {
       expect(result.lineCount).toBe(2);
 
       const journalEntryCall = vi.mocked(createJournalEntry).mock
-        .calls[0][0] as any;
+        .calls[0][0];
       expect(journalEntryCall.lines).toHaveLength(2);
     });
 
@@ -1573,7 +1568,7 @@ describe("reports-service", () => {
       await closePeriod(new Date("2026-06-15T00:00:00.000Z"), "user1");
 
       const journalEntryCall = vi.mocked(createJournalEntry).mock
-        .calls[0][0] as any;
+        .calls[0][0];
       const entryDate = journalEntryCall.entryDate as Date;
       expect(entryDate.toISOString()).toBe("2026-06-14T17:00:00.000Z");
     });
@@ -1614,7 +1609,7 @@ describe("reports-service", () => {
             journalLines: expect.objectContaining({
               where: expect.objectContaining({
                 journalEntry: expect.objectContaining({
-                  NOT: { reference: { startsWith: "CLOSING-" } },
+                  NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }],
                 }),
               }),
             }),
