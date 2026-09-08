@@ -39,17 +39,33 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('closing exclusion on disposable
     });
     afterAll(async () => { await db.$disconnect(); });
 
-    it('preserves WIB limits, statuses, reference NULL policy and legitimate negative revenue', async () => {
+    it('includes posted journals without a reference in P&L and COGS evidence', async () => {
+        await entry('NULL-REVENUE', 'rev', -1000, { reference: null });
+        await entry('NULL-COGS', 'cogs', 300, { reference: null });
+        await entry('NULL-EXPENSE', 'opex', 50, { reference: null });
+        const report = await getIncomeStatement(start, end);
+        expect(report).toMatchObject({ totalRevenue: 1000, totalCOGS: 300, totalOpEx: 50, netIncome: 650 });
+        expect(await getClosingBalances(start, end)).toEqual(expect.arrayContaining([
+            { id: 'rev', type: 'REVENUE', netBalance: 1000 },
+            { id: 'cogs', type: 'EXPENSE', netBalance: 300 },
+        ]));
+        expect(await closePeriod(end, 'test-user')).toMatchObject({ totalRevenue: 1000, totalExpense: 350, netIncome: 650 });
+        const reconciled = await db.$transaction(tx => reconcileFinance(tx, { startDate: '2026-08-01', endDate: '2026-08-31' }));
+        expect(reconciled.cogs).toMatchObject({ count: 1, total: 300 });
+        expect(reconciled.cogsDifference).toBe(0);
+    });
+
+    it('preserves WIB limits, statuses, optional NULL references and legitimate negative revenue', async () => {
         await entry('START', 'rev', -100, { entryDate: new Date('2026-07-31T17:00:00Z') });
         await entry('END', 'rev', 150, { reference: '', entryDate: new Date('2026-08-31T16:59:59.999Z') });
         await entry('BEFORE', 'rev', -999, { entryDate: new Date('2026-07-31T16:59:59.999Z') });
         await entry('AFTER', 'rev', -999, { entryDate: new Date('2026-08-31T17:00:00Z') });
         await entry('DRAFT', 'rev', -999, { status: 'DRAFT' });
         await entry('VOID', 'rev', -999, { status: 'VOIDED' });
-        // Compatibility only: NULL references remain out of scope for this fix.
-        await entry('NULL', 'rev', -999, { reference: null });
-        expect((await getIncomeStatement(start, end)).totalRevenue).toBe(-50);
-        expect(await getClosingBalances(start, end)).toEqual([{ id: 'rev', type: 'REVENUE', netBalance: -50 }]);
+        // Optional references must not hide valid activity.
+        await entry('NULL', 'rev', 25, { reference: null });
+        expect((await getIncomeStatement(start, end)).totalRevenue).toBe(-75);
+        expect(await getClosingBalances(start, end)).toEqual([{ id: 'rev', type: 'REVENUE', netBalance: -75 }]);
     });
 
     it('excludes both closing families across revenue and expenses, not manual adjustments', async () => {

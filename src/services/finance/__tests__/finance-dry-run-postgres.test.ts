@@ -52,7 +52,7 @@ describe.skipIf(!enabled)('finance dry-run real PostgreSQL boundary', () => {
         expect(result.journals.items.some(i => i.entityKey.includes('SALES_INVOICE_UNPOSTED'))).toBe(true);
         expect(result.journals.items.some(i => i.entityKey.includes('SALES_PAYMENT'))).toBe(true);
         const text = evidenceToText(result.reconciliation);
-        expect(text).toContain('Rp 26,00'); expect(text).toContain('Payment Rp 80,00');
+        expect(text).toContain('Rp 1.025,00'); expect(text).toContain('Payment Rp 80,00');
         expect(text).toContain('BUKAN tambahan laba'); expect(text).toContain('Reference NULL');
         expect(result.recipients.candidates[0].eligible).toBe(true);
         expect(result.rollout.allowed).toBe(false);

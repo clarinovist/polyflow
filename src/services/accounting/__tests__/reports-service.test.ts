@@ -440,7 +440,7 @@ describe("reports-service", () => {
             journalLines: expect.objectContaining({
               where: expect.objectContaining({
                 journalEntry: expect.objectContaining({
-                  NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }],
+                  OR: [{ reference: null }, { NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }] }],
                 }),
               }),
             }),
@@ -1195,7 +1195,7 @@ describe("reports-service", () => {
             journalLines: expect.objectContaining({
               where: expect.objectContaining({
                 journalEntry: expect.objectContaining({
-                  NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }],
+                  OR: [{ reference: null }, { NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }] }],
                 }),
               }),
             }),
@@ -1609,7 +1609,7 @@ describe("reports-service", () => {
             journalLines: expect.objectContaining({
               where: expect.objectContaining({
                 journalEntry: expect.objectContaining({
-                  NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }],
+                  OR: [{ reference: null }, { NOT: [{ reference: { startsWith: "CLOSING-" } }, { reference: { startsWith: "CLOSE-" } }] }],
                 }),
               }),
             }),

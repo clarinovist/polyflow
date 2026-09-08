@@ -71,11 +71,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('finance tools on disposable Pos
         await entry('LEGACY-REVENUE', 'revenue', 5000, { reference: 'CLOSE-JULY' });
         await entry('NULL', 'cogs', 2000, { reference: null });
         const result = await db.$transaction(tx => reconcileFinance(tx, period));
-        expect(result.report).toMatchObject({ totalRevenue: 1000, totalCOGS: 260, grossProfit: 740, totalOpEx: 50, totalOther: 10, netIncome: 700 });
-        expect(result.cogs.total).toBe(260); expect(result.cogsDifference).toBe(0);
-        expect(result.cogs.rows.map(r => r.id)).toEqual(['COGS-START', 'COGS-END']);
+        expect(result.report).toMatchObject({ totalRevenue: 1000, totalCOGS: 2260, grossProfit: -1260, totalOpEx: 50, totalOther: 10, netIncome: -1300 });
+        expect(result.cogs.total).toBe(2260); expect(result.cogsDifference).toBe(0);
+        expect(result.cogs.rows.map(r => r.id)).toEqual(['NULL', 'COGS-START', 'COGS-END']);
         const toolResult = await execute('get_finance_reconciliation', period);
-        expect(evidenceToText(toolResult)).toContain('700,00');
+        expect(evidenceToText(toolResult)).toContain('1.300,00');
         expect(toolResult.entities?.map(e => e.id)).toContain('COGS-END');
         expect(evidenceToText(toolResult)).toContain('BUKAN tambahan laba');
     });
