@@ -13,6 +13,8 @@
 import {
     DeliveryStatus,
     MovementType,
+    Prisma,
+    type StockMovement,
     ReservationStatus,
     ReservationType,
     SalesOrderStatus,
@@ -20,9 +22,9 @@ import {
 import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { InventoryCoreService } from '@/services/inventory/core-service';
-import { AccountingService } from '@/services/accounting/accounting-service';
+import { recordShipmentReversal } from '@/services/accounting/shipment-reversal-journal';
 import { updateInvoiceStatus } from '@/services/finance/invoice-lifecycle-service';
-import { isPeriodOpen } from '@/services/accounting/periods-service';
+import { requireOpenJournalPeriod } from '@/services/finance/sales-recognition-service';
 import { logActivity } from '@/lib/tools/audit';
 
 const REVERSAL_PREFIX = 'VOID: ';
@@ -30,6 +32,56 @@ const RESERVATION_HOLD_DAYS = 7;
 
 function sourceMarker(deliveryOrderId: string) {
     return `[SOURCE:${deliveryOrderId}]`;
+}
+
+type ShipmentQuantity = { productVariantId: string; quantity: Prisma.Decimal };
+
+function movementMismatch() {
+    return new BusinessRuleError(
+        'Mutasi stok pengiriman tidak sesuai item atau lokasi DO; finance perlu memeriksa sumber.',
+        {}, 'SHIPMENT_MOVEMENTS_MISMATCH',
+    );
+}
+
+function quantityTotals(rows: ShipmentQuantity[]) {
+    return rows.reduce((totals, row) => {
+        const quantity = new Prisma.Decimal(row.quantity);
+        if (!quantity.isFinite() || quantity.lt(0)) throw movementMismatch();
+        // The shipment producer skips DO rows corrected to zero.
+        if (quantity.isZero()) return totals;
+        return new Map([...totals, [row.productVariantId,
+            (totals.get(row.productVariantId) ?? new Prisma.Decimal(0)).add(quantity)]]);
+    }, new Map<string, Prisma.Decimal>());
+}
+
+function validateMovementSet(items: ShipmentQuantity[], movements: StockMovement[], locationId: string) {
+    // commitDeliveryShipment emits OUT from the DO source, with no destination.
+    if (movements.some(move => move.type !== MovementType.OUT ||
+        move.fromLocationId !== locationId || !move.fromLocationId || move.toLocationId !== null ||
+        move.goodsReceiptId || move.productionOrderId || !new Prisma.Decimal(move.quantity).gt(0))) {
+        throw movementMismatch();
+    }
+    const expected = quantityTotals(items);
+    const actual = quantityTotals(movements);
+    if (actual.size !== expected.size || [...expected].some(([variant, quantity]) =>
+        !actual.get(variant)?.equals(quantity))) throw movementMismatch();
+    return expected;
+}
+
+function deliveredUpdates(
+    totals: Map<string, Prisma.Decimal>,
+    items: { id: string; productVariantId: string; deliveredQty: Prisma.Decimal }[],
+) {
+    return [...totals].map(([variant, quantity]) => {
+        const matches = items.filter(item => item.productVariantId === variant);
+        // DO items have no SO-item ID. Never guess which repeated SO row shipped.
+        if (matches.length !== 1) throw new BusinessRuleError(
+            'Atribusi item SO untuk pembatalan pengiriman hilang atau ambigu; finance perlu memeriksa sumber.',
+            { productVariantId: variant }, 'SHIPMENT_ITEM_ATTRIBUTION_UNRESOLVED',
+        );
+        return { id: matches[0].id,
+            deliveredQty: Prisma.Decimal.max(0, new Prisma.Decimal(matches[0].deliveredQty).minus(quantity)) };
+    });
 }
 
 export interface ReverseDeliveryShipmentResult {
@@ -44,6 +96,13 @@ export async function reverseDeliveryShipment(
 ): Promise<ReverseDeliveryShipmentResult> {
     return prisma.$transaction(
         async (tx) => {
+            // The source marker alone is a check-then-act race. Serialize on DO.
+            await tx.$queryRaw`SELECT id FROM "DeliveryOrder" WHERE id = ${deliveryOrderId} FOR UPDATE`;
+            // Payments serialize on Invoice; read paid status only after owning
+            // those same locks, and hold them until cancellation commits.
+            await tx.$queryRaw`SELECT i.id FROM "Invoice" i
+                JOIN "DeliveryOrder" d ON d."salesOrderId" = i."salesOrderId"
+                WHERE d.id = ${deliveryOrderId} ORDER BY i.id FOR UPDATE OF i`;
             const doRecord = await tx.deliveryOrder.findUnique({
                 where: { id: deliveryOrderId },
                 include: {
@@ -114,20 +173,7 @@ export async function reverseDeliveryShipment(
                 );
             }
 
-            const periodOpen = await isPeriodOpen(
-                doRecord.stockCommittedAt,
-                tx,
-            );
-            if (!periodOpen) {
-                throw new BusinessRuleError(
-                    'Periode fiskal saat pengiriman sudah CLOSED — gunakan Retur Penjualan atau jurnal koreksi.',
-                    {
-                        deliveryOrderId,
-                        stockCommittedAt: doRecord.stockCommittedAt,
-                    },
-                    'FISCAL_PERIOD_CLOSED',
-                );
-            }
+            await requireOpenJournalPeriod(tx, doRecord.stockCommittedAt);
 
             // Invoice guards: never reverse behind money already collected.
             const paidInvoice = doRecord.salesOrder.invoices.find((inv) =>
@@ -179,10 +225,18 @@ export async function reverseDeliveryShipment(
             const movements = await tx.stockMovement.findMany({
                 where: {
                     salesOrderId: doRecord.salesOrderId,
-                    type: MovementType.OUT,
                     reference: `Shipment for ${doRecord.salesOrder.orderNumber} via ${doRecord.orderNumber}`,
                 },
             });
+
+            if (movements.length === 0) {
+                throw new BusinessRuleError('Mutasi stok pengiriman tidak ditemukan; finance perlu memeriksa sumber.',
+                    { deliveryOrderId }, 'SHIPMENT_MOVEMENTS_MISSING');
+            }
+
+            // Validate the complete source before any inventory/DO/invoice mutation.
+            const totals = validateMovementSet(doRecord.items, movements, doRecord.sourceLocationId);
+            const updates = deliveredUpdates(totals, doRecord.salesOrder.items);
 
             let reversedLines = 0;
             for (const move of movements) {
@@ -204,25 +258,17 @@ export async function reverseDeliveryShipment(
                         reference: `${REVERSAL_PREFIX}${move.reference ?? move.id} ${sourceMarker(deliveryOrderId)}`,
                     },
                 });
-                await AccountingService.recordInventoryMovement(reversal, tx);
+                await recordShipmentReversal(move, reversal, userId, tx, {
+                    offBalanceSheet: doRecord.salesOrder.orderType === 'MAKLON_JASA',
+                });
                 reversedLines += 1;
             }
 
-            // Give back deliveredQty per line, clamped at 0.
-            for (const doItem of doRecord.items) {
-                const qty = Number(doItem.quantity);
-                if (qty <= 0) continue;
-                const soItem = doRecord.salesOrder.items.find(
-                    (si) => si.productVariantId === doItem.productVariantId,
-                );
-                if (!soItem) continue;
-                const newDelivered = Math.max(
-                    0,
-                    Number(soItem.deliveredQty) - qty,
-                );
+            // Aggregate repeated DO rows and give back deliveredQty exactly once.
+            for (const update of updates) {
                 await tx.salesOrderItem.update({
-                    where: { id: soItem.id },
-                    data: { deliveredQty: newDelivered },
+                    where: { id: update.id },
+                    data: { deliveredQty: update.deliveredQty },
                 });
             }
 

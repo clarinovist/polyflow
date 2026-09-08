@@ -583,7 +583,7 @@ export async function updateDraftJournal(
  * next journal in the same transaction (e.g. multi-material backflush) to
  * re-allocate the same entryNumber and hit P2002.
  */
-async function generateEntryNumber(
+export async function generateEntryNumber(
     date: Date,
     tx?: Prisma.TransactionClient,
     _retryCount = 0,

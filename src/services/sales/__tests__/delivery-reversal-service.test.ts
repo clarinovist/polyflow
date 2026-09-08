@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { reverseDeliveryShipment } from '../delivery-reversal-service';
 import { prisma } from '@/lib/core/prisma';
-import { DeliveryStatus, SalesOrderStatus, MovementType } from '@prisma/client';
+import { DeliveryStatus, SalesOrderStatus, MovementType, Prisma } from '@prisma/client';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
+import { recordShipmentReversal } from '@/services/accounting/shipment-reversal-journal';
 import { updateInvoiceStatus } from '@/services/finance/invoice-lifecycle-service';
-import { isPeriodOpen } from '@/services/accounting/periods-service';
+import { requireOpenJournalPeriod } from '@/services/finance/sales-recognition-service';
 import { logActivity } from '@/lib/tools/audit';
 
 vi.mock('@/lib/core/prisma', () => ({
@@ -35,6 +36,7 @@ vi.mock('@/lib/core/prisma', () => ({
         salesRemittanceItem: {
             findFirst: vi.fn(),
         },
+        $queryRaw: vi.fn().mockResolvedValue([]),
         $transaction: vi.fn((callback: (tx: unknown) => unknown) =>
             callback(prisma),
         ),
@@ -53,12 +55,16 @@ vi.mock('@/services/accounting/accounting-service', () => ({
     },
 }));
 
+vi.mock('@/services/accounting/shipment-reversal-journal', () => ({
+    recordShipmentReversal: vi.fn(),
+}));
+
 vi.mock('@/services/finance/invoice-lifecycle-service', () => ({
     updateInvoiceStatus: vi.fn(),
 }));
 
-vi.mock('@/services/accounting/periods-service', () => ({
-    isPeriodOpen: vi.fn(),
+vi.mock('@/services/finance/sales-recognition-service', () => ({
+    requireOpenJournalPeriod: vi.fn(),
 }));
 
 vi.mock('@/lib/tools/audit', () => ({
@@ -70,6 +76,7 @@ function makeDoRecord(overrides: Record<string, unknown> = {}) {
         id: 'do-1',
         orderNumber: 'DO-2026-0080',
         salesOrderId: 'so-1',
+        sourceLocationId: 'loc-1',
         status: DeliveryStatus.SHIPPED,
         stockCommittedAt: new Date('2026-08-18T06:49:00.000Z'),
         proofOfDeliveryAt: null,
@@ -92,6 +99,8 @@ function makeMovement(overrides: Record<string, unknown> = {}) {
         type: MovementType.OUT,
         productVariantId: 'pv-1',
         fromLocationId: 'loc-1',
+        toLocationId: null,
+        salesOrderId: 'so-1',
         quantity: 142,
         cost: 5000,
         reference: 'Shipment for SO-2026-0132 via DO-2026-0080',
@@ -102,7 +111,7 @@ function makeMovement(overrides: Record<string, unknown> = {}) {
 describe('reverseDeliveryShipment', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(isPeriodOpen).mockResolvedValue(true);
+        vi.mocked(requireOpenJournalPeriod).mockResolvedValue(undefined);
         vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
         vi.mocked(prisma.salesRemittanceItem.findFirst).mockResolvedValue(null);
         vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([
@@ -134,10 +143,14 @@ describe('reverseDeliveryShipment', () => {
             'pv-1',
             142,
         );
-        expect(AccountingService.recordInventoryMovement).toHaveBeenCalled();
+        expect(recordShipmentReversal).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'mov-1' }),
+            expect.objectContaining({ id: 'rev-1' }),
+            'user-1', prisma, { offBalanceSheet: false },
+        );
         expect(prisma.salesOrderItem.update).toHaveBeenCalledWith({
             where: { id: 'soi-1' },
-            data: { deliveredQty: 0 },
+            data: { deliveredQty: new Prisma.Decimal(0) },
         });
         expect(prisma.deliveryOrder.update).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -156,6 +169,149 @@ describe('reverseDeliveryShipment', () => {
             'user-1',
             prisma,
         );
+    });
+
+    it('never values a shipment reversal through the generic production-IN path', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord() as never);
+        vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([makeMovement({ cost: null })] as never);
+
+        await reverseDeliveryShipment('do-1', 'user-1', 'Historical shipment reversal');
+
+        expect(AccountingService.recordInventoryMovement).not.toHaveBeenCalled();
+    });
+
+    it('locks the delivery before checking its status to serialize reversal requests', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord() as never);
+
+        await reverseDeliveryShipment('do-1', 'user-1', 'Serialize cancellation');
+
+        expect(prisma.$queryRaw).toHaveBeenCalled();
+        expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(
+            vi.mocked(prisma.deliveryOrder.findUnique).mock.invocationCallOrder[0],
+        );
+    });
+
+    it('refuses to cancel a committed delivery when source movements are absent', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord() as never);
+        vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([]);
+
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Missing source movement'))
+            .rejects.toThrow(/mutasi.*pengiriman|shipment.*movement/i);
+        expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a partial movement set before any mutation', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord({
+            items: [
+                { productVariantId: 'pv-1', quantity: 142 },
+                { productVariantId: 'pv-2', quantity: 20 },
+            ],
+        }) as never);
+
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Partial source'))
+            .rejects.toThrow(/mutasi.*pengiriman/i);
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+        expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+        expect(recordShipmentReversal).not.toHaveBeenCalled();
+        expect(prisma.salesOrderItem.update).not.toHaveBeenCalled();
+        expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
+        expect(updateInvoiceStatus).not.toHaveBeenCalled();
+        expect(prisma.salesOrder.update).not.toHaveBeenCalled();
+        expect(prisma.stockReservation.updateMany).not.toHaveBeenCalled();
+        expect(logActivity).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['wrong quantity', { quantity: '141.9999' }],
+        ['missing/extra variant', { productVariantId: 'pv-other' }],
+        ['wrong location', { fromLocationId: 'other-warehouse' }],
+        ['missing location', { fromLocationId: null }],
+        ['wrong direction', { type: MovementType.IN }],
+        ['unexpected destination', { toLocationId: 'loc-2' }],
+        ['zero quantity', { quantity: 0 }],
+        ['negative quantity', { quantity: -142 }],
+        ['nonfinite quantity', { quantity: 'Infinity' }],
+        ['NaN quantity', { quantity: 'NaN' }],
+        ['receipt-linked movement', { goodsReceiptId: 'receipt' }],
+        ['production-linked movement', { productionOrderId: 'production' }],
+    ])('rejects %s in the source set before stock changes', async (_label, change) => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord() as never);
+        vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([makeMovement(change)] as never);
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Invalid source'))
+            .rejects.toThrow(/mutasi.*pengiriman/i);
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+        expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+        expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an extra variant even when every expected variant is present', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord() as never);
+        vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([
+            makeMovement(), makeMovement({ id: 'mov-extra', productVariantId: 'pv-extra', quantity: 1 }),
+        ] as never);
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Extra source'))
+            .rejects.toThrow(/mutasi.*pengiriman/i);
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+    });
+
+    it('aggregates repeated DO and movement rows exactly and decrements the SO line once', async () => {
+        const original = makeDoRecord();
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord({
+            items: [{ productVariantId: 'pv-1', quantity: '0.1' }, { productVariantId: 'pv-1', quantity: '0.2' }],
+            salesOrder: { ...original.salesOrder, items: [{ id: 'soi-1', productVariantId: 'pv-1', deliveredQty: '0.3' }] },
+        }) as never);
+        vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([
+            makeMovement({ quantity: '0.15' }), makeMovement({ id: 'mov-2', quantity: '0.15' }),
+        ] as never);
+        expect(await reverseDeliveryShipment('do-1', 'user-1', 'Repeated SKU'))
+            .toEqual({ success: true, reversedLines: 2 });
+        expect(prisma.salesOrderItem.update).toHaveBeenCalledTimes(1);
+        const update = vi.mocked(prisma.salesOrderItem.update).mock.calls[0][0];
+        expect(String(update.data.deliveredQty)).toBe('0');
+    });
+
+    it('refuses ambiguous repeated SO lines rather than guessing attribution', async () => {
+        const original = makeDoRecord();
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord({
+            salesOrder: { ...original.salesOrder, items: [
+                ...original.salesOrder.items,
+                { id: 'soi-2', productVariantId: 'pv-1', deliveredQty: 0 },
+            ] },
+        }) as never);
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Ambiguous SO attribution'))
+            .rejects.toThrow(/atribusi|ambigu/i);
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+    });
+
+    it.each(['-1', 'NaN'])('rejects invalid DO quantity %s before mutation', async quantity => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord({
+            items: [{ productVariantId: 'pv-1', quantity }],
+        }) as never);
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Invalid DO quantity'))
+            .rejects.toThrow(/mutasi.*pengiriman/i);
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+    });
+
+    it('ignores a DO row corrected to zero as the shipment producer does', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord({
+            items: [
+                { productVariantId: 'pv-1', quantity: 142 },
+                { productVariantId: 'pv-2', quantity: 0 },
+            ],
+        }) as never);
+        expect(await reverseDeliveryShipment('do-1', 'user-1', 'Zero corrected row'))
+            .toEqual({ success: true, reversedLines: 1 });
+        expect(prisma.salesOrderItem.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an absent SO item before returning stock', async () => {
+        const original = makeDoRecord();
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord({
+            salesOrder: { ...original.salesOrder, items: [] },
+        }) as never);
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Missing SO row'))
+            .rejects.toThrow(/atribusi/i);
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
     });
 
     it('rejects when DO is not SHIPPED', async () => {
@@ -205,7 +361,7 @@ describe('reverseDeliveryShipment', () => {
         vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(
             makeDoRecord() as never,
         );
-        vi.mocked(isPeriodOpen).mockResolvedValue(false);
+        vi.mocked(requireOpenJournalPeriod).mockRejectedValue(new Error('Periode CLOSED'));
 
         await expect(
             reverseDeliveryShipment('do-1', 'user-1', 'alasan cukup panjang'),
@@ -262,7 +418,7 @@ describe('reverseDeliveryShipment', () => {
 
         expect(prisma.salesOrderItem.update).toHaveBeenCalledWith({
             where: { id: 'soi-1' },
-            data: { deliveredQty: 115 },
+            data: { deliveredQty: new Prisma.Decimal(115) },
         });
         expect(prisma.salesOrder.update).toHaveBeenCalledWith({
             where: { id: 'so-1' },
