@@ -32,6 +32,13 @@ export async function recordCustomerPaymentInTransaction(
     const parsed = paymentInputSchema.safeParse(input);
     if (!parsed.success) throw new ValidationError('Nominal pembayaran harus positif dan tanggal pembayaran harus valid.');
     const data = parsed.data;
+    if (data.method.trim().toLowerCase() === 'barter') {
+        throw new BusinessRuleError(
+            'Barter hanya dapat dicatat melalui transaksi settlement barter.',
+            undefined,
+            'BARTER_PAYMENT_REQUIRES_SETTLEMENT',
+        );
+    }
     const invoice = await lockSalesInvoice(tx, data.invoiceId);
     if (invoice.status === 'DRAFT' && invoice.salesOrder.entrySource === 'EMERGENCY_DISPATCH') {
         throw new BusinessRuleError('Invoice masih DRAFT. Finance harus approve terlebih dahulu sebelum bisa dibayar.', { invoiceId: invoice.id }, 'INVOICE_DRAFT');

@@ -1,7 +1,7 @@
 import { JournalStatus, ReferenceType, type Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
-import { NotFoundError } from '@/lib/errors/errors';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { AccountingService } from '../accounting/accounting-service';
 
 import {
@@ -36,6 +36,13 @@ export async function handleSalesPayment(
     const invoice = payment?.invoice;
     if (!payment || !invoice) {
         throw new NotFoundError('Payment', paymentId);
+    }
+    if (payment.barterSettlementId || payment.method === 'Barter') {
+        throw new BusinessRuleError(
+            'Kaki pembayaran barter hanya boleh dijurnal melalui header settlement.',
+            { paymentId },
+            'BARTER_PAYMENT_JOURNAL_FORBIDDEN',
+        );
     }
 
     // Idempotency guard: payment call sites run post-commit with swallowed
@@ -89,7 +96,9 @@ export async function handlePurchasePayment(
     amount: number,
     method: string = 'Bank Transfer',
     journalDate?: Date,
+    tx?: Prisma.TransactionClient,
 ) {
+    const db = tx ?? prisma;
     // Zero/negative amounts have no journal to post — skip by design.
     if (!amount || amount <= 0 || !isFinite(amount)) {
         console.warn(
@@ -98,7 +107,7 @@ export async function handlePurchasePayment(
         return;
     }
 
-    const payment = await prisma.payment.findUnique({
+    const payment = await db.payment.findUnique({
         where: { id: paymentId },
         include: { purchaseInvoice: true },
     });
@@ -106,9 +115,16 @@ export async function handlePurchasePayment(
     if (!payment || !invoice) {
         throw new NotFoundError('Payment', paymentId);
     }
+    if (payment.barterSettlementId || payment.method === 'Barter') {
+        throw new BusinessRuleError(
+            'Kaki offset barter hanya boleh dijurnal melalui header settlement.',
+            { paymentId },
+            'BARTER_PAYMENT_JOURNAL_FORBIDDEN',
+        );
+    }
 
     // Idempotency guard — same rationale as the sales side.
-    const existing = await prisma.journalEntry.findFirst({
+    const existing = await db.journalEntry.findFirst({
         where: {
             referenceType: ReferenceType.PURCHASE_PAYMENT,
             referenceId: paymentId,
@@ -125,7 +141,7 @@ export async function handlePurchasePayment(
     );
     const apAcc = await getAccountByRole('accounts-payable');
 
-    await AccountingService.createJournalEntry({
+    const entry = {
         entryDate: journalDate ?? payment.paymentDate,
         description: `Payment (${paymentMethod}) for Purchase Invoice ${invoice.invoiceNumber}`,
         reference: payment.paymentNumber || `PAY-${invoice.invoiceNumber}`,
@@ -147,5 +163,7 @@ export async function handlePurchasePayment(
                 description: 'Payment Out',
             },
         ],
-    });
+    };
+    if (tx) await AccountingService.createJournalEntry(entry, tx);
+    else await AccountingService.createJournalEntry(entry);
 }

@@ -152,8 +152,11 @@ describe('payment-methods', () => {
       );
     });
 
-    it('labels Check as Cek / Giro', () => {
+    it('labels Check and historical barter rows', () => {
       expect(getPaymentMethodLabel('Check')).toBe('Cek / Giro');
+      expect(getPaymentMethodLabel('Barter')).toBe(
+        'Barter — Potong Piutang/Hutang',
+      );
     });
 
     it('labels a tenant-configured third bank with account number', () => {

@@ -22,14 +22,21 @@ export const getSalesInvoices = withTenant(async function getSalesInvoices(
         startDate?: Date;
         endDate?: Date;
     },
-    options: { operationalOnly?: boolean } = {},
+    options: {
+        operationalOnly?: boolean;
+        demandType?: 'customer' | 'legacy-internal';
+        paymentSelector?: boolean;
+        search?: string;
+    } = {},
 ) {
     return safeAction(async () => {
         await requireFinanceReadCrossPortal(['SALES', 'MARKETING']);
         const where: Prisma.InvoiceWhereInput = {
             salesOrder: options.operationalOnly
                 ? buildOperationalSalesReceivableOrderWhere()
-                : { customerId: { not: null } },
+                : options.demandType === 'legacy-internal'
+                  ? { customerId: null }
+                  : { customerId: { not: null } },
         };
         if (dateRange?.startDate && dateRange?.endDate) {
             where.invoiceDate = {
@@ -38,16 +45,24 @@ export const getSalesInvoices = withTenant(async function getSalesInvoices(
             };
         }
 
+        if (options.paymentSelector) {
+            where.status = { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] };
+            where.paidAmount = { lt: prisma.invoice.fields.totalAmount };
+            if (options.search?.trim()) where.OR = [
+                { invoiceNumber: { contains: options.search.trim().slice(0, 100), mode: 'insensitive' } },
+                { salesOrder: { customer: { name: { contains: options.search.trim().slice(0, 100), mode: 'insensitive' } } } },
+            ];
+        }
         const queryStartedAt = performance.now();
         const invoices = await prisma.invoice.findMany({
             where,
-            orderBy: {
-                createdAt: 'desc',
-            },
+            take: options.paymentSelector ? 200 : undefined,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             include: {
                 salesOrder: {
                     select: {
                         orderNumber: true,
+                        customerId: true,
                         customer: {
                             select: {
                                 name: true,

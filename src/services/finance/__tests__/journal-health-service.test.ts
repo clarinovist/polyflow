@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
 
 import { collectFinanceJournalIssues } from '../journal-health-service';
+import { collectBarterHealth } from '../barter-health-service';
+vi.mock('../barter-health-service', () => ({ collectBarterHealth: vi.fn(async () => ({ issues: [], scanned: 0, truncated: false, nextCursor: null })) }));
 
 type FakeDbConfig = {
     accounts: {
@@ -15,6 +17,7 @@ type FakeDbConfig = {
     purchaseInvoices: unknown[];
     arDebitEntries?: Array<{ id: string; referenceId: string }>;
     arDebitGroups?: Array<{ journalEntryId: string; _sum: { debit: number | null } }>;
+    barterSettlements?: unknown[];
 };
 
 function makeFakeDb(cfg: FakeDbConfig): PrismaClient {
@@ -77,6 +80,9 @@ function makeFakeDb(cfg: FakeDbConfig): PrismaClient {
                     : rows;
             }),
         },
+        barterSettlement: {
+            findMany: vi.fn(async () => cfg.barterSettlements ?? []),
+        },
     };
     return db as unknown as PrismaClient;
 }
@@ -95,6 +101,7 @@ describe('collectFinanceJournalIssues', () => {
             SALES_PAYMENT: [{ referenceId: 'pay-ok', status: 'POSTED' }],
             PURCHASE_INVOICE: [{ referenceId: 'pinv-ok', status: 'POSTED' }],
             PURCHASE_PAYMENT: [],
+            BARTER_SETTLEMENT: [],
         },
         invoices: [
             {
@@ -287,6 +294,47 @@ describe('collectFinanceJournalIssues', () => {
         });
         const issues = await collectFinanceJournalIssues(db);
         expect(issues[collection].map(row => row.id)).toContain(id);
+    });
+
+    it('reports an incomplete active barter package instead of requiring per-offset journals', async () => {
+        db = makeFakeDb({
+            ...baseConfig,
+            journalByType: {
+                ...baseConfig.journalByType,
+                BARTER_SETTLEMENT: [],
+            },
+            barterSettlements: [
+                {
+                    id: 'settlement-1',
+                    settlementNumber: 'BRT-00001',
+                    barterAmount: { eq: (value: unknown) => Number(value) === 600 },
+                    cashAmount: { gt: () => false },
+                    payments: [
+                        {
+                            barterLeg: 'AR_OFFSET',
+                            amount: { eq: () => true },
+                        },
+                        {
+                            barterLeg: 'AP_OFFSET',
+                            amount: { eq: () => true },
+                        },
+                    ],
+                },
+            ],
+        });
+
+        vi.mocked(collectBarterHealth).mockResolvedValueOnce({ issues: [{ id: 'settlement-1', settlementNumber: 'BRT-00001', reason: 'OFFSET_JOURNAL_MISSING' }], scanned: 1, truncated: true, nextCursor: 'settlement-1' });
+        const issues = await collectFinanceJournalIssues(db);
+        expect(issues.barterScanTruncated).toBe(true);
+        expect(issues.barterNextCursor).toBe('settlement-1');
+        expect(collectBarterHealth).toHaveBeenCalledWith(db);
+        expect(issues.barterSettlementsInvalid).toEqual([
+            {
+                id: 'settlement-1',
+                settlementNumber: 'BRT-00001',
+                reason: 'OFFSET_JOURNAL_MISSING',
+            },
+        ]);
     });
 
     it('skips shortfall detection when the AR control account cannot be resolved', async () => {

@@ -6,11 +6,16 @@ import { notFound } from 'next/navigation';
 import { CustomerDetailClient } from '@/components/customers/CustomerDetailClient';
 import type { SerializedCustomer } from '@/components/customers/CustomerDetailClient';
 import type { ComponentProps } from 'react';
+import { auth } from '@/auth';
+import { hasRole } from '@/lib/auth/roles';
+import { getBarterPartnerSettings } from '@/actions/finance/barter-actions';
 
 export default async function CustomerDetailPage(props: {
     params: Promise<{ id: string }>;
 }) {
     const { id } = await props.params;
+    const session = await auth();
+    const canManageBarter = hasRole(session?.user, 'ADMIN');
 
     const [customerRes, salesOrdersRes] = await Promise.all([
         getCustomerById(id),
@@ -27,9 +32,10 @@ export default async function CustomerDetailPage(props: {
         notFound();
     }
 
-    const [pricesRes, productsRes] = await Promise.all([
+    const [pricesRes, productsRes, barterSettingsRes] = await Promise.all([
         getCustomerProductPrices(id),
         getProductVariants(),
+        canManageBarter ? getBarterPartnerSettings(id) : Promise.resolve(null),
     ]);
     const prices = pricesRes.success && pricesRes.data ? pricesRes.data : [];
     const products =
@@ -126,6 +132,13 @@ export default async function CustomerDetailPage(props: {
                 prices as unknown as ComponentProps<
                     typeof CustomerDetailClient
                 >['customerProductPrices']
+            }
+            barterSettings={
+                barterSettingsRes?.success && barterSettingsRes.data
+                    ? (barterSettingsRes.data as ComponentProps<
+                          typeof CustomerDetailClient
+                      >['barterSettings'])
+                    : undefined
             }
             products={
                 products

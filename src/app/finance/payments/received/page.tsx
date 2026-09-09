@@ -18,8 +18,7 @@ import { parseISO } from 'date-fns';
 
 const loadPaymentBanks = withTenantPage(async () => getPaymentBanksSetting());
 
-// Fields read by the outstanding-invoice filter. customerId is not part of the
-// getSalesInvoices select, so it is modelled as optional here.
+// Identity is selected server-side; the selector query excludes ineligible statuses.
 type UnpaidSalesInvoice = {
     id: string;
     invoiceNumber: string;
@@ -43,6 +42,7 @@ export default async function ReceivedPaymentsPage({
         startDate?: string;
         endDate?: string;
         demand?: 'customer' | 'legacy-internal';
+        invoiceSearch?: string;
     }>;
 }) {
     const params = await searchParams;
@@ -74,7 +74,11 @@ export default async function ReceivedPaymentsPage({
     }
 
     // Fetch invoices with outstanding balance (Outstanding > 0)
-    const unpaidInvoicesRes = await getSalesInvoices();
+    const unpaidInvoicesRes = await getSalesInvoices(undefined, {
+        demandType: demand,
+        paymentSelector: true,
+        search: params.invoiceSearch,
+    });
     const allInvoices =
         unpaidInvoicesRes.success && unpaidInvoicesRes.data
             ? unpaidInvoicesRes.data
@@ -137,6 +141,39 @@ export default async function ReceivedPaymentsPage({
                         </AlertDescription>
                     </Alert>
                 </div>
+            )}
+            <form className="mb-4 flex gap-2" method="get">
+                <input type="hidden" name="demand" value={demand} />
+                {params.startDate && (
+                    <input
+                        type="hidden"
+                        name="startDate"
+                        value={params.startDate}
+                    />
+                )}
+                {params.endDate && (
+                    <input
+                        type="hidden"
+                        name="endDate"
+                        value={params.endDate}
+                    />
+                )}
+                <input
+                    className="rounded border p-2"
+                    name="invoiceSearch"
+                    aria-label="Cari invoice belum lunas"
+                    placeholder="Invoice / customer belum lunas"
+                    defaultValue={params.invoiceSearch}
+                />
+                <button className="rounded border p-2" type="submit">
+                    Cari invoice
+                </button>
+            </form>
+            {allInvoices.length >= 200 && (
+                <p className="mb-4 text-sm text-amber-700">
+                    Pilihan dibatasi 200 invoice. Gunakan pencarian untuk
+                    invoice lainnya.
+                </p>
             )}
             <ReceivedPaymentsClient
                 payments={payments.data}

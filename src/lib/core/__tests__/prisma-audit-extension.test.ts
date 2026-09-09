@@ -64,13 +64,14 @@ describe('StatusAudit extension logic', () => {
             'PettyCashTransaction', 'PettyCashDailyReport', 'FiscalPeriod', 'FixedAsset',
             'Batch', 'AttendanceRecord', 'HelpArticle', 'HelpQuestionCluster',
             'HelpLearningDraft', 'Tenant', 'ProcessPieceRate', 'WorkShift',
-            'MaklonMaterialReturn',
+            'MaklonMaterialReturn', 'BarterSettlement',
         ]);
 
         it('includes core business models', () => {
             expect(auditableModels.has('SalesOrder')).toBe(true);
             expect(auditableModels.has('ProductionOrder')).toBe(true);
             expect(auditableModels.has('Invoice')).toBe(true);
+            expect(auditableModels.has('BarterSettlement')).toBe(true);
         });
 
         it('includes HR models', () => {

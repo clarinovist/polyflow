@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient, ReferenceType } from '@prisma/client';
+import { collectBarterHealth, type BarterSettlementIssue } from './barter-health-service';
 
 type Db = Prisma.TransactionClient | PrismaClient;
 
@@ -63,6 +64,9 @@ export type FinanceJournalIssues = {
     salesPaymentsMissing: MissingPaymentIssue[];
     purchaseInvoicesMissing: PurchaseInvoiceMissingIssue[];
     purchasePaymentsMissing: MissingPaymentIssue[];
+    barterSettlementsInvalid: BarterSettlementIssue[];
+    barterScanTruncated: boolean;
+    barterNextCursor: string | null;
 };
 
 const CONTROL_ACCOUNT_PATTERNS = {
@@ -91,10 +95,12 @@ async function findControlAccount(db: Db, side: 'ar' | 'ap') {
 
 type JournalRef = { referenceId: string | null; status: string };
 
+type JournalIndexEntry = { statuses: Set<string>; count: number };
+
 async function loadJournalIndex(
     db: Db,
     referenceType: ReferenceType,
-): Promise<Map<string, { statuses: Set<string> }>> {
+): Promise<Map<string, JournalIndexEntry>> {
     const journals = await db.journalEntry.findMany({
         where: {
             referenceType,
@@ -103,11 +109,15 @@ async function loadJournalIndex(
         },
         select: { referenceId: true, status: true },
     });
-    const index = new Map<string, { statuses: Set<string> }>();
+    const index = new Map<string, JournalIndexEntry>();
     for (const j of journals as JournalRef[]) {
         if (!j.referenceId) continue;
-        const entry = index.get(j.referenceId) ?? { statuses: new Set() };
+        const entry = index.get(j.referenceId) ?? {
+            statuses: new Set(),
+            count: 0,
+        };
         entry.statuses.add(j.status);
+        entry.count += 1;
         index.set(j.referenceId, entry);
     }
     return index;
@@ -139,7 +149,10 @@ async function loadArDebitByInvoice(
     for (const entry of entries) {
         if (!entry.referenceId) continue;
         const sum = sumsByEntry.get(entry.id) ?? 0;
-        byInvoice.set(entry.referenceId, (byInvoice.get(entry.referenceId) ?? 0) + sum);
+        byInvoice.set(
+            entry.referenceId,
+            (byInvoice.get(entry.referenceId) ?? 0) + sum,
+        );
     }
     return byInvoice;
 }
@@ -173,11 +186,17 @@ export async function collectFinanceJournalIssues(
                 status: true,
                 invoiceDate: true,
                 totalAmount: true,
-                salesOrder: { select: { customer: { select: { name: true } } } },
+                salesOrder: {
+                    select: { customer: { select: { name: true } } },
+                },
             },
         }),
         db.payment.findMany({
-            where: { invoiceId: { not: null }, amount: { gt: 0 } },
+            where: {
+                invoiceId: { not: null },
+                amount: { gt: 0 },
+                barterLeg: null,
+            },
             select: {
                 id: true,
                 paymentNumber: true,
@@ -224,8 +243,11 @@ export async function collectFinanceJournalIssues(
         }
         if (!salesInvoiceJournalIndex.get(inv.id)?.statuses.has('POSTED')) {
             salesInvoicesUnposted.push({
-                id: inv.id, invoiceNumber: inv.invoiceNumber, status: inv.status,
-                invoiceDate: inv.invoiceDate, totalAmount: Number(inv.totalAmount),
+                id: inv.id,
+                invoiceNumber: inv.invoiceNumber,
+                status: inv.status,
+                invoiceDate: inv.invoiceDate,
+                totalAmount: Number(inv.totalAmount),
                 customerName: inv.salesOrder?.customer?.name ?? null,
             });
             continue;
@@ -247,7 +269,9 @@ export async function collectFinanceJournalIssues(
     }
 
     const salesPaymentsMissing: MissingPaymentIssue[] = payments
-        .filter((p) => !salesPaymentJournalIndex.get(p.id)?.statuses.has('POSTED'))
+        .filter(
+            (p) => !salesPaymentJournalIndex.get(p.id)?.statuses.has('POSTED'),
+        )
         .map((p) => ({
             id: p.id,
             paymentNumber: p.paymentNumber,
@@ -260,7 +284,12 @@ export async function collectFinanceJournalIssues(
     // invoice-based). Pra-cutoff dikecualikan (historis terparkir di 1-199).
     const purchaseInvoicesMissing: PurchaseInvoiceMissingIssue[] =
         purchaseInvoices
-            .filter((inv) => !purchaseInvoiceJournalIndex.get(inv.id)?.statuses.has('POSTED'))
+            .filter(
+                (inv) =>
+                    !purchaseInvoiceJournalIndex
+                        .get(inv.id)
+                        ?.statuses.has('POSTED'),
+            )
             .map((inv) => ({
                 id: inv.id,
                 invoiceNumber: inv.invoiceNumber,
@@ -273,6 +302,7 @@ export async function collectFinanceJournalIssues(
         where: {
             purchaseInvoiceId: { not: null },
             amount: { gt: 0 },
+            OR: [{ barterLeg: null }, { barterLeg: 'AP_CASH' }],
             paymentDate: { gte: new Date(PURCHASE_JOURNAL_CUTOFF_ISO) },
         },
         select: {
@@ -284,7 +314,10 @@ export async function collectFinanceJournalIssues(
         },
     });
     const purchasePaymentsMissing: MissingPaymentIssue[] = supplierPayments
-        .filter((p) => !purchasePaymentJournalIndex.get(p.id)?.statuses.has('POSTED'))
+        .filter(
+            (p) =>
+                !purchasePaymentJournalIndex.get(p.id)?.statuses.has('POSTED'),
+        )
         .map((p) => ({
             id: p.id,
             paymentNumber: p.paymentNumber,
@@ -292,6 +325,8 @@ export async function collectFinanceJournalIssues(
             amount: Number(p.amount),
             method: p.method,
         }));
+
+    const barterHealth = await collectBarterHealth(db);
 
     return {
         arAccountCode: arAccount?.code ?? null,
@@ -302,5 +337,8 @@ export async function collectFinanceJournalIssues(
         salesPaymentsMissing,
         purchaseInvoicesMissing,
         purchasePaymentsMissing,
+        barterSettlementsInvalid: barterHealth.issues,
+        barterScanTruncated: barterHealth.truncated,
+        barterNextCursor: barterHealth.nextCursor,
     };
 }

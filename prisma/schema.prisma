@@ -85,6 +85,10 @@ model User {
   collectionActivities           CollectionActivity[]
   salesRemittances               SalesRemittance[]
   purchaseRemittances            PurchaseRemittance[]
+  barterPartnersCreated          BarterPartner[]                  @relation("BarterPartnerCreatedBy")
+  barterPartnersUpdated          BarterPartner[]                  @relation("BarterPartnerUpdatedBy")
+  barterSettlementsCreated       BarterSettlement[]               @relation("BarterSettlementCreatedBy")
+  barterSettlementsVoided        BarterSettlement[]               @relation("BarterSettlementVoidedBy")
 }
 
 model UserRole {
@@ -321,24 +325,26 @@ model ProductionShift {
 // ==========================================
 
 model Supplier {
-  id               String            @id @default(uuid())
-  name             String
-  code             String?           @unique
-  phone            String?
-  email            String?
-  address          String?
-  taxId            String?
-  paymentTermDays  Int?
-  bankName         String?
-  bankAccount      String?
-  notes            String?
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  productVariants  ProductVariant[]  @relation("PreferredSupplier")
-  purchaseOrders   PurchaseOrder[]
-  supplierProducts SupplierProduct[]
-  purchaseReturns  PurchaseReturn[]
+  id                String             @id @default(uuid())
+  name              String
+  code              String?            @unique
+  phone             String?
+  email             String?
+  address           String?
+  taxId             String?
+  paymentTermDays   Int?
+  bankName          String?
+  bankAccount       String?
+  notes             String?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  productVariants   ProductVariant[]   @relation("PreferredSupplier")
+  purchaseOrders    PurchaseOrder[]
+  supplierProducts  SupplierProduct[]
+  purchaseReturns   PurchaseReturn[]
+  barterPartner     BarterPartner?
+  barterSettlements BarterSettlement[]
 }
 
 model Customer {
@@ -387,6 +393,8 @@ model Customer {
   routePlanItems     SalesRoutePlanItem[]
   salesAssignments   CustomerSalesAssignment[]
   vehicleTariffs     VehicleTariff[]
+  barterPartner      BarterPartner?
+  barterSettlements  BarterSettlement[]
 }
 
 model ApiKey {
@@ -402,36 +410,36 @@ model ApiKey {
 }
 
 model Location {
-  directProductionMaterials ProductionMaterial[] @relation("DirectMaterialSource")
-  id                    String                 @id @default(uuid())
-  name                  String
-  slug                  String                 @unique
-  description           String?
-  locationType          LocationType           @default(INTERNAL)
-  locationPurpose       LocationPurpose        @default(GENERAL_PURPOSE)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  Batch                 Batch[]
-  deliveryOrders        DeliveryOrder[]
-  fixedAssets           FixedAsset[]
-  goodsReceipts         GoodsReceipt[]
-  inventories           Inventory[]
-  machines              Machine[]
-  MaterialIssue         MaterialIssue[]
-  ProductionOrder       ProductionOrder[]
-  salesOrders           SalesOrder[]           @relation("SalesSourceLocation")
-  ScrapRecord           ScrapRecord[]
-  movementsFrom         StockMovement[]        @relation("FromLocation")
-  movementsTo           StockMovement[]        @relation("ToLocation")
-  opnames               StockOpname[]
-  StockReservation      StockReservation[]
-  salesReturns          SalesReturn[]          @relation("ReturnLocation")
-  purchaseReturns       PurchaseReturn[]       @relation("PurchaseReturnLocation")
-  maklonReturns         MaklonMaterialReturn[] @relation("MaklonReturnLocation")
-  routeStepsSource      ProductionRouteStep[]  @relation("RouteStepSourceLocation")
-  routeStepsOutput      ProductionRouteStep[]  @relation("RouteStepOutputLocation")
-  productionOrderSource ProductionOrder[]      @relation("ProductionOrderSourceLocation")
-  productionOrderMaterialConsumption ProductionOrder[] @relation("ProductionOrderMaterialConsumptionLocation")
+  directProductionMaterials          ProductionMaterial[]   @relation("DirectMaterialSource")
+  id                                 String                 @id @default(uuid())
+  name                               String
+  slug                               String                 @unique
+  description                        String?
+  locationType                       LocationType           @default(INTERNAL)
+  locationPurpose                    LocationPurpose        @default(GENERAL_PURPOSE)
+  createdAt                          DateTime               @default(now())
+  updatedAt                          DateTime               @updatedAt
+  Batch                              Batch[]
+  deliveryOrders                     DeliveryOrder[]
+  fixedAssets                        FixedAsset[]
+  goodsReceipts                      GoodsReceipt[]
+  inventories                        Inventory[]
+  machines                           Machine[]
+  MaterialIssue                      MaterialIssue[]
+  ProductionOrder                    ProductionOrder[]
+  salesOrders                        SalesOrder[]           @relation("SalesSourceLocation")
+  ScrapRecord                        ScrapRecord[]
+  movementsFrom                      StockMovement[]        @relation("FromLocation")
+  movementsTo                        StockMovement[]        @relation("ToLocation")
+  opnames                            StockOpname[]
+  StockReservation                   StockReservation[]
+  salesReturns                       SalesReturn[]          @relation("ReturnLocation")
+  purchaseReturns                    PurchaseReturn[]       @relation("PurchaseReturnLocation")
+  maklonReturns                      MaklonMaterialReturn[] @relation("MaklonReturnLocation")
+  routeStepsSource                   ProductionRouteStep[]  @relation("RouteStepSourceLocation")
+  routeStepsOutput                   ProductionRouteStep[]  @relation("RouteStepOutputLocation")
+  productionOrderSource              ProductionOrder[]      @relation("ProductionOrderSourceLocation")
+  productionOrderMaterialConsumption ProductionOrder[]      @relation("ProductionOrderMaterialConsumptionLocation")
 }
 
 // ==========================================
@@ -781,7 +789,7 @@ model ProductionOrder {
   clientRequestId                 String?                  @unique
   materialSourceLocationId        String?
   materialConsumptionLocationId   String?
-  materialConsumptionMode         MaterialConsumptionMode @default(TRANSFER)
+  materialConsumptionMode         MaterialConsumptionMode  @default(TRANSFER)
   maklonCustomer                  Customer?                @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   maklonCostItems                 MaklonCostItem[]
   materialIssues                  MaterialIssue[]
@@ -1087,9 +1095,7 @@ model QualityInspectionMeasurement {
 
 model ProductionMaterial {
   sourceLocationId  String?
-  sourceLocation    Location? @relation("DirectMaterialSource", fields: [sourceLocationId], references: [id], onDelete: Restrict)
-
-  @@index([sourceLocationId])
+  sourceLocation    Location?       @relation("DirectMaterialSource", fields: [sourceLocationId], references: [id], onDelete: Restrict)
   id                String          @id @default(uuid())
   productionOrderId String
   productVariantId  String
@@ -1099,6 +1105,7 @@ model ProductionMaterial {
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
 
+  @@index([sourceLocationId])
   @@index([productionOrderId])
   @@index([productVariantId])
 }
@@ -1390,10 +1397,12 @@ model Invoice {
   termOfPaymentDays    Int                   @default(0)
   salesOrder           SalesOrder            @relation(fields: [salesOrderId], references: [id])
   payments             Payment[]
+  barterSettlements    BarterSettlement[]
   collectionActivities CollectionActivity[]
   remittanceItems      SalesRemittanceItem[]
 
   @@index([salesOrderId])
+  @@index([status, createdAt, id])
 }
 
 // ==========================================
@@ -1568,8 +1577,11 @@ model PurchaseInvoice {
   termOfPaymentDays Int                      @default(0)
   purchaseOrder     PurchaseOrder            @relation(fields: [purchaseOrderId], references: [id])
   payments          Payment[]
+  barterSettlements BarterSettlement[]
   purchasePayments  PurchasePayment[]
   remittanceItems   PurchaseRemittanceItem[]
+
+  @@index([purchaseOrderId, status, dueDate, invoiceDate, id], map: "PurchaseInvoice_barter_selector_idx")
 }
 
 model PurchasePayment {
@@ -1586,6 +1598,87 @@ model PurchasePayment {
   purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
 
   @@index([purchaseInvoiceId])
+}
+
+model BarterPartner {
+  id          String   @id @default(uuid())
+  customerId  String   @unique
+  supplierId  String   @unique
+  isActive    Boolean  @default(false)
+  createdById String
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer    Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  supplier    Supplier           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy   User               @relation("BarterPartnerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User               @relation("BarterPartnerUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  settlements BarterSettlement[]
+
+  @@index([isActive])
+}
+
+model BarterSettlement {
+  id                    String                 @id @default(uuid())
+  settlementNumber      String                 @unique
+  idempotencyKey        String                 @unique
+  payloadFingerprint    String
+  barterPartnerId       String
+  customerId            String
+  supplierId            String
+  invoiceId             String
+  purchaseInvoiceId     String
+  barterAmount          Decimal                @db.Decimal(15, 2)
+  cashAmount            Decimal                @default(0) @db.Decimal(15, 2)
+  receivableBefore      Decimal                @db.Decimal(15, 2)
+  payableBefore         Decimal                @db.Decimal(15, 2)
+  receivableAfter       Decimal                @db.Decimal(15, 2)
+  payableAfter          Decimal                @db.Decimal(15, 2)
+  barterDate            DateTime
+  cashPaymentDate       DateTime?
+  cashMethod            String?
+  cashAccountId         String?
+  cashReferenceNumber   String?
+  notes                 String                 @db.Text
+  status                BarterSettlementStatus @default(POSTED)
+  arPaymentId           String
+  arPaymentNumber       String
+  apOffsetPaymentId     String
+  apOffsetPaymentNumber String
+  apCashPaymentId       String?
+  apCashPaymentNumber   String?
+  offsetJournalId       String?
+  offsetJournalNumber   String?
+  cashJournalId         String?
+  cashJournalNumber     String?
+  createdById           String
+  voidedById            String?
+  voidedAt              DateTime?
+  voidReason            String?                @db.Text
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  barterPartner   BarterPartner   @relation(fields: [barterPartnerId], references: [id], onDelete: Restrict)
+  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  supplier        Supplier        @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  invoice         Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Restrict)
+  createdBy       User            @relation("BarterSettlementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  voidedBy        User?           @relation("BarterSettlementVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  payments        Payment[]
+
+  @@index([barterPartnerId, status])
+  @@index([customerId, barterDate])
+  @@index([supplierId, barterDate])
+  @@index([invoiceId])
+  @@index([purchaseInvoiceId])
+  @@index([arPaymentId])
+  @@index([apOffsetPaymentId])
+  @@index([apCashPaymentId])
+  @@index([status, id])
+  @@index([status, barterDate, id])
+  @@index([status, cashPaymentDate, id])
 }
 
 // ── Purchasing Remittance (mirror SalesRemittance — Gap: PO payment proof) ──
@@ -2402,6 +2495,7 @@ enum ReferenceType {
   SALES_PAYMENT
   PURCHASE_INVOICE
   PURCHASE_PAYMENT
+  BARTER_SETTLEMENT
   GOODS_RECEIPT
   STOCK_ADJUSTMENT
   PRODUCTION_OUTPUT
@@ -2417,6 +2511,17 @@ enum JournalStatus {
   DRAFT
   POSTED
   VOIDED
+}
+
+enum BarterSettlementStatus {
+  POSTED
+  VOIDED
+}
+
+enum BarterLeg {
+  AR_OFFSET
+  AP_OFFSET
+  AP_CASH
 }
 
 enum PeriodStatus {
@@ -2478,11 +2583,18 @@ model Payment {
   purchaseInvoiceId String?
   purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
 
+  barterSettlementId String?
+  barterSettlement   BarterSettlement? @relation(fields: [barterSettlementId], references: [id], onDelete: Restrict)
+  barterLeg          BarterLeg?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([barterSettlementId, barterLeg])
   @@index([invoiceId])
   @@index([purchaseInvoiceId])
+  @@index([barterSettlementId])
+  @@index([paymentDate, id])
 }
 
 enum SalesReturnStatus {
@@ -2852,9 +2964,9 @@ enum CeoNoteOrigin {
 // Seperti Finding: catatan adalah fakta bisnis yang survive hapus akun user,
 // hence SetNull pada relasi user.
 model CeoNote {
-  id       String         @id @default(uuid())
-  origin   CeoNoteOrigin  @default(AI)
-  status   CeoNoteStatus  @default(DRAFT)
+  id       String          @id @default(uuid())
+  origin   CeoNoteOrigin   @default(AI)
+  status   CeoNoteStatus   @default(DRAFT)
   priority CeoNotePriority
 
   title          String
@@ -2865,7 +2977,7 @@ model CeoNote {
   sourceFingerprints String[]
   aiModel            String?
   aiGeneratedAt      DateTime?
-  editedByCeo        Boolean  @default(false)
+  editedByCeo        Boolean   @default(false)
 
   assignedUserIds   String[]
   assignedRoles     String[]
@@ -2873,18 +2985,18 @@ model CeoNote {
 
   dueAt DateTime?
 
-  occurrences Int      @default(1)
-  lastSeenAt  DateTime @default(now())
+  occurrences Int       @default(1)
+  lastSeenAt  DateTime  @default(now())
   remindedAt  DateTime?
   escalatedAt DateTime?
 
-  claimedById String?
-  claimedAt   DateTime?
-  resolvedById String?
-  resolvedAt   DateTime?
-  resolutionNote String? @db.Text
-  publishedAt DateTime?
-  createdById String?
+  claimedById    String?
+  claimedAt      DateTime?
+  resolvedById   String?
+  resolvedAt     DateTime?
+  resolutionNote String?   @db.Text
+  publishedAt    DateTime?
+  createdById    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2901,14 +3013,14 @@ model CeoNote {
 }
 
 model CeoNoteEvent {
-  id        String   @id @default(uuid())
-  noteId    String
-  action    String
-  actorId   String?
+  id         String   @id @default(uuid())
+  noteId     String
+  action     String
+  actorId    String?
   fromStatus String?
-  toStatus  String?
-  note      String?  @db.Text
-  createdAt DateTime @default(now())
+  toStatus   String?
+  note       String?  @db.Text
+  createdAt  DateTime @default(now())
 
   noteRef CeoNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
 

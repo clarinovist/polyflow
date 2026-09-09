@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 import { collectFinanceJournalIssues } from '@/services/finance/journal-health-service';
+import { collectBarterHealth } from '@/services/finance/barter-health-service';
 import type { DetectedItem, DetectionResult } from './detection-types';
 
 // Safety cap on rows fetched per detector. Not a display limit (that lives in
@@ -291,7 +292,26 @@ export async function detectMissingFinanceJournals(
     const requiredResources = ['/finance/journals'];
     try {
         const issues = await collectFinanceJournalIssues(tenantDb);
+        // Continue bounded pages, but never let a large tenant monopolize the digest.
+        // Truncation prevents findings outside this scan from being auto-resolved.
+        let cursor = issues.barterNextCursor;
+        let barterTruncated = issues.barterScanTruncated;
+        const barterIssues = [...(issues.barterSettlementsInvalid ?? [])];
+        for (let page = 1; cursor && page < 5 && barterIssues.length < FETCH_CAP; page++) {
+            const next = await collectBarterHealth(tenantDb, cursor);
+            barterIssues.push(...next.issues);
+            cursor = next.nextCursor;
+            barterTruncated = next.truncated;
+        }
         const items: DetectedItem[] = [];
+        for (const issue of barterIssues) {
+            items.push({
+                entityKey: `missing_finance_journal:BARTER:${issue.id}:${issue.reason}`,
+                entityType: 'BarterSettlement', entityId: issue.id, severity: 'critical',
+                headline: `Barter ${issue.settlementNumber} tidak konsisten`,
+                detail: `${issue.reason}. Diagnosis paket; jangan membuat jurnal bank untuk kaki offset.`,
+            });
+        }
 
         for (const inv of issues.salesInvoicesMissing) {
             items.push({
@@ -357,7 +377,7 @@ export async function detectMissingFinanceJournals(
             'missing_finance_journal',
             requiredResources,
             capped,
-            items.length >= FETCH_CAP,
+            items.length >= FETCH_CAP || barterTruncated,
         );
     } catch (error) {
         return failedResult('missing_finance_journal', requiredResources, error);

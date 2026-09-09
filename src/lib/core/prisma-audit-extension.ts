@@ -46,6 +46,7 @@ const AUDITABLE_MODELS = new Set([
     'MaklonMaterialReturn',
     'ProductionRoute',
     'ProductionRun',
+    'BarterSettlement',
 ]);
 
 type QueryArgs = {

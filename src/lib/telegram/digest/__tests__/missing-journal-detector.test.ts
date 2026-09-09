@@ -10,6 +10,8 @@ vi.mock('@/services/finance/journal-health-service', () => ({
 }));
 
 import { detectMissingFinanceJournals } from '../detectors';
+import { collectBarterHealth } from '@/services/finance/barter-health-service';
+vi.mock('@/services/finance/barter-health-service', () => ({ collectBarterHealth: vi.fn() }));
 
 describe('detectMissingFinanceJournals', () => {
     const tenantDb = { raw: true } as unknown as PrismaClient;
@@ -134,6 +136,22 @@ describe('detectMissingFinanceJournals', () => {
             severity: 'critical', entityType: 'Invoice',
         });
         expect(result.items[0].headline).toContain('belum POSTED');
+    });
+
+    it('consumes barter findings and marks a bounded incomplete scan as truncated', async () => {
+        mockCollect.mockResolvedValue({ salesInvoicesMissing: [], salesInvoicesUnposted: [], salesInvoiceShortfalls: [], salesPaymentsMissing: [], purchaseInvoicesMissing: [], purchasePaymentsMissing: [], barterSettlementsInvalid: [{ id: 's', settlementNumber: 'BRT-1', reason: 'OFFSET_JOURNAL_INVALID' }], barterScanTruncated: true });
+        const result = await detectMissingFinanceJournals(tenantDb);
+        expect(result.items[0]).toMatchObject({ entityType: 'BarterSettlement', entityId: 's', severity: 'critical' });
+        expect(result.items[0].detail).toContain('jangan membuat jurnal bank');
+        expect(result.status).toBe('truncated');
+    });
+
+    it('consumes subsequent bounded barter pages before marking scan complete', async () => {
+        mockCollect.mockResolvedValue({ salesInvoicesMissing: [], salesInvoicesUnposted: [], salesInvoiceShortfalls: [], salesPaymentsMissing: [], purchaseInvoicesMissing: [], purchasePaymentsMissing: [], barterSettlementsInvalid: [], barterScanTruncated: true, barterNextCursor: 'cursor-1' });
+        vi.mocked(collectBarterHealth).mockResolvedValueOnce({ issues: [{ id: 'later', settlementNumber: 'BRT-LATER', reason: 'BALANCE_MISMATCH' }], scanned: 1, truncated: false, nextCursor: null });
+        const result = await detectMissingFinanceJournals(tenantDb);
+        expect(collectBarterHealth).toHaveBeenCalledWith(tenantDb, 'cursor-1');
+        expect(result.status).toBe('ok'); expect(result.items[0].entityId).toBe('later');
     });
 
     it('reports failed status when collection throws', async () => {

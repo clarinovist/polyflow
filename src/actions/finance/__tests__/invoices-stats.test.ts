@@ -4,6 +4,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     mockPrisma: {
         $transaction: vi.fn(),
         invoice: {
+            fields: { totalAmount: 'totalAmount' },
             aggregate: vi.fn(),
             count: vi.fn(),
             findMany: vi.fn(),
@@ -19,6 +20,9 @@ const { mockPrisma } = vi.hoisted(() => ({
         },
         payment: {
             deleteMany: vi.fn(),
+        },
+        performanceMetric: {
+            create: vi.fn().mockResolvedValue({}),
         },
     },
 }));
@@ -68,6 +72,47 @@ vi.mock('@/lib/config/logger', () => ({
 }));
 
 import { isPeriodOpen } from '@/services/accounting/periods-service';
+
+describe('getSalesInvoices identity contract', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockPrisma.invoice.findMany.mockResolvedValue([]);
+    });
+
+    it('selects customerId for customer receipts', async () => {
+        const { getSalesInvoices } = await import('../invoices');
+        const result = await getSalesInvoices(undefined, {
+            demandType: 'customer',
+        });
+        expect(result.success).toBe(true);
+        expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { salesOrder: { customerId: { not: null } } },
+                include: {
+                    salesOrder: {
+                        select: expect.objectContaining({ customerId: true }),
+                    },
+                },
+            }),
+        );
+    });
+
+    it('bounds and filters the receipt selector in SQL before limiting, with search for older invoices', async () => {
+        const { getSalesInvoices } = await import('../invoices');
+        await getSalesInvoices(undefined, { paymentSelector: true, search: 'INV-OLD' });
+        expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 200, where: expect.objectContaining({ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, paidAmount: { lt: 'totalAmount' }, OR: expect.any(Array) }) }));
+    });
+
+    it('queries only internal invoices for the legacy tab', async () => {
+        const { getSalesInvoices } = await import('../invoices');
+        await getSalesInvoices(undefined, { demandType: 'legacy-internal' });
+        expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { salesOrder: { customerId: null } },
+            }),
+        );
+    });
+});
 
 describe('getInvoiceStats', () => {
     beforeEach(() => {

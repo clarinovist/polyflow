@@ -27,6 +27,9 @@ export interface PaymentMethodFieldsProps {
     onDestinationBankChange: (value: PaymentBankKey | '') => void;
     paymentBanks?: TenantPaymentBanks;
     methodId?: string;
+    allowedMethods?: string[];
+    additionalMethods?: string[];
+    label?: string;
 }
 
 export function PaymentMethodFields({
@@ -38,15 +41,25 @@ export function PaymentMethodFields({
     onDestinationBankChange,
     paymentBanks = [],
     methodId = 'method',
+    allowedMethods,
+    additionalMethods = [],
+    label = 'Metode Pembayaran',
 }: PaymentMethodFieldsProps) {
     const isCheck = method === 'Check';
-    const selectableMethods = getSelectablePaymentMethods(paymentBanks);
+    const selectableMethods = [
+        ...getSelectablePaymentMethods(paymentBanks),
+        ...additionalMethods,
+    ].filter(
+        (item, index, methods) =>
+            methods.indexOf(item) === index &&
+            (!allowedMethods || allowedMethods.includes(item)),
+    );
     const clearingBankOptions = getClearingBankOptions(paymentBanks);
 
     return (
         <>
             <div className="space-y-2">
-                <Label htmlFor={methodId}>Metode Pembayaran</Label>
+                <Label htmlFor={methodId}>{label}</Label>
                 <Select
                     value={method}
                     onValueChange={(value) => {

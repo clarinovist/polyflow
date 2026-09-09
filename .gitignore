@@ -162,3 +162,6 @@ melindo-supplier-payments.sql
 
 # Command Code CLI — settings & taste lokal, bukan konfigurasi bersama.
 /.commandcode/
+
+# TLS live certs (privkey!) — never track
+/certs/

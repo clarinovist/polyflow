@@ -97,6 +97,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
     'Transfer Mandiri': 'Transfer Mandiri',
     Cash: 'Tunai',
     Check: 'Cek / Giro',
+    Barter: 'Barter — Potong Piutang/Hutang',
     // Legacy values still present in historical rows
     'Bank Transfer': 'Transfer Bank (lama)',
     'Credit Card': 'Kartu Kredit (lama)',

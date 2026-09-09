@@ -32,6 +32,7 @@ vi.mock("@/lib/core/prisma", () => ({
     purchaseInvoice: {
       findMany: vi.fn(),
     },
+    barterSettlement: { findMany: vi.fn().mockResolvedValue([]) },
     invoice: {
       findMany: vi.fn(),
     },

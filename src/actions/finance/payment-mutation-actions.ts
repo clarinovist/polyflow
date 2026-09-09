@@ -273,6 +273,13 @@ export const deletePayment = withTenant(async function deletePayment(
                 });
 
                 if (!payment) throw new NotFoundError('Payment record', id);
+                if (payment.barterSettlementId) {
+                    throw new BusinessRuleError(
+                        'Pembayaran ini merupakan bagian paket barter. Gunakan aksi Batalkan Barter agar seluruh kaki dibatalkan secara atomic.',
+                        { barterSettlementId: payment.barterSettlementId },
+                        'BARTER_PAYMENT_DELETE_FORBIDDEN',
+                    );
+                }
 
                 // Validate all associated journal entries are in open periods
                 const { isPeriodOpen } =
@@ -395,7 +402,11 @@ export const deletePayment = withTenant(async function deletePayment(
 
             return { message: 'Payment deleted successfully' };
         } catch (error) {
-            if (error instanceof NotFoundError) throw error;
+            if (
+                error instanceof NotFoundError ||
+                error instanceof BusinessRuleError
+            )
+                throw error;
             logger.error('Failed to delete payment', {
                 error,
                 paymentId: id,

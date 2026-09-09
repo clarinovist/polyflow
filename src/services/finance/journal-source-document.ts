@@ -60,8 +60,20 @@ export async function resolveSourceDocNumbers(
         ReferenceType.PURCHASE_INVOICE,
     ]);
     const salesInvoiceIds = collectIds(refs, [ReferenceType.SALES_INVOICE]);
+    const barterSettlementIds = collectIds(refs, [
+        ReferenceType.BARTER_SETTLEMENT,
+    ]);
+    const purchasePaymentIds = collectIds(refs, [
+        ReferenceType.PURCHASE_PAYMENT,
+    ]);
 
-    const [payments, purchaseInvoices, salesInvoices] = await Promise.all([
+    const [
+        payments,
+        purchaseInvoices,
+        salesInvoices,
+        barterSettlements,
+        barterCashSettlements,
+    ] = await Promise.all([
         paymentIds.length
             ? prisma.payment.findMany({
                   where: { id: { in: paymentIds } },
@@ -91,6 +103,28 @@ export async function resolveSourceDocNumbers(
             ? prisma.invoice.findMany({
                   where: { id: { in: salesInvoiceIds } },
                   select: { id: true, invoiceNumber: true },
+              })
+            : Promise.resolve([]),
+        barterSettlementIds.length
+            ? prisma.barterSettlement.findMany({
+                  where: { id: { in: barterSettlementIds } },
+                  select: { id: true, settlementNumber: true },
+              })
+            : Promise.resolve([]),
+        purchasePaymentIds.length
+            ? prisma.barterSettlement.findMany({
+                  where: { apCashPaymentId: { in: purchasePaymentIds } },
+                  select: {
+                      apCashPaymentId: true,
+                      purchaseInvoice: {
+                          select: {
+                              invoiceNumber: true,
+                              purchaseOrder: {
+                                  select: { orderNumber: true },
+                              },
+                          },
+                      },
+                  },
               })
             : Promise.resolve([]),
     ]);
@@ -133,6 +167,24 @@ export async function resolveSourceDocNumbers(
                 invoice.invoiceNumber,
             );
         }
+    }
+
+    for (const settlement of barterSettlements) {
+        result.set(
+            `${ReferenceType.BARTER_SETTLEMENT}:${settlement.id}`,
+            settlement.settlementNumber,
+        );
+    }
+
+    for (const settlement of barterCashSettlements) {
+        if (!settlement.apCashPaymentId) continue;
+        const number =
+            settlement.purchaseInvoice.purchaseOrder?.orderNumber ??
+            settlement.purchaseInvoice.invoiceNumber;
+        result.set(
+            `${ReferenceType.PURCHASE_PAYMENT}:${settlement.apCashPaymentId}`,
+            number,
+        );
     }
 
     return result;

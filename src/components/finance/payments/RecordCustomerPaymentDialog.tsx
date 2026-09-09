@@ -1,18 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, ChevronsUpDown, FileText, Loader2 } from 'lucide-react';
+
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    createBarterSettlement,
+    getBarterOptions,
+} from '@/actions/finance/barter-actions';
+import { recordCustomerPayment } from '@/actions/finance/finance';
+import { PaymentMethodFields } from '@/components/finance/payments/PaymentMethodFields';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Command,
     CommandEmpty,
@@ -22,21 +20,38 @@ import {
     CommandList,
 } from '@/components/ui/command';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { recordCustomerPayment } from '@/actions/finance/finance';
-import { formatRupiah, cn } from '@/lib/utils/utils';
-import { Loader2, ChevronsUpDown, Check, FileText } from 'lucide-react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { BARTER_PAYMENT_METHOD } from '@/lib/finance/barter';
 import {
     DEFAULT_PAYMENT_METHOD,
     type PaymentBankKey,
     type PaymentMethod,
     type TenantPaymentBanks,
 } from '@/lib/finance/payment-methods';
-import { PaymentMethodFields } from '@/components/finance/payments/PaymentMethodFields';
+import { cn, formatRupiah } from '@/lib/utils/utils';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
 interface Invoice {
     id: string;
@@ -45,9 +60,24 @@ interface Invoice {
     paidAmount: number;
     salesOrder: {
         orderNumber: string;
+        customerId?: string | null;
         customer: { name: string } | null;
     };
 }
+
+type BarterOptions = {
+    eligible: boolean;
+    truncated?: boolean;
+    supplier?: { id: string; name: string };
+    receivableBalance?: number;
+    purchaseInvoices: Array<{
+        id: string;
+        invoiceNumber: string;
+        totalAmount: number;
+        paidAmount: number;
+        dueDate: Date | string | null;
+    }>;
+};
 
 interface RecordCustomerPaymentDialogProps {
     open: boolean;
@@ -56,6 +86,9 @@ interface RecordCustomerPaymentDialogProps {
     paymentBanks?: TenantPaymentBanks;
 }
 
+const today = () => toBusinessDateString(new Date());
+const toBusinessDate = (date: string) => `${date}T00:00:00+07:00`;
+
 export function RecordCustomerPaymentDialog({
     open,
     onOpenChange,
@@ -63,12 +96,13 @@ export function RecordCustomerPaymentDialog({
     paymentBanks = [],
 }: RecordCustomerPaymentDialogProps) {
     const { toast } = useToast();
+    const idempotencyKey = useRef('');
+    const submitting = useRef(false);
     const [loading, setLoading] = useState(false);
+    const [loadingBarter, setLoadingBarter] = useState(false);
     const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
     const [amount, setAmount] = useState('');
-    const [paymentDate, setPaymentDate] = useState(
-        new Date().toISOString().split('T')[0],
-    );
+    const [paymentDate, setPaymentDate] = useState(today());
     const [method, setMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
     const [referenceNumber, setReferenceNumber] = useState('');
     const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>(
@@ -76,142 +110,248 @@ export function RecordCustomerPaymentDialog({
     );
     const [notes, setNotes] = useState('');
     const [invoiceSearchOpen, setInvoiceSearchOpen] = useState(false);
+    const [barterOptions, setBarterOptions] = useState<BarterOptions | null>(
+        null,
+    );
+    const [purchaseInvoiceId, setPurchaseInvoiceId] = useState('');
+    const [purchaseSearch, setPurchaseSearch] = useState('');
+    const [barterError, setBarterError] = useState('');
+    const [barterAmount, setBarterAmount] = useState('');
+    const [includeCashPayment, setIncludeCashPayment] = useState(false);
+    const [cashAmount, setCashAmount] = useState('');
+    const [cashMethod, setCashMethod] = useState<PaymentMethod>(
+        DEFAULT_PAYMENT_METHOD,
+    );
+    const [cashReferenceNumber, setCashReferenceNumber] = useState('');
+    const [cashDestinationBank, setCashDestinationBank] = useState<
+        PaymentBankKey | ''
+    >('');
+    const [cashPaymentDate, setCashPaymentDate] = useState(today());
 
     const selectedInvoice = invoices.find(
         (inv) => inv.id === selectedInvoiceId,
+    );
+    const selectedPurchaseInvoice = barterOptions?.purchaseInvoices.find(
+        (invoice) => invoice.id === purchaseInvoiceId,
     );
     const remainingBalance = selectedInvoice
         ? Number(selectedInvoice.totalAmount) -
           Number(selectedInvoice.paidAmount)
         : 0;
+    const payableBalance = selectedPurchaseInvoice
+        ? Number(selectedPurchaseInvoice.totalAmount) -
+          Number(selectedPurchaseInvoice.paidAmount)
+        : 0;
+    const barterValue = Number(barterAmount) || 0;
+    const cashValue = includeCashPayment ? Number(cashAmount) || 0 : 0;
+    const isBarter = method === BARTER_PAYMENT_METHOD;
+    const cashMethods = [
+        'Cash',
+        ...paymentBanks.map((bank) => `Transfer ${bank.name}`),
+    ].filter((value, index, values) => values.indexOf(value) === index);
 
-    // Reset form when dialog closes
     useEffect(() => {
         if (!open) {
             setSelectedInvoiceId('');
             setAmount('');
-            setPaymentDate(new Date().toISOString().split('T')[0]);
+            setPaymentDate(today());
             setMethod(DEFAULT_PAYMENT_METHOD);
             setReferenceNumber('');
             setDestinationBank('');
             setNotes('');
             setInvoiceSearchOpen(false);
+            setBarterOptions(null);
+            setPurchaseInvoiceId('');
+            setBarterAmount('');
+            setIncludeCashPayment(false);
+            setCashAmount('');
+            setCashMethod(DEFAULT_PAYMENT_METHOD);
+            setCashReferenceNumber('');
+            setCashDestinationBank('');
+            setCashPaymentDate(today());
+            idempotencyKey.current = '';
         }
     }, [open]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    useEffect(() => {
+        setMethod(DEFAULT_PAYMENT_METHOD);
+        setBarterOptions(null);
+        setPurchaseInvoiceId('');
+        setBarterAmount('');
+        setIncludeCashPayment(false);
+        setCashAmount('');
+        idempotencyKey.current = '';
+        setPurchaseSearch('');
+        setBarterError('');
+        setLoadingBarter(false);
+        if (!selectedInvoiceId) return;
 
-        // Client-side validation
+        let cancelled = false;
+        setLoadingBarter(true);
+        getBarterOptions(selectedInvoiceId)
+            .then((result) => {
+                if (cancelled) return;
+                if (result.success) {
+                    setBarterOptions(result.data as BarterOptions);
+                } else {
+                    setBarterError(result.error);
+                    setBarterOptions({ eligible: false, purchaseInvoices: [] });
+                }
+            })
+            .catch(() => {
+                if (!cancelled)
+                    setBarterError(
+                        'Gagal memuat izin barter. Pilih ulang invoice untuk mencoba lagi.',
+                    );
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingBarter(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedInvoiceId]);
+
+    useEffect(() => {
+        if (!isBarter || !selectedInvoiceId) return;
+        let cancelled = false;
+        const timer = setTimeout(() => {
+            setLoadingBarter(true);
+            getBarterOptions(selectedInvoiceId, purchaseSearch)
+                .then((result) => {
+                    if (cancelled) return;
+                    if (result.success) {
+                        setBarterOptions(result.data as BarterOptions);
+                        setBarterError('');
+                    } else setBarterError(result.error);
+                })
+                .catch(() => {
+                    if (!cancelled)
+                        setBarterError('Gagal mencari invoice hutang.');
+                })
+                .finally(() => {
+                    if (!cancelled) setLoadingBarter(false);
+                });
+        }, 300);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [isBarter, selectedInvoiceId, purchaseSearch]);
+
+    const submitOrdinaryPayment = async () => {
+        const paymentAmount = Number(amount);
+        if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+            throw new Error('Masukkan jumlah pembayaran yang valid.');
+        }
+        if (paymentAmount > remainingBalance) {
+            throw new Error(
+                `Pembayaran ${formatRupiah(paymentAmount)} melebihi sisa tagihan ${formatRupiah(remainingBalance)}.`,
+            );
+        }
+        if (
+            method === 'Check' &&
+            (!referenceNumber.trim() || !destinationBank)
+        ) {
+            throw new Error('Nomor cek/giro dan bank tujuan wajib diisi.');
+        }
+        return recordCustomerPayment({
+            invoiceId: selectedInvoiceId,
+            amount: paymentAmount,
+            paymentDate: toBusinessDate(paymentDate),
+            method,
+            notes,
+            referenceNumber:
+                method === 'Check' ? referenceNumber.trim() : undefined,
+            destinationBank: method === 'Check' ? destinationBank : undefined,
+        });
+    };
+
+    const submitBarter = async () => {
+        if (!purchaseInvoiceId) throw new Error('Pilih invoice hutang.');
+        if (!notes.trim()) throw new Error('Catatan/kesepakatan wajib diisi.');
+        if (!idempotencyKey.current)
+            idempotencyKey.current = crypto.randomUUID();
+        return createBarterSettlement({
+            invoiceId: selectedInvoiceId,
+            purchaseInvoiceId,
+            barterAmount,
+            barterDate: toBusinessDate(paymentDate),
+            includeCashPayment,
+            cashAmount: includeCashPayment ? cashAmount : undefined,
+            cashMethod: includeCashPayment ? cashMethod : undefined,
+            cashPaymentDate: includeCashPayment
+                ? toBusinessDate(cashPaymentDate)
+                : undefined,
+            cashReferenceNumber: includeCashPayment
+                ? cashReferenceNumber
+                : undefined,
+            notes,
+            idempotencyKey: idempotencyKey.current,
+        });
+    };
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (submitting.current) return;
         if (!selectedInvoiceId) {
             toast({
                 title: 'Error',
-                description: 'Pilih invoice terlebih dahulu',
+                description: 'Pilih invoice terlebih dahulu.',
                 variant: 'destructive',
             });
             return;
         }
-
-        const paymentAmount = parseFloat(amount);
-        if (isNaN(paymentAmount) || paymentAmount <= 0) {
-            toast({
-                title: 'Error',
-                description: 'Masukkan jumlah pembayaran yang valid',
-                variant: 'destructive',
-            });
-            return;
-        }
-
-        if (paymentAmount > remainingBalance) {
-            toast({
-                title: 'Error',
-                description: `Pembayaran ${formatRupiah(paymentAmount)} melebihi sisa tagihan ${formatRupiah(remainingBalance)}`,
-                variant: 'destructive',
-            });
-            return;
-        }
-
-        // Show confirmation for large payments or partial payments
-        if (paymentAmount < remainingBalance) {
-            const confirmed = window.confirm(
-                `Pembayaran ${formatRupiah(paymentAmount)} adalah pembayaran sebagian dari sisa tagihan ${formatRupiah(remainingBalance)}.\n\nSisa yang belum dibayar: ${formatRupiah(remainingBalance - paymentAmount)}\n\nLanjutkan?`,
-            );
-            if (!confirmed) return;
-        }
-
+        submitting.current = true;
         setLoading(true);
-
-        if (method === 'Check') {
-            if (!referenceNumber.trim()) {
-                toast({
-                    title: 'Error',
-                    description: 'Nomor Cek / Giro wajib diisi',
-                    variant: 'destructive',
-                });
-                return;
-            }
-            if (!destinationBank) {
-                toast({
-                    title: 'Error',
-                    description: 'Pilih bank tujuan clearing',
-                    variant: 'destructive',
-                });
-                return;
-            }
-        }
-
         try {
-            const result = await recordCustomerPayment({
-                invoiceId: selectedInvoiceId,
-                amount: paymentAmount,
-                paymentDate: new Date(paymentDate),
-                method,
-                notes,
-                referenceNumber:
-                    method === 'Check' ? referenceNumber.trim() : undefined,
-                destinationBank:
-                    method === 'Check' ? destinationBank : undefined,
-            });
-
-            if (result.success) {
-                toast({
-                    title: 'Berhasil',
-                    description: result.data?.message,
-                });
-                onOpenChange(false);
-            } else {
+            const result = isBarter
+                ? await submitBarter()
+                : await submitOrdinaryPayment();
+            if (!result.success) {
                 toast({
                     title: 'Gagal',
                     description: result.error,
                     variant: 'destructive',
                 });
+                return;
             }
-        } catch {
+            toast({
+                title: 'Berhasil',
+                description:
+                    result.data && 'settlementNumber' in result.data
+                        ? `Barter ${result.data.settlementNumber} berhasil dicatat.`
+                        : result.data?.message,
+            });
+            onOpenChange(false);
+        } catch (error) {
             toast({
                 title: 'Gagal',
                 description:
-                    'Gagal mencatat pembayaran customer. Silakan coba lagi.',
+                    error instanceof Error
+                        ? error.message
+                        : 'Gagal mencatat pembayaran.',
                 variant: 'destructive',
             });
         } finally {
+            submitting.current = false;
             setLoading(false);
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[620px]">
                 <DialogHeader>
                     <DialogTitle>Catat Pembayaran</DialogTitle>
                     <DialogDescription>
-                        Catat pembayaran yang diterima untuk invoice penjualan
-                        yang masih outstanding.
+                        Catat pembayaran biasa atau potong piutang dan hutang
+                        untuk pasangan yang telah diizinkan Admin.
                     </DialogDescription>
                 </DialogHeader>
-
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="invoice">Pilih Invoice</Label>
+                        <Label htmlFor="invoice">Invoice pelanggan</Label>
                         <Popover
                             open={invoiceSearchOpen}
                             onOpenChange={setInvoiceSearchOpen}
@@ -221,126 +361,87 @@ export function RecordCustomerPaymentDialog({
                                     type="button"
                                     variant="outline"
                                     role="combobox"
-                                    aria-expanded={invoiceSearchOpen}
                                     className={cn(
-                                        'w-full justify-between font-normal min-w-0 h-11',
+                                        'h-11 w-full min-w-0 justify-between font-normal',
                                         !selectedInvoiceId &&
                                             'text-muted-foreground',
                                     )}
                                 >
                                     {selectedInvoice ? (
-                                        <span className="flex items-center gap-2 truncate min-w-0">
-                                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                            <span className="truncate flex-1 text-left">
+                                        <span className="flex min-w-0 items-center gap-2 truncate">
+                                            <FileText className="h-4 w-4 shrink-0" />
+                                            <span className="truncate">
                                                 {selectedInvoice.invoiceNumber}{' '}
                                                 —{' '}
                                                 {selectedInvoice.salesOrder
-                                                    .customer?.name ||
+                                                    .customer?.name ??
                                                     `Build Stok Internal Lama (${selectedInvoice.salesOrder.orderNumber})`}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground shrink-0 font-mono">
-                                                {formatRupiah(
-                                                    Number(
-                                                        selectedInvoice.totalAmount,
-                                                    ) -
-                                                        Number(
-                                                            selectedInvoice.paidAmount,
-                                                        ),
-                                                )}
                                             </span>
                                         </span>
                                     ) : (
-                                        <span className="truncate">
-                                            Pilih invoice yang belum lunas
-                                        </span>
+                                        'Pilih invoice yang belum lunas'
                                     )}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent
                                 className="w-[--radix-popover-trigger-width] p-0"
                                 align="start"
                             >
-                                <Command
-                                    filter={(val, search) => {
-                                        const inv = invoices.find(
-                                            (i) => i.id === val,
-                                        );
-                                        if (!inv) return 0;
-                                        const q = search.toLowerCase();
-                                        const customerName =
-                                            inv.salesOrder.customer?.name ||
-                                            `Build Stok Internal Lama (${inv.salesOrder.orderNumber})`;
-                                        return inv.invoiceNumber
-                                            .toLowerCase()
-                                            .includes(q) ||
-                                            customerName
-                                                .toLowerCase()
-                                                .includes(q)
-                                            ? 1
-                                            : 0;
-                                    }}
-                                >
-                                    <CommandInput placeholder="Cari no invoice atau customer..." />
+                                <Command>
+                                    <CommandInput placeholder="Cari invoice atau customer..." />
                                     <CommandList>
                                         <CommandEmpty>
-                                            Tidak ada invoice ditemukan.
+                                            Tidak ada invoice.
                                         </CommandEmpty>
                                         <CommandGroup>
-                                            {invoices.map((inv) => {
-                                                const balance =
-                                                    Number(inv.totalAmount) -
-                                                    Number(inv.paidAmount);
-                                                const customerLabel =
-                                                    inv.salesOrder.customer
-                                                        ?.name ||
-                                                    `Build Stok Internal Lama (${inv.salesOrder.orderNumber})`;
-                                                return (
-                                                    <CommandItem
-                                                        key={inv.id}
-                                                        value={inv.id}
-                                                        onSelect={(
-                                                            currentValue,
-                                                        ) => {
-                                                            setSelectedInvoiceId(
-                                                                currentValue ===
-                                                                    selectedInvoiceId
-                                                                    ? ''
-                                                                    : currentValue,
-                                                            );
-                                                            setInvoiceSearchOpen(
-                                                                false,
-                                                            );
-                                                        }}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                'h-4 w-4 shrink-0',
-                                                                selectedInvoiceId ===
-                                                                    inv.id
-                                                                    ? 'opacity-100'
-                                                                    : 'opacity-0',
-                                                            )}
-                                                        />
-                                                        <div className="flex flex-col min-w-0 flex-1">
-                                                            <span className="truncate font-medium">
-                                                                {
-                                                                    inv.invoiceNumber
-                                                                }
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {customerLabel}
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-xs font-mono text-muted-foreground shrink-0">
-                                                            {formatRupiah(
-                                                                balance,
-                                                            )}
-                                                        </span>
-                                                    </CommandItem>
-                                                );
-                                            })}
+                                            {invoices.map((invoice) => (
+                                                <CommandItem
+                                                    key={invoice.id}
+                                                    value={invoice.id}
+                                                    keywords={[
+                                                        invoice.invoiceNumber,
+                                                        invoice.salesOrder
+                                                            .customer?.name ??
+                                                            '',
+                                                    ]}
+                                                    onSelect={() => {
+                                                        setSelectedInvoiceId(
+                                                            invoice.id,
+                                                        );
+                                                        setInvoiceSearchOpen(
+                                                            false,
+                                                        );
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            'mr-2 h-4 w-4',
+                                                            selectedInvoiceId ===
+                                                                invoice.id
+                                                                ? 'opacity-100'
+                                                                : 'opacity-0',
+                                                        )}
+                                                    />
+                                                    <span className="min-w-0 flex-1 truncate">
+                                                        {invoice.invoiceNumber}{' '}
+                                                        —{' '}
+                                                        {invoice.salesOrder
+                                                            .customer?.name ??
+                                                            'Legacy Internal'}
+                                                    </span>
+                                                    <span className="font-mono text-xs text-muted-foreground">
+                                                        {formatRupiah(
+                                                            Number(
+                                                                invoice.totalAmount,
+                                                            ) -
+                                                                Number(
+                                                                    invoice.paidAmount,
+                                                                ),
+                                                        )}
+                                                    </span>
+                                                </CommandItem>
+                                            ))}
                                         </CommandGroup>
                                     </CommandList>
                                 </Command>
@@ -349,81 +450,331 @@ export function RecordCustomerPaymentDialog({
                     </div>
 
                     {selectedInvoice && (
-                        <div className="p-3 bg-muted rounded-md text-sm space-y-1">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">
-                                    Total Tagihan:
-                                </span>
-                                <span className="font-medium">
-                                    {formatRupiah(
-                                        Number(selectedInvoice.totalAmount),
-                                    )}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">
-                                    Sudah Dibayar:
-                                </span>
-                                <span className="font-medium text-emerald-600">
-                                    {formatRupiah(
-                                        Number(selectedInvoice.paidAmount),
-                                    )}
-                                </span>
-                            </div>
-                            <div className="flex justify-between border-t pt-1">
-                                <span className="text-muted-foreground font-semibold">
-                                    Sisa Tagihan:
-                                </span>
-                                <span className="font-bold text-red-600">
-                                    {formatRupiah(remainingBalance)}
-                                </span>
+                        <div className="rounded-md bg-muted p-3 text-sm">
+                            <div className="flex justify-between font-semibold">
+                                <span>Sisa piutang</span>
+                                <span>{formatRupiah(remainingBalance)}</span>
                             </div>
                         </div>
                     )}
 
-                    <div className="space-y-2">
-                        <Label htmlFor="amount">Jumlah Pembayaran</Label>
-                        <Input
-                            id="amount"
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            max={remainingBalance}
-                            required
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="paymentDate">Tanggal Pembayaran</Label>
-                        <Input
-                            id="paymentDate"
-                            type="date"
-                            value={paymentDate}
-                            onChange={(e) => setPaymentDate(e.target.value)}
-                            required
-                        />
-                    </div>
-
                     <PaymentMethodFields
                         method={method}
-                        onMethodChange={setMethod}
+                        onMethodChange={(value) => {
+                            setMethod(value);
+                            setPurchaseInvoiceId('');
+                            setBarterAmount('');
+                            setIncludeCashPayment(false);
+                            setCashAmount('');
+                            idempotencyKey.current = '';
+                        }}
                         referenceNumber={referenceNumber}
                         onReferenceNumberChange={setReferenceNumber}
                         destinationBank={destinationBank}
                         onDestinationBankChange={setDestinationBank}
                         paymentBanks={paymentBanks}
                         methodId="customer-method"
+                        additionalMethods={
+                            barterOptions?.eligible
+                                ? [BARTER_PAYMENT_METHOD]
+                                : []
+                        }
                     />
+                    {loadingBarter && selectedInvoice && (
+                        <p className="text-xs text-muted-foreground">
+                            Memeriksa izin barter...
+                        </p>
+                    )}
+
+                    {barterError && (
+                        <p role="alert" className="text-sm text-red-600">
+                            {barterError}
+                        </p>
+                    )}
+                    {isBarter ? (
+                        <>
+                            <div className="space-y-2">
+                                <Label>Supplier pasangan</Label>
+                                <Input
+                                    value={barterOptions?.supplier?.name ?? ''}
+                                    disabled
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="purchase-invoice">
+                                    Invoice hutang
+                                </Label>
+                                <Input
+                                    aria-label="Cari invoice hutang"
+                                    placeholder="Cari nomor invoice hutang"
+                                    value={purchaseSearch}
+                                    onChange={(event) => {
+                                        setPurchaseSearch(event.target.value);
+                                        setPurchaseInvoiceId('');
+                                        setBarterAmount('');
+                                        setCashAmount('');
+                                    }}
+                                />
+                                {barterOptions?.truncated && (
+                                    <p className="text-sm text-amber-600">
+                                        Maksimal 200 invoice; persempit
+                                        pencarian untuk invoice lainnya.
+                                    </p>
+                                )}
+                                <Select
+                                    value={purchaseInvoiceId || undefined}
+                                    onValueChange={(value) => {
+                                        setPurchaseInvoiceId(value);
+                                        setBarterAmount('');
+                                        setCashAmount('');
+                                        idempotencyKey.current = '';
+                                    }}
+                                >
+                                    <SelectTrigger id="purchase-invoice">
+                                        <SelectValue placeholder="Pilih invoice hutang" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {barterOptions?.purchaseInvoices.map(
+                                            (invoice) => (
+                                                <SelectItem
+                                                    key={invoice.id}
+                                                    value={invoice.id}
+                                                >
+                                                    {invoice.invoiceNumber} —{' '}
+                                                    {formatRupiah(
+                                                        invoice.totalAmount -
+                                                            invoice.paidAmount,
+                                                    )}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                {barterOptions?.purchaseInvoices.length ===
+                                    0 && (
+                                    <p className="text-sm text-amber-600">
+                                        Tidak ada invoice hutang eligible untuk
+                                        supplier pasangan.
+                                    </p>
+                                )}
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="barter-date">
+                                        Tanggal barter
+                                    </Label>
+                                    <Input
+                                        id="barter-date"
+                                        type="date"
+                                        value={paymentDate}
+                                        onChange={(event) => {
+                                            setPaymentDate(event.target.value);
+                                            idempotencyKey.current = '';
+                                        }}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="barter-amount">
+                                        Nominal barter
+                                    </Label>
+                                    <Input
+                                        id="barter-amount"
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        max={Math.min(
+                                            remainingBalance,
+                                            payableBalance,
+                                        )}
+                                        value={barterAmount}
+                                        onChange={(event) => {
+                                            setBarterAmount(event.target.value);
+                                            idempotencyKey.current = '';
+                                        }}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 rounded-md border p-3">
+                                <Checkbox
+                                    id="include-cash"
+                                    checked={includeCashPayment}
+                                    onCheckedChange={(checked) => {
+                                        setIncludeCashPayment(checked === true);
+                                        setCashPaymentDate(paymentDate);
+                                        setCashAmount('');
+                                        idempotencyKey.current = '';
+                                    }}
+                                />
+                                <Label htmlFor="include-cash">
+                                    Catat pembayaran tambahan sekarang
+                                </Label>
+                            </div>
+                            {includeCashPayment && (
+                                <div className="space-y-4 rounded-md border p-4">
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="cash-amount">
+                                                Jumlah tambahan
+                                            </Label>
+                                            <Input
+                                                id="cash-amount"
+                                                type="number"
+                                                step="0.01"
+                                                min="0.01"
+                                                max={Math.max(
+                                                    0,
+                                                    payableBalance -
+                                                        barterValue,
+                                                )}
+                                                value={cashAmount}
+                                                onChange={(event) => {
+                                                    setCashAmount(
+                                                        event.target.value,
+                                                    );
+                                                    idempotencyKey.current = '';
+                                                }}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="cash-date">
+                                                Tanggal pembayaran
+                                            </Label>
+                                            <Input
+                                                id="cash-date"
+                                                type="date"
+                                                value={cashPaymentDate}
+                                                onChange={(event) => {
+                                                    setCashPaymentDate(
+                                                        event.target.value,
+                                                    );
+                                                    idempotencyKey.current = '';
+                                                }}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <PaymentMethodFields
+                                        method={cashMethod}
+                                        onMethodChange={(value) => {
+                                            setCashMethod(value);
+                                            idempotencyKey.current = '';
+                                        }}
+                                        referenceNumber={cashReferenceNumber}
+                                        onReferenceNumberChange={
+                                            setCashReferenceNumber
+                                        }
+                                        destinationBank={cashDestinationBank}
+                                        onDestinationBankChange={
+                                            setCashDestinationBank
+                                        }
+                                        paymentBanks={paymentBanks}
+                                        methodId="barter-cash-method"
+                                        allowedMethods={cashMethods}
+                                        label="Metode pembayaran tambahan"
+                                    />
+                                    <div className="space-y-2">
+                                        <Label htmlFor="cash-reference">
+                                            Referensi transfer (opsional)
+                                        </Label>
+                                        <Input
+                                            id="cash-reference"
+                                            value={cashReferenceNumber}
+                                            onChange={(event) => {
+                                                setCashReferenceNumber(
+                                                    event.target.value,
+                                                );
+                                                idempotencyKey.current = '';
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            <div className="rounded-md bg-muted p-3 text-sm space-y-1">
+                                <div className="flex justify-between">
+                                    <span>Potong piutang</span>
+                                    <span>{formatRupiah(barterValue)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Potong hutang</span>
+                                    <span>{formatRupiah(barterValue)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Uang keluar</span>
+                                    <span>{formatRupiah(cashValue)}</span>
+                                </div>
+                                <div className="flex justify-between border-t pt-1 font-semibold">
+                                    <span>Sisa piutang / hutang</span>
+                                    <span>
+                                        {formatRupiah(
+                                            Math.max(
+                                                0,
+                                                remainingBalance - barterValue,
+                                            ),
+                                        )}
+                                        {' / '}
+                                        {formatRupiah(
+                                            Math.max(
+                                                0,
+                                                payableBalance -
+                                                    barterValue -
+                                                    cashValue,
+                                            ),
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="space-y-2">
+                                <Label htmlFor="amount">
+                                    Jumlah Pembayaran
+                                </Label>
+                                <Input
+                                    id="amount"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    max={remainingBalance}
+                                    value={amount}
+                                    onChange={(event) =>
+                                        setAmount(event.target.value)
+                                    }
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="paymentDate">
+                                    Tanggal Pembayaran
+                                </Label>
+                                <Input
+                                    id="paymentDate"
+                                    type="date"
+                                    value={paymentDate}
+                                    onChange={(event) =>
+                                        setPaymentDate(event.target.value)
+                                    }
+                                    required
+                                />
+                            </div>
+                        </>
+                    )}
 
                     <div className="space-y-2">
-                        <Label htmlFor="notes">Catatan (Opsional)</Label>
+                        <Label htmlFor="notes">
+                            Catatan{isBarter ? '/kesepakatan' : ' (Opsional)'}
+                        </Label>
                         <Textarea
                             id="notes"
-                            placeholder="Tambahkan catatan tambahan..."
                             value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
+                            onChange={(event) => {
+                                setNotes(event.target.value);
+                                if (isBarter) idempotencyKey.current = '';
+                            }}
+                            required={isBarter}
                             rows={3}
                         />
                     </div>
@@ -439,12 +790,22 @@ export function RecordCustomerPaymentDialog({
                         </Button>
                         <Button
                             type="submit"
-                            disabled={loading || !selectedInvoiceId}
+                            disabled={
+                                loading ||
+                                !selectedInvoiceId ||
+                                (isBarter &&
+                                    (!purchaseInvoiceId ||
+                                        loadingBarter ||
+                                        !barterOptions?.eligible ||
+                                        Boolean(barterError)))
+                            }
                         >
                             {loading && (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             )}
-                            Catat Pembayaran
+                            {isBarter
+                                ? 'Konfirmasi Barter'
+                                : 'Catat Pembayaran'}
                         </Button>
                     </DialogFooter>
                 </form>

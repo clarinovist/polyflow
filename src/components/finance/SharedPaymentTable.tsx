@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState, useRef } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 import {
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatRupiah } from '@/lib/utils/utils';
+import { cn, formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import {
     CheckCircle2,
@@ -20,11 +20,17 @@ import {
     Trash2,
     Loader2,
     Search,
+    Eye,
 } from 'lucide-react';
 import { deletePayment } from '@/actions/finance/finance';
+import {
+    getBarterSettlementDetail,
+    voidBarterSettlement,
+} from '@/actions/finance/barter-actions';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -34,14 +40,23 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 import { getPaymentMethodLabel } from '@/lib/finance/payment-methods';
 
 interface Payment {
     id: string;
     referenceNumber: string;
+    paymentNumber?: string;
+    settlementId?: string | null;
+    barterLeg?: 'AR_OFFSET' | 'AP_OFFSET' | 'AP_CASH' | null;
     date: Date | string;
     entityName: string;
     amount: number;
@@ -49,6 +64,30 @@ interface Payment {
     instrumentNumber?: string | null;
     destinationBank?: string | null;
     status: string;
+}
+
+interface BarterDetail {
+    settlementNumber: string;
+    barterDate: Date | string;
+    status: string;
+    customer: { name: string };
+    supplier: { name: string };
+    invoice: { invoiceNumber: string };
+    purchaseInvoice: { invoiceNumber: string };
+    barterAmount: number;
+    cashAmount: number;
+    receivableBefore: number;
+    payableBefore: number;
+    receivableAfter: number;
+    payableAfter: number;
+    cashMethod?: string | null;
+    cashReferenceNumber?: string | null;
+    offsetJournalNumber?: string | null;
+    cashJournalNumber?: string | null;
+    notes: string;
+    createdBy: { name: string | null };
+    voidedBy?: { name: string | null } | null;
+    voidReason?: string | null;
 }
 
 interface ComponentProps {
@@ -70,6 +109,12 @@ export function SharedPaymentTable({
     const router = useRouter();
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [voidReasons, setVoidReasons] = useState<Record<string, string>>({});
+    const [confirmPayment, setConfirmPayment] = useState<Payment | null>(null);
+    const [detail, setDetail] = useState<BarterDetail | null>(null);
+    const [detailLoading, setDetailLoading] = useState<string | null>(null);
+    const detailRequest = useRef(0);
+    const mutationPending = useRef(false);
 
     const filteredPayments = useMemo(() => {
         return payments.filter((p) => {
@@ -83,14 +128,32 @@ export function SharedPaymentTable({
     }, [payments, searchTerm]);
 
     const handleDelete = useCallback(
-        async (id: string) => {
-            setIsDeleting(id);
+        async (payment: Payment) => {
+            if (mutationPending.current) return;
+            mutationPending.current = true;
+            const voidReason = voidReasons[payment.id] ?? '';
+            setIsDeleting(payment.id);
             try {
-                const result = await deletePayment(id);
+                if (payment.settlementId && voidReason.trim().length < 5) {
+                    toast.error('Alasan pembatalan minimal 5 karakter.');
+                    return;
+                }
+                const result = payment.settlementId
+                    ? await voidBarterSettlement({
+                          settlementId: payment.settlementId,
+                          reason: voidReason.trim(),
+                      })
+                    : await deletePayment(payment.id);
                 if (result.success) {
                     toast.success(
-                        'Pembayaran berhasil dihapus dan jurnal dibersihkan.',
+                        payment.settlementId
+                            ? 'Paket barter berhasil dibatalkan.'
+                            : 'Pembayaran berhasil dihapus dan jurnal dibersihkan.',
                     );
+                    setVoidReasons((previous) => ({
+                        ...previous,
+                        [payment.id]: '',
+                    }));
                     router.refresh();
                 } else {
                     toast.error(result.error || 'Gagal menghapus pembayaran');
@@ -98,11 +161,34 @@ export function SharedPaymentTable({
             } catch (_error) {
                 toast.error('Gagal memproses. Silakan coba lagi.');
             } finally {
+                mutationPending.current = false;
                 setIsDeleting(null);
             }
         },
-        [router],
+        [router, voidReasons],
     );
+
+    const handleOpenDetail = useCallback(async (payment: Payment) => {
+        const request = ++detailRequest.current;
+        setDetail(null);
+        setDetailLoading(payment.id);
+        try {
+            const result = await getBarterSettlementDetail(
+                payment.settlementId!,
+            );
+            if (request !== detailRequest.current) return;
+            if (!result.success) {
+                toast.error(result.error);
+                return;
+            }
+            setDetail(result.data as BarterDetail);
+        } catch {
+            if (request === detailRequest.current)
+                toast.error('Gagal memuat detail barter.');
+        } finally {
+            if (request === detailRequest.current) setDetailLoading(null);
+        }
+    }, []);
 
     const columns: ColumnDef<Payment, unknown>[] = useMemo(
         () => [
@@ -119,6 +205,13 @@ export function SharedPaymentTable({
                         <span className="font-mono text-xs font-medium">
                             {row.original.referenceNumber}
                         </span>
+                        {row.original.paymentNumber &&
+                            row.original.paymentNumber !==
+                                row.original.referenceNumber && (
+                                <div className="font-mono text-[10px] text-muted-foreground">
+                                    {row.original.paymentNumber}
+                                </div>
+                            )}
                         <div className="text-xs text-muted-foreground mt-0.5">
                             {format(new Date(row.original.date), 'dd MMM yyyy')}
                         </div>
@@ -146,15 +239,32 @@ export function SharedPaymentTable({
                 accessorFn: (row) => row.amount,
                 cell: ({ row }) => {
                     const p = row.original;
-                    const label = getPaymentMethodLabel(p.method);
+                    const label =
+                        p.barterLeg === 'AR_OFFSET' ||
+                        p.barterLeg === 'AP_OFFSET'
+                            ? 'Pelunasan nonkas — Barter'
+                            : p.barterLeg === 'AP_CASH'
+                              ? `Uang keluar — ${getPaymentMethodLabel(p.method)}`
+                              : getPaymentMethodLabel(p.method);
                     const details: string[] = [];
                     if (p.instrumentNumber)
                         details.push(`No: ${p.instrumentNumber}`);
                     if (p.destinationBank) details.push(p.destinationBank);
                     return (
                         <div className="text-right">
-                            <div className={`font-bold ${amountColor}`}>
-                                {amountPrefix} {formatRupiah(p.amount)}
+                            <div
+                                className={`font-bold ${
+                                    p.barterLeg === 'AR_OFFSET' ||
+                                    p.barterLeg === 'AP_OFFSET'
+                                        ? 'text-blue-600'
+                                        : amountColor
+                                }`}
+                            >
+                                {p.barterLeg === 'AR_OFFSET' ||
+                                p.barterLeg === 'AP_OFFSET'
+                                    ? ''
+                                    : amountPrefix}{' '}
+                                {formatRupiah(p.amount)}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
                                 {label}
@@ -173,7 +283,12 @@ export function SharedPaymentTable({
                     <div className="text-right">
                         <Badge
                             variant="outline"
-                            className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px]"
+                            className={cn(
+                                'text-[11px]',
+                                row.original.status === 'VOIDED'
+                                    ? 'border-red-200 bg-red-50 text-red-700'
+                                    : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                            )}
                         >
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             {row.original.status || 'Lunas'}
@@ -189,56 +304,58 @@ export function SharedPaymentTable({
                 cell: ({ row }) => {
                     const payment = row.original;
                     return (
-                        <div className="text-right whitespace-nowrap">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-muted-foreground hover:text-red-600"
-                                        disabled={isDeleting === payment.id}
-                                    >
-                                        {isDeleting === payment.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Trash2 className="h-4 w-4" />
-                                        )}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Hapus Catatan Pembayaran?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Ini akan menghapus pembayaran
-                                            beserta entri jurnal General Ledger
-                                            terkait. Status invoice akan
-                                            dihitung ulang. Tindakan ini tidak
-                                            dapat dibatalkan.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Batal
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                handleDelete(payment.id)
-                                            }
-                                            className="bg-red-600 hover:bg-red-700"
-                                        >
-                                            Hapus
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                        <div className="flex justify-end gap-1 whitespace-nowrap">
+                            {payment.settlementId && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    aria-label={`Detail ${payment.paymentNumber ?? payment.referenceNumber}`}
+                                    disabled={detailLoading === payment.id}
+                                    onClick={() => handleOpenDetail(payment)}
+                                >
+                                    {detailLoading === payment.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" />
+                                    )}
+                                </Button>
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`${payment.settlementId ? 'Batalkan' : 'Hapus'} ${payment.paymentNumber ?? payment.referenceNumber}`}
+                                disabled={
+                                    isDeleting !== null ||
+                                    payment.status === 'VOIDED'
+                                }
+                                onClick={() => {
+                                    setVoidReasons((previous) => ({
+                                        ...previous,
+                                        [payment.id]: '',
+                                    }));
+                                    setConfirmPayment(payment);
+                                }}
+                            >
+                                {isDeleting === payment.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                )}
+                            </Button>
                         </div>
                     );
                 },
             },
         ],
-        [isReceived, amountColor, amountPrefix, isDeleting, handleDelete],
+        [
+            isReceived,
+            amountColor,
+            amountPrefix,
+            isDeleting,
+            detailLoading,
+            handleOpenDetail,
+        ],
     );
 
     return (
@@ -251,6 +368,13 @@ export function SharedPaymentTable({
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
+                {payments.length >= 200 && (
+                    <p className="mb-3 text-sm text-amber-700">
+                        Menampilkan maksimal 200 pembayaran terbaru. Persempit
+                        rentang tanggal untuk histori lainnya; pencarian hanya
+                        mencakup data yang dimuat.
+                    </p>
+                )}
                 <DataTable
                     columns={columns}
                     data={filteredPayments}
@@ -272,6 +396,128 @@ export function SharedPaymentTable({
                     </div>
                 </DataTable>
             </CardContent>
+            {/* Outside table cells: column rerenders must not remount an open dialog/input. */}
+            <AlertDialog
+                open={Boolean(confirmPayment)}
+                onOpenChange={(open) => !open && setConfirmPayment(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {confirmPayment?.settlementId
+                                ? 'Batalkan Paket Barter?'
+                                : 'Hapus Catatan Pembayaran?'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {confirmPayment?.settlementId
+                                ? 'Seluruh kaki barter dan pembayaran tambahan akan dibatalkan secara buku. Ini bukan instruksi pengembalian uang.'
+                                : 'Ini akan menghapus pembayaran beserta entri jurnal General Ledger terkait. Status invoice akan dihitung ulang.'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {confirmPayment?.settlementId && (
+                        <div className="space-y-2">
+                            <Label htmlFor="payment-void-reason">
+                                Alasan pembatalan
+                            </Label>
+                            <Input
+                                id="payment-void-reason"
+                                value={voidReasons[confirmPayment.id] ?? ''}
+                                onChange={(event) =>
+                                    setVoidReasons((previous) => ({
+                                        ...previous,
+                                        [confirmPayment.id]: event.target.value,
+                                    }))
+                                }
+                            />
+                        </div>
+                    )}
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={
+                                isDeleting !== null ||
+                                Boolean(
+                                    confirmPayment?.settlementId &&
+                                    (
+                                        voidReasons[confirmPayment.id] ?? ''
+                                    ).trim().length < 5,
+                                )
+                            }
+                            onClick={() =>
+                                confirmPayment && handleDelete(confirmPayment)
+                            }
+                        >
+                            {confirmPayment?.settlementId
+                                ? 'Batalkan Barter'
+                                : 'Hapus'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <Dialog
+                open={Boolean(detail)}
+                onOpenChange={(value) => !value && setDetail(null)}
+            >
+                <DialogContent className="sm:max-w-[560px]">
+                    <DialogHeader>
+                        <DialogTitle>{detail?.settlementNumber}</DialogTitle>
+                        <DialogDescription>
+                            Bukti settlement piutang–hutang dan pembayaran
+                            tambahan.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {detail && (
+                        <div className="space-y-3 text-sm">
+                            <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
+                                <span>Customer</span>
+                                <strong>{detail.customer.name}</strong>
+                                <span>Supplier</span>
+                                <strong>{detail.supplier.name}</strong>
+                                <span>Invoice piutang</span>
+                                <strong>{detail.invoice.invoiceNumber}</strong>
+                                <span>Invoice hutang</span>
+                                <strong>
+                                    {detail.purchaseInvoice.invoiceNumber}
+                                </strong>
+                                <span>Nominal barter</span>
+                                <strong>
+                                    {formatRupiah(detail.barterAmount)}
+                                </strong>
+                                <span>Uang tambahan</span>
+                                <strong>
+                                    {formatRupiah(detail.cashAmount)}
+                                </strong>
+                                <span>Sisa piutang</span>
+                                <strong>
+                                    {formatRupiah(detail.receivableAfter)}
+                                </strong>
+                                <span>Sisa hutang</span>
+                                <strong>
+                                    {formatRupiah(detail.payableAfter)}
+                                </strong>
+                                <span>Jurnal offset</span>
+                                <strong>
+                                    {detail.offsetJournalNumber ?? '-'}
+                                </strong>
+                                <span>Jurnal uang keluar</span>
+                                <strong>
+                                    {detail.cashJournalNumber ?? '-'}
+                                </strong>
+                                <span>Status</span>
+                                <strong>{detail.status}</strong>
+                                <span>Dicatat oleh</span>
+                                <strong>{detail.createdBy.name ?? '-'}</strong>
+                            </div>
+                            <p>{detail.notes}</p>
+                            {detail.voidReason && (
+                                <p className="text-red-600">
+                                    Alasan batal: {detail.voidReason}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

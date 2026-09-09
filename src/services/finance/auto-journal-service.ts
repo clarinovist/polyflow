@@ -51,8 +51,15 @@ export class AutoJournalService {
         amount: number,
         method: string = 'Bank Transfer',
         journalDate?: Date,
+        tx?: Prisma.TransactionClient,
     ) {
-        return handlePurchasePayment(paymentId, amount, method, journalDate);
+        return handlePurchasePayment(
+            paymentId,
+            amount,
+            method,
+            journalDate,
+            tx,
+        );
     }
 
     static async handleSalesReturnReceived(returnId: string) {
@@ -78,6 +85,15 @@ export class AutoJournalService {
         refId: string,
         options?: { journalDate?: Date },
     ): Promise<EnsureJournalOutcome> {
+        if (kind === 'SALES_PAYMENT' || kind === 'PURCHASE_PAYMENT') {
+            const member = await prisma.payment.findUnique({ where: { id: refId }, select: { barterSettlementId: true, method: true } });
+            if (member?.barterSettlementId) {
+                const { collectBarterHealth } = await import('./barter-health-service');
+                const health = await collectBarterHealth(prisma, undefined, member.barterSettlementId);
+                return { action: 'skipped', reason: health.scanned !== 1 || health.issues.length ? 'barter_bundle_invalid' : 'barter_bundle_verified' };
+            }
+            if (member?.method === 'Barter') return { action: 'skipped', reason: 'orphan_barter_payment' };
+        }
         const existing = await prisma.journalEntry.findFirst({
             where: {
                 referenceType: kind,
@@ -109,10 +125,22 @@ export class AutoJournalService {
             case 'PURCHASE_PAYMENT': {
                 const payment = await prisma.payment.findUnique({
                     where: { id: refId },
-                    select: { amount: true, method: true },
+                    select: {
+                        amount: true,
+                        method: true,
+                        barterSettlementId: true,
+                        barterLeg: true,
+                    },
                 });
                 if (!payment) {
                     return { action: 'skipped', reason: 'payment_not_found' };
+                }
+                if (payment.barterSettlementId) return { action: 'skipped', reason: 'barter_bundle_requires_diagnosis' };
+                if (
+                    payment.method === 'Barter' &&
+                    !payment.barterSettlementId
+                ) {
+                    return { action: 'skipped', reason: 'orphan_barter_payment' };
                 }
                 const amount = payment.amount.toNumber();
                 if (!amount || amount <= 0 || !isFinite(amount)) {

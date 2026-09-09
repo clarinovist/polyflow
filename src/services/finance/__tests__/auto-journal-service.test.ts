@@ -138,6 +138,8 @@ describe("AutoJournalService payment journals", () => {
   });
 });
 
+vi.mock('../barter-health-service', () => ({ collectBarterHealth: vi.fn(async () => ({ scanned: 1, issues: [] })) }));
+
 describe("AutoJournalService.ensureDocumentJournal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -184,6 +186,52 @@ describe("AutoJournalService.ensureDocumentJournal", () => {
 
     expect(outcome).toEqual({ action: "exists", journalId: "je-1" });
     expect(AccountingService.createJournalEntry).not.toHaveBeenCalled();
+  });
+
+  it("barter offset payment is handled by the settlement journal", async () => {
+    vi.mocked(prisma.payment.findUnique).mockResolvedValue({
+      id: "barter-ar",
+      amount: { toNumber: () => 100 },
+      method: "Barter",
+      barterSettlementId: "settlement-1",
+      barterLeg: "AR_OFFSET",
+    } as never);
+
+    const outcome = await AutoJournalService.ensureDocumentJournal(
+      "SALES_PAYMENT",
+      "barter-ar",
+    );
+
+    expect(outcome).toEqual({
+      action: "skipped",
+      reason: "barter_bundle_verified",
+    });
+    expect(AccountingService.createJournalEntry).not.toHaveBeenCalled();
+  });
+
+  it("invalid AP cash bundle cannot be repaired independently", async () => {
+    const { collectBarterHealth } = await import('../barter-health-service');
+    vi.mocked(collectBarterHealth).mockResolvedValueOnce({ scanned: 1, issues: [{ id: 's', settlementNumber: 'BRT', reason: 'CASH_JOURNAL_MISSING' }], truncated: false, nextCursor: null });
+    vi.mocked(prisma.payment.findUnique).mockResolvedValue({ barterSettlementId: 's', barterLeg: 'AP_CASH', method: 'Cash' } as never);
+    expect(await AutoJournalService.ensureDocumentJournal('PURCHASE_PAYMENT', 'cash-leg')).toEqual({ action: 'skipped', reason: 'barter_bundle_invalid' });
+    expect(AccountingService.createJournalEntry).not.toHaveBeenCalled();
+  });
+
+  it("orphan barter payment is never repaired as a bank receipt", async () => {
+    vi.mocked(prisma.payment.findUnique).mockResolvedValue({
+      id: "orphan",
+      amount: { toNumber: () => 100 },
+      method: "Barter",
+      barterSettlementId: null,
+      barterLeg: null,
+    } as never);
+
+    const outcome = await AutoJournalService.ensureDocumentJournal(
+      "SALES_PAYMENT",
+      "orphan",
+    );
+
+    expect(outcome).toEqual({ action: "skipped", reason: "orphan_barter_payment" });
   });
 
   it("zero-amount payment → skipped, no journal", async () => {

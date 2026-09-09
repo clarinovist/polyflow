@@ -164,6 +164,31 @@ describe('deletePayment — pembersihan pointer remittance', () => {
         ]);
     });
 
+    it('menolak penghapusan satu kaki paket barter', async () => {
+        tx.payment.findUnique.mockResolvedValue({
+            id: 'pay-barter',
+            barterSettlementId: 'settlement-1',
+            amount: 500,
+            invoiceId: 'inv-1',
+            invoice: {
+                id: 'inv-1',
+                paidAmount: 500,
+                totalAmount: 1000,
+                dueDate: null,
+            },
+            purchaseInvoiceId: null,
+            purchaseInvoice: null,
+        });
+
+        const res = await deletePayment('pay-barter');
+
+        expect(res).toMatchObject({
+            success: false,
+            code: 'BARTER_PAYMENT_DELETE_FORBIDDEN',
+        });
+        expect(tx.payment.delete).not.toHaveBeenCalled();
+    });
+
     it('payment pembelian juga membersihkan pointer PurchaseRemittanceItem', async () => {
         tx.payment.findUnique.mockResolvedValue({
             id: 'pay-2',

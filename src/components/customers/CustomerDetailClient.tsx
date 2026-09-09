@@ -29,6 +29,10 @@ import { CustomerDeliveriesTab } from './360/CustomerDeliveriesTab';
 import { CustomerQuotationsTab } from './360/CustomerQuotationsTab';
 import { CustomerVisitsTab } from './360/CustomerVisitsTab';
 import { CustomerAnalyticsTab } from './360/CustomerAnalyticsTab';
+import {
+    CustomerBarterSettings,
+    type CustomerBarterSettingsValue,
+} from './CustomerBarterSettings';
 
 import {
     Customer,
@@ -97,6 +101,7 @@ interface CustomerDetailClientProps {
     salesOrders: SerializedSalesOrder[];
     customerProductPrices: SerializedCustomerProductPrice[];
     products: SerializedProductVariant[];
+    barterSettings?: CustomerBarterSettingsValue;
 }
 
 export function CustomerDetailClient({
@@ -104,6 +109,7 @@ export function CustomerDetailClient({
     salesOrders,
     customerProductPrices,
     products,
+    barterSettings,
 }: CustomerDetailClientProps) {
     return (
         <div className="p-6 space-y-6">
@@ -398,6 +404,12 @@ export function CustomerDetailClient({
                             </CardContent>
                         </Card>
                     </div>
+                    {barterSettings && (
+                        <CustomerBarterSettings
+                            customerId={customer.id}
+                            initialValue={barterSettings}
+                        />
+                    )}
                 </TabsContent>
 
                 <TabsContent value="history" className="mt-4">
