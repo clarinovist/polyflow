@@ -14,7 +14,6 @@ import {
     CreditCard,
     Mail,
     Package,
-    DollarSign,
     Clock,
     Star,
 } from 'lucide-react';
@@ -30,6 +29,7 @@ import Link from 'next/link';
 import { LinkProductDialog } from '@/components/purchasing/suppliers/LinkProductDialog';
 import { UnlinkProductButton } from '@/components/purchasing/suppliers/UnlinkProductButton';
 import { formLabels } from '@/lib/labels';
+import { formatRupiah } from '@/lib/utils/utils';
 import { SupplierOrdersTab } from './360/SupplierOrdersTab';
 import { SupplierReturnsTab } from './360/SupplierReturnsTab';
 import { SupplierPaymentsTab } from './360/SupplierPaymentsTab';
@@ -371,13 +371,11 @@ export function Supplier360Tabs({
                                                         }
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="flex items-center gap-1">
-                                                            <DollarSign className="h-3 w-3 text-muted-foreground" />
-                                                            {(
+                                                        <div className="whitespace-nowrap tabular-nums">
+                                                            {formatRupiah(
                                                                 sp.unitPrice ??
-                                                                sp.lastReceiptUnitCost
-                                                            )?.toString() ??
-                                                                '-'}
+                                                                    sp.lastReceiptUnitCost,
+                                                            )}
                                                         </div>
                                                         {sp.unitPrice == null &&
                                                             sp.hasReceiptHistory && (
