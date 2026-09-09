@@ -23,10 +23,10 @@ import {
     PartnerDetailLayout,
     PartnerProfileSection,
     PartnerProfileField,
+    PartnerDisclosure,
 } from '@/components/shared/partner-detail/PartnerDetailLayout';
 import {
     PartnerDetailTabs,
-    PartnerOverviewLinks,
     type PartnerDetailTabGroup,
 } from '@/components/shared/partner-detail/PartnerDetailTabs';
 import { usePartnerDetailTab } from '@/components/shared/partner-detail/use-partner-detail-tab';
@@ -110,9 +110,6 @@ export function Supplier360Tabs({
             </PartnerProfileSection>
             <PartnerProfileSection title="Ketentuan bisnis">
                 <dl className="space-y-3">
-                    <PartnerProfileField label="NPWP">
-                        {supplier.taxId || '-'}
-                    </PartnerProfileField>
                     <PartnerProfileField label="Termin">
                         {supplier.paymentTermDays
                             ? `${supplier.paymentTermDays} Hari`
@@ -120,27 +117,34 @@ export function Supplier360Tabs({
                     </PartnerProfileField>
                 </dl>
             </PartnerProfileSection>
-            <PartnerProfileSection title="Rekening bank">
-                {supplier.bankName ? (
-                    <div className="space-y-1">
-                        <p>{supplier.bankName}</p>
-                        {supplier.bankAccount && (
-                            <p className="font-mono text-xs text-muted-foreground">
-                                {supplier.bankAccount}
-                            </p>
-                        )}
-                    </div>
-                ) : (
-                    <p className="text-muted-foreground">Belum diisi</p>
-                )}
-            </PartnerProfileSection>
-            {supplier.notes && (
-                <PartnerProfileSection title="Catatan">
-                    <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
-                        {supplier.notes}
-                    </p>
+            <PartnerDisclosure title="Detail lainnya">
+                <dl className="pt-1">
+                    <PartnerProfileField label="NPWP">
+                        {supplier.taxId || '-'}
+                    </PartnerProfileField>
+                </dl>
+                <PartnerProfileSection title="Rekening bank">
+                    {supplier.bankName ? (
+                        <div className="space-y-1">
+                            <p>{supplier.bankName}</p>
+                            {supplier.bankAccount && (
+                                <p className="font-mono text-xs text-muted-foreground">
+                                    {supplier.bankAccount}
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-muted-foreground">Belum diisi</p>
+                    )}
                 </PartnerProfileSection>
-            )}
+                {supplier.notes && (
+                    <PartnerProfileSection title="Catatan">
+                        <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                            {supplier.notes}
+                        </p>
+                    </PartnerProfileSection>
+                )}
+            </PartnerDisclosure>
         </>
     );
 
@@ -158,42 +162,9 @@ export function Supplier360Tabs({
                 value={activeTab}
                 onValueChange={selectTab}
             >
-                <div className="min-w-0 space-y-6">
+                <div className="min-w-0 space-y-4">
                     {activeTab === 'overview' && (
                         <>
-                            <div>
-                                <h2 className="text-lg font-semibold tracking-tight">
-                                    Sekilas hubungan bisnis
-                                </h2>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    Produk, riwayat pembelian, dan akses ke
-                                    tagihan supplier.
-                                </p>
-                            </div>
-                            <PartnerOverviewLinks
-                                onSelect={selectTab}
-                                items={[
-                                    {
-                                        value: 'products',
-                                        label: 'Produk / Varian',
-                                        count: supplierProducts.length,
-                                        description:
-                                            'Gabungan tautan manual dan riwayat barang masuk.',
-                                    },
-                                    {
-                                        value: 'orders',
-                                        label: 'Pesanan pembelian',
-                                        description:
-                                            'Lihat dokumen dan status penerimaan barang.',
-                                    },
-                                    {
-                                        value: 'payments',
-                                        label: 'Utang supplier',
-                                        description:
-                                            'Periksa tagihan dan pembayaran di Keuangan.',
-                                    },
-                                ]}
-                            />
                             <SupplierOrdersTab supplierId={supplier.id} />
                             <SupplierAnalyticsTab supplierId={supplier.id} />
                         </>

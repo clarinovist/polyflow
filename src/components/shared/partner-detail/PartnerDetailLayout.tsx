@@ -18,7 +18,7 @@ interface PartnerDetailLayoutProps {
     children: ReactNode;
 }
 
-/** Presentation only: caller retains ownership of data, permissions and actions. */
+/** Presentation only: portal layout owns outer padding; caller owns data/access. */
 export function PartnerDetailLayout({
     kind,
     name,
@@ -31,75 +31,51 @@ export function PartnerDetailLayout({
 }: PartnerDetailLayoutProps) {
     const [profileOpen, setProfileOpen] = useState(false);
     const profileId = useId();
-    const initials = name
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((part) => part[0])
-        .join('');
 
     return (
-        <div className="min-w-0 space-y-6 p-4 md:p-6 lg:p-8">
-            <Link
-                href={backHref}
-                className="inline-flex min-h-9 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-                <ChevronLeft className="size-4" aria-hidden="true" />
-                Daftar {kind.toLowerCase()}
-            </Link>
-            <header className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span
-                        aria-hidden="true"
-                        className={cn(
-                            'flex size-12 shrink-0 items-center justify-center rounded-xl border text-lg font-semibold',
-                            kind === 'Supplier'
-                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200'
-                                : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200',
-                        )}
+        <div className="min-w-0 space-y-4">
+            <header className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Link
+                        href={backHref}
+                        aria-label={`Daftar ${kind.toLowerCase()}`}
+                        title={`Daftar ${kind.toLowerCase()}`}
+                        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                     >
-                        {initials}
-                    </span>
-                    <div className="min-w-0">
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                            Detail {kind}
-                        </p>
-                        <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere md:text-3xl">
+                        <ChevronLeft className="size-5" aria-hidden="true" />
+                    </Link>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                        <h1 className="text-xl font-semibold tracking-tight wrap-anywhere md:text-2xl">
                             {name}
                         </h1>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span className="wrap-anywhere">
-                                {code || 'Tanpa Kode'}
-                            </span>
-                            <Badge
-                                variant="outline"
-                                className={
-                                    isActive
-                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200'
-                                        : ''
-                                }
-                            >
-                                {isActive ? 'Aktif' : 'Nonaktif'}
-                            </Badge>
-                        </div>
+                        <span className="text-xs text-muted-foreground wrap-anywhere">
+                            {code || 'Tanpa Kode'}
+                        </span>
+                        <Badge
+                            variant="outline"
+                            className={
+                                isActive
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200'
+                                    : ''
+                            }
+                        >
+                            {isActive ? 'Aktif' : 'Nonaktif'}
+                        </Badge>
                     </div>
                 </div>
                 {actions && <div className="shrink-0">{actions}</div>}
             </header>
-            <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[264px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[264px_minmax(0,1fr)]">
                 <aside
                     aria-label={`Profil ${kind.toLowerCase()}`}
                     className="min-w-0 overflow-hidden rounded-xl border bg-card"
                 >
-                    <h2 className="hidden border-b px-5 py-4 text-sm font-semibold lg:block">
-                        Profil {kind.toLowerCase()}
-                    </h2>
                     <Button
                         type="button"
                         variant="ghost"
                         aria-expanded={profileOpen}
                         aria-controls={profileId}
-                        className="h-auto min-h-12 w-full justify-between rounded-none px-5 py-4 lg:hidden"
+                        className="h-auto min-h-11 w-full justify-between rounded-none px-4 py-3 lg:hidden"
                         onClick={() => setProfileOpen(!profileOpen)}
                     >
                         Profil {kind.toLowerCase()}
@@ -114,7 +90,7 @@ export function PartnerDetailLayout({
                     <div
                         id={profileId}
                         className={cn(
-                            'divide-y px-5 lg:block',
+                            'divide-y px-4 lg:block',
                             !profileOpen && 'hidden',
                         )}
                     >
@@ -135,10 +111,10 @@ export function PartnerProfileSection({
     children: ReactNode;
 }) {
     return (
-        <section className="space-y-3 py-5 text-sm wrap-anywhere">
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <section className="space-y-2 py-3 text-sm wrap-anywhere">
+            <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 {title}
-            </h3>
+            </h2>
             {children}
         </section>
     );
@@ -152,9 +128,33 @@ export function PartnerProfileField({
     children: ReactNode;
 }) {
     return (
-        <div className="space-y-1">
+        <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-baseline gap-2">
             <dt className="text-xs text-muted-foreground">{label}</dt>
             <dd className="m-0 text-sm wrap-anywhere">{children}</dd>
         </div>
+    );
+}
+
+/** Native disclosure keeps child form state mounted when closed. */
+export function PartnerDisclosure({
+    title,
+    children,
+    className,
+}: {
+    title: string;
+    children: ReactNode;
+    className?: string;
+}) {
+    return (
+        <details className={cn('group/disclosure min-w-0', className)}>
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md py-2 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                {title}
+                <ChevronDown
+                    aria-hidden="true"
+                    className="size-4 shrink-0 group-open/disclosure:rotate-180"
+                />
+            </summary>
+            <div className="min-w-0 pb-3">{children}</div>
+        </details>
     );
 }

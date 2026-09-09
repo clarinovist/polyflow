@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ImageIcon, Navigation, Pencil } from 'lucide-react';
+import { Navigation, Pencil } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
 import { CustomerDialog } from './CustomerDialog';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
@@ -21,10 +21,10 @@ import {
     PartnerDetailLayout,
     PartnerProfileSection,
     PartnerProfileField,
+    PartnerDisclosure,
 } from '@/components/shared/partner-detail/PartnerDetailLayout';
 import {
     PartnerDetailTabs,
-    PartnerOverviewLinks,
     type PartnerDetailTabGroup,
 } from '@/components/shared/partner-detail/PartnerDetailTabs';
 import { usePartnerDetailTab } from '@/components/shared/partner-detail/use-partner-detail-tab';
@@ -142,6 +142,10 @@ export function CustomerDetailClient({
     barterSettings,
 }: CustomerDetailClientProps) {
     const [activeTab, selectTab] = usePartnerDetailTab(groups);
+    const sameAddress =
+        Boolean(customer.shippingAddress?.trim()) &&
+        customer.shippingAddress?.trim() === customer.billingAddress?.trim();
+    const primaryAddress = customer.shippingAddress || customer.billingAddress;
     const profile = (
         <>
             <PartnerProfileSection title="Kontak">
@@ -154,71 +158,93 @@ export function CustomerDetailClient({
                     </PartnerProfileField>
                 </dl>
             </PartnerProfileSection>
-            <PartnerProfileSection title="Alamat & lokasi">
-                {customer.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                        src={customer.photoUrl}
-                        alt={`Foto toko ${customer.name}`}
-                        className="max-h-40 w-full rounded-lg border object-cover"
-                    />
-                ) : (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="flex size-9 items-center justify-center rounded-md border border-dashed">
-                            <ImageIcon className="size-4" aria-hidden="true" />
-                        </span>
-                        Belum ada foto
-                    </div>
+            <PartnerProfileSection
+                title={
+                    sameAddress
+                        ? 'Alamat kirim & tagihan'
+                        : customer.shippingAddress
+                          ? 'Alamat kirim'
+                          : 'Alamat tagihan'
+                }
+            >
+                <p className="whitespace-pre-line text-sm leading-relaxed">
+                    {primaryAddress || '-'}
+                </p>
+                {sameAddress && (
+                    <p className="text-xs text-muted-foreground">
+                        Alamat tagihan sama dengan alamat kirim.
+                    </p>
                 )}
-                <dl className="space-y-3">
-                    {(customer.province ||
-                        customer.city ||
-                        customer.district ||
-                        customer.village) && (
-                        <PartnerProfileField label="Alamat terstruktur">
-                            {[
-                                customer.village,
-                                customer.district,
-                                customer.city,
-                                customer.province,
-                            ]
-                                .filter(Boolean)
-                                .join(', ')}
-                        </PartnerProfileField>
+                <PartnerDisclosure title="Detail alamat & lokasi">
+                    <dl className="space-y-3">
+                        {(customer.province ||
+                            customer.city ||
+                            customer.district ||
+                            customer.village) && (
+                            <PartnerProfileField label="Alamat terstruktur">
+                                {[
+                                    customer.village,
+                                    customer.district,
+                                    customer.city,
+                                    customer.province,
+                                ]
+                                    .filter(Boolean)
+                                    .join(', ')}
+                            </PartnerProfileField>
+                        )}
+                        {!sameAddress && (
+                            <PartnerProfileField
+                                label={
+                                    customer.shippingAddress
+                                        ? 'Alamat tagihan'
+                                        : 'Alamat kirim'
+                                }
+                            >
+                                {(customer.shippingAddress
+                                    ? customer.billingAddress
+                                    : customer.shippingAddress) || '-'}
+                            </PartnerProfileField>
+                        )}
+                    </dl>
+                    {customer.latitude && customer.longitude ? (
+                        <div className="space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                                Koordinat
+                            </p>
+                            <p className="font-mono text-xs">
+                                {Number(customer.latitude).toFixed(6)},{' '}
+                                {Number(customer.longitude).toFixed(6)}
+                            </p>
+                            <a
+                                href={`https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex min-h-9 items-center gap-1 text-xs text-blue-700 hover:underline dark:text-blue-300"
+                            >
+                                <Navigation
+                                    className="size-3"
+                                    aria-hidden="true"
+                                />{' '}
+                                Navigasi
+                            </a>
+                        </div>
+                    ) : null}
+                    {customer.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            src={customer.photoUrl}
+                            alt={`Foto toko ${customer.name}`}
+                            className="mt-3 max-h-40 w-full rounded-lg border object-cover"
+                        />
+                    ) : (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                            Belum ada foto
+                        </p>
                     )}
-                    <PartnerProfileField label="Alamat tagihan">
-                        {customer.billingAddress || '-'}
-                    </PartnerProfileField>
-                    <PartnerProfileField label="Alamat kirim">
-                        {customer.shippingAddress || '-'}
-                    </PartnerProfileField>
-                </dl>
-                {customer.latitude && customer.longitude ? (
-                    <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground">
-                            Koordinat
-                        </p>
-                        <p className="font-mono text-xs">
-                            {Number(customer.latitude).toFixed(6)},{' '}
-                            {Number(customer.longitude).toFixed(6)}
-                        </p>
-                        <a
-                            href={`https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex min-h-9 items-center gap-1 text-xs text-blue-700 hover:underline dark:text-blue-300"
-                        >
-                            <Navigation className="size-3" aria-hidden="true" />{' '}
-                            Navigasi
-                        </a>
-                    </div>
-                ) : null}
+                </PartnerDisclosure>
             </PartnerProfileSection>
             <PartnerProfileSection title="Ketentuan bisnis">
                 <dl className="space-y-3">
-                    <PartnerProfileField label="NPWP">
-                        {customer.taxId || '-'}
-                    </PartnerProfileField>
                     <PartnerProfileField label="Termin">
                         {customer.paymentTermDays
                             ? `${customer.paymentTermDays} Hari`
@@ -236,13 +262,20 @@ export function CustomerDetailClient({
                     </PartnerProfileField>
                 </dl>
             </PartnerProfileSection>
-            {customer.notes && (
-                <PartnerProfileSection title="Catatan">
-                    <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
-                        {customer.notes}
-                    </p>
-                </PartnerProfileSection>
-            )}
+            <PartnerDisclosure title="Detail lainnya">
+                <dl>
+                    <PartnerProfileField label="NPWP">
+                        {customer.taxId || '-'}
+                    </PartnerProfileField>
+                </dl>
+                {customer.notes && (
+                    <PartnerProfileSection title="Catatan">
+                        <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                            {customer.notes}
+                        </p>
+                    </PartnerProfileSection>
+                )}
+            </PartnerDisclosure>
         </>
     );
     const orderHistory = (
@@ -298,41 +331,9 @@ export function CustomerDetailClient({
                 value={activeTab}
                 onValueChange={selectTab}
             >
-                <div className="min-w-0 space-y-6">
+                <div className="min-w-0 space-y-4">
                     {activeTab === 'overview' && (
                         <>
-                            <div>
-                                <h2 className="text-lg font-semibold tracking-tight">
-                                    Sekilas hubungan bisnis
-                                </h2>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    Riwayat penjualan, harga khusus, dan akses
-                                    ke invoice customer.
-                                </p>
-                            </div>
-                            <PartnerOverviewLinks
-                                onSelect={selectTab}
-                                items={[
-                                    {
-                                        value: 'history',
-                                        label: 'Pesanan penjualan',
-                                        description:
-                                            'Lihat dokumen dan status pesanan customer.',
-                                    },
-                                    {
-                                        value: 'invoices',
-                                        label: 'Invoice customer',
-                                        description:
-                                            'Periksa tagihan melalui bagian Keuangan.',
-                                    },
-                                    {
-                                        value: 'prices',
-                                        label: 'Harga produk',
-                                        description:
-                                            'Kelola harga khusus per varian produk.',
-                                    },
-                                ]}
-                            />
                             {orderHistory}
                             <CustomerAnalyticsTab customerId={customer.id} />
                         </>
@@ -342,10 +343,15 @@ export function CustomerDetailClient({
                         <>
                             <CustomerInvoicesTab customerId={customer.id} />
                             {barterSettings && (
-                                <CustomerBarterSettings
-                                    customerId={customer.id}
-                                    initialValue={barterSettings}
-                                />
+                                <PartnerDisclosure
+                                    title="Pengaturan barter piutang–utang"
+                                    className="rounded-xl border bg-card px-4"
+                                >
+                                    <CustomerBarterSettings
+                                        customerId={customer.id}
+                                        initialValue={barterSettings}
+                                    />
+                                </PartnerDisclosure>
                             )}
                         </>
                     )}

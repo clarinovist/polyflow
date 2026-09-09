@@ -61,6 +61,8 @@ describe('customer detail workspace', () => {
         expect(toggle.getAttribute('aria-expanded')).toBe('false');
         fireEvent.click(toggle);
         expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        fireEvent.click(screen.getByText('Detail alamat & lokasi'));
+        fireEvent.click(screen.getByText('Detail lainnya'));
         const profile = screen.getByRole('complementary', { name: 'Profil customer' });
         for (const text of ['customer@example.test', '123', 'Alamat tagihan contoh', 'Alamat kirim contoh', 'TAX-1', '14 Hari', 'Rp 500.000', '2%', 'Catatan customer', 'Belum ada foto']) {
             expect(within(profile).getByText(text)).toBeDefined();
@@ -95,7 +97,14 @@ describe('customer detail workspace', () => {
         expect(barter).not.toHaveBeenCalled();
         choose('Keuangan');
         expect(barter).toHaveBeenCalledWith({ customerId: customer.id, initialValue: settings });
+        const summary = screen.getByText('Pengaturan barter piutang–utang');
+        const disclosure = summary.closest('details')!;
+        expect(disclosure.open).toBe(false);
+        fireEvent.click(summary);
+        expect(disclosure.open).toBe(true);
         expect(screen.getByText('Barter content')).toBeDefined();
+        fireEvent.click(summary);
+        expect(disclosure.open).toBe(false);
     });
 
     it('does not mount barter without the authorized server prop', () => {
@@ -104,9 +113,12 @@ describe('customer detail workspace', () => {
         expect(screen.queryByText('Barter content')).toBeNull();
     });
 
-    it('passes existing product arrays to the manager through the overview shortcut', () => {
+    it('uses the existing tab instead of duplicating overview shortcut cards', () => {
         show();
-        fireEvent.click(screen.getByRole('button', { name: /Harga produk/ }));
+        expect(screen.queryByText('Sekilas hubungan bisnis')).toBeNull();
+        expect(screen.queryByRole('button', { name: /Harga produk|Invoice customer|Pesanan penjualan/i })).toBeNull();
+        expect(screen.queryByText('Detail Customer')).toBeNull();
+        choose('Harga Produk');
         expect(prices).toHaveBeenCalledWith({ customerId: customer.id, prices: baseProps.customerProductPrices, products: baseProps.products });
         expect(window.location.search).toBe('?tab=prices');
     });
@@ -124,13 +136,37 @@ describe('customer detail workspace', () => {
         expect(screen.getAllByText('Belum diisi')).toHaveLength(2);
         expect(screen.queryByRole('link', { name: 'Navigasi' })).toBeNull();
         expect(screen.queryByText('Catatan')).toBeNull();
-        expect(screen.getByText('Sekilas hubungan bisnis')).toBeDefined();
+        expect(screen.getByText('Order content')).toBeDefined();
+        expect(screen.queryByText('Alamat tagihan sama dengan alamat kirim.')).toBeNull();
         expect(edit.mock.lastCall?.[0].initialData).toMatchObject({ creditLimit: null, discountPercent: null, latitude: null, longitude: null });
+    });
+
+    it('shows identical nonempty addresses once without changing the edit payload', () => {
+        const value = { ...customer, billingAddress: 'Alamat sama', shippingAddress: 'Alamat sama' };
+        show('overview', { customer: value });
+        fireEvent.click(screen.getByRole('button', { name: 'Profil customer' }));
+        fireEvent.click(screen.getByText('Detail alamat & lokasi'));
+        expect(screen.getAllByText('Alamat sama')).toHaveLength(1);
+        expect(screen.getByText('Alamat tagihan sama dengan alamat kirim.')).toBeDefined();
+        expect(edit.mock.lastCall?.[0].initialData).toEqual(value);
+    });
+
+    it.each([
+        [null, 'Alamat tagihan saja'], ['Alamat kirim saja', null], ['', ''],
+        ['Alamat A', 'Alamat B'],
+    ])('does not conflate different or missing addresses (%s, %s)', (shippingAddress, billingAddress) => {
+        show('overview', { customer: { ...customer, shippingAddress, billingAddress } });
+        fireEvent.click(screen.getByRole('button', { name: 'Profil customer' }));
+        fireEvent.click(screen.getByText('Detail alamat & lokasi'));
+        expect(screen.queryByText('Alamat tagihan sama dengan alamat kirim.')).toBeNull();
+        if (shippingAddress) expect(screen.getByText(shippingAddress)).toBeDefined();
+        if (billingAddress) expect(screen.getByText(billingAddress)).toBeDefined();
     });
 
     it('renders an existing photo with meaningful alt text', () => {
         show('overview', { customer: { ...customer, photoUrl: '/store-test.png' } });
         fireEvent.click(screen.getByRole('button', { name: 'Profil customer' }));
+        fireEvent.click(screen.getByText('Detail alamat & lokasi'));
         expect(screen.getByRole('img', { name: 'Foto toko Customer Contoh' }).getAttribute('src')).toBe('/store-test.png');
         expect(screen.queryByText('Belum ada foto')).toBeNull();
     });
