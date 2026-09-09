@@ -1,268 +1,151 @@
 # Workflow Rules
 
-## Workflow Utama — WAJIB (Plan → Fix → Gap → Verify → Build)
+## Prinsip & Sumber Aturan
 
-Urutan ini JANGAN dibalik. Setiap ada masalah model / feature / bug:
+**Verifikasi mengikuti risiko, bukan jumlah file/baris.** Kurangi pekerjaan berulang,
+bukan perlindungan data. File ini adalah sumber kebijakan workflow; panduan modul
+menambah invariant domain, bukan menduplikasi gate lokal.
 
-### 1. PLAN — simpan di `docs/plan/`
+- Navigasi modul: `.agents/AGENTS.md`, lalu baca `AGENTS.md` pada area yang disentuh.
+- Detail coverage, worker, hooks, Node, dan pelajaran insiden:
+  `docs/development/agent-workflow-reference.md` — baca bagian yang relevan saja.
+- Jangan mengubah threshold, melewati guard, atau menurunkan jalur hanya agar cepat/hijau.
 
-- File: `docs/plan/YYYY-MM-DD-<slug>.md` (contoh: `docs/plan/2026-07-26-fix-packing-karung-hpp.md`)
-- Isi minimal: konteks masalah, root cause, scope file yang kena, rencana fix, residual gap checklist, test scope.
-- Template: `docs/plan/_TEMPLATE.md` (satu-satunya file di folder ini yang di-commit)
-- Jika model ada masalah: tulis dulu plan, jangan langsung edit code.
-- Plan harus ada sebelum mulai fix.
-- **`docs/plan/` di-gitignore** — plan rutin memuat detail internal (alamat host,
-  email akun, nama tenant). Repo ini private per 2026-08-24, tapi "private" bukan
-  "aman": akses kolaborator, fork internal, dan integrasi CI tetap bisa membacanya,
-  dan status private bisa berubah dengan satu klik. Jadi plan tetap lokal: jangan
-  coba `git add` isinya, dan jangan berasumsi plan lama ada di clone baru.
+## Workflow Berbasis Risiko — Ringan / Normal / Kritis
 
-### 2. FIX — jalankan sesuai plan
+Sebelum edit, sebutkan **jalur + alasan + acceptance criteria + verifikasi** secara singkat.
+Jika scope/risiko bertambah, naikkan jalur dan perbarui plan sebelum melanjutkan.
+Jika dampak belum jelas, investigasi dulu; jangan menganggapnya ringan.
 
-- Implementasi fix sesuai plan.
-- Setelah edit massal 5+ file: wajib `git status --short` + `git diff --stat` (lihat Batch Edit Safety).
+| Jalur | Kriteria / contoh | Plan | Verifikasi lokal sebelum commit |
+| --- | --- | --- | --- |
+| **Ringan** | Dokumentasi, typo, styling lokal tanpa perubahan perilaku, akses, data, atau kontrak | Cukup di chat; file plan tidak wajib | Review diff + pemeriksaan relevan. Docs: link/guard dokumentasi; UI: lint file berubah + cek visual. Test/typecheck bila terdampak; full coverage dan build lokal tidak wajib. |
+| **Normal** | Bug logika terbatas, komponen, API nonkritis dengan dampak yang dipahami | Plan ringkas di `docs/plan/`: masalah/dugaan sebab, scope, acceptance criteria, test | `npm run lint`, regression/scoped test, `npx tsc --noEmit`. Coverage/build lokal mengikuti trigger di bawah. |
+| **Kritis** | HPP, stok, jurnal, pembayaran/payroll, auth/permission, isolasi tenant, transaksi/audit kritis, schema/migration/data patch, dependency/runtime atau konfigurasi build/deploy | Plan lengkap dari `docs/plan/_TEMPLATE.md`, termasuk failure path dan rollback | Lint + test scope/branch kritis + full coverage + typecheck + build lokal; tambah verifikasi domain/migration sesuai perubahan. |
 
-### 3. RESIDUAL GAP CHECK — loop sampai 0
+**Satu baris filter tenant tetap Kritis.** Label di halaman keuangan bisa Ringan bila
+benar-benar hanya tampilan; perubahan rumus, satuan, atau makna operasional bukan typo.
+Refactor shared/cross-module bukan Ringan: petakan caller dan naikkan ke Kritis bila
+menyentuh invariant kritis. UI yang mengubah alur/interaksi/akses minimal Normal.
 
-- Setelah fix selesai, cek lagi apa yang masih kurang / tidak sesuai plan.
-- Buat checklist gap di plan file bagian `## Residual Gap`.
-- Fix gap → cek lagi → ulang sampai `Residual Gap: 0`.
-- Gap 0 baru boleh lanjut ke verify.
+### 1. Plan → Fix
 
-### 4. VERIFY — Lint + Test Scope + Coverage
+- Normal/Kritis: buat `docs/plan/YYYY-MM-DD-<slug>.md` **sebelum fix**. Dugaan root cause
+  boleh belum final; perbarui sesuai temuan, jangan mengarang kepastian.
+- Plan rutin lokal dan gitignored; hanya `_TEMPLATE.md` yang ditujukan untuk di-commit.
+  Jangan stage plan atau memasukkan data tenant/credential ke dokumen tracked.
+- Implementasikan hanya scope yang disepakati. Tidak perlu delegasi untuk edit kecil.
 
-- **Lint**: `npm run lint` — wajib lolos. Jika gagal, fix dulu.
-- **Test Scope**: `npm run test` atau scoped test sesuai area yang diubah (contoh: `npm run test -- packing`, `vitest run src/modules/foo`).
-    - Pilih scope paling relevan dengan perubahan, jangan asal full test kalau scope kecil — tapi minimal scope tersebut harus lolos.
-    - Jika ada test terkait di `docs/plan`, jalankan itu.
-    - Semua test wajib berada di dalam `src/`, memakai folder `__tests__`. Glob
-      `include` milik vitest hanya mencakup `src/`, jadi test di luar itu tidak
-      pernah dijalankan — direktori `tests/` di root sempat mati diam-diam
-      selama 5 bulan karena hal ini.
-- **Coverage**: `npm run test:coverage` — wajib lolos sebelum push. Config di `vitest.config.ts` → `test.coverage.thresholds`.
-    - Threshold `71/63/75/72` (Stmts/Branch/Funcs/Lines) itu **ratchet guard**, target 80%. **Jangan turunkan hanya untuk hijauin CI** — turunin = hutang coverage naik. Kalau fail, tambah test dulu, jangan sentuh config.
-    - Provider `v8` tanpa `include` broad sengaja (hanya surface yang ke-exercise test). Konsekuensinya: menambah test untuk modul yang tadinya tidak tersentuh justru bisa menurunkan rasio global — anggarkan test ekstra sebelum mulai.
-    - **Setiap service/action baru ≥100 baris** wajib ada `__tests__/*.test.ts` yang cover happy path + branch utama sebelum PR. Jika tidak, coverage global drop (gate di job `test` → `npx vitest run --coverage`).
-    - **Jika CI gagal coverage**: `npm run test:coverage` lokal, lihat file di paling bawah tabel (Lowest %), tambah test untuk uncovered lines yang di-list di kolom paling kanan. Commit coverage fix sebelum push.
-    - **Boleh exclude** hanya untuk: `*.d.ts`, `src/lib/schemas/**`, `src/generated/**`, `**/*.test.ts` (sudah di config). Jangan exclude service prod untuk boost ratio.
-    - **When stuck**: tulis plan di `docs/plan/` dulu — scope file yang bikin coverage drop, rencana test, residual gap — lalu fix test, bukan config.
-    - Riwayat: aturan mitigasi ini ditambahkan 2026-07-27 setelah CI berulang kali gagal di gate coverage.
-- **Typecheck**: `npx tsc --noEmit` — wajib 0 error. Error di file test tetap dihitung; vitest lolos bukan berarti typecheck lolos.
-- Jika lint/test/coverage gagal: balik ke step 2 (FIX), update residual gap.
+### 2. Review Gap — terbatas acceptance criteria
 
-### 5. BUILD — terakhir, dengan koordinasi terminal
+- Review diff aktual dan cek acceptance criteria, regression risk, serta guardrail.
+- **Residual Gap: 0** berarti tidak ada gap terhadap scope/acceptance criteria patch ini,
+  bukan semua masalah repo selesai. Ringan: cukup catatan di chat; lainnya: checklist plan.
+- Temuan di luar scope dicatat sebagai follow-up, bukan otomatis ikut diperbaiki.
+  Jika temuan memengaruhi keamanan/kebenaran patch, itu blocker: perluas plan/naikkan jalur.
+- Setelah gap implementasi 0, jalankan gate jalurnya. Gate gagal → fix → review ulang →
+  ulangi pemeriksaan terdampak. Jangan menyebut gagal/belum dijalankan sebagai lolos.
 
-- **Build**: `npm run build` — ini step paling terakhir setelah lint + test scope lolos + gap 0.
-- **Aturan build + terminal lain**:
-    - Jika ada aktivitas di terminal lain yang masih jalan (dev server, test watcher, migration, e2e, dsb), **JANGAN** langsung build.
-    - Tunggu sampai terminal lain idle / selesai, ATAU tunggu perintah eksplisit user ("build", "gas build", "ship", "push").
-    - Alasan: build berat (Next.js standalone), bisa konflik port / lock file / OOM kalau barengan.
-- Jika build gagal: fix → ulang lint + test scope → build lagi.
+### 3. Verify — secukupnya, hasilnya jelas
 
-### Batch Edit Safety
+- Pilih scoped test yang benar-benar mengeksekusi perubahan, misalnya
+  `npm run test -- <path-atau-filter>`. Test wajib di `src/**/__tests__/` dengan nama
+  `*.test.ts`, `*.test.tsx`, atau `*.spec.ts` sesuai discovery vitest. Bug logika perlu
+  regression test, bukan hanya test lama yang hijau.
+- Normal/Kritis: lint dan typecheck harus 0 error, termasuk file test.
+- **Full coverage lokal** (`npm run test:coverage`) wajib untuk Kritis; juga untuk Normal
+  bila menambah surface modul yang diuji, mengubah shared service dengan dampak luas,
+  atau memperbaiki kegagalan coverage CI. Normal lainnya boleh mengandalkan coverage CI.
+- Threshold **71/63/75/72** (Stmts/Branch/Funcs/Lines), target 80%, tetap dijaga CI.
+  Jangan menurunkan threshold atau mengecualikan production service demi ratio.
+- Service/action/lib baru ≥100 baris wajib test happy path + branch utama. Detail
+  perhitungan coverage dan langkah diagnosis ada di referensi workflow.
+- **Build lokal** (`npm run build`) wajib untuk Kritis dan perubahan Normal yang
+  memengaruhi routing, server/client boundary, static generation, atau integrasi Next.js.
+  Selain itu opsional; build image CI tetap wajib sebelum deploy.
+- Full coverage yang sudah mencakup scoped test tidak perlu didahului pengulangan suite
+  yang sama. Pemeriksaan independen boleh paralel jika resource aman.
+- Hasil verifikasi boleh dipakai ulang hanya jika input relevannya tidak berubah
+  (source/dependency/config/environment). Setelah patch lanjutan, ulangi gate terdampak;
+  perubahan shared/config atau dampak tidak jelas perlu scope lebih luas.
+- Ringkasan akhir: jalur, perubahan, pemeriksaan yang lolos/gagal/tidak dijalankan dan
+  alasannya. Jika environment menghalangi gate wajib, laporkan blocker, bukan silent skip.
 
-- Setelah edit massal 5+ file / write ulang component, **WAJIB** `git status --short` + `git diff --stat` sebelum next step.
-- Pernah terjadi file revert hilang: `contextual-help.tsx` + `production/orders/page.tsx` + `support/page.tsx` + `chat-panel.tsx` + `virtual-cs-service.ts` dll reverted setelah write ulang — karena codegraph index lag + tool overwrite.
-- Jika file hilang dari `git status`, re-apply via `Write` atau `Edit` dan verify lagi `grep -n "citedArticles\|prefillQuestion"` ada.
-- Begitu review diff selesai, **langsung `git add` scope sendiri**. Perubahan yang belum di-stage hilang permanen kalau ke-overwrite; yang sudah di-stage masih bisa dipulihkan lewat `git fsck --unreachable`.
+### 4. Build & Koordinasi Terminal
+
+- Bila build lokal diperlukan, jalankan **terakhir** setelah review gap dan gate lokal lain lolos.
+- Terminal lain aktif **bukan otomatis blocker**. Cek konflik output `.next`, perubahan
+  workspace, lock, resource/RAM, atau proses DB yang memengaruhi verifikasi.
+- Jika berkonflik, tunggu atau koordinasikan worktree/output terisolasi. Jangan mematikan
+  proses sesi lain tanpa izin. Perintah “build/ship/push” tidak mengizinkan merusak workspace lain.
+- Build gagal → fix → ulangi gate terdampak → build lagi.
+
+## Shared Workspace & Batch Edit Safety
+
+- Cek `git status --short` sebelum mulai; jangan menimpa/revert perubahan milik sesi lain.
+  Satu writer per file; pekerjaan paralel yang overlap memakai worktree terpisah.
+- Setelah edit massal 5+ file atau rewrite component: wajib `git status --short` +
+  `git diff --stat`. Review diff sebelum lanjut; jangan percaya summary worker saja.
+- Bila perubahan hilang, bandingkan diff/index/backup dulu. Jangan menulis ulang versi
+  lama secara buta atau menerapkan marker dari insiden yang tidak terkait.
+- Setelah review diff, **stage hanya scope sendiri** sebagai checkpoint. Jika file juga
+  memuat edit sesi lain, stage hunk milik sendiri saja atau koordinasikan pemisahannya.
+
+## Commit, Push & Deploy
+
+- **Commit** boleh setelah gap 0 dan gate lokal jalur tersebut lolos. Ringan/Normal yang
+  tidak memerlukan build lokal boleh commit tanpa build; staging bukan bukti verifikasi.
+- Pesan commit jelas; sebut plan bila ada (`plan: docs/plan/...`). Jika ada file sesi lain
+  di index, commit dengan pathspec scope sendiri, bukan `git commit -a`/commit seluruh index.
+  Pathspec mengambil isi working tree: file dengan kepemilikan campuran harus dipisahkan dulu.
+- **Jangan push tanpa perintah eksplisit user** (“push”, “ship”, “kirim”). Push ke `main`
+  memicu pipeline deploy otomatis; jelaskan dampak itu saat meminta approval.
+- **Gate CI tidak dikurangi:** deploy menunggu `test` (full coverage), `lint`, dan
+  `build-and-push` pada `.github/workflows/production.yml`. Artifact harus berasal dari
+  commit SHA yang lolos gate; jangan deploy image hanya karena berhasil dibangun.
+- Build produksi di CI → registry → VPS pull/restart. **JANGAN build di VPS.**
+- Operasi produksi, seeding, migration deploy, credential, commit/push/deploy tetap oleh
+  orchestrator sesuai approval, bukan worker. Untuk operasi produksi manual, minta izin
+  eksplisit; jangan menganggap persetujuan edit code sebagai izin mengubah database.
+- Prosedur dan topologi produksi ada di **`docs/ops/vps.md`** (lokal). Jika tidak ada,
+  berhenti dan minta detail, jangan menebak host/container/database.
+- Pascadeploy: cek health/log dan smoke test alur yang berubah. Jika menyentuh schema/data,
+  verifikasi migration serta invariant/isi tabel pada tenant target. CI green ≠ data benar.
+
+## Guardrail Data, Database & Runtime
+
+- Jangan commit secret, credential, data pelanggan, nama tenant/host, atau detail topology.
+  Simpan detail internal di `docs/plan/` atau `docs/ops/` (gitignored); repo private bukan
+  alasan melonggarkan privasi. Jangan kirim detail tersebut ke prompt/log worker.
+- Aktifkan hooks sekali per clone: `git config core.hooksPath .githooks`. Pertahankan
+  guard konsistensi AGENTS, data-file, dan tenant-name; detail serta sidecar lokal di referensi.
+- Setiap ubah `prisma/schema.prisma` wajib file SQL migration di
+  `prisma/migrations/YYYYMMDD_name/migration.sql`; `prisma generate` saja tidak cukup.
+  Jangan mengasumsikan satu DB: review SQL untuk multi-tenant dan tabel yang bisa kosong.
+- `.nvmrc` (dev/CI) dan `FROM node:<versi>-alpine` di `Dockerfile` (produksi) harus sama.
+  Workflow memakai `node-version-file: '.nvmrc'`, bukan versi hardcoded. Jika menaikkan Node,
+  ubah keduanya dan jalankan `bash scripts/check-node-version.sh`.
+- Pertahankan isolasi tenant, validasi permission, invariant keuangan/stok, dan transaksi atomic.
+- Status audit otomatis memakai `withStatusAudit` di `src/lib/core/prisma-audit-extension.ts`.
+  Tambah model berstatus ke `AUDITABLE_MODELS`. Extension memakai outer client, bukan `tx`:
+  **cancel/confirm/ship dan operasi kritis tetap wajib manual `logActivity` di dalam transaction**.
+  Detail actor context dan keterbatasan ada di `src/lib/AGENTS.md`; timeline UI memakai
+  `src/components/shared/EntityStatusTimeline.tsx`.
 
 ## Model & Delegasi
 
-Berlaku untuk sub-agent Claude Code, worker OpenCode, dan agent definition apa pun yang
-nanti dibuat di `.claude/agents/`.
-
-- **Default: warisi model sesi.** Jangan set `model:` di agent definition kecuali alasannya
-  bisa ditulis. Per 2026-08-07 belum ada satu pun file di `.claude/agents/` maupun
-  `~/.claude/agents/`, jadi semua sub-agent otomatis ikut model sesi — itu perilaku yang
-  diinginkan, bukan kelalaian.
-- **Worker yang menulis atau mengubah code: minimum Sonnet.** Termasuk migration SQL dan test.
-- **Haiku hanya untuk task mekanis murni yang bounded** — rename massal, format ulang,
-  ekstraksi list, pemetaan satu-satu yang polanya sudah ada di file lain. Hasilnya tetap
-  masuk residual gap loop + verify yang sama; tidak ada jalur cepat.
-- **Jangan turunkan tier untuk menghemat.** Biaya review orchestrator sama saja siapa pun
-  yang menulis. Satu putaran gap loop tambahan sudah menghapus seluruh selisih tier.
-  Penghematan nyata ada di `/clear` lebih sering dan menghindari `Read` file besar berulang
-  — cache-read yang mendominasi biaya, bukan output.
-- **Alasan spesifik repo ini**: kegagalan mahal di sini senyap, bukan crash — coverage drop
-  kecil baru ketahuan di CI, `AuditLog` ke-create pakai outer client bukan `tx`, migration
-  lolos di satu database tenant tapi bermasalah di tenant lain. Yang bikin worker aman adalah
-  kemampuan berhenti dan bilang "ini di luar scope yang saya paham" — dan itu yang paling
-  dulu hilang saat tier diturunkan.
-- **Belum diukur.** Per 2026-08-07 belum pernah ada worker Haiku di repo ini; poin di atas
-  penilaian dari bentuk masalah, bukan data. Kalau mau diuji: ambil satu task mekanis
-  bounded, jalankan di Haiku, catat berapa putaran gap loop sampai 0, lalu bandingkan.
-- **Konflik dengan rule global**: `~/.claude/rules/common/performance.md` (di luar repo)
-  menyarankan Haiku untuk "worker agents in multi-agent systems". Untuk repo ini, aturan di
-  file ini yang menang.
-
-## OpenCode Worker Orchestration (Primary Agent → OpenCode)
-
-Agent utama yang aktif (misalnya Codex atau Claude Code) boleh bertindak sebagai
-**orchestrator** dan memakai OpenCode lokal sebagai coding worker. Delegasi ini
-opsional, bukan pengganti workflow utama. Orchestrator tetap bertanggung jawab
-atas plan, pembatasan scope, review diff aktual, residual gap, verifikasi akhir,
-dan keputusan commit/push.
-
-### Kapan dipakai
-
-- Cocok untuk task implementasi yang jelas, bounded, dan cukup besar sehingga
-  eksplorasi/penulisan patch bisa dipisahkan dari review.
-- Untuk edit kecil atau one-line fix, kerjakan langsung; delegasi biasanya
-  menambah overhead.
-- Jangan menjalankan beberapa worker pada file yang sama. Repo ini shared
-  workspace; gunakan satu writer per file/scope. Jika benar-benar perlu paralel,
-  pakai git worktree terpisah dan integrasikan hasil satu per satu.
-- Operasi production/VPS, seeding, migration deploy, credential, commit, push,
-  dan deploy tetap dijalankan oleh orchestrator sesuai approval dan aturan repo.
-  Worker boleh menulis code atau migration file yang sudah tercakup dalam plan,
-  tetapi tidak boleh mengeksekusi perubahan ke database production.
-
-### Urutan wajib
-
-1. Orchestrator inspect repo dan membuat plan di `docs/plan/` terlebih dahulu.
-2. Pastikan runtime tersedia dengan `command -v opencode`; jangan berasumsi
-   instalasi atau konfigurasi model/provider selalu sama di setiap environment.
-3. Berikan prompt worker yang menyebutkan:
-    - root/module `AGENTS.md` dan plan yang harus dibaca;
-    - file/scope yang boleh disentuh;
-    - acceptance criteria dan test scope;
-    - larangan commit, push, deploy, dan operasi database production.
-4. Jalankan worker. Mode headless adalah default:
-
-    ```bash
-    opencode run \
-      --dir "$PWD" \
-      --format json \
-      "Baca AGENTS.md dan docs/plan/<plan>.md. Implementasikan hanya scope plan. Jangan commit, push, atau deploy."
-    ```
-
-5. Untuk proses panjang, boleh jalankan melalui `tmux` dan simpan log di `/tmp`
-   agar root repo tetap bersih:
-
-    ```bash
-    tmux new-session -d -s opencode-worker \
-      "cd '$PWD' && opencode run --dir '$PWD' '...task bounded...' 2>&1 | tee /tmp/opencode-worker.log"
-    tail -f /tmp/opencode-worker.log
-    ```
-
-6. Setelah worker selesai, orchestrator **wajib** memeriksa workspace nyata dengan
-   `git status --short`, `git diff --stat`, dan `git diff`. Jangan percaya summary
-   worker tanpa verifikasi file aktual — worker bisa exit `rc=0` tanpa mengedit
-   apa pun.
-7. Orchestrator menjalankan residual gap loop sampai 0, lalu lint, scoped test,
-   coverage, typecheck, dan build sesuai workflow utama. Verifikasi worker tidak
-   menggantikan verifikasi orchestrator.
-8. Setelah code berubah, jalankan `graphify update .` sesuai aturan graphify.
-
-### Guardrail
-
-- **Mode headless/tmux wajib pakai `--auto`.** Worker jalan di background/tmux
-  tanpa ada yang bisa approve permission prompt secara manual — tanpa `--auto`,
-  proses macet permanen di tool call pertama yang butuh izin (dikonfirmasi
-  2026-08-06). Orchestrator tetap wajib minta persetujuan eksplisit user sebelum
-  tiap dispatch (jangan diam-diam diasumsikan boleh), dan syarat lain tetap
-  berlaku tanpa kompromi: scope terisolasi sesuai plan, tanpa commit/push/deploy/
-  operasi database production.
-- Jangan memasukkan secret, credential, production connection string, atau data
-  tenant sensitif ke prompt/log worker.
-- Jika worker menyentuh file di luar scope atau hasilnya tidak sesuai plan,
-  hentikan/reject perubahan tersebut dan review sebelum melanjutkan.
-- Jangan jalankan build dari worker ketika terminal lain masih aktif; aturan
-  koordinasi build tetap berlaku.
-- Sesi tmux yang hidup bukan bukti worker bekerja. Pantau pertumbuhan file log;
-  worker bisa menggantung di tengah task berjam-jam tanpa mati.
-
-### Dampak token dan biaya
-
-OpenCode worker **dapat mengurangi token/konteks yang dipakai sesi orchestrator**
-karena eksplorasi dan implementasi detail dipindahkan ke worker. Namun ini bukan
-jaminan total token atau biaya lebih rendah: OpenCode memakai token provider/model
-worker sendiri, sedangkan duplikasi konteks, prompt terlalu luas, atau rework bisa
-menaikkan konsumsi total. Untuk efisiensi, delegasikan task yang bounded, kirim
-context minimum yang cukup, dan hentikan worker setelah acceptance criteria
-terpenuhi.
-
-## Commit & Push
-
-- **Commit** diperbolehkan setelah gap 0 + lint + test scope + build lolos.
-- **Jangan pernah push** ke remote tanpa perintah eksplisit dari user. Tunggu user bilang "push" atau "ship" atau "kirim".
-- Commit message: jelas, mention plan file kalau ada (`plan: docs/plan/...`).
-- Kalau ada session/terminal lain yang juga punya file ter-stage, **commit dengan pathspec** (`git commit <file>...`), jangan `git commit -a` atau tanpa path — index itu dipakai bersama.
-
-### Pre-commit Guard
-
-`git config core.hooksPath .githooks` — **jalankan sekali per clone**, kalau tidak semua guard di bawah ini mati tanpa peringatan.
-
-Tiga penjaga di `.githooks/pre-commit`, masing-masing dengan bypass sendiri (melewati satu tidak melewati yang lain):
-
-| #   | Penjaga                                                                     | Bypass                 |
-| --- | --------------------------------------------------------------------------- | ---------------------- |
-| 1   | Konsistensi AGENTS.md — jalan saat ada `AGENTS.md` ter-stage                | —                      |
-| 2   | Data-file — tolak CSV/XLSX/SQL berisi baris data                            | `ALLOW_DATA_FILES=1`   |
-| 3   | Tenant-name — tolak nama tenant/host di file tracked, termasuk di nama file | `ALLOW_TENANT_NAMES=1` |
-
-Guard #3 hanya memindai baris yang **ditambahkan**, jadi mengedit file lama yang sudah terlanjur memuat nama tenant tetap bisa selama tidak menambah yang baru. Polanya dibaca dari `.githooks/sensitive-names.local` — gitignored, karena `pre-commit` sendiri ter-track dan menaruh nama di dalamnya akan mem-publish persis yang dijaga. **Sidecar hilang = guard mati diam-diam**; itu disengaja supaya clone orang lain tidak terblokir file yang tidak bisa mereka lihat, tapi artinya di mesin baru kamu harus membuatnya lagi.
-
-Ada tenant baru? Tambahkan polanya ke sidecar **sebelum** menulis dokumen apa pun tentangnya.
-
-## Database Migration — WAJIB
-
-- Setiap ubah `prisma/schema.prisma` **WAJIB** bikin folder migration:
-  `prisma/migrations/YYYYMMDD_name/migration.sql`
-- `npx prisma generate` saja TIDAK cukup — deploy menjalankan `prisma migrate deploy`, dan itu butuh file SQL-nya.
-- Cara buat migration lokal (tanpa DB): tulis manual SQL, atau `npx prisma migrate dev --name xxx` jika DB lokal ada.
-- Setup ini **multi-tenant**: satu migration di-apply ke beberapa database sekaligus. Jangan tulis SQL yang berasumsi cuma ada satu DB, dan jangan kaget kalau ada table yang sengaja kosong di sebagian tenant.
-- Daftar database target dan prosedur apply di produksi: `docs/ops/vps.md` (lokal).
-
-## Versi Node — WAJIB satu sumber
-
-`.nvmrc` adalah sumber kebenaran untuk dev lokal dan CI. `Dockerfile` (`FROM node:<versi>-alpine`)
-sumber kebenaran untuk produksi. **Keduanya wajib sama.**
-
-- **Jangan tulis `node-version:` di workflow.** Pakai `node-version-file: '.nvmrc'`.
-  Guard `scripts/check-node-version.sh` menolak versi hardcoded dan akan menyebut nomor barisnya.
-- Menaikkan versi Node = ubah **dua** file sekaligus (`.nvmrc` + `Dockerfile`), lalu jalankan
-  `bash scripts/check-node-version.sh`.
-- Guard jalan di job `test` **sebelum** `setup-node`, jadi drift gagal dalam ~1 detik, bukan
-  setelah `npm ci` + seluruh test.
-- Riwayat: aturan ini ditambahkan 2026-08-07 setelah ketahuan CI menjalankan seluruh gate
-  (lint, coverage, typecheck) di Node 20 sementara image produksi dibangun dari `node:26-alpine`.
-  Enam major version jaraknya, tidak ada yang teriak, dan bug spesifik-runtime lolos CI sepenuhnya.
-  Drift itu hidup berbulan-bulan karena versinya ditulis di dua tempat tanpa pengikat.
-- Menaikkan versi Node **bisa menggeser coverage** (lihat threshold ratchet di §Workflow Utama).
-  Verifikasi cara termurah tanpa memasang Node baru di mesin: jalankan gate di image yang sama
-  dengan produksi —
-  `git archive HEAD | tar -x -C /tmp/<dir>` lalu `docker run --rm -v /tmp/<dir>:/app -w /app node:<versi>-alpine sh -c '...'`.
-  Jangan mount root repo langsung: `npm ci` di dalam container akan menimpa `node_modules` lokal
-  yang dibangun untuk versi Node berbeda.
-
-## Operasi Produksi & Deploy
-
-Topologi VPS, nama container, daftar database tenant, prosedur deploy, seeding prod, dan
-checklist verifikasi setelah deploy ada di **`docs/ops/vps.md`** — lokal, tidak di-commit.
-Repo ini private, tapi private bukan berarti aman untuk kredensial dan topologi: siapa pun
-yang punya akses repo (kolaborator, CI) ikut membacanya, dan visibility bisa berubah.
-
-Yang tetap berlaku tanpa perlu membuka file itu:
-
-- **JANGAN build di VPS.** Build dikerjakan CI (GitHub Actions) → image di-push ke registry → VPS hanya pull + restart.
-- Deploy, seeding, migration produksi, dan operasi database produksi dijalankan **orchestrator**, bukan worker. Lihat `## OpenCode Worker Orchestration`.
-- CI green ≠ data benar. Selalu verifikasi status migration dan isi table setelah deploy.
-- Kalau `docs/ops/vps.md` tidak ada di mesin ini (clone baru / worktree), **berhenti dan minta detailnya ke user** — jangan menebak nama container atau database.
-
-## Arsitektur
-
-### Status Change Audit Policy (2026-07-25)
-
-- `withStatusAudit` extension di `src/lib/core/prisma-audit-extension.ts` intercept `update`/`updateMany` where `data.status` present → auto-log ke `AuditLog` dengan `fromStatus`/`toStatus`.
-- `AUDITABLE_MODELS` = 41 model (SalesOrder, ProductionOrder, DeliveryOrder, PO, Invoice, JournalEntry, StockOpname, dll).
-- Actor via `actorContext` (ALS) di-inject oleh `withTenant` / `withTenantRoute`. Fallback `system` user (seeded di migration `20260725_audit_log_status_trail`).
-- Manual `logActivity` tetap WAJIB untuk operasi kritis (cancel, confirm, ship) di dalam `$transaction` agar atomic.
-- Known limitation: extension create `AuditLog` pakai outer PrismaClient, bukan `tx` client. Rollback → false positive log. Mitigasi: critical path pakai manual log dalam tx.
-- UI: `EntityStatusTimeline` component di `src/components/shared/EntityStatusTimeline.tsx`, dipakai di 19 detail page (SO, PO, DO, Invoice, Journal, BankReconciliation, StockOpname, DeliverySchedule, MaklonReturn, PayrollPeriod, Field/Mobile SO).
-- Saat tambah model baru dengan field `status`: tambah nama model ke `AUDITABLE_MODELS` set di `prisma-audit-extension.ts`.
-- Migration: `fromStatus`/`toStatus` + 3 index + seed SYSTEM user.
-- Lib AGENTS detail: `src/lib/AGENTS.md` (force-tracked).
+- Default warisi model sesi; jangan set `model:` tanpa alasan spesifik. Worker penulis
+  code/migration/test minimum Sonnet. Haiku hanya untuk task mekanis bounded, bukan
+  penalaran bisnis; jangan menurunkan tier untuk menghemat dengan mengorbankan review.
+- Delegasi opsional untuk scope bounded yang cukup besar; edit kecil kerjakan langsung.
+  **Minta approval eksplisit sebelum tiap dispatch.** Plan file wajib untuk delegasi.
+- Cek `command -v opencode`; worker headless/tmux wajib `--auto`. Prompt mencantumkan
+  AGENTS/plan, file yang boleh disentuh, acceptance criteria/test, dan larangan
+  commit/push/deploy/operasi database produksi. Contoh perintah ada di referensi workflow.
+- Orchestrator review workspace/diff aktual setelah worker selesai dan memastikan gate
+  sesuai jalur. Output verifikasi worker boleh dipakai bila input identik dan hasilnya
+  diperiksa; jangan menjalankan suite dua kali hanya karena pelakunya berbeda.
+- Scope overlap/hasil melenceng: hentikan worker dan review; jangan revert edit sesi lain.
 
 ## graphify
 
@@ -276,7 +159,7 @@ Rules:
 - Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- After modifying code, run `graphify update .` once after the final patch, not after every edit (AST-only, no API cost). Documentation-only changes do not require an update.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

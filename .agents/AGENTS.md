@@ -1,6 +1,7 @@
 # PolyFlow Agent Guide
 
 > Map, not manual — this file routes you to the right context. Each module has its own AGENTS.md with deeper details.
+> Workflow and local verification gates follow the risk tiers in root `AGENTS.md` (Ringan / Normal / Kritis); this guide adds domain context, not universal build/coverage requirements.
 
 ## Context Routing
 
@@ -55,8 +56,8 @@ Auth: NextAuth v5 (JWT) → proxy.ts → tenant resolution
 | Use `middleware.ts` for auth        | It's stale/unused             | Use `src/proxy.ts` (active middleware)                                     |
 | Parse subdomain manually            | Duplicates logic              | Use `extractSubdomain()` from `src/lib/core/tenant.ts`                     |
 | Block `/api/auth/*` unauthenticated | Breaks login entirely         | `authConfig.callbacks.authorized()` must return true for `/api/auth` paths |
-| Skip lint/typecheck before commit   | Catches errors late           | Always run `npm run lint` + `npm run build`                                |
-| Skip coverage check before push    | CI fails, blocks deploy       | Run `npm run test:coverage` — thresholds 71/63/75/72 in `vitest.config.ts`   |
+| Apply identical gates to every change | Wastes local verification time | Use root `AGENTS.md` risk tiers; run only applicable local gates          |
+| Treat scoped tests as a deploy gate | Misses global regressions     | CI full coverage/lint/image build must pass for the deployed commit SHA  |
 | New service ≥100 LOC without test   | Coverage drops below gate     | Add `__tests__/*.test.ts` for happy path + branches (see root AGENTS.md)    |
 
 ## Module Navigation
@@ -104,10 +105,12 @@ entirely (CSRF token fetch returns a redirect instead of JSON).
 
 ---
 
-Whenever completing a task, modifications, or code refactoring in this repository:
+## Verification Routing
 
-1. **Always run ESLint check** via `npm run lint` on the modified files or the entire project to ensure clean code style and prevent unresolved imports/variables.
-2. **Always perform type-checking & build** via `npm run build` or `npx tsc --noEmit` to verify code correctness and ensure there are no Next.js compilation issues or TypeScript structural type errors.
-3. **Always run unit tests** via `npx vitest run` if files under `services/`, `actions/`, or other logically-heavy components are changed.
-4. **Always run coverage** via `npm run test:coverage` before push — CI gates at 71/63/75/72 (Stmts/Branch/Funcs/Lines). Gate lives in `test` job → `npx vitest run --coverage` → blocks deploy. Never lower threshold without plan; add test instead.
-5. **Validation enforcement**: Do not submit code or present the task as done to the user if these quality checks fail. Fix all compiler/linter issues first.
+Use root `AGENTS.md` as the single source for risk classification, plan requirements,
+local checks, result reuse, commit/push approval, and deploy gates. Domain invariants
+in module guides still apply; even a one-line tenant/auth/financial logic change is Kritis.
+
+Report checks passed, failed, or not run with reasons. A failed or blocked required
+check must not be presented as passed. For coverage troubleshooting, worker dispatch,
+and hooks, read the relevant section of `docs/development/agent-workflow-reference.md`.
