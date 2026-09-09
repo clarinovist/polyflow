@@ -1,22 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-    ChevronLeft,
-    Building2,
-    Phone,
-    MapPin,
-    CreditCard,
-    Mail,
-    Package,
-    Clock,
-    Star,
-} from 'lucide-react';
+import { Clock, Star } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -25,27 +11,26 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import Link from 'next/link';
-import { LinkProductDialog } from '@/components/purchasing/suppliers/LinkProductDialog';
-import { UnlinkProductButton } from '@/components/purchasing/suppliers/UnlinkProductButton';
-import { formLabels } from '@/lib/labels';
+import { LinkProductDialog } from './LinkProductDialog';
+import { UnlinkProductButton } from './UnlinkProductButton';
 import { formatRupiah } from '@/lib/utils/utils';
 import { SupplierOrdersTab } from './360/SupplierOrdersTab';
 import { SupplierReturnsTab } from './360/SupplierReturnsTab';
 import { SupplierPaymentsTab } from './360/SupplierPaymentsTab';
 import { SupplierPerformanceTab } from './360/SupplierPerformanceTab';
 import { SupplierAnalyticsTab } from './360/SupplierAnalyticsTab';
-
+import {
+    PartnerDetailLayout,
+    PartnerProfileSection,
+    PartnerProfileField,
+} from '@/components/shared/partner-detail/PartnerDetailLayout';
+import {
+    PartnerDetailTabs,
+    PartnerOverviewLinks,
+    type PartnerDetailTabGroup,
+} from '@/components/shared/partner-detail/PartnerDetailTabs';
+import { usePartnerDetailTab } from '@/components/shared/partner-detail/use-partner-detail-tab';
 import type { SupplierProductSummary } from '@/services/purchasing/supplier-products-service';
-
-type Tab =
-    | 'overview'
-    | 'products'
-    | 'orders'
-    | 'returns'
-    | 'payments'
-    | 'performance'
-    | 'analytics';
 
 interface Props {
     supplier: {
@@ -71,223 +56,156 @@ export function Supplier360Tabs({
     supplierProducts,
     initialTab,
 }: Props) {
-    const [activeTab, setActiveTab] = useState<Tab>(
-        (initialTab as Tab) || 'overview',
-    );
-    const router = useRouter();
-    const handleTabChange = useCallback(
-        (v: string) => {
-            setActiveTab(v as Tab);
-            const url = new URL(window.location.href);
-            url.searchParams.set('tab', v);
-            router.replace(url.pathname + url.search, { scroll: false });
+    const groups: PartnerDetailTabGroup[] = [
+        {
+            value: 'overview',
+            label: 'Ringkasan',
+            tabs: [{ value: 'overview', label: 'Ringkasan' }],
         },
-        [router],
+        {
+            value: 'transactions',
+            label: 'Transaksi',
+            tabs: [
+                { value: 'orders', label: 'Pesanan pembelian' },
+                { value: 'returns', label: 'Retur' },
+            ],
+        },
+        {
+            value: 'finance',
+            label: 'Keuangan',
+            tabs: [{ value: 'payments', label: 'Utang' }],
+        },
+        {
+            value: 'products',
+            label: `Produk (${supplierProducts.length})`,
+            tabs: [{ value: 'products', label: 'Produk' }],
+        },
+        {
+            value: 'insights',
+            label: 'Kinerja',
+            tabs: [
+                { value: 'performance', label: 'Performa' },
+                { value: 'analytics', label: 'Analitik' },
+            ],
+        },
+    ];
+    const [activeTab, selectTab] = usePartnerDetailTab(groups, initialTab);
+
+    const profile = (
+        <>
+            <PartnerProfileSection title="Kontak">
+                <dl className="space-y-3">
+                    <PartnerProfileField label="Email">
+                        {supplier.email || 'Belum diisi'}
+                    </PartnerProfileField>
+                    <PartnerProfileField label="Telepon">
+                        {supplier.phone || 'Belum diisi'}
+                    </PartnerProfileField>
+                </dl>
+            </PartnerProfileSection>
+            <PartnerProfileSection title="Alamat">
+                <p className="whitespace-pre-line text-sm leading-relaxed">
+                    {supplier.address || 'Belum diisi'}
+                </p>
+            </PartnerProfileSection>
+            <PartnerProfileSection title="Ketentuan bisnis">
+                <dl className="space-y-3">
+                    <PartnerProfileField label="NPWP">
+                        {supplier.taxId || '-'}
+                    </PartnerProfileField>
+                    <PartnerProfileField label="Termin">
+                        {supplier.paymentTermDays
+                            ? `${supplier.paymentTermDays} Hari`
+                            : '-'}
+                    </PartnerProfileField>
+                </dl>
+            </PartnerProfileSection>
+            <PartnerProfileSection title="Rekening bank">
+                {supplier.bankName ? (
+                    <div className="space-y-1">
+                        <p>{supplier.bankName}</p>
+                        {supplier.bankAccount && (
+                            <p className="font-mono text-xs text-muted-foreground">
+                                {supplier.bankAccount}
+                            </p>
+                        )}
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground">Belum diisi</p>
+                )}
+            </PartnerProfileSection>
+            {supplier.notes && (
+                <PartnerProfileSection title="Catatan">
+                    <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                        {supplier.notes}
+                    </p>
+                </PartnerProfileSection>
+            )}
+        </>
     );
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center gap-4">
-                <Link href="/purchasing/suppliers">
-                    <Button variant="outline" size="icon">
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                </Link>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {supplier.name}
-                    </h1>
-                    <div className="flex gap-2 mt-1">
-                        <Badge variant="outline">
-                            {supplier.code || 'Tanpa Kode'}
-                        </Badge>
-                        <Badge
-                            variant={
-                                supplier.isActive ? 'default' : 'secondary'
-                            }
-                        >
-                            {supplier.isActive ? 'Aktif' : 'Nonaktif'}
-                        </Badge>
-                    </div>
-                </div>
-            </div>
-
-            <Tabs value={activeTab} onValueChange={handleTabChange}>
-                <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
-                    <TabsTrigger value="overview" className="text-xs shrink-0">
-                        Ringkas
-                    </TabsTrigger>
-                    <TabsTrigger value="products" className="text-xs shrink-0">
-                        Produk ({supplierProducts.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="orders" className="text-xs shrink-0">
-                        Order
-                    </TabsTrigger>
-                    <TabsTrigger value="returns" className="text-xs shrink-0">
-                        Retur
-                    </TabsTrigger>
-                    <TabsTrigger value="payments" className="text-xs shrink-0">
-                        Hutang
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="performance"
-                        className="text-xs shrink-0"
-                    >
-                        Performa
-                    </TabsTrigger>
-                    <TabsTrigger value="analytics" className="text-xs shrink-0">
-                        Analitik
-                    </TabsTrigger>
-                </TabsList>
-
-                <div className="mt-4 space-y-6">
+        <PartnerDetailLayout
+            kind="Supplier"
+            name={supplier.name}
+            code={supplier.code}
+            isActive={supplier.isActive}
+            backHref="/purchasing/suppliers"
+            profile={profile}
+        >
+            <PartnerDetailTabs
+                groups={groups}
+                value={activeTab}
+                onValueChange={selectTab}
+            >
+                <div className="min-w-0 space-y-6">
                     {activeTab === 'overview' && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Building2 className="h-5 w-5" />{' '}
-                                        Ikhtisar
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {supplier.email && (
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
-                                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Email
-                                                </p>
-                                                <p className="font-medium text-sm break-all">
-                                                    {supplier.email}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {supplier.phone && (
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
-                                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {formLabels.phone}
-                                                </p>
-                                                <p className="font-medium">
-                                                    {supplier.phone}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {supplier.address && (
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
-                                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {formLabels.address}
-                                                </p>
-                                                <p className="font-medium text-sm">
-                                                    {supplier.address}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <CreditCard className="h-5 w-5" />{' '}
-                                        Detail Keuangan
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">
-                                                NPWP
-                                            </p>
-                                            <p className="font-medium">
-                                                {supplier.taxId || '-'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Termin
-                                            </p>
-                                            <p className="font-medium">
-                                                {supplier.paymentTermDays
-                                                    ? `${supplier.paymentTermDays} Hari`
-                                                    : '-'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="pt-2 border-t">
-                                        <p className="text-xs text-muted-foreground mb-1">
-                                            Bank
-                                        </p>
-                                        <div className="text-sm">
-                                            {supplier.bankName ? (
-                                                <>
-                                                    <span className="font-medium">
-                                                        {supplier.bankName}
-                                                    </span>
-                                                    {supplier.bankAccount && (
-                                                        <span className="text-muted-foreground font-mono ml-2">
-                                                            {
-                                                                supplier.bankAccount
-                                                            }
-                                                        </span>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                '-'
-                                            )}
-                                        </div>
-                                    </div>
-                                    {supplier.notes && (
-                                        <div className="pt-2 border-t">
-                                            <p className="text-xs text-muted-foreground mb-1">
-                                                {formLabels.notes}
-                                            </p>
-                                            <p className="text-sm italic">
-                                                {supplier.notes}
-                                            </p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Produk</CardTitle>
-                                </CardHeader>
-                                <CardContent className="flex items-center justify-center py-6">
-                                    <div className="text-center">
-                                        <p className="text-4xl font-bold">
-                                            {supplierProducts.length}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Produk / Varian
-                                        </p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
+                        <>
+                            <div>
+                                <h2 className="text-lg font-semibold tracking-tight">
+                                    Sekilas hubungan bisnis
+                                </h2>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Produk, riwayat pembelian, dan akses ke
+                                    tagihan supplier.
+                                </p>
+                            </div>
+                            <PartnerOverviewLinks
+                                onSelect={selectTab}
+                                items={[
+                                    {
+                                        value: 'products',
+                                        label: 'Produk / Varian',
+                                        count: supplierProducts.length,
+                                        description:
+                                            'Gabungan tautan manual dan riwayat barang masuk.',
+                                    },
+                                    {
+                                        value: 'orders',
+                                        label: 'Pesanan pembelian',
+                                        description:
+                                            'Lihat dokumen dan status penerimaan barang.',
+                                    },
+                                    {
+                                        value: 'payments',
+                                        label: 'Utang supplier',
+                                        description:
+                                            'Periksa tagihan dan pembayaran di Keuangan.',
+                                    },
+                                ]}
+                            />
+                            <SupplierOrdersTab supplierId={supplier.id} />
+                            <SupplierAnalyticsTab supplierId={supplier.id} />
+                        </>
                     )}
-
                     {activeTab === 'products' && (
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Package className="h-5 w-5" /> Produk
-                                        yang Disuplai
+                        <Card className="min-w-0 shadow-none">
+                            <CardHeader className="flex flex-wrap items-start justify-between gap-4 sm:flex-row">
+                                <div className="min-w-0 flex-1">
+                                    <CardTitle className="text-base">
+                                        Produk yang Disuplai
                                     </CardTitle>
-                                    <p className="text-sm text-muted-foreground mt-2">
+                                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                                         Gabungan tautan manual dan riwayat
                                         barang masuk, termasuk pembelian dari
                                         nota. Setiap varian dihitung sekali.
@@ -300,7 +218,10 @@ export function Supplier360Tabs({
                                     supplierName={supplier.name}
                                 />
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="min-w-0">
+                                <p className="mb-3 text-xs text-muted-foreground lg:hidden">
+                                    Geser tabel untuk melihat kolom lainnya →
+                                </p>
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -311,7 +232,11 @@ export function Supplier360Tabs({
                                             <TableHead>Harga</TableHead>
                                             <TableHead>Lead Time</TableHead>
                                             <TableHead>Min</TableHead>
-                                            <TableHead className="w-[100px]"></TableHead>
+                                            <TableHead className="w-[100px]">
+                                                <span className="sr-only">
+                                                    Aksi
+                                                </span>
+                                            </TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -319,7 +244,7 @@ export function Supplier360Tabs({
                                             <TableRow>
                                                 <TableCell
                                                     colSpan={6}
-                                                    className="text-center py-8 text-muted-foreground"
+                                                    className="py-8 text-center text-muted-foreground"
                                                 >
                                                     Belum ada tautan produk atau
                                                     riwayat barang masuk dari
@@ -331,7 +256,7 @@ export function Supplier360Tabs({
                                                 <TableRow key={sp.id}>
                                                     <TableCell>
                                                         <div className="flex flex-col">
-                                                            <span className="font-medium flex items-center gap-1">
+                                                            <span className="flex items-center gap-1 font-medium">
                                                                 {
                                                                     sp
                                                                         .productVariant
@@ -339,7 +264,10 @@ export function Supplier360Tabs({
                                                                         .name
                                                                 }
                                                                 {sp.isPreferred && (
-                                                                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-500" />
+                                                                    <Star
+                                                                        className="size-3 fill-yellow-400 text-yellow-500"
+                                                                        aria-label="Supplier pilihan"
+                                                                    />
                                                                 )}
                                                             </span>
                                                             <span className="text-xs text-muted-foreground">
@@ -349,7 +277,7 @@ export function Supplier360Tabs({
                                                                         .name
                                                                 }
                                                             </span>
-                                                            <div className="flex gap-1 mt-1">
+                                                            <div className="mt-1 flex gap-1">
                                                                 {sp.linkId && (
                                                                     <Badge variant="outline">
                                                                         Manual
@@ -388,7 +316,10 @@ export function Supplier360Tabs({
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-1">
-                                                            <Clock className="h-3 w-3 text-muted-foreground" />
+                                                            <Clock
+                                                                className="size-3 text-muted-foreground"
+                                                                aria-hidden="true"
+                                                            />
                                                             {sp.leadTimeDays !=
                                                             null
                                                                 ? `${sp.leadTimeDays} hari`
@@ -415,7 +346,6 @@ export function Supplier360Tabs({
                             </CardContent>
                         </Card>
                     )}
-
                     {activeTab === 'orders' && (
                         <SupplierOrdersTab supplierId={supplier.id} />
                     )}
@@ -432,7 +362,7 @@ export function Supplier360Tabs({
                         <SupplierAnalyticsTab supplierId={supplier.id} />
                     )}
                 </div>
-            </Tabs>
-        </div>
+            </PartnerDetailTabs>
+        </PartnerDetailLayout>
     );
 }

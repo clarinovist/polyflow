@@ -1,28 +1,12 @@
 'use client';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    ChevronLeft,
-    Phone,
-    MapPin,
-    Building2,
-    CreditCard,
-    Mail,
-    DollarSign,
-    Percent,
-    History,
-    Navigation,
-    ImageIcon,
-    Tags,
-} from 'lucide-react';
-import Link from 'next/link';
+import { ImageIcon, Navigation, Pencil } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
-import { CustomerDialog } from '@/components/customers/CustomerDialog';
+import { CustomerDialog } from './CustomerDialog';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
-import { CustomerProductPricesManager } from '@/components/customers/CustomerProductPricesManager';
+import { CustomerProductPricesManager } from './CustomerProductPricesManager';
 import { CustomerInvoicesTab } from './360/CustomerInvoicesTab';
 import { CustomerReturnsTab } from './360/CustomerReturnsTab';
 import { CustomerDeliveriesTab } from './360/CustomerDeliveriesTab';
@@ -33,8 +17,18 @@ import {
     CustomerBarterSettings,
     type CustomerBarterSettingsValue,
 } from './CustomerBarterSettings';
-
 import {
+    PartnerDetailLayout,
+    PartnerProfileSection,
+    PartnerProfileField,
+} from '@/components/shared/partner-detail/PartnerDetailLayout';
+import {
+    PartnerDetailTabs,
+    PartnerOverviewLinks,
+    type PartnerDetailTabGroup,
+} from '@/components/shared/partner-detail/PartnerDetailTabs';
+import { usePartnerDetailTab } from '@/components/shared/partner-detail/use-partner-detail-tab';
+import type {
     Customer,
     SalesOrder,
     Location,
@@ -104,6 +98,42 @@ interface CustomerDetailClientProps {
     barterSettings?: CustomerBarterSettingsValue;
 }
 
+const groups: PartnerDetailTabGroup[] = [
+    {
+        value: 'overview',
+        label: 'Ringkasan',
+        tabs: [{ value: 'overview', label: 'Ringkasan' }],
+    },
+    {
+        value: 'transactions',
+        label: 'Transaksi',
+        tabs: [
+            { value: 'history', label: 'Pesanan penjualan' },
+            { value: 'deliveries', label: 'Pengiriman' },
+            { value: 'returns', label: 'Retur' },
+            { value: 'quotations', label: 'Penawaran' },
+        ],
+    },
+    {
+        value: 'finance',
+        label: 'Keuangan',
+        tabs: [{ value: 'invoices', label: 'Invoice' }],
+    },
+    {
+        value: 'products',
+        label: 'Harga Produk',
+        tabs: [{ value: 'prices', label: 'Harga Produk' }],
+    },
+    {
+        value: 'activity',
+        label: 'Aktivitas',
+        tabs: [
+            { value: 'visits', label: 'Kunjungan' },
+            { value: 'analytics', label: 'Analitik' },
+        ],
+    },
+];
+
 export function CustomerDetailClient({
     customer,
     salesOrders,
@@ -111,35 +141,140 @@ export function CustomerDetailClient({
     products,
     barterSettings,
 }: CustomerDetailClientProps) {
-    return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link href="/sales/customers">
-                        <Button variant="outline" size="icon">
-                            <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            {customer.name}
-                        </h1>
-                        <div className="flex gap-2 mt-1">
-                            <Badge variant="outline">
-                                {customer.code || 'No Code'}
-                            </Badge>
-                            <Badge
-                                variant={
-                                    customer.isActive ? 'default' : 'secondary'
-                                }
-                            >
-                                {customer.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                        </div>
+    const [activeTab, selectTab] = usePartnerDetailTab(groups);
+    const profile = (
+        <>
+            <PartnerProfileSection title="Kontak">
+                <dl className="space-y-3">
+                    <PartnerProfileField label="Email">
+                        {customer.email || 'Belum diisi'}
+                    </PartnerProfileField>
+                    <PartnerProfileField label="Telepon">
+                        {customer.phone || 'Belum diisi'}
+                    </PartnerProfileField>
+                </dl>
+            </PartnerProfileSection>
+            <PartnerProfileSection title="Alamat & lokasi">
+                {customer.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={customer.photoUrl}
+                        alt={`Foto toko ${customer.name}`}
+                        className="max-h-40 w-full rounded-lg border object-cover"
+                    />
+                ) : (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="flex size-9 items-center justify-center rounded-md border border-dashed">
+                            <ImageIcon className="size-4" aria-hidden="true" />
+                        </span>
+                        Belum ada foto
                     </div>
-                </div>
+                )}
+                <dl className="space-y-3">
+                    {(customer.province ||
+                        customer.city ||
+                        customer.district ||
+                        customer.village) && (
+                        <PartnerProfileField label="Alamat terstruktur">
+                            {[
+                                customer.village,
+                                customer.district,
+                                customer.city,
+                                customer.province,
+                            ]
+                                .filter(Boolean)
+                                .join(', ')}
+                        </PartnerProfileField>
+                    )}
+                    <PartnerProfileField label="Alamat tagihan">
+                        {customer.billingAddress || '-'}
+                    </PartnerProfileField>
+                    <PartnerProfileField label="Alamat kirim">
+                        {customer.shippingAddress || '-'}
+                    </PartnerProfileField>
+                </dl>
+                {customer.latitude && customer.longitude ? (
+                    <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                            Koordinat
+                        </p>
+                        <p className="font-mono text-xs">
+                            {Number(customer.latitude).toFixed(6)},{' '}
+                            {Number(customer.longitude).toFixed(6)}
+                        </p>
+                        <a
+                            href={`https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-9 items-center gap-1 text-xs text-blue-700 hover:underline dark:text-blue-300"
+                        >
+                            <Navigation className="size-3" aria-hidden="true" />{' '}
+                            Navigasi
+                        </a>
+                    </div>
+                ) : null}
+            </PartnerProfileSection>
+            <PartnerProfileSection title="Ketentuan bisnis">
+                <dl className="space-y-3">
+                    <PartnerProfileField label="NPWP">
+                        {customer.taxId || '-'}
+                    </PartnerProfileField>
+                    <PartnerProfileField label="Termin">
+                        {customer.paymentTermDays
+                            ? `${customer.paymentTermDays} Hari`
+                            : '-'}
+                    </PartnerProfileField>
+                    <PartnerProfileField label="Limit kredit">
+                        {customer.creditLimit
+                            ? formatRupiah(customer.creditLimit)
+                            : '-'}
+                    </PartnerProfileField>
+                    <PartnerProfileField label="Diskon">
+                        {customer.discountPercent
+                            ? `${customer.discountPercent}%`
+                            : '-'}
+                    </PartnerProfileField>
+                </dl>
+            </PartnerProfileSection>
+            {customer.notes && (
+                <PartnerProfileSection title="Catatan">
+                    <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                        {customer.notes}
+                    </p>
+                </PartnerProfileSection>
+            )}
+        </>
+    );
+    const orderHistory = (
+        <Card className="min-w-0 shadow-none">
+            <CardHeader>
+                <CardTitle className="text-base">
+                    Riwayat pesanan penjualan
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="min-w-0 overflow-x-auto">
+                <SalesOrderTable initialData={salesOrders} />
+            </CardContent>
+        </Card>
+    );
+
+    return (
+        <PartnerDetailLayout
+            kind="Customer"
+            name={customer.name}
+            code={customer.code}
+            isActive={customer.isActive}
+            backHref="/sales/customers"
+            profile={profile}
+            actions={
                 <CustomerDialog
                     mode="edit"
+                    trigger={
+                        <Button variant="outline" className="min-h-10 gap-2">
+                            <Pencil className="size-3.5" aria-hidden="true" />
+                            Edit profil
+                        </Button>
+                    }
                     initialData={{
                         ...customer,
                         creditLimit: customer.creditLimit
@@ -156,314 +291,97 @@ export function CustomerDetailClient({
                             : null,
                     }}
                 />
-            </div>
-
-            <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
-                    <TabsTrigger value="overview" className="shrink-0">
-                        Ringkas
-                    </TabsTrigger>
-                    <TabsTrigger value="history" className="shrink-0">
-                        Pesanan
-                    </TabsTrigger>
-                    <TabsTrigger value="invoices" className="shrink-0">
-                        Invoice
-                    </TabsTrigger>
-                    <TabsTrigger value="returns" className="shrink-0">
-                        Retur
-                    </TabsTrigger>
-                    <TabsTrigger value="deliveries" className="shrink-0">
-                        Kirim
-                    </TabsTrigger>
-                    <TabsTrigger value="quotations" className="shrink-0">
-                        Penawaran
-                    </TabsTrigger>
-                    <TabsTrigger value="prices" className="shrink-0">
-                        Harga
-                    </TabsTrigger>
-                    <TabsTrigger value="visits" className="shrink-0">
-                        Kunjungan
-                    </TabsTrigger>
-                    <TabsTrigger value="analytics" className="shrink-0">
-                        Analitik
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview" className="space-y-6 mt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Contact Info Card */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Building2 className="h-5 w-5" />
-                                    Ringkas
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {customer.email && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
-                                            <Mail className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Email
-                                            </p>
-                                            <p className="font-medium text-sm break-all">
-                                                {customer.email}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                                {customer.phone && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
-                                            <Phone className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Phone
-                                            </p>
-                                            <p className="font-medium">
-                                                {customer.phone}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Addresses & Location Card */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <MapPin className="h-5 w-5" />
-                                    Alamat & Lokasi
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {/* Structured Address */}
-                                {(customer.province ||
-                                    customer.city ||
-                                    customer.district ||
-                                    customer.village) && (
-                                    <div>
-                                        <p className="text-xs text-muted-foreground mb-1">
-                                            Alamat Terstruktur
-                                        </p>
-                                        <p className="text-sm">
-                                            {[
-                                                customer.village,
-                                                customer.district,
-                                                customer.city,
-                                                customer.province,
-                                            ]
-                                                .filter(Boolean)
-                                                .join(', ')}
-                                        </p>
-                                    </div>
-                                )}
-                                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 first:border-0 first:pt-0">
-                                    <p className="text-xs text-muted-foreground mb-1">
-                                        Billing Address
-                                    </p>
-                                    <p className="text-sm">
-                                        {customer.billingAddress || '-'}
-                                    </p>
-                                </div>
-                                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                                    <p className="text-xs text-muted-foreground mb-1">
-                                        Shipping Address
-                                    </p>
-                                    <p className="text-sm">
-                                        {customer.shippingAddress || '-'}
-                                    </p>
-                                </div>
-
-                                {/* GPS Coordinates */}
-                                {customer.latitude && customer.longitude && (
-                                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                                        <p className="text-xs text-muted-foreground mb-1">
-                                            Koordinat
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-mono">
-                                                {Number(
-                                                    customer.latitude,
-                                                ).toFixed(6)}
-                                                ,{' '}
-                                                {Number(
-                                                    customer.longitude,
-                                                ).toFixed(6)}
-                                            </span>
-                                            <a
-                                                href={`https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                                            >
-                                                <Navigation className="h-3 w-3" />
-                                                Navigasi
-                                            </a>
-                                        </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Store Photo Card */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <ImageIcon className="h-5 w-5" />
-                                    Foto Toko
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {customer.photoUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                        src={customer.photoUrl}
-                                        alt={`Foto toko ${customer.name}`}
-                                        className="w-full h-48 object-cover rounded-lg border"
-                                    />
-                                ) : (
-                                    <div className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground">
-                                        <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
-                                        <p className="text-sm">
-                                            Belum ada foto
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Financials & Notes */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <CreditCard className="h-5 w-5" />
-                                    Detail Keuangan
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Tax ID
-                                        </p>
-                                        <p className="font-medium">
-                                            {customer.taxId || '-'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Payment Terms
-                                        </p>
-                                        <p className="font-medium">
-                                            {customer.paymentTermDays
-                                                ? `${customer.paymentTermDays} Days`
-                                                : '-'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <DollarSign className="w-3 h-3" />{' '}
-                                            Credit Limit
-                                        </p>
-                                        <p className="font-medium">
-                                            {customer.creditLimit
-                                                ? formatRupiah(
-                                                      customer.creditLimit,
-                                                  )
-                                                : '-'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Percent className="w-3 h-3" />{' '}
-                                            Discount
-                                        </p>
-                                        <p className="font-medium">
-                                            {customer.discountPercent
-                                                ? `${customer.discountPercent}%`
-                                                : '-'}
-                                        </p>
-                                    </div>
-                                </div>
-                                {customer.notes && (
-                                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                                        <p className="text-xs text-muted-foreground mb-1">
-                                            Notes
-                                        </p>
-                                        <p className="text-sm italic">
-                                            {customer.notes}
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                    {barterSettings && (
-                        <CustomerBarterSettings
-                            customerId={customer.id}
-                            initialValue={barterSettings}
-                        />
-                    )}
-                </TabsContent>
-
-                <TabsContent value="history" className="mt-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <History className="h-5 w-5" />
-                                Sales History
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <SalesOrderTable initialData={salesOrders} />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="invoices" className="mt-4">
-                    <CustomerInvoicesTab customerId={customer.id} />
-                </TabsContent>
-                <TabsContent value="returns" className="mt-4">
-                    <CustomerReturnsTab customerId={customer.id} />
-                </TabsContent>
-                <TabsContent value="deliveries" className="mt-4">
-                    <CustomerDeliveriesTab customerId={customer.id} />
-                </TabsContent>
-                <TabsContent value="quotations" className="mt-4">
-                    <CustomerQuotationsTab customerId={customer.id} />
-                </TabsContent>
-
-                <TabsContent value="prices" className="mt-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Tags className="h-5 w-5" />
-                                Harga Produk Customer
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <CustomerProductPricesManager
-                                customerId={customer.id}
-                                prices={customerProductPrices}
-                                products={products}
+            }
+        >
+            <PartnerDetailTabs
+                groups={groups}
+                value={activeTab}
+                onValueChange={selectTab}
+            >
+                <div className="min-w-0 space-y-6">
+                    {activeTab === 'overview' && (
+                        <>
+                            <div>
+                                <h2 className="text-lg font-semibold tracking-tight">
+                                    Sekilas hubungan bisnis
+                                </h2>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Riwayat penjualan, harga khusus, dan akses
+                                    ke invoice customer.
+                                </p>
+                            </div>
+                            <PartnerOverviewLinks
+                                onSelect={selectTab}
+                                items={[
+                                    {
+                                        value: 'history',
+                                        label: 'Pesanan penjualan',
+                                        description:
+                                            'Lihat dokumen dan status pesanan customer.',
+                                    },
+                                    {
+                                        value: 'invoices',
+                                        label: 'Invoice customer',
+                                        description:
+                                            'Periksa tagihan melalui bagian Keuangan.',
+                                    },
+                                    {
+                                        value: 'prices',
+                                        label: 'Harga produk',
+                                        description:
+                                            'Kelola harga khusus per varian produk.',
+                                    },
+                                ]}
                             />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="visits" className="mt-4">
-                    <CustomerVisitsTab customerId={customer.id} />
-                </TabsContent>
-                <TabsContent value="analytics" className="mt-4">
-                    <CustomerAnalyticsTab customerId={customer.id} />
-                </TabsContent>
-            </Tabs>
-        </div>
+                            {orderHistory}
+                            <CustomerAnalyticsTab customerId={customer.id} />
+                        </>
+                    )}
+                    {activeTab === 'history' && orderHistory}
+                    {activeTab === 'invoices' && (
+                        <>
+                            <CustomerInvoicesTab customerId={customer.id} />
+                            {barterSettings && (
+                                <CustomerBarterSettings
+                                    customerId={customer.id}
+                                    initialValue={barterSettings}
+                                />
+                            )}
+                        </>
+                    )}
+                    {activeTab === 'returns' && (
+                        <CustomerReturnsTab customerId={customer.id} />
+                    )}
+                    {activeTab === 'deliveries' && (
+                        <CustomerDeliveriesTab customerId={customer.id} />
+                    )}
+                    {activeTab === 'quotations' && (
+                        <CustomerQuotationsTab customerId={customer.id} />
+                    )}
+                    {activeTab === 'prices' && (
+                        <Card className="min-w-0 shadow-none">
+                            <CardHeader>
+                                <CardTitle className="text-base">
+                                    Harga Produk Customer
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="min-w-0 overflow-x-auto">
+                                <CustomerProductPricesManager
+                                    customerId={customer.id}
+                                    prices={customerProductPrices}
+                                    products={products}
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
+                    {activeTab === 'visits' && (
+                        <CustomerVisitsTab customerId={customer.id} />
+                    )}
+                    {activeTab === 'analytics' && (
+                        <CustomerAnalyticsTab customerId={customer.id} />
+                    )}
+                </div>
+            </PartnerDetailTabs>
+        </PartnerDetailLayout>
     );
 }

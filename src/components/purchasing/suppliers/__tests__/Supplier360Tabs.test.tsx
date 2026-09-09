@@ -4,8 +4,11 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { Supplier360Tabs } from '../Supplier360Tabs';
 import type { SupplierProductSummary } from '@/services/purchasing/supplier-products-service';
 
-const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+import { installHistoryIntegration } from '@/components/shared/partner-detail/__tests__/navigation-mock';
+vi.mock('next/navigation', async () => {
+    const { useTestSearchParams } = await import('@/components/shared/partner-detail/__tests__/navigation-mock');
+    return { useSearchParams: useTestSearchParams };
+});
 vi.mock('../LinkProductDialog', () => ({ LinkProductDialog: () => <button>Tautkan produk</button> }));
 vi.mock('../UnlinkProductButton', () => ({ UnlinkProductButton: ({ id }: { id: string }) => <button>Unlink {id}</button> }));
 vi.mock('../360/SupplierOrdersTab', () => ({ SupplierOrdersTab: () => <div>Order content</div> }));
@@ -22,10 +25,15 @@ const product: SupplierProductSummary = {
     productVariant: { name: 'Varian A', skuCode: 'SKU-A', product: { name: 'Bahan A' } },
 };
 function show(products: SupplierProductSummary[], initialTab = 'products') {
+    window.history.replaceState(null, '', `/purchasing/suppliers/supplier-1?tab=${initialTab}`);
     return render(<Supplier360Tabs supplier={supplier} supplierProducts={products} initialTab={initialTab} />);
 }
-beforeEach(() => { vi.clearAllMocks(); });
-afterEach(cleanup);
+beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState(null, '', '/purchasing/suppliers/supplier-1');
+    installHistoryIntegration();
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('supplier supplied products', () => {
     it('shows receipt-only SKU, cost source and no unlink action', () => {
@@ -85,7 +93,7 @@ describe('supplier supplied products', () => {
         expect(screen.queryByText('Produk Aktif')).toBeNull();
         fireEvent.mouseDown(screen.getByRole('tab', { name: 'Produk (1)' }), { button: 0, ctrlKey: false });
         expect(screen.getByText('SKU-A')).toBeDefined();
-        expect(replace).toHaveBeenCalledWith(expect.stringContaining('tab=products'), { scroll: false });
+        expect(window.location.search).toBe('?tab=products');
     });
 
     it('retains complete overview details', () => {
@@ -94,9 +102,35 @@ describe('supplier supplied products', () => {
             phone: '123', address: 'Alamat contoh', taxId: 'TAX-1', paymentTermDays: 30,
             bankName: 'Bank A', bankAccount: 'ACC-1', notes: 'Catatan supplier',
         }} supplierProducts={[]} initialTab="" />);
+        fireEvent.click(screen.getByRole('button', { name: 'Profil supplier' }));
         for (const text of ['SUP-1', 'Nonaktif', 'contact@example.test', '123', 'Alamat contoh', 'TAX-1', '30 Hari', 'Bank A', 'ACC-1', 'Catatan supplier']) {
             expect(screen.getByText(text)).toBeDefined();
         }
+    });
+
+    it('groups navigation into five tabs and keeps profile across subtab changes', () => {
+        show([product], 'returns');
+        expect(screen.getByRole('tab', { name: 'Transaksi' }).getAttribute('aria-selected')).toBe('true');
+        expect(screen.getByRole('tab', { name: 'Retur' }).getAttribute('aria-selected')).toBe('true');
+        fireEvent.click(screen.getByRole('button', { name: 'Profil supplier' }));
+        const panel = screen.getByRole('complementary', { name: 'Profil supplier' });
+        expect(within(panel).getByText('Rekening bank')).toBeDefined();
+        fireEvent.mouseDown(screen.getByRole('tab', { name: 'Kinerja' }), { button: 0, ctrlKey: false });
+        expect(screen.getByText('Performa content')).toBeDefined();
+        expect(within(panel).getByText('Rekening bank')).toBeDefined();
+        fireEvent.mouseDown(screen.getByRole('tab', { name: 'Analitik' }), { button: 0, ctrlKey: false });
+        expect(window.location.search).toBe('?tab=analytics');
+        expect(screen.getByText('Analitik content')).toBeDefined();
+        expect(within(screen.getByRole('tablist', { name: 'Bagian detail' })).getAllByRole('tab')).toHaveLength(5);
+    });
+
+    it('falls back from unknown legacy tab and opens finance from overview', () => {
+        show([], 'unknown');
+        expect(screen.getByText('Sekilas hubungan bisnis')).toBeDefined();
+        expect(screen.getByText('Order content')).toBeDefined();
+        fireEvent.click(screen.getByRole('button', { name: /Utang supplier/ }));
+        expect(screen.getByText('Hutang content')).toBeDefined();
+        expect(window.location.search).toBe('?tab=payments');
     });
 
     it.each([
