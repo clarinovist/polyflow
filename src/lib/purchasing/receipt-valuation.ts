@@ -110,6 +110,20 @@ function calculateReceiptNetAmount(
     return afterDiscount.div(divisor);
 }
 
+export function canonicalizeReceiptQuantity(
+    receivedQty: Prisma.Decimal.Value,
+): Prisma.Decimal {
+    const quantity = toPersistedDecimal(receivedQty, 'receivedQty').toDecimalPlaces(4);
+    if (!quantity.isFinite() || !quantity.gt(0)) {
+        throw new BusinessRuleError(
+            'Jumlah penerimaan harus lebih dari nol setelah dibulatkan ke 4 desimal.',
+            { receivedQty: String(receivedQty) },
+            'RECEIPT_QUANTITY_ROUNDS_TO_ZERO',
+        );
+    }
+    return quantity;
+}
+
 export function resolveReceiptNetUnitCost(
     input: ReceiptValuationInput,
     options?: ReceiptValuationOptions,

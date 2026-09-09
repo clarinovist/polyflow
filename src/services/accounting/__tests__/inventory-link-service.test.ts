@@ -28,6 +28,9 @@ vi.mock("@/lib/core/prisma", () => ({
     account: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
+    journalEntry: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     journalLine: {
       aggregate: vi.fn().mockResolvedValue({
         _sum: {
@@ -110,6 +113,7 @@ const baseMovement = {
 describe("inventory-link-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
     mockResolveAccountCode.mockImplementation(
       (productType: string | null, ctx: string) => {
         const map: Record<string, string> = {
@@ -138,6 +142,23 @@ describe("inventory-link-service", () => {
   // recordInventoryMovement
   // =========================================================================
   describe("recordInventoryMovement", () => {
+    it("returns before every valuation side effect when movement journal exists", async () => {
+      vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({ id: "je-existing" } as never);
+      const mv = {
+        ...baseMovement,
+        type: "PURCHASE",
+        goodsReceiptId: "gr-1",
+        productVariant: { name: "Material A", product: { ...baseProduct } },
+      };
+
+      await recordInventoryMovement(mv as never);
+
+      expect(prisma.goodsReceipt.findUnique).not.toHaveBeenCalled();
+      expect(prisma.inventory.aggregate).not.toHaveBeenCalled();
+      expect(mockUpdateStandardCost).not.toHaveBeenCalled();
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+    });
+
     it("returns early when productVariant not found", async () => {
       vi.mocked(prisma.productVariant.findUnique).mockResolvedValue(null);
 

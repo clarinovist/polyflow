@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '@prisma/client';
-import { resolveReceiptNetTotal, resolveReceiptNetUnitCost } from '../receipt-valuation';
+import {
+    canonicalizeReceiptQuantity,
+    resolveReceiptNetTotal,
+    resolveReceiptNetUnitCost,
+} from '../receipt-valuation';
+
+describe('canonicalizeReceiptQuantity', () => {
+    it.each([
+        ['1.00005', '1.0001'],
+        ['1.00004', '1.0000'],
+    ])('rounds %s to persisted scale as %s', (input, expected) => {
+        expect(canonicalizeReceiptQuantity(input).toFixed(4)).toBe(expected);
+    });
+
+    it.each(['0.00004', 0, -1, NaN, Infinity])(
+        'rejects quantity that cannot persist positively: %s',
+        (input) => {
+            expect(() => canonicalizeReceiptQuantity(input)).toThrow();
+        },
+    );
+});
 
 describe('resolveReceiptNetTotal', () => {
     const price = { unitPrice: '10000', taxPercent: '11', ppnMode: 'INCLUDE' };

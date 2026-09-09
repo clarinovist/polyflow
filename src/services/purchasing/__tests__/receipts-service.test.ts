@@ -28,6 +28,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     goodsReceiptItem: {
       createMany: vi.fn(),
       deleteMany: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     purchaseOrder: {
       findFirst: vi.fn(),
@@ -50,6 +51,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     stockMovement: {
       create: vi.fn(),
       delete: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     costHistory: {
       deleteMany: vi.fn(),
@@ -83,6 +85,13 @@ const { mockPrisma } = vi.hoisted(() => ({
   },
 }));
 vi.mock("@/lib/core/prisma", () => ({ prisma: mockPrisma }));
+vi.mock("@/services/accounting/account-resolver", () => ({
+  resolveAccount: vi.fn(async (role: string) => ({
+    id: role === "gr-clearing" ? "acc-clearing" : "acc-inventory",
+    code: role === "gr-clearing" ? "2-115" : "1-130",
+    name: role,
+  })),
+}));
 
 // These unit fixtures have no prior GR rows; mirror the nested rows just created.
 function withReceiptAggregate(tx: any) {
@@ -120,6 +129,7 @@ vi.mock("@/services/inventory/core-service", () => ({
 vi.mock("@/services/accounting/accounting-service", () => ({
   AccountingService: {
     recordInventoryMovement: vi.fn(),
+    createJournalEntry: vi.fn(),
   },
 }));
 
@@ -2061,14 +2071,14 @@ describe("receipts-service", () => {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
-          goodsReceiptItem: { deleteMany: vi.fn() },
-          stockMovement: { delete: vi.fn() },
+          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
           journalEntry: {
             findFirst: vi.fn().mockResolvedValue({ id: "je-1" }),
             findMany: vi.fn().mockResolvedValue([]),
             delete: vi.fn(),
           },
-          journalLine: { deleteMany: vi.fn() },
+          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
           costHistory: { deleteMany: vi.fn() },
           inventory: {
             findUnique: vi.fn().mockResolvedValue({ quantity: 100 }),
@@ -2128,14 +2138,14 @@ describe("receipts-service", () => {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
-          goodsReceiptItem: { deleteMany: vi.fn() },
-          stockMovement: { delete: vi.fn() },
+          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
           journalEntry: {
             findFirst: vi.fn().mockResolvedValue(null),
             findMany: vi.fn().mockResolvedValue([]),
             delete: vi.fn(),
           },
-          journalLine: { deleteMany: vi.fn() },
+          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
           costHistory: { deleteMany: vi.fn() },
           inventory: {
             findUnique: vi.fn().mockResolvedValue({ quantity: 10 }), // less than 50
@@ -2182,10 +2192,10 @@ describe("receipts-service", () => {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
-          goodsReceiptItem: { deleteMany: vi.fn() },
-          stockMovement: { delete: vi.fn() },
+          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
           journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
-          journalLine: { deleteMany: vi.fn() },
+          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
           costHistory: { deleteMany: vi.fn() },
           inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
           purchaseOrderItem: {
@@ -2235,10 +2245,10 @@ describe("receipts-service", () => {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
-          goodsReceiptItem: { deleteMany: vi.fn() },
-          stockMovement: { delete: vi.fn() },
+          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
           journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
-          journalLine: { deleteMany: vi.fn() },
+          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
           costHistory: { deleteMany: vi.fn() },
           inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
           purchaseOrderItem: {
@@ -2295,10 +2305,10 @@ describe("receipts-service", () => {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
-          goodsReceiptItem: { deleteMany: vi.fn() },
-          stockMovement: { delete: vi.fn() },
+          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
           journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
-          journalLine: { deleteMany: vi.fn() },
+          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
           costHistory: { deleteMany: vi.fn() },
           inventory: {
             findUnique: vi.fn().mockResolvedValue({ quantity: 100 }),
@@ -2339,10 +2349,10 @@ describe("receipts-service", () => {
             }),
             delete: vi.fn(),
           },
-          goodsReceiptItem: { deleteMany: vi.fn() },
-          stockMovement: { delete: vi.fn() },
+          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
           journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
-          journalLine: { deleteMany: vi.fn() },
+          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
           costHistory: { deleteMany: vi.fn() },
           inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
           purchaseOrderItem: {

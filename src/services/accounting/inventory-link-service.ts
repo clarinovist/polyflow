@@ -110,6 +110,23 @@ export async function recordInventoryMovement(
 ) {
     const db = tx || prisma;
 
+    // A movement is the accounting idempotency key. This guard must precede
+    // product lookup, WAC/CostHistory changes, and journal amount fallback so a
+    // replay cannot mutate valuation or regenerate a different rounded amount.
+    const existingMovementJournal = await db.journalEntry.findFirst({
+        where: {
+            referenceType:
+                movement.type === 'PURCHASE'
+                    ? 'GOODS_RECEIPT'
+                    : movement.type === 'ADJUSTMENT'
+                      ? 'STOCK_ADJUSTMENT'
+                      : 'MANUAL_ENTRY',
+            referenceId: movement.id,
+        },
+        select: { id: true },
+    });
+    if (existingMovementJournal) return;
+
     const productVariant =
         movement.productVariant ??
         (await db.productVariant.findUnique({

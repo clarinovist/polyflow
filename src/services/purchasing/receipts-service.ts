@@ -3,17 +3,24 @@ import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import {
+    JournalStatus,
     MovementType,
     NotificationType,
     PurchaseOrderStatus,
     Prisma,
+    ReferenceType,
 } from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError } from '@/lib/errors/errors';
-import { resolveReceiptNetTotal, resolveReceiptNetUnitCost } from '@/lib/purchasing/receipt-valuation';
+import {
+    canonicalizeReceiptQuantity,
+    resolveReceiptNetTotal,
+    resolveReceiptNetUnitCost,
+} from '@/lib/purchasing/receipt-valuation';
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
+import { resolveAccount } from '@/services/accounting/account-resolver';
 
 async function notifyFinanceOfGoodsReceipt(
     receiptId: string,
@@ -83,6 +90,11 @@ export async function createGoodsReceipt(
     }
     const receiptNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
+    const canonicalItems = data.items.map((item) => ({
+        ...item,
+        receivedQty: canonicalizeReceiptQuantity(item.receivedQty).toNumber(),
+    }));
+
     const receipt = await prisma.$transaction(async (tx) => {
         // === Atomic Duplicate submission guard (5-min window) ===
         if (data.purchaseOrderId && !data.isMaklon) {
@@ -108,8 +120,8 @@ export async function createGoodsReceipt(
                           include: { items: true },
                       });
             const isDuplicate = recentReceipts.some((receipt) => {
-                if (receipt.items.length !== data.items.length) return false;
-                return data.items.every((item) =>
+                if (receipt.items.length !== canonicalItems.length) return false;
+                return canonicalItems.every((item) =>
                     receipt.items.some(
                         (ri) =>
                             ((item.purchaseOrderItemId &&
@@ -249,7 +261,7 @@ export async function createGoodsReceipt(
 
             // Resolve each payload item by purchaseOrderItemId
             const poItemMap = new Map(poItems.map((pi) => [pi.id, pi]));
-            for (const item of data.items) {
+            for (const item of canonicalItems) {
                 if (!item.purchaseOrderItemId) {
                     throw new BusinessRuleError(
                         'purchaseOrderItemId wajib untuk penerimaan PO standar.',
@@ -285,7 +297,7 @@ export async function createGoodsReceipt(
             }
         } else {
             // Maklon or walk-in: use item data as-is, always as Decimal
-            resolvedItems = data.items.map((item) => ({
+            resolvedItems = canonicalItems.map((item) => ({
                 productVariantId: item.productVariantId,
                 receivedQty: item.receivedQty,
                 unitCost: data.isMaklon
@@ -374,9 +386,9 @@ export async function createGoodsReceipt(
                     const cum = new Prisma.Decimal(
                         cumQty._sum.receivedQty?.toString() ?? '0',
                     );
-                    const current = new Prisma.Decimal(
-                        String(item.receivedQty),
-                    );
+                    // `cum` is persisted scale-4 and resolvedItems were
+                    // canonicalized to the same scale before any write.
+                    const current = new Prisma.Decimal(item.receivedQty);
                     const prior = Prisma.Decimal.max(
                         new Prisma.Decimal(0),
                         cum.minus(current),
@@ -657,6 +669,7 @@ export async function reverseGoodsReceipt(
         }
 
         // 1. Reverse inventory + delete stock movements + journal entries
+        let reversalInventoryAccountId: string | null = null;
         for (const movement of gr.movements) {
             // Find and delete the journal entry created by recordInventoryMovement
             // (referenceType: 'GOODS_RECEIPT', referenceId: movement.id)
@@ -665,9 +678,14 @@ export async function reverseGoodsReceipt(
                     referenceId: movement.id,
                     referenceType: 'GOODS_RECEIPT',
                 },
+                include: { lines: true },
             });
 
             if (journalEntry) {
+                reversalInventoryAccountId ??=
+                    journalEntry.lines?.find((line) =>
+                        new Prisma.Decimal(line.debit).gt(0),
+                    )?.accountId ?? null;
                 // Delete journal lines first (cascade should handle this, but be explicit)
                 await db.journalLine.deleteMany({
                     where: { journalEntryId: journalEntry.id },
@@ -795,6 +813,109 @@ export async function reverseGoodsReceipt(
         await db.goodsReceiptItem.deleteMany({
             where: { goodsReceiptId },
         });
+
+        // Removing an earlier receipt can break the telescoping cent allocation
+        // of the remaining GR journals. Post a separate, traceable adjustment;
+        // never rewrite another receipt's posted journal. Any protected-bill
+        // failure below rolls this adjustment back with the entire reversal.
+        if (gr.purchaseOrderId) {
+            const remainingItems = await db.goodsReceiptItem.findMany({
+                where: {
+                    purchaseOrderItem: {
+                        purchaseOrderId: gr.purchaseOrderId,
+                    },
+                },
+                select: {
+                    purchaseOrderItemId: true,
+                    receivedQty: true,
+                },
+            });
+            const remainingByPoItem = new Map<string, Prisma.Decimal>();
+            for (const item of remainingItems) {
+                if (!item.purchaseOrderItemId) continue;
+                remainingByPoItem.set(
+                    item.purchaseOrderItemId,
+                    (remainingByPoItem.get(item.purchaseOrderItemId) ??
+                        new Prisma.Decimal(0)
+                    ).plus(item.receivedQty),
+                );
+            }
+            const expectedClearing = [...remainingByPoItem.entries()].reduce(
+                (total, [poItemId, quantity]) => {
+                    const poItem = gr.purchaseOrder?.items.find(
+                        (item) => item.id === poItemId,
+                    );
+                    return poItem
+                        ? total.plus(
+                              resolveReceiptNetTotal(poItem, quantity),
+                          )
+                        : total;
+                },
+                new Prisma.Decimal(0),
+            );
+            const remainingMovements = await db.stockMovement.findMany({
+                where: {
+                    goodsReceipt: { purchaseOrderId: gr.purchaseOrderId },
+                },
+                select: { id: true },
+            });
+            const clearingAccount = await resolveAccount('gr-clearing');
+            const postedClearing = await db.journalLine.aggregate({
+                where: {
+                    accountId: clearingAccount.id,
+                    journalEntry: {
+                        status: JournalStatus.POSTED,
+                        referenceType: ReferenceType.GOODS_RECEIPT,
+                        referenceId: {
+                            in: [
+                                ...remainingMovements.map((movement) =>
+                                    movement.id,
+                                ),
+                                gr.purchaseOrderId,
+                            ],
+                        },
+                    },
+                },
+                _sum: { debit: true, credit: true },
+            });
+            const currentClearing = new Prisma.Decimal(
+                postedClearing._sum.credit ?? 0,
+            ).minus(postedClearing._sum.debit ?? 0);
+            const adjustment = expectedClearing.minus(currentClearing);
+            if (!adjustment.isZero()) {
+                const inventoryAccountId =
+                    reversalInventoryAccountId ??
+                    (await resolveAccount('inventory')).id;
+                const amount = adjustment.abs().toNumber();
+                await AccountingService.createJournalEntry(
+                    {
+                        entryDate: new Date(),
+                        description: `GR rounding adjustment after reversal ${gr.receiptNumber}`,
+                        reference: `REV-${gr.receiptNumber}`,
+                        referenceType: ReferenceType.GOODS_RECEIPT,
+                        referenceId: gr.purchaseOrderId,
+                        isAutoGenerated: true,
+                        status: JournalStatus.POSTED,
+                        createdById: userId,
+                        lines: [
+                            {
+                                accountId: inventoryAccountId,
+                                debit: adjustment.gt(0) ? amount : 0,
+                                credit: adjustment.lt(0) ? amount : 0,
+                                description: `Inventory rounding adjustment for ${gr.receiptNumber}`,
+                            },
+                            {
+                                accountId: clearingAccount.id,
+                                debit: adjustment.lt(0) ? amount : 0,
+                                credit: adjustment.gt(0) ? amount : 0,
+                                description: `GR/IR rounding adjustment for ${gr.receiptNumber}`,
+                            },
+                        ],
+                    },
+                    db,
+                );
+            }
+        }
 
         // 5. Delete the GoodsReceipt
         await db.goodsReceipt.delete({

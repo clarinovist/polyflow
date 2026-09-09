@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { runWithActor } from '@/lib/core/actor-context';
 import type { AccountRole } from '@/services/accounting/account-resolver';
 
@@ -525,6 +525,10 @@ describe.skipIf(!enabled)('GR net valuation on isolated PostgreSQL', () => {
             where: { goodsReceipt: { purchaseOrderId: 'gr-po' } },
         });
         const journalCount = await db.journalEntry.count();
+        const costHistoryCount = await db.costHistory.count();
+        const standardCost = (await db.productVariant.findUniqueOrThrow({
+            where: { id: movement.productVariantId },
+        })).standardCost?.toFixed(4);
         const { recordInventoryMovement } = await import(
             '@/services/accounting/inventory-link-service'
         );
@@ -541,18 +545,17 @@ describe.skipIf(!enabled)('GR net valuation on isolated PostgreSQL', () => {
             },
             include: { lines: true },
         });
-        expect(journals.length).toBeGreaterThanOrEqual(1);
-        for (const journal of journals) {
-            const amounts = journal.lines.map(
-                (line) => Number(line.debit) + Number(line.credit),
-            );
-            expect(Math.max(...amounts)).toBeLessThanOrEqual(
-                Number(syntheticCase.grNetTotal),
-            );
-        }
-        expect(await db.journalEntry.count()).toBeGreaterThanOrEqual(
-            journalCount,
-        );
+        expect(journals).toHaveLength(1);
+        expect(
+            journals[0].lines
+                .filter((line) => Number(line.credit) > 0)
+                .map((line) => line.credit.toFixed(2)),
+        ).toEqual([new Prisma.Decimal(syntheticCase.grNetTotal).toFixed(2)]);
+        expect(await db.journalEntry.count()).toBe(journalCount);
+        expect(await db.costHistory.count()).toBe(costHistoryCount);
+        expect((await db.productVariant.findUniqueOrThrow({
+            where: { id: movement.productVariantId },
+        })).standardCost?.toFixed(4)).toBe(standardCost);
     });
 
     it('persists a maklon path with zero movement cost', async () => {

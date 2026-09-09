@@ -47,6 +47,9 @@ vi.mock('@/lib/core/prisma', () => {
         productVariant: {
             findUnique: vi.fn().mockResolvedValue({ id: 'pv-1', product: { type: 'FINISHED_GOOD' } }),
         },
+        journalEntry: {
+            findFirst: vi.fn().mockResolvedValue(null),
+        },
     };
 
     const mockPrisma = {
