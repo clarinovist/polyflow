@@ -42,7 +42,9 @@ RUN npx tsc \
   scripts/cleanup-performance-metrics.ts \
   --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
-RUN npm run build
+# The TypeScript worker exceeds Node's ~2 GiB default heap on CI.
+# Scope the larger heap to this build command; do not change runtime limits.
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
