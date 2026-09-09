@@ -36,18 +36,7 @@ import { SupplierPaymentsTab } from './360/SupplierPaymentsTab';
 import { SupplierPerformanceTab } from './360/SupplierPerformanceTab';
 import { SupplierAnalyticsTab } from './360/SupplierAnalyticsTab';
 
-interface SupplierProduct {
-    id: string;
-    isPreferred: boolean;
-    unitPrice: number | null;
-    leadTimeDays: number | null;
-    minOrderQty: number | null;
-    productVariant: {
-        name: string;
-        skuCode: string;
-        product: { name: string };
-    };
-}
+import type { SupplierProductSummary } from '@/services/purchasing/supplier-products-service';
 
 type Tab =
     | 'overview'
@@ -73,7 +62,7 @@ interface Props {
         bankAccount?: string | null;
         notes?: string | null;
     };
-    supplierProducts: SupplierProduct[];
+    supplierProducts: SupplierProductSummary[];
     initialTab: string;
 }
 
@@ -282,7 +271,7 @@ export function Supplier360Tabs({
                                             {supplierProducts.length}
                                         </p>
                                         <p className="text-sm text-muted-foreground">
-                                            Produk Aktif
+                                            Produk / Varian
                                         </p>
                                     </div>
                                 </CardContent>
@@ -298,6 +287,13 @@ export function Supplier360Tabs({
                                         <Package className="h-5 w-5" /> Produk
                                         yang Disuplai
                                     </CardTitle>
+                                    <p className="text-sm text-muted-foreground mt-2">
+                                        Gabungan tautan manual dan riwayat
+                                        barang masuk, termasuk pembelian dari
+                                        nota. Setiap varian dihitung sekali.
+                                        Melepas tautan manual tidak menghapus
+                                        riwayat barang masuk.
+                                    </p>
                                 </div>
                                 <LinkProductDialog
                                     supplierId={supplier.id}
@@ -325,7 +321,9 @@ export function Supplier360Tabs({
                                                     colSpan={6}
                                                     className="text-center py-8 text-muted-foreground"
                                                 >
-                                                    Belum ada produk.
+                                                    Belum ada tautan produk atau
+                                                    riwayat barang masuk dari
+                                                    supplier ini.
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -351,6 +349,19 @@ export function Supplier360Tabs({
                                                                         .name
                                                                 }
                                                             </span>
+                                                            <div className="flex gap-1 mt-1">
+                                                                {sp.linkId && (
+                                                                    <Badge variant="outline">
+                                                                        Manual
+                                                                    </Badge>
+                                                                )}
+                                                                {sp.hasReceiptHistory && (
+                                                                    <Badge variant="secondary">
+                                                                        Barang
+                                                                        masuk
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-mono text-xs">
@@ -362,28 +373,41 @@ export function Supplier360Tabs({
                                                     <TableCell>
                                                         <div className="flex items-center gap-1">
                                                             <DollarSign className="h-3 w-3 text-muted-foreground" />
-                                                            {sp.unitPrice
-                                                                ? sp.unitPrice.toString()
-                                                                : '-'}
+                                                            {(
+                                                                sp.unitPrice ??
+                                                                sp.lastReceiptUnitCost
+                                                            )?.toString() ??
+                                                                '-'}
                                                         </div>
+                                                        {sp.unitPrice == null &&
+                                                            sp.hasReceiptHistory && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    Biaya
+                                                                    penerimaan
+                                                                    terakhir
+                                                                </span>
+                                                            )}
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-1">
                                                             <Clock className="h-3 w-3 text-muted-foreground" />
-                                                            {sp.leadTimeDays
+                                                            {sp.leadTimeDays !=
+                                                            null
                                                                 ? `${sp.leadTimeDays} hari`
                                                                 : '-'}
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        {sp.minOrderQty
+                                                        {sp.minOrderQty != null
                                                             ? sp.minOrderQty.toString()
                                                             : '-'}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <UnlinkProductButton
-                                                            id={sp.id}
-                                                        />
+                                                        {sp.linkId && (
+                                                            <UnlinkProductButton
+                                                                id={sp.linkId}
+                                                            />
+                                                        )}
                                                     </TableCell>
                                                 </TableRow>
                                             ))

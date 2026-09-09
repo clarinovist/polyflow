@@ -11,6 +11,7 @@ const { mockPrisma } = vi.hoisted(() => {
             update: vi.fn(),
         },
         productVariant: {
+            findMany: vi.fn(),
             update: vi.fn(),
         },
     };
@@ -86,6 +87,7 @@ function mockSession(role: string) {
 describe('supplier-product action authorization', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mockPrisma.productVariant.findMany.mockResolvedValue([]);
         mockPrisma.supplierProduct.findMany.mockResolvedValue([]);
         mockPrisma.supplierProduct.findUnique.mockResolvedValue(null);
     });
@@ -211,6 +213,30 @@ describe('supplier-product action authorization', () => {
     });
 
     describe('getSupplierProducts (read)', () => {
+        it('returns receipt-derived products even without manual mappings', async () => {
+            vi.mocked(requireAuth).mockResolvedValue(mockSession('ADMIN'));
+            mockPrisma.productVariant.findMany.mockResolvedValue([{
+                id: 'pv1', name: 'Varian', skuCode: 'SKU-1', product: { name: 'Bahan' },
+                supplierProducts: [], goodsReceiptItems: [{ unitCost: 123 }],
+            }]);
+            const res = await getSupplierProducts('s1');
+            expect(res).toMatchObject({ success: true, data: [{ id: 'pv1', linkId: null, hasReceiptHistory: true, lastReceiptUnitCost: 123 }] });
+        });
+
+        it('reports a query error rather than successful zero products', async () => {
+            vi.mocked(requireAuth).mockResolvedValue(mockSession('ADMIN'));
+            mockPrisma.productVariant.findMany.mockRejectedValueOnce(new Error('DB unavailable'));
+            expect(await getSupplierProducts('s1')).toMatchObject({
+                success: false, error: 'Gagal memuat produk supplier. Silakan coba lagi.',
+            });
+        });
+
+        it('does not query history before authorization', async () => {
+            vi.mocked(requireAuth).mockResolvedValue(mockSession('WAREHOUSE'));
+            expect((await getSupplierProducts('s1')).success).toBe(false);
+            expect(mockPrisma.productVariant.findMany).not.toHaveBeenCalled();
+        });
+
         it('allows ADMIN', async () => {
             vi.mocked(requireAuth).mockResolvedValue(mockSession('ADMIN'));
             const res = await getSupplierProducts('s1');

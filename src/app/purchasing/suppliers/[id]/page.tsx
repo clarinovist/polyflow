@@ -16,21 +16,10 @@ export default async function SupplierDetailPage(props: {
     if (!supplier) notFound();
 
     const supplierProductsRes = await getSupplierProducts(id);
-    const supplierProducts =
-        supplierProductsRes?.success && supplierProductsRes.data
-            ? (supplierProductsRes.data as unknown as {
-                  id: string;
-                  isPreferred: boolean;
-                  unitPrice: number | null;
-                  leadTimeDays: number | null;
-                  minOrderQty: number | null;
-                  productVariant: {
-                      name: string;
-                      skuCode: string;
-                      product: { name: string };
-                  };
-              }[])
-            : [];
+    if (!supplierProductsRes.success) {
+        throw new Error('Gagal memuat produk supplier. Silakan coba lagi.');
+    }
+    const supplierProducts = supplierProductsRes.data;
 
     return (
         <Supplier360Tabs

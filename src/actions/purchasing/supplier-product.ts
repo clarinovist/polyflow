@@ -7,6 +7,7 @@ import { serializeData } from '@/lib/utils/utils';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { logger } from '@/lib/config/logger';
+import { listSupplierProducts } from '@/services/purchasing/supplier-products-service';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import {
     requirePurchasingAccess,
@@ -152,29 +153,16 @@ export const getSupplierProducts = withTenant(
         return safeAction(async () => {
             await requirePurchasingAccess();
             try {
-                const products = await prisma.supplierProduct.findMany({
-                    where: { supplierId },
-                    include: {
-                        productVariant: {
-                            include: {
-                                product: true,
-                            },
-                        },
-                    },
-                    orderBy: {
-                        productVariant: {
-                            name: 'asc',
-                        },
-                    },
-                });
-                return serializeData(products);
+                return await listSupplierProducts(supplierId);
             } catch (error) {
                 logger.error('Failed to get supplier products', {
                     error,
                     supplierId,
                     module: 'SupplierProductActions',
                 });
-                return [];
+                throw new BusinessRuleError(
+                    'Gagal memuat produk supplier. Silakan coba lagi.',
+                );
             }
         });
     },
