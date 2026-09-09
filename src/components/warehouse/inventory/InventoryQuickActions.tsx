@@ -15,6 +15,7 @@ import {
     History,
     ClipboardCheck,
     MoreVertical,
+    TableProperties,
 } from 'lucide-react';
 
 interface InventoryQuickActionsProps {
@@ -38,6 +39,17 @@ export function InventoryQuickActions({
                     </Button>
                 </Link>
             )}
+            <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5"
+            >
+                <Link href="/warehouse/inventory/balance">
+                    <TableProperties className="h-3.5 w-3.5" />
+                    Neraca Stok
+                </Link>
+            </Button>
             <Link href="/warehouse/inventory/transfer">
                 <Button variant="default" size="sm" className="text-xs gap-1.5">
                     <ArrowLeftRight className="h-3.5 w-3.5" />
