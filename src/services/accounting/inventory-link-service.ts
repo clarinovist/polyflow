@@ -10,6 +10,49 @@ type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
 }>;
 
 /**
+ * Narrow persisted-Decimal conversion: real Prisma.Decimal values and plain
+ * strings pass through without Number() interning. Numbers are accepted only
+ * for non-persisted in-memory quantities; anything else fails closed because
+ * its canonical string form is unknown.
+ */
+function toPersistedDecimal(
+    value: Prisma.Decimal | string | number,
+    field: string,
+    details?: Record<string, unknown>,
+): Prisma.Decimal {
+    if (value instanceof Prisma.Decimal) return value;
+    if (typeof value === 'string') {
+        try {
+            return new Prisma.Decimal(value);
+        } catch {
+            throw new BusinessRuleError(
+                `Nilai ${field} tidak valid untuk valuasi penerimaan.`,
+                details,
+                'RECEIPT_VALUATION_INVALID_AMOUNT',
+            );
+        }
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return new Prisma.Decimal(value);
+    }
+    throw new BusinessRuleError(
+        `Nilai ${field} tidak valid untuk valuasi penerimaan.`,
+        details,
+        'RECEIPT_VALUATION_INVALID_AMOUNT',
+    );
+}
+
+function receiptCostFor(
+    cost: Prisma.Decimal | string | number,
+    movement: { id: string; goodsReceiptId: string | null },
+): Prisma.Decimal {
+    return toPersistedDecimal(cost, 'movement.cost', {
+        movementId: movement.id,
+        goodsReceiptId: movement.goodsReceiptId,
+    });
+}
+
+/**
  * Check GL account balance won't go negative after posting.
  * For ASSET accounts: balance = debit - credit. A credit posting reduces balance.
  * For LIABILITY/EQUITY/REVENUE accounts: normal balance is credit — skip the guard.
@@ -63,6 +106,7 @@ export async function recordInventoryMovement(
         productVariant?: StockMovementWithProduct['productVariant'];
     },
     tx?: Prisma.TransactionClient,
+    options?: { journalTotal?: number },
 ) {
     const db = tx || prisma;
 
@@ -85,13 +129,10 @@ export async function recordInventoryMovement(
             include: {
                 purchaseOrder: {
                     include: {
-                        items: {
-                            where: {
-                                productVariantId: movement.productVariantId,
-                            },
-                        },
+                        items: true,
                     },
                 },
+                items: true,
             },
         });
         if (goodsReceipt?.isMaklon) isMaklon = true;
@@ -125,55 +166,145 @@ export async function recordInventoryMovement(
     );
     let cost = currentCost;
 
-    // If this is a Goods Receipt, try to get the price from the Purchase Order and update Standard Cost
+    // If this is a Goods Receipt, use the persisted receipt movement cost as the
+    // single source of truth. Never re-read current PO unitPrice: a later PO price
+    // change must not revalue an already persisted GR. Movements may legitimately
+    // share one SKU across several GR rows (partial receipts, repeated PO items),
+    // and walk-in receipts carry no PO at all — so attribution here must not
+    // demand one GR item per variant. Only a missing persisted cost, or a GR row
+    // whose own PO lineage cannot be resolved, fails closed.
     if (movement.goodsReceiptId && goodsReceipt) {
-        const poItem = goodsReceipt.purchaseOrder?.items[0];
-        if (poItem) {
-            const receiptPrice = Number(poItem.unitPrice);
-            cost = receiptPrice;
-
-            // AUTO-UPDATE Standard Cost (Weighted Average)
-            // 1. Get current stock across all locations
-            const inventorySum = await db.inventory.aggregate({
-                where: { productVariantId: movement.productVariantId },
-                _sum: { quantity: true },
-            });
-            const currentStockAfterReceipt = inventorySum._sum.quantity
-                ? inventorySum._sum.quantity.toNumber()
-                : 0;
-            const receiptQty = Number(movement.quantity);
-            const currentStock = Math.max(
-                0,
-                currentStockAfterReceipt - receiptQty,
+        if (movement.cost == null) {
+            throw new BusinessRuleError(
+                'Biaya movement penerimaan tidak tersedia. Rekonsiliasi manual diperlukan.',
+                {
+                    movementId: movement.id,
+                    goodsReceiptId: movement.goodsReceiptId,
+                },
+                'RECEIPT_COST_MISSING',
             );
+        }
 
-            // 2. Calculate New Weighted Average
-            // Use the variant's EXISTING standardCost (before this update), NOT the receipt price.
-            // Using receiptPrice here would make the formula collapse to: newAvg = receiptPrice (always).
-            const previousStandardCost = Number(
-                productVariant.standardCost ?? 0,
+        const goodsReceiptItems = goodsReceipt.items ?? [];
+        if (goodsReceipt.purchaseOrderId) {
+            const unattributed = goodsReceiptItems.filter(
+                (item) => !item.purchaseOrderItemId,
             );
-            if (currentStock + receiptQty > 0) {
-                const newWeightedAvg =
-                    currentStock > 0 && previousStandardCost > 0
-                        ? (previousStandardCost * currentStock +
-                              receiptPrice * receiptQty) /
-                          (currentStock + receiptQty)
-                        : receiptPrice;
-
-                // 3. Update Standard Cost & Log History
-                await updateStandardCostInternal(
-                    movement.productVariantId,
-                    newWeightedAvg,
-                    'PURCHASE_GR',
-                    movement.goodsReceiptId,
-                    db as Prisma.TransactionClient, // Use current transaction if available
+            const unknownPoItem = goodsReceiptItems.filter(
+                (item) =>
+                    item.purchaseOrderItemId &&
+                    !(goodsReceipt.purchaseOrder?.items ?? []).some(
+                        (poItem) => poItem.id === item.purchaseOrderItemId,
+                    ),
+            );
+            if (unattributed.length > 0 || unknownPoItem.length > 0) {
+                throw new BusinessRuleError(
+                    'Atribusi item PO penerimaan ambigu. Rekonsiliasi manual diperlukan.',
+                    {
+                        movementId: movement.id,
+                        goodsReceiptId: movement.goodsReceiptId,
+                        unattributed: unattributed.length,
+                        unknownPoItem: unknownPoItem.length,
+                    },
+                    'RECEIPT_ATTRIBUTION_AMBIGUOUS',
                 );
             }
         }
+
+        const receiptCost = toPersistedDecimal(
+            movement.cost,
+            'movement.cost',
+            {
+                movementId: movement.id,
+                goodsReceiptId: movement.goodsReceiptId,
+            },
+        );
+        cost = receiptCost.toNumber();
+
+        // AUTO-UPDATE Standard Cost (Weighted Average)
+        // 1. Get current stock across all locations
+        const inventorySum = await db.inventory.aggregate({
+            where: { productVariantId: movement.productVariantId },
+            _sum: { quantity: true },
+        });
+        // Stock arithmetic stays Decimal: inventory aggregate, receipt qty and
+        // existing standard cost enter as persisted Decimals/strings, and only
+        // the final legacy number-API argument converts.
+        const currentStockAfterReceiptDec = inventorySum._sum.quantity
+            ? toPersistedDecimal(
+                  inventorySum._sum.quantity,
+                  'inventory.quantity',
+                  {
+                      movementId: movement.id,
+                      goodsReceiptId: movement.goodsReceiptId,
+                  },
+              )
+            : new Prisma.Decimal(0);
+        const receiptQtyDec = toPersistedDecimal(
+            movement.quantity,
+            'movement.quantity',
+            {
+                movementId: movement.id,
+                goodsReceiptId: movement.goodsReceiptId,
+            },
+        );
+        const currentStockDec = Prisma.Decimal.max(
+            new Prisma.Decimal(0),
+            currentStockAfterReceiptDec.minus(receiptQtyDec),
+        );
+
+        // 2. Calculate New Weighted Average
+        // Use the variant's EXISTING standardCost (before this update), NOT the receipt price.
+        // Using receiptPrice here would make the formula collapse to: newAvg = receiptPrice (always).
+        const previousStandardCostDec =
+            productVariant.standardCost == null
+                ? new Prisma.Decimal(0)
+                : toPersistedDecimal(
+                      productVariant.standardCost,
+                      'productVariant.standardCost',
+                      {
+                          movementId: movement.id,
+                          goodsReceiptId: movement.goodsReceiptId,
+                      },
+                  );
+        const totalQtyDec = currentStockDec.plus(receiptQtyDec);
+        if (totalQtyDec.gt(0)) {
+            const newWeightedAvg =
+                currentStockDec.gt(0) && previousStandardCostDec.gt(0)
+                    ? previousStandardCostDec
+                          .mul(currentStockDec)
+                          .plus(receiptCost.mul(receiptQtyDec))
+                          .div(totalQtyDec)
+                          .toDecimalPlaces(4)
+                          .toNumber()
+                    : receiptCost.toDecimalPlaces(4).toNumber();
+
+            // 3. Update Standard Cost & Log History
+            await updateStandardCostInternal(
+                movement.productVariantId,
+                newWeightedAvg,
+                'PURCHASE_GR',
+                movement.goodsReceiptId ?? undefined,
+                db as Prisma.TransactionClient, // Use current transaction if available
+            );
+        }
     }
 
-    const totalAmount = Number(movement.quantity) * cost;
+    const totalAmount =
+        options?.journalTotal ??
+        (movement.goodsReceiptId && goodsReceipt && movement.cost != null
+            ? toPersistedDecimal(
+                  movement.quantity,
+                  'movement.quantity',
+                  {
+                      movementId: movement.id,
+                      goodsReceiptId: movement.goodsReceiptId,
+                  },
+              )
+                  .mul(receiptCostFor(movement.cost, movement))
+                  .toDecimalPlaces(2)
+                  .toNumber()
+            : Number(movement.quantity) * cost);
 
     if (totalAmount === 0) return;
 

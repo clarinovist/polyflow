@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   createGoodsReceipt,
   getGoodsReceiptById,
@@ -83,6 +84,26 @@ const { mockPrisma } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/core/prisma", () => ({ prisma: mockPrisma }));
 
+// These unit fixtures have no prior GR rows; mirror the nested rows just created.
+function withReceiptAggregate(tx: any) {
+  if (!tx.goodsReceipt?.create) return tx;
+  return {
+    ...tx,
+    goodsReceiptItem: {
+      ...tx.goodsReceiptItem,
+      aggregate: vi.fn(async ({ where }: { where: { purchaseOrderItemId: string } }) => {
+        const items = tx.goodsReceipt.create.mock.lastCall[0].data.items.create as Array<{
+          purchaseOrderItemId?: string; receivedQty: number;
+        }>;
+        const quantity = items
+          .filter(item => item.purchaseOrderItemId === where.purchaseOrderItemId)
+          .reduce((sum, item) => sum.plus(item.receivedQty), new Prisma.Decimal(0));
+        return { _sum: { receivedQty: quantity } };
+      }),
+    },
+  };
+}
+
 // Mock audit
 vi.mock("@/lib/tools/audit", () => ({
   logActivity: vi.fn(),
@@ -133,7 +154,7 @@ describe("receipts-service", () => {
     vi.clearAllMocks();
     mockPrisma.goodsReceipt.findMany.mockResolvedValue([]);
     // Reset implementations explicitly so scoped tests do not depend on order.
-    mockPrisma.$transaction.mockImplementation((callback) => callback(mockPrisma));
+    mockPrisma.$transaction.mockImplementation((callback) => callback(withReceiptAggregate(mockPrisma)));
     // Re-set productVariant mock (clearAllMocks resets implementations)
     mockPrisma.productVariant.findUnique.mockResolvedValue({
       id: "pv-1",
@@ -448,7 +469,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -463,7 +484,15 @@ describe("receipts-service", () => {
       });
       expect(
         vi.mocked(InventoryCoreService.incrementStockWithCost),
-      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 10, 5000);
+      ).toHaveBeenCalledWith(
+        expect.anything(),
+        locationId,
+        "pv-1",
+        10,
+        expect.objectContaining({}),
+      );
+      const sequentialCost = vi.mocked(InventoryCoreService.incrementStockWithCost).mock.calls[0][4] as { toFixed: (n: number) => string };
+      expect(sequentialCost.toFixed(4)).toBe("5000.0000");
       expect(vi.mocked(logActivity)).toHaveBeenCalledWith(
         expect.objectContaining({
           userId,
@@ -501,7 +530,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -539,7 +568,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -547,6 +576,72 @@ describe("receipts-service", () => {
 
       // Assert
       expect(result.receiptNumber).toBe("GR-2026-0001");
+    });
+
+    it("should persist Decimal net cost for INCLUDE PPN (synthetic 0128)", async () => {
+      // Arrange
+      const includePO = {
+        id: "po-1",
+        status: "SENT",
+        orderNumber: "PO-001",
+        items: [
+          {
+            id: "poi-1",
+            productVariantId: "pv-1",
+            quantity: 1500,
+            receivedQty: 0,
+            unitPrice: new Prisma.Decimal("29748"),
+            discountPercent: null,
+            taxPercent: new Prisma.Decimal("11"),
+            ppnMode: "INCLUDE",
+          },
+        ],
+      };
+      const data = { ...baseData, purchaseOrderId: "po-1" };
+      vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
+      let createdReceiptData: any;
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
+          goodsReceipt: {
+            create: vi.fn().mockImplementation((args: any) => {
+              createdReceiptData = args.data;
+              return { id: "gr-net", receiptNumber: "GR-2026-0001", items: args.data.items.create };
+            }),
+          },
+          stockMovement: { create: vi.fn().mockResolvedValue({ id: "mov-1" }) },
+          purchaseOrderItem: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            update: vi.fn(),
+            findMany: vi.fn().mockResolvedValue([
+              { receivedQty: { toNumber: () => 10 }, quantity: { toNumber: () => 10 } },
+            ]),
+          },
+          purchaseOrder: {
+            findUnique: vi.fn().mockResolvedValue(includePO),
+            update: vi.fn(),
+          },
+        };
+        return cb(withReceiptAggregate(tx));
+      });
+
+      // Act
+      await createGoodsReceipt(data, userId);
+
+      // Assert
+      expect(createdReceiptData.items.create[0].unitCost.toFixed(4)).toBe("26800.0000");
+      expect(
+        vi.mocked(InventoryCoreService.incrementStockWithCost),
+      ).toHaveBeenCalledWith(
+        expect.anything(),
+        locationId,
+        "pv-1",
+        10,
+        expect.objectContaining({}),
+      );
+      const passedCost = vi.mocked(InventoryCoreService.incrementStockWithCost).mock.calls[0][4] as { toFixed: (n: number) => string };
+      expect(passedCost.toFixed(4)).toBe("26800.0000");
     });
 
     it("should create standard receipt successfully without unitCost in payload", async () => {
@@ -584,7 +679,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -592,10 +687,12 @@ describe("receipts-service", () => {
 
       // Assert
       expect(result.receiptNumber).toBe("GR-2026-0001");
-      expect(createdReceiptData.items.create[0].unitCost).toBe(5000);
+      expect(createdReceiptData.items.create[0].unitCost.toFixed(4)).toBe("5000.0000");
+      const persistedCost = createdReceiptData.items.create[0].unitCost as { toFixed: (n: number) => string; toNumber: () => number };
+      expect(persistedCost.toFixed(4)).toBe("5000.0000");
       expect(
         vi.mocked(InventoryCoreService.incrementStockWithCost),
-      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 10, 5000);
+      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 10, persistedCost.toNumber());
     });
 
     it("should ignore manipulative unitCost from client and use PO item price as source of truth", async () => {
@@ -633,17 +730,18 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
       await createGoodsReceipt(dataWithFakePrice, userId);
 
       // Assert
-      expect(createdReceiptData.items.create[0].unitCost).toBe(5000);
+      expect(createdReceiptData.items.create[0].unitCost.toFixed(4)).toBe("5000.0000");
+      const trustedCost = createdReceiptData.items.create[0].unitCost as { toNumber: () => number };
       expect(
         vi.mocked(InventoryCoreService.incrementStockWithCost),
-      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 10, 5000);
+      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 10, trustedCost.toNumber());
     });
 
     it("should reject duplicate submission within 5 minutes even if client sends different unitCost", async () => {
@@ -668,7 +766,7 @@ describe("receipts-service", () => {
             findMany: vi.fn().mockResolvedValue([recentReceipt]),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act & Assert
@@ -713,7 +811,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -761,7 +859,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -809,7 +907,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -855,7 +953,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -899,7 +997,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act & Assert
@@ -938,7 +1036,7 @@ describe("receipts-service", () => {
             update: mockPoUpdate,
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -983,7 +1081,7 @@ describe("receipts-service", () => {
             update: mockPoUpdate,
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1032,7 +1130,7 @@ describe("receipts-service", () => {
             update: mockPoUpdate,
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act & Assert
@@ -1071,7 +1169,7 @@ describe("receipts-service", () => {
             update: mockPoUpdate,
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1116,7 +1214,7 @@ describe("receipts-service", () => {
             update: mockPoUpdate,
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act & Assert
@@ -1150,7 +1248,7 @@ describe("receipts-service", () => {
             update: mockPoUpdate,
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1191,7 +1289,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1249,7 +1347,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1286,7 +1384,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
       vi.mocked(createDraftBillFromPo).mockRejectedValueOnce(billError);
 
@@ -1330,7 +1428,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1392,7 +1490,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1402,10 +1500,10 @@ describe("receipts-service", () => {
       expect(movementCreates).toHaveLength(2);
       expect(movementCreates[0].data.productVariantId).toBe("pv-1");
       expect(movementCreates[0].data.quantity).toBe(10);
-      expect(movementCreates[0].data.cost).toBe(5000);
+      expect(movementCreates[0].data.cost.toFixed(4)).toBe("5000.0000");
       expect(movementCreates[1].data.productVariantId).toBe("pv-2");
       expect(movementCreates[1].data.quantity).toBe(20);
-      expect(movementCreates[1].data.cost).toBe(3000);
+      expect(movementCreates[1].data.cost.toFixed(4)).toBe("3000.0000");
       expect(
         vi.mocked(InventoryCoreService.incrementStockWithCost),
       ).toHaveBeenCalledTimes(2);
@@ -1444,7 +1542,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1491,7 +1589,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1528,7 +1626,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1579,7 +1677,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1627,7 +1725,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1670,7 +1768,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1724,7 +1822,7 @@ describe("receipts-service", () => {
             update: vi.fn(),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // Act
@@ -1734,12 +1832,17 @@ describe("receipts-service", () => {
       expect(
         vi.mocked(InventoryCoreService.incrementStockWithCost),
       ).toHaveBeenCalledTimes(2);
-      expect(
-        vi.mocked(InventoryCoreService.incrementStockWithCost),
-      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-1", 5, 10000);
-      expect(
-        vi.mocked(InventoryCoreService.incrementStockWithCost),
-      ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-2", 15, 2500);
+      const mixedCosts = vi.mocked(InventoryCoreService.incrementStockWithCost).mock.calls.map(
+        (call) => (call[4] as { toFixed: (n: number) => string }).toFixed(4),
+      );
+      expect(mixedCosts).toEqual(["10000.0000", "2500.0000"]);
+      const mixedArgs = vi.mocked(InventoryCoreService.incrementStockWithCost).mock.calls.map(
+        (call) => [call[1], call[2], call[3]] as [string, string, number],
+      );
+      expect(mixedArgs).toEqual([
+        [locationId, "pv-1", 5],
+        [locationId, "pv-2", 15],
+      ]);
     });
     it("allows over-receiving beyond PO quantity (PO is estimate)", async () => {
       const data = { ...baseData, purchaseOrderId: "po-1", items: [{ ...baseData.items[0], receivedQty: 3 }] };
@@ -1765,7 +1868,7 @@ describe("receipts-service", () => {
           update: vi.fn(),
         },
       };
-      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(mockTx));
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(withReceiptAggregate(mockTx)));
 
       await expect(createGoodsReceipt(data, userId)).resolves.toBeDefined();
       expect(mockCreate).toHaveBeenCalled();
@@ -1821,7 +1924,7 @@ describe("receipts-service", () => {
             },
             purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
           };
-          return cb(tx);
+          return cb(withReceiptAggregate(tx));
         });
 
         // Act
@@ -1851,7 +1954,7 @@ describe("receipts-service", () => {
               }),
             },
           };
-          return cb(tx);
+          return cb(withReceiptAggregate(tx));
         });
 
         // Act & Assert
@@ -1880,7 +1983,7 @@ describe("receipts-service", () => {
               }),
             },
           };
-          return cb(tx);
+          return cb(withReceiptAggregate(tx));
         });
 
         // Act & Assert
@@ -1909,7 +2012,7 @@ describe("receipts-service", () => {
               }),
             },
           };
-          return cb(tx);
+          return cb(withReceiptAggregate(tx));
         });
 
         // Act & Assert
@@ -1980,7 +2083,7 @@ describe("receipts-service", () => {
           purchaseOrder: { update: vi.fn() },
         };
         usedTx = tx;
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       const result = await reverseGoodsReceipt(grId, userId);
@@ -2046,7 +2149,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       const result = await reverseGoodsReceipt(grId, userId);
@@ -2098,7 +2201,7 @@ describe("receipts-service", () => {
             }),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       await reverseGoodsReceipt(grId, userId);
@@ -2152,7 +2255,7 @@ describe("receipts-service", () => {
             }),
           },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       // First GR reversal for pv-1 (receives 50, after reversal gets 0)
@@ -2204,7 +2307,7 @@ describe("receipts-service", () => {
           purchaseOrderItem: { findMany: vi.fn(), update: vi.fn() },
           purchaseOrder: { update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       const result = await reverseGoodsReceipt(grId, userId);
@@ -2248,7 +2351,7 @@ describe("receipts-service", () => {
           },
           purchaseOrder: { update: vi.fn() },
         };
-        return cb(tx);
+        return cb(withReceiptAggregate(tx));
       });
 
       const result = await reverseAllGoodsReceiptsForPO("po-1", "user-1");

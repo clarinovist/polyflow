@@ -339,8 +339,9 @@ export class AccountingService {
     static async recordInventoryMovement(
         movement: Parameters<typeof recordInventoryMovement>[0],
         tx?: Prisma.TransactionClient,
+        options?: Parameters<typeof recordInventoryMovement>[2],
     ) {
-        return recordInventoryMovement(movement, tx);
+        return recordInventoryMovement(movement, tx, options);
     }
 
     static async recordMaklonCosts(

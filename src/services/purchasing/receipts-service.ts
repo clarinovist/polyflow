@@ -12,12 +12,16 @@ import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError } from '@/lib/errors/errors';
+import { resolveReceiptNetTotal, resolveReceiptNetUnitCost } from '@/lib/purchasing/receipt-valuation';
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
 
 async function notifyFinanceOfGoodsReceipt(
     receiptId: string,
     purchaseOrderId: string,
-    items: CreateGoodsReceiptValues['items'],
+    items: Array<{
+        receivedQty: number;
+        unitCost?: Prisma.Decimal | number | null;
+    }>,
 ) {
     const [{ NotificationService }, purchaseOrder, financeUsers] =
         await Promise.all([
@@ -38,7 +42,12 @@ async function notifyFinanceOfGoodsReceipt(
     if (!purchaseOrder || financeUsers.length === 0) return;
 
     const totalAmount = items.reduce(
-        (total, item) => total + item.receivedQty * (item.unitCost ?? 0),
+        (total, item) =>
+            total +
+            item.receivedQty *
+                (item.unitCost instanceof Prisma.Decimal
+                    ? item.unitCost.toNumber()
+                    : (item.unitCost ?? 0)),
         0,
     );
     await NotificationService.createBulkNotifications(
@@ -129,11 +138,14 @@ export async function createGoodsReceipt(
             quantity: Prisma.Decimal;
             receivedQty: Prisma.Decimal;
             unitPrice: Prisma.Decimal;
+            discountPercent?: Prisma.Decimal | null;
+            taxPercent?: Prisma.Decimal | null;
+            ppnMode?: string | null;
         }[] = [];
         let resolvedItems: {
             productVariantId: string;
             receivedQty: number;
-            unitCost: number;
+            unitCost: Prisma.Decimal;
             purchaseOrderItemId?: string;
         }[] = [];
 
@@ -256,20 +268,29 @@ export async function createGoodsReceipt(
                         'INVALID_PO_ITEM',
                     );
                 }
-                // Use PO item's productVariantId and unit cost as source of truth
+                // Use the exact PO item's net acquisition cost (discount + ppnMode/tax),
+                // persisted as Decimal(15,4) for inventory/movements; journals round extended net separately.
+                // This branch only runs for non-maklon receipts (see guard above).
                 resolvedItems.push({
                     productVariantId: poItem.productVariantId,
                     receivedQty: item.receivedQty,
-                    unitCost: data.isMaklon ? 0 : Number(poItem.unitPrice),
+                    unitCost: resolveReceiptNetUnitCost({
+                        unitPrice: poItem.unitPrice,
+                        discountPercent: poItem.discountPercent,
+                        taxPercent: poItem.taxPercent,
+                        ppnMode: poItem.ppnMode ?? 'EXCLUDE',
+                    }),
                     purchaseOrderItemId: item.purchaseOrderItemId,
                 });
             }
         } else {
-            // Maklon or walk-in: use item data as-is
+            // Maklon or walk-in: use item data as-is, always as Decimal
             resolvedItems = data.items.map((item) => ({
                 productVariantId: item.productVariantId,
                 receivedQty: item.receivedQty,
-                unitCost: data.isMaklon ? 0 : (item.unitCost ?? 0),
+                unitCost: data.isMaklon
+                    ? new Prisma.Decimal(0)
+                    : new Prisma.Decimal(item.unitCost ?? 0),
                 purchaseOrderItemId: undefined,
             }));
         }
@@ -321,7 +342,7 @@ export async function createGoodsReceipt(
                     goodsReceiptId: receiptTx.id,
                     purchaseOrderItemId: poItemId,
                     receivedQty: item.receivedQty,
-                    unitCost: data.isMaklon ? 0 : item.unitCost,
+                    unitCost: data.isMaklon ? 0 : item.unitCost.toNumber(),
                     receivedDate: data.receivedDate,
                     locationId: data.locationId,
                     userId,
@@ -333,8 +354,37 @@ export async function createGoodsReceipt(
                     data.locationId,
                     item.productVariantId,
                     item.receivedQty,
-                    item.unitCost,
+                    item.unitCost.toNumber(),
                 );
+
+                // Allocate cents from unrounded PO net amounts, not round4 unit
+                // costs: journalTotal = round2(net(cum)) - round2(net(prior)).
+                let journalTotal: number | undefined;
+                if (item.purchaseOrderItemId) {
+                    const valuation = poItems.find(pi => pi.id === item.purchaseOrderItemId);
+                    if (!valuation) {
+                        throw new BusinessRuleError('Item PO penerimaan tidak ditemukan.', undefined, 'INVALID_PO_ITEM');
+                    }
+                    const cumQty = await tx.goodsReceiptItem.aggregate({
+                        where: {
+                            purchaseOrderItemId: item.purchaseOrderItemId,
+                        },
+                        _sum: { receivedQty: true },
+                    });
+                    const cum = new Prisma.Decimal(
+                        cumQty._sum.receivedQty?.toString() ?? '0',
+                    );
+                    const current = new Prisma.Decimal(
+                        String(item.receivedQty),
+                    );
+                    const prior = Prisma.Decimal.max(
+                        new Prisma.Decimal(0),
+                        cum.minus(current),
+                    );
+                    journalTotal = resolveReceiptNetTotal(valuation, cum)
+                        .minus(resolveReceiptNetTotal(valuation, prior))
+                        .toNumber();
+                }
 
                 const movement = await tx.stockMovement.create({
                     data: {
@@ -351,7 +401,13 @@ export async function createGoodsReceipt(
                     },
                 });
 
-                await AccountingService.recordInventoryMovement(movement, tx);
+                await AccountingService.recordInventoryMovement(
+                    movement,
+                    tx,
+                    journalTotal === undefined
+                        ? undefined
+                        : { journalTotal },
+                );
             }
 
             // Update PO item receivedQty (both paths)

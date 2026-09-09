@@ -1008,7 +1008,7 @@ describe('calculatePoInvoiceTotalFromReceipts', () => {
                 { productVariantId: 'pv-1', quantity: { toNumber: () => 250 }, unitPrice: { toNumber: () => 10000 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE' },
             ],
             goodsReceipts: [
-                { items: [{ productVariantId: 'pv-1', receivedQty: { toNumber: () => 247 } }] },
+                { items: [{ productVariantId: 'pv-1', purchaseOrderItemId: null, receivedQty: { toNumber: () => 247 } }] },
             ],
         };
 
@@ -1016,6 +1016,26 @@ describe('calculatePoInvoiceTotalFromReceipts', () => {
 
         const total = await calculatePoInvoiceTotalFromReceipts('po-1');
         expect(total).toBe(2520000);
+    });
+
+    it('should attribute repeated-SKU rows by purchaseOrderItemId, not double-count', async () => {
+        const mockPO = {
+            totalAmount: 0,
+            shippingCost: null,
+            items: [
+                { id: 'poi-a', productVariantId: 'pv-1', quantity: { toNumber: () => 5 }, unitPrice: { toNumber: () => 29748 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 11 }, ppnMode: 'INCLUDE' },
+                { id: 'poi-b', productVariantId: 'pv-1', quantity: { toNumber: () => 7 }, unitPrice: { toNumber: () => 20000 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 11 }, ppnMode: 'EXCLUDE' },
+            ],
+            goodsReceipts: [
+                { items: [{ productVariantId: 'pv-1', purchaseOrderItemId: 'poi-a', receivedQty: { toNumber: () => 5 } }] },
+                { items: [{ productVariantId: 'pv-1', purchaseOrderItemId: 'poi-b', receivedQty: { toNumber: () => 7 } }] },
+            ],
+        };
+
+        vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);
+
+        const total = await calculatePoInvoiceTotalFromReceipts('po-1');
+        expect(total).toBe(304140);
     });
 
     describe('updatePurchaseInvoiceDueDate', () => {

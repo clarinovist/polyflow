@@ -36,6 +36,7 @@ export async function calculatePoInvoiceTotalFromReceipts(
             shippingCost: true,
             items: {
                 select: {
+                    id: true,
                     productVariantId: true,
                     quantity: true,
                     unitPrice: true,
@@ -49,6 +50,7 @@ export async function calculatePoInvoiceTotalFromReceipts(
                     items: {
                         select: {
                             productVariantId: true,
+                            purchaseOrderItemId: true,
                             receivedQty: true,
                         },
                     },
@@ -66,22 +68,58 @@ export async function calculatePoInvoiceTotalFromReceipts(
         return options?.fallbackToPoTotal === false ? 0 : poTotal;
     }
 
-    // Aggregate receivedQty per productVariantId across all GRs
-    const receivedMap = new Map<string, number>();
+    // Attribute receivedQty per purchaseOrderItemId. GR items carrying an
+    // explicit purchaseOrderItemId count toward that row only; unattributed
+    // GR items fall into a per-variant pool distributed proportionally to
+    // each row's ordered quantity (zero-safe). This keeps repeated-SKU rows
+    // with distinct prices/taxes exact instead of double-counting one
+    // combined quantity against every row.
+    const receivedByPoItem = new Map<string, number>();
+    const poolByVariant = new Map<string, number>();
     for (const gr of po.goodsReceipts) {
         for (const item of gr.items) {
-            const pvId = item.productVariantId;
             const qty =
                 typeof item.receivedQty?.toNumber === 'function'
                     ? item.receivedQty.toNumber()
                     : Number(item.receivedQty);
-            receivedMap.set(pvId, (receivedMap.get(pvId) ?? 0) + qty);
+            if (item.purchaseOrderItemId) {
+                receivedByPoItem.set(
+                    item.purchaseOrderItemId,
+                    (receivedByPoItem.get(item.purchaseOrderItemId) ?? 0) +
+                        qty,
+                );
+            } else {
+                poolByVariant.set(
+                    item.productVariantId,
+                    (poolByVariant.get(item.productVariantId) ?? 0) + qty,
+                );
+            }
         }
+    }
+    const orderedByVariant = new Map<string, number>();
+    for (const poItem of po.items) {
+        const ordered =
+            typeof poItem.quantity?.toNumber === 'function'
+                ? poItem.quantity.toNumber()
+                : Number(poItem.quantity);
+        orderedByVariant.set(
+            poItem.productVariantId,
+            (orderedByVariant.get(poItem.productVariantId) ?? 0) + ordered,
+        );
     }
 
     let total = 0;
     for (const poItem of po.items) {
-        const received = receivedMap.get(poItem.productVariantId) ?? 0;
+        const direct = receivedByPoItem.get(poItem.id) ?? 0;
+        const pool = poolByVariant.get(poItem.productVariantId) ?? 0;
+        const orderedTotal = orderedByVariant.get(poItem.productVariantId) ?? 0;
+        const ordered =
+            typeof poItem.quantity?.toNumber === 'function'
+                ? poItem.quantity.toNumber()
+                : Number(poItem.quantity);
+        const poolShare =
+            pool > 0 && orderedTotal > 0 ? (pool * ordered) / orderedTotal : 0;
+        const received = direct + poolShare;
         const raw =
             received *
             (typeof poItem.unitPrice?.toNumber === 'function'

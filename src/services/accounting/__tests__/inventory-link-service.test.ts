@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 
 // Mocks must be declared before imports
 const mockCreateJournalEntry = vi.fn().mockResolvedValue({ id: "je-1" });
@@ -22,7 +23,7 @@ vi.mock("@/lib/core/prisma", () => ({
     inventory: {
       aggregate: vi
         .fn()
-        .mockResolvedValue({ _sum: { quantity: { toNumber: () => 0 } } }),
+        .mockResolvedValue({ _sum: { quantity: new Prisma.Decimal(0) } }),
     },
     account: {
       findUnique: vi.fn().mockResolvedValue(null),
@@ -30,8 +31,8 @@ vi.mock("@/lib/core/prisma", () => ({
     journalLine: {
       aggregate: vi.fn().mockResolvedValue({
         _sum: {
-          debit: { toNumber: () => 999999 },
-          credit: { toNumber: () => 0 },
+          debit: new Prisma.Decimal(999999),
+          credit: new Prisma.Decimal(0),
         },
       }),
     },
@@ -75,8 +76,12 @@ import {
   recordMaklonCosts,
 } from "@/services/accounting/inventory-link-service";
 
-function dec(v: number) {
-  return { toNumber: () => v, [Symbol.toPrimitive]: () => v };
+function dec(v: string) {
+  return new Prisma.Decimal(v);
+}
+
+function aggQty(v: string) {
+  return { _sum: { quantity: new Prisma.Decimal(v) } };
 }
 
 const baseProduct = {
@@ -90,8 +95,8 @@ const baseMovement = {
   id: "mov-1",
   type: "IN",
   productVariantId: "pv-1",
-  quantity: dec(100),
-  cost: dec(50),
+  quantity: dec("100"),
+  cost: dec("50"),
   createdAt: new Date("2026-01-15"),
   reference: "REF-001",
   createdById: "user-1",
@@ -217,7 +222,7 @@ describe("inventory-link-service", () => {
     it("returns early when totalAmount is 0", async () => {
       const mv = {
         ...baseMovement,
-        quantity: dec(0),
+        quantity: dec("0"),
         productVariant: {
           name: "Material A",
           product: { ...baseProduct },
@@ -323,8 +328,8 @@ describe("inventory-link-service", () => {
     it("skips GL validation for PURCHASE type", async () => {
       vi.mocked(prisma.journalLine.aggregate).mockResolvedValue({
         _sum: {
-          debit: { toNumber: () => 100 },
-          credit: { toNumber: () => 200 },
+          debit: new Prisma.Decimal(100),
+          credit: new Prisma.Decimal(200),
         },
       } as never);
 
@@ -342,41 +347,175 @@ describe("inventory-link-service", () => {
       expect(mockCreateJournalEntry).toHaveBeenCalledTimes(1);
     });
 
-    it("calls updateStandardCost for goodsReceipt with PO item", async () => {
+    it("uses persisted GR movement cost and ignores current PO price", async () => {
       vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
         id: "gr-1",
         isMaklon: false,
+        purchaseOrderId: "po-1",
         purchaseOrder: {
-          items: [{ unitPrice: dec(75) }],
+          items: [{ id: "poi-1", unitPrice: dec("999") }],
         },
+        items: [{ id: "gri-1", productVariantId: "pv-1", purchaseOrderItemId: "poi-1" }],
       } as never);
-      vi.mocked(prisma.inventory.aggregate).mockResolvedValue({
-        _sum: { quantity: { toNumber: () => 200 } },
-      } as never);
+      vi.mocked(prisma.inventory.aggregate).mockResolvedValue(
+        aggQty("200") as never,
+      );
 
       const mv = {
         ...baseMovement,
-        type: "IN",
+        type: "PURCHASE",
+        quantity: dec("10"),
+        cost: dec("26800"),
         goodsReceiptId: "gr-1",
         productVariant: {
           name: "Material A",
           product: { ...baseProduct },
-          standardCost: dec(50),
+          standardCost: dec("50"),
         },
       };
 
       await recordInventoryMovement(mv as never);
 
-      expect(mockUpdateStandardCost).toHaveBeenCalled();
+      expect(mockUpdateStandardCost).toHaveBeenCalledWith(
+        "pv-1",
+        expect.any(Number),
+        "PURCHASE_GR",
+        "gr-1",
+        expect.anything(),
+      );
+      const updatedCost = mockUpdateStandardCost.mock.calls[0][1] as number;
+      expect(updatedCost).toBeLessThan(26800);
+      expect(updatedCost).toBeGreaterThan(50);
+      const journal = mockCreateJournalEntry.mock.calls[0][0];
+      expect(journal.lines[0].debit).toBe(268000);
+      expect(journal.lines[1].credit).toBe(268000);
     });
 
-    it("falls back to receiptPrice when no current stock", async () => {
+    it("accepts repeated SKU rows with distinct PO-item IDs", async () => {
       vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
         id: "gr-2",
         isMaklon: false,
+        purchaseOrderId: "po-1",
         purchaseOrder: {
-          items: [{ unitPrice: dec(80) }],
+          items: [
+            { id: "poi-1", unitPrice: dec("26800") },
+            { id: "poi-2", unitPrice: dec("20000") },
+          ],
         },
+        items: [
+          { id: "gri-1", productVariantId: "pv-1", purchaseOrderItemId: "poi-1" },
+          { id: "gri-2", productVariantId: "pv-1", purchaseOrderItemId: "poi-2" },
+        ],
+      } as never);
+
+      const mv = {
+        ...baseMovement,
+        type: "PURCHASE",
+        quantity: dec("5"),
+        cost: dec("26800"),
+        goodsReceiptId: "gr-2",
+        productVariant: {
+          name: "Material A",
+          product: { ...baseProduct },
+        },
+      };
+
+      await recordInventoryMovement(mv as never);
+
+      expect(mockCreateJournalEntry).toHaveBeenCalledTimes(1);
+    });
+
+    it("accepts walk-in receipts without PO attribution", async () => {
+      vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
+        id: "gr-walkin",
+        isMaklon: false,
+        purchaseOrderId: null,
+        purchaseOrder: null,
+        items: [{ id: "gri-w", productVariantId: "pv-1", purchaseOrderItemId: null }],
+      } as never);
+
+      const mv = {
+        ...baseMovement,
+        type: "PURCHASE",
+        quantity: dec("4"),
+        cost: dec("12345"),
+        goodsReceiptId: "gr-walkin",
+        productVariant: {
+          name: "Walk-in material",
+          product: { ...baseProduct },
+        },
+      };
+
+      await recordInventoryMovement(mv as never);
+
+      expect(mockCreateJournalEntry).toHaveBeenCalledTimes(1);
+      const journal = mockCreateJournalEntry.mock.calls[0][0];
+      expect(journal.lines[0].debit).toBe(49380);
+    });
+
+    it("rejects GR movements with missing persisted cost", async () => {
+      vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
+        id: "gr-3",
+        isMaklon: false,
+        purchaseOrderId: "po-1",
+        purchaseOrder: { items: [{ id: "poi-1" }] },
+        items: [{ id: "gri-1", productVariantId: "pv-1", purchaseOrderItemId: "poi-1" }],
+      } as never);
+
+      const mv = {
+        ...baseMovement,
+        type: "PURCHASE",
+        cost: null,
+        goodsReceiptId: "gr-3",
+        productVariant: {
+          name: "Material C",
+          product: { ...baseProduct },
+        },
+      };
+
+      await expect(recordInventoryMovement(mv as never)).rejects.toThrow(
+        /Biaya movement penerimaan tidak tersedia/,
+      );
+      expect(mockUpdateStandardCost).not.toHaveBeenCalled();
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+    });
+
+    it("rejects GR rows whose PO lineage cannot be resolved", async () => {
+      vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
+        id: "gr-4",
+        isMaklon: false,
+        purchaseOrderId: "po-1",
+        purchaseOrder: { items: [{ id: "poi-1" }] },
+        items: [{ id: "gri-x", productVariantId: "pv-1", purchaseOrderItemId: "poi-missing" }],
+      } as never);
+
+      const mv = {
+        ...baseMovement,
+        type: "PURCHASE",
+        quantity: dec("2"),
+        cost: dec("100"),
+        goodsReceiptId: "gr-4",
+        productVariant: {
+          name: "Material D",
+          product: { ...baseProduct },
+        },
+      };
+
+      await expect(recordInventoryMovement(mv as never)).rejects.toThrow(
+        /Atribusi item PO penerimaan ambigu/,
+      );
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+    });
+
+    it("falls back to persisted cost when no current stock", async () => {
+      vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
+        id: "gr-5",
+        isMaklon: false,
+        purchaseOrderId: "po-1",
+        purchaseOrder: {
+          items: [{ id: "poi-5", unitPrice: dec("80") }],
+        },
+        items: [{ id: "gri-5", productVariantId: "pv-1", purchaseOrderItemId: "poi-5" }],
       } as never);
       vi.mocked(prisma.inventory.aggregate).mockResolvedValue({
         _sum: { quantity: null },
@@ -385,39 +524,25 @@ describe("inventory-link-service", () => {
       const mv = {
         ...baseMovement,
         type: "IN",
-        goodsReceiptId: "gr-2",
+        quantity: dec("10"),
+        cost: dec("80"),
+        goodsReceiptId: "gr-5",
         productVariant: {
           name: "Material B",
           product: { ...baseProduct },
-          standardCost: dec(0),
+          standardCost: dec("0"),
         },
       };
 
       await recordInventoryMovement(mv as never);
 
-      expect(mockUpdateStandardCost).toHaveBeenCalled();
-    });
-
-    it("does not call updateStandardCost when no PO items", async () => {
-      vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
-        id: "gr-3",
-        isMaklon: false,
-        purchaseOrder: { items: [] },
-      } as never);
-
-      const mv = {
-        ...baseMovement,
-        type: "IN",
-        goodsReceiptId: "gr-3",
-        productVariant: {
-          name: "Material C",
-          product: { ...baseProduct },
-        },
-      };
-
-      await recordInventoryMovement(mv as never);
-
-      expect(mockUpdateStandardCost).not.toHaveBeenCalled();
+      expect(mockUpdateStandardCost).toHaveBeenCalledWith(
+        "pv-1",
+        80,
+        "PURCHASE_GR",
+        "gr-5",
+        expect.anything(),
+      );
     });
   });
 
@@ -468,20 +593,20 @@ describe("inventory-link-service", () => {
           {
             id: "c1",
             costType: "ADDITIVE",
-            amount: dec(500),
+            amount: new Prisma.Decimal("500"),
             description: "Additive A",
           },
           {
             id: "c2",
             costType: "LABOR",
-            amount: dec(300),
+            amount: new Prisma.Decimal("300"),
             description: "Labor cost",
           },
-          { id: "c3", costType: "OVERHEAD", amount: dec(200), description: "" },
+          { id: "c3", costType: "OVERHEAD", amount: new Prisma.Decimal("200"), description: "" },
           {
             id: "c4",
             costType: "MACHINE",
-            amount: dec(0),
+            amount: new Prisma.Decimal("0"),
             description: "Zero",
           },
         ],
@@ -506,7 +631,7 @@ describe("inventory-link-service", () => {
           {
             id: "c1",
             costType: "ADDITIVE",
-            amount: dec(100),
+            amount: new Prisma.Decimal("100"),
             description: "Test",
           },
         ],
