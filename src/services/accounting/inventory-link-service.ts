@@ -107,8 +107,21 @@ export async function recordInventoryMovement(
     },
     tx?: Prisma.TransactionClient,
     options?: { journalTotal?: number },
-) {
+): Promise<void> {
+    if (movement.goodsReceiptId && !tx) {
+        return prisma.$transaction((innerTx) =>
+            recordInventoryMovement(movement, innerTx, options),
+        );
+    }
+
     const db = tx || prisma;
+
+    // Serialize receipt posting by its persisted movement. A plain find-first
+    // idempotency check races when two workers replay the same movement before
+    // either has created its journal.
+    if (movement.goodsReceiptId) {
+        await db.$queryRaw`SELECT id FROM "StockMovement" WHERE id = ${movement.id} FOR UPDATE`;
+    }
 
     // A movement is the accounting idempotency key. This guard must precede
     // product lookup, WAC/CostHistory changes, and journal amount fallback so a

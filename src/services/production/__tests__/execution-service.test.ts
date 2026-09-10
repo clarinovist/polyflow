@@ -50,6 +50,7 @@ vi.mock('@/lib/core/prisma', () => {
         journalEntry: {
             findFirst: vi.fn().mockResolvedValue(null),
         },
+        $queryRaw: vi.fn().mockResolvedValue([]),
     };
 
     const mockPrisma = {

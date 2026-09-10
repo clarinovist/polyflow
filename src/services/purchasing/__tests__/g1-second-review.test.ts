@@ -208,6 +208,30 @@ describe.skipIf(!enabled)('G1 second review probes', () => {
         };
         expect(after).toEqual(before);
     });
+    it('serializes concurrent movement replays before checking idempotency', async () => {
+        const { db } = await lazy.load();
+        await db.purchaseOrderItem.update({ where: { id: 'gr-po-item' }, data: {
+            unitPrice: '10000', subtotal: '15000000', taxAmount: '1486486.49',
+        } });
+        await db.purchaseOrder.update({ where: { id: 'gr-po' }, data: { totalAmount: '15000000', taxAmount: '1486486.49' } });
+        const receipt = await receive(1500);
+        const movement = await db.stockMovement.findFirstOrThrow({ where: { goodsReceiptId: receipt.id } });
+        const journal = await db.journalEntry.findFirstOrThrow({ where: {
+            referenceType: 'GOODS_RECEIPT', referenceId: movement.id, status: 'POSTED',
+        } });
+        await db.journalLine.deleteMany({ where: { journalEntryId: journal.id } });
+        await db.journalEntry.delete({ where: { id: journal.id } });
+
+        const { recordInventoryMovement } = await import('@/services/accounting/inventory-link-service');
+        await Promise.all([
+            withActor(() => recordInventoryMovement(movement)),
+            withActor(() => recordInventoryMovement(movement)),
+        ]);
+
+        expect(await db.journalEntry.count({ where: {
+            referenceType: 'GOODS_RECEIPT', referenceId: movement.id, status: 'POSTED',
+        } })).toBe(1);
+    });
     it('keeps the bulk journal amount deterministic on movement replay', async () => {
         const { db, accounts } = await lazy.load();
         await db.purchaseOrderItem.update({ where: { id: 'gr-po-item' }, data: {

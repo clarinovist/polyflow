@@ -6,8 +6,8 @@ const mockCreateJournalEntry = vi.fn().mockResolvedValue({ id: "je-1" });
 const mockUpdateStandardCost = vi.fn().mockResolvedValue(undefined);
 const mockResolveAccountCode = vi.fn();
 
-vi.mock("@/lib/core/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/core/prisma", () => {
+  const mockPrisma = {
     productVariant: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
@@ -31,6 +31,7 @@ vi.mock("@/lib/core/prisma", () => ({
     journalEntry: {
       findFirst: vi.fn().mockResolvedValue(null),
     },
+    $queryRaw: vi.fn().mockResolvedValue([]),
     journalLine: {
       aggregate: vi.fn().mockResolvedValue({
         _sum: {
@@ -39,11 +40,13 @@ vi.mock("@/lib/core/prisma", () => ({
         },
       }),
     },
-    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({}),
-    ),
-  },
-}));
+    $transaction: vi.fn(),
+  };
+  mockPrisma.$transaction.mockImplementation(
+    async (fn: (tx: unknown) => Promise<unknown>) => fn(mockPrisma),
+  );
+  return { prisma: mockPrisma };
+});
 
 vi.mock("@/services/accounting/journals-service", () => ({
   createJournalEntry: (...args: unknown[]) => mockCreateJournalEntry(...args),
@@ -153,6 +156,7 @@ describe("inventory-link-service", () => {
 
       await recordInventoryMovement(mv as never);
 
+      expect(prisma.$queryRaw).toHaveBeenCalledOnce();
       expect(prisma.goodsReceipt.findUnique).not.toHaveBeenCalled();
       expect(prisma.inventory.aggregate).not.toHaveBeenCalled();
       expect(mockUpdateStandardCost).not.toHaveBeenCalled();
