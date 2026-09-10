@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import type { HelpConversation, HelpMessage } from '@prisma/client';
+import type { HelpConversation, HelpMessage, Prisma } from '@prisma/client';
 
 const MAX_MESSAGE_CONTENT_LENGTH = 4000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -46,6 +46,8 @@ export async function getOrCreateConversation(input: {
     userId: string;
     conversationId?: string;
     channel?: AllowedChannel | string;
+    accessScope?: string;
+    contextKey?: string;
 }): Promise<HelpConversation> {
     if (input.conversationId) {
         const existing = await prisma.helpConversation.findFirst({
@@ -54,6 +56,47 @@ export async function getOrCreateConversation(input: {
                 tenantId: input.tenantId,
                 userId: input.userId,
                 status: 'ACTIVE',
+                ...(input.channel ? { channel: input.channel } : {}),
+                ...(input.accessScope
+                    ? {
+                          messages: {
+                              // PostgreSQL JSON missing paths compare as NULL: `every`
+                              // alone can accept legacy rows. Require a positive match.
+                              some: {
+                                  AND: [
+                                      {
+                                          evidenceJson: {
+                                              path: ['accessScope'],
+                                              equals: input.accessScope,
+                                          },
+                                      },
+                                      {
+                                          evidenceJson: {
+                                              path: ['contextKey'],
+                                              equals: input.contextKey ?? '',
+                                          },
+                                      },
+                                  ],
+                              },
+                              every: {
+                                  AND: [
+                                      {
+                                          evidenceJson: {
+                                              path: ['accessScope'],
+                                              equals: input.accessScope,
+                                          },
+                                      },
+                                      {
+                                          evidenceJson: {
+                                              path: ['contextKey'],
+                                              equals: input.contextKey ?? '',
+                                          },
+                                      },
+                                  ],
+                              },
+                          },
+                      }
+                    : {}),
             },
         });
         if (existing) return existing;
@@ -72,6 +115,7 @@ export async function getOrCreateConversation(input: {
 export async function loadConversationContext(
     conversationId: string,
     contextKey?: string,
+    accessScope?: string,
 ): Promise<ConversationContext> {
     const conversation = await prisma.helpConversation.findUnique({
         where: { id: conversationId },
@@ -86,10 +130,22 @@ export async function loadConversationContext(
                                   path: ['contextKey'],
                                   equals: contextKey,
                               },
+                              ...(accessScope
+                                  ? {
+                                        AND: [
+                                            {
+                                                evidenceJson: {
+                                                    path: ['accessScope'],
+                                                    equals: accessScope,
+                                                },
+                                            },
+                                        ],
+                                    }
+                                  : {}),
                           },
                       }
                     : {}),
-                orderBy: { createdAt: 'desc' },
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
                 take: MAX_HISTORY_MESSAGES,
                 select: {
                     role: true,
@@ -173,6 +229,53 @@ export async function saveMessage(input: {
 
     return message;
 }
+/** Save the whole exchange before acknowledging it to the browser. */
+export async function saveConversationExchange(input: {
+    conversationId: string;
+    question: string;
+    answer: string;
+    metadata: Prisma.InputJsonObject;
+    assistantMetadata?: Prisma.InputJsonObject;
+}): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+        // Serialize exchanges from multiple tabs and keep their timestamps ordered.
+        await tx.$queryRaw`SELECT id FROM "HelpConversation" WHERE id = ${input.conversationId} FOR UPDATE`;
+        const previous = await tx.helpMessage.findFirst({
+            where: { conversationId: input.conversationId },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            select: { createdAt: true },
+        });
+        const startedAt = new Date(
+            Math.max(Date.now(), (previous?.createdAt.getTime() ?? 0) + 1),
+        );
+        const user = await tx.helpMessage.create({
+            data: {
+                conversationId: input.conversationId,
+                role: 'USER',
+                content: input.question,
+                createdAt: startedAt,
+                evidenceJson: input.metadata,
+            },
+        });
+        // Explicit ordering even when the database timestamps have millisecond ties.
+        const assistant = await tx.helpMessage.create({
+            data: {
+                conversationId: input.conversationId,
+                role: 'ASSISTANT',
+                content: input.answer,
+                createdAt: new Date(
+                    Math.max(Date.now(), user.createdAt.getTime() + 1),
+                ),
+                evidenceJson: { ...input.metadata, ...input.assistantMetadata },
+            },
+        });
+        await tx.helpConversation.update({
+            where: { id: input.conversationId },
+            data: { lastMessageAt: assistant.createdAt },
+        });
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Build context for LLM (summary + recent messages)
 // ---------------------------------------------------------------------------

@@ -9,6 +9,8 @@ import {
     useCallback,
 } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useAssistantHistory } from './use-assistant-history';
 import {
     Bot,
     Send,
@@ -21,6 +23,7 @@ import {
     BookOpen,
     X,
     RotateCcw,
+    History,
     Sparkles,
     Package,
     ShoppingCart,
@@ -73,6 +76,7 @@ type ChatApiResponse = {
         relatedArticles?: CitedArticle[];
         evidence?: EvidenceChip[];
         conversationId?: string;
+        historySaved?: boolean;
         needsClarification?: boolean;
         suggestions?: string[];
         confidence?: number;
@@ -452,7 +456,13 @@ function CitedArticleCards({
     );
 }
 
-export function PolyflowChatPanel({
+export function PolyflowChatPanel(props: PolyflowChatPanelProps) {
+    const { data: session, status } = useSession();
+    if (status !== 'authenticated' || !session?.user?.id) return null;
+    return <AuthenticatedChatPanel key={session.user.id} {...props} />;
+}
+
+function AuthenticatedChatPanel({
     embedded = false,
     initialQuestion,
     allowedResources = 'ALL',
@@ -467,6 +477,7 @@ export function PolyflowChatPanel({
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [initialSent, setInitialSent] = useState(false);
     const [conversationId, setConversationId] = useState<string | undefined>();
+    const [saveWarning, setSaveWarning] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
     const requestPathRef = useRef(effectivePath);
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -488,9 +499,43 @@ export function PolyflowChatPanel({
         initialWelcomeMsg,
     ]);
 
-    const canSend = useMemo(
-        () => question.trim().length > 0 && !isLoading,
-        [question, isLoading],
+    const history = useAssistantHistory(
+        effectivePath,
+        (conversation, prepend) => {
+            abortRef.current?.abort();
+            abortRef.current = null;
+            setIsLoading(false);
+            setToolProgress(null);
+            setSaveWarning(false);
+            setConversationId(
+                conversation.canContinue ? conversation.id : undefined,
+            );
+            setMessages((old) =>
+                prepend
+                    ? [
+                          ...conversation.messages.filter(
+                              (item) => !old.some((m) => m.id === item.id),
+                          ),
+                          ...old,
+                      ]
+                    : conversation.messages,
+            );
+        },
+    );
+    const readOnlyHistory = history.selected?.canContinue === false;
+    const canSend =
+        question.trim().length > 0 &&
+        !isLoading &&
+        !history.busy &&
+        !readOnlyHistory &&
+        !history.show;
+
+    useEffect(
+        () => () => {
+            abortRef.current?.abort();
+            abortRef.current = null;
+        },
+        [],
     );
     const nearLimit = question.length >= 1800;
     const charCount = question.length;
@@ -512,6 +557,8 @@ export function PolyflowChatPanel({
         setLongWait(false);
         setToolProgress(null);
         setConversationId(undefined);
+        setQuestion('');
+        setSaveWarning(false);
         setMessages([
             initialWelcomeMsg,
             {
@@ -579,7 +626,9 @@ export function PolyflowChatPanel({
     };
 
     const handleResetChat = () => {
-        if (isLoading) handleCancel();
+        handleCancel();
+        history.reset();
+        setSaveWarning(false);
         setMessages([initialWelcomeMsg]);
         setQuestion('');
         setConversationId(undefined);
@@ -653,7 +702,14 @@ export function PolyflowChatPanel({
 
     const sendQuestion = async (incoming?: string) => {
         const payload = (incoming ?? question).trim();
-        if (!payload || isLoading) return;
+        if (
+            !payload ||
+            isLoading ||
+            history.busy ||
+            readOnlyHistory ||
+            history.show
+        )
+            return;
 
         pushMessage('user', payload);
         setQuestion('');
@@ -674,12 +730,19 @@ export function PolyflowChatPanel({
             );
             if (
                 streamResult === 'fallback' &&
-                requestPathRef.current === requestPath
+                requestPathRef.current === requestPath &&
+                abortRef.current === controller &&
+                !controller.signal.aborted
             ) {
                 await sendViaJson(payload, requestPath, controller);
             }
         } catch (err) {
-            if (requestPathRef.current !== requestPath) return;
+            if (
+                requestPathRef.current !== requestPath ||
+                abortRef.current !== controller ||
+                controller.signal.aborted
+            )
+                return;
             if ((err as Error).name === 'AbortError') {
                 pushMessage('assistant', 'Permintaan dibatalkan.');
             } else {
@@ -689,7 +752,10 @@ export function PolyflowChatPanel({
                 );
             }
         } finally {
-            if (requestPathRef.current === requestPath) {
+            if (
+                requestPathRef.current === requestPath &&
+                abortRef.current === controller
+            ) {
                 setIsLoading(false);
                 setToolProgress(null);
                 abortRef.current = null;
@@ -724,6 +790,8 @@ export function PolyflowChatPanel({
             return 'fallback';
         }
 
+        if (controller.signal.aborted || abortRef.current !== controller)
+            return 'handled';
         if (!res.ok || !res.body) {
             // 429 dan error auth punya pesan spesifik — tampilkan, jangan retry
             // ke endpoint lain (rate limiter-nya sama, hasilnya akan sama).
@@ -794,7 +862,14 @@ export function PolyflowChatPanel({
                     continue;
                 }
 
-                if (requestPathRef.current !== requestPath) return 'handled';
+                if (
+                    requestPathRef.current !== requestPath ||
+                    controller.signal.aborted ||
+                    abortRef.current !== controller
+                ) {
+                    await reader.cancel();
+                    return 'handled';
+                }
                 sawAnything = true;
 
                 if (event.type === 'tool') {
@@ -811,6 +886,7 @@ export function PolyflowChatPanel({
                     );
                 } else if (event.type === 'done') {
                     const data = event.data;
+                    setSaveWarning(data.historySaved === false);
                     if (data.conversationId) {
                         setConversationId(data.conversationId);
                     }
@@ -861,7 +937,12 @@ export function PolyflowChatPanel({
         });
 
         const json = (await res.json()) as ChatApiResponse;
-        if (requestPathRef.current !== requestPath) return;
+        if (
+            requestPathRef.current !== requestPath ||
+            controller.signal.aborted ||
+            abortRef.current !== controller
+        )
+            return;
 
         if (!res.ok || !json.success) {
             pushMessage(
@@ -872,6 +953,7 @@ export function PolyflowChatPanel({
             return;
         }
 
+        setSaveWarning(json.data?.historySaved === false);
         if (json.data?.conversationId) {
             setConversationId(json.data.conversationId);
         }
@@ -899,13 +981,13 @@ export function PolyflowChatPanel({
                 'isolate flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-white dark:bg-zinc-950 shadow-2xl transition-all duration-300',
                 embedded
                     ? 'min-h-[calc(100vh-12rem)]'
-                    : 'h-[75vh] max-h-[720px] min-h-[540px]',
+                    : 'h-[75dvh] max-h-[calc(100dvh-8rem)] min-h-0 sm:max-h-[min(720px,calc(100dvh-8rem))]',
             )}
         >
             {/* Header Bar */}
-            <div className="relative border-b border-border/60 bg-gradient-to-r from-card via-muted/30 to-card px-6 py-4">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5">
+            <div className="relative shrink-0 border-b border-border/60 bg-gradient-to-r from-card via-muted/30 to-card px-4 py-4">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20">
                             <Bot className="h-5 w-5" />
                             <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
@@ -913,14 +995,13 @@ export function PolyflowChatPanel({
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-card"></span>
                             </span>
                         </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-base font-bold text-foreground tracking-tight">
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1">
+                                <h2 className="text-sm font-bold text-foreground tracking-tight">
                                     Asisten Polyflow
                                 </h2>
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                     <Sparkles className="h-3 w-3" /> AI
-                                    Assistant
                                 </span>
                             </div>
                             <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
@@ -930,33 +1011,154 @@ export function PolyflowChatPanel({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {messages.length > 1 && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleResetChat}
-                                className="h-8 text-xs gap-1.5 rounded-xl border-border/60 hover:bg-muted/80 transition-colors"
-                                title="Mulai Sesi Chat Baru"
-                            >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">
-                                    Chat Baru
-                                </span>
-                            </Button>
-                        )}
+                    <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Riwayat chat"
+                            aria-label="Riwayat chat"
+                            onClick={() => {
+                                handleCancel();
+                                history.open();
+                            }}
+                        >
+                            <History className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleResetChat}
+                            className="h-8 w-8 p-0 rounded-xl border-border/60 hover:bg-muted/80"
+                            title="Mulai Chat Baru"
+                            aria-label="Chat baru"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
                     </div>
                 </div>
             </div>
 
+            {history.busy && (
+                <p role="status" className="px-4 py-2 text-xs">
+                    Memuat riwayat…
+                </p>
+            )}
+            {history.error && (
+                <div
+                    role="alert"
+                    className="px-4 py-2 text-xs text-destructive"
+                >
+                    {history.error}{' '}
+                    <button
+                        type="button"
+                        className="underline"
+                        onClick={history.retry}
+                    >
+                        Coba lagi
+                    </button>
+                </div>
+            )}
+            {saveWarning && (
+                <p role="alert" className="px-4 py-2 text-xs text-amber-700">
+                    Jawaban ini belum tersimpan ke riwayat. Salin percakapan
+                    penting sebelum menutup halaman.
+                </p>
+            )}
+            {readOnlyHistory && (
+                <p className="px-4 py-2 text-xs bg-muted">
+                    Riwayat dari halaman lain (hanya baca).{' '}
+                    <Link
+                        className="underline"
+                        href={history.selected!.pathname}
+                    >
+                        Buka halaman asal untuk melanjutkan
+                    </Link>{' '}
+                    atau mulai Chat baru di halaman ini.
+                </p>
+            )}
+            {history.show && (
+                <section
+                    aria-label="Daftar riwayat chat"
+                    className="min-h-0 flex-1 overflow-y-auto p-4 space-y-2"
+                >
+                    <div className="flex justify-between items-center">
+                        <h3 className="font-semibold">Riwayat chat</h3>
+                        <button
+                            type="button"
+                            className="text-xs underline"
+                            onClick={history.close}
+                        >
+                            Kembali ke chat
+                        </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Percakapan pribadi sesuai hak akses saat ini. Chat lama
+                        tanpa metadata akses tidak ditampilkan.
+                    </p>
+                    {!history.busy &&
+                        !history.error &&
+                        history.items.length === 0 && (
+                            <p className="text-sm">
+                                Belum ada riwayat yang tersedia.
+                            </p>
+                        )}
+                    {history.items.map((item) => (
+                        <button
+                            key={item.id}
+                            type="button"
+                            disabled={history.busy}
+                            onClick={() => {
+                                handleCancel();
+                                history.select(item.id);
+                            }}
+                            className="block w-full rounded-xl border p-3 text-left hover:bg-muted"
+                        >
+                            <span className="block text-sm truncate">
+                                {item.title}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                                {item.profile} ·{' '}
+                                {new Date(item.lastMessageAt).toLocaleString(
+                                    'id-ID',
+                                )}
+                            </span>
+                        </button>
+                    ))}
+                    {history.nextOffset !== null && (
+                        <Button
+                            type="button"
+                            disabled={history.busy}
+                            onClick={history.more}
+                        >
+                            Riwayat lainnya
+                        </Button>
+                    )}
+                </section>
+            )}
+
             {/* Chat Messages Stream */}
             <div
                 ref={scrollContainerRef}
-                className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-transparent via-muted/10 to-transparent p-4 sm:p-6"
+                hidden={history.show}
+                className={cn(
+                    'flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-transparent via-muted/10 to-transparent p-4 sm:p-6',
+                    history.show && 'hidden',
+                )}
                 onScroll={checkNearBottom}
             >
                 <div className="space-y-6 max-w-4xl mx-auto">
+                    {history.selected?.nextOffset != null && (
+                        <Button
+                            type="button"
+                            disabled={history.busy}
+                            onClick={history.older}
+                        >
+                            Pesan sebelumnya
+                        </Button>
+                    )}
                     {/* Welcome Screen & Categorized Prompt Cards when only 1 message */}
                     {messages.length <= 1 && (
                         <div className="space-y-6 my-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -1300,7 +1502,12 @@ export function PolyflowChatPanel({
                             }
                             placeholder="Ceritakan kendala atau pertanyaan Anda..."
                             className="min-h-[46px] max-h-[140px] flex-1 resize-none border-0 bg-transparent py-3 px-3 shadow-none focus-visible:ring-0 text-sm placeholder:text-muted-foreground/70 font-medium"
-                            disabled={isLoading}
+                            disabled={
+                                isLoading ||
+                                history.busy ||
+                                readOnlyHistory ||
+                                history.show
+                            }
                             autoFocus
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {

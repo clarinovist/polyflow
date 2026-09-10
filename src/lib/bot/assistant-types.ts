@@ -109,6 +109,8 @@ export type AssistantResponse = {
     relatedArticles?: CitedArticleForResponse[];
     evidence?: AssistantEvidenceChip[];
     conversationId?: string;
+    /** False means the visible answer could not be persisted. */
+    historySaved?: boolean;
     needsClarification?: boolean;
     suggestions?: string[];
     confidence?: number;

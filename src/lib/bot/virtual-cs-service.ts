@@ -13,10 +13,11 @@ import { prisma } from '@/lib/core/prisma';
 import {
     getOrCreateConversation,
     loadConversationContext,
-    saveMessage,
+    saveConversationExchange,
     buildLlmHistory,
 } from './conversation-service';
 import { checkPromptInjection, logInjectionAttempt } from './injection-defense';
+import { conversationAccessScope } from './conversation-scope';
 import { detectGreeting } from './greeting';
 import {
     buildTroubleshootingResponse,
@@ -115,24 +116,13 @@ export async function generateVirtualCsReply(
     );
     const activeWorkContextKey = workContextKey(workContext);
 
-    // 2b. Greeting fast-path — after safety + context resolution, before LLM.
-    const greetingFastPath = detectGreeting(
-        input.question,
-        input.requesterName,
-        profilePresentation,
-    );
-    if (greetingFastPath.isGreeting && greetingFastPath.reply) {
-        return {
-            answer: greetingFastPath.reply,
-            citations: ['policy:greeting'],
-            suggestions: greetingFastPath.suggestions,
-            confidence: 1,
-            safety: { allowed: true },
-        };
-    }
+    const accessScope =
+        assistantCtx && context?.permissionsVerified
+            ? conversationAccessScope(assistantCtx)
+            : undefined;
 
-    // 3. Load or create conversation
-    let activeConversationId = context?.conversationId;
+    // Only a server-authorized conversation ID may enter history or persistence.
+    let activeConversationId: string | undefined;
     let _conversationSummary: string | undefined;
     let conversationHistory: Array<{
         role: 'user' | 'assistant';
@@ -149,8 +139,10 @@ export async function generateVirtualCsReply(
         const conversation = await getOrCreateConversation({
             tenantId: context.tenantId,
             userId: context.sessionUser.id,
-            conversationId: activeConversationId,
+            conversationId: context.conversationId,
             channel: channelValue,
+            accessScope,
+            contextKey: activeWorkContextKey,
         });
         activeConversationId = conversation.id;
 
@@ -158,15 +150,63 @@ export async function generateVirtualCsReply(
         const convContext = await loadConversationContext(
             conversation.id,
             activeWorkContextKey,
+            accessScope,
         );
         _conversationSummary = convContext.summary;
         conversationHistory = buildLlmHistory(convContext);
     }
 
+    async function finish(
+        response: AssistantResponse,
+        entities: ToolEvidence['entities'] = [],
+    ): Promise<AssistantResponse> {
+        if (!activeConversationId) return response;
+        response.conversationId = activeConversationId;
+        try {
+            await saveConversationExchange({
+                conversationId: activeConversationId,
+                question: input.question,
+                answer: response.answer,
+                metadata: {
+                    contextKey: activeWorkContextKey,
+                    pathname: workContext.pathname,
+                    profile: workContext.profile,
+                    ...(accessScope ? { accessScope } : {}),
+                },
+                assistantMetadata: {
+                    entities,
+                    // JSON round-trip strips optional undefined fields for Prisma JSON.
+                    response: JSON.parse(JSON.stringify(response)),
+                },
+            });
+            response.historySaved = true;
+        } catch {
+            response.historySaved = false;
+        }
+        return response;
+    }
+
+    // Greeting fast-path still avoids the LLM, but now persists the exchange.
+    const greetingFastPath = detectGreeting(
+        input.question,
+        input.requesterName,
+        profilePresentation,
+    );
+    if (greetingFastPath.isGreeting && greetingFastPath.reply) {
+        return finish({
+            answer: greetingFastPath.reply,
+            citations: ['policy:greeting'],
+            suggestions: greetingFastPath.suggestions,
+            confidence: 1,
+            safety: { allowed: true },
+        });
+    }
+
     // UI issue reports need a deterministic, evidence-aware protocol. The
     // browser pathname is deliberately not used to infer a menu or cause.
     if (isUiIssueReport(input.question)) {
-        let fallbackResults: Awaited<ReturnType<typeof searchHelpArticles>> = [];
+        let fallbackResults: Awaited<ReturnType<typeof searchHelpArticles>> =
+            [];
         try {
             fallbackResults = await searchHelpArticles(
                 input.question,
@@ -181,28 +221,7 @@ export async function generateVirtualCsReply(
             input.question,
             fallbackResults,
         );
-        if (activeConversationId) {
-            try {
-                // Preserve USER → ASSISTANT order even when timestamps have
-                // database-level precision ties.
-                await saveMessage({
-                    conversationId: activeConversationId,
-                    role: 'USER',
-                    content: input.question,
-                    evidenceJson: { contextKey: activeWorkContextKey },
-                });
-                await saveMessage({
-                    conversationId: activeConversationId,
-                    role: 'ASSISTANT',
-                    content: response.answer,
-                    evidenceJson: { contextKey: activeWorkContextKey },
-                });
-            } catch {
-                /* persistence remains best effort */
-            }
-            response.conversationId = activeConversationId;
-        }
-        return response;
+        return finish(response);
     }
 
     // 3. LLM setup
@@ -305,6 +324,7 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
         const convContext = await loadConversationContext(
             activeConversationId,
             activeWorkContextKey,
+            accessScope,
         );
         const pronounResult = resolvePronouns(
             input.question,
@@ -691,48 +711,23 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
             checkedAt: e.checkedAt,
         }));
 
-        // 8. Save conversation messages (fire-and-forget, non-blocking)
-        if (activeConversationId) {
-            const answerText =
-                finalAnswer ||
-                'Maaf, saya belum dapat merangkum analisis pada saat ini.';
-            saveMessage({
+        return finish(
+            {
+                answer:
+                    finalAnswer ||
+                    'Maaf, saya belum dapat merangkum analisis pada saat ini.',
+                citations: ['db:polyflow-agentic', 'api:llm-tools'],
+                citedArticles,
+                relatedArticles,
+                evidence: evidenceChips,
                 conversationId: activeConversationId,
-                role: 'USER',
-                content: input.question,
-                evidenceJson: { contextKey: activeWorkContextKey },
-            }).catch(() => {
-                /* non-blocking */
-            });
-            saveMessage({
-                conversationId: activeConversationId,
-                role: 'ASSISTANT',
-                content: answerText,
-                evidenceJson: {
-                    contextKey: activeWorkContextKey,
-                    entities: collectedEvidence.flatMap(
-                        (e) => e.entities || [],
-                    ),
-                },
-            }).catch(() => {
-                /* non-blocking */
-            });
-        }
-
-        return {
-            answer:
-                finalAnswer ||
-                'Maaf, saya belum dapat merangkum analisis pada saat ini.',
-            citations: ['db:polyflow-agentic', 'api:llm-tools'],
-            citedArticles,
-            relatedArticles,
-            evidence: evidenceChips,
-            conversationId: activeConversationId,
-            needsClarification: clarification.needsClarification,
-            suggestions: clarification.suggestions,
-            confidence,
-            safety: { allowed: true },
-        };
+                needsClarification: clarification.needsClarification,
+                suggestions: clarification.suggestions,
+                confidence,
+                safety: { allowed: true },
+            },
+            collectedEvidence.flatMap((e) => e.entities || []),
+        );
     } catch (error) {
         const e = error as Error;
         console.error('[ASSISTANT_LLM] Failed:', e?.message || e);
@@ -761,25 +756,25 @@ Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara 
                     )
                     .join('\n\n');
 
-                return {
+                return finish({
                     answer: `Halo! Saat ini jaringan AI sedang lambat, tetapi saya tetap menemukan beberapa artikel panduan Knowledge Base yang relevan untuk pertanyaan Anda:\n\n${articleLines}\n\nSilakan klik salah satu artikel di atas atau kunjungi pusat bantuan kami di [Pusat Bantuan](/support).`,
                     citations: ['kb:direct-fallback'],
                     citedArticles,
                     safety: { allowed: true },
-                };
+                });
             }
         } catch {
             /* ignore fallback error */
         }
 
-        return {
+        return finish({
             answer: 'Maaf, layanan AI sedang mengalami kendala koneksi sementara. Anda bisa melihat daftar panduan lengkap di menu [Pusat Bantuan](/support) atau mencoba bertanya kembali beberapa saat lagi.',
             citations: [],
             safety: {
                 allowed: false,
                 blockedReason: 'LLM Provider / Network Error',
             },
-        };
+        });
     }
 }
 
