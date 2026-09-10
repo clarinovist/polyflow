@@ -198,18 +198,42 @@ describe("customer-assignment-service", () => {
   });
 
   describe("unassignAllCustomersFromUser", () => {
-    it("bulk updates active assignments and logs activity", async () => {
-      const { prisma } = await import("@/lib/core/prisma");
-      vi.mocked(prisma.customerSalesAssignment.updateMany).mockResolvedValue({ count: 3 });
-      const result = await unassignAllCustomersFromUser("u1", "admin-1");
+    it("bulk updates only active assignments and logs through the supplied transaction", async () => {
+      const { logActivity } = await import("@/lib/tools/audit");
+      const tx = {
+        customerSalesAssignment: {
+          updateMany: vi.fn().mockResolvedValue({ count: 3 }),
+        },
+      };
+
+      const result = await unassignAllCustomersFromUser(
+        "u1",
+        "admin-1",
+        tx as never,
+      );
+
       expect(result).toBe(3);
+      expect(tx.customerSalesAssignment.updateMany).toHaveBeenCalledWith({
+        where: { userId: "u1", unassignedAt: null },
+        data: { unassignedAt: expect.any(Date) },
+      });
+      expect(logActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "admin-1",
+          entityType: "User",
+          entityId: "u1",
+          tx,
+        }),
+      );
     });
 
     it("returns 0 and skips log when no active assignments", async () => {
       const { prisma } = await import("@/lib/core/prisma");
+      const { logActivity } = await import("@/lib/tools/audit");
       vi.mocked(prisma.customerSalesAssignment.updateMany).mockResolvedValue({ count: 0 });
       const result = await unassignAllCustomersFromUser("u1", "admin-1");
       expect(result).toBe(0);
+      expect(logActivity).not.toHaveBeenCalled();
     });
   });
 });

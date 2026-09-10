@@ -17,9 +17,9 @@ vi.mock('@/services/sales/customer-assignment-service', () => ({
         mockGetAssignedCustomers(...args),
 }));
 
-vi.mock('@/lib/tools/auth-checks', () => ({
-    requireAuth: vi.fn().mockResolvedValue({
-        user: { id: 'u1', role: 'ADMIN', roles: null },
+vi.mock('@/lib/auth/sales-access', () => ({
+    requireSalesManager: vi.fn().mockResolvedValue({
+        user: { id: 'u1', role: 'ADMIN', roles: ['ADMIN'] },
     }),
 }));
 
@@ -42,6 +42,7 @@ vi.mock('@/lib/errors/errors', () => ({
     },
 }));
 
+import { requireSalesManager } from '@/lib/auth/sales-access';
 import {
     getSalesTeamAction,
     getSalesTeamAssignedCustomersAction,
@@ -50,6 +51,9 @@ import {
 describe('getSalesTeamAction', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(requireSalesManager).mockResolvedValue({
+            user: { id: 'u1', role: 'ADMIN', roles: ['ADMIN'] },
+        } as never);
     });
 
     it('returns sales team members with active customer counts', async () => {
@@ -112,12 +116,27 @@ describe('getSalesTeamAction', () => {
 
         const result = await getSalesTeamAction();
         expect(result).toBeDefined();
+        expect(requireSalesManager).toHaveBeenCalled();
+    });
+
+    it('rejects non-manager roles before querying the roster', async () => {
+        vi.mocked(requireSalesManager).mockRejectedValue(
+            new Error('Unauthorized'),
+        );
+
+        const result = await getSalesTeamAction();
+
+        expect(result.success).toBe(false);
+        expect(mockFindMany).not.toHaveBeenCalled();
     });
 });
 
 describe('getSalesTeamAssignedCustomersAction', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(requireSalesManager).mockResolvedValue({
+            user: { id: 'u2', role: 'MARKETING', roles: ['MARKETING'] },
+        } as never);
     });
 
     it('returns assigned customers for the given userId via the service layer', async () => {
@@ -127,6 +146,7 @@ describe('getSalesTeamAssignedCustomersAction', () => {
 
         const result = await getSalesTeamAssignedCustomersAction('u1');
 
+        expect(requireSalesManager).toHaveBeenCalled();
         expect(mockGetAssignedCustomers).toHaveBeenCalledWith('u1');
         if (result && typeof result === 'object' && 'data' in result) {
             expect(result.data).toHaveLength(1);

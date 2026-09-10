@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 
@@ -157,15 +158,16 @@ export async function getCustomerAssignments(customerId: string) {
 export async function unassignAllCustomersFromUser(
     userId: string,
     unassignedById: string,
+    tx?: Prisma.TransactionClient,
 ) {
-    const now = new Date();
-    const result = await prisma.customerSalesAssignment.updateMany({
+    const db = tx ?? prisma;
+    const result = await db.customerSalesAssignment.updateMany({
         where: {
             userId,
             unassignedAt: null,
         },
         data: {
-            unassignedAt: now,
+            unassignedAt: new Date(),
         },
     });
 
@@ -173,9 +175,10 @@ export async function unassignAllCustomersFromUser(
         await logActivity({
             userId: unassignedById,
             action: 'CUSTOMER_UNASSIGNED',
-            entityType: 'Customer',
+            entityType: 'User',
             entityId: userId,
             details: `${result.count} customer(s) unassigned dari ${userId} (bulk: user dinonaktifkan)`,
+            tx,
         });
     }
 

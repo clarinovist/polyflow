@@ -27,6 +27,10 @@ vi.mock("@/lib/utils/utils", () => ({
   serializeData: (data: unknown) => data,
 }));
 
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock("@/lib/core/tenant", () => ({
   withTenant: (fn: (...args: unknown[]) => unknown) => fn,
 }));

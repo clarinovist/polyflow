@@ -375,23 +375,26 @@ export const deleteUser = withTenant(async function deleteUser(userId: string) {
 
         await assertNotLastActiveAdmin(userId);
 
-        await prisma.user.update({
-            where: { id: userId },
-            data: { isActive: false },
-        });
+        await prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: userId },
+                data: { isActive: false },
+            });
 
-        await unassignAllCustomersFromUser(userId, actorId);
+            await unassignAllCustomersFromUser(userId, actorId, tx);
 
-        await logActivity({
-            userId: actorId,
-            action: 'DEACTIVATE_USER',
-            entityType: 'User',
-            entityId: userId,
-            details: `Deactivated user ${targetUser.email}`,
-            changes: {
-                before: { isActive: targetUser.isActive },
-                after: { isActive: false },
-            },
+            await logActivity({
+                userId: actorId,
+                action: 'DEACTIVATE_USER',
+                entityType: 'User',
+                entityId: userId,
+                details: `Deactivated user ${targetUser.email}`,
+                changes: {
+                    before: { isActive: targetUser.isActive },
+                    after: { isActive: false },
+                },
+                tx,
+            });
         });
 
         // Deactivated user must not keep serving cached permissions.

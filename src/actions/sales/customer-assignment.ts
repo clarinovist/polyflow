@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { requireSalesManager } from '@/lib/auth/sales-access';
 import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
+import { revalidatePath } from 'next/cache';
 import {
     assignCustomerToSales,
     unassignCustomerFromSales,
@@ -29,6 +30,8 @@ export const assignCustomerAction = withTenant(
                 assignedById: session.user.id,
             });
 
+            revalidatePath('/sales/team');
+            revalidatePath('/sales/customers');
             return serializeData(assignment);
         });
     },
@@ -45,6 +48,8 @@ export const unassignCustomerAction = withTenant(
             await requireSalesManager();
 
             const result = await unassignCustomerFromSales(data);
+            revalidatePath('/sales/team');
+            revalidatePath('/sales/customers');
             return serializeData(result);
         });
     },

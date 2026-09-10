@@ -109,6 +109,22 @@ describe('SalesTeamListClient', () => {
         });
     });
 
+    it('shows an error when loading the roster fails', async () => {
+        mockGetSalesTeamAction.mockResolvedValue({
+            success: false,
+            error: 'Tidak memiliki izin',
+            code: 'AUTHORIZATION_ERROR',
+        });
+
+        renderComponent();
+
+        await waitFor(() => {
+            expect(mockToast.error).toHaveBeenCalledWith(
+                'Tidak memiliki izin',
+            );
+        });
+    });
+
     it('opens dialog when Lihat Customer clicked', async () => {
         renderComponent();
         await waitFor(() => {

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Users, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { getSalesTeamAction } from '@/actions/sales/sales-team';
 import { CustomerAssignmentDialog } from './CustomerAssignmentDialog';
 
@@ -29,19 +30,22 @@ export function SalesTeamListClient() {
     const [members, setMembers] = useState<SalesTeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [selectedMember, setSelectedMember] = useState<SalesTeamMember | null>(null);
+    const [selectedMember, setSelectedMember] =
+        useState<SalesTeamMember | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
     const loadMembers = useCallback(async () => {
         setLoading(true);
         try {
             const result = await getSalesTeamAction();
-            const data =
-                result && typeof result === 'object' && 'data' in result
-                    ? (result as { data: SalesTeamMember[] | null }).data
-                    : null;
-            setMembers(data ?? []);
+            if (!result.success) {
+                toast.error(result.error || 'Gagal memuat daftar sales');
+                setMembers([]);
+                return;
+            }
+            setMembers(result.data ?? []);
         } catch {
+            toast.error('Gagal memuat daftar sales');
             setMembers([]);
         } finally {
             setLoading(false);
@@ -129,24 +133,29 @@ export function SalesTeamListClient() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-wrap gap-1">
-                                                        {member.roles.map((r) => (
-                                                            <Badge
-                                                                key={r}
-                                                                variant={
-                                                                    r === 'ADMIN'
-                                                                        ? 'destructive'
-                                                                        : 'secondary'
-                                                                }
-                                                                className="text-[10px]"
-                                                            >
-                                                                {r}
-                                                            </Badge>
-                                                        ))}
+                                                        {member.roles.map(
+                                                            (r) => (
+                                                                <Badge
+                                                                    key={r}
+                                                                    variant={
+                                                                        r ===
+                                                                        'ADMIN'
+                                                                            ? 'destructive'
+                                                                            : 'secondary'
+                                                                    }
+                                                                    className="text-[10px]"
+                                                                >
+                                                                    {r}
+                                                                </Badge>
+                                                            ),
+                                                        )}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-center">
                                                     <span className="text-lg font-semibold">
-                                                        {member.activeCustomerCount}
+                                                        {
+                                                            member.activeCustomerCount
+                                                        }
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-right">
@@ -154,7 +163,9 @@ export function SalesTeamListClient() {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() =>
-                                                            handleViewCustomers(member)
+                                                            handleViewCustomers(
+                                                                member,
+                                                            )
                                                         }
                                                     >
                                                         Lihat Customer

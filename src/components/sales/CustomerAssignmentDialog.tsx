@@ -83,24 +83,26 @@ export function CustomerAssignmentDialog({
                 getCustomers(),
             ]);
 
-            const assignmentsData =
-                assignmentsResult &&
-                typeof assignmentsResult === 'object' &&
-                'data' in assignmentsResult
-                    ? (assignmentsResult as { data: AssignedCustomer[] | null })
-                          .data
-                    : null;
-            setAssignments(assignmentsData ?? []);
+            if (!assignmentsResult.success) {
+                toast.error(
+                    assignmentsResult.error ||
+                        'Gagal memuat assignment customer',
+                );
+                setAssignments([]);
+            } else {
+                setAssignments(assignmentsResult.data ?? []);
+            }
 
-            const custData =
-                customersResult &&
-                typeof customersResult === 'object' &&
-                'data' in customersResult
-                    ? (customersResult as { data: CustomerOption[] | null })
-                          .data
-                    : null;
-            setCustomers(custData ?? []);
+            if (!customersResult.success) {
+                toast.error(
+                    customersResult.error || 'Gagal memuat daftar customer',
+                );
+                setCustomers([]);
+            } else {
+                setCustomers(customersResult.data ?? []);
+            }
         } catch {
+            toast.error('Gagal memuat data customer');
             setAssignments([]);
             setCustomers([]);
         } finally {
@@ -128,13 +130,8 @@ export function CustomerAssignmentDialog({
                 userId,
                 isPrimary: true,
             });
-            if (
-                result &&
-                typeof result === 'object' &&
-                'success' in result &&
-                !result.success
-            ) {
-                toast.error('Gagal assign customer');
+            if (!result.success) {
+                toast.error(result.error || 'Gagal assign customer');
                 return;
             }
             toast.success('Customer berhasil di-assign');
@@ -155,13 +152,8 @@ export function CustomerAssignmentDialog({
                 customerId,
                 userId,
             });
-            if (
-                result &&
-                typeof result === 'object' &&
-                'success' in result &&
-                !result.success
-            ) {
-                toast.error('Gagal unassign customer');
+            if (!result.success) {
+                toast.error(result.error || 'Gagal unassign customer');
                 return;
             }
             toast.success('Customer berhasil di-unassign');
