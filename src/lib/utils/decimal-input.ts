@@ -1,79 +1,142 @@
+export type DecimalInputKind = 'money' | 'quantity';
+
+export type DecimalInputResult =
+    | { status: 'empty' | 'intermediate' | 'invalid'; value: null }
+    | { status: 'valid'; value: number };
+
+const DOMAIN_RULES: Record<
+    DecimalInputKind,
+    { maximumFractionDigits: number; maximum: number }
+> = {
+    money: {
+        maximumFractionDigits: 2,
+        maximum: 9_999_999_999_999.99,
+    },
+    quantity: {
+        maximumFractionDigits: 4,
+        maximum: 99_999_999_999.9999,
+    },
+};
+
 /**
- * Parse input desimal dengan toleransi format Indonesia.
+ * Parse a non-negative localized decimal without guessing or partial parsing.
  *
- * Kenapa file ini ada:
- * Operator gudang sering mengetik koma sebagai pemisah desimal, mis. "45,3"
- * untuk 45,3 kg. `parseFloat("45,3")` di JS mengembalikan 45 — diam-diam
- * memotong 0,3 kg per roll. Kesalahan ini tidak terdeteksi dan langsung
- * menjadi selisih stok + jurnal yang salah. Parser ini jadi jalur input
- * utama stock opname, jadi harus benar untuk format "45,3" dan menolak
- * input ambigu.
- *
- * Aturan:
- * - Trim dulu; string kosong / whitespace → null.
- * - Hanya karakter digit, titik, koma yang diizinkan; selain itu → null
- *   (menolak "abc", "12kg", "Infinity", "NaN", dll).
- * - Tanda minus di mana pun → null (jumlah fisik tidak pernah negatif).
- * - Jika ada titik DAN koma (pola ribuan jelas):
- *   - Separator yang muncul paling akhir dianggap desimal.
- *   - Kalau desimal = koma (Indonesia "1.234,5"): harus ada tepat 1 koma,
- *     titik boleh banyak sebagai ribuan → hapus semua titik, koma jadi titik.
- *   - Kalau desimal = titik (US "1,234.5"): harus ada tepat 1 titik,
- *     koma boleh banyak sebagai ribuan → hapus semua koma.
- *   - Kalau jumlah separator desimal >1 → null ("1,2,3" / "1.2.3").
- * - Jika hanya satu jenis separator:
- *   - Lebih dari satu → null.
- *   - Satu → perlakukan sebagai desimal (koma → titik).
- *   - Kalau ambigu seperti "1.234" (bisa ribuan atau desimal), perlakukan
- *     sebagai desimal → 1.234, karena angka timbangan jauh lebih sering
- *     desimal daripada ribuan.
- * - Hasil akhir harus finite, tidak NaN, dan >= 0.
+ * A single comma/dot is decimal (so `5304,17` and `5304.17` agree). When both
+ * separators occur, the last one is decimal and the other must be valid
+ * three-digit grouping (`5.304,17` / `5,304.17`). Repeated separators are only
+ * accepted as grouping when every group is complete. A trailing separator is
+ * an editable intermediate state, not a committed number.
  */
-export function parseDecimalInput(raw: string): number | null {
+export function parseLocalizedDecimalInput(
+    raw: string,
+    kind: DecimalInputKind,
+): DecimalInputResult {
     const trimmed = raw.trim();
-    if (trimmed.length === 0) return null;
-
-    // Tolak negatif / plus di mana saja (jumlah fisik tidak negatif)
-    if (trimmed.includes('-') || trimmed.includes('+')) return null;
-
-    // Hanya digit, titik, koma yang diizinkan
-    if (!/^[0-9.,]+$/.test(trimmed)) return null;
-
-    const commaCount = (trimmed.match(/,/g) || []).length;
-    const dotCount = (trimmed.match(/\./g) || []).length;
-
-    let normalized: string;
-
-    if (commaCount > 0 && dotCount > 0) {
-        const lastComma = trimmed.lastIndexOf(',');
-        const lastDot = trimmed.lastIndexOf('.');
-
-        if (lastComma > lastDot) {
-            // Indonesia: koma = desimal, titik = ribuan (1.234,5 → 1234.5)
-            if (commaCount !== 1) return null;
-            // Hapus semua titik, ganti koma jadi titik
-            normalized = trimmed.replace(/\./g, '').replace(',', '.');
-        } else {
-            // US fallback: titik = desimal, koma = ribuan (1,234.5 → 1234.5)
-            if (dotCount !== 1) return null;
-            normalized = trimmed.replace(/,/g, '');
-        }
-    } else if (commaCount > 0) {
-        // Hanya koma
-        if (commaCount !== 1) return null;
-        normalized = trimmed.replace(',', '.');
-    } else if (dotCount > 0) {
-        // Hanya titik
-        if (dotCount !== 1) return null;
-        normalized = trimmed;
-    } else {
-        // Hanya digit
-        normalized = trimmed;
+    if (!trimmed) return { status: 'empty', value: null };
+    if (!/^[0-9.,]+$/.test(trimmed)) {
+        return { status: 'invalid', value: null };
+    }
+    if (/^\d+[.,]$/.test(trimmed)) {
+        return { status: 'intermediate', value: null };
     }
 
-    const value = Number(normalized);
+    const commaCount = (trimmed.match(/,/g) ?? []).length;
+    const dotCount = (trimmed.match(/\./g) ?? []).length;
+    let integerPart: string;
+    let fractionPart = '';
 
-    if (!isFinite(value) || isNaN(value)) return null;
+    if (commaCount > 0 && dotCount > 0) {
+        const decimalSeparator =
+            trimmed.lastIndexOf(',') > trimmed.lastIndexOf('.') ? ',' : '.';
+        const groupingSeparator = decimalSeparator === ',' ? '.' : ',';
+        if (
+            (decimalSeparator === ',' ? commaCount : dotCount) !== 1
+        ) {
+            return { status: 'invalid', value: null };
+        }
 
-    return value;
+        const decimalParts = trimmed.split(decimalSeparator);
+        if (decimalParts.length !== 2 || !decimalParts[1]) {
+            return { status: 'invalid', value: null };
+        }
+        const groups = decimalParts[0].split(groupingSeparator);
+        if (
+            !/^\d{1,3}$/.test(groups[0]) ||
+            groups.slice(1).some((group) => !/^\d{3}$/.test(group))
+        ) {
+            return { status: 'invalid', value: null };
+        }
+        integerPart = groups.join('');
+        fractionPart = decimalParts[1];
+    } else if (commaCount + dotCount === 1) {
+        const separator = commaCount === 1 ? ',' : '.';
+        const parts = trimmed.split(separator);
+        if (!parts[0] || !parts[1]) {
+            return { status: 'invalid', value: null };
+        }
+        // For money, a single separator followed by exactly three digits is
+        // Indonesian/international grouping (5.304 or 5,304). Quantity keeps
+        // the historical decimal interpretation because measurements commonly
+        // use three or four fractional digits.
+        if (
+            kind === 'money' &&
+            /^[1-9]\d{0,2}$/.test(parts[0]) &&
+            /^\d{3}$/.test(parts[1])
+        ) {
+            integerPart = parts.join('');
+        } else {
+            [integerPart, fractionPart] = parts;
+        }
+    } else if (commaCount + dotCount > 1) {
+        const groupingSeparator = commaCount > 1 ? ',' : '.';
+        const groups = trimmed.split(groupingSeparator);
+        if (
+            !/^\d{1,3}$/.test(groups[0]) ||
+            groups.slice(1).some((group) => !/^\d{3}$/.test(group))
+        ) {
+            return { status: 'invalid', value: null };
+        }
+        integerPart = groups.join('');
+    } else {
+        integerPart = trimmed;
+    }
+
+    const rules = DOMAIN_RULES[kind];
+    if (fractionPart.length > rules.maximumFractionDigits) {
+        return { status: 'invalid', value: null };
+    }
+
+    const value = Number(
+        fractionPart ? `${integerPart}.${fractionPart}` : integerPart,
+    );
+    if (!Number.isFinite(value) || value < 0 || value > rules.maximum) {
+        return { status: 'invalid', value: null };
+    }
+
+    return { status: 'valid', value };
+}
+
+export function parseMoneyInput(raw: string): number | null {
+    const result = parseLocalizedDecimalInput(raw, 'money');
+    return result.status === 'valid' ? result.value : null;
+}
+
+export function parseQuantityInput(raw: string): number | null {
+    const result = parseLocalizedDecimalInput(raw, 'quantity');
+    return result.status === 'valid' ? result.value : null;
+}
+
+/** Backwards-compatible quantity parser used by existing stock-opname UI. */
+export function parseDecimalInput(raw: string): number | null {
+    return parseQuantityInput(raw);
+}
+
+export function formatLocalizedDecimal(
+    value: number,
+    kind: DecimalInputKind,
+): string {
+    return new Intl.NumberFormat('id-ID', {
+        useGrouping: true,
+        maximumFractionDigits: DOMAIN_RULES[kind].maximumFractionDigits,
+    }).format(value);
 }

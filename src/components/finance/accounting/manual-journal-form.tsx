@@ -100,7 +100,13 @@ export default function ManualJournalForm({
         (sum, line) => sum + (Number(line.credit) || 0),
         0,
     );
-    const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
+    const hasInvalidAmount = lines.some(
+        (line) =>
+            !Number.isFinite(Number(line.debit)) ||
+            !Number.isFinite(Number(line.credit)),
+    );
+    const isBalanced =
+        !hasInvalidAmount && Math.abs(totalDebit - totalCredit) < 0.01;
 
     // Importing Templates logic
     const [templateOpen, setTemplateOpen] = useState(false);

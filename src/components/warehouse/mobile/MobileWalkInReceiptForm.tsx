@@ -17,6 +17,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { createWalkInGoodsReceipt } from '@/actions/purchasing/purchasing';
+import {
+    formatLocalizedDecimal,
+    parseMoneyInput,
+    parseQuantityInput,
+} from '@/lib/utils/decimal-input';
 
 type Supplier = { id: string; name: string; code: string | null };
 type Location = { id: string; name: string };
@@ -86,19 +91,28 @@ export function MobileWalkInReceiptForm({
         setItems(updated);
     };
 
-    const canSubmit =
+    const parsedItems = items.map((item) => ({
+        productVariantId: item.productVariantId,
+        receivedQty: parseQuantityInput(item.receivedQty),
+        unitCost: parseMoneyInput(item.unitCost),
+    }));
+    const canSubmit = Boolean(
         supplierId &&
-        supplierRefNo.trim() &&
-        locationId &&
-        items.length > 0 &&
-        items.every(
-            (i) =>
-                i.productVariantId &&
-                Number(i.receivedQty) > 0 &&
-                Number(i.unitCost) > 0,
-        );
+            supplierRefNo.trim() &&
+            locationId &&
+            parsedItems.length > 0 &&
+            parsedItems.every(
+                (item) =>
+                    item.productVariantId &&
+                    item.receivedQty !== null &&
+                    item.receivedQty > 0 &&
+                    item.unitCost !== null &&
+                    item.unitCost > 0,
+            ),
+    );
 
     const handleSubmit = async () => {
+        if (!canSubmit) return;
         setIsSubmitting(true);
         try {
             const idempotencyKey = `walkin-${supplierId}-${supplierRefNo.trim()}-${idempotencyRef.current}`;
@@ -109,10 +123,10 @@ export function MobileWalkInReceiptForm({
                 locationId,
                 notes: notes.trim() || undefined,
                 idempotencyKey,
-                items: items.map((i) => ({
-                    productVariantId: i.productVariantId,
-                    receivedQty: Number(i.receivedQty),
-                    unitCost: Number(i.unitCost),
+                items: parsedItems.map((item) => ({
+                    productVariantId: item.productVariantId,
+                    receivedQty: item.receivedQty!,
+                    unitCost: item.unitCost!,
                 })),
             });
 
@@ -325,9 +339,17 @@ export function MobileWalkInReceiptForm({
                             </div>
 
                             {item.productVariantId &&
-                                Number(item.unitCost) <= 0 && (
-                                    <p className="text-[10px] text-destructive">
-                                        Harga wajib lebih dari 0
+                                (parseQuantityInput(item.receivedQty) === null ||
+                                    parseQuantityInput(item.receivedQty)! <= 0) && (
+                                    <p className="text-[10px] text-destructive" role="alert">
+                                        Qty harus berupa angka positif (maks. 4 desimal)
+                                    </p>
+                                )}
+                            {item.productVariantId &&
+                                (parseMoneyInput(item.unitCost) === null ||
+                                    parseMoneyInput(item.unitCost)! <= 0) && (
+                                    <p className="text-[10px] text-destructive" role="alert">
+                                        Harga harus berupa angka positif (maks. 2 desimal)
                                     </p>
                                 )}
                         </div>
@@ -381,10 +403,15 @@ export function MobileWalkInReceiptForm({
                                                 className="text-xs text-muted-foreground"
                                             >
                                                 {v?.name} ×{' '}
-                                                {item.receivedQty} @ Rp{' '}
-                                                {Number(
-                                                    item.unitCost,
-                                                ).toLocaleString('id-ID')}
+                                                {formatLocalizedDecimal(
+                                                    parsedItems[i].receivedQty!,
+                                                    'quantity',
+                                                )}{' '}
+                                                @ Rp{' '}
+                                                {formatLocalizedDecimal(
+                                                    parsedItems[i].unitCost!,
+                                                    'money',
+                                                )}
                                             </p>
                                         );
                                     })}

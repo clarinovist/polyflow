@@ -137,9 +137,17 @@ export function OpeningBalanceSpreadsheet({
 
     const totalDebit = generalDebit + arTotal;
     const totalCredit = generalCredit + apTotal;
+    const hasInvalidAmount = Object.values(generalLines).some(
+        (line) =>
+            !Number.isFinite(line.debit) || !Number.isFinite(line.credit),
+    );
     const equityOffset = totalDebit - totalCredit;
 
     const handleSave = async () => {
+        if (hasInvalidAmount) {
+            toast.error('Perbaiki nominal yang tidak valid sebelum menyimpan.');
+            return;
+        }
         if (totalDebit === 0 && totalCredit === 0) {
             toast.error('Masukkan setidaknya satu saldo.');
             return;
@@ -186,7 +194,8 @@ export function OpeningBalanceSpreadsheet({
         if (
             !tempInvoice.entityId ||
             !tempInvoice.invoiceNumber ||
-            !tempInvoice.amount
+            !Number.isFinite(tempInvoice.amount ?? Number.NaN) ||
+            (tempInvoice.amount ?? 0) <= 0
         ) {
             toast.error('Lengkapi semua field wajib.');
             return;
@@ -207,7 +216,8 @@ export function OpeningBalanceSpreadsheet({
         if (
             !tempInvoice.entityId ||
             !tempInvoice.invoiceNumber ||
-            !tempInvoice.amount
+            !Number.isFinite(tempInvoice.amount ?? Number.NaN) ||
+            (tempInvoice.amount ?? 0) <= 0
         ) {
             toast.error('Lengkapi semua field wajib.');
             return;
@@ -498,6 +508,7 @@ export function OpeningBalanceSpreadsheet({
                                     onClick={handleSave}
                                     disabled={
                                         isSubmitting ||
+                                        hasInvalidAmount ||
                                         (totalDebit === 0 && totalCredit === 0)
                                     }
                                 >

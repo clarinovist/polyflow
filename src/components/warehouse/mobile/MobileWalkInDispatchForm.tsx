@@ -18,6 +18,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { createEmergencyDispatch } from '@/actions/inventory/walk-in-dispatch';
+import {
+    formatLocalizedDecimal,
+    parseQuantityInput,
+} from '@/lib/utils/decimal-input';
 
 type Customer = { id: string; name: string; code: string | null };
 type Location = { id: string; name: string };
@@ -94,19 +98,26 @@ export function MobileWalkInDispatchForm({
         return Number(price) > 0;
     };
 
-    const canSubmit =
+    const parsedItems = items.map((item) => ({
+        ...item,
+        quantity: parseQuantityInput(item.quantity),
+    }));
+    const canSubmit = Boolean(
         customerId &&
-        sourceLocationId &&
-        sourceReference.trim() &&
-        items.length > 0 &&
-        items.every(
-            (i) =>
-                i.productVariantId &&
-                Number(i.quantity) > 0 &&
-                (i.isFreeItem || hasPrice(i.productVariantId)),
-        );
+            sourceLocationId &&
+            sourceReference.trim() &&
+            parsedItems.length > 0 &&
+            parsedItems.every(
+                (item) =>
+                    item.productVariantId &&
+                    item.quantity !== null &&
+                    item.quantity > 0 &&
+                    (item.isFreeItem || hasPrice(item.productVariantId)),
+            ),
+    );
 
     const handleSubmit = async () => {
+        if (!canSubmit) return;
         setIsSubmitting(true);
         try {
             const idempotencyKey = `emergency-${customerId}-${sourceReference.trim()}-${idempotencyRef.current}`;
@@ -116,10 +127,10 @@ export function MobileWalkInDispatchForm({
                 sourceReference: sourceReference.trim(),
                 notes: notes.trim() || undefined,
                 idempotencyKey,
-                items: items.map((i) => ({
-                    productVariantId: i.productVariantId,
-                    quantity: Number(i.quantity),
-                    isFreeItem: i.isFreeItem,
+                items: parsedItems.map((item) => ({
+                    productVariantId: item.productVariantId,
+                    quantity: item.quantity!,
+                    isFreeItem: item.isFreeItem,
                 })),
             });
 
@@ -355,6 +366,13 @@ export function MobileWalkInDispatchForm({
                                 </div>
                             </div>
 
+                            {item.productVariantId &&
+                                (parseQuantityInput(item.quantity) === null ||
+                                    parseQuantityInput(item.quantity)! <= 0) && (
+                                    <p className="text-[10px] text-destructive" role="alert">
+                                        Qty harus berupa angka positif (maks. 4 desimal)
+                                    </p>
+                                )}
                             {!priceOk && (
                                 <p className="text-[10px] text-destructive">
                                     Harga tidak ditemukan. Hubungi Sales atau
@@ -434,8 +452,12 @@ export function MobileWalkInDispatchForm({
                                                 key={i}
                                                 className="text-xs text-muted-foreground"
                                             >
-                                                {v?.name} × {item.quantity} ={' '}
-                                                {price}
+                                                {v?.name} ×{' '}
+                                                {formatLocalizedDecimal(
+                                                    parsedItems[i].quantity!,
+                                                    'quantity',
+                                                )}{' '}
+                                                = {price}
                                             </p>
                                         );
                                     })}

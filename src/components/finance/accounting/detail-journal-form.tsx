@@ -147,8 +147,15 @@ export default function DetailJournalForm({
     const direction = watch('direction');
 
     // Calculate total from details
+    const hasInvalidAmount = details.some((detail) =>
+        !Number.isFinite(Number(detail.amount)),
+    );
     const totalDetail = details.reduce(
-        (sum, d) => sum + (Number(d.amount) || 0),
+        (sum, detail) =>
+            sum +
+            (Number.isFinite(Number(detail.amount))
+                ? Number(detail.amount)
+                : 0),
         0,
     );
 
@@ -206,7 +213,7 @@ export default function DetailJournalForm({
         template,
     ]);
 
-    const isBalanced = previewLines.length === 2;
+    const isBalanced = !hasInvalidAmount && previewLines.length === 2;
 
     // Handle template change — reset defaults
     function handleTemplateChange(newKey: string) {
