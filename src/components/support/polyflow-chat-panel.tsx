@@ -138,11 +138,57 @@ const CATEGORIZED_PROMPTS = [
     },
 ];
 
+type WorkProfile = 'general' | 'finance' | 'production';
+
 interface PolyflowChatPanelProps {
     embedded?: boolean;
     initialQuestion?: string;
     allowedResources?: string[] | 'ALL';
+    currentPath?: string;
 }
+
+function profileFromPath(pathname: string): WorkProfile {
+    if (pathname === '/finance' || pathname.startsWith('/finance/')) {
+        return 'finance';
+    }
+    if (pathname === '/production' || pathname.startsWith('/production/')) {
+        return 'production';
+    }
+    return 'general';
+}
+
+const PROFILE_UI: Record<
+    WorkProfile,
+    { label: string; description: string; prompts: string[] }
+> = {
+    general: {
+        label: 'Umum',
+        description: 'Panduan dan analisis operasional sesuai akses Anda',
+        prompts: [
+            'Cek stok barang MP 15 di gudang',
+            'Kenapa SO belum bisa dikirim?',
+            'Cara input hasil produksi shift 2',
+        ],
+    },
+    finance: {
+        label: 'Finance',
+        description: 'Asisten accountant read-only',
+        prompts: [
+            'Periksa invoice yang sedang saya buka',
+            'Apa yang perlu diperiksa dari laba rugi bulan ini?',
+            'Ringkas utang dan piutang yang outstanding',
+        ],
+    },
+    production: {
+        label: 'Production',
+        description: 'Asisten manajer produksi read-only',
+        prompts: [
+            'Periksa progres SPK yang sedang saya buka',
+            'Apa yang perlu diprioritaskan hari ini?',
+            'SPK aktif mana yang perlu ditindaklanjuti?',
+        ],
+    },
+};
 
 function renderRichText(text: string) {
     const lines = text.split('\n');
@@ -409,7 +455,11 @@ export function PolyflowChatPanel({
     embedded = false,
     initialQuestion,
     allowedResources = 'ALL',
+    currentPath = '/',
 }: PolyflowChatPanelProps) {
+    const contextEnabled =
+        process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES === 'true';
+    const effectivePath = contextEnabled ? currentPath : '/';
     const [question, setQuestion] = useState(initialQuestion || '');
     const [isLoading, setIsLoading] = useState(false);
     const [longWait, setLongWait] = useState(false);
@@ -418,15 +468,21 @@ export function PolyflowChatPanel({
     const [initialSent, setInitialSent] = useState(false);
     const [conversationId, setConversationId] = useState<string | undefined>();
     const abortRef = useRef<AbortController | null>(null);
+    const requestPathRef = useRef(effectivePath);
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const isNearBottomRef = useRef(true);
 
-    const initialWelcomeMsg: ChatMessage = {
-        id: 'welcome',
-        role: 'assistant',
-        text: 'Halo! Saya **Asisten Kerja Polyflow** 🤖\n\nCeritakan saja apa yang ingin Anda ketahui atau kendala yang sedang terjadi. Saya dapat membantu mencari data yang boleh Anda lihat, menjelaskan penyebab, atau menunjukkan langkah yang perlu dilakukan.\n\n*Saya tidak akan mengubah transaksi. Untuk perubahan data, silakan gunakan menu yang tersedia.*',
-    };
+    const workProfile = profileFromPath(effectivePath);
+    const profileUi = PROFILE_UI[workProfile];
+    const initialWelcomeMsg = useMemo<ChatMessage>(
+        () => ({
+            id: 'welcome',
+            role: 'assistant',
+            text: `Halo! Saya **Asisten Polyflow** 🤖\n\nKonteks aktif: **${profileUi.label}** — ${profileUi.description}. Ceritakan apa yang ingin diperiksa atau dipahami.\n\n*Saya hanya membaca data yang diizinkan dan tidak akan mengubah transaksi.*`,
+        }),
+        [profileUi.description, profileUi.label],
+    );
 
     const [messages, setMessages] = useState<ChatMessage[]>([
         initialWelcomeMsg,
@@ -444,6 +500,27 @@ export function PolyflowChatPanel({
             setInitialSent(true);
         }
     }, [initialQuestion, initialSent]);
+
+    const previousPathRef = useRef(effectivePath);
+    useEffect(() => {
+        if (previousPathRef.current === effectivePath) return;
+        previousPathRef.current = effectivePath;
+        if (isLoading) abortRef.current?.abort();
+        requestPathRef.current = effectivePath;
+        abortRef.current = null;
+        setIsLoading(false);
+        setLongWait(false);
+        setToolProgress(null);
+        setConversationId(undefined);
+        setMessages([
+            initialWelcomeMsg,
+            {
+                id: `context-${Date.now()}`,
+                role: 'assistant',
+                text: `Konteks berpindah ke **${profileUi.label}**. Saya memulai thread baru agar data dokumen sebelumnya tidak tercampur.`,
+            },
+        ]);
+    }, [effectivePath, initialWelcomeMsg, isLoading, profileUi.label]);
 
     const checkNearBottom = useCallback(() => {
         const el = scrollContainerRef.current;
@@ -463,6 +540,7 @@ export function PolyflowChatPanel({
 
     // Filter prompt categories based on user permissions
     const filteredPromptCategories = useMemo(() => {
+        if (workProfile !== 'general') return [];
         if (allowedResources === 'ALL') return CATEGORIZED_PROMPTS;
         return CATEGORIZED_PROMPTS.filter((cat) =>
             cat.requiredResources.some((resource) =>
@@ -474,7 +552,7 @@ export function PolyflowChatPanel({
                 ),
             ),
         );
-    }, [allowedResources]);
+    }, [allowedResources, workProfile]);
 
     const pushMessage = (
         role: Role,
@@ -521,6 +599,8 @@ export function PolyflowChatPanel({
         abortRef.current?.abort();
         setIsLoading(false);
         setLongWait(false);
+        setToolProgress(null);
+        abortRef.current = null;
     };
 
     useEffect(() => {
@@ -583,13 +663,23 @@ export function PolyflowChatPanel({
 
         const controller = new AbortController();
         abortRef.current = controller;
+        const requestPath = effectivePath;
+        requestPathRef.current = requestPath;
 
         try {
-            const streamed = await sendViaStream(payload, controller);
-            if (!streamed) {
-                await sendViaJson(payload, controller);
+            const streamResult = await sendViaStream(
+                payload,
+                requestPath,
+                controller,
+            );
+            if (
+                streamResult === 'fallback' &&
+                requestPathRef.current === requestPath
+            ) {
+                await sendViaJson(payload, requestPath, controller);
             }
         } catch (err) {
+            if (requestPathRef.current !== requestPath) return;
             if ((err as Error).name === 'AbortError') {
                 pushMessage('assistant', 'Permintaan dibatalkan.');
             } else {
@@ -599,9 +689,11 @@ export function PolyflowChatPanel({
                 );
             }
         } finally {
-            setIsLoading(false);
-            setToolProgress(null);
-            abortRef.current = null;
+            if (requestPathRef.current === requestPath) {
+                setIsLoading(false);
+                setToolProgress(null);
+                abortRef.current = null;
+            }
         }
     };
 
@@ -612,34 +704,43 @@ export function PolyflowChatPanel({
      */
     const sendViaStream = async (
         payload: string,
+        requestPath: string,
         controller: AbortController,
-    ): Promise<boolean> => {
+    ): Promise<'handled' | 'fallback'> => {
         let res: Response;
         try {
             res = await fetch('/api/chat/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: payload, conversationId }),
+                body: JSON.stringify({
+                    question: payload,
+                    conversationId,
+                    workContext: { pathname: requestPath },
+                }),
                 signal: controller.signal,
             });
         } catch (err) {
             if ((err as Error).name === 'AbortError') throw err;
-            return false;
+            return 'fallback';
         }
 
         if (!res.ok || !res.body) {
             // 429 dan error auth punya pesan spesifik — tampilkan, jangan retry
             // ke endpoint lain (rate limiter-nya sama, hasilnya akan sama).
-            if (res.status === 429 || res.status === 401 || res.status === 403) {
+            if (
+                res.status === 429 ||
+                res.status === 401 ||
+                res.status === 403
+            ) {
                 const j = await res.json().catch(() => null);
                 pushMessage(
                     'assistant',
                     (j as { error?: string } | null)?.error ||
                         'Permintaan tidak dapat diproses.',
                 );
-                return true;
+                return 'handled';
             }
-            return false;
+            return 'fallback';
         }
 
         const reader = res.body.getReader();
@@ -693,6 +794,7 @@ export function PolyflowChatPanel({
                     continue;
                 }
 
+                if (requestPathRef.current !== requestPath) return 'handled';
                 sawAnything = true;
 
                 if (event.type === 'tool') {
@@ -721,7 +823,8 @@ export function PolyflowChatPanel({
                                       // Jawaban final menang atas akumulasi delta:
                                       // jalur non-stream (mis. greeting fast-path)
                                       // tidak pernah mengirim delta sama sekali.
-                                      text: data.answer || streamedText || m.text,
+                                      text:
+                                          data.answer || streamedText || m.text,
                                       interactionId: data.interactionId,
                                       citedArticles: data.citedArticles,
                                       relatedArticles: data.relatedArticles,
@@ -737,22 +840,28 @@ export function PolyflowChatPanel({
         }
 
         // Stream terbuka tapi tidak mengirim apa pun → biarkan fallback jalan.
-        return sawAnything;
+        return sawAnything ? 'handled' : 'fallback';
     };
 
     /** Jalur lama (non-stream). Dipertahankan sebagai fallback. */
     const sendViaJson = async (
         payload: string,
+        requestPath: string,
         controller: AbortController,
     ): Promise<void> => {
         const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: payload, conversationId }),
+            body: JSON.stringify({
+                question: payload,
+                conversationId,
+                workContext: { pathname: requestPath },
+            }),
             signal: controller.signal,
         });
 
         const json = (await res.json()) as ChatApiResponse;
+        if (requestPathRef.current !== requestPath) return;
 
         if (!res.ok || !json.success) {
             pushMessage(
@@ -787,7 +896,7 @@ export function PolyflowChatPanel({
     return (
         <div
             className={cn(
-                'flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl shadow-2xl transition-all duration-300',
+                'flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl transition-all duration-300',
                 embedded
                     ? 'min-h-[calc(100vh-12rem)]'
                     : 'h-[75vh] max-h-[720px] min-h-[540px]',
@@ -807,7 +916,7 @@ export function PolyflowChatPanel({
                         <div>
                             <div className="flex items-center gap-2">
                                 <h2 className="text-base font-bold text-foreground tracking-tight">
-                                    Asisten Kerja Polyflow
+                                    Asisten Polyflow
                                 </h2>
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                     <Sparkles className="h-3 w-3" /> AI
@@ -816,10 +925,7 @@ export function PolyflowChatPanel({
                             </div>
                             <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                                <span>
-                                    Tanyakan kendala kerja dengan bahasa
-                                    sehari-hari
-                                </span>
+                                <span>{profileUi.description}</span>
                             </p>
                         </div>
                     </div>
@@ -861,59 +967,75 @@ export function PolyflowChatPanel({
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-foreground tracking-tight">
-                                            Ceritakan kendala Anda
+                                            Asisten {profileUi.label}
                                         </h3>
                                         <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed">
-                                            Jelaskan masalah atau pertanyaan
-                                            Anda dengan bahasa sehari-hari. Saya
-                                            akan mencari data, menjelaskan
-                                            penyebab, atau menunjukkan langkah
-                                            yang perlu dilakukan.
+                                            {profileUi.description}. Pilih
+                                            contoh pertanyaan atau tulis
+                                            kebutuhan Anda dengan bahasa
+                                            sehari-hari.
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {filteredPromptCategories.map((cat) => {
-                                    const Icon = cat.icon;
-                                    return (
-                                        <div
-                                            key={cat.category}
-                                            className="rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm backdrop-blur-sm space-y-2.5"
+                            {workProfile !== 'general' && (
+                                <div className="grid gap-2 sm:grid-cols-3">
+                                    {profileUi.prompts.map((prompt) => (
+                                        <button
+                                            key={prompt}
+                                            type="button"
+                                            onClick={() => sendQuestion(prompt)}
+                                            className="text-left text-xs p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10 text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 font-medium transition-colors"
                                         >
-                                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                                                <div
-                                                    className={cn(
-                                                        'p-1.5 rounded-lg border bg-gradient-to-br',
-                                                        cat.color,
-                                                    )}
-                                                >
-                                                    <Icon className="h-4 w-4" />
-                                                </div>
-                                                <span>{cat.category}</span>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                {cat.prompts.map((p) => (
-                                                    <button
-                                                        key={p}
-                                                        type="button"
-                                                        onClick={() =>
-                                                            sendQuestion(p)
-                                                        }
-                                                        className="w-full text-left text-xs p-2.5 rounded-xl border border-border/40 bg-muted/30 hover:bg-emerald-500/10 hover:border-emerald-500/40 text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 font-medium transition-all duration-150 flex items-center justify-between group"
+                                            {prompt}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {workProfile === 'general' && (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {filteredPromptCategories.map((cat) => {
+                                        const Icon = cat.icon;
+                                        return (
+                                            <div
+                                                key={cat.category}
+                                                className="rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm backdrop-blur-sm space-y-2.5"
+                                            >
+                                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                                    <div
+                                                        className={cn(
+                                                            'p-1.5 rounded-lg border bg-gradient-to-br',
+                                                            cat.color,
+                                                        )}
                                                     >
-                                                        <span className="line-clamp-1">
-                                                            {p}
-                                                        </span>
-                                                        <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all text-emerald-500 shrink-0 ml-2" />
-                                                    </button>
-                                                ))}
+                                                        <Icon className="h-4 w-4" />
+                                                    </div>
+                                                    <span>{cat.category}</span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {cat.prompts.map((p) => (
+                                                        <button
+                                                            key={p}
+                                                            type="button"
+                                                            onClick={() =>
+                                                                sendQuestion(p)
+                                                            }
+                                                            className="w-full text-left text-xs p-2.5 rounded-xl border border-border/40 bg-muted/30 hover:bg-emerald-500/10 hover:border-emerald-500/40 text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 font-medium transition-all duration-150 flex items-center justify-between group"
+                                                        >
+                                                            <span className="line-clamp-1">
+                                                                {p}
+                                                            </span>
+                                                            <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all text-emerald-500 shrink-0 ml-2" />
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
 

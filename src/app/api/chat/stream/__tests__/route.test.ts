@@ -23,6 +23,7 @@ vi.mock('@/lib/core/tenant', () => ({
 }));
 
 const findUniqueMock = vi.fn().mockResolvedValue({ id: 'user-1' });
+const verifySessionMock = vi.fn();
 
 vi.mock('@/lib/core/prisma', () => ({
     getTenantIdFromContext: vi.fn(() => 'tenant-a'),
@@ -31,6 +32,9 @@ vi.mock('@/lib/core/prisma', () => ({
 
 const authMock = vi.fn();
 vi.mock('@/auth', () => ({ auth: () => authMock() }));
+vi.mock('@/lib/bot/assistant-session', () => ({
+    verifyAssistantSessionUser: (...a: unknown[]) => verifySessionMock(...a),
+}));
 
 const generateMock = vi.fn();
 vi.mock('@/lib/bot/virtual-cs-service', () => ({
@@ -87,6 +91,14 @@ describe('POST /api/chat/stream', () => {
             user: { id: 'user-1', name: 'Filia' },
         });
         findUniqueMock.mockResolvedValue({ id: 'user-1' });
+        verifySessionMock.mockResolvedValue({
+            id: 'user-1',
+            name: 'Filia',
+            role: 'ADMIN',
+            roles: ['ADMIN'],
+            isSuperAdmin: false,
+            allowedResources: ['/production', '/finance'],
+        });
         logMock.mockResolvedValue('interaction-9');
     });
 
@@ -108,8 +120,16 @@ describe('POST /api/chat/stream', () => {
         expect(res.status).toBe(400);
     });
 
+    it('menolak work context yang malformed', async () => {
+        const res = await (POST as unknown as Handler)(
+            makeReq({ question: 'cek invoice', workContext: { pathname: 42 } }),
+        );
+        expect(res.status).toBe(400);
+    });
+
     it('menolak saat user tidak ada di DB tenant (session-tenant binding)', async () => {
         findUniqueMock.mockResolvedValue(null);
+        verifySessionMock.mockResolvedValue(null);
         const res = await (POST as unknown as Handler)(makeReq({ question: 'cek stok' }));
         expect(res.status).toBe(403);
     });
@@ -151,7 +171,10 @@ describe('POST /api/chat/stream', () => {
         );
 
         const res = await (POST as unknown as Handler)(
-            makeReq({ question: 'cek stok MP 15' }),
+            makeReq({
+                question: 'cek stok MP 15',
+                workContext: { pathname: '/production/orders/order-1' },
+            }),
         );
 
         expect(res.headers?.get('Content-Type')).toContain('text/event-stream');
@@ -170,6 +193,11 @@ describe('POST /api/chat/stream', () => {
             'done',
         ]);
         expect(events[0].label).toBe('Mengecek stok barang');
+        expect(generateMock.mock.calls[0][1]).toMatchObject({
+            workContext: { pathname: '/production/orders/order-1' },
+            permissionsVerified: true,
+            sessionUser: { allowedResources: ['/production', '/finance'] },
+        });
 
         const done = events[3] as unknown as { data: Record<string, unknown> };
         expect(done.data.answer).toBe('Stok tersedia.');

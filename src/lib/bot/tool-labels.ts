@@ -24,6 +24,7 @@ const TOOL_LABELS: Record<string, string> = {
     diagnose_stock_discrepancy: 'Menelusuri selisih stok',
     get_attendance_summary: 'Mengecek data absensi',
     diagnose_production_blocker: 'Menelusuri hambatan produksi',
+    get_production_priority_briefing: 'Menyusun briefing prioritas produksi',
     diagnose_po_invoice_mismatch: 'Membandingkan PO dengan invoice',
     diagnose_invoice_payment: 'Menelusuri pembayaran invoice',
 };

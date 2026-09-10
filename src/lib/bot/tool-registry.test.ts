@@ -108,6 +108,17 @@ describe('Permission matrix: Role × Tool', () => {
         });
       }
 
+      if (role.role === 'PRODUCTION') {
+        it('can access production diagnosis and priority briefing', () => {
+          expect(allowed.map((tool) => tool.name)).toEqual(
+            expect.arrayContaining([
+              'diagnose_production_blocker',
+              'get_production_priority_briefing',
+            ]),
+          );
+        });
+      }
+
       if (role.role === 'FINANCE') {
         it('can access finance tools', () => {
           const financeTools = allowed.filter((t) =>

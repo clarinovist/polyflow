@@ -77,7 +77,7 @@ export function ContextualHelp({
                                     onClick={() => setOpen(false)}
                                 >
                                     <MessageCircle className="h-4 w-4" />
-                                    Tanya Virtual CS
+                                    Tanya Asisten Polyflow
                                 </Link>
                             </div>
                         </div>

@@ -31,7 +31,13 @@ function financeTool<T extends z.ZodType>(
                 }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 12_000, maxWait: 2_000 });
             } catch (error) {
                 // Log classification only: Prisma messages/meta may contain SQL, PII or connection details.
-                console.error('[finance-tool] read-only query failed', { tool: name, errorType: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : 'UNEXPECTED' });
+                console.error('[finance-tool] read-only query failed', {
+                    tool: name,
+                    errorType:
+                        error instanceof Prisma.PrismaClientKnownRequestError
+                            ? error.code
+                            : 'UNEXPECTED',
+                });
                 throw new Error('Pemeriksaan finance gagal; data belum dapat diverifikasi. Coba lagi atau hubungi administrator.');
             }
         },

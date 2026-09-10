@@ -35,6 +35,13 @@ describe('enforceGuardrails (intent_v2)', () => {
         expect(decision.allowed).toBe(true);
     });
 
+    it('allows a read-only work product request', () => {
+        const decision = enforceGuardrails(
+            'buatkan ringkasan untuk produksi hari ini',
+        );
+        expect(decision.allowed).toBe(true);
+    });
+
     // Mutation commands — blocked
     it('blocks mutation: buatkan SO untuk Budi', () => {
         const decision = enforceGuardrails('buatkan SO untuk Budi');

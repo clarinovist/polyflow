@@ -67,21 +67,35 @@ export type GreetingResult = {
     suggestions?: string[];
 };
 
-const SUGGESTIONS = [
-    'Cek stok barang MP 15 di gudang',
-    'Kenapa SO belum bisa dikirim?',
-    'Cara input hasil produksi shift 2',
-];
+type GreetingPresentation = {
+    label: string;
+    description: string;
+    suggestions: string[];
+};
 
-function buildReply(requesterName?: string): string {
+const DEFAULT_PRESENTATION: GreetingPresentation = {
+    label: 'Umum',
+    description: 'panduan dan analisis operasional sesuai akses Anda',
+    suggestions: [
+        'Cek stok barang MP 15 di gudang',
+        'Kenapa SO belum bisa dikirim?',
+        'Cara input hasil produksi shift 2',
+    ],
+};
+
+function buildReply(
+    requesterName?: string,
+    presentation: GreetingPresentation = DEFAULT_PRESENTATION,
+): string {
     const sapaan = requesterName ? `Halo, ${requesterName}!` : 'Halo!';
     return [
-        `${sapaan} Saya Asisten Kerja Polyflow. 👋`,
+        `${sapaan} Saya Asisten Polyflow. 👋`,
         '',
-        'Saya bisa bantu cek data operasional (stok, SO, SPK, invoice, pengiriman), menelusuri kenapa sesuatu tertahan, dan menjelaskan cara pakai menu Polyflow.',
+        `Konteks aktif: **${presentation.label}** — ${presentation.description}.`,
+        'Saya hanya membaca data yang diizinkan dan tidak mengubah transaksi.',
         '',
         'Contoh yang bisa langsung Anda tanyakan:',
-        ...SUGGESTIONS.map((s) => `- ${s}`),
+        ...presentation.suggestions.map((s) => `- ${s}`),
         '',
         'Silakan tanya dengan bahasa sehari-hari — sebutkan nomor transaksi atau nama barang kalau ada, supaya saya bisa langsung cek datanya.',
     ].join('\n');
@@ -97,6 +111,7 @@ function buildReply(requesterName?: string): string {
 export function detectGreeting(
     question: string,
     requesterName?: string,
+    presentation: GreetingPresentation = DEFAULT_PRESENTATION,
 ): GreetingResult {
     const trimmed = question.trim();
 
@@ -128,7 +143,7 @@ export function detectGreeting(
 
     return {
         isGreeting: true,
-        reply: buildReply(requesterName),
-        suggestions: SUGGESTIONS,
+        reply: buildReply(requesterName, presentation),
+        suggestions: presentation.suggestions,
     };
 }

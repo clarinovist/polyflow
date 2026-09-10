@@ -26,19 +26,19 @@ export default async function SupportCsPage({
                             <span>Bantuan</span>
                             <span>›</span>
                             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                Tanya Virtual CS
+                                Asisten Polyflow
                             </span>
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
-                            <span>Virtual CS Polyflow</span>
+                            <span>Asisten Polyflow</span>
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 <Sparkles className="h-3.5 w-3.5" /> AI
                                 Workspace
                             </span>
                         </h1>
                         <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl leading-relaxed">
-                            Tanyakan panduan penggunaan sistem atau periksa data
-                            operasional live pabrik Anda secara instan dan aman.
+                            Dapatkan panduan dan analisis kerja sesuai modul yang
+                            sedang Anda gunakan, berbasis data yang boleh Anda lihat.
                         </p>
                     </div>
 

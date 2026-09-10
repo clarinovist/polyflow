@@ -50,6 +50,27 @@ export function ChangelogBannerClient({
     const pathname = usePathname();
     const isPublicPage = isPublicChangelogPath(pathname);
     const [isVisible, setIsVisible] = useState(false);
+    const [assistantOpen, setAssistantOpen] = useState(false);
+
+    useEffect(() => {
+        const handleAssistantOpen = () => setAssistantOpen(true);
+        const handleAssistantClose = () => setAssistantOpen(false);
+        window.addEventListener('polyflow-assistant-open', handleAssistantOpen);
+        window.addEventListener(
+            'polyflow-assistant-close',
+            handleAssistantClose,
+        );
+        return () => {
+            window.removeEventListener(
+                'polyflow-assistant-open',
+                handleAssistantOpen,
+            );
+            window.removeEventListener(
+                'polyflow-assistant-close',
+                handleAssistantClose,
+            );
+        };
+    }, []);
 
     useEffect(() => {
         if (isPublicPage) {
@@ -64,7 +85,7 @@ export function ChangelogBannerClient({
         }
     }, [version, isPublicPage]);
 
-    if (isPublicPage || !isVisible) return null;
+    if (isPublicPage || !isVisible || assistantOpen) return null;
 
     const handleDismiss = () => {
         localStorage.setItem(`dismissed_changelog_${version}`, 'true');

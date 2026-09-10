@@ -72,16 +72,28 @@ export function PolyflowChatWidget() {
                     : 'bottom-5 right-5'
             }`}
         >
-            <Popover>
+            <Popover
+                onOpenChange={(open) =>
+                    window.dispatchEvent(
+                        new Event(
+                            open
+                                ? 'polyflow-assistant-open'
+                                : 'polyflow-assistant-close',
+                        ),
+                    )
+                }
+            >
                 <PopoverTrigger asChild>
                     <Button
                         size="lg"
                         className="group h-11 w-11 p-0 sm:h-14 sm:w-auto sm:px-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 text-white shadow-[0_10px_30px_-10px_rgba(13,148,136,0.85)] transition hover:scale-[1.05] hover:from-cyan-500 hover:to-emerald-500 flex items-center justify-center"
-                        title="Butuh bantuan?"
-                        aria-label="Butuh bantuan?"
+                        title="Buka Asisten Polyflow"
+                        aria-label="Buka Asisten Polyflow"
                     >
                         <MessageCircleHeart className="h-5 w-5 sm:mr-2 transition group-hover:rotate-6 shrink-0" />
-                        <span className="hidden sm:inline">Butuh bantuan?</span>
+                        <span className="hidden sm:inline">
+                            Asisten Polyflow
+                        </span>
                     </Button>
                 </PopoverTrigger>
 
@@ -91,7 +103,7 @@ export function PolyflowChatWidget() {
                     sideOffset={16}
                     className="w-[calc(100vw-2.5rem)] sm:w-[400px] md:w-[420px] border-0 bg-transparent p-0 shadow-none"
                 >
-                    <PolyflowChatPanel />
+                    <PolyflowChatPanel currentPath={pathname || '/'} />
                 </PopoverContent>
             </Popover>
         </div>

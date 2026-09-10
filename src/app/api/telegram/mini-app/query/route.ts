@@ -108,7 +108,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
   try {
     const result = await generateVirtualCsReply(
       { question, channel: 'telegram_mini_app', requesterName: user.name || undefined },
-      { tenantId: effectiveTenantId, sessionUser: { id: user.id, name: user.name, role: user.role, roles: assignedRoles, isSuperAdmin: user.isSuperAdmin, allowedResources } },
+      { tenantId: effectiveTenantId, permissionsVerified: true, sessionUser: { id: user.id, name: user.name, role: user.role, roles: assignedRoles, isSuperAdmin: user.isSuperAdmin, allowedResources } },
     );
 
     await logVirtualCsEvent({

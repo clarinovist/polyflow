@@ -117,6 +117,25 @@ export type AssistantResponse = {
 // Streaming events (SSE) — emitted while the agentic loop runs
 // ---------------------------------------------------------------------------
 
+export type AssistantSessionUserInput = {
+    id?: string;
+    name?: string | null;
+    role?: string;
+    roles?: string[];
+    isSuperAdmin?: boolean;
+    allowedResources?: string[] | 'ALL';
+};
+
+export type AssistantRequestContext = {
+    tenantId?: string;
+    sessionUser?: AssistantSessionUserInput;
+    conversationId?: string;
+    /** Already validated against the active tenant DB for web routes. */
+    permissionsVerified?: boolean;
+    workContext?: { pathname: string };
+    onEvent?: (event: AssistantStreamEvent) => void;
+};
+
 export type AssistantStreamEvent =
     | { type: 'tool'; name: string; label: string }
     | { type: 'delta'; text: string }

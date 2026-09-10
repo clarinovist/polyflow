@@ -12,6 +12,11 @@ export type GuardrailDecision = {
  * Out of scope (SOFT REFUSE): "resep masakan", "siapa presiden"
  */
 
+// Read-only work products must not be mistaken for transaction creation.
+const READ_ONLY_WORK_PATTERNS = [
+    /\b(buatkan|buatin|buat|bikin|susun(?:kan)?)\b.+\b(ringkasan|briefing|analisis|laporan|checklist|daftar|prioritas|rekap)\b/i,
+];
+
 // Strong mutation verbs that indicate the user wants the system to DO something
 const MUTATION_COMMAND_PATTERNS = [
     // Imperative "buatkan X untuk Y" (create FOR someone — not "cara buat")
@@ -56,6 +61,11 @@ export function enforceGuardrails(question: string): GuardrailDecision {
     if (isHowTo) {
         return { allowed: true };
     }
+
+    const isReadOnlyWork = READ_ONLY_WORK_PATTERNS.some((pattern) =>
+        pattern.test(trimmed),
+    );
+    if (isReadOnlyWork) return { allowed: true };
 
     // Check for direct mutation commands
     for (const pattern of MUTATION_COMMAND_PATTERNS) {

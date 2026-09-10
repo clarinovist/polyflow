@@ -10,6 +10,7 @@ import type {
 import { createEvidence } from './evidence';
 import { checkToolAuthorization } from './tool-authorization';
 import { financeTools } from './finance-tools';
+import { productionTools } from './production-tools';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -1029,113 +1030,6 @@ export const toolRegistry: AssistantToolDefinition[] = [
 
     // --- Gap 11: Additional diagnosis workflows ---
 
-    // diagnose_production_blocker
-    {
-        name: 'diagnose_production_blocker',
-        description:
-            'Diagnosa mengapa SPK produksi tertahan: cek material, BOM, backflush, dan status.',
-        requiredResources: ['/production/orders', '/warehouse/inventory'],
-        sensitivity: 'normal',
-        inputSchema: z.object({
-            searchTerm: z.string().min(1, 'Nomor SPK harus diisi'),
-        }),
-        execute: async (args, _ctx): Promise<ToolEvidence> => {
-            const { searchTerm } = args as { searchTerm: string };
-            const facts: { label: string; value: string }[] = [];
-            const entities: {
-                type: string;
-                id: string;
-                label: string;
-                href: string;
-            }[] = [];
-
-            const pos = await prisma.$queryRaw<
-                {
-                    id: string;
-                    orderNumber: string;
-                    status: string;
-                    plannedQuantity: Prisma.Decimal;
-                    actualQuantity: Prisma.Decimal | null;
-                    bomId: string;
-                    product: string;
-                }[]
-            >(Prisma.sql`
-        SELECT po.id, po."orderNumber", po.status, po."plannedQuantity", po."actualQuantity",
-               b.id AS "bomId", p.name AS product
-        FROM "ProductionOrder" po
-        JOIN "Bom" b ON po."bomId" = b.id
-        JOIN "ProductVariant" pv ON b."productVariantId" = pv.id
-        JOIN "Product" p ON pv."productId" = p.id
-        WHERE po."orderNumber" ILIKE ${'%' + searchTerm + '%'}
-        ORDER BY po."createdAt" DESC LIMIT 1
-      `);
-
-            if (!pos.length) {
-                return createEvidence({
-                    summary: `SPK dengan kata kunci '${searchTerm}' tidak ditemukan.`,
-                    facts: [{ label: 'Pencarian', value: searchTerm }],
-                    source: 'tenant-data',
-                    completeness: 'partial',
-                });
-            }
-
-            const po = pos[0];
-            facts.push({
-                label: 'Status SPK',
-                value: `${po.orderNumber} [${po.status}] — ${po.product}`,
-            });
-            facts.push({
-                label: 'Target vs Aktual',
-                value: `Target: ${Number(po.plannedQuantity).toFixed(2)} — Aktual: ${Number(po.actualQuantity || 0).toFixed(2)}`,
-            });
-            entities.push({
-                type: 'ProductionOrder',
-                id: po.id,
-                label: po.orderNumber,
-                href: '/production/orders',
-            });
-
-            // Check BOM materials
-            const bomItems = await prisma.$queryRaw<
-                {
-                    material: string;
-                    required: Prisma.Decimal;
-                    available: Prisma.Decimal;
-                }[]
-            >(Prisma.sql`
-        SELECT p.name AS material, bi.quantity AS required,
-               COALESCE((SELECT SUM(i.quantity) FROM "Inventory" i WHERE i."productVariantId" = bi."productVariantId" AND i.quantity > 0), 0) AS available
-        FROM "BomItem" bi
-        JOIN "ProductVariant" pv ON bi."productVariantId" = pv.id
-        JOIN "Product" p ON pv."productId" = p.id
-        WHERE bi."bomId" = ${po.bomId}
-      `);
-
-            let hasShortage = false;
-            for (const item of bomItems) {
-                const required = Number(item.required);
-                const available = Number(item.available);
-                const status =
-                    available >= required
-                        ? '✅'
-                        : `❌ Kurang ${required - available}`;
-                facts.push({
-                    label: `Material: ${item.material}`,
-                    value: `Diperlukan: ${required} — Tersedia: ${available} — ${status}`,
-                });
-                if (available < required) hasShortage = true;
-            }
-
-            return createEvidence({
-                summary: `Diagnosa SPK ${po.orderNumber}: ${hasShortage ? 'Ada material yang kurang' : 'Material mencukupi, periksa mesin/jadwal'}`,
-                facts,
-                entities,
-                source: 'tenant-data',
-                completeness: hasShortage ? 'partial' : 'complete',
-            });
-        },
-    },
-
     // diagnose_po_invoice_mismatch
     {
         name: 'diagnose_po_invoice_mismatch',
@@ -1256,6 +1150,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
     },
 
     ...financeTools,
+    ...productionTools,
 ];
 
 /**

@@ -11,7 +11,8 @@ export type AssistantFeatureFlag =
     | 'assistant.sensitiveDomains'
     | 'assistant.proactiveDigest'
     | 'assistant.findingLifecycle'
-    | 'assistant.ceoNotes';
+    | 'assistant.ceoNotes'
+    | 'assistant.contextualWorkProfiles';
 
 const FEATURE_FLAGS: Record<
     AssistantFeatureFlag,
@@ -53,11 +54,19 @@ const FEATURE_FLAGS: Record<
         description:
             'Compose AI CEO Notes from detector results with per-tenant memory (pilot tenant first)',
     },
+    'assistant.contextualWorkProfiles': {
+        enabled: false,
+        description:
+            'Enable permission-aware Finance and Production work profiles on web routes',
+    },
 };
 
 /**
  * Check if a feature flag is enabled.
  */
 export function isFeatureEnabled(flag: AssistantFeatureFlag): boolean {
+    if (flag === 'assistant.contextualWorkProfiles') {
+        return process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES === 'true';
+    }
     return FEATURE_FLAGS[flag]?.enabled ?? false;
 }

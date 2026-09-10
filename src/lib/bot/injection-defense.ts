@@ -108,8 +108,8 @@ export function logInjectionAttempt(input: {
     console.warn('[INJECTION_ATTEMPT]', {
         userId: input.userId,
         tenantId: input.tenantId,
-        messagePreview: input.message.slice(0, 100),
-        pattern: input.pattern,
+        messageLength: input.message.length,
+        patternType: input.pattern ? 'MATCHED' : 'UNKNOWN',
         blocked: input.blocked,
         timestamp: new Date().toISOString(),
     });

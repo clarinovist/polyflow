@@ -1,8 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import type {
-    HelpConversation,
-    HelpMessage,
-    } from '@prisma/client';
+import type { HelpConversation, HelpMessage } from '@prisma/client';
 
 const MAX_MESSAGE_CONTENT_LENGTH = 4000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -74,6 +71,7 @@ export async function getOrCreateConversation(input: {
 
 export async function loadConversationContext(
     conversationId: string,
+    contextKey?: string,
 ): Promise<ConversationContext> {
     const conversation = await prisma.helpConversation.findUnique({
         where: { id: conversationId },
@@ -81,6 +79,16 @@ export async function loadConversationContext(
             id: true,
             summary: true,
             messages: {
+                ...(contextKey
+                    ? {
+                          where: {
+                              evidenceJson: {
+                                  path: ['contextKey'],
+                                  equals: contextKey,
+                              },
+                          },
+                      }
+                    : {}),
                 orderBy: { createdAt: 'desc' },
                 take: MAX_HISTORY_MESSAGES,
                 select: {
@@ -100,7 +108,9 @@ export async function loadConversationContext(
         };
     }
 
-    // Reverse to chronological order
+    // Messages created before work-context metadata existed are deliberately
+    // not reused in contextual threads. This prevents stale finance/production
+    // content from entering a prompt after navigation or permission changes.
     const messages = conversation.messages.reverse();
 
     // Extract resolved entities from evidence
@@ -127,7 +137,9 @@ export async function loadConversationContext(
             role: m.role.toLowerCase() as 'user' | 'assistant',
             content: m.content,
         })),
-        summary: conversation.summary ?? undefined,
+        // A legacy aggregate summary has no per-message context metadata.
+        // Do not reuse it inside a scoped finance/production thread.
+        summary: contextKey ? undefined : (conversation.summary ?? undefined),
         resolvedEntities,
     };
 }
