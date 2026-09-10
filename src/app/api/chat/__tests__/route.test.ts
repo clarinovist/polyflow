@@ -101,6 +101,22 @@ describe('POST /api/chat', () => {
         );
     });
 
+    it('forwards server-derived disposition to outcome audit', async () => {
+        generate.mockResolvedValueOnce({
+            answer: 'Mohon kirim detail reproduksi.',
+            citations: [],
+            disposition: 'NEEDS_CLARIFICATION',
+            safety: { allowed: true },
+        });
+        await (POST as unknown as (
+            req: unknown,
+        ) => Promise<ResponseLike>)(request({ question: 'nilai berubah' }));
+
+        expect(audit).toHaveBeenCalledWith(
+            expect.objectContaining({ disposition: 'NEEDS_CLARIFICATION' }),
+        );
+    });
+
     it('fails closed when the session user cannot be verified in tenant DB', async () => {
         verify.mockResolvedValue(null);
         const response = await (POST as unknown as (

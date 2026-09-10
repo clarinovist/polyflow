@@ -211,6 +211,7 @@ describe('POST /api/chat/stream', () => {
             citedArticles: [{ slug: 'cara-buat-so', title: 'Cara buat SO' }],
             conversationId: 'conv-7',
             confidence: 0.75,
+            disposition: 'NEEDS_CLARIFICATION',
             safety: { allowed: true },
         });
 
@@ -224,6 +225,7 @@ describe('POST /api/chat/stream', () => {
         expect(payload.citedSlugs).toEqual(['cara-buat-so']);
         expect(payload.confidence).toBe(0.75);
         expect(payload.conversationId).toBe('conv-7');
+        expect(payload.disposition).toBe('NEEDS_CLARIFICATION');
     });
 
     it('mengirim event error saat agentic loop gagal', async () => {

@@ -97,6 +97,11 @@ type AssistantEvidenceChip = {
     href?: string;
 };
 
+export type AssistantDisposition =
+    | 'RESOLVED'
+    | 'NEEDS_CLARIFICATION'
+    | 'ESCALATE';
+
 export type AssistantResponse = {
     answer: string;
     citations: string[];
@@ -107,6 +112,8 @@ export type AssistantResponse = {
     needsClarification?: boolean;
     suggestions?: string[];
     confidence?: number;
+    /** Server-derived resolution signal; never accepted from client input. */
+    disposition?: AssistantDisposition;
     safety: {
         allowed: boolean;
         blockedReason?: string;

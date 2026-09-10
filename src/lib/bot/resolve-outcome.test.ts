@@ -50,6 +50,30 @@ describe('resolveOutcome', () => {
     expect(resolveOutcome(makeInput({ answer: 'Saya tidak memiliki informasi tentang hal tersebut saat ini.' }))).toBe('PARTIAL');
   });
 
+  it('maps server-derived clarification and escalation dispositions', () => {
+    expect(resolveOutcome(makeInput({
+      answer: 'Mohon kirim detail reproduksi agar kendala dapat diperiksa.',
+      disposition: 'NEEDS_CLARIFICATION',
+    }))).toBe('PARTIAL');
+    expect(resolveOutcome(makeInput({
+      answer: 'Kasus ini perlu diteruskan kepada support.',
+      disposition: 'ESCALATE',
+    }))).toBe('ESCALATED');
+  });
+
+  it('prioritizes blocked and failed transport states over disposition', () => {
+    expect(resolveOutcome(makeInput({
+      allowed: false,
+      answer: 'Diteruskan',
+      disposition: 'ESCALATE',
+    }))).toBe('BLOCKED');
+    expect(resolveOutcome(makeInput({
+      success: false,
+      answer: 'Sudah selesai',
+      disposition: 'RESOLVED',
+    }))).toBe('FAILED');
+  });
+
   it('returns SUCCESS for a good substantive answer', () => {
     expect(resolveOutcome(makeInput({
       answer: 'Untuk membuat Sales Order, buka menu Sales → Sales Order, klik tombol + Baru, pilih Customer, tambahkan item produk, lalu klik Simpan.',

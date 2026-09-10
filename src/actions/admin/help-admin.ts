@@ -1,10 +1,11 @@
 'use server';
 
 import { auth } from '@/auth';
-import { getMainPrisma } from '@/lib/core/prisma';
+import { getMainPrisma, getTenantDb } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
 import { ValidationError } from '@/lib/errors/errors';
+import { redactHelpMessageContent } from '@/lib/bot/help-redaction';
 
 async function requireSuperAdmin() {
     const session = await auth();
@@ -62,6 +63,7 @@ export async function listHelpConversations(
                 latencyMs: true,
                 blockedReason: true,
                 createdAt: true,
+                conversationId: true,
             },
         }),
         mainDb.helpInteraction.count({ where }),
@@ -88,6 +90,179 @@ export async function listHelpConversations(
     }));
 
     return { items: enriched, total, page, limit };
+}
+
+export type HelpConversationDetail = {
+    interaction: {
+        id: string;
+        question: string;
+        answerPreview: string;
+        outcome: string;
+        channel: string;
+        createdAt: Date;
+        citedSlugs: string[];
+    };
+    conversation: {
+        id: string;
+        channel: string;
+        status: string;
+        createdAt: Date;
+        lastMessageAt: Date;
+    };
+    messages: Array<{
+        id: string;
+        role: 'USER' | 'ASSISTANT';
+        content: string;
+        createdAt: Date;
+        storageMayBeTruncated: boolean;
+    }>;
+    tools: Array<{
+        name: string;
+        allowed: boolean;
+        outcome: string;
+        createdAt: Date;
+    }>;
+    page: number;
+    limit: number;
+    total: number;
+};
+
+export type HelpConversationDetailResult =
+    | { status: 'OK'; data: HelpConversationDetail }
+    | { status: 'UNAVAILABLE' | 'NOT_FOUND' };
+
+const MESSAGE_STORAGE_CAP = 4000;
+
+/**
+ * Loads one tenant conversation from a main-DB interaction selected by ID.
+ * Tenant authority and datasource always come from the trusted server record.
+ */
+export async function getHelpConversationDetail(
+    interactionId: string,
+    params: { page?: number; limit?: number } = {},
+): Promise<HelpConversationDetailResult> {
+    await requireSuperAdmin();
+    const mainDb = getMainPrisma();
+    const page = Math.max(1, Math.floor(params.page || 1));
+    const limit = Math.min(100, Math.max(1, Math.floor(params.limit || 50)));
+
+    const interaction = await mainDb.helpInteraction.findUnique({
+        where: { id: interactionId },
+        select: {
+            id: true,
+            tenantId: true,
+            userId: true,
+            conversationId: true,
+            question: true,
+            answerPreview: true,
+            outcome: true,
+            channel: true,
+            createdAt: true,
+            citedSlugs: true,
+        },
+    });
+    if (!interaction?.tenantId || !interaction.conversationId) {
+        return { status: 'NOT_FOUND' };
+    }
+
+    const tenant = await mainDb.tenant.findFirst({
+        where: { id: interaction.tenantId, status: 'ACTIVE' },
+        select: { id: true, dbUrl: true },
+    });
+    if (!tenant) return { status: 'UNAVAILABLE' };
+
+    try {
+        const tenantDb = getTenantDb(tenant.dbUrl);
+        const conversation = await tenantDb.helpConversation.findFirst({
+            where: {
+                id: interaction.conversationId,
+                tenantId: tenant.id,
+                ...(interaction.userId ? { userId: interaction.userId } : {}),
+            },
+            select: {
+                id: true,
+                tenantId: true,
+                channel: true,
+                status: true,
+                createdAt: true,
+                lastMessageAt: true,
+            },
+        });
+        if (!conversation) return { status: 'NOT_FOUND' };
+
+        const where = { conversationId: conversation.id };
+        const [messages, total, tools] = await Promise.all([
+            tenantDb.helpMessage.findMany({
+                where,
+                // USER precedes ASSISTANT when legacy concurrent writes share
+                // the same timestamp; id provides a stable final tie-breaker.
+                orderBy: [
+                    { createdAt: 'asc' },
+                    { role: 'asc' },
+                    { id: 'asc' },
+                ],
+                skip: (page - 1) * limit,
+                take: limit,
+                select: { id: true, role: true, content: true, createdAt: true },
+            }),
+            tenantDb.helpMessage.count({ where }),
+            tenantDb.helpToolExecution.findMany({
+                where,
+                orderBy: { createdAt: 'asc' },
+                take: 100,
+                select: {
+                    toolName: true,
+                    allowed: true,
+                    outcome: true,
+                    createdAt: true,
+                },
+            }),
+        ]);
+
+        return {
+            status: 'OK',
+            data: {
+                interaction: {
+                    id: interaction.id,
+                    question: redactHelpMessageContent(interaction.question),
+                    answerPreview: redactHelpMessageContent(
+                        interaction.answerPreview,
+                    ),
+                    outcome: interaction.outcome,
+                    channel: interaction.channel,
+                    createdAt: interaction.createdAt,
+                    citedSlugs: interaction.citedSlugs,
+                },
+                conversation: {
+                    id: conversation.id,
+                    channel: conversation.channel,
+                    status: conversation.status,
+                    createdAt: conversation.createdAt,
+                    lastMessageAt: conversation.lastMessageAt,
+                },
+                messages: messages.map((message) => ({
+                    id: message.id,
+                    role: message.role,
+                    content: redactHelpMessageContent(message.content),
+                    createdAt: message.createdAt,
+                    storageMayBeTruncated:
+                        message.content.length >= MESSAGE_STORAGE_CAP,
+                })),
+                tools: tools.map((tool) => ({
+                    name: tool.toolName,
+                    allowed: tool.allowed,
+                    outcome: tool.outcome,
+                    createdAt: tool.createdAt,
+                })),
+                page,
+                limit,
+                total,
+            },
+        };
+    } catch {
+        // Do not expose datasource, topology, Prisma errors, or raw evidence.
+        return { status: 'UNAVAILABLE' };
+    }
 }
 
 // ─── Help Settings ──────────────────────────────────────

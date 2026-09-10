@@ -199,6 +199,14 @@ export default async function ConversationsPage({
                                     <span className="font-mono text-[10px]">
                                         {it.id.slice(0, 8)}
                                     </span>
+                                    {it.conversationId && (
+                                        <Link
+                                            href={`/admin/help/conversations/${it.id}`}
+                                            className="font-medium text-primary hover:underline"
+                                        >
+                                            Buka thread
+                                        </Link>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

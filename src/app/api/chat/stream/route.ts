@@ -115,6 +115,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
                     citedSlugs: result.citedArticles?.map((a) => a.slug) || [],
                     confidence: result.confidence,
                     conversationId: result.conversationId,
+                    disposition: result.disposition,
                 });
 
                 send({

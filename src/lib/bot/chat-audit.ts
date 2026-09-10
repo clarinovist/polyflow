@@ -3,6 +3,7 @@ import { logActivity } from '@/lib/tools/audit';
 import { recordVirtualCsMetric } from '@/lib/bot/metrics';
 import { getMainPrisma } from '@/lib/core/prisma';
 import { HelpOutcome } from '@prisma/client';
+import type { AssistantDisposition } from './assistant-types';
 
 export type VirtualCsAuditInput = {
     channel: 'telegram' | 'web' | 'telegram_mini_app';
@@ -19,6 +20,7 @@ export type VirtualCsAuditInput = {
     confidence?: number;
     citedSlugs?: string[];
     conversationId?: string;
+    disposition?: AssistantDisposition;
 };
 
 function compactQuestion(question: string): string {
@@ -47,8 +49,11 @@ const WEAK_ANSWER_PATTERNS = [
 ];
 
 export function resolveOutcome(input: VirtualCsAuditInput): HelpOutcome {
-    if (!input.success) return 'FAILED';
     if (!input.allowed) return 'BLOCKED';
+    if (!input.success) return 'FAILED';
+    if (input.disposition === 'ESCALATE') return 'ESCALATED';
+    if (input.disposition === 'NEEDS_CLARIFICATION') return 'PARTIAL';
+    if (input.disposition === 'RESOLVED') return 'SUCCESS';
 
     const answer = (input.answer || '').trim();
     if (answer.length < 10) return 'FAILED';
@@ -144,7 +149,8 @@ export async function logVirtualCsEvent(
         if (
             outcome === 'FAILED' ||
             outcome === 'PARTIAL' ||
-            outcome === 'BLOCKED'
+            outcome === 'BLOCKED' ||
+            outcome === 'ESCALATED'
         ) {
             const { sanitizeQuestion } = await import('./help-sanitizer');
             const { upsertCluster } = await import('./help-clustering');
