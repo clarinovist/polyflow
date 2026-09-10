@@ -139,9 +139,12 @@ menyentuh invariant kritis. UI yang mengubah alur/interaksi/akses minimal Normal
   penalaran bisnis; jangan menurunkan tier untuk menghemat dengan mengorbankan review.
 - Delegasi opsional untuk scope bounded yang cukup besar; edit kecil kerjakan langsung.
   **Minta approval eksplisit sebelum tiap dispatch.** Plan file wajib untuk delegasi.
-- Cek `command -v opencode`; worker headless/tmux wajib `--auto`. Prompt mencantumkan
-  AGENTS/plan, file yang boleh disentuh, acceptance criteria/test, dan larangan
-  commit/push/deploy/operasi database produksi. Contoh perintah ada di referensi workflow.
+- Gunakan **Pi** untuk worker (`command -v pi`); jangan memakai OpenCode. Worker headless
+  memakai `pi --print --approve`. Secara default biarkan provider/model mewarisi sesi;
+  set `--provider`/`--model` hanya bila user meminta model tertentu atau ada alasan yang
+  dicatat. Prompt mencantumkan AGENTS/plan, file yang boleh disentuh, acceptance
+  criteria/test, dan larangan commit/push/deploy/operasi database produksi. Contoh
+  perintah ada di referensi workflow.
 - Orchestrator review workspace/diff aktual setelah worker selesai dan memastikan gate
   sesuai jalur. Output verifikasi worker boleh dipakai bila input identik dan hasilnya
   diperiksa; jangan menjalankan suite dua kali hanya karena pelakunya berbeda.

@@ -27,23 +27,25 @@ atau mengganti jalur Ringan/Normal/Kritis.
   workflow aktual; saat revisi ini CI menjalankan coverage dan build image, bukan gate
   terpisah `tsc --noEmit` seluruh project.
 
-## OpenCode worker: dispatch dan review
+## Pi worker: dispatch dan review
 
-Delegasi opsional, bukan cara menghindari tanggung jawab orchestrator. Default model
-mengikuti sesi; worker penulis code/migration/test minimum Sonnet, task mekanis bounded
-saja yang boleh Haiku. Pembatasan model repo ini mengalahkan saran global yang lebih longgar.
+Delegasi opsional, bukan cara menghindari tanggung jawab orchestrator. Default provider/model
+mengikuti sesi; worker penulis code/migration/test minimum tier Sonnet. Task mekanis bounded
+saja yang boleh memakai tier lebih rendah. Pembatasan model repo ini mengalahkan saran global
+yang lebih longgar. Gunakan Pi untuk worker; jangan memakai OpenCode.
 
 1. Baca root/module AGENTS, tentukan jalur risiko, buat plan lokal, dan batasi ownership file.
-2. Minta persetujuan eksplisit user **sebelum tiap dispatch** dan cek `command -v opencode`.
+2. Minta persetujuan eksplisit user **sebelum tiap dispatch** dan cek `command -v pi`.
 3. Prompt minimum: plan/AGENTS yang dibaca, file yang boleh diubah, acceptance criteria,
    test scope, serta larangan commit/push/deploy/operasi database produksi.
-4. Headless wajib `--auto` agar tidak menunggu approval tool tanpa operator:
+4. Headless memakai `--print --approve` agar proses noninteraktif dapat memakai tool setelah
+   approval dispatch. Secara default jangan set provider/model agar mewarisi sesi. Bila user
+   meminta model tertentu, set keduanya secara eksplisit dan verifikasi dengan `pi --list-models`:
 
    ```bash
-   opencode run \
-     --auto \
-     --dir "$PWD" \
-     --format json \
+   pi --print --approve \
+     --provider <provider-yang-disetujui> \
+     --model <model-yang-disetujui> \
      "Baca AGENTS.md, AGENTS modul terkait, dan docs/plan/<plan>.md. Ubah hanya <scope>. Acceptance criteria: <criteria>. Test: <scope test>. Jangan commit, push, deploy, mengakses credential, atau menjalankan operasi database produksi. Jangan build tanpa koordinasi orchestrator."
    ```
 
@@ -51,8 +53,8 @@ saja yang boleh Haiku. Pembatasan model repo ini mengalahkan saran global yang l
    unik; jangan menimpa worker yang masih aktif. Contoh (ganti placeholder sebelum jalan):
 
    ```bash
-   tmux new-session -d -s opencode-worker-<task> \
-     "cd '$PWD' && opencode run --auto --dir '$PWD' --format json '<prompt bounded lengkap>' > /tmp/opencode-worker-<task>.log 2>&1"
+   tmux new-session -d -s pi-worker-<task> \
+     "cd '$PWD' && pi --print --approve '<prompt bounded lengkap>' > /tmp/pi-worker-<task>.log 2>&1"
    ```
 
 6. Pantau log/progres. Sesi hidup atau exit `rc=0` bukan bukti ada perubahan yang benar.
@@ -129,7 +131,7 @@ Riwayat ini menjelaskan guard, bukan menambah ritual untuk setiap task:
 | Rewrite/worker dapat menghilangkan edit workspace | Satu writer, review diff aktual, checkpoint stage scope sendiri |
 | Status audit via outer client tidak atomic dengan transaksi | Operasi kritis wajib manual audit dalam `tx`; lihat `src/lib/AGENTS.md` |
 | Runtime dev/CI/produksi pernah drift | `.nvmrc` + Dockerfile konsisten, jalankan guard Node |
-| Worker headless bisa macet pada permission prompt | `--auto` setelah approval dispatch, monitor log/progres |
+| Worker headless bisa macet pada permission prompt | Pi memakai `--print --approve` setelah approval dispatch; monitor log/progres |
 | Build lokal dan CI bisa mengulang pekerjaan yang sama | Build lokal berdasarkan risiko/trigger; artifact deploy tetap wajib lolos CI |
 
 Prosedur produksi dan detail sensitif **tidak** dipindahkan ke dokumen ini. Tetap gunakan
