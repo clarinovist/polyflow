@@ -66,7 +66,7 @@ const FEATURE_FLAGS: Record<
  */
 export function isFeatureEnabled(flag: AssistantFeatureFlag): boolean {
     if (flag === 'assistant.contextualWorkProfiles') {
-        return process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES === 'true';
+        return process.env.ASSISTANT_CONTEXTUAL_PROFILES === 'true';
     }
     return FEATURE_FLAGS[flag]?.enabled ?? false;
 }

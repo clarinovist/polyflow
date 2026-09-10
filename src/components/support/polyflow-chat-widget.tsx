@@ -37,7 +37,11 @@ const ENABLED_PATH_PREFIXES = [
     '/profile',
 ];
 
-export function PolyflowChatWidget() {
+export function PolyflowChatWidget({
+    contextualProfilesEnabled = false,
+}: {
+    contextualProfilesEnabled?: boolean;
+}) {
     const pathname = usePathname();
 
     const shouldHide = useMemo(() => {
@@ -103,7 +107,10 @@ export function PolyflowChatWidget() {
                     sideOffset={16}
                     className="w-[calc(100vw-2.5rem)] sm:w-[400px] md:w-[420px] border-0 bg-transparent p-0 shadow-none"
                 >
-                    <PolyflowChatPanel currentPath={pathname || '/'} />
+                    <PolyflowChatPanel
+                        currentPath={pathname || '/'}
+                        contextualProfilesEnabled={contextualProfilesEnabled}
+                    />
                 </PopoverContent>
             </Popover>
         </div>

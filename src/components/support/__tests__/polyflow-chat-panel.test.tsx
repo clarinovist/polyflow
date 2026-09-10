@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PolyflowChatPanel } from '../polyflow-chat-panel';
 
 vi.mock('next/link', () => ({
@@ -35,20 +35,9 @@ function emptyStreamResponse() {
 }
 
 describe('PolyflowChatPanel contextual profiles', () => {
-    const previousFlag = process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES;
-
     beforeEach(() => {
         vi.restoreAllMocks();
-        process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES = 'true';
         Element.prototype.scrollIntoView = vi.fn();
-    });
-
-    afterEach(() => {
-        if (previousFlag === undefined) {
-            delete process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES;
-        } else {
-            process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES = previousFlag;
-        }
     });
 
     it('shows Finance identity and sends the same context to SSE and JSON fallback', async () => {
@@ -67,7 +56,10 @@ describe('PolyflowChatPanel contextual profiles', () => {
             } as Response);
 
         render(
-            <PolyflowChatPanel currentPath="/finance/invoices/sales/inv-1" />,
+            <PolyflowChatPanel
+                currentPath="/finance/invoices/sales/inv-1"
+                contextualProfilesEnabled
+            />,
         );
 
         expect(screen.getAllByText(/Asisten accountant read-only/i).length).toBeGreaterThan(0);
@@ -89,11 +81,17 @@ describe('PolyflowChatPanel contextual profiles', () => {
 
     it('switches thread and context when navigation changes', async () => {
         const { rerender } = render(
-            <PolyflowChatPanel currentPath="/finance/invoices/sales/inv-1" />,
+            <PolyflowChatPanel
+                currentPath="/finance/invoices/sales/inv-1"
+                contextualProfilesEnabled
+            />,
         );
 
         rerender(
-            <PolyflowChatPanel currentPath="/production/orders/order-1" />,
+            <PolyflowChatPanel
+                currentPath="/production/orders/order-1"
+                contextualProfilesEnabled
+            />,
         );
 
         expect(
@@ -104,8 +102,7 @@ describe('PolyflowChatPanel contextual profiles', () => {
         ).toBeGreaterThan(0);
     });
 
-    it('keeps the generic experience when rollout flag is off', () => {
-        process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES = 'false';
+    it('keeps the generic UI when server-side rollout is disabled', () => {
         render(
             <PolyflowChatPanel currentPath="/finance/invoices/sales/inv-1" />,
         );
@@ -131,7 +128,10 @@ describe('PolyflowChatPanel contextual profiles', () => {
             );
 
         const { rerender } = render(
-            <PolyflowChatPanel currentPath="/finance/invoices/sales/inv-1" />,
+            <PolyflowChatPanel
+                currentPath="/finance/invoices/sales/inv-1"
+                contextualProfilesEnabled
+            />,
         );
         fireEvent.click(
             screen.getByRole('button', {
@@ -141,7 +141,10 @@ describe('PolyflowChatPanel contextual profiles', () => {
         await waitFor(() => expect(resolveJson).toBeDefined());
 
         rerender(
-            <PolyflowChatPanel currentPath="/production/orders/order-1" />,
+            <PolyflowChatPanel
+                currentPath="/production/orders/order-1"
+                contextualProfilesEnabled
+            />,
         );
         resolveJson?.({
             ok: true,

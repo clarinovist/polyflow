@@ -15,17 +15,17 @@ const base: AssistantUserContext = {
 };
 
 describe('resolveAssistantWorkContext', () => {
-    const previousFlag = process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES;
+    const previousFlag = process.env.ASSISTANT_CONTEXTUAL_PROFILES;
 
     beforeEach(() => {
-        process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES = 'true';
+        process.env.ASSISTANT_CONTEXTUAL_PROFILES = 'true';
     });
 
     afterEach(() => {
         if (previousFlag === undefined) {
-            delete process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES;
+            delete process.env.ASSISTANT_CONTEXTUAL_PROFILES;
         } else {
-            process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES = previousFlag;
+            process.env.ASSISTANT_CONTEXTUAL_PROFILES = previousFlag;
         }
     });
 
@@ -100,7 +100,7 @@ describe('resolveAssistantWorkContext', () => {
     });
 
     it('falls back to general context when rollout flag is off', () => {
-        process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES = 'false';
+        process.env.ASSISTANT_CONTEXTUAL_PROFILES = 'false';
         expect(
             resolveAssistantWorkContext(
                 { pathname: '/finance/invoices/sales/invoice-1' },

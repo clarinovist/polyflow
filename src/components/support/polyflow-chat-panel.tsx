@@ -145,6 +145,7 @@ interface PolyflowChatPanelProps {
     initialQuestion?: string;
     allowedResources?: string[] | 'ALL';
     currentPath?: string;
+    contextualProfilesEnabled?: boolean;
 }
 
 function profileFromPath(pathname: string): WorkProfile {
@@ -456,10 +457,9 @@ export function PolyflowChatPanel({
     initialQuestion,
     allowedResources = 'ALL',
     currentPath = '/',
+    contextualProfilesEnabled = false,
 }: PolyflowChatPanelProps) {
-    const contextEnabled =
-        process.env.NEXT_PUBLIC_ASSISTANT_CONTEXTUAL_PROFILES === 'true';
-    const effectivePath = contextEnabled ? currentPath : '/';
+    const effectivePath = contextualProfilesEnabled ? currentPath : '/';
     const [question, setQuestion] = useState(initialQuestion || '');
     const [isLoading, setIsLoading] = useState(false);
     const [longWait, setLongWait] = useState(false);
@@ -896,7 +896,7 @@ export function PolyflowChatPanel({
     return (
         <div
             className={cn(
-                'flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl transition-all duration-300',
+                'isolate flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-white dark:bg-zinc-950 shadow-2xl transition-all duration-300',
                 embedded
                     ? 'min-h-[calc(100vh-12rem)]'
                     : 'h-[75vh] max-h-[720px] min-h-[540px]',

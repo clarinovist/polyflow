@@ -85,7 +85,13 @@ export default function RootLayout({
                             <FeatureUsageTracker />
                             {children}
                             <AutoChangelogBanner />
-                            <PolyflowChatWidget />
+                            <PolyflowChatWidget
+                                contextualProfilesEnabled={
+                                    process.env
+                                        .ASSISTANT_CONTEXTUAL_PROFILES ===
+                                    'true'
+                                }
+                            />
                             <Toaster position="bottom-right" richColors />
                             <SessionTimeoutHandler />
                         </SidebarCollapseProvider>
