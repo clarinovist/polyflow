@@ -29,6 +29,8 @@ const auth = vi.fn();
 const verify = vi.fn();
 const generate = vi.fn();
 const audit = vi.fn();
+const bugNotice = vi.fn();
+vi.mock('@/lib/bot/bug-report', () => ({ assistantBugReportNotice: (...args: unknown[]) => bugNotice(...args) }));
 
 vi.mock('@/auth', () => ({ auth: () => auth() }));
 vi.mock('@/lib/bot/assistant-session', () => ({
@@ -73,6 +75,7 @@ describe('POST /api/chat', () => {
             safety: { allowed: true },
         });
         audit.mockResolvedValue('interaction-1');
+        bugNotice.mockResolvedValue(undefined);
     });
 
     it('forwards validated context and current DB permissions', async () => {
@@ -117,6 +120,15 @@ describe('POST /api/chat', () => {
         );
     });
 
+    it('passes only persisted server response and verified identity to the reporter after audit', async () => {
+        const result = { answer: 'Dugaan bug', citations: [], disposition: 'ESCALATE', conversationId: 'authorized', historySaved: true, safety: { allowed: true } };
+        generate.mockResolvedValueOnce(result);
+        bugNotice.mockResolvedValueOnce('Telegram belum tersedia.');
+        const response = await (POST as unknown as (req: unknown) => Promise<ResponseLike>)(request({ question: 'error input', tenantId: 'forged', userId: 'forged', disposition: 'ESCALATE' }));
+        expect(bugNotice).toHaveBeenCalledWith(result, 'interaction-1', { tenantId: 'tenant-1', userId: 'user-1' });
+        expect(audit.mock.invocationCallOrder[0]).toBeLessThan(bugNotice.mock.invocationCallOrder[0]);
+        expect((await response.json()).data).toMatchObject({ bugReportNotice: 'Telegram belum tersedia.' });
+    });
     it('fails closed when the session user cannot be verified in tenant DB', async () => {
         verify.mockResolvedValue(null);
         const response = await (POST as unknown as (
@@ -124,6 +136,7 @@ describe('POST /api/chat', () => {
         ) => Promise<ResponseLike>)(request({ question: 'cek invoice' }));
         expect(response.status).toBe(403);
         expect(generate).not.toHaveBeenCalled();
+        expect(bugNotice).not.toHaveBeenCalled();
     });
 
     it('rejects malformed work context', async () => {

@@ -25,10 +25,6 @@ import {
     RotateCcw,
     History,
     Sparkles,
-    Package,
-    ShoppingCart,
-    Factory,
-    CreditCard,
     ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -58,6 +54,7 @@ type ChatMessage = {
     text: string;
     interactionId?: string;
     feedback?: Feedback;
+    bugReportNotice?: string;
     citedArticles?: CitedArticle[];
     relatedArticles?: CitedArticle[];
     evidenceChips?: EvidenceChip[];
@@ -77,6 +74,7 @@ type ChatApiResponse = {
         evidence?: EvidenceChip[];
         conversationId?: string;
         historySaved?: boolean;
+        bugReportNotice?: string;
         needsClarification?: boolean;
         suggestions?: string[];
         confidence?: number;
@@ -94,53 +92,6 @@ type StreamEvent =
               interactionId?: string;
           };
       };
-
-const CATEGORIZED_PROMPTS = [
-    {
-        category: 'Stok & Gudang',
-        icon: Package,
-        color: 'from-amber-500/20 to-orange-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
-        requiredResources: ['/warehouse/inventory'],
-        prompts: [
-            'Stok barang MP 15 kok tidak bisa dipakai buat SO?',
-            'Barang ada di gudang tapi stok dianggap kurang',
-            'Stok kritis minggu ini apa saja?',
-        ],
-    },
-    {
-        category: 'Penjualan (SO)',
-        icon: ShoppingCart,
-        color: 'from-blue-500/20 to-indigo-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400',
-        requiredResources: ['/sales/orders'],
-        prompts: [
-            'Kenapa pesanan Budi belum bisa dikirim?',
-            'Pesanan mana yang sedang pending?',
-            'Cara buat Sales Order baru',
-        ],
-    },
-    {
-        category: 'Produksi (SPK)',
-        icon: Factory,
-        color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
-        requiredResources: ['/production/orders'],
-        prompts: [
-            'SPK ini berhenti di mana?',
-            'Kenapa saya tidak bisa buka menu ini?',
-            'Cara input hasil produksi via Kiosk',
-        ],
-    },
-    {
-        category: 'Keuangan & Lainnya',
-        icon: CreditCard,
-        color: 'from-purple-500/20 to-pink-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400',
-        requiredResources: ['/finance'],
-        prompts: [
-            'Invoice customer ini sudah dibayar belum?',
-            'Ringkasan piutang customer',
-            'Urutan menerima barang dari supplier',
-        ],
-    },
-];
 
 type WorkProfile = 'general' | 'finance' | 'production';
 
@@ -164,34 +115,19 @@ function profileFromPath(pathname: string): WorkProfile {
 
 const PROFILE_UI: Record<
     WorkProfile,
-    { label: string; description: string; prompts: string[] }
+    { label: string; description: string }
 > = {
     general: {
         label: 'Umum',
         description: 'Panduan dan analisis operasional sesuai akses Anda',
-        prompts: [
-            'Cek stok barang MP 15 di gudang',
-            'Kenapa SO belum bisa dikirim?',
-            'Cara input hasil produksi shift 2',
-        ],
     },
     finance: {
         label: 'Finance',
         description: 'Asisten accountant read-only',
-        prompts: [
-            'Periksa invoice yang sedang saya buka',
-            'Apa yang perlu diperiksa dari laba rugi bulan ini?',
-            'Ringkas utang dan piutang yang outstanding',
-        ],
     },
     production: {
         label: 'Production',
         description: 'Asisten manajer produksi read-only',
-        prompts: [
-            'Periksa progres SPK yang sedang saya buka',
-            'Apa yang perlu diprioritaskan hari ini?',
-            'SPK aktif mana yang perlu ditindaklanjuti?',
-        ],
     },
 };
 
@@ -465,7 +401,6 @@ export function PolyflowChatPanel(props: PolyflowChatPanelProps) {
 function AuthenticatedChatPanel({
     embedded = false,
     initialQuestion,
-    allowedResources = 'ALL',
     currentPath = '/',
     contextualProfilesEnabled = false,
 }: PolyflowChatPanelProps) {
@@ -585,22 +520,6 @@ function AuthenticatedChatPanel({
         scrollToBottom();
     }, [messages, isLoading, scrollToBottom]);
 
-    // Filter prompt categories based on user permissions
-    const filteredPromptCategories = useMemo(() => {
-        if (workProfile !== 'general') return [];
-        if (allowedResources === 'ALL') return CATEGORIZED_PROMPTS;
-        return CATEGORIZED_PROMPTS.filter((cat) =>
-            cat.requiredResources.some((resource) =>
-                allowedResources.some(
-                    (allowed) =>
-                        allowed === resource ||
-                        resource.startsWith(allowed + '/') ||
-                        allowed.startsWith(resource + '/'),
-                ),
-            ),
-        );
-    }, [allowedResources, workProfile]);
-
     const pushMessage = (
         role: Role,
         text: string,
@@ -609,6 +528,8 @@ function AuthenticatedChatPanel({
         relatedArticles?: CitedArticle[],
         evidenceChips?: EvidenceChip[],
         confidence?: number,
+        bugReportNotice?: string,
+        suggestions?: string[],
     ) => {
         setMessages((prev) => [
             ...prev,
@@ -621,6 +542,8 @@ function AuthenticatedChatPanel({
                 relatedArticles,
                 evidenceChips,
                 confidence,
+                bugReportNotice,
+                suggestions,
             },
         ]);
     };
@@ -902,6 +825,7 @@ function AuthenticatedChatPanel({
                                       text:
                                           data.answer || streamedText || m.text,
                                       interactionId: data.interactionId,
+                                      bugReportNotice: data.bugReportNotice,
                                       citedArticles: data.citedArticles,
                                       relatedArticles: data.relatedArticles,
                                       evidenceChips: data.evidence,
@@ -967,6 +891,8 @@ function AuthenticatedChatPanel({
             json.data?.relatedArticles,
             json.data?.evidence,
             json.data?.confidence,
+            json.data?.bugReportNotice,
+            json.data?.suggestions,
         );
     };
 
@@ -1159,88 +1085,6 @@ function AuthenticatedChatPanel({
                             Pesan sebelumnya
                         </Button>
                     )}
-                    {/* Welcome Screen & Categorized Prompt Cards when only 1 message */}
-                    {messages.length <= 1 && (
-                        <div className="space-y-6 my-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent p-5 sm:p-6 shadow-sm text-center sm:text-left">
-                                <div className="flex flex-col sm:flex-row items-center gap-4">
-                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
-                                        <Sparkles className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-foreground tracking-tight">
-                                            Asisten {profileUi.label}
-                                        </h3>
-                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed">
-                                            {profileUi.description}. Pilih
-                                            contoh pertanyaan atau tulis
-                                            kebutuhan Anda dengan bahasa
-                                            sehari-hari.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {workProfile !== 'general' && (
-                                <div className="grid gap-2 sm:grid-cols-3">
-                                    {profileUi.prompts.map((prompt) => (
-                                        <button
-                                            key={prompt}
-                                            type="button"
-                                            onClick={() => sendQuestion(prompt)}
-                                            className="text-left text-xs p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10 text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 font-medium transition-colors"
-                                        >
-                                            {prompt}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            {workProfile === 'general' && (
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    {filteredPromptCategories.map((cat) => {
-                                        const Icon = cat.icon;
-                                        return (
-                                            <div
-                                                key={cat.category}
-                                                className="rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm backdrop-blur-sm space-y-2.5"
-                                            >
-                                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                                                    <div
-                                                        className={cn(
-                                                            'p-1.5 rounded-lg border bg-gradient-to-br',
-                                                            cat.color,
-                                                        )}
-                                                    >
-                                                        <Icon className="h-4 w-4" />
-                                                    </div>
-                                                    <span>{cat.category}</span>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    {cat.prompts.map((p) => (
-                                                        <button
-                                                            key={p}
-                                                            type="button"
-                                                            onClick={() =>
-                                                                sendQuestion(p)
-                                                            }
-                                                            className="w-full text-left text-xs p-2.5 rounded-xl border border-border/40 bg-muted/30 hover:bg-emerald-500/10 hover:border-emerald-500/40 text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 font-medium transition-all duration-150 flex items-center justify-between group"
-                                                        >
-                                                            <span className="line-clamp-1">
-                                                                {p}
-                                                            </span>
-                                                            <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all text-emerald-500 shrink-0 ml-2" />
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
                     {/* Active Messages List */}
                     {messages.map((msg) => (
                         <div
@@ -1264,6 +1108,11 @@ function AuthenticatedChatPanel({
                                         <div className="max-w-none break-words leading-relaxed">
                                             {renderRichText(msg.text)}
                                         </div>
+                                        {msg.bugReportNotice && (
+                                            <p role="status" className="mt-3 border-t border-border/40 pt-3 text-xs text-muted-foreground">
+                                                {msg.bugReportNotice}
+                                            </p>
+                                        )}
                                         {msg.citedArticles &&
                                             msg.citedArticles.length > 0 && (
                                                 <CitedArticleCards

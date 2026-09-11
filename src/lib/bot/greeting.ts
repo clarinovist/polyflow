@@ -70,17 +70,11 @@ export type GreetingResult = {
 type GreetingPresentation = {
     label: string;
     description: string;
-    suggestions: string[];
 };
 
 const DEFAULT_PRESENTATION: GreetingPresentation = {
     label: 'Umum',
     description: 'panduan dan analisis operasional sesuai akses Anda',
-    suggestions: [
-        'Cek stok barang MP 15 di gudang',
-        'Kenapa SO belum bisa dikirim?',
-        'Cara input hasil produksi shift 2',
-    ],
 };
 
 function buildReply(
@@ -94,10 +88,7 @@ function buildReply(
         `Konteks aktif: **${presentation.label}** — ${presentation.description}.`,
         'Saya hanya membaca data yang diizinkan dan tidak mengubah transaksi.',
         '',
-        'Contoh yang bisa langsung Anda tanyakan:',
-        ...presentation.suggestions.map((s) => `- ${s}`),
-        '',
-        'Silakan tanya dengan bahasa sehari-hari — sebutkan nomor transaksi atau nama barang kalau ada, supaya saya bisa langsung cek datanya.',
+        'Apa yang ingin Anda periksa atau pahami?',
     ].join('\n');
 }
 
@@ -144,6 +135,5 @@ export function detectGreeting(
     return {
         isGreeting: true,
         reply: buildReply(requesterName, presentation),
-        suggestions: presentation.suggestions,
     };
 }

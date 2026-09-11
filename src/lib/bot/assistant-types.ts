@@ -111,6 +111,8 @@ export type AssistantResponse = {
     conversationId?: string;
     /** False means the visible answer could not be persisted. */
     historySaved?: boolean;
+    /** Transport status, added by verified web routes after audit persistence. */
+    bugReportNotice?: string;
     needsClarification?: boolean;
     suggestions?: string[];
     confidence?: number;

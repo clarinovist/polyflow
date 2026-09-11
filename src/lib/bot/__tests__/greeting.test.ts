@@ -20,12 +20,12 @@ describe('detectGreeting', () => {
             expect(detectGreeting(input).isGreeting).toBe(true);
         });
 
-        it('mengembalikan balasan berisi contoh pertanyaan', () => {
+        it('mengembalikan sapaan ringkas tanpa contoh pertanyaan', () => {
             const result = detectGreeting('halo');
             expect(result.reply).toContain('Asisten Polyflow');
-            expect(result.suggestions).toHaveLength(3);
-            // Balasan harus memuat contoh konkret, bukan cuma basa-basi.
-            expect(result.reply).toContain('Cek stok barang MP 15 di gudang');
+            expect(result.suggestions).toBeUndefined();
+            expect(result.reply).not.toMatch(/contoh|Cek stok|Kenapa SO/i);
+            expect(result.reply!.length).toBeLessThan(350);
         });
 
         it('menyapa dengan nama bila tersedia', () => {
@@ -42,12 +42,9 @@ describe('detectGreeting', () => {
             const result = detectGreeting('halo', 'Filia', {
                 label: 'Finance',
                 description: 'Asisten accountant read-only',
-                suggestions: ['Periksa invoice yang sedang saya buka'],
             });
             expect(result.reply).toContain('**Finance**');
-            expect(result.suggestions).toEqual([
-                'Periksa invoice yang sedang saya buka',
-            ]);
+            expect(result.suggestions).toBeUndefined();
         });
     });
 

@@ -163,6 +163,30 @@ describe('PolyflowChatPanel persistent contextual history', () => {
         expect(screen.getByText(/Konteks berpindah ke/)).toBeTruthy();
     });
 
+    it.each(['/', '/finance', '/production/orders'])('has a single compact welcome without question cards at %s', async (currentPath) => {
+        render(<PolyflowChatPanel currentPath={currentPath} contextualProfilesEnabled />);
+        await ready();
+        expect(screen.queryByText(/contoh pertanyaan/i)).toBeNull();
+        expect(screen.queryByRole('button', { name: /Periksa invoice|Stok barang|Apa yang perlu|SPK aktif/ })).toBeNull();
+        expect(screen.getAllByText(/Ceritakan apa yang ingin/)).toHaveLength(1);
+        expect(screen.getByRole('textbox')).toBeTruthy();
+    });
+    it('shows delivery status separately and retains useful clarification suggestions on JSON fallback', async () => {
+        chatHandler = async (url) => url.endsWith('/stream') ? json({}, 500) : json({ success: true, data: {
+            answer: 'Dugaan bug perlu diperiksa.', bugReportNotice: 'Telegram belum tersedia.', suggestions: ['Field mana yang berubah?'],
+        } });
+        renderPanel();
+        await ask();
+        expect(await screen.findByText('Telegram belum tersedia.')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Field mana yang berubah?' })).toBeTruthy();
+    });
+    it('shows SSE delivery metadata without changing the diagnosis', async () => {
+        chatHandler = async () => new Response('data: {"type":"done","data":{"answer":"Dugaan bug, belum terkonfirmasi.","bugReportNotice":"Notifikasi terkirim."}}\n\n');
+        renderPanel();
+        await ask();
+        expect(await screen.findByText('Notifikasi terkirim.')).toBeTruthy();
+        expect(screen.getByText('Dugaan bug, belum terkonfirmasi.')).toBeTruthy();
+    });
     it('uses general profile when rollout is disabled', async () => {
         render(<PolyflowChatPanel currentPath={pathname} />);
         await ready();

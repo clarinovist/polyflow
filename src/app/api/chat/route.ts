@@ -8,6 +8,7 @@ import { logVirtualCsEvent } from '@/lib/bot/chat-audit';
 import { checkChatRateLimit } from '@/lib/bot/chat-rate-limit';
 import { parseChatRequestBody } from '@/lib/bot/chat-request';
 import { verifyAssistantSessionUser } from '@/lib/bot/assistant-session';
+import { assistantBugReportNotice } from '@/lib/bot/bug-report';
 
 // Rate limit (20 req/menit per user) di-share dengan /api/chat/stream lewat
 // `@/lib/bot/chat-rate-limit` — jangan bikin peta lokal di sini lagi.
@@ -93,10 +94,14 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
             disposition: result.disposition,
         });
 
+        const bugReportNotice = await assistantBugReportNotice(result, interactionId, {
+            tenantId,
+            userId: verifiedUser.id,
+        });
         return NextResponse.json({
             success: true,
             product: POLYFLOW_PRODUCT_ID,
-            data: { ...result, interactionId },
+            data: { ...result, interactionId, bugReportNotice },
         });
     } catch (error) {
         console.error('[CHAT_BRIDGE] Failed:', error);

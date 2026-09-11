@@ -3,6 +3,13 @@ import type {
     CitedArticleForResponse,
 } from './assistant-types';
 import type { HelpSearchResult } from './help-articles';
+import {
+    isReproducibleBugCandidate,
+    missingReproductionFields,
+    parseReproduction,
+    REPRODUCTION_LABELS,
+    type BugReproduction,
+} from './bug-triage';
 
 const ISSUE_REPORT_PATTERN =
     /\b(tidak\s+bisa|nggak\s+bisa|gagal|error|berubah|hilang|ditolak|beda|tidak\s+sesuai|koma|desimal)\b/i;
@@ -64,9 +71,14 @@ export function isRelevantTroubleshootingArticle(
 
 function reproductionRequest(
     question: string,
-    options: { acknowledgeInsufficientEvidence?: boolean } = {},
+    options: {
+        acknowledgeInsufficientEvidence?: boolean;
+        details: BugReproduction;
+    },
 ): string {
-    const safetyWarning = CRITICAL_TRANSACTION_PATTERN.test(question)
+    const safetyWarning = CRITICAL_TRANSACTION_PATTERN.test(
+        `${question} ${Object.values(options.details).join(' ')}`,
+    )
         ? '\n\nUntuk keamanan transaksi, **jangan simpan, post, atau lanjutkan transaksi jika nominal/nilai yang tampil berubah dari input Anda**.'
         : '';
 
@@ -74,13 +86,42 @@ function reproductionRequest(
         ? 'Saya belum dapat memastikan penyebabnya dari data yang tersedia, karena saya tidak dapat melihat keadaan form di perangkat Anda. '
         : '';
 
-    return `${evidenceLimit}Saya tidak akan menebak menu atau format, maupun menyimpulkan status bug tanpa bukti.${safetyWarning}\n\nAgar kendalanya bisa direproduksi, mohon kirim:\n- nama halaman dan field yang bermasalah;\n- input persis yang diketik;\n- hasil yang tampil setelah input;\n- pesan error (jika ada);\n- langkah-langkah sejak halaman dibuka sampai masalah terjadi;\n- browser/perangkat bila masalahnya hanya terjadi di perangkat tertentu.\n\nSetelah itu saya bisa mencocokkannya dengan panduan yang tersedia. Jika tetap tidak cocok, teruskan detail reproduksi tersebut kepada admin/support Polyflow melalui kanal dukungan yang biasa digunakan perusahaan Anda.`;
+    const missing = missingReproductionFields(options.details);
+    const prompts: Record<keyof BugReproduction, string> = {
+        page: 'nama halaman yang bermasalah',
+        field: 'nama field/kolom',
+        input: 'input persis yang diketik (gunakan contoh samaran)',
+        expected: 'hasil yang seharusnya tampil',
+        actual: 'hasil yang tampil atau pesan error',
+        steps: 'urutan dari membuka halaman sampai masalah terjadi',
+        repeated:
+            'ya/tidak; apakah langkah yang sama selalu menghasilkan masalah ini?',
+    };
+    const request = missing.length
+        ? `Detail reproduksi yang masih diperlukan:\n${missing.map((key) => `- ${REPRODUCTION_LABELS[key]}: ${prompts[key]}`).join('\n')}\n\nBalas dengan label tersebut, satu per baris. Jangan kirim password, token, atau data pelanggan. Jika detailnya cukup, dugaan bug bisa diteruskan untuk review support.`
+        : 'Detail sudah diterima, tetapi belum cukup untuk menggolongkannya sebagai dugaan bug yang berulang. Periksa apakah hasilnya memang berbeda dari harapan, dapat diulang, dan bukan penolakan akses, aturan bisnis, atau masalah koneksi. Jika sudah diperiksa, kirim ulang detail reproduksi yang diperbarui.';
+    return `Paham, kendala ini bisa menghambat pekerjaan Anda. ${evidenceLimit}Saya tidak akan menyimpulkan penyebab tanpa bukti.${safetyWarning}\n\n${request}`;
 }
 
 export function buildTroubleshootingResponse(
     question: string,
     searchResults: HelpSearchResult[],
+    details: BugReproduction = parseReproduction(question),
 ): AssistantResponse {
+    if (isReproducibleBugCandidate(details)) {
+        const warning = CRITICAL_TRANSACTION_PATTERN.test(
+            `${question} ${Object.values(details).join(' ')}`,
+        )
+            ? '\n\nUntuk keamanan, **jangan simpan, post, atau lanjutkan transaksi jika nilainya berubah dari input Anda**.'
+            : '';
+        return {
+            answer: `Detail Anda menunjukkan hasil yang berbeda dari harapan dan dilaporkan berulang. Ini layak ditinjau sebagai **dugaan bug**, bukan bug terkonfirmasi; saya belum mereproduksinya secara independen.${warning}\n\nLangkah berikutnya: review oleh tim support. Pada chat web terverifikasi, laporan yang tersimpan dapat memicu notifikasi Telegram support jika fitur aktif. Notifikasi hanya memuat kategori dan referensi laporan, bukan isi chat atau data transaksi; status pengiriman ditampilkan terpisah.`,
+            citations: [],
+            disposition: 'ESCALATE',
+            needsClarification: false,
+            safety: { allowed: true },
+        };
+    }
     const relevant = searchResults
         .filter((article) =>
             isRelevantTroubleshootingArticle(question, article),
@@ -91,6 +132,7 @@ export function buildTroubleshootingResponse(
         return {
             answer: reproductionRequest(question, {
                 acknowledgeInsufficientEvidence: true,
+                details,
             }),
             citations: [],
             citedArticles: [],
@@ -117,7 +159,7 @@ export function buildTroubleshootingResponse(
         .join('\n');
 
     return {
-        answer: `Saya menemukan panduan yang relevan berikut:\n\n${articleLines}\n\nPanduan tersebut menjelaskan langkah yang didokumentasikan, tetapi **bukan diagnosis terverifikasi** atas keadaan form di perangkat Anda. ${reproductionRequest(question)}`,
+        answer: `Saya menemukan panduan yang relevan berikut:\n\n${articleLines}\n\nPanduan tersebut menjelaskan langkah yang didokumentasikan, tetapi **bukan diagnosis terverifikasi** atas keadaan form di perangkat Anda. ${reproductionRequest(question, { details })}`,
         citations: ['kb:troubleshooting'],
         citedArticles,
         needsClarification: true,

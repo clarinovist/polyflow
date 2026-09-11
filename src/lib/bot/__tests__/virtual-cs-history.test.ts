@@ -39,6 +39,24 @@ describe('assistant exchange persistence integration', () => {
         expect(getConversation.mock.calls[0][0]).toMatchObject({ conversationId: 'requested', tenantId: 'tenant-1', userId: 'user-1', channel: 'web' });
         expect(load.mock.calls[0][2]).toBe(save.mock.calls[0][0].metadata.accessScope);
     });
+    it('uses the detailed persona without repetitive greeting instructions', async () => {
+        await generateVirtualCsReply({ question: 'Jelaskan invoice', channel: 'web', requesterName: 'User' }, context);
+        const prompt = completion.mock.calls[0][0].messages[0].content;
+        expect(prompt).toContain('Pertanyaan sederhana cukup 1–3 kalimat');
+        expect(prompt).toContain('Saat pengguna frustrasi');
+        expect(prompt).not.toContain('Sapa user dengan nama');
+        expect(prompt).toContain('TIDAK DAPAT membuat');
+    });
+    it('uses authorized multi-turn reproduction details without calling the LLM', async () => {
+        load.mockResolvedValue({ resolvedEntities: new Map(), history: [
+            { role: 'user', content: 'Halaman: Form\nField: Nama\nInput: Contoh\nHarapan: Contoh\nAktual: Kosong' },
+            { role: 'assistant', content: 'Detail reproduksi yang masih diperlukan:\n- Langkah:\n- Berulang:' },
+        ] });
+        const result = await generateVirtualCsReply({ question: 'Langkah: Buka form lalu ketik lalu pindah kolom\nBerulang: Ya', channel: 'web' }, context);
+        expect(result).toMatchObject({ disposition: 'ESCALATE', historySaved: true });
+        expect(completion).not.toHaveBeenCalled();
+        expect(save).toHaveBeenCalled();
+    });
     it('persists deterministic troubleshooting replies', async () => {
         const result = await generateVirtualCsReply({ question: 'Nilai input berubah', channel: 'web' }, context);
         expect(result.historySaved).toBe(true);

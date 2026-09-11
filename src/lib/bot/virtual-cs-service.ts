@@ -19,6 +19,8 @@ import {
 import { checkPromptInjection, logInjectionAttempt } from './injection-defense';
 import { conversationAccessScope } from './conversation-scope';
 import { detectGreeting } from './greeting';
+import { ASSISTANT_PERSONA } from './assistant-persona';
+import { collectReproduction } from './bug-triage';
 import {
     buildTroubleshootingResponse,
     isUiIssueReport,
@@ -204,7 +206,11 @@ export async function generateVirtualCsReply(
 
     // UI issue reports need a deterministic, evidence-aware protocol. The
     // browser pathname is deliberately not used to infer a menu or cause.
-    if (isUiIssueReport(input.question)) {
+    const reproduction = collectReproduction(input.question, conversationHistory);
+    if (
+        isUiIssueReport(input.question) || reproduction.continuation ||
+        Object.keys(reproduction.details).length >= 2
+    ) {
         let fallbackResults: Awaited<ReturnType<typeof searchHelpArticles>> =
             [];
         try {
@@ -220,6 +226,7 @@ export async function generateVirtualCsReply(
         const response = buildTroubleshootingResponse(
             input.question,
             fallbackResults,
+            reproduction.details,
         );
         return finish(response);
     }
@@ -253,10 +260,6 @@ export async function generateVirtualCsReply(
 
     const openAiTools = toolsToOpenAiFormat(availableTools);
 
-    const greeting = input.requesterName
-        ? `Sapa user dengan nama ${input.requesterName} di awal pesan Anda.`
-        : '';
-
     // 5. Build system prompt
     const profileInstructions = buildAssistantProfileInstructions(workContext);
     const toolList = availableTools
@@ -268,10 +271,7 @@ export async function generateVirtualCsReply(
             role: 'system',
             content: `Anda adalah Asisten Kerja Polyflow — asisten cerdas, ramah, dan interaktif yang siap membantu karyawan memahami dan mengoperasikan sistem ERP pabrik plastik Polyflow.
 
-Gaya Komunikasi:
-- Gunakan bahasa Indonesia yang santai, sopan, ramah, dan mudah dipahami.
-- Berikan penjelasan langkah demi langkah yang terstruktur rapi dengan poin-poin.
-- ${greeting}
+${ASSISTANT_PERSONA}
 
 Konteks kerja:
 ${profileInstructions}
@@ -307,7 +307,7 @@ Aturan Diagnosis (untuk pertanyaan "kenapa"):
 Tools yang tersedia:
 ${toolList || 'Tidak ada data tools yang tersedia untuk Anda saat ini.'}
 
-Di akhir jawaban, tawarkan bantuan atau pertanyaan lanjutan yang relevan secara ramah.`,
+Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berulang.`,
         },
     ];
 

@@ -9,6 +9,7 @@ import { checkChatRateLimit } from '@/lib/bot/chat-rate-limit';
 import type { AssistantStreamEvent } from '@/lib/bot/assistant-types';
 import { parseChatRequestBody } from '@/lib/bot/chat-request';
 import { verifyAssistantSessionUser } from '@/lib/bot/assistant-session';
+import { assistantBugReportNotice } from '@/lib/bot/bug-report';
 
 /**
  * Streaming (SSE) varian dari POST /api/chat.
@@ -118,9 +119,13 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
                     disposition: result.disposition,
                 });
 
+                const bugReportNotice = await assistantBugReportNotice(result, interactionId, {
+                    tenantId,
+                    userId: sessionUserId,
+                });
                 send({
                     type: 'done',
-                    data: { ...result, interactionId } as typeof result & {
+                    data: { ...result, interactionId, bugReportNotice } as typeof result & {
                         interactionId: string | null;
                     },
                 });

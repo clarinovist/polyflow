@@ -42,6 +42,8 @@ vi.mock('@/lib/bot/virtual-cs-service', () => ({
 }));
 
 const logMock = vi.fn().mockResolvedValue('interaction-9');
+const bugNotice = vi.fn();
+vi.mock('@/lib/bot/bug-report', () => ({ assistantBugReportNotice: (...args: unknown[]) => bugNotice(...args) }));
 vi.mock('@/lib/bot/chat-audit', () => ({
     logVirtualCsEvent: (...a: unknown[]) => logMock(...a),
 }));
@@ -100,6 +102,7 @@ describe('POST /api/chat/stream', () => {
             allowedResources: ['/production', '/finance'],
         });
         logMock.mockResolvedValue('interaction-9');
+        bugNotice.mockResolvedValue(undefined);
     });
 
     it('menolak request tanpa sesi', async () => {
@@ -228,6 +231,16 @@ describe('POST /api/chat/stream', () => {
         expect(payload.disposition).toBe('NEEDS_CLARIFICATION');
     });
 
+    it('includes report delivery status in done only after persisting the interaction', async () => {
+        const result = { answer: 'Dugaan bug', citations: [], disposition: 'ESCALATE', conversationId: 'authorized', historySaved: true, safety: { allowed: true } };
+        generateMock.mockResolvedValueOnce(result);
+        bugNotice.mockResolvedValueOnce('Notifikasi terkirim.');
+        const res = await (POST as unknown as Handler)(makeReq({ question: 'error input', userId: 'forged' }));
+        const events = await collectEvents(res.body!);
+        expect(bugNotice).toHaveBeenCalledWith(result, 'interaction-9', { tenantId: 'tenant-a', userId: 'user-1' });
+        expect(logMock.mock.invocationCallOrder[0]).toBeLessThan(bugNotice.mock.invocationCallOrder[0]);
+        expect(events).toEqual([expect.objectContaining({ type: 'done', data: expect.objectContaining({ bugReportNotice: 'Notifikasi terkirim.' }) })]);
+    });
     it('mengirim event error saat agentic loop gagal', async () => {
         generateMock.mockRejectedValue(new Error('LLM down'));
 

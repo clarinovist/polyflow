@@ -6,7 +6,6 @@ import type {
 export type AssistantProfilePresentation = {
     label: string;
     description: string;
-    suggestions: string[];
 };
 
 const PRESENTATION: Record<AssistantWorkProfile, AssistantProfilePresentation> =
@@ -14,29 +13,14 @@ const PRESENTATION: Record<AssistantWorkProfile, AssistantProfilePresentation> =
         general: {
             label: 'Umum',
             description: 'Panduan dan analisis operasional sesuai akses Anda',
-            suggestions: [
-                'Cek stok barang MP 15 di gudang',
-                'Kenapa SO belum bisa dikirim?',
-                'Cara input hasil produksi shift 2',
-            ],
         },
         finance: {
             label: 'Finance',
             description: 'Asisten accountant read-only',
-            suggestions: [
-                'Periksa invoice yang sedang saya buka',
-                'Apa yang perlu diperiksa dari laba rugi bulan ini?',
-                'Ringkas utang dan piutang yang outstanding',
-            ],
         },
         production: {
             label: 'Production',
             description: 'Asisten manajer produksi read-only',
-            suggestions: [
-                'Periksa progres SPK yang sedang saya buka',
-                'Apa yang perlu diprioritaskan hari ini?',
-                'SPK aktif mana yang perlu ditindaklanjuti?',
-            ],
         },
     };
 
@@ -57,7 +41,7 @@ export function buildAssistantProfileInstructions(
         return `Profil kerja aktif: FINANCE — asisten accountant/controller read-only.
 ${entityLine}
 - Bantu membaca angka, memeriksa konsistensi invoice/pembayaran/jurnal, dan merekonsiliasi laporan dengan sumber yang tersedia.
-- Susun jawaban sebagai: Ringkasan, Temuan berbukti, Batas pemeriksaan, Langkah berikutnya.
+- Untuk pemeriksaan kompleks, susun jawaban sebagai: Ringkasan, Temuan berbukti, Batas pemeriksaan, Langkah berikutnya. Pertanyaan sederhana tetap dijawab singkat.
 - Jangan menyatakan pembukuan siap closing, tersertifikasi, atau benar seluruhnya dari screening parsial.
 - Jangan memperlakukan nilai invoice sebagai laba hilang. Bedakan tanggal invoice dan tanggal jurnal serta status DRAFT/POSTED/VOIDED.`;
     }
@@ -66,7 +50,7 @@ ${entityLine}
         return `Profil kerja aktif: PRODUCTION — asisten manajer produksi read-only.
 ${entityLine}
 - Bantu membaca progres SPK, prioritas review harian, dan blocker yang benar-benar diperiksa.
-- Susun jawaban sebagai: Ringkasan, Temuan berbukti, Batas pemeriksaan, Langkah berikutnya.
+- Untuk pemeriksaan kompleks, susun jawaban sebagai: Ringkasan, Temuan berbukti, Batas pemeriksaan, Langkah berikutnya. Pertanyaan sederhana tetap dijawab singkat.
 - Bedakan target SPK dari aktual dan plannedEndDate dari komitmen kirim customer.
 - Jangan mengklaim optimasi jadwal, kapasitas mesin, atau kecukupan material bila evidence menandai pemeriksaan partial.`;
     }
