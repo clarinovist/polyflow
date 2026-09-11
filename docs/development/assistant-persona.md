@@ -78,7 +78,7 @@ Konfigurasi server (nilai credential/tujuan tidak disimpan di dokumentasi):
 - `ASSISTANT_BUG_REPORTS_ENABLED=true` — opt-in; default nonaktif.
 - `TELEGRAM_ASSISTANT_BUG_REPORT_CHAT_ID` — tujuan khusus support, ID numerik;
   tidak mengambil tujuan dari teks pengguna atau channel operasional lain.
-- `TELEGRAM_BOT_TOKEN` — credential bot server yang sudah ada.
+- `TELEGRAM_ASSISTANT_BUG_REPORT_BOT_TOKEN` — credential khusus bot laporan support. Tidak fallback ke `TELEGRAM_BOT_TOKEN`; bot interaktif/mini-app tetap terisolasi.
 - `TELEGRAM_KILL_SWITCH` tetap dihormati.
 
 Aktivasi produksi dan pengiriman uji nyata memerlukan approval operator terpisah.

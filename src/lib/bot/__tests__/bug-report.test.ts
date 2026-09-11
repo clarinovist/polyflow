@@ -13,7 +13,11 @@ beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('ASSISTANT_BUG_REPORTS_ENABLED', 'true');
     vi.stubEnv('TELEGRAM_ASSISTANT_BUG_REPORT_CHAT_ID', '-100123');
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'synthetic-test-token');
+    vi.stubEnv(
+        'TELEGRAM_ASSISTANT_BUG_REPORT_BOT_TOKEN',
+        'synthetic-test-token',
+    );
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'interactive-bot-must-not-be-used');
     vi.stubEnv('TELEGRAM_KILL_SWITCH', 'false');
     db.helpInteraction.findFirst.mockResolvedValue({ id: 'report-test' });
     db.telegramNotificationLog.createMany.mockResolvedValue({ count: 1 });
@@ -31,20 +35,32 @@ describe('safe Telegram bug reports', () => {
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
         expect(Object.keys(body).sort()).toEqual(['chat_id', 'text']);
         expect(body.text).toContain('report-test');
-        expect(body.text).not.toMatch(/tenant-test|user-test|synthetic-test-token|https?:/);
+        expect(body.text).not.toMatch(
+            /tenant-test|user-test|synthetic-test-token|interactive-bot-must-not-be-used|https?:/,
+        );
+        expect(fetchMock.mock.calls[0][0]).toContain('synthetic-test-token');
+        expect(fetchMock.mock.calls[0][0]).not.toContain(
+            'interactive-bot-must-not-be-used',
+        );
         expect(db.telegramNotificationLog.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'SENT', telegramMessageId: '42', sentAt: expect.any(Date) }) }));
     });
     it.each([
         ['ASSISTANT_BUG_REPORTS_ENABLED', 'false'],
         ['TELEGRAM_ASSISTANT_BUG_REPORT_CHAT_ID', ''],
         ['TELEGRAM_ASSISTANT_BUG_REPORT_CHAT_ID', '@untrusted'],
-        ['TELEGRAM_BOT_TOKEN', ''],
+        ['TELEGRAM_ASSISTANT_BUG_REPORT_BOT_TOKEN', ''],
         ['TELEGRAM_KILL_SWITCH', 'true'],
     ])('fails closed when %s=%s', async (key, value) => {
         vi.stubEnv(key, value);
         expect(await request()).toBe('UNAVAILABLE');
         expect(fetchMock).not.toHaveBeenCalled();
         expect(db.helpInteraction.findFirst).not.toHaveBeenCalled();
+    });
+    it('does not fall back to the interactive bot credential', async () => {
+        vi.stubEnv('TELEGRAM_ASSISTANT_BUG_REPORT_BOT_TOKEN', '');
+        vi.stubEnv('TELEGRAM_BOT_TOKEN', 'interactive-bot-only');
+        expect(await request()).toBe('UNAVAILABLE');
+        expect(fetchMock).not.toHaveBeenCalled();
     });
     it('does not send for forged identity, invalid ID or missing persisted scope', async () => {
         expect(await reportAssistantBug('invalid\nsecret', identity)).toBe('UNAVAILABLE');

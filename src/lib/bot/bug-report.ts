@@ -32,7 +32,10 @@ export async function reportAssistantBug(
     identity: ReportIdentity,
 ): Promise<BugReportStatus> {
     const chatId = process.env.TELEGRAM_ASSISTANT_BUG_REPORT_CHAT_ID;
-    const token = process.env.TELEGRAM_BOT_TOKEN;
+    // Dedicated credential: never reuse the interactive Mini App bot. The
+    // support group may authorize a different bot and rotating this secret
+    // must not affect Telegram login/webhook flows.
+    const token = process.env.TELEGRAM_ASSISTANT_BUG_REPORT_BOT_TOKEN;
     if (
         process.env.ASSISTANT_BUG_REPORTS_ENABLED !== 'true' ||
         isKillSwitchActive() ||
@@ -164,6 +167,9 @@ export async function assistantBugReportNotice(
     }
     if (!identity.tenantId) return BUG_REPORT_NOTICES.UNAVAILABLE;
     return BUG_REPORT_NOTICES[
-        await reportAssistantBug(interactionId, { tenantId: identity.tenantId, userId: identity.userId })
+        await reportAssistantBug(interactionId, {
+            tenantId: identity.tenantId,
+            userId: identity.userId,
+        })
     ];
 }
