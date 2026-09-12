@@ -111,6 +111,7 @@ import type {
     SalesOrderFormProps,
 } from './sales-order-types';
 import { QuickProductDialog } from './QuickProductDialog';
+import { SalesOrderCustomerPicker } from './SalesOrderCustomerPicker';
 import { CustomerDialog } from '@/components/customers/CustomerDialog';
 
 export function SalesOrderForm({
@@ -124,7 +125,6 @@ export function SalesOrderForm({
     reorderData,
 }: SalesOrderFormProps) {
     const router = useRouter();
-    const [openCustomer, setOpenCustomer] = useState(false);
     const [openNewCustomer, setOpenNewCustomer] = useState(false);
     const [openProduct, setOpenProduct] = useState<Record<number, boolean>>({});
     const [mobileProductSearch, setMobileProductSearch] = useState<{
@@ -961,120 +961,26 @@ export function SalesOrderForm({
                     <FormField
                         control={form.control}
                         name="customerId"
-                        render={({ field }) => {
-                            return (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>
-                                        {salesLabels.customer}
-                                    </FormLabel>
-                                    <Popover
-                                        open={openCustomer}
-                                        onOpenChange={setOpenCustomer}
-                                    >
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant="outline"
-                                                    role="combobox"
-                                                    className={cn(
-                                                        'w-full justify-between',
-                                                        !field.value &&
-                                                            'text-muted-foreground',
-                                                        isOverLimit &&
-                                                            'border-red-500 bg-red-50 text-red-900',
-                                                    )}
-                                                >
-                                                    {field.value
-                                                        ? customers.find(
-                                                              (customer) =>
-                                                                  customer.id ===
-                                                                  field.value,
-                                                          )?.name
-                                                        : 'Pilih customer'}
-                                                    <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Cari customer..." />
-                                                <CommandList>
-                                                    <CommandEmpty>
-                                                        Customer tidak
-                                                        ditemukan.
-                                                    </CommandEmpty>
-                                                    <CommandGroup>
-                                                        {customers.map(
-                                                            (customer) => (
-                                                                <CommandItem
-                                                                    key={
-                                                                        customer.id
-                                                                    }
-                                                                    value={
-                                                                        customer.name
-                                                                    }
-                                                                    onSelect={() => {
-                                                                        form.setValue(
-                                                                            'customerId',
-                                                                            customer.id,
-                                                                        );
-                                                                        setOpenCustomer(
-                                                                            false,
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    <Check
-                                                                        className={cn(
-                                                                            'mr-2 h-4 w-4',
-                                                                            customer.id ===
-                                                                                field.value
-                                                                                ? 'opacity-100'
-                                                                                : 'opacity-0',
-                                                                        )}
-                                                                    />
-                                                                    {
-                                                                        customer.name
-                                                                    }
-                                                                    {!!customer.creditLimit && (
-                                                                        <span className="ml-auto text-xs text-muted-foreground">
-                                                                            Limit:{' '}
-                                                                            {formatRupiah(
-                                                                                customer.creditLimit,
-                                                                            )}
-                                                                        </span>
-                                                                    )}
-                                                                </CommandItem>
-                                                            ),
-                                                        )}
-                                                    </CommandGroup>
-                                                    <CommandSeparator />
-                                                    <CommandGroup>
-                                                        <CommandItem
-                                                            onSelect={() => {
-                                                                setOpenCustomer(
-                                                                    false,
-                                                                );
-                                                                setOpenNewCustomer(
-                                                                    true,
-                                                                );
-                                                            }}
-                                                            className="cursor-pointer text-blue-600"
-                                                        >
-                                                            <Plus className="mr-2 h-4 w-4" />
-                                                            Tambah Customer Baru
-                                                        </CommandItem>
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormDescription>
-                                        Wajib diisi untuk Sales Order customer.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            );
-                        }}
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>{salesLabels.customer}</FormLabel>
+                                <FormControl>
+                                    <SalesOrderCustomerPicker
+                                        customers={customers}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        onAddCustomer={() =>
+                                            setOpenNewCustomer(true)
+                                        }
+                                        isOverLimit={isOverLimit}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    Wajib diisi untuk Sales Order customer.
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
                     />
 
                     {/* Credit Exposure Banner */}
