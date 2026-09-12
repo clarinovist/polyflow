@@ -19,6 +19,7 @@ import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import {
     getCustomerCreditExposure,
     getCustomersWithCreditSummary,
+    type CustomerCreditSummaryQuery,
 } from '@/services/sales/credit-service';
 import {
     createWithUniqueCustomerCode,
@@ -260,10 +261,12 @@ export const getCustomerCreditExposureAction = withTenant(
 );
 
 export const getCustomersWithCreditSummaryAction = withTenant(
-    async function getCustomersWithCreditSummaryAction() {
+    async function getCustomersWithCreditSummaryAction(
+        query: CustomerCreditSummaryQuery = {},
+    ) {
         return safeAction(async () => {
             await requireSalesAccess();
-            return getCustomersWithCreditSummary();
+            return getCustomersWithCreditSummary(query);
         });
     },
 );

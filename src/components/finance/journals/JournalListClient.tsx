@@ -6,6 +6,8 @@ import { columns, JournalEntryWithDetails } from './JournalColumns';
 import {
     getJournalEntries,
     batchPostJournals,
+    type JournalSortColumn,
+    type JournalSortDirection,
 } from '@/actions/finance/journal-actions';
 import { JournalStatus } from '@prisma/client';
 import { TransactionDateFilter } from '@/components/common/transaction-date-filter';
@@ -14,7 +16,7 @@ import { toast } from 'sonner';
 // import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
     Select,
     SelectContent,
@@ -29,17 +31,31 @@ import {
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
 } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
-import { DataTableSortIcon } from '@/components/ui/data-table-sort-icon';
-import { cn } from '@/lib/utils/utils';
 import Link from 'next/link';
+
+const SORTABLE_COLUMNS = new Set<JournalSortColumn>([
+    'entryNumber',
+    'entryDate',
+    'description',
+    'reference',
+    'status',
+]);
+
+function isJournalSortColumn(value: string | null): value is JournalSortColumn {
+    return value !== null && SORTABLE_COLUMNS.has(value as JournalSortColumn);
+}
 
 // Fallback Simple Table if generic DataTable doesn't exist or is complex to integrate blindly
 // Actually, let's implement a simple table using flex/grid or just import Table from ui/table
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -48,9 +64,7 @@ import {
 import {
     flexRender,
     getCoreRowModel,
-    getSortedRowModel,
     useReactTable,
-    type SortingState,
 } from '@tanstack/react-table';
 
 export function JournalListClient() {
@@ -75,8 +89,15 @@ export function JournalListClient() {
         undefined,
     );
     const [rowSelection, setRowSelection] = useState({});
-    const [sorting, setSorting] = useState<SortingState>([]);
     const [batchLoading, setBatchLoading] = useState(false);
+    const [sortBy, setSortBy] = useState<JournalSortColumn>(() => {
+        const value = urlSearchParams.get('sortBy');
+        return isJournalSortColumn(value) ? value : 'entryDate';
+    });
+    const [sortDirection, setSortDirection] =
+        useState<JournalSortDirection>(() =>
+            urlSearchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc',
+        );
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -102,10 +123,13 @@ export function JournalListClient() {
                 endDate: dateRange?.to ?? undefined,
                 page,
                 limit,
+                sortBy,
+                sortDirection,
             });
             if (res.success && res.data) {
                 setData(res.data.data as JournalEntryWithDetails[]);
                 setTotal(res.data.meta.total);
+                setPage(res.data.meta.page);
             } else if (!res.success) {
                 toast.error(res.error || 'Gagal mengambil jurnal');
             }
@@ -114,18 +138,33 @@ export function JournalListClient() {
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, status, dateRange, page, limit]);
+    }, [
+        debouncedSearch,
+        status,
+        dateRange,
+        page,
+        limit,
+        sortBy,
+        sortDirection,
+    ]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    // Reset page on filter change
-    useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch, status, dateRange]);
-
     const cols = useMemo(() => columns, []);
+
+    const handleSort = (column: JournalSortColumn) => {
+        setPage(1);
+        if (sortBy === column) {
+            setSortDirection((direction) =>
+                direction === 'asc' ? 'desc' : 'asc',
+            );
+            return;
+        }
+        setSortBy(column);
+        setSortDirection('asc');
+    };
 
     // Table Instance
     const table = useReactTable({
@@ -133,13 +172,11 @@ export function JournalListClient() {
         columns: cols,
         state: {
             rowSelection,
-            sorting,
         },
         enableRowSelection: true,
+        enableSorting: false,
         onRowSelectionChange: setRowSelection,
-        onSortingChange: setSorting,
         getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
         getRowId: (row) => row.id,
     });
 
@@ -177,9 +214,9 @@ export function JournalListClient() {
         <div className="space-y-6 max-w-full overflow-hidden">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">
+                    <h1 className="text-2xl font-bold tracking-tight">
                         Jurnal
-                    </h2>
+                    </h1>
                     <p className="text-muted-foreground text-sm">
                         Kelola dan posting transaksi buku besar dari semua
                         modul.
@@ -210,18 +247,20 @@ export function JournalListClient() {
             {/* Filter Card */}
             <Card className="py-3 gap-3 shadow-sm">
                 <CardHeader className="px-4 pb-0">
-                    <CardTitle className="text-sm font-medium">
-                        Filter Transaksi
-                    </CardTitle>
+                    <h2 className="text-sm font-medium">Filter Transaksi</h2>
                 </CardHeader>
                 <CardContent className="px-4">
                     <div className="flex flex-wrap items-center gap-4">
                         {/* Search */}
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                Search:
-                            </span>
+                            <label
+                                htmlFor="journal-search"
+                                className="text-sm text-muted-foreground whitespace-nowrap"
+                            >
+                                Cari jurnal
+                            </label>
                             <Input
+                                id="journal-search"
                                 placeholder="Nomor, ref..."
                                 className="h-9 w-[180px] bg-background"
                                 value={search}
@@ -231,17 +270,23 @@ export function JournalListClient() {
 
                         {/* Status */}
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                Status:
-                            </span>
+                            <label
+                                htmlFor="journal-status"
+                                className="text-sm text-muted-foreground whitespace-nowrap"
+                            >
+                                Status jurnal
+                            </label>
                             <Select
                                 value={status}
                                 onValueChange={(val) =>
                                     setStatus(val as JournalStatus | 'ALL')
                                 }
                             >
-                                <SelectTrigger className="h-9 w-[140px] bg-background">
-                                    <SelectValue placeholder="All" />
+                                <SelectTrigger
+                                    id="journal-status"
+                                    className="h-9 w-[140px] bg-background"
+                                >
+                                    <SelectValue placeholder="Semua" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ALL">
@@ -273,42 +318,82 @@ export function JournalListClient() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Riwayat Transaksi</CardTitle>
+                    <h2 className="text-lg font-semibold">Riwayat Transaksi</h2>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border">
+                    <div
+                        data-journal-scroll
+                        className="max-h-[70vh] overflow-y-auto rounded-md border [&_[data-slot=table-container]]:overflow-visible"
+                    >
                         <Table>
-                            <TableHeader>
+                            <TableCaption className="sr-only">
+                                Riwayat jurnal
+                            </TableCaption>
+                            <TableHeader className="sticky top-0 z-10 bg-background">
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>
                                         {headerGroup.headers.map((header) => (
                                             <TableHead
                                                 key={header.id}
-                                                className={cn(
-                                                    'h-10 text-xs font-bold uppercase tracking-wider',
-                                                    header.column.getCanSort() &&
-                                                        'cursor-pointer select-none hover:bg-muted/50',
-                                                )}
+                                                className="h-10 text-xs font-bold uppercase tracking-wider"
                                                 style={{
                                                     width: header.column
                                                         .columnDef.size,
                                                 }}
-                                                onClick={header.column.getToggleSortingHandler()}
+                                                aria-sort={
+                                                    isJournalSortColumn(
+                                                        header.column.id,
+                                                    ) &&
+                                                    sortBy === header.column.id
+                                                        ? sortDirection === 'asc'
+                                                            ? 'ascending'
+                                                            : 'descending'
+                                                        : undefined
+                                                }
                                             >
-                                                {header.isPlaceholder ? null : (
-                                                    <div className="flex items-center gap-2">
+                                                {header.isPlaceholder ? null :
+                                                isJournalSortColumn(
+                                                    header.column.id,
+                                                ) ? (
+                                                    <button
+                                                        type="button"
+                                                        className="flex w-full items-center gap-2 text-left"
+                                                        onClick={() =>
+                                                            handleSort(
+                                                                header.column
+                                                                    .id as JournalSortColumn,
+                                                            )
+                                                        }
+                                                        aria-label={`Urutkan berdasarkan ${String(
+                                                            header.column
+                                                                .columnDef
+                                                                .header,
+                                                        )}`}
+                                                    >
                                                         {flexRender(
                                                             header.column
                                                                 .columnDef
                                                                 .header,
                                                             header.getContext(),
                                                         )}
-                                                        {header.column.getCanSort() && (
-                                                            <DataTableSortIcon
-                                                                direction={header.column.getIsSorted()}
-                                                            />
+                                                        {sortBy ===
+                                                        header.column.id ? (
+                                                            sortDirection ===
+                                                            'asc' ? (
+                                                                <ArrowUp className="h-3.5 w-3.5" />
+                                                            ) : (
+                                                                <ArrowDown className="h-3.5 w-3.5" />
+                                                            )
+                                                        ) : (
+                                                            <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
                                                         )}
-                                                    </div>
+                                                    </button>
+                                                ) : (
+                                                    flexRender(
+                                                        header.column.columnDef
+                                                            .header,
+                                                        header.getContext(),
+                                                    )
                                                 )}
                                             </TableHead>
                                         ))}
@@ -376,17 +461,23 @@ export function JournalListClient() {
                     </div>
 
                     {/* Pagination Footer */}
-                    <div className="flex items-center justify-between px-2 pt-4">
+                    <nav
+                        aria-label="Paginasi jurnal"
+                        className="flex items-center justify-between px-2 pt-4"
+                    >
                         <div className="flex-1 text-sm text-muted-foreground">
-                            Showing{' '}
-                            {data.length > 0 ? (page - 1) * limit + 1 : 0} to{' '}
-                            {Math.min(page * limit, total)} of {total} entries
+                            Menampilkan{' '}
+                            {data.length > 0 ? (page - 1) * limit + 1 : 0}–
+                            {Math.min(page * limit, total)} dari {total} jurnal
                         </div>
                         <div className="flex items-center space-x-6 lg:space-x-8">
                             <div className="flex items-center space-x-2">
-                                <p className="text-sm font-medium">
-                                    Rows per page
-                                </p>
+                                <label
+                                    htmlFor="journal-page-size"
+                                    className="text-sm font-medium"
+                                >
+                                    Baris per halaman
+                                </label>
                                 <Select
                                     value={limit.toString()}
                                     onValueChange={(val) => {
@@ -394,7 +485,10 @@ export function JournalListClient() {
                                         setPage(1);
                                     }}
                                 >
-                                    <SelectTrigger className="h-8 w-[70px]">
+                                    <SelectTrigger
+                                        id="journal-page-size"
+                                        className="h-8 w-[70px]"
+                                    >
                                         <SelectValue placeholder={limit} />
                                     </SelectTrigger>
                                     <SelectContent side="top">
@@ -409,8 +503,8 @@ export function JournalListClient() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                Page {page} of{' '}
+                            <div className="flex w-[130px] items-center justify-center text-sm font-medium">
+                                Halaman {page} dari{' '}
                                 {Math.max(1, Math.ceil(total / limit))}
                             </div>
                             <div className="flex items-center space-x-2">
@@ -421,7 +515,7 @@ export function JournalListClient() {
                                     disabled={page === 1}
                                 >
                                     <span className="sr-only">
-                                        Go to first page
+                                        Halaman pertama
                                     </span>
                                     <ChevronsLeft className="h-4 w-4" />
                                 </Button>
@@ -434,7 +528,7 @@ export function JournalListClient() {
                                     disabled={page === 1}
                                 >
                                     <span className="sr-only">
-                                        Go to previous page
+                                        Halaman sebelumnya
                                     </span>
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
@@ -455,7 +549,7 @@ export function JournalListClient() {
                                     }
                                 >
                                     <span className="sr-only">
-                                        Go to next page
+                                        Halaman berikutnya
                                     </span>
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
@@ -476,13 +570,13 @@ export function JournalListClient() {
                                     }
                                 >
                                     <span className="sr-only">
-                                        Go to last page
+                                        Halaman terakhir
                                     </span>
                                     <ChevronsRight className="h-4 w-4" />
                                 </Button>
                             </div>
                         </div>
-                    </div>
+                    </nav>
                 </CardContent>
             </Card>
         </div>

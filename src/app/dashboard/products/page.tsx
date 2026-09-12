@@ -1,4 +1,4 @@
-import { getProducts } from '@/actions/product';
+import { getProductCatalogPage } from '@/actions/product';
 import { canViewPrices } from '@/actions/admin/permissions';
 import { ProductTable } from '@/components/products/ProductTable';
 import { ProductGlossary } from '@/components/products/ProductGlossary';
@@ -10,50 +10,65 @@ import Link from 'next/link';
 import { ProductType } from '@prisma/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { productTableLabels } from '@/lib/labels/products';
+import {
+    PRODUCT_CATALOG_SORT_KEYS,
+    type ProductCatalogSortDirection,
+    type ProductCatalogSortKey,
+} from '@/actions/product/product-catalog-types';
+
+type ProductsSearchParams = {
+    type?: string | string[];
+    archived?: string | string[];
+    q?: string | string[];
+    page?: string | string[];
+    pageSize?: string | string[];
+    sort?: string | string[];
+    direction?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined) {
+    return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function ProductsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ type?: string; archived?: string }>;
+    searchParams: Promise<ProductsSearchParams>;
 }) {
-    // In Next.js 15+, searchParams is a Promise
     const params = await searchParams;
+    const typeParam = firstParam(params.type);
+    const validType = Object.values(ProductType).includes(typeParam as ProductType)
+        ? (typeParam as ProductType)
+        : undefined;
+    const sortParam = firstParam(params.sort);
+    const sort = PRODUCT_CATALOG_SORT_KEYS.includes(
+        sortParam as ProductCatalogSortKey,
+    )
+        ? (sortParam as ProductCatalogSortKey)
+        : undefined;
+    const directionParam = firstParam(params.direction);
+    const direction: ProductCatalogSortDirection | undefined =
+        directionParam === 'asc' || directionParam === 'desc'
+            ? directionParam
+            : undefined;
+    const showArchived = firstParam(params.archived) === '1';
 
-    // Validate type param against enum
-    const typeParam = params.type;
-    const isValidType =
-        typeParam &&
-        Object.values(ProductType).includes(typeParam as ProductType);
-
-    const showArchived = params.archived === '1';
-
-    const products = await getProducts({
-        type: isValidType ? (typeParam as ProductType) : undefined,
+    const catalogResult = await getProductCatalogPage({
+        search: firstParam(params.q),
+        type: validType,
         includeArchived: showArchived,
+        page: Number(firstParam(params.page)),
+        pageSize: Number(firstParam(params.pageSize)),
+        sort,
+        direction,
     });
+    if (!catalogResult.success || !catalogResult.data) {
+        throw new Error('Gagal memuat katalog produk');
+    }
 
     const showPricesRes = await canViewPrices();
     const showPrices = showPricesRes.success ? showPricesRes.data : false;
-
-    // Serialize Decimal fields for client component
-    const serializedProducts = JSON.parse(
-        JSON.stringify(
-            products.success && products.data ? products.data : [],
-            (key, value) => {
-                // Convert Decimal to number — duck-type to survive minified builds
-                if (
-                    value &&
-                    typeof value === 'object' &&
-                    typeof value.toNumber === 'function'
-                ) {
-                    return parseFloat(value.toString());
-                }
-                return value;
-            },
-        ),
-    );
-
-    const currentType = typeParam || 'all';
+    const currentType = validType ?? 'all';
 
     return (
         <div className="flex flex-col gap-8">
@@ -71,8 +86,8 @@ export default async function ProductsPage({
                     <Link
                         href={
                             showArchived
-                                ? `/dashboard/products${isValidType ? `?type=${typeParam}` : ''}`
-                                : `/dashboard/products?${isValidType ? `type=${typeParam}&` : ''}archived=1`
+                                ? `/dashboard/products${validType ? `?type=${validType}` : ''}`
+                                : `/dashboard/products?${validType ? `type=${validType}&` : ''}archived=1`
                         }
                     >
                         <Button variant="outline">
@@ -128,7 +143,7 @@ export default async function ProductsPage({
                 <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 overflow-hidden shadow-xl">
                     <CardContent className="p-0">
                         <ProductTable
-                            products={serializedProducts}
+                            catalogPage={catalogResult.data}
                             showPrices={showPrices}
                         />
                     </CardContent>

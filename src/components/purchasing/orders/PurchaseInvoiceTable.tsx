@@ -1,12 +1,28 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Calendar, Trash2, Loader2, ArrowRight } from 'lucide-react';
+import {
+    ArrowDown,
+    ArrowRight,
+    ArrowUp,
+    ArrowUpDown,
+    Calendar,
+    Loader2,
+    Search,
+    Trash2,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { formatRupiah } from '@/lib/utils/utils';
 import {
@@ -38,6 +54,11 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { isInvoiceOverdue } from '@/lib/finance/payment-terms';
+import type {
+    PurchasingPage,
+    PurchasingSortDirection,
+} from '@/lib/purchasing/paged-list';
+import type { PurchaseInvoiceSort } from '@/services/purchasing/invoices-service';
 
 type InvoiceWithRelations = {
     id: string;
@@ -61,18 +82,76 @@ type InvoiceWithRelations = {
 
 interface PurchaseInvoiceTableProps {
     invoices: InvoiceWithRelations[];
+    pagination?: Omit<PurchasingPage<never>, 'items'>;
     basePath?: string;
+    initialSearch?: string;
     initialStatus?: string;
     overdueMode?: boolean;
+    sort?: PurchaseInvoiceSort;
+    direction?: PurchasingSortDirection;
+}
+
+function ServerSortHeader({
+    children,
+    active,
+    direction,
+    onSort,
+}: {
+    children: string;
+    active: boolean;
+    direction: PurchasingSortDirection;
+    onSort: () => void;
+}) {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        const tableHead = buttonRef.current?.closest('th');
+        if (!tableHead) return;
+        tableHead.setAttribute('aria-label', children);
+        tableHead.setAttribute(
+            'aria-sort',
+            active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none',
+        );
+        return () => {
+            tableHead.removeAttribute('aria-label');
+            tableHead.removeAttribute('aria-sort');
+        };
+    }, [active, children, direction]);
+
+    const Icon = active
+        ? direction === 'asc'
+            ? ArrowUp
+            : ArrowDown
+        : ArrowUpDown;
+
+    return (
+        <button
+            ref={buttonRef}
+            type="button"
+            aria-label={`Urutkan berdasarkan ${children}`}
+            onClick={onSort}
+            className="flex w-full items-center gap-2 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+            <span className="min-w-0 flex-1">{children}</span>
+            <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span className="sr-only">Urutkan berdasarkan {children}</span>
+        </button>
+    );
 }
 
 export function PurchaseInvoiceTable({
     invoices = [],
+    pagination,
     basePath = '/purchasing/orders',
+    initialSearch = '',
     initialStatus,
     overdueMode,
+    sort = 'invoiceDate',
+    direction = 'desc',
 }: PurchaseInvoiceTableProps) {
-    const [searchTerm, setSearchTerm] = useState('');
+    const router = useRouter();
+    const pathname = usePathname();
+    const [searchTerm, setSearchTerm] = useState(initialSearch);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<string>(
         initialStatus || 'ALL',
@@ -81,6 +160,55 @@ export function PurchaseInvoiceTable({
     useEffect(() => {
         if (initialStatus) setStatusFilter(initialStatus);
     }, [initialStatus]);
+
+    const updateUrl = useCallback(
+        (updates: Record<string, string | undefined>) => {
+            const params = new URLSearchParams(window.location.search);
+            for (const [key, value] of Object.entries(updates)) {
+                if (value) params.set(key, value);
+                else params.delete(key);
+            }
+            const query = params.toString();
+            router.push(query ? `${pathname}?${query}` : pathname);
+        },
+        [pathname, router],
+    );
+
+    const applyFilters = () => {
+        updateUrl({
+            page: '1',
+            search: searchTerm.trim() || undefined,
+            status:
+                statusFilter === 'ALL' || overdueMode
+                    ? undefined
+                    : statusFilter,
+        });
+    };
+
+    const sortHeader = useCallback(
+        (key: PurchaseInvoiceSort, label: string) =>
+            pagination ? (
+                <ServerSortHeader
+                    active={sort === key}
+                    direction={direction}
+                    onSort={() =>
+                        updateUrl({
+                            page: '1',
+                            sort: key,
+                            direction:
+                                sort === key && direction === 'desc'
+                                    ? 'asc'
+                                    : 'desc',
+                        })
+                    }
+                >
+                    {label}
+                </ServerSortHeader>
+            ) : (
+                label
+            ),
+        [direction, pagination, sort, updateUrl],
+    );
 
     const handleDelete = async (id: string) => {
         setIsDeleting(id);
@@ -104,6 +232,8 @@ export function PurchaseInvoiceTable({
 
     const filteredInvoices = useMemo(() => {
         const safeInvoices = Array.isArray(invoices) ? invoices : [];
+        if (pagination) return safeInvoices;
+
         const now = new Date();
         return safeInvoices.filter((inv) => {
             // 1. Overdue mode: match board definition (dueDate < now + remaining > 0 + UNPAID/PARTIAL/OVERDUE)
@@ -111,10 +241,10 @@ export function PurchaseInvoiceTable({
                 const remaining =
                     (Number(inv.totalAmount) || 0) -
                     (Number(inv.paidAmount) || 0);
-                const overdueStatuses: string[] = [
-                    'UNPAID',
-                    'PARTIAL',
-                    'OVERDUE',
+                const overdueStatuses: PurchaseInvoiceStatus[] = [
+                    PurchaseInvoiceStatus.UNPAID,
+                    PurchaseInvoiceStatus.PARTIAL,
+                    PurchaseInvoiceStatus.OVERDUE,
                 ];
                 if (
                     !inv.dueDate ||
@@ -142,7 +272,7 @@ export function PurchaseInvoiceTable({
                     .includes(lowerSearch)
             );
         });
-    }, [invoices, searchTerm, statusFilter, overdueMode]);
+    }, [invoices, pagination, searchTerm, statusFilter, overdueMode]);
 
     const getStatusBadge = (inv: InvoiceWithRelations) => {
         const status = inv.status;
@@ -172,9 +302,11 @@ export function PurchaseInvoiceTable({
         () => [
             {
                 id: 'invoiceNumber',
-                header: purchasingLabels.invoiceNumber,
+                header: () =>
+                    sortHeader('invoiceDate', purchasingLabels.invoiceNumber),
                 size: 160,
                 accessorFn: (row) => row.invoiceNumber,
+                enableSorting: !pagination,
                 sortingFn: (a, b) =>
                     new Date(a.original.invoiceDate).getTime() -
                     new Date(b.original.invoiceDate).getTime(),
@@ -228,7 +360,8 @@ export function PurchaseInvoiceTable({
             },
             {
                 id: 'supplier',
-                header: purchasingLabels.supplier,
+                header: () => sortHeader('supplier', purchasingLabels.supplier),
+                enableSorting: !pagination,
                 size: 200,
                 accessorFn: (row) => row.purchaseOrder.supplier.name,
                 cell: ({ row }) => (
@@ -252,13 +385,15 @@ export function PurchaseInvoiceTable({
             },
             {
                 accessorKey: 'status',
-                header: formLabels.status,
+                header: () => sortHeader('status', formLabels.status),
+                enableSorting: !pagination,
                 size: 130,
                 cell: ({ row }) => getStatusBadge(row.original),
             },
             {
                 accessorKey: 'totalAmount',
-                header: () => <div className="text-right">Total</div>,
+                header: () => sortHeader('totalAmount', 'Total'),
+                enableSorting: !pagination,
                 size: 150,
                 cell: ({ row }) => {
                     const inv = row.original;
@@ -353,45 +488,151 @@ export function PurchaseInvoiceTable({
                 },
             },
         ],
-        [basePath, isDeleting],
+        [basePath, isDeleting, pagination, sortHeader],
     );
 
     return (
-        <DataTable
-            columns={columns}
-            data={filteredInvoices}
-            emptyMessage={purchasingLabels.emptyInvoices}
-            minWidth={780}
-        >
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                <div className="relative max-w-sm flex-1 sm:w-80">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Cari invoice, PO, atau supplier..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 w-full"
-                    />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Semua Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL">Semua Status</SelectItem>
-                        <SelectItem value="DRAFT">Draft</SelectItem>
-                        <SelectItem value="UNPAID">Belum Dibayar</SelectItem>
-                        <SelectItem value="PARTIAL">
-                            Dibayar Sebagian
-                        </SelectItem>
-                        <SelectItem value="PAID">Lunas</SelectItem>
-                        <SelectItem value="OVERDUE">
-                            Lewat Jatuh Tempo
-                        </SelectItem>
-                        <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
-                    </SelectContent>
-                </Select>
+        <div className="space-y-4">
+            <div
+                data-sticky-table="true"
+                className="max-h-[65vh] overflow-auto [&_.overflow-x-auto]:overflow-visible [&_[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background"
+            >
+                <DataTable
+                    columns={columns}
+                    data={filteredInvoices}
+                    caption="Daftar invoice pembelian"
+                    emptyMessage={purchasingLabels.emptyInvoices}
+                    minWidth={780}
+                >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <div className="relative max-w-sm flex-1 sm:w-80">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                aria-label="Cari invoice pembelian"
+                                placeholder="Cari invoice, PO, atau supplier..."
+                                value={searchTerm}
+                                onChange={(event) =>
+                                    setSearchTerm(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter') applyFilters();
+                                }}
+                                className="pl-9 w-full"
+                            />
+                        </div>
+                        {!overdueMode && (
+                            <Select
+                                value={statusFilter}
+                                onValueChange={setStatusFilter}
+                            >
+                                <SelectTrigger
+                                    aria-label="Status invoice pembelian"
+                                    className="w-[180px]"
+                                >
+                                    <SelectValue placeholder="Semua Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Semua Status</SelectItem>
+                                    <SelectItem value="DRAFT">Draft</SelectItem>
+                                    <SelectItem value="UNPAID">
+                                        Belum Dibayar
+                                    </SelectItem>
+                                    <SelectItem value="PARTIAL">
+                                        Dibayar Sebagian
+                                    </SelectItem>
+                                    <SelectItem value="PAID">Lunas</SelectItem>
+                                    <SelectItem value="OVERDUE">
+                                        Lewat Jatuh Tempo
+                                    </SelectItem>
+                                    <SelectItem value="CANCELLED">
+                                        Dibatalkan
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                        {pagination && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={applyFilters}
+                            >
+                                Terapkan filter
+                            </Button>
+                        )}
+                    </div>
+                </DataTable>
             </div>
-        </DataTable>
+
+            {pagination && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground" role="status">
+                        Menampilkan {invoices.length} dari {pagination.totalCount}{' '}
+                        invoice
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 text-sm">
+                            Baris
+                            <select
+                                aria-label="Jumlah baris per halaman"
+                                value={pagination.pageSize}
+                                onChange={(event) =>
+                                    updateUrl({
+                                        page: '1',
+                                        pageSize: event.target.value,
+                                    })
+                                }
+                                className="h-9 rounded-md border border-input bg-background px-2"
+                            >
+                                {[25, 50, 100].map((size) => (
+                                    <option key={size} value={size}>
+                                        {size}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <nav
+                            aria-label="Paginasi invoice pembelian"
+                            className="flex items-center gap-2"
+                        >
+                            <span className="text-sm text-muted-foreground">
+                                Halaman {pagination.page} dari{' '}
+                                {pagination.totalPages || 1}
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                aria-label="Halaman sebelumnya"
+                                disabled={pagination.page <= 1}
+                                onClick={() =>
+                                    updateUrl({
+                                        page: String(pagination.page - 1),
+                                    })
+                                }
+                            >
+                                Sebelumnya
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                aria-label="Halaman berikutnya"
+                                disabled={
+                                    pagination.totalPages === 0 ||
+                                    pagination.page >= pagination.totalPages
+                                }
+                                onClick={() =>
+                                    updateUrl({
+                                        page: String(pagination.page + 1),
+                                    })
+                                }
+                            >
+                                Berikutnya
+                            </Button>
+                        </nav>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

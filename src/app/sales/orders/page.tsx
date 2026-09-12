@@ -24,7 +24,11 @@ import { ContextualHelp } from '@/components/support/contextual-help';
 import { getCustomers } from '@/actions/sales/customer';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
-import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import { parseISO } from 'date-fns';
+import {
+    getWibMonthBounds,
+    toBusinessDateString,
+} from '@/lib/utils/timezone';
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 
@@ -93,8 +97,12 @@ export default async function SalesPage({
 }) {
     const params = await searchParams;
     const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
+    const businessToday = toBusinessDateString(now);
+    const [businessYear, businessMonth] = businessToday.split('-').map(Number);
+    const { start: defaultStart, end: defaultEnd } = getWibMonthBounds(
+        businessYear,
+        businessMonth,
+    );
 
     const demandParam = params?.demand;
     const isArchive =
@@ -248,7 +256,10 @@ export default async function SalesPage({
                             </Link>
                         </Button>
                     </div>
-                    <UrlTransactionDateFilter defaultPreset="all" />
+                    <UrlTransactionDateFilter
+                        defaultPreset="all"
+                        presetTimeZone="Asia/Jakarta"
+                    />
                 </div>
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -285,6 +296,7 @@ export default async function SalesPage({
                             }
                             basePath="/sales/orders"
                             emptyMessage={emptyMessage}
+                            businessToday={businessToday}
                         />
                     </CardContent>
                 </Card>
@@ -325,6 +337,7 @@ export default async function SalesPage({
                     />
                     <UrlTransactionDateFilter
                         defaultPreset={params.customer ? 'all' : 'this_month'}
+                        presetTimeZone="Asia/Jakarta"
                     />
                     <Button asChild>
                         <Link href="/sales/orders/create">
@@ -516,6 +529,7 @@ export default async function SalesPage({
                         }
                         basePath="/sales/orders"
                         emptyMessage={emptyMessage}
+                        businessToday={businessToday}
                     />
                 </CardContent>
             </Card>

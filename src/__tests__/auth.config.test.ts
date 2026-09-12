@@ -235,6 +235,86 @@ describe('auth.config', () => {
             expect(result).toBe(true);
         });
 
+        it.each(['polyflow.uk', 'www.polyflow.uk'])(
+            'should render workspace discovery at apex /login on %s',
+            async (host) => {
+                const { authConfig } = await import('@/auth.config');
+                const authorizedCallback = authConfig.callbacks!.authorized!;
+
+                const result = await authorizedCallback({
+                    auth: null,
+                    request: {
+                        nextUrl: new URL(`https://${host}/login`),
+                        headers: new Map([['host', host]]),
+                    },
+                } as any);
+
+                expect(result).toBe(true);
+            },
+        );
+
+        it('preserves the superadmin redirect from apex /login', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const result = await authorizedCallback({
+                auth: { user: { isSuperAdmin: true } },
+                request: {
+                    nextUrl: new URL('https://polyflow.uk/login'),
+                    headers: new Map([['host', 'polyflow.uk']]),
+                },
+            } as any);
+
+            expect(result).toBeInstanceOf(Response);
+            expect((result as Response).headers.get('location')).toBe(
+                'https://admin.polyflow.uk/super-admin',
+            );
+        });
+
+        it.each(['tenant-a.polyflow.uk', 'admin.polyflow.uk'])(
+            'preserves unauthenticated login on %s',
+            async (host) => {
+                const { authConfig } = await import('@/auth.config');
+                const { getWorkspaceFromPath } = await import(
+                    '@/lib/auth/access-policy'
+                );
+                const authorizedCallback = authConfig.callbacks!.authorized!;
+                vi.mocked(getWorkspaceFromPath).mockReturnValue(null);
+
+                const result = await authorizedCallback({
+                    auth: null,
+                    request: {
+                        nextUrl: new URL(`https://${host}/login`),
+                        headers: new Map([['host', host]]),
+                    },
+                } as any);
+
+                expect(result).toBe(true);
+            },
+        );
+
+        it('preserves authenticated tenant login redirect to its dashboard', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const { getWorkspaceFromPath } = await import(
+                '@/lib/auth/access-policy'
+            );
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+            vi.mocked(getWorkspaceFromPath).mockReturnValue(null);
+
+            const result = await authorizedCallback({
+                auth: { user: { role: 'ADMIN' } },
+                request: {
+                    nextUrl: new URL('https://tenant-a.polyflow.uk/login'),
+                    headers: new Map([['host', 'tenant-a.polyflow.uk']]),
+                },
+            } as any);
+
+            expect(result).toBeInstanceOf(Response);
+            expect((result as Response).headers.get('location')).toBe(
+                'https://tenant-a.polyflow.uk/dashboard',
+            );
+        });
+
         it('should redirect to login when accessing tenant workspace without auth', async () => {
             // Arrange
             const { authConfig } = await import('@/auth.config');

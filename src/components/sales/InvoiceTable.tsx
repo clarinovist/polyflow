@@ -2,8 +2,23 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { type ColumnDef } from '@tanstack/react-table';
+import {
+    flexRender,
+    getCoreRowModel,
+    type ColumnDef,
+    useReactTable,
+} from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import {
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatRupiah } from '@/lib/utils/utils';
@@ -13,7 +28,10 @@ import {
     Trash2,
     Loader2,
     Receipt,
+    ChevronLeft,
     ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
     Search,
 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -67,12 +85,29 @@ interface InvoiceData {
     } | null;
 }
 
+type FinanceInvoiceSortKey =
+    | 'invoiceDate'
+    | 'entity'
+    | 'status'
+    | 'totalAmount';
+type FinanceInvoiceSortDirection = 'asc' | 'desc';
+
 interface InvoiceTableProps {
     invoices: InvoiceData[];
     basePath?: string;
     initialStatus?: string;
     overdueMode?: boolean;
     canDelete?: boolean;
+    pagination?: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+    };
+    serverSorting?: {
+        sort: FinanceInvoiceSortKey;
+        direction: FinanceInvoiceSortDirection;
+    };
 }
 
 export function InvoiceTable({
@@ -81,6 +116,8 @@ export function InvoiceTable({
     initialStatus,
     overdueMode,
     canDelete = true,
+    pagination,
+    serverSorting,
 }: InvoiceTableProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -88,7 +125,9 @@ export function InvoiceTable({
     const urlOverdue = searchParams.get('overdue') === 'true';
     const isOverdueMode = overdueMode || urlOverdue;
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(
+        pagination ? searchParams.get('search') || '' : '',
+    );
     const [statusFilter, setStatusFilter] = useState<string>(
         initialStatus || urlStatus || 'ALL',
     );
@@ -98,8 +137,44 @@ export function InvoiceTable({
         if (s) setStatusFilter(s);
     }, [initialStatus, urlStatus]);
 
+    const updatePagedQuery = (updates: Record<string, string | null>) => {
+        const next = new URLSearchParams(searchParams.toString());
+        Object.entries(updates).forEach(([key, value]) => {
+            if (value) next.set(key, value);
+            else next.delete(key);
+        });
+        router.push(`${basePath}?${next.toString()}`);
+    };
+
+    const handleServerSort = (sort: FinanceInvoiceSortKey) => {
+        if (!serverSorting) return;
+        const direction =
+            serverSorting.sort === sort && serverSorting.direction === 'asc'
+                ? 'desc'
+                : 'asc';
+        updatePagedQuery({ sort, direction, page: '1' });
+    };
+
+    const serverSortDirection = (sort: FinanceInvoiceSortKey) =>
+        serverSorting?.sort === sort ? serverSorting.direction : false;
+
+    useEffect(() => {
+        if (!pagination || searchTerm === (searchParams.get('search') || '')) {
+            return;
+        }
+        const timeout = window.setTimeout(() => {
+            const next = new URLSearchParams(searchParams.toString());
+            if (searchTerm.trim()) next.set('search', searchTerm.trim());
+            else next.delete('search');
+            next.set('page', '1');
+            router.replace(`${basePath}?${next.toString()}`);
+        }, 500);
+        return () => window.clearTimeout(timeout);
+    }, [basePath, pagination, router, searchParams, searchTerm]);
+
     const filteredInvoices = useMemo(() => {
         const now = new Date();
+        if (pagination) return invoices;
         return invoices.filter((inv) => {
             // 1. Overdue mode: match board definition (dueDate < now + remaining > 0 + UNPAID/PARTIAL/OVERDUE)
             if (isOverdueMode) {
@@ -156,7 +231,7 @@ export function InvoiceTable({
                 orderRef.includes(lowerSearch)
             );
         });
-    }, [invoices, searchTerm, statusFilter, isOverdueMode]);
+    }, [invoices, searchTerm, statusFilter, isOverdueMode, pagination]);
 
     const handleDelete = async (id: string, type: 'AR' | 'AP') => {
         setIsDeleting(id);
@@ -206,6 +281,7 @@ export function InvoiceTable({
                 sortingFn: (a, b) =>
                     new Date(a.original.invoiceDate).getTime() -
                     new Date(b.original.invoiceDate).getTime(),
+                enableSorting: !serverSorting,
                 cell: ({ row }) => {
                     const inv = row.original;
                     const isOverdue = isInvoiceOverdue(inv.dueDate, inv.status);
@@ -269,6 +345,7 @@ export function InvoiceTable({
                     row.salesOrder?.customer?.name ||
                     row.purchaseOrder?.supplier?.name ||
                     '',
+                enableSorting: !serverSorting,
                 cell: ({ row }) => {
                     const name =
                         row.original.salesOrder?.customer?.name ||
@@ -288,6 +365,7 @@ export function InvoiceTable({
                 accessorKey: 'status',
                 header: formLabels.status,
                 size: 130,
+                enableSorting: !serverSorting,
                 cell: ({ row }) => getStatusBadge(row.original.status),
             },
             {
@@ -296,6 +374,7 @@ export function InvoiceTable({
                     <div className="text-right">{formLabels.total}</div>
                 ),
                 size: 150,
+                enableSorting: !serverSorting,
                 cell: ({ row }) => {
                     const inv = row.original;
                     const remaining =
@@ -403,8 +482,15 @@ export function InvoiceTable({
                 },
             },
         ],
-        [basePath, canDelete, isDeleting],
+        [basePath, canDelete, isDeleting, serverSorting],
     );
+
+    const serverTable = useReactTable({
+        data: filteredInvoices,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+        manualSorting: true,
+    });
 
     const getStatusBadgeStyle = (status: InvoiceStatus) => {
         const styles: Record<string, string> = {
@@ -519,42 +605,349 @@ export function InvoiceTable({
     );
 
     return (
-        <DataTable
-            columns={columns}
-            data={filteredInvoices}
-            emptyMessage={salesLabels.emptyInvoices}
-            minWidth={780}
-            renderMobileView={renderMobileView}
-        >
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                <div className="relative max-w-sm flex-1 sm:w-80">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Cari invoice, order, atau entitas..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 w-full"
-                    />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Semua Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL">Semua Status</SelectItem>
-                        <SelectItem value="DRAFT">Draft</SelectItem>
-                        <SelectItem value="UNPAID">Belum Dibayar</SelectItem>
-                        <SelectItem value="PARTIAL">
-                            Dibayar Sebagian
-                        </SelectItem>
-                        <SelectItem value="PAID">Lunas</SelectItem>
-                        <SelectItem value="OVERDUE">
-                            Lewat Jatuh Tempo
-                        </SelectItem>
-                        <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </DataTable>
+        <div className="[&_[data-slot=table-container]]:max-h-[70vh] [&_[data-slot=table-container]]:overflow-auto [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background">
+            {serverSorting ? (
+                <>
+                    <div className="mb-4 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <div className="relative max-w-sm flex-1 sm:w-80">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                aria-label="Cari invoice sales"
+                                placeholder="Cari invoice, order, atau entitas..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 w-full"
+                            />
+                        </div>
+                        <Select
+                            value={statusFilter}
+                            onValueChange={(value) => {
+                                setStatusFilter(value);
+                                updatePagedQuery({
+                                    status: value === 'ALL' ? null : value,
+                                    page: '1',
+                                });
+                            }}
+                        >
+                            <SelectTrigger
+                                aria-label="Filter status invoice"
+                                className="w-[180px]"
+                            >
+                                <SelectValue placeholder="Semua Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">
+                                    Semua Status
+                                </SelectItem>
+                                <SelectItem value="DRAFT">Draft</SelectItem>
+                                <SelectItem value="UNPAID">
+                                    Belum Dibayar
+                                </SelectItem>
+                                <SelectItem value="PARTIAL">
+                                    Dibayar Sebagian
+                                </SelectItem>
+                                <SelectItem value="PAID">Lunas</SelectItem>
+                                <SelectItem value="OVERDUE">
+                                    Lewat Jatuh Tempo
+                                </SelectItem>
+                                <SelectItem value="CANCELLED">
+                                    Dibatalkan
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="rounded-md border hidden md:block">
+                        <ResponsiveTable minWidth={780}>
+                            <Table>
+                                <TableCaption className="sr-only">
+                                    Daftar invoice sales
+                                </TableCaption>
+                                <TableHeader>
+                                    {serverTable
+                                        .getHeaderGroups()
+                                        .map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map(
+                                                    (header) => {
+                                                        const sortKey =
+                                                            header.id ===
+                                                            'invoiceNumber'
+                                                                ? 'invoiceDate'
+                                                                : header.id ===
+                                                                        'entity' ||
+                                                                    header.id ===
+                                                                        'status' ||
+                                                                    header.id ===
+                                                                        'totalAmount'
+                                                                  ? header.id
+                                                                  : null;
+                                                        return (
+                                                            <SortableTableHead
+                                                                key={header.id}
+                                                                sortable={
+                                                                    sortKey !==
+                                                                    null
+                                                                }
+                                                                direction={
+                                                                    sortKey
+                                                                        ? serverSortDirection(
+                                                                              sortKey,
+                                                                          )
+                                                                        : false
+                                                                }
+                                                                onSort={
+                                                                    sortKey
+                                                                        ? () =>
+                                                                              handleServerSort(
+                                                                                  sortKey,
+                                                                              )
+                                                                        : undefined
+                                                                }
+                                                                style={
+                                                                    header
+                                                                        .column
+                                                                        .columnDef
+                                                                        .size
+                                                                        ? {
+                                                                              width: header
+                                                                                  .column
+                                                                                  .columnDef
+                                                                                  .size,
+                                                                          }
+                                                                        : undefined
+                                                                }
+                                                            >
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                          header
+                                                                              .column
+                                                                              .columnDef
+                                                                              .header,
+                                                                          header.getContext(),
+                                                                      )}
+                                                            </SortableTableHead>
+                                                        );
+                                                    },
+                                                )}
+                                            </TableRow>
+                                        ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {serverTable.getRowModel().rows.length ? (
+                                        serverTable
+                                            .getRowModel()
+                                            .rows.map((row) => (
+                                                <TableRow key={row.id}>
+                                                    {row
+                                                        .getVisibleCells()
+                                                        .map((cell) => (
+                                                            <TableCell
+                                                                key={cell.id}
+                                                            >
+                                                                {flexRender(
+                                                                    cell.column
+                                                                        .columnDef
+                                                                        .cell,
+                                                                    cell.getContext(),
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                </TableRow>
+                                            ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                                className="h-24 text-center"
+                                            >
+                                                {salesLabels.emptyInvoices}
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </ResponsiveTable>
+                    </div>
+                    <div className="md:hidden space-y-3">
+                        {renderMobileView(filteredInvoices)}
+                    </div>
+                </>
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={filteredInvoices}
+                    emptyMessage={salesLabels.emptyInvoices}
+                    minWidth={780}
+                    renderMobileView={renderMobileView}
+                    caption="Daftar invoice sales"
+                >
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <div className="relative max-w-sm flex-1 sm:w-80">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                aria-label="Cari invoice sales"
+                                placeholder="Cari invoice, order, atau entitas..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 w-full"
+                            />
+                        </div>
+                        <Select
+                            value={statusFilter}
+                            onValueChange={(value) => {
+                                setStatusFilter(value);
+                                if (pagination) {
+                                    updatePagedQuery({
+                                        status: value === 'ALL' ? null : value,
+                                        page: '1',
+                                    });
+                                }
+                            }}
+                        >
+                            <SelectTrigger
+                                aria-label="Filter status invoice"
+                                className="w-[180px]"
+                            >
+                                <SelectValue placeholder="Semua Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">
+                                    Semua Status
+                                </SelectItem>
+                                <SelectItem value="DRAFT">Draft</SelectItem>
+                                <SelectItem value="UNPAID">
+                                    Belum Dibayar
+                                </SelectItem>
+                                <SelectItem value="PARTIAL">
+                                    Dibayar Sebagian
+                                </SelectItem>
+                                <SelectItem value="PAID">Lunas</SelectItem>
+                                <SelectItem value="OVERDUE">
+                                    Lewat Jatuh Tempo
+                                </SelectItem>
+                                <SelectItem value="CANCELLED">
+                                    Dibatalkan
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </DataTable>
+            )}
+            {pagination && (
+                <nav
+                    aria-label="Paginasi invoice sales"
+                    className="mt-4 flex flex-wrap items-center justify-between gap-4"
+                >
+                    <p className="text-sm text-muted-foreground">
+                        Menampilkan{' '}
+                        {pagination.total > 0
+                            ? (pagination.page - 1) * pagination.pageSize + 1
+                            : 0}
+                        –
+                        {Math.min(
+                            pagination.page * pagination.pageSize,
+                            pagination.total,
+                        )}{' '}
+                        dari {pagination.total} invoice
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <label
+                            htmlFor="invoice-page-size"
+                            className="text-sm font-medium"
+                        >
+                            Baris per halaman
+                        </label>
+                        <Select
+                            value={pagination.pageSize.toString()}
+                            onValueChange={(value) =>
+                                updatePagedQuery({ pageSize: value, page: '1' })
+                            }
+                        >
+                            <SelectTrigger
+                                id="invoice-page-size"
+                                className="h-8 w-[72px]"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 20, 50, 100].map((size) => (
+                                    <SelectItem
+                                        key={size}
+                                        value={size.toString()}
+                                    >
+                                        {size}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <span className="px-2 text-sm font-medium">
+                            Halaman {pagination.page} dari{' '}
+                            {Math.max(1, pagination.totalPages)}
+                        </span>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label="Halaman pertama"
+                            disabled={pagination.page <= 1}
+                            onClick={() => updatePagedQuery({ page: '1' })}
+                        >
+                            <ChevronsLeft />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label="Halaman sebelumnya"
+                            disabled={pagination.page <= 1}
+                            onClick={() =>
+                                updatePagedQuery({
+                                    page: String(pagination.page - 1),
+                                })
+                            }
+                        >
+                            <ChevronLeft />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label="Halaman berikutnya"
+                            disabled={
+                                pagination.totalPages === 0 ||
+                                pagination.page >= pagination.totalPages
+                            }
+                            onClick={() =>
+                                updatePagedQuery({
+                                    page: String(pagination.page + 1),
+                                })
+                            }
+                        >
+                            <ChevronRight />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label="Halaman terakhir"
+                            disabled={
+                                pagination.totalPages === 0 ||
+                                pagination.page >= pagination.totalPages
+                            }
+                            onClick={() =>
+                                updatePagedQuery({
+                                    page: String(
+                                        Math.max(1, pagination.totalPages),
+                                    ),
+                                })
+                            }
+                        >
+                            <ChevronsRight />
+                        </Button>
+                    </div>
+                </nav>
+            )}
+        </div>
     );
 }

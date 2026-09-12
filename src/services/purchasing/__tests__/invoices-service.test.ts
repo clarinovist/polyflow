@@ -10,7 +10,9 @@ vi.mock('@/lib/core/prisma', () => ({
             findUnique: vi.fn(),
             findFirst: vi.fn(),
             findMany: vi.fn(),
+            count: vi.fn(),
             update: vi.fn(),
+            fields: { totalAmount: 'totalAmount-field-ref' },
         },
         payment: {
             create: vi.fn(),
@@ -71,7 +73,7 @@ import {
     resolvePurchaseBillJournalAccounts,
     syncPurchaseBillAndJournal,
 } from '../finance/purchase-bill-journal-sync';
-import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, getOutstandingPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment, calculatePoInvoiceTotalFromReceipts, updatePurchaseInvoiceDueDate, checkOverduePurchasingInvoices } from '../invoices-service';
+import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, getPurchaseInvoicesPage, getOutstandingPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment, calculatePoInvoiceTotalFromReceipts, updatePurchaseInvoiceDueDate, checkOverduePurchasingInvoices } from '../invoices-service';
 import { Prisma, PurchaseInvoiceStatus } from '@prisma/client';
 
 const accounts = {
@@ -388,6 +390,154 @@ describe('getPurchaseInvoices', () => {
                     },
                 },
             }),
+        );
+    });
+});
+
+describe('getPurchaseInvoicesPage', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('applies search, status, overdue, and date filters identically before pagination', async () => {
+        const startDate = new Date('2026-09-01T00:00:00.000Z');
+        const endDate = new Date('2026-09-12T23:59:59.999Z');
+        const now = new Date('2026-09-12T12:00:00.000Z');
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([
+            { id: 'inv-51' },
+        ] as never);
+        vi.mocked(prisma.purchaseInvoice.count).mockResolvedValue(75);
+
+        const result = await getPurchaseInvoicesPage({
+            search: '  BILL-51  ',
+            status: PurchaseInvoiceStatus.UNPAID,
+            overdue: true,
+            startDate,
+            endDate,
+            page: 2,
+            pageSize: 50,
+            now,
+            sort: 'totalAmount',
+            direction: 'asc',
+        });
+
+        const expectedWhere = {
+            status: {
+                in: [
+                    PurchaseInvoiceStatus.UNPAID,
+                    PurchaseInvoiceStatus.PARTIAL,
+                    PurchaseInvoiceStatus.OVERDUE,
+                ],
+            },
+            invoiceDate: { gte: startDate, lte: endDate },
+            dueDate: { lt: new Date('2026-09-11T17:00:00.000Z') },
+            paidAmount: { lt: prisma.purchaseInvoice.fields.totalAmount },
+            OR: [
+                {
+                    invoiceNumber: {
+                        contains: 'BILL-51',
+                        mode: 'insensitive',
+                    },
+                },
+                {
+                    purchaseOrder: {
+                        is: {
+                            orderNumber: {
+                                contains: 'BILL-51',
+                                mode: 'insensitive',
+                            },
+                        },
+                    },
+                },
+                {
+                    purchaseOrder: {
+                        is: {
+                            supplier: {
+                                is: {
+                                    name: {
+                                        contains: 'BILL-51',
+                                        mode: 'insensitive',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            ],
+        };
+        expect(prisma.purchaseInvoice.count).toHaveBeenCalledWith({
+            where: expectedWhere,
+        });
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expectedWhere,
+                orderBy: [{ totalAmount: 'asc' }, { id: 'asc' }],
+                skip: 50,
+                take: 50,
+            }),
+        );
+        expect(result).toEqual({
+            items: [{ id: 'inv-51' }],
+            totalCount: 75,
+            page: 2,
+            pageSize: 50,
+            totalPages: 2,
+        });
+    });
+
+    it('uses the start of the current WIB business day as overdue cutoff', async () => {
+        vi.mocked(prisma.purchaseInvoice.count).mockResolvedValue(0);
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
+
+        await getPurchaseInvoicesPage({
+            overdue: true,
+            now: new Date('2026-09-12T00:30:00.000Z'),
+        });
+
+        expect(prisma.purchaseInvoice.count).toHaveBeenCalledWith({
+            where: expect.objectContaining({
+                dueDate: { lt: new Date('2026-09-11T17:00:00.000Z') },
+            }),
+        });
+    });
+
+    it('clamps an out-of-range page and fetches the last valid page', async () => {
+        vi.mocked(prisma.purchaseInvoice.count).mockResolvedValue(51);
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([
+            { id: 'inv-51' },
+        ] as never);
+
+        const result = await getPurchaseInvoicesPage({ page: 999, pageSize: 50 });
+
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ skip: 50, take: 50 }),
+        );
+        expect(result).toMatchObject({ page: 2, totalPages: 2 });
+    });
+
+    it('clamps zero results to page one', async () => {
+        vi.mocked(prisma.purchaseInvoice.count).mockResolvedValue(0);
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
+
+        const result = await getPurchaseInvoicesPage({ page: 999 });
+
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ skip: 0 }),
+        );
+        expect(result).toMatchObject({ page: 1, totalPages: 0 });
+    });
+
+    it('defaults to 50 rows and caps page size at 100', async () => {
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.purchaseInvoice.count).mockResolvedValue(0);
+
+        const defaultPage = await getPurchaseInvoicesPage();
+        const cappedPage = await getPurchaseInvoicesPage({ pageSize: 500 });
+
+        expect(defaultPage).toMatchObject({ page: 1, pageSize: 50 });
+        expect(cappedPage).toMatchObject({ page: 1, pageSize: 100 });
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenLastCalledWith(
+            expect.objectContaining({ skip: 0, take: 100 }),
         );
     });
 });
@@ -1080,8 +1230,18 @@ describe('calculatePoInvoiceTotalFromReceipts', () => {
             ]);
             vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u-admin' }] as any);
 
-            await checkOverduePurchasingInvoices();
-            expect(prisma.purchaseInvoice.findMany).toHaveBeenCalled();
+            await checkOverduePurchasingInvoices(
+                new Date('2026-09-12T00:30:00.000Z'),
+            );
+            expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        dueDate: {
+                            lt: new Date('2026-09-11T17:00:00.000Z'),
+                        },
+                    }),
+                }),
+            );
         });
     });
 });

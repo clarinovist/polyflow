@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import type { ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { formatRupiah } from '@/lib/utils/utils';
+import { BUSINESS_TIMEZONE } from '@/lib/utils/timezone';
 import { resolvePathToModule } from '@/lib/modules/module-registry';
 
 export type DashboardRole =
@@ -808,11 +809,26 @@ function encouragementPeriod(
     return 'night';
 }
 
-/** Day-of-year 0–365 (non-leap aware enough for rotation). */
-function dayOfYear(date: Date): number {
-    const start = new Date(date.getFullYear(), 0, 0);
-    const diff = date.getTime() - start.getTime();
-    return Math.floor(diff / 86_400_000);
+/** Day-of-year 1–366 for deterministic message rotation. */
+function dayOfYear(year: number, month: number, day: number): number {
+    const start = Date.UTC(year, 0, 0);
+    const current = Date.UTC(year, month - 1, day);
+    return Math.floor((current - start) / 86_400_000);
+}
+
+function encouragementForCalendarDate(
+    year: number,
+    month: number,
+    day: number,
+    hour: number,
+): string {
+    const period = encouragementPeriod(hour);
+    const pool = ENCOURAGEMENT_BY_PERIOD[period];
+    const seed =
+        year * 1000 +
+        dayOfYear(year, month, day) * 4 +
+        ['morning', 'afternoon', 'evening', 'night'].indexOf(period);
+    return pool[seed % pool.length]!;
 }
 
 /**
@@ -820,12 +836,53 @@ function dayOfYear(date: Date): number {
  * Stabil dalam 1 hari di slot waktu yang sama; ganti otomatis keesokan harinya.
  */
 export function encouragementForDate(date: Date = new Date()): string {
-    const period = encouragementPeriod(date.getHours());
-    const pool = ENCOURAGEMENT_BY_PERIOD[period];
-    // Mix year + day + period salt so adjacent days & periods don't collide awkwardly
-    const seed =
-        date.getFullYear() * 1000 +
-        dayOfYear(date) * 4 +
-        ['morning', 'afternoon', 'evening', 'night'].indexOf(period);
-    return pool[seed % pool.length]!;
+    return encouragementForCalendarDate(
+        date.getFullYear(),
+        date.getMonth() + 1,
+        date.getDate(),
+        date.getHours(),
+    );
+}
+
+export interface DashboardPresentation {
+    currentDate: string;
+    greeting: string;
+    encouragement: string;
+}
+
+/** Build one server-owned dashboard snapshot in the business timezone. */
+export function getDashboardPresentation(
+    date: Date = new Date(),
+): DashboardPresentation {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: BUSINESS_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(date);
+    const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((part) => part.type === type)?.value);
+    const year = getPart('year');
+    const month = getPart('month');
+    const day = getPart('day');
+    const hour = getPart('hour');
+
+    return {
+        currentDate: new Intl.DateTimeFormat('id-ID', {
+            timeZone: BUSINESS_TIMEZONE,
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        }).format(date),
+        greeting: greetingForHour(hour),
+        encouragement: encouragementForCalendarDate(
+            year,
+            month,
+            day,
+            hour,
+        ),
+    };
 }

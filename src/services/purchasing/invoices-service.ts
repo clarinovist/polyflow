@@ -12,6 +12,15 @@ import { logger } from '@/lib/config/logger';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
 import {
+    clampPurchasingPage,
+    createPurchasingPage,
+    getWibBusinessDayStart,
+    normalizePurchasingPagination,
+    type PurchasingPage,
+    type PurchasingPaginationInput,
+    type PurchasingSortDirection,
+} from '@/lib/purchasing/paged-list';
+import {
     resolvePurchaseBillJournalAccounts,
     syncPurchaseBillAndJournal,
 } from './finance/purchase-bill-journal-sync';
@@ -375,12 +384,131 @@ export async function getPurchaseInvoiceById(id: string) {
     });
 }
 
+const purchaseInvoiceListInclude = {
+    purchaseOrder: {
+        select: {
+            id: true,
+            orderNumber: true,
+            supplier: { select: { name: true } },
+        },
+    },
+} satisfies Prisma.PurchaseInvoiceInclude;
+
+type PurchaseInvoiceListItem = Prisma.PurchaseInvoiceGetPayload<{
+    include: typeof purchaseInvoiceListInclude;
+}>;
+
+export const PURCHASE_INVOICE_SORTS = [
+    'invoiceDate',
+    'supplier',
+    'status',
+    'totalAmount',
+    'dueDate',
+] as const;
+export type PurchaseInvoiceSort = (typeof PURCHASE_INVOICE_SORTS)[number];
+
+export interface PurchaseInvoicePageInput extends PurchasingPaginationInput {
+    search?: string;
+    status?: PurchaseInvoiceStatus | PurchaseInvoiceStatus[];
+    overdue?: boolean;
+    startDate?: Date;
+    endDate?: Date;
+    now?: Date;
+    sort?: PurchaseInvoiceSort;
+    direction?: PurchasingSortDirection;
+}
+
+function getPurchaseInvoiceOrderBy(
+    sort: PurchaseInvoiceSort = 'invoiceDate',
+    direction: PurchasingSortDirection = 'desc',
+): Prisma.PurchaseInvoiceOrderByWithRelationInput[] {
+    const primary: Prisma.PurchaseInvoiceOrderByWithRelationInput =
+        sort === 'supplier'
+            ? { purchaseOrder: { supplier: { name: direction } } }
+            : { [sort]: direction };
+
+    return [primary, { id: direction }];
+}
+
+function buildPurchaseInvoiceWhere(
+    filters: Omit<PurchaseInvoicePageInput, 'page' | 'pageSize'> = {},
+): Prisma.PurchaseInvoiceWhereInput {
+    const search = filters.search?.trim();
+    const status = filters.overdue
+        ? {
+              in: [
+                  PurchaseInvoiceStatus.UNPAID,
+                  PurchaseInvoiceStatus.PARTIAL,
+                  PurchaseInvoiceStatus.OVERDUE,
+              ],
+          }
+        : filters.status
+          ? Array.isArray(filters.status)
+              ? { in: filters.status }
+              : filters.status
+          : undefined;
+
+    return {
+        ...(status ? { status } : {}),
+        ...(filters.startDate || filters.endDate
+            ? {
+                  invoiceDate: {
+                      ...(filters.startDate ? { gte: filters.startDate } : {}),
+                      ...(filters.endDate ? { lte: filters.endDate } : {}),
+                  },
+              }
+            : {}),
+        ...(filters.overdue
+            ? {
+                  dueDate: { lt: getWibBusinessDayStart(filters.now) },
+                  paidAmount: { lt: prisma.purchaseInvoice.fields.totalAmount },
+              }
+            : {}),
+        ...(search
+            ? {
+                  OR: [
+                      {
+                          invoiceNumber: {
+                              contains: search,
+                              mode: Prisma.QueryMode.insensitive,
+                          },
+                      },
+                      {
+                          purchaseOrder: {
+                              is: {
+                                  orderNumber: {
+                                      contains: search,
+                                      mode: Prisma.QueryMode.insensitive,
+                                  },
+                              },
+                          },
+                      },
+                      {
+                          purchaseOrder: {
+                              is: {
+                                  supplier: {
+                                      is: {
+                                          name: {
+                                              contains: search,
+                                              mode: Prisma.QueryMode.insensitive,
+                                          },
+                                      },
+                                  },
+                              },
+                          },
+                      },
+                  ],
+              }
+            : {}),
+    };
+}
+
 export async function getPurchaseInvoices(dateRange?: {
     startDate?: Date;
     endDate?: Date;
 }) {
     const where: Prisma.PurchaseInvoiceWhereInput = {};
-    if (dateRange?.startDate && dateRange?.endDate) {
+    if (dateRange?.startDate && dateRange.endDate) {
         where.invoiceDate = {
             gte: dateRange.startDate,
             lte: dateRange.endDate,
@@ -389,17 +517,36 @@ export async function getPurchaseInvoices(dateRange?: {
 
     return await prisma.purchaseInvoice.findMany({
         where,
-        include: {
-            purchaseOrder: {
-                select: {
-                    id: true,
-                    orderNumber: true,
-                    supplier: { select: { name: true } },
-                },
-            },
-        },
+        include: purchaseInvoiceListInclude,
         orderBy: { createdAt: 'desc' },
     });
+}
+
+export async function getPurchaseInvoicesPage(
+    filters: PurchaseInvoicePageInput = {},
+): Promise<PurchasingPage<PurchaseInvoiceListItem>> {
+    const pagination = normalizePurchasingPagination(filters);
+    const where = buildPurchaseInvoiceWhere(filters);
+    const totalCount = await prisma.purchaseInvoice.count({ where });
+    const page = clampPurchasingPage(
+        pagination.page,
+        totalCount,
+        pagination.pageSize,
+    );
+    const items = await prisma.purchaseInvoice.findMany({
+        where,
+        include: purchaseInvoiceListInclude,
+        orderBy: getPurchaseInvoiceOrderBy(filters.sort, filters.direction),
+        skip: (page - 1) * pagination.pageSize,
+        take: pagination.pageSize,
+    });
+
+    return createPurchasingPage(
+        items,
+        totalCount,
+        page,
+        pagination.pageSize,
+    );
 }
 
 /**
@@ -686,12 +833,12 @@ export async function updatePurchaseInvoiceDueDate(
     return updated;
 }
 
-export async function checkOverduePurchasingInvoices() {
+export async function checkOverduePurchasingInvoices(now: Date = new Date()) {
     const { NotificationService } =
         await import('@/services/core/notification-service');
     const overdueInvoices = await prisma.purchaseInvoice.findMany({
         where: {
-            dueDate: { lt: new Date() },
+            dueDate: { lt: getWibBusinessDayStart(now) },
             status: {
                 in: [
                     PurchaseInvoiceStatus.UNPAID,

@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 
-import { useState, useMemo } from 'react';
-import { ProductType, Unit, Prisma } from '@prisma/client';
+import { useState, type FormEvent } from 'react';
+import { ProductType } from '@prisma/client';
 import { formatUnitLabel } from '@/lib/utils/unit-label';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -21,9 +22,6 @@ import {
     Info,
     Package,
     Search,
-    ArrowUp,
-    ArrowDown,
-    ArrowUpDown,
     Archive,
     ArchiveRestore,
 } from 'lucide-react';
@@ -32,6 +30,13 @@ import { deleteVariant, archiveVariant, unarchiveVariant } from '@/actions/produ
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import type {
+    ProductCatalogPage,
+    ProductCatalogSortKey,
+    ProductCatalogVariant,
+} from '@/actions/product/product-catalog-types';
 import {
     Dialog,
     DialogContent,
@@ -51,59 +56,11 @@ import {
     productTableLabels,
 } from '@/lib/labels/products';
 
-type ProductVariant = {
-    id: string;
-    name: string;
-    skuCode: string;
-    primaryUnit: Unit;
-    salesUnit: Unit | null;
-    conversionFactor: Prisma.Decimal;
-    price: Prisma.Decimal | null;
-    standardCost: Prisma.Decimal | null;
-    buyPrice: Prisma.Decimal | null;
-    minStockAlert: Prisma.Decimal | null;
-    currentCost?: number;
-    currentStockValue?: number;
-    stock: number;
-    archivedAt?: string | Date | null;
-    _count: {
-        inventories: number;
-    };
-    productName: string;
-    productType: ProductType;
-    productId: string;
-};
-
-type Product = {
-    id: string;
-    name: string;
-    productType: ProductType;
-    createdAt: Date;
-    updatedAt: Date;
-    variants: Omit<
-        ProductVariant,
-        'productName' | 'productType' | 'productId'
-    >[];
-    totalStock?: number;
-};
+type ProductVariant = ProductCatalogVariant;
 
 interface ProductTableProps {
-    products: Product[];
+    catalogPage: ProductCatalogPage;
     showPrices?: boolean;
-}
-
-type SortKey =
-    | 'name'
-    | 'stock'
-    | 'currentCost'
-    | 'standardCost'
-    | 'buyPrice'
-    | 'price';
-type SortDirection = 'asc' | 'desc';
-
-interface SortConfig {
-    key: SortKey;
-    direction: SortDirection;
 }
 
 const productTypeBadgeColors: Record<ProductType, string> = {
@@ -128,9 +85,11 @@ const productTypeBadgeColors: Record<ProductType, string> = {
 };
 
 export function ProductTable({
-    products = [],
+    catalogPage,
     showPrices = false,
 }: ProductTableProps) {
+    const { items: variants, page, pageSize, total, pageCount, query } =
+        catalogPage;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [variantToDelete, setVariantToDelete] =
         useState<ProductVariant | null>(null);
@@ -139,86 +98,49 @@ export function ProductTable({
     const [variantToArchive, setVariantToArchive] =
         useState<ProductVariant | null>(null);
     const [isArchiving, setIsArchiving] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
     const router = useRouter();
 
-    const handleSort = (key: SortKey) => {
-        setSortConfig((prev) => {
-            if (prev?.key !== key) return { key, direction: 'desc' };
-            if (prev.direction === 'desc') return { key, direction: 'asc' };
-            return null;
-        });
+    const buildCatalogUrl = (
+        overrides: Partial<{
+            search: string;
+            page: number;
+            pageSize: number;
+            sort: ProductCatalogSortKey;
+            direction: 'asc' | 'desc';
+        }> = {},
+    ) => {
+        const next = { ...query, page, pageSize, ...overrides };
+        const params = new URLSearchParams();
+        if (next.search) params.set('q', next.search);
+        if (next.type) params.set('type', next.type);
+        if (next.includeArchived) params.set('archived', '1');
+        params.set('page', String(next.page));
+        params.set('pageSize', String(next.pageSize));
+        params.set('sort', next.sort);
+        params.set('direction', next.direction);
+        return `/dashboard/products?${params.toString()}`;
     };
 
-    // Flatten products into variants
-    const flattenedVariants = useMemo(() => {
-        return products.flatMap((product) =>
-            (product.variants || []).map((variant) => ({
-                ...variant,
-                productName: product.name,
-                productType: product.productType,
-                productId: product.id,
-            })),
-        ) as ProductVariant[];
-    }, [products]);
-
-    // Filter variants by search query
-    const filteredVariants = useMemo(() => {
-        if (!searchQuery.trim()) return flattenedVariants;
-        const q = searchQuery.toLowerCase();
-        return flattenedVariants.filter(
-            (v) =>
-                v.productName.toLowerCase().includes(q) ||
-                v.name.toLowerCase().includes(q) ||
-                v.skuCode.toLowerCase().includes(q),
-        );
-    }, [flattenedVariants, searchQuery]);
-
-    // Sort variants by selected column
-    const sortedVariants = useMemo(() => {
-        if (!sortConfig) return filteredVariants;
-
-        const getValue = (v: ProductVariant): string | number => {
-            switch (sortConfig.key) {
-                case 'name':
-                    return (v.name || v.productName).toLowerCase();
-                case 'stock':
-                    return v.stock ?? 0;
-                case 'currentCost':
-                    return Number(v.currentCost) || 0;
-                case 'standardCost':
-                    return Number(v.standardCost) || 0;
-                case 'buyPrice':
-                    return Number(v.buyPrice) || 0;
-                case 'price':
-                    return Number(v.price) || 0;
-                default:
-                    return 0;
-            }
-        };
-
-        return [...filteredVariants].sort((a, b) => {
-            const aVal = getValue(a);
-            const bVal = getValue(b);
-            const compare =
-                typeof aVal === 'string'
-                    ? aVal.localeCompare(bVal as string)
-                    : (aVal as number) - (bVal as number);
-            return sortConfig.direction === 'asc' ? compare : -compare;
-        });
-    }, [filteredVariants, sortConfig]);
-
-    const renderSortIcon = (key: SortKey) => {
-        if (sortConfig?.key !== key) {
-            return <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />;
-        }
-        return sortConfig.direction === 'asc' ? (
-            <ArrowUp className="h-3 w-3 text-primary" />
-        ) : (
-            <ArrowDown className="h-3 w-3 text-primary" />
-        );
+    const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        const search = String(formData.get('q') ?? '').trim();
+        router.push(buildCatalogUrl({ search, page: 1 }));
     };
+
+    const handleSort = (sort: ProductCatalogSortKey) => {
+        const direction =
+            query.sort === sort && query.direction === 'desc' ? 'asc' : 'desc';
+        router.push(buildCatalogUrl({ sort, direction, page: 1 }));
+    };
+
+    const sortDirection = (sort: ProductCatalogSortKey) =>
+        query.sort === sort ? query.direction : false;
+
+    const firstResult = total === 0 ? 0 : (page - 1) * pageSize + 1;
+    const lastResult = Math.min(page * pageSize, total);
+    const actionName = (action: string, variant: ProductVariant) =>
+        `${action} ${variant.name || variant.productName} (${variant.skuCode})`;
 
     const handleDeleteClick = (variant: ProductVariant) => {
         setVariantToDelete(variant);
@@ -278,71 +200,87 @@ export function ProductTable({
         }
     };
 
-    if (flattenedVariants.length === 0) {
-        return (
-            <div className="text-center py-20 text-muted-foreground bg-muted/5 min-h-[400px] flex flex-col items-center justify-center">
-                <div className="h-12 w-12 rounded-full bg-muted/20 flex items-center justify-center mb-4">
-                    <Package className="h-6 w-6 text-muted-foreground/50" />
-                </div>
-                <p className="text-lg font-medium">
-                    {productTableLabels.emptyTitle}
-                </p>
-                <p className="text-sm mt-1 max-w-xs mx-auto">
-                    {productTableLabels.emptyDescription}
-                </p>
-            </div>
-        );
-    }
-
     return (
         <TooltipProvider>
-            {/* Search Bar */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <form
+                role="search"
+                onSubmit={handleSearch}
+                className="flex flex-wrap items-center gap-3 border-b border-white/5 px-4 py-3"
+            >
+                <div className="relative min-w-64 flex-1 max-w-sm">
+                    <Search
+                        aria-hidden="true"
+                        className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    />
                     <input
-                        type="text"
+                        type="search"
+                        name="q"
+                        aria-label="Cari katalog produk"
                         placeholder="Cari nama produk, varian, atau SKU..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-sm bg-muted/30 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors placeholder:text-muted-foreground/60"
+                        defaultValue={query.search}
+                        className="w-full rounded-lg border border-white/10 bg-muted/30 py-2 pl-9 pr-3 text-sm transition-colors placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
                     />
                 </div>
-                {searchQuery && (
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {filteredVariants.length} dari{' '}
-                        {flattenedVariants.length} item
-                    </span>
-                )}
-            </div>
+                <Button type="submit" variant="outline" size="sm">
+                    Cari
+                </Button>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    Baris per halaman
+                    <select
+                        aria-label="Baris per halaman"
+                        value={pageSize}
+                        onChange={(event) =>
+                            router.push(
+                                buildCatalogUrl({
+                                    pageSize: Number(event.target.value),
+                                    page: 1,
+                                }),
+                            )
+                        }
+                        className="rounded-md border border-white/10 bg-background px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+                    >
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                </label>
+                <span className="text-xs text-muted-foreground" aria-live="polite">
+                    Menampilkan {firstResult}–{lastResult} dari {total} varian
+                </span>
+            </form>
 
-            {/* No search results */}
-            {filteredVariants.length === 0 && (
-                <div className="text-center py-16 text-muted-foreground">
-                    <Search className="h-8 w-8 mx-auto mb-3 text-muted-foreground/30" />
-                    <p className="text-sm font-medium">
-                        Tidak ada hasil untuk &quot;{searchQuery}&quot;
+            {variants.length === 0 ? (
+                <div className="flex min-h-[400px] flex-col items-center justify-center bg-muted/5 py-20 text-center text-muted-foreground">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted/20">
+                        <Package className="h-6 w-6 text-muted-foreground/50" />
+                    </div>
+                    <p className="text-lg font-medium">
+                        {productTableLabels.emptyTitle}
                     </p>
-                    <p className="text-xs mt-1">Coba kata kunci lain</p>
+                    <p className="mx-auto mt-1 max-w-xs text-sm">
+                        {productTableLabels.emptyDescription}
+                    </p>
                 </div>
-            )}
-
-            {filteredVariants.length > 0 && (
-                <div className="overflow-x-auto">
-                    <ResponsiveTable minWidth={showPrices ? 1000 : 780}>
-                        <Table>
+            ) : (
+                <ResponsiveTable
+                    data-testid="product-catalog-scroll"
+                    minWidth={showPrices ? 1000 : 780}
+                    stickyHeader
+                    maxHeight="70vh"
+                >
+                    <Table>
+                        <TableCaption className="sr-only">
+                            Daftar varian produk
+                        </TableCaption>
                             <TableHeader className="bg-muted/30">
                                 <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
-                                    <TableHead className="pl-6">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSort('name')}
-                                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                                        >
-                                            {productTableLabels.catalogItem}
-                                            {renderSortIcon('name')}
-                                        </button>
-                                    </TableHead>
+                                    <SortableTableHead
+                                        className="pl-6"
+                                        sortable
+                                        direction={sortDirection('name')}
+                                        onSort={() => handleSort('name')}
+                                    >
+                                        {productTableLabels.catalogItem}
+                                    </SortableTableHead>
                                     <TableHead>
                                         {productTableLabels.skuCode}
                                     </TableHead>
@@ -352,21 +290,26 @@ export function ProductTable({
                                     <TableHead>
                                         {productTableLabels.unit}
                                     </TableHead>
-                                    <TableHead className="text-right">
+                                    <SortableTableHead
+                                        className="text-right"
+                                        sortable
+                                        direction={sortDirection('stock')}
+                                        onSort={() => handleSort('stock')}
+                                    >
                                         <div className="flex items-center justify-end gap-1">
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    handleSort('stock')
-                                                }
-                                                className="flex items-center gap-1 hover:text-primary transition-colors"
-                                            >
-                                                {productTableLabels.stockLevel}
-                                                {renderSortIcon('stock')}
-                                            </button>
+                                            <span>{productTableLabels.stockLevel}</span>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                                    <button
+                                                        type="button"
+                                                        aria-label="Informasi stok"
+                                                        className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                                    >
+                                                        <Info
+                                                            aria-hidden="true"
+                                                            className="h-3.5 w-3.5"
+                                                        />
+                                                    </button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
                                                     <p className="max-w-xs text-xs">
@@ -377,30 +320,29 @@ export function ProductTable({
                                                 </TooltipContent>
                                             </Tooltip>
                                         </div>
-                                    </TableHead>
+                                    </SortableTableHead>
                                     {showPrices && (
                                         <>
-                                            <TableHead className="text-right whitespace-nowrap">
+                                            <SortableTableHead
+                                                className="text-right whitespace-nowrap"
+                                                sortable
+                                                direction={sortDirection('currentCost')}
+                                                onSort={() => handleSort('currentCost')}
+                                            >
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleSort(
-                                                                'currentCost',
-                                                            )
-                                                        }
-                                                        className="flex items-center gap-1 hover:text-primary transition-colors"
-                                                    >
-                                                        {
-                                                            productTableLabels.currentCost
-                                                        }
-                                                        {renderSortIcon(
-                                                            'currentCost',
-                                                        )}
-                                                    </button>
+                                                    <span>{productTableLabels.currentCost}</span>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Informasi biaya saat ini"
+                                                                className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                                            >
+                                                                <Info
+                                                                    aria-hidden="true"
+                                                                    className="h-3.5 w-3.5"
+                                                                />
+                                                            </button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
                                                             <p className="max-w-xs text-xs">
@@ -411,28 +353,27 @@ export function ProductTable({
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </div>
-                                            </TableHead>
-                                            <TableHead className="text-right whitespace-nowrap">
+                                            </SortableTableHead>
+                                            <SortableTableHead
+                                                className="text-right whitespace-nowrap"
+                                                sortable
+                                                direction={sortDirection('standardCost')}
+                                                onSort={() => handleSort('standardCost')}
+                                            >
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleSort(
-                                                                'standardCost',
-                                                            )
-                                                        }
-                                                        className="flex items-center gap-1 hover:text-primary transition-colors"
-                                                    >
-                                                        {
-                                                            productTableLabels.standardCost
-                                                        }
-                                                        {renderSortIcon(
-                                                            'standardCost',
-                                                        )}
-                                                    </button>
+                                                    <span>{productTableLabels.standardCost}</span>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Informasi biaya standar"
+                                                                className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                                            >
+                                                                <Info
+                                                                    aria-hidden="true"
+                                                                    className="h-3.5 w-3.5"
+                                                                />
+                                                            </button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
                                                             <p className="max-w-xs text-xs">
@@ -443,33 +384,23 @@ export function ProductTable({
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </div>
-                                            </TableHead>
-                                            <TableHead className="text-right whitespace-nowrap">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleSort('buyPrice')
-                                                    }
-                                                    className="flex items-center gap-1 justify-end w-full hover:text-primary transition-colors"
-                                                >
-                                                    {
-                                                        productTableLabels.buyPrice
-                                                    }
-                                                    {renderSortIcon('buyPrice')}
-                                                </button>
-                                            </TableHead>
-                                            <TableHead className="text-right whitespace-nowrap">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleSort('price')
-                                                    }
-                                                    className="flex items-center gap-1 justify-end w-full hover:text-primary transition-colors"
-                                                >
-                                                    {productTableLabels.catalog}
-                                                    {renderSortIcon('price')}
-                                                </button>
-                                            </TableHead>
+                                            </SortableTableHead>
+                                            <SortableTableHead
+                                                className="text-right whitespace-nowrap"
+                                                sortable
+                                                direction={sortDirection('buyPrice')}
+                                                onSort={() => handleSort('buyPrice')}
+                                            >
+                                                {productTableLabels.buyPrice}
+                                            </SortableTableHead>
+                                            <SortableTableHead
+                                                className="text-right whitespace-nowrap"
+                                                sortable
+                                                direction={sortDirection('price')}
+                                                onSort={() => handleSort('price')}
+                                            >
+                                                {productTableLabels.catalog}
+                                            </SortableTableHead>
                                         </>
                                     )}
                                     <TableHead className="text-right pr-6">
@@ -478,7 +409,7 @@ export function ProductTable({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {sortedVariants.map((variant) => (
+                                {variants.map((variant) => (
                                     <TableRow
                                         key={variant.id}
                                         className="group border-white/5 hover:bg-primary/[0.02] transition-colors"
@@ -679,18 +610,22 @@ export function ProductTable({
                                             </>
                                         )}
                                         <TableCell className="text-right pr-6">
-                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
+                                                    aria-label={actionName(
+                                                        'Edit',
+                                                        variant,
+                                                    )}
                                                     onClick={() =>
                                                         handleEditClick(
                                                             variant.productId,
                                                         )
                                                     }
                                                 >
-                                                    <Edit className="h-4 w-4" />
+                                                    <Edit aria-hidden="true" className="h-4 w-4" />
                                                 </Button>
                                                 {variant.archivedAt ? (
                                                     <Tooltip>
@@ -699,13 +634,20 @@ export function ProductTable({
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 className="h-8 w-8 hover:bg-green-500/10 hover:text-green-600 transition-colors"
+                                                                aria-label={actionName(
+                                                                    'Pulihkan',
+                                                                    variant,
+                                                                )}
                                                                 onClick={() =>
                                                                     handleUnarchive(
                                                                         variant,
                                                                     )
                                                                 }
                                                             >
-                                                                <ArchiveRestore className="h-4 w-4" />
+                                                                <ArchiveRestore
+                                                                    aria-hidden="true"
+                                                                    className="h-4 w-4"
+                                                                />
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
@@ -721,13 +663,20 @@ export function ProductTable({
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 className="h-8 w-8 hover:bg-amber-500/10 hover:text-amber-600 transition-colors"
+                                                                aria-label={actionName(
+                                                                    'Arsipkan',
+                                                                    variant,
+                                                                )}
                                                                 onClick={() =>
                                                                     handleArchiveClick(
                                                                         variant,
                                                                     )
                                                                 }
                                                             >
-                                                                <Archive className="h-4 w-4" />
+                                                                <Archive
+                                                                    aria-hidden="true"
+                                                                    className="h-4 w-4"
+                                                                />
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
@@ -741,13 +690,20 @@ export function ProductTable({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                                                    aria-label={actionName(
+                                                        'Hapus',
+                                                        variant,
+                                                    )}
                                                     onClick={() =>
                                                         handleDeleteClick(
                                                             variant,
                                                         )
                                                     }
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2
+                                                        aria-hidden="true"
+                                                        className="h-4 w-4"
+                                                    />
                                                 </Button>
                                             </div>
                                         </TableCell>
@@ -756,8 +712,28 @@ export function ProductTable({
                             </TableBody>
                         </Table>
                     </ResponsiveTable>
-                </div>
             )}
+
+            <div className="border-t border-white/5 px-4 py-3">
+                <DataTablePagination
+                    pageIndex={page - 1}
+                    pageCount={pageCount}
+                    canPreviousPage={page > 1}
+                    canNextPage={page < pageCount}
+                    onFirstPage={() =>
+                        router.push(buildCatalogUrl({ page: 1 }))
+                    }
+                    onPreviousPage={() =>
+                        router.push(buildCatalogUrl({ page: page - 1 }))
+                    }
+                    onNextPage={() =>
+                        router.push(buildCatalogUrl({ page: page + 1 }))
+                    }
+                    onLastPage={() =>
+                        router.push(buildCatalogUrl({ page: pageCount }))
+                    }
+                />
+            </div>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

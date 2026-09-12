@@ -12,7 +12,9 @@ import {
     updateOrderStatus,
     deleteOrder,
     getPurchaseOrders,
+    getPurchaseOrdersPage,
     getPurchaseOrderById,
+    type PurchaseOrderPageInput,
 } from './orders-service';
 import {
     createGoodsReceipt,
@@ -24,7 +26,9 @@ import {
     recordPayment,
     getPurchaseInvoiceById,
     getPurchaseInvoices,
+    getPurchaseInvoicesPage,
     getOutstandingPurchaseInvoices,
+    type PurchaseInvoicePageInput,
     generateBillNumber,
     createDraftBillFromPo,
     updatePurchaseInvoiceDueDate,
@@ -113,6 +117,10 @@ export class PurchaseService {
         return getPurchaseOrders(filters);
     }
 
+    static async getPurchaseOrdersPage(filters: PurchaseOrderPageInput = {}) {
+        return getPurchaseOrdersPage(filters);
+    }
+
     static async getPurchaseOrderById(id: string) {
         return getPurchaseOrderById(id);
     }
@@ -138,6 +146,12 @@ export class PurchaseService {
         endDate?: Date;
     }) {
         return getPurchaseInvoices(dateRange);
+    }
+
+    static async getPurchaseInvoicesPage(
+        filters: PurchaseInvoicePageInput = {},
+    ) {
+        return getPurchaseInvoicesPage(filters);
     }
 
     static async getOutstandingPurchaseInvoices() {

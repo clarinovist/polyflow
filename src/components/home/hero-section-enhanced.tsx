@@ -53,10 +53,7 @@ function PipelinePanel({ animated }: { animated: boolean }) {
                         {steps.map((step, i) => (
                             <motion.div
                                 key={step.num}
-                                initial={{
-                                    opacity: 0,
-                                    x: animated ? 20 : 0,
-                                }}
+                                initial={false}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{
                                     delay: animated ? 0.6 + i * 0.15 : 0,
@@ -128,18 +125,14 @@ export default function HeroSectionEnhanced() {
         });
     }, [prefersReducedMotion]);
 
-    const entry = (delay: number) =>
-        prefersReducedMotion
-            ? {
-                  initial: { opacity: 0 },
-                  animate: { opacity: 1 },
-                  transition: { duration: 0.2 },
-              }
-            : {
-                  initial: { opacity: 0, y: 20 },
-                  animate: { opacity: 1, y: 0 },
-                  transition: { delay, duration: 0.6 },
-              };
+    const entry = (delay: number) => ({
+        initial: false as const,
+        animate: { opacity: 1, y: 0 },
+        transition: {
+            delay: prefersReducedMotion ? 0 : delay,
+            duration: prefersReducedMotion ? 0.2 : 0.6,
+        },
+    });
 
     return (
         <section className="relative pt-28 pb-16 lg:pt-36 lg:pb-24 overflow-hidden flex flex-col items-center justify-center text-center px-6">
@@ -189,7 +182,7 @@ export default function HeroSectionEnhanced() {
                 <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
                     {/* Badge */}
                     <motion.div
-                        initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.9 }}
+                        initial={false}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.2, duration: 0.5 }}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm mb-6 relative overflow-hidden"
@@ -277,7 +270,7 @@ export default function HeroSectionEnhanced() {
 
                 {/* RIGHT — pipeline panel (the "product story") */}
                 <motion.div
-                    initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 40 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: prefersReducedMotion ? 0.2 : 0.8, delay: 0.4 }}
                     className="w-full max-w-md mx-auto lg:max-w-none"

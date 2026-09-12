@@ -21,7 +21,7 @@ vi.mock("@/lib/core/prisma", () => ({
       update: vi.fn(),
     },
     customer: {
-      findUnique: vi.fn().mockResolvedValue({ creditLimit: { toNumber: () => 100000000 } }),
+      findUnique: vi.fn().mockResolvedValue({ creditLimit: 100000000 }),
     },
     inventory: {
       findMany: vi.fn().mockResolvedValue([]),

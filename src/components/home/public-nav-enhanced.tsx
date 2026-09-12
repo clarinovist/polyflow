@@ -29,7 +29,7 @@ export default function PublicNavEnhanced() {
 
     return (
         <motion.header
-            initial={{ y: animated ? -100 : 0 }}
+            initial={false}
             animate={{ y: 0 }}
             transition={{
                 duration: animated ? 0.6 : 0.2,
@@ -56,7 +56,7 @@ export default function PublicNavEnhanced() {
                     {navLinks.map((link, index) => (
                         <motion.div
                             key={link.href}
-                            initial={{ opacity: 0, y: animated ? -20 : 0 }}
+                            initial={false}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{
                                 delay: animated ? 0.1 + index * 0.1 : 0,
@@ -72,7 +72,7 @@ export default function PublicNavEnhanced() {
                         </motion.div>
                     ))}
                     <motion.div
-                        initial={{ opacity: 0, scale: animated ? 0.9 : 1 }}
+                        initial={false}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{
                             delay: animated ? 0.4 : 0,
@@ -105,7 +105,7 @@ export default function PublicNavEnhanced() {
                     type="button"
                     aria-label={mobileOpen ? L.closeMenu : L.openMenu}
                     aria-expanded={mobileOpen}
-                    initial={{ opacity: 0 }}
+                    initial={false}
                     animate={{ opacity: 1 }}
                     transition={{ delay: animated ? 0.5 : 0, duration: 0.5 }}
                     className="md:hidden text-zinc-900 dark:text-white p-2"
@@ -129,10 +129,7 @@ export default function PublicNavEnhanced() {
                         ) : (
                             <motion.div
                                 key="menu"
-                                initial={{
-                                    rotate: animated ? 90 : 0,
-                                    opacity: 0,
-                                }}
+                                initial={false}
                                 animate={{ rotate: 0, opacity: 1 }}
                                 exit={{
                                     rotate: animated ? -90 : 0,

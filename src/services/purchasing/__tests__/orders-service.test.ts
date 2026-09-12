@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createOrder, updateOrder, updateOrderStatus, deleteOrder, getPurchaseOrders, getPurchaseOrderById } from '../orders-service';
+import {
+    createOrder,
+    updateOrder,
+    updateOrderStatus,
+    deleteOrder,
+    getPurchaseOrders,
+    getPurchaseOrdersPage,
+    getPurchaseOrderById,
+} from '../orders-service';
 import { prisma } from '@/lib/core/prisma';
 import { PurchaseOrderStatus } from '@prisma/client';
 
@@ -9,6 +17,7 @@ vi.mock('@/lib/core/prisma', () => ({
         purchaseOrder: {
             findFirst: vi.fn(),
             findMany: vi.fn(),
+            count: vi.fn(),
             create: vi.fn(),
             update: vi.fn(),
             findUnique: vi.fn(),
@@ -244,6 +253,112 @@ describe('OrdersService (Purchasing)', () => {
 
             // Assert
             expect(result).toEqual([]);
+        });
+    });
+
+    describe('getPurchaseOrdersPage', () => {
+        it('applies search, status, and date filters identically before pagination', async () => {
+            const startDate = new Date('2026-09-01T00:00:00.000Z');
+            const endDate = new Date('2026-09-12T23:59:59.999Z');
+            vi.mocked(prisma.purchaseOrder.findMany).mockResolvedValue([
+                { id: 'po-51' },
+            ] as never);
+            vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(101);
+
+            const result = await getPurchaseOrdersPage({
+                search: '  PO-51  ',
+                status: [PurchaseOrderStatus.SENT, PurchaseOrderStatus.RECEIVED],
+                startDate,
+                endDate,
+                page: 2,
+                pageSize: 50,
+                sort: 'supplier',
+                direction: 'asc',
+            });
+
+            const expectedWhere = {
+                status: {
+                    in: [PurchaseOrderStatus.SENT, PurchaseOrderStatus.RECEIVED],
+                },
+                orderDate: { gte: startDate, lte: endDate },
+                OR: [
+                    { orderNumber: { contains: 'PO-51', mode: 'insensitive' } },
+                    {
+                        supplier: {
+                            is: {
+                                name: {
+                                    contains: 'PO-51',
+                                    mode: 'insensitive',
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+            expect(prisma.purchaseOrder.count).toHaveBeenCalledWith({
+                where: expectedWhere,
+            });
+            expect(prisma.purchaseOrder.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expectedWhere,
+                    orderBy: [
+                        { supplier: { name: 'asc' } },
+                        { id: 'asc' },
+                    ],
+                    skip: 50,
+                    take: 50,
+                }),
+            );
+            expect(result).toEqual({
+                items: [{ id: 'po-51' }],
+                totalCount: 101,
+                page: 2,
+                pageSize: 50,
+                totalPages: 3,
+            });
+        });
+
+        it('clamps an out-of-range page and fetches the last valid page', async () => {
+            vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(51);
+            vi.mocked(prisma.purchaseOrder.findMany).mockResolvedValue([
+                { id: 'po-51' },
+            ] as never);
+
+            const result = await getPurchaseOrdersPage({ page: 999, pageSize: 50 });
+
+            expect(prisma.purchaseOrder.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({ skip: 50, take: 50 }),
+            );
+            expect(result).toMatchObject({ page: 2, totalPages: 2 });
+        });
+
+        it('clamps zero results to page one without an invalid negative offset', async () => {
+            vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(0);
+            vi.mocked(prisma.purchaseOrder.findMany).mockResolvedValue([]);
+
+            const result = await getPurchaseOrdersPage({ page: 999 });
+
+            expect(prisma.purchaseOrder.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({ skip: 0 }),
+            );
+            expect(result).toMatchObject({ page: 1, totalPages: 0 });
+        });
+
+        it('defaults to 50 rows and caps the page size at 100', async () => {
+            vi.mocked(prisma.purchaseOrder.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(0);
+
+            const defaultPage = await getPurchaseOrdersPage();
+            const cappedPage = await getPurchaseOrdersPage({
+                page: -4,
+                pageSize: 500,
+            });
+
+            expect(defaultPage).toMatchObject({ page: 1, pageSize: 50 });
+            expect(cappedPage).toMatchObject({ page: 1, pageSize: 100 });
+            expect(prisma.purchaseOrder.findMany).toHaveBeenLastCalledWith(
+                expect.objectContaining({ skip: 0, take: 100 }),
+            );
         });
     });
 

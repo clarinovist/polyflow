@@ -111,14 +111,14 @@ export default function FeaturesSectionEnhanced() {
 
             <div className="container mx-auto px-6 max-w-6xl relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: animated ? 20 : 0 }}
+                    initial={false}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0 }}
                     transition={{ duration: animated ? 0.6 : 0.2 }}
                     className="text-center mb-14"
                 >
                     <motion.span
-                        initial={{ opacity: 0, y: animated ? 10 : 0 }}
+                        initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, amount: 0 }}
                         transition={{ delay: animated ? 0.1 : 0, duration: 0.5 }}
@@ -127,7 +127,7 @@ export default function FeaturesSectionEnhanced() {
                         {L.sectionTitle}
                     </motion.span>
                     <motion.h2
-                        initial={{ opacity: 0, y: animated ? 20 : 0 }}
+                        initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, amount: 0 }}
                         transition={{ delay: animated ? 0.2 : 0, duration: 0.6 }}
@@ -136,7 +136,7 @@ export default function FeaturesSectionEnhanced() {
                         {L.sectionHeading}
                     </motion.h2>
                     <motion.p
-                        initial={{ opacity: 0, y: animated ? 20 : 0 }}
+                        initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, amount: 0 }}
                         transition={{ delay: animated ? 0.3 : 0, duration: 0.6 }}
@@ -149,7 +149,7 @@ export default function FeaturesSectionEnhanced() {
                 {/* Bento Grid — production is the anchor (2x2) */}
                 <motion.div
                     variants={containerVariants}
-                    initial="hidden"
+                    initial={false}
                     whileInView="visible"
                     viewport={{ once: true, amount: 0 }}
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 auto-rows-fr"

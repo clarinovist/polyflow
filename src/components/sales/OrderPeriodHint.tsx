@@ -1,16 +1,53 @@
 'use client';
-import { format } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
 import { CalendarDays } from 'lucide-react';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
-function perLabel(s: Date, e: Date): string {
-    const same =
-        s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth();
-    if (same) {
-        const m = format(s, 'LLLL yyyy', { locale: idLocale });
-        return `${m[0].toUpperCase() + m.slice(1)} (${format(s, 'd', { locale: idLocale })}–${format(e, 'd MMM yyyy', { locale: idLocale })})`;
+const MONTH_NAMES = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+] as const;
+const MONTH_SHORT = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agt',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
+] as const;
+
+function dateParts(date: Date): { year: number; month: number; day: number } {
+    const [year, month, day] = toBusinessDateString(date).split('-').map(Number);
+    return { year, month, day };
+}
+
+function perLabel(start: Date, end: Date): string {
+    const startParts = dateParts(start);
+    const endParts = dateParts(end);
+    const sameMonth =
+        startParts.year === endParts.year &&
+        startParts.month === endParts.month;
+
+    if (sameMonth) {
+        return `${MONTH_NAMES[startParts.month - 1]} ${startParts.year} (${startParts.day}–${endParts.day} ${MONTH_SHORT[endParts.month - 1]} ${endParts.year})`;
     }
-    return `${format(s, 'd MMM', { locale: idLocale })} – ${format(e, 'd MMM yyyy', { locale: idLocale })}`;
+
+    return `${startParts.day} ${MONTH_SHORT[startParts.month - 1]} – ${endParts.day} ${MONTH_SHORT[endParts.month - 1]} ${endParts.year}`;
 }
 
 export function OrderPeriodHint({

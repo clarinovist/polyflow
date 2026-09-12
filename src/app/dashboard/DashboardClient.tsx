@@ -14,11 +14,10 @@ import {
     canAccessResource,
     canSeeExecutiveChart,
     getPortalCta,
-    encouragementForDate,
-    greetingForHour,
     isOpsPortalRole,
     roleDisplayName,
     type DashboardKpi,
+    type DashboardPresentation,
     type DashboardRole,
     type QuickActionItem,
 } from '@/lib/dashboard/role-dashboard-config';
@@ -42,7 +41,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils/utils';
 
 interface DashboardCeoNote {
@@ -60,6 +59,7 @@ interface DashboardClientProps {
     userRole: string;
     permissions: string[] | 'ALL';
     activeModules?: string[];
+    presentation: DashboardPresentation;
 }
 
 export default function DashboardClient({
@@ -69,6 +69,7 @@ export default function DashboardClient({
     userRole,
     permissions,
     activeModules,
+    presentation,
 }: DashboardClientProps) {
     const router = useRouter();
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -84,22 +85,7 @@ export default function DashboardClient({
         setTimeout(() => setIsRefreshing(false), 1000);
     };
 
-    const currentDate = new Date().toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    });
-
-    const { greeting, encouragement } = useMemo(() => {
-        // Client-only clock is fine; suppress hydration mismatch on date already used elsewhere
-        const now = new Date();
-        return {
-            greeting: greetingForHour(now.getHours()),
-            encouragement: encouragementForDate(now),
-        };
-    }, []);
-
+    const { currentDate, greeting, encouragement } = presentation;
     const firstName = userName.split(' ')[0] || userName;
 
     if (!stats) {
@@ -140,20 +126,14 @@ export default function DashboardClient({
                         <Badge variant="secondary" className="font-medium">
                             {roleDisplayName(role)}
                         </Badge>
-                        <span
-                            className="text-xs text-muted-foreground"
-                            suppressHydrationWarning
-                        >
+                        <span className="text-xs text-muted-foreground">
                             {currentDate}
                         </span>
                     </div>
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
                         {greeting}, {firstName}
                     </h1>
-                    <p
-                        className="text-sm md:text-base text-muted-foreground mt-1 max-w-xl"
-                        suppressHydrationWarning
-                    >
+                    <p className="text-sm md:text-base text-muted-foreground mt-1 max-w-xl">
                         {encouragement}
                     </p>
                 </div>

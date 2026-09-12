@@ -95,6 +95,7 @@ interface CustomerDetailClientProps {
     salesOrders: SerializedSalesOrder[];
     customerProductPrices: SerializedCustomerProductPrice[];
     products: SerializedProductVariant[];
+    businessToday: string;
     barterSettings?: CustomerBarterSettingsValue;
 }
 
@@ -139,6 +140,7 @@ export function CustomerDetailClient({
     salesOrders,
     customerProductPrices,
     products,
+    businessToday,
     barterSettings,
 }: CustomerDetailClientProps) {
     const [activeTab, selectTab] = usePartnerDetailTab(groups);
@@ -286,7 +288,10 @@ export function CustomerDetailClient({
                 </CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-x-auto">
-                <SalesOrderTable initialData={salesOrders} />
+                <SalesOrderTable
+                    initialData={salesOrders}
+                    businessToday={businessToday}
+                />
             </CardContent>
         </Card>
     );

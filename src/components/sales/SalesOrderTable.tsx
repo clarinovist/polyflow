@@ -5,7 +5,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
-import { format } from 'date-fns';
+import { formatWibDate, toBusinessDateString } from '@/lib/utils/timezone';
 import {
     SalesOrder,
     SalesOrderStatus,
@@ -85,12 +85,48 @@ function getPriceStatusMeta(
 
 interface SalesOrderTableProps {
     initialData: SerializedSalesOrder[];
+    businessToday: string;
     basePath?: string;
     emptyMessage?: string;
 }
 
+const MONTH_SHORT = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+] as const;
+
+function formatOrderDate(date: Date | string): string {
+    try {
+        const [year, month, day] = toBusinessDateString(date)
+            .split('-')
+            .map(Number);
+        return `${MONTH_SHORT[month - 1]} ${day}, ${year}`;
+    } catch {
+        return '-';
+    }
+}
+
+function businessDate(date: Date | string): string | null {
+    try {
+        return toBusinessDateString(date);
+    } catch {
+        return null;
+    }
+}
+
 export function SalesOrderTable({
     initialData,
+    businessToday,
     basePath = '/sales/orders',
     emptyMessage,
 }: SalesOrderTableProps) {
@@ -228,10 +264,7 @@ export function SalesOrderTable({
                             </span>
                         </button>
                         <div className="text-xs text-muted-foreground ml-6">
-                            {format(
-                                new Date(row.original.orderDate),
-                                'MMM d, yyyy',
-                            )}
+                            {formatOrderDate(row.original.orderDate)}
                         </div>
                     </div>
                 ),
@@ -354,18 +387,14 @@ export function SalesOrderTable({
                                           -
                                       </span>
                                   );
-                              const d = new Date(v as Date | string);
-                              if (isNaN(d.getTime()))
+                              const followUpDate = businessDate(v);
+                              if (!followUpDate)
                                   return (
                                       <span className="text-xs text-muted-foreground">
                                           -
                                       </span>
                                   );
-                              const isOverdue =
-                                  d.getTime() <
-                                  new Date(
-                                      new Date().setHours(0, 0, 0, 0),
-                                  ).getTime();
+                              const isOverdue = followUpDate < businessToday;
                               const isQuotation =
                                   row.original.status === 'QUOTATION' ||
                                   row.original.status === 'QUOTATION_SENT';
@@ -382,7 +411,7 @@ export function SalesOrderTable({
                                       }
                                       className="text-[11px]"
                                   >
-                                      {format(d, 'dd MMM yyyy')}
+                                      {formatWibDate(v)}
                                       {isOverdue ? ' · Terlambat' : ''}
                                   </Badge>
                               );
@@ -406,7 +435,7 @@ export function SalesOrderTable({
             },
         ],
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [],
+        [businessToday],
     );
 
     const renderMobileView = (orders: SerializedSalesOrder[]) => (
@@ -437,10 +466,7 @@ export function SalesOrderTable({
                                                 {order.orderNumber}
                                             </h3>
                                             <p className="text-xs text-muted-foreground">
-                                                {format(
-                                                    new Date(order.orderDate),
-                                                    'MMM d, yyyy',
-                                                )}
+                                                {formatOrderDate(order.orderDate)}
                                             </p>
                                         </div>
                                     </div>

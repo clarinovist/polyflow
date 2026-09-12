@@ -6,8 +6,22 @@ import { Prisma, JournalStatus, ReferenceType } from '@prisma/client';
 import { postBulkJournals } from '@/services/accounting/journals-service';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
-import { requireFinanceAccess, requireFinanceApprover } from '@/lib/auth/finance-access';
+import {
+    requireFinanceAccess,
+    requireFinanceApprover,
+} from '@/lib/auth/finance-access';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+
+const JOURNAL_SORT_COLUMNS = [
+    'entryNumber',
+    'entryDate',
+    'description',
+    'reference',
+    'status',
+] as const;
+
+export type JournalSortColumn = (typeof JOURNAL_SORT_COLUMNS)[number];
+export type JournalSortDirection = 'asc' | 'desc';
 
 export interface JournalFilterParams {
     page?: number;
@@ -17,24 +31,44 @@ export interface JournalFilterParams {
     endDate?: Date;
     status?: JournalStatus;
     referenceType?: string;
+    sortBy?: JournalSortColumn;
+    sortDirection?: JournalSortDirection;
+}
+
+function normalizePositiveInteger(value: number | undefined, fallback: number) {
+    if (!Number.isFinite(value) || value === undefined || value < 1) {
+        return fallback;
+    }
+    return Math.floor(value);
+}
+
+function normalizeSort(
+    sortBy: JournalFilterParams['sortBy'],
+    sortDirection: JournalFilterParams['sortDirection'],
+): { sortBy: JournalSortColumn; sortDirection: JournalSortDirection } {
+    return {
+        sortBy: JOURNAL_SORT_COLUMNS.includes(sortBy as JournalSortColumn)
+            ? (sortBy as JournalSortColumn)
+            : 'entryDate',
+        sortDirection:
+            sortDirection === 'asc' || sortDirection === 'desc'
+                ? sortDirection
+                : 'desc',
+    };
 }
 
 export const getJournalEntries = withTenant(async function getJournalEntries(
-    params: JournalFilterParams,
+    params: JournalFilterParams = {},
 ) {
     return safeAction(async () => {
         await requireFinanceAccess();
-        const {
-            page = 1,
-            limit = 10,
-            search,
-            startDate,
-            endDate,
-            status,
-            referenceType,
-        } = params;
-
-        const skip = (page - 1) * limit;
+        const { search, startDate, endDate, status, referenceType } = params;
+        const page = normalizePositiveInteger(params.page, 1);
+        const limit = Math.min(normalizePositiveInteger(params.limit, 10), 100);
+        const { sortBy, sortDirection } = normalizeSort(
+            params.sortBy,
+            params.sortDirection,
+        );
 
         const where: Prisma.JournalEntryWhereInput = {
             AND: [
@@ -71,24 +105,24 @@ export const getJournalEntries = withTenant(async function getJournalEntries(
             ],
         };
 
-        const [data, total] = await Promise.all([
-            prisma.journalEntry.findMany({
-                where,
-                include: {
-                    createdBy: { select: { name: true } },
-                    lines: {
-                        take: 2, // Preview first 2 lines
-                        include: {
-                            account: { select: { code: true, name: true } },
-                        },
+        const total = await prisma.journalEntry.count({ where });
+        const totalPages = Math.ceil(total / limit);
+        const clampedPage = Math.min(page, Math.max(1, totalPages));
+        const data = await prisma.journalEntry.findMany({
+            where,
+            include: {
+                createdBy: { select: { name: true } },
+                lines: {
+                    take: 2, // Preview first 2 lines
+                    include: {
+                        account: { select: { code: true, name: true } },
                     },
                 },
-                orderBy: { entryDate: 'desc' },
-                skip,
-                take: limit,
-            }),
-            prisma.journalEntry.count({ where }),
-        ]);
+            },
+            orderBy: [{ [sortBy]: sortDirection }, { id: sortDirection }],
+            skip: (clampedPage - 1) * limit,
+            take: limit,
+        });
 
         return {
             data: data.map((j) => ({
@@ -102,9 +136,9 @@ export const getJournalEntries = withTenant(async function getJournalEntries(
             })),
             meta: {
                 total,
-                page,
+                page: clampedPage,
                 limit,
-                totalPages: Math.ceil(total / limit),
+                totalPages,
             },
         };
     });

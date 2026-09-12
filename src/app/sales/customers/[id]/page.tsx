@@ -9,11 +9,13 @@ import type { ComponentProps } from 'react';
 import { auth } from '@/auth';
 import { hasRole } from '@/lib/auth/roles';
 import { getBarterPartnerSettings } from '@/actions/finance/barter-actions';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
 export default async function CustomerDetailPage(props: {
     params: Promise<{ id: string }>;
 }) {
     const { id } = await props.params;
+    const businessToday = toBusinessDateString(new Date());
     const session = await auth();
     const canManageBarter = hasRole(session?.user, 'ADMIN');
 
@@ -87,6 +89,7 @@ export default async function CustomerDetailPage(props: {
     return (
         <CustomerDetailClient
             customer={serializedCustomer}
+            businessToday={businessToday}
             salesOrders={
                 salesOrders.map((order: (typeof salesOrders)[number]) => ({
                     ...order,

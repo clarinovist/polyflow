@@ -5,6 +5,7 @@ import { listMyNotes } from '@/actions/ceo-notes/note-actions';
 import DashboardClient from './DashboardClient';
 import { serializeData } from '@/lib/utils/utils';
 import { getTenantActiveModules } from '@/lib/auth/access-policy';
+import { getDashboardPresentation } from '@/lib/dashboard/role-dashboard-config';
 
 export default async function DashboardPage() {
     const session = await auth();
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
             userRole={userRole}
             permissions={permissions}
             activeModules={getTenantActiveModules()}
+            presentation={getDashboardPresentation(new Date())}
         />
     );
 }

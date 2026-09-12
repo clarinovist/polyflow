@@ -31,7 +31,11 @@ const customer = {
     photoUrl: null,
 } as SerializedCustomer;
 const baseProps: ComponentProps<typeof CustomerDetailClient> = {
-    customer, salesOrders: [], customerProductPrices: [], products: [],
+    customer,
+    salesOrders: [],
+    customerProductPrices: [],
+    products: [],
+    businessToday: '2026-09-12',
 };
 function show(tab = 'overview', props: Partial<typeof baseProps> = {}) {
     window.history.replaceState(null, '', `/sales/customers/customer-1?tab=${tab}`);
@@ -48,7 +52,10 @@ describe('customer detail workspace', () => {
         expect(screen.getByRole('heading', { name: 'Customer Contoh' })).toBeDefined();
         expect(screen.getByRole('link', { name: 'Daftar customer' }).getAttribute('href')).toBe('/sales/customers');
         expect(screen.getByRole('button', { name: 'Edit profil' })).toBeDefined();
-        expect(orders).toHaveBeenCalledWith({ initialData: baseProps.salesOrders });
+        expect(orders).toHaveBeenCalledWith({
+            initialData: baseProps.salesOrders,
+            businessToday: baseProps.businessToday,
+        });
         expect(edit.mock.lastCall?.[0].initialData).toEqual(customer);
         expect(edit.mock.lastCall?.[0].mode).toBe('edit');
         expect(screen.getByText('Analytics content')).toBeDefined();

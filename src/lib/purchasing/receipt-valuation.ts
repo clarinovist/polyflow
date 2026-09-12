@@ -1,5 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { BusinessRuleError } from '@/lib/errors/errors';
+import {
+    canonicalizeReceiptQuantity as canonicalizeClientReceiptQuantity,
+} from '@/lib/purchasing/receipt-quantity';
 import type { PpnMode } from '@/lib/utils/ppn';
 
 export type ReceiptValuationInput = {
@@ -113,15 +116,18 @@ function calculateReceiptNetAmount(
 export function canonicalizeReceiptQuantity(
     receivedQty: Prisma.Decimal.Value,
 ): Prisma.Decimal {
-    const quantity = toPersistedDecimal(receivedQty, 'receivedQty').toDecimalPlaces(4);
-    if (!quantity.isFinite() || !quantity.gt(0)) {
+    const persistedQuantity = toPersistedDecimal(receivedQty, 'receivedQty');
+    try {
+        return new Prisma.Decimal(
+            canonicalizeClientReceiptQuantity(persistedQuantity),
+        );
+    } catch {
         throw new BusinessRuleError(
             'Jumlah penerimaan harus lebih dari nol setelah dibulatkan ke 4 desimal.',
             { receivedQty: String(receivedQty) },
             'RECEIPT_QUANTITY_ROUNDS_TO_ZERO',
         );
     }
-    return quantity;
 }
 
 export function resolveReceiptNetUnitCost(

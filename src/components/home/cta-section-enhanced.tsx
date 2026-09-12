@@ -132,7 +132,7 @@ export default function CtaSectionEnhanced() {
 
             <div className="container mx-auto px-6 max-w-4xl relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: animated ? 30 : 0 }}
+                    initial={false}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0 }}
                     transition={{ duration: animated ? 0.7 : 0.2 }}
@@ -189,10 +189,7 @@ export default function CtaSectionEnhanced() {
 
                             <div className="relative z-10">
                                 <motion.div
-                                    initial={{
-                                        opacity: 0,
-                                        scale: animated ? 0.9 : 1,
-                                    }}
+                                    initial={false}
                                     whileInView={{ opacity: 1, scale: 1 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: 0.2, duration: 0.5 }}
@@ -205,10 +202,7 @@ export default function CtaSectionEnhanced() {
                                 </motion.div>
 
                                 <motion.h2
-                                    initial={{
-                                        opacity: 0,
-                                        y: animated ? 20 : 0,
-                                    }}
+                                    initial={false}
                                     whileInView={{ opacity: 1, y: 0 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: 0.3, duration: 0.6 }}
@@ -221,10 +215,7 @@ export default function CtaSectionEnhanced() {
                                 </motion.h2>
 
                                 <motion.p
-                                    initial={{
-                                        opacity: 0,
-                                        y: animated ? 20 : 0,
-                                    }}
+                                    initial={false}
                                     whileInView={{ opacity: 1, y: 0 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: 0.4, duration: 0.6 }}
@@ -234,10 +225,7 @@ export default function CtaSectionEnhanced() {
                                 </motion.p>
 
                                 <motion.div
-                                    initial={{
-                                        opacity: 0,
-                                        y: animated ? 20 : 0,
-                                    }}
+                                    initial={false}
                                     whileInView={{ opacity: 1, y: 0 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: 0.5, duration: 0.6 }}

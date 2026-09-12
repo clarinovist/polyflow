@@ -1,207 +1,90 @@
-// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-vi.stubGlobal(
-    'ResizeObserver',
-    class ResizeObserver {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-    },
-);
-Element.prototype.scrollIntoView = vi.fn();
-Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-Element.prototype.releasePointerCapture = vi.fn();
-
-const { mockToast, mockSummaryAction, mockGetCustomerByIdAction, mockGetVehicles } = vi.hoisted(
-    () => ({
-        mockToast: { success: vi.fn(), error: vi.fn() },
-        mockSummaryAction: vi.fn(),
-        mockGetCustomerByIdAction: vi.fn(),
-        mockGetVehicles: vi.fn(),
-    }),
-);
-
-vi.mock('sonner', () => ({ toast: mockToast }));
+const { mockSummaryAction } = vi.hoisted(() => ({
+    mockSummaryAction: vi.fn(),
+}));
 
 vi.mock('@/actions/sales/customer', () => ({
-    getCustomersWithCreditSummaryAction: (...args: unknown[]) => mockSummaryAction(...args),
-    getCustomerById: (...args: unknown[]) => mockGetCustomerByIdAction(...args),
-    deleteCustomer: vi.fn().mockResolvedValue({ success: true }),
+    getCustomersWithCreditSummaryAction: mockSummaryAction,
 }));
 
-vi.mock('@/actions/sales/vehicles', () => ({
-    getVehicles: (...args: unknown[]) => mockGetVehicles(...args),
-}));
-
-// Simplify heavy child components is NOT needed — CustomerDialog already tested separately,
-// but for page test we need it rendered to check initialData flow.
-// Mock next/navigation
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({ refresh: vi.fn() }),
-}));
-
-vi.mock('next/link', () => ({
-    default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-        <a href={href}>{children}</a>
-    ),
+vi.mock('../CustomersPageClient', () => ({
+    default: function MockCustomersPageClient() {
+        return null;
+    },
 }));
 
 import CustomersPage from '../page';
 
-const leanCustomer = {
-    id: 'cust-1',
-    code: 'CUS-ADEHIDAYAT',
-    name: 'Ade Hidayat',
-    phone: '0812',
-    city: 'PEKALONGAN',
-    paymentTermDays: 0,
-    creditLimit: 0,
-    headroom: 1000000,
-    exposureStatus: 'ok' as const,
-    isActive: true,
+const pageData = {
+    customers: [],
+    total: 0,
+    page: 1,
+    pageSize: 50,
+    totalPages: 0,
+    search: '',
+    filter: 'all' as const,
 };
 
-const fullCustomer = {
-    id: 'cust-1',
-    code: 'CUS-ADEHIDAYAT',
-    name: 'Ade Hidayat',
-    phone: '0812',
-    email: 'ade@example.com',
-    billingAddress: 'Jl. Asli Lengkap',
-    shippingAddress: 'Jl. Kirim Lengkap',
-    taxId: '123',
-    creditLimit: { toNumber: () => 0 },
-    paymentTermDays: 0,
-    discountPercent: null,
-    maxDiscountPercent: null,
-    notes: 'note lengkap',
-    latitude: null,
-    longitude: null,
-    photoUrl: null,
-    province: 'Jawa Tengah',
-    city: 'PEKALONGAN',
-    district: 'Kecamatan Asli',
-    village: 'Kelurahan Asli',
-    defaultVehicleId: null,
-    isActive: true,
-    lifecycleStatus: 'ACTIVE',
-    createdById: null,
-    verifiedAt: null,
-    verifiedById: null,
-    mergedIntoId: null,
-    source: null,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-08-01'),
-};
-
-beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetVehicles.mockResolvedValue({ success: true, data: [] });
-    mockSummaryAction.mockResolvedValue({
-        success: true,
-        data: [leanCustomer],
-    });
-    mockGetCustomerByIdAction.mockResolvedValue({
-        success: true,
-        data: fullCustomer,
-    });
-});
-
-describe('customers/page.tsx lazy-fetch edit (GAP6b)', () => {
-    function openActionsMenu() {
-        const trigger = screen.getByTitle('Aksi');
-        // jsdom needs an explicit pointerdown before click for Radix
-        // DropdownMenu to open — a plain fireEvent.click alone is a no-op.
-        fireEvent.pointerDown(trigger, { button: 0 });
-        fireEvent.click(trigger);
-    }
-
-    async function openActionsMenuAndClickEdit() {
-        openActionsMenu();
-        fireEvent.click(await screen.findByText('Edit'));
-    }
-
-    it('calls getCustomerById when edit action clicked before opening dialog', async () => {
-        render(<CustomersPage />);
-
-        await screen.findAllByText('Ade Hidayat');
-
-        await openActionsMenuAndClickEdit();
-
-        await waitFor(() => {
-            expect(mockGetCustomerByIdAction).toHaveBeenCalledWith('cust-1');
-        });
+describe('CustomersPage server pagination', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockSummaryAction.mockResolvedValue({ success: true, data: pageData });
     });
 
-    it('opens edit dialog with full fetched data (not lean)', async () => {
-        render(<CustomersPage />);
-
-        await screen.findAllByText('Ade Hidayat');
-
-        await openActionsMenuAndClickEdit();
-
-        await screen.findByText('Edit Customer');
-
-        await waitFor(() => {
-            expect(screen.getByDisplayValue('ade@example.com')).toBeDefined();
-            expect(screen.getByDisplayValue('Jl. Asli Lengkap')).toBeDefined();
-            expect(screen.getByDisplayValue('Jawa Tengah')).toBeDefined();
-            expect(screen.getByDisplayValue('Kecamatan Asli')).toBeDefined();
-            expect(screen.getByDisplayValue('Kelurahan Asli')).toBeDefined();
-        });
-    });
-
-    it('does NOT render duplicate Aksi trigger per row when editing (GAP1 check)', async () => {
-        render(<CustomersPage />);
-
-        await screen.findAllByText('Ade Hidayat');
-
-        expect(screen.getAllByTitle('Aksi').length).toBe(1);
-
-        await openActionsMenuAndClickEdit();
-
-        await screen.findByText('Edit Customer');
-
-        expect(screen.getAllByTitle('Aksi').length).toBe(1);
-    });
-
-    it('shows Loader2 while fetching full data', async () => {
-        let resolveFetch: (v: unknown) => void = () => {};
-        mockGetCustomerByIdAction.mockReturnValue(
-            new Promise((res) => {
-                resolveFetch = res;
+    it('passes URL-backed search, filter, page, and capped page size to the action', async () => {
+        const element = await CustomersPage({
+            searchParams: Promise.resolve({
+                q: '  toko  ',
+                filter: 'inactive',
+                page: '3',
+                pageSize: '500',
             }),
-        );
-
-        render(<CustomersPage />);
-
-        await screen.findAllByText('Ade Hidayat');
-
-        await openActionsMenuAndClickEdit();
-
-        await waitFor(() => {
-            const btn = screen.getByTitle('Aksi') as HTMLButtonElement;
-            expect(btn.disabled).toBe(true);
         });
 
-        resolveFetch({ success: true, data: fullCustomer });
-
-        await screen.findByText('Edit Customer');
+        expect(mockSummaryAction).toHaveBeenCalledWith({
+            search: 'toko',
+            filter: 'inactive',
+            page: 3,
+            pageSize: 100,
+        });
+        expect(element.props.pageData).toBe(pageData);
+        expect(element.props.error).toBeUndefined();
     });
 
-    it('renders Pencil icon (not unicode span) for edit action', async () => {
-        render(<CustomersPage />);
+    it('uses safe defaults for malformed or repeated URL values', async () => {
+        await CustomersPage({
+            searchParams: Promise.resolve({
+                q: ['first', 'second'],
+                filter: 'not-a-filter',
+                page: '-2',
+                pageSize: 'invalid',
+            }),
+        });
 
-        await screen.findAllByText('Ade Hidayat');
+        expect(mockSummaryAction).toHaveBeenCalledWith({
+            search: '',
+            filter: 'all',
+            page: 1,
+            pageSize: 50,
+        });
+    });
 
-        expect(screen.queryByText('✎')).toBeNull();
+    it('renders an explicit error state when the action fails', async () => {
+        mockSummaryAction.mockResolvedValue({
+            success: false,
+            error: 'Daftar customer tidak tersedia',
+        });
 
-        openActionsMenu();
-        const editItem = await screen.findByText('Edit');
-        const svg = editItem.closest('[role="menuitem"]')?.querySelector('svg');
-        expect(svg).toBeTruthy();
+        const element = await CustomersPage({
+            searchParams: Promise.resolve({ q: 'ade' }),
+        });
+
+        expect(element.props.error).toBe('Daftar customer tidak tersedia');
+        expect(element.props.pageData).toMatchObject({
+            customers: [],
+            total: 0,
+            search: 'ade',
+        });
     });
 });

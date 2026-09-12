@@ -63,7 +63,7 @@ export default function PublicFooterEnhanced() {
                 <div className="py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
                     {/* Brand column */}
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6 }}
@@ -132,7 +132,7 @@ export default function PublicFooterEnhanced() {
                             {socialLinks.map((social, index) => (
                                 <motion.div
                                     key={social.name}
-                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    initial={false}
                                     whileInView={{ opacity: 1, scale: 1 }}
                                     viewport={{ once: true }}
                                     transition={{
@@ -167,7 +167,7 @@ export default function PublicFooterEnhanced() {
 
                     {/* Product links */}
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: 0.1, duration: 0.6 }}
@@ -200,7 +200,7 @@ export default function PublicFooterEnhanced() {
 
                     {/* Company links */}
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: 0.2, duration: 0.6 }}
@@ -234,7 +234,7 @@ export default function PublicFooterEnhanced() {
 
                 {/* Bottom bar */}
                 <motion.div
-                    initial={{ opacity: 0 }}
+                    initial={false}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.3, duration: 0.6 }}

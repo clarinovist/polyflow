@@ -17,6 +17,7 @@ import {
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { logger } from '@/lib/config/logger';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 import {
     safeAction,
     BusinessRuleError,
@@ -62,6 +63,170 @@ export const getInvoices = withTenant(async function getInvoices(
         return serializeData(invoices);
     });
 });
+
+const FINANCE_SALES_INVOICE_SORT_KEYS = [
+    'invoiceDate',
+    'entity',
+    'status',
+    'totalAmount',
+] as const;
+type FinanceSalesInvoiceSortKey =
+    (typeof FINANCE_SALES_INVOICE_SORT_KEYS)[number];
+type FinanceSalesInvoiceSortDirection = 'asc' | 'desc';
+
+interface FinanceSalesInvoicePageParams {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    startDate?: Date;
+    endDate?: Date;
+    demandType?: 'customer' | 'legacy-internal';
+    status?: InvoiceStatus;
+    overdue?: boolean;
+    sort?: FinanceSalesInvoiceSortKey;
+    direction?: FinanceSalesInvoiceSortDirection;
+}
+
+function normalizePositiveInteger(value: number | undefined, fallback: number) {
+    if (!Number.isFinite(value) || value === undefined || value < 1) {
+        return fallback;
+    }
+    return Math.floor(value);
+}
+
+function normalizeFinanceSalesInvoiceSort(
+    sort: FinanceSalesInvoiceSortKey | undefined,
+    direction: FinanceSalesInvoiceSortDirection | undefined,
+) {
+    const normalizedSort = FINANCE_SALES_INVOICE_SORT_KEYS.includes(
+        sort as FinanceSalesInvoiceSortKey,
+    )
+        ? (sort as FinanceSalesInvoiceSortKey)
+        : 'invoiceDate';
+    const normalizedDirection =
+        direction === 'asc' || direction === 'desc' ? direction : 'desc';
+
+    return { sort: normalizedSort, direction: normalizedDirection };
+}
+
+function buildFinanceSalesInvoiceOrderBy(
+    sort: FinanceSalesInvoiceSortKey,
+    direction: FinanceSalesInvoiceSortDirection,
+): Prisma.InvoiceOrderByWithRelationInput[] {
+    const primary: Prisma.InvoiceOrderByWithRelationInput =
+        sort === 'entity'
+            ? { salesOrder: { customer: { name: direction } } }
+            : { [sort]: direction };
+    return [primary, { id: direction }];
+}
+
+function buildFinanceSalesInvoiceWhere(
+    params: FinanceSalesInvoicePageParams,
+): Prisma.InvoiceWhereInput {
+    const search = params.search?.trim();
+    const overdue = params.overdue || params.status === InvoiceStatus.OVERDUE;
+    const filters: Prisma.InvoiceWhereInput[] = [];
+
+    if (params.startDate || params.endDate) {
+        filters.push({
+            invoiceDate: {
+                ...(params.startDate ? { gte: params.startDate } : {}),
+                ...(params.endDate ? { lte: params.endDate } : {}),
+            },
+        });
+    }
+    if (params.demandType === 'customer') {
+        filters.push({ salesOrder: { customerId: { not: null } } });
+    } else if (params.demandType === 'legacy-internal') {
+        filters.push({ salesOrder: { customerId: null } });
+    }
+    if (overdue) {
+        const currentBusinessDayStart = getWibDayBounds(
+            toBusinessDateString(new Date()),
+        ).startOfDay;
+        filters.push({
+            dueDate: { lt: currentBusinessDayStart },
+            paidAmount: { lt: prisma.invoice.fields.totalAmount },
+            status: {
+                in: [
+                    InvoiceStatus.UNPAID,
+                    InvoiceStatus.PARTIAL,
+                    InvoiceStatus.OVERDUE,
+                ],
+            },
+        });
+    } else if (params.status) {
+        filters.push({ status: params.status });
+    }
+    if (search) {
+        filters.push({
+            OR: [
+                { invoiceNumber: { contains: search, mode: 'insensitive' } },
+                {
+                    salesOrder: {
+                        orderNumber: { contains: search, mode: 'insensitive' },
+                    },
+                },
+                {
+                    salesOrder: {
+                        customer: {
+                            name: { contains: search, mode: 'insensitive' },
+                        },
+                    },
+                },
+            ],
+        });
+    }
+
+    return filters.length > 0 ? { AND: filters } : {};
+}
+
+export const getFinanceSalesInvoicePage = withTenant(
+    async function getFinanceSalesInvoicePage(
+        params: FinanceSalesInvoicePageParams = {},
+    ) {
+        return safeAction(async () => {
+            await requireFinanceAccess();
+            const page = normalizePositiveInteger(params.page, 1);
+            const pageSize = Math.min(
+                normalizePositiveInteger(params.pageSize, 50),
+                100,
+            );
+            const where = buildFinanceSalesInvoiceWhere(params);
+            const { sort, direction } = normalizeFinanceSalesInvoiceSort(
+                params.sort,
+                params.direction,
+            );
+            const total = await prisma.invoice.count({ where });
+            const totalPages = Math.ceil(total / pageSize);
+            const clampedPage = Math.min(page, Math.max(1, totalPages));
+            const invoices = await prisma.invoice.findMany({
+                where,
+                include: {
+                    salesOrder: {
+                        select: {
+                            orderNumber: true,
+                            customer: { select: { name: true } },
+                        },
+                    },
+                },
+                orderBy: buildFinanceSalesInvoiceOrderBy(sort, direction),
+                skip: (clampedPage - 1) * pageSize,
+                take: pageSize,
+            });
+
+            return serializeData({
+                data: invoices,
+                meta: {
+                    page: clampedPage,
+                    pageSize,
+                    total,
+                    totalPages,
+                },
+            });
+        });
+    },
+);
 
 export const getInvoiceById = withTenant(async function getInvoiceById(
     id: string,

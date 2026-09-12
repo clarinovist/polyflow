@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
-import { canonicalizeReceiptQuantity } from '@/lib/purchasing/receipt-valuation';
+import { canonicalizeReceiptQuantity } from '@/lib/purchasing/receipt-quantity';
 
 const purchaseOrderItemSchema = z.object({
     id: z.string().optional(),
@@ -52,7 +52,7 @@ const goodsReceiptItemSchema = z.object({
         .finite('Quantity must be a valid number')
         .transform((quantity, ctx) => {
             try {
-                return canonicalizeReceiptQuantity(quantity).toNumber();
+                return Number(canonicalizeReceiptQuantity(quantity));
             } catch {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,

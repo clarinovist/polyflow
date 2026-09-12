@@ -394,8 +394,8 @@ export const authConfig = {
                     );
                 }
 
-                // Login on root domain → redirect to landing page
-                // Users should log in at their tenant subdomain (e.g. kiyowo.polyflow.uk)
+                // Login on the root domain renders the existing workspace discovery.
+                // Logged-in superadmins still go directly to their panel.
                 if (pathname === '/login') {
                     if (isLoggedIn) {
                         const user = auth.user as { isSuperAdmin?: boolean };
@@ -408,7 +408,7 @@ export const authConfig = {
                             );
                         }
                     }
-                    return Response.redirect(new URL('/', nextUrl));
+                    return true;
                 }
 
                 return true;

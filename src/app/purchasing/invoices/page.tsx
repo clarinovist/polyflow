@@ -7,23 +7,43 @@ import { Metadata } from 'next';
 
 import { serializeData } from '@/lib/utils/utils';
 import { withTenant } from '@/lib/core/tenant';
-import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import {
     listOutstandingPurchaseInvoicesAction,
     listPurchaseRemittancesAction,
 } from '@/actions/purchasing/purchase-remittance';
 import { getPaymentBanks } from '@/actions/finance/payment-banks-actions';
+import { PurchaseInvoiceStatus } from '@prisma/client';
+import { PURCHASE_INVOICE_SORTS } from '@/services/purchasing/invoices-service';
+import {
+    parsePurchasingDateBounds,
+    parsePurchasingPageParam,
+    parsePurchasingSort,
+} from '@/lib/purchasing/paged-list';
 
 export const metadata: Metadata = {
     title: 'Invoice Pembelian | PolyFlow',
 };
 
 const getInvoices = withTenant(
-    async (dateRange?: { startDate?: Date; endDate?: Date }) => {
-        return PurchaseService.getPurchaseInvoices(dateRange);
-    },
+    async (filters: Parameters<typeof PurchaseService.getPurchaseInvoicesPage>[0]) =>
+        PurchaseService.getPurchaseInvoicesPage(filters),
 );
+
+function parseDateBounds(startDate?: string, endDate?: string) {
+    const dateOnlyBounds = parsePurchasingDateBounds(startDate, endDate);
+    return {
+        startDate:
+            dateOnlyBounds.startDate ?? parseIsoBoundary(startDate),
+        endDate: dateOnlyBounds.endDate ?? parseIsoBoundary(endDate),
+    };
+}
+
+function parseIsoBoundary(value?: string) {
+    if (!value || /^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
 
 export default async function PurchasingInvoicesPage({
     searchParams,
@@ -33,23 +53,39 @@ export default async function PurchasingInvoicesPage({
         endDate?: string;
         status?: string;
         overdue?: string;
+        search?: string;
+        page?: string;
+        pageSize?: string;
+        sort?: string;
+        direction?: string;
     }>;
 }) {
     const params = await searchParams;
     const initialStatus = params?.status;
     const overdueMode = params?.overdue === 'true';
+    const validStatus = Object.values(PurchaseInvoiceStatus).includes(
+        initialStatus as PurchaseInvoiceStatus,
+    )
+        ? (initialStatus as PurchaseInvoiceStatus)
+        : undefined;
+    const dateBounds = parseDateBounds(params.startDate, params.endDate);
+    const sorting = parsePurchasingSort(
+        params.sort,
+        params.direction,
+        PURCHASE_INVOICE_SORTS,
+        'invoiceDate',
+    );
+    const invoicesPage = await getInvoices({
+        page: parsePurchasingPageParam(params.page),
+        pageSize: parsePurchasingPageParam(params.pageSize),
+        search: params.search,
+        status: initialStatus === 'OVERDUE' ? undefined : validStatus,
+        overdue: overdueMode || initialStatus === 'OVERDUE',
+        ...dateBounds,
+        ...sorting,
+    });
 
-    const dateRange =
-        params?.startDate && params?.endDate
-            ? {
-                  startDate: parseISO(params.startDate),
-                  endDate: parseISO(params.endDate),
-              }
-            : undefined;
-
-    const invoices = await getInvoices(dateRange);
-
-    const serializedInvoices = serializeData(invoices);
+    const serializedInvoices = serializeData(invoicesPage.items);
 
     const [outstandingRes, remittancesRes, paymentBanksRes] = await Promise.all(
         [
@@ -90,7 +126,11 @@ export default async function PurchasingInvoicesPage({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <UrlTransactionDateFilter defaultPreset="all" align="end" />
+                    <UrlTransactionDateFilter
+                        defaultPreset="all"
+                        presetTimeZone="Asia/Jakarta"
+                        align="end"
+                    />
                 </div>
             </div>
 
@@ -106,9 +146,18 @@ export default async function PurchasingInvoicesPage({
                         typeof PurchaseInvoiceTable
                     >['invoices']
                 }
+                pagination={{
+                    page: invoicesPage.page,
+                    pageSize: invoicesPage.pageSize,
+                    totalCount: invoicesPage.totalCount,
+                    totalPages: invoicesPage.totalPages,
+                }}
                 basePath="/purchasing/invoices"
+                initialSearch={params.search}
                 initialStatus={initialStatus}
                 overdueMode={overdueMode}
+                sort={sorting.sort}
+                direction={sorting.direction}
             />
         </div>
     );

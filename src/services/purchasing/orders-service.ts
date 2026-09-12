@@ -9,6 +9,14 @@ import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { logger } from '@/lib/config/logger';
 import { PURCHASE_ORDERS_LIST_ROUTE } from '@/lib/constants/performance';
+import {
+    clampPurchasingPage,
+    createPurchasingPage,
+    normalizePurchasingPagination,
+    type PurchasingPage,
+    type PurchasingPaginationInput,
+    type PurchasingSortDirection,
+} from '@/lib/purchasing/paged-list';
 
 export async function createOrder(
     data: CreatePurchaseOrderValues,
@@ -347,31 +355,94 @@ export async function deleteOrder(id: string, userId: string) {
     });
 }
 
-export async function getPurchaseOrders(filters?: {
+const purchaseOrderListInclude = {
+    supplier: true,
+    _count: { select: { items: true } },
+} satisfies Prisma.PurchaseOrderInclude;
+
+type PurchaseOrderListItem = Prisma.PurchaseOrderGetPayload<{
+    include: typeof purchaseOrderListInclude;
+}>;
+
+export const PURCHASE_ORDER_SORTS = [
+    'orderDate',
+    'supplier',
+    'status',
+    'totalAmount',
+] as const;
+export type PurchaseOrderSort = (typeof PURCHASE_ORDER_SORTS)[number];
+
+export interface PurchaseOrderPageInput extends PurchasingPaginationInput {
+    search?: string;
     supplierId?: string;
     status?: PurchaseOrderStatus | PurchaseOrderStatus[];
-}) {
-    const where: Prisma.PurchaseOrderWhereInput = {};
-    if (filters?.supplierId) where.supplierId = filters.supplierId;
-    if (filters?.status) {
-        where.status = Array.isArray(filters.status)
-            ? { in: filters.status }
-            : filters.status;
-    }
+    startDate?: Date;
+    endDate?: Date;
+    sort?: PurchaseOrderSort;
+    direction?: PurchasingSortDirection;
+}
 
-    const queryStartedAt = performance.now();
-    const orders = await prisma.purchaseOrder.findMany({
-        where,
-        include: {
-            supplier: true,
-            _count: { select: { items: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-    });
+function getPurchaseOrderOrderBy(
+    sort: PurchaseOrderSort = 'orderDate',
+    direction: PurchasingSortDirection = 'desc',
+): Prisma.PurchaseOrderOrderByWithRelationInput[] {
+    const primary: Prisma.PurchaseOrderOrderByWithRelationInput =
+        sort === 'supplier'
+            ? { supplier: { name: direction } }
+            : { [sort]: direction };
 
+    return [primary, { id: direction }];
+}
+
+function buildPurchaseOrderWhere(
+    filters: Omit<PurchaseOrderPageInput, 'page' | 'pageSize'> = {},
+): Prisma.PurchaseOrderWhereInput {
+    const search = filters.search?.trim();
+
+    return {
+        ...(filters.supplierId ? { supplierId: filters.supplierId } : {}),
+        ...(filters.status
+            ? {
+                  status: Array.isArray(filters.status)
+                      ? { in: filters.status }
+                      : filters.status,
+              }
+            : {}),
+        ...(filters.startDate || filters.endDate
+            ? {
+                  orderDate: {
+                      ...(filters.startDate ? { gte: filters.startDate } : {}),
+                      ...(filters.endDate ? { lte: filters.endDate } : {}),
+                  },
+              }
+            : {}),
+        ...(search
+            ? {
+                  OR: [
+                      {
+                          orderNumber: {
+                              contains: search,
+                              mode: Prisma.QueryMode.insensitive,
+                          },
+                      },
+                      {
+                          supplier: {
+                              is: {
+                                  name: {
+                                      contains: search,
+                                      mode: Prisma.QueryMode.insensitive,
+                                  },
+                              },
+                          },
+                      },
+                  ],
+              }
+            : {}),
+    };
+}
+
+function recordPurchaseOrderListMetric(queryStartedAt: number) {
     const durationMs = Math.round(performance.now() - queryStartedAt);
-    // Fire-and-forget — recording the sample must not add latency to this
-    // response. Failure here is non-fatal (see docs/plan/2026-08-12-extend-performance-metrics-list-routes.md).
     prisma.performanceMetric
         .create({ data: { route: PURCHASE_ORDERS_LIST_ROUTE, durationMs } })
         .catch((error) =>
@@ -380,8 +451,46 @@ export async function getPurchaseOrders(filters?: {
                 error,
             }),
         );
+}
 
+export async function getPurchaseOrders(filters?: {
+    supplierId?: string;
+    status?: PurchaseOrderStatus | PurchaseOrderStatus[];
+}) {
+    const where = buildPurchaseOrderWhere(filters);
+    const queryStartedAt = performance.now();
+    const orders = await prisma.purchaseOrder.findMany({
+        where,
+        include: purchaseOrderListInclude,
+        orderBy: { createdAt: 'desc' },
+    });
+
+    recordPurchaseOrderListMetric(queryStartedAt);
     return orders;
+}
+
+export async function getPurchaseOrdersPage(
+    filters: PurchaseOrderPageInput = {},
+): Promise<PurchasingPage<PurchaseOrderListItem>> {
+    const pagination = normalizePurchasingPagination(filters);
+    const where = buildPurchaseOrderWhere(filters);
+    const queryStartedAt = performance.now();
+    const totalCount = await prisma.purchaseOrder.count({ where });
+    const page = clampPurchasingPage(
+        pagination.page,
+        totalCount,
+        pagination.pageSize,
+    );
+    const items = await prisma.purchaseOrder.findMany({
+        where,
+        include: purchaseOrderListInclude,
+        orderBy: getPurchaseOrderOrderBy(filters.sort, filters.direction),
+        skip: (page - 1) * pagination.pageSize,
+        take: pagination.pageSize,
+    });
+
+    recordPurchaseOrderListMetric(queryStartedAt);
+    return createPurchasingPage(items, totalCount, page, pagination.pageSize);
 }
 
 export async function getPurchaseOrderById(id: string) {

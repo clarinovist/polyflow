@@ -1,0 +1,93 @@
+// @vitest-environment jsdom
+import { act, type ReactElement } from 'react';
+import { hydrateRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+import Home from '@/app/page';
+import HeroSectionEnhanced from '../hero-section-enhanced';
+import PublicNavEnhanced from '../public-nav-enhanced';
+
+function renderMarkup(element: ReactElement): HTMLElement {
+    const root = document.createElement('div');
+    root.innerHTML = renderToString(element);
+    return root;
+}
+
+class IntersectionObserverMock implements IntersectionObserver {
+    readonly root = null;
+    readonly rootMargin = '0px';
+    readonly scrollMargin = '0px';
+    readonly thresholds = [0];
+
+    disconnect(): void {}
+    observe(): void {}
+    takeRecords(): IntersectionObserverEntry[] {
+        return [];
+    }
+    unobserve(): void {}
+}
+
+async function expectHydratesWithoutErrors(element: ReactElement): Promise<void> {
+    const container = document.createElement('div');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
+    let root: Root | undefined;
+
+    try {
+        container.innerHTML = renderToString(element);
+        await act(async () => {
+            root = hydrateRoot(container, element);
+        });
+
+        expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+        if (root) {
+            await act(async () => root?.unmount());
+        }
+        vi.unstubAllGlobals();
+        consoleError.mockRestore();
+    }
+}
+
+function expectInitiallyVisible(element: Element | null): void {
+    expect(element).not.toBeNull();
+
+    let current: Element | null = element;
+    while (current) {
+        const style = current.getAttribute('style') ?? '';
+        expect(style).not.toMatch(/(?:^|;)opacity:\s*0(?:;|$)/);
+        expect(style).not.toMatch(/translateY\(-\d/);
+        current = current.parentElement;
+    }
+}
+
+describe('landing motion safety', () => {
+    it('keeps navigation and hero semantics visible in server markup', () => {
+        const nav = renderMarkup(<PublicNavEnhanced />);
+        const hero = renderMarkup(<HeroSectionEnhanced />);
+
+        expectInitiallyVisible(nav.querySelector('header'));
+        expectInitiallyVisible(nav.querySelector('a[href="/login"]'));
+        expectInitiallyVisible(hero.querySelector('h1'));
+        expectInitiallyVisible(hero.querySelector('a[href^="mailto:"]'));
+    });
+
+    it('keeps the complete home composition, including footer semantics, visible by default', () => {
+        const home = renderMarkup(<Home />);
+        const footer = home.querySelector('footer');
+
+        expectInitiallyVisible(home.querySelector('main h1'));
+        expectInitiallyVisible(footer?.querySelector('h3') ?? null);
+        expectInitiallyVisible(
+            footer?.querySelector('a[href="/register"]') ?? null,
+        );
+        expectInitiallyVisible(
+            footer?.querySelector('a[href="/privacy"]') ?? null,
+        );
+        expectInitiallyVisible(footer?.querySelector('p:last-child') ?? null);
+    });
+
+    it('hydrates the complete home composition without console errors', async () => {
+        await expectHydratesWithoutErrors(<Home />);
+    });
+});

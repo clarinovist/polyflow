@@ -12,6 +12,7 @@ import {
     createGoodsReceiptSchema,
     CreateGoodsReceiptValues,
 } from '@/lib/schemas/purchasing';
+import { canonicalizeReceiptQuantity } from '@/lib/purchasing/receipt-quantity';
 import { createGoodsReceipt } from '@/actions/purchasing/purchasing';
 import { Button } from '@/components/ui/button';
 import {
@@ -69,8 +70,63 @@ interface GoodsReceiptFormProps {
 
 /** Parse decimal string; accepts Indonesian comma (247,62) and period (247.62). */
 function parseDecimalInput(raw: string): number {
-    const num = Number((raw || '0').replace(',', '.'));
-    return isNaN(num) ? 0 : num;
+    const quantity = Number((raw || '0').replace(',', '.'));
+    return Number.isFinite(quantity) ? quantity : 0;
+}
+
+function omitZeroQuantityItems(
+    values: CreateGoodsReceiptValues,
+): CreateGoodsReceiptValues {
+    return {
+        ...values,
+        items: values.items.filter((item) => item.receivedQty !== 0),
+    };
+}
+
+const validateGoodsReceipt = zodResolver(
+    createGoodsReceiptSchema,
+) as Resolver<CreateGoodsReceiptValues>;
+
+export const goodsReceiptResolver: Resolver<CreateGoodsReceiptValues> = async (
+    values,
+    context,
+    options,
+) => {
+    const submittedIndexes = values.items.flatMap((item, index) =>
+        item.receivedQty === 0 ? [] : [index],
+    );
+    const result = await validateGoodsReceipt(
+        omitZeroQuantityItems(values),
+        context,
+        options,
+    );
+    const itemErrors = result.errors.items;
+
+    if (!Array.isArray(itemErrors)) return result;
+
+    const errorsByVisibleRow = values.items.map(() => undefined);
+    submittedIndexes.forEach((visibleIndex, submittedIndex) => {
+        errorsByVisibleRow[visibleIndex] = itemErrors[submittedIndex];
+    });
+
+    return {
+        values: {},
+        errors: {
+            ...result.errors,
+            items: errorsByVisibleRow,
+        },
+    };
+};
+
+function isPositiveCanonicalQuantity(quantity: number | undefined): boolean {
+    if (quantity === undefined) return false;
+
+    try {
+        canonicalizeReceiptQuantity(quantity);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export function GoodsReceiptForm({
@@ -94,9 +150,7 @@ export function GoodsReceiptForm({
     const pendingItems = items;
 
     const form = useForm<CreateGoodsReceiptValues>({
-        resolver: zodResolver(
-            createGoodsReceiptSchema,
-        ) as Resolver<CreateGoodsReceiptValues>,
+        resolver: goodsReceiptResolver,
         defaultValues: {
             purchaseOrderId,
             receivedDate: new Date(),
@@ -105,12 +159,15 @@ export function GoodsReceiptForm({
             items: pendingItems.map((item) => ({
                 purchaseOrderItemId: item.purchaseOrderItemId || item.id || '',
                 productVariantId: item.productVariantId,
-                receivedQty: Math.max(0, item.orderedQty - item.receivedQty),
+                receivedQty: 0,
             })),
         },
     });
 
     const watchedQtys = form.watch('items');
+    const hasPositiveQuantity = watchedQtys?.some((item) =>
+        isPositiveCanonicalQuantity(item?.receivedQty),
+    );
     const hasOverReceipt = watchedQtys?.some((w, idx) => {
         const orig = pendingItems[idx];
         if (!orig) return false;
@@ -125,7 +182,10 @@ export function GoodsReceiptForm({
     const onSubmit: SubmitHandler<CreateGoodsReceiptValues> = async (data) => {
         setIsLoading(true);
         try {
-            const result = await createGoodsReceipt(data);
+            const payload = createGoodsReceiptSchema.parse(
+                omitZeroQuantityItems(data),
+            );
+            const result = await createGoodsReceipt(payload);
             if (!result.success) {
                 toast.error(
                     result.error ||
@@ -170,9 +230,11 @@ export function GoodsReceiptForm({
                                 <div className="space-y-4">
                                     {fields.map((field, index) => {
                                         const originalItem = items.find(
-                                            (i) =>
-                                                i.productVariantId ===
-                                                field.productVariantId,
+                                            (item) =>
+                                                (item.purchaseOrderItemId ||
+                                                    item.id ||
+                                                    '') ===
+                                                field.purchaseOrderItemId,
                                         );
                                         const currentQty =
                                             watchedQtys?.[index]?.receivedQty ||
@@ -263,29 +325,24 @@ export function GoodsReceiptForm({
                                                                                     raw,
                                                                             }),
                                                                         );
-                                                                        // Keep intermediate input like "247," / "247." visible
-                                                                        const num =
+                                                                        // Keep intermediate input like "247," / "247." visible,
+                                                                        // but invalidate RHF immediately so stale values cannot submit.
+                                                                        const quantity =
                                                                             Number(
                                                                                 raw.replace(
                                                                                     ',',
                                                                                     '.',
                                                                                 ),
                                                                             );
-                                                                        if (
-                                                                            !isNaN(
-                                                                                num,
-                                                                            ) &&
-                                                                            raw !==
+                                                                        field.onChange(
+                                                                            raw.trim() !==
                                                                                 '' &&
-                                                                            raw !==
-                                                                                ',' &&
-                                                                            raw !==
-                                                                                '.'
-                                                                        ) {
-                                                                            field.onChange(
-                                                                                num,
-                                                                            );
-                                                                        }
+                                                                                Number.isFinite(
+                                                                                    quantity,
+                                                                                )
+                                                                                ? quantity
+                                                                                : Number.NaN,
+                                                                        );
                                                                     }}
                                                                     onBlur={(
                                                                         e,
@@ -481,7 +538,7 @@ export function GoodsReceiptForm({
 
                                 <Button
                                     type="submit"
-                                    disabled={isLoading || fields.length === 0}
+                                    disabled={isLoading || !hasPositiveQuantity}
                                     className="w-full bg-blue-600 hover:bg-blue-700 h-11"
                                 >
                                     {isLoading ? (
