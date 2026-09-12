@@ -3,6 +3,7 @@ import { getMyPermissions } from '@/actions/admin/permissions';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
+import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/core/prisma';
@@ -85,6 +86,7 @@ export default async function DashboardLayout({
 
     return (
         <div className="min-h-screen bg-secondary/30">
+            <SkipToMainContent />
             <SidebarNav
                 user={user}
                 permissions={permissions}
@@ -93,7 +95,7 @@ export default async function DashboardLayout({
 
             {/* Main Content */}
             <SidebarSpacer>
-                <main className="min-h-screen">
+                <main id="main-content" tabIndex={-1} className="min-h-screen">
                     <div className="p-4 md:p-6 lg:p-8">
                         <PathBreadCrumb />
                         {children}

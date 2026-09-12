@@ -161,6 +161,7 @@ export function PortalSidebarBase({
 
                     {/* Navigation */}
                     <nav
+                        aria-label={`Navigasi ${portalName}`}
                         className={cn(
                             'flex-1 overflow-y-auto space-y-6 mt-2 custom-scrollbar',
                             effectiveCollapsed ? 'px-2 py-4' : 'p-4',

@@ -13,24 +13,17 @@ import {
 } from '@tanstack/react-table';
 
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
-    TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { DataTableSortIcon } from '@/components/ui/data-table-sort-icon';
-import {
-    ChevronLeft,
-    ChevronRight,
-    ChevronsLeft,
-    ChevronsRight,
-} from 'lucide-react';
-import { cn } from '@/lib/utils/utils';
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
@@ -49,6 +42,7 @@ interface DataTableProps<TData, TValue> {
     emptyMessage?: string;
     minWidth?: number;
     renderMobileView?: (data: TData[]) => React.ReactNode;
+    caption?: React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -67,6 +61,7 @@ export function DataTable<TData, TValue>({
     emptyMessage = 'Tidak ada data.',
     minWidth = 800,
     renderMobileView,
+    caption,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [rowSelection, setRowSelection] = useState({});
@@ -127,16 +122,25 @@ export function DataTable<TData, TValue>({
             <div className="rounded-md border hidden md:block">
                 <ResponsiveTable minWidth={minWidth}>
                     <Table>
+                        {caption && (
+                            <TableCaption className="sr-only">
+                                {caption}
+                            </TableCaption>
+                        )}
                         <TableHeader>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => (
-                                        <TableHead
+                                        <SortableTableHead
                                             key={header.id}
-                                            className={cn(
-                                                header.column.getCanSort() &&
-                                                    'cursor-pointer select-none hover:bg-muted/50',
-                                            )}
+                                            sortable={header.column.getCanSort()}
+                                            direction={header.column.getIsSorted()}
+                                            onSort={header.column.getToggleSortingHandler()}
+                                            className={
+                                                header.column.getCanSort()
+                                                    ? 'hover:bg-muted/50'
+                                                    : undefined
+                                            }
                                             style={
                                                 header.column.columnDef.size
                                                     ? {
@@ -145,23 +149,15 @@ export function DataTable<TData, TValue>({
                                                       }
                                                     : undefined
                                             }
-                                            onClick={header.column.getToggleSortingHandler()}
                                         >
-                                            {header.isPlaceholder ? null : (
-                                                <div className="flex items-center gap-2 whitespace-nowrap">
-                                                    {flexRender(
-                                                        header.column.columnDef
-                                                            .header,
-                                                        header.getContext(),
-                                                    )}
-                                                    {header.column.getCanSort() && (
-                                                        <DataTableSortIcon
-                                                            direction={header.column.getIsSorted()}
-                                                        />
-                                                    )}
-                                                </div>
-                                            )}
-                                        </TableHead>
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                      header.column.columnDef
+                                                          .header,
+                                                      header.getContext(),
+                                                  )}
+                                        </SortableTableHead>
                                     ))}
                                 </TableRow>
                             ))}
@@ -216,64 +212,39 @@ export function DataTable<TData, TValue>({
 
             {renderMobileView && (
                 <div className="md:hidden space-y-3">
-                    {renderMobileView(data)}
+                    {renderMobileView(
+                        enablePagination
+                            ? table
+                                  .getRowModel()
+                                  .rows.map((row) => row.original)
+                            : data,
+                    )}
                 </div>
             )}
 
             {enablePagination && (
-                <div className="flex items-center justify-between px-2">
-                    {enableRowSelection && (
-                        <div className="text-muted-foreground text-sm">
-                            {table.getFilteredSelectedRowModel().rows.length}{' '}
-                            dari {table.getFilteredRowModel().rows.length} baris
-                            dipilih
-                        </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-sm">
-                            Halaman {table.getState().pagination.pageIndex + 1}{' '}
-                            dari {table.getPageCount()}
-                        </span>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => table.setPageIndex(0)}
-                            disabled={!table.getCanPreviousPage()}
-                        >
-                            <ChevronsLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => table.previousPage()}
-                            disabled={!table.getCanPreviousPage()}
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => table.nextPage()}
-                            disabled={!table.getCanNextPage()}
-                        >
-                            <ChevronRight className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() =>
-                                table.setPageIndex(table.getPageCount() - 1)
-                            }
-                            disabled={!table.getCanNextPage()}
-                        >
-                            <ChevronsRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
+                <DataTablePagination
+                    pageIndex={table.getState().pagination.pageIndex}
+                    pageCount={table.getPageCount()}
+                    canPreviousPage={table.getCanPreviousPage()}
+                    canNextPage={table.getCanNextPage()}
+                    onFirstPage={() => table.setPageIndex(0)}
+                    onPreviousPage={() => table.previousPage()}
+                    onNextPage={() => table.nextPage()}
+                    onLastPage={() =>
+                        table.setPageIndex(Math.max(table.getPageCount() - 1, 0))
+                    }
+                    selectedRowCount={
+                        enableRowSelection
+                            ? table.getFilteredSelectedRowModel().rows.length
+                            : undefined
+                    }
+                    totalRowCount={
+                        enableRowSelection
+                            ? table.getFilteredRowModel().rows.length
+                            : undefined
+                    }
+                />
             )}
         </div>
     );

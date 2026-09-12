@@ -299,6 +299,7 @@ export function SidebarNav({
                     )}
 
                     <nav
+                        aria-label="Navigasi utama"
                         className={cn(
                             'flex-1 overflow-y-auto space-y-6 custom-scrollbar',
                             effectiveCollapsed ? 'px-2 py-4' : 'p-4',

@@ -11,6 +11,7 @@ import {
 } from '@/lib/auth/access-policy';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
+import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import { headers } from 'next/headers';
 
@@ -93,6 +94,7 @@ export default async function WarehouseLayout({
 
     return (
         <div className="min-h-screen bg-background">
+            <SkipToMainContent />
             {/* Dedicated Warehouse Sidebar */}
             <WarehouseSidebar user={user} permissions={permissions} />
 
@@ -111,7 +113,11 @@ export default async function WarehouseLayout({
                     </div>
                 </header>
 
-                <main className="flex-1 bg-muted/20 p-6 min-w-0">
+                <main
+                    id="main-content"
+                    tabIndex={-1}
+                    className="flex-1 bg-muted/20 p-6 min-w-0"
+                >
                     <PathBreadCrumb />
                     {children}
                 </main>

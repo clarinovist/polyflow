@@ -10,6 +10,7 @@ import {
 } from '@/lib/auth/access-policy';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
+import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import { headers } from 'next/headers';
 
@@ -76,9 +77,10 @@ export default async function HrdLayout({
 
     return (
         <div className="min-h-screen bg-background">
+            <SkipToMainContent />
             <HrdSidebar user={session.user} permissions={permissions} />
             <SidebarSpacer>
-                <main className="min-h-screen">
+                <main id="main-content" tabIndex={-1} className="min-h-screen">
                     <div className="p-4 md:p-6 lg:p-8">
                         <PathBreadCrumb />
                         {children}
