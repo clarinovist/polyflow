@@ -61,12 +61,12 @@ function AuthenticatedWidget({
     const root = useRef<HTMLDivElement>(null);
     const trigger = useRef<HTMLButtonElement>(null);
     const dialog = useRef<HTMLDivElement>(null);
-    const mobile = [
-        '/warehouse/mobile',
-        '/sales/mobile',
-        '/field/sales',
-        '/my',
-    ].some((prefix) => pathname.startsWith(prefix));
+    const mobile =
+        pathname === '/mobile' ||
+        pathname.includes('/mobile/') ||
+        pathname.endsWith('/mobile') ||
+        pathname.startsWith('/field/sales') ||
+        pathname.startsWith('/my');
 
     useEffect(() => {
         if (!open) return;
@@ -94,7 +94,10 @@ function AuthenticatedWidget({
     return (
         <div
             ref={root}
+            // globals.css uses this sentinel to append one bounded safe-area
+            // spacer to main; no per-control measurement or observers needed.
             data-polyflow-chat-fab=""
+            data-desktop-safe-area={mobile ? undefined : ''}
             className={`fixed z-50 print:hidden ${
                 mobile
                     ? 'bottom-20 right-4 sm:bottom-5 sm:right-5'

@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -206,10 +207,10 @@ export default function DailyPettyCashReportPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Daily Petty Cash Report
+                        Laporan Kas Kecil Harian
                     </h1>
                     <p className="text-muted-foreground">
-                        Harian Kas Kecil untuk tanggal {format(date, 'PPP')}
+                        Kas kecil harian untuk tanggal {format(date, 'PPP')}
                     </p>
                 </div>
                 <div className="flex gap-2 items-center">
@@ -443,9 +444,9 @@ export default function DailyPettyCashReportPage() {
                         </p>
                     </div>
                     <div className="text-right">
-                        <h1 className="text-xl font-bold text-gray-800">
-                            LAPORAN KAS KECIL HARIAN
-                        </h1>
+                        <h2 className="text-xl font-bold text-gray-800">
+                            Laporan Kas Kecil Harian
+                        </h2>
                         <p className="text-sm font-mono mt-1">
                             Tanggal: {format(date, 'dd MMMM yyyy')}
                         </p>
@@ -549,6 +550,9 @@ export default function DailyPettyCashReportPage() {
                         <CardContent>
                             <div className="rounded-md border overflow-hidden">
                                 <Table>
+                                    <TableCaption className="sr-only">
+                                        Daftar voucher dan transaksi kas kecil harian
+                                    </TableCaption>
                                     <TableHeader>
                                         <TableRow className="bg-muted/30">
                                             <TableHead className="w-[120px]">

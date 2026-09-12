@@ -5,7 +5,7 @@ import {
 } from '@/actions/inventory/inventory';
 import { getSalesOrders } from '@/actions/sales/sales';
 import { SalesReturnForm } from '@/components/sales/SalesReturnForm';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 export default async function CreateSalesReturnPage() {
     // Fetch all required lookup data
@@ -32,7 +32,9 @@ export default async function CreateSalesReturnPage() {
         <div className="p-6 max-w-5xl mx-auto">
             <Card>
                 <CardHeader>
-                    <CardTitle>Buat Retur Penjualan Baru</CardTitle>
+                    <h1 className="text-lg font-semibold leading-none">
+                        Buat Retur Penjualan Baru
+                    </h1>
                 </CardHeader>
                 <CardContent>
                     <SalesReturnForm

@@ -37,7 +37,9 @@ export default async function ProductsPage({
 }) {
     const params = await searchParams;
     const typeParam = firstParam(params.type);
-    const validType = Object.values(ProductType).includes(typeParam as ProductType)
+    const validType = Object.values(ProductType).includes(
+        typeParam as ProductType,
+    )
         ? (typeParam as ProductType)
         : undefined;
     const sortParam = firstParam(params.sort);
@@ -75,11 +77,11 @@ export default async function ProductsPage({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Product Catalog
+                        Katalog Produk
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Manage your raw materials, intermediate goods, and
-                        finished products.
+                        Kelola bahan baku, barang setengah jadi, dan barang
+                        jadi.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -101,7 +103,7 @@ export default async function ProductsPage({
                     <Link href="/dashboard/products/create">
                         <Button>
                             <Plus className="h-4 w-4 mr-2" />
-                            Create Product
+                            Buat Produk
                         </Button>
                     </Link>
                 </div>
@@ -110,25 +112,25 @@ export default async function ProductsPage({
             <Tabs defaultValue={currentType} className="w-full">
                 <TabsList className="mb-4">
                     <Link href="/dashboard/products">
-                        <TabsTrigger value="all">All Items</TabsTrigger>
+                        <TabsTrigger value="all">Semua Item</TabsTrigger>
                     </Link>
                     <Link href="/dashboard/products?type=RAW_MATERIAL">
                         <TabsTrigger value="RAW_MATERIAL">
-                            Raw Materials
+                            Bahan Baku
                         </TabsTrigger>
                     </Link>
                     <Link href="/dashboard/products?type=INTERMEDIATE">
                         <TabsTrigger value="INTERMEDIATE">
-                            Intermediate
+                            Barang Setengah Jadi
                         </TabsTrigger>
                     </Link>
                     <Link href="/dashboard/products?type=FINISHED_GOOD">
                         <TabsTrigger value="FINISHED_GOOD">
-                            Finished Goods
+                            Barang Jadi
                         </TabsTrigger>
                     </Link>
                     <Link href="/dashboard/products?type=PACKAGING">
-                        <TabsTrigger value="PACKAGING">Packaging</TabsTrigger>
+                        <TabsTrigger value="PACKAGING">Kemasan</TabsTrigger>
                     </Link>
                     <Link href="/dashboard/products?type=AUXILIARY">
                         <TabsTrigger value="AUXILIARY">

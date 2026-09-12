@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Pencil } from 'lucide-react';
 
 export const metadata: Metadata = {
-    title: 'Locations | Master Data | PolyFlow',
+    title: 'Lokasi | Data Master | PolyFlow',
 };
 
 const purposeLabels: Record<string, string> = {
@@ -58,11 +58,11 @@ export default async function LocationsPage() {
                 <div className="space-y-1">
                     <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
                         <Warehouse className="h-8 w-8 text-primary" />
-                        Locations
+                        Lokasi
                     </h1>
                     <p className="text-muted-foreground">
-                        Manage internal warehouses and customer-owned storage
-                        (Maklon) areas.
+                        Kelola gudang internal dan area penyimpanan milik
+                        pelanggan (maklon).
                     </p>
                 </div>
                 <LocationFormDialog />
@@ -105,8 +105,7 @@ export default async function LocationsPage() {
                                         slug: location.slug,
                                         description: location.description || '',
                                         locationType: location.locationType as
-                                            | 'INTERNAL'
-                                            | 'CUSTOMER_OWNED',
+                                            'INTERNAL' | 'CUSTOMER_OWNED',
                                         locationPurpose:
                                             location.locationPurpose as
                                                 | 'RAW_MATERIAL'

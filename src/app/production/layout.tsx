@@ -94,11 +94,11 @@ export default async function ProductionLayout({
                     <div className="flex items-center gap-3">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                         <div>
-                            <h1 className="text-md font-bold text-foreground">
+                            <p className="text-md font-bold text-foreground">
                                 Portal Produksi
-                            </h1>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-                                Floor Control Mode
+                            </p>
+                            <p className="text-[10px] text-muted-foreground tracking-widest font-bold">
+                                Kendali operasional
                             </p>
                         </div>
                     </div>

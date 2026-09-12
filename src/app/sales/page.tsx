@@ -22,6 +22,26 @@ import {
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
+function ActionCard({
+    count,
+    href,
+    activeClassName,
+    children,
+}: {
+    count: number;
+    href: string;
+    activeClassName: string;
+    children: React.ReactNode;
+}) {
+    const card = (
+        <Card className={count > 0 ? activeClassName : undefined}>
+            {children}
+        </Card>
+    );
+
+    return count > 0 ? <Link href={href}>{card}</Link> : card;
+}
+
 export default async function SalesCommandBoardPage(props: {
     searchParams: SearchParams;
 }) {
@@ -81,102 +101,112 @@ export default async function SalesCommandBoardPage(props: {
 
             {/* KPI Cards — operational snapshot (NOT date-bound) */}
             <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                <Link href="/sales/orders?status=DRAFT">
-                    <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                DRAFT SO
-                            </CardTitle>
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {counts.draftOrders}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Perlu dikonfirmasi
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <ActionCard
+                    count={counts.draftOrders}
+                    href="/sales/orders?status=DRAFT"
+                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
+                >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            SO draf
+                        </CardTitle>
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold tabular-nums">
+                            {counts.draftOrders}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Perlu dikonfirmasi
+                        </p>
+                    </CardContent>
+                </ActionCard>
 
-                <Link href="/sales/orders?status=READY_TO_SHIP">
-                    <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Siap SJ
-                            </CardTitle>
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {counts.readyToShipOrders}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Siap dibuatkan SJ
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <ActionCard
+                    count={counts.readyToShipOrders}
+                    href="/sales/orders?status=READY_TO_SHIP"
+                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
+                >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Siap SJ
+                        </CardTitle>
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold tabular-nums">
+                            {counts.readyToShipOrders}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Siap dibuatkan SJ
+                        </p>
+                    </CardContent>
+                </ActionCard>
 
-                <Link href="/sales/deliveries">
-                    <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                SJ Aktif
-                            </CardTitle>
-                            <Truck className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {counts.openDeliveryOrders}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                PENDING + LOADING
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <ActionCard
+                    count={counts.openDeliveryOrders}
+                    href="/sales/deliveries"
+                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
+                >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            SJ Aktif
+                        </CardTitle>
+                        <Truck className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold tabular-nums">
+                            {counts.openDeliveryOrders}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Menunggu + sedang dimuat
+                        </p>
+                    </CardContent>
+                </ActionCard>
 
-                <Link href="/sales/delivery-schedules">
-                    <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Trip Hari Ini
-                            </CardTitle>
-                            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {counts.tripsToday}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Jadwal berangkat
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <ActionCard
+                    count={counts.tripsToday}
+                    href="/sales/delivery-schedules"
+                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
+                >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Perjalanan hari ini
+                        </CardTitle>
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold tabular-nums">
+                            {counts.tripsToday}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Jadwal berangkat
+                        </p>
+                    </CardContent>
+                </ActionCard>
 
-                <Link href="/sales/invoices?status=OVERDUE">
-                    <Card className="hover:border-destructive/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Overdue
-                            </CardTitle>
-                            <AlertTriangle className="h-4 w-4 text-destructive" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-destructive">
-                                {counts.overdueInvoices}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                {counts.overdueAmount > 0
-                                    ? formatRupiah(counts.overdueAmount)
-                                    : '-'}
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <ActionCard
+                    count={counts.overdueInvoices}
+                    href="/sales/invoices?status=OVERDUE"
+                    activeClassName="hover:border-destructive/50 transition-colors cursor-pointer"
+                >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Jatuh tempo
+                        </CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-destructive tabular-nums">
+                            {counts.overdueInvoices}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {counts.overdueAmount > 0
+                                ? formatRupiah(counts.overdueAmount)
+                                : '-'}
+                        </p>
+                    </CardContent>
+                </ActionCard>
             </div>
 
             {/* Butuh Perhatian — Attention Lists */}
@@ -196,7 +226,7 @@ export default async function SalesCommandBoardPage(props: {
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
                                 <FileText className="h-4 w-4" />
-                                SO DRAFT ({attention.oldDrafts.length})
+                                SO draf ({attention.oldDrafts.length})
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
@@ -330,7 +360,7 @@ export default async function SalesCommandBoardPage(props: {
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
                                 <AlertTriangle className="h-4 w-4 text-destructive" />
-                                Overdue ({attention.overdueInvoices.length})
+                                Jatuh tempo ({attention.overdueInvoices.length})
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
@@ -400,7 +430,7 @@ export default async function SalesCommandBoardPage(props: {
                                         className="shrink-0"
                                     >
                                         {item.exposureStatus === 'over'
-                                            ? 'Over'
+                                            ? 'Terlewati'
                                             : 'Mendekati'}
                                     </Badge>
                                 </div>
@@ -409,7 +439,7 @@ export default async function SalesCommandBoardPage(props: {
                                 href="/sales/customers"
                                 className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
                             >
-                                Lihat customer{' '}
+                                Lihat pelanggan{' '}
                                 <ArrowRight className="h-3 w-3" />
                             </Link>
                         </CardContent>
@@ -422,7 +452,7 @@ export default async function SalesCommandBoardPage(props: {
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
                                 <Clock className="h-4 w-4" />
-                                Follow-up Hari Ini / Terlewat (
+                                Tindak lanjut hari ini / terlewat (
                                 {attention.followUpsDue.length})
                             </CardTitle>
                         </CardHeader>
@@ -488,11 +518,11 @@ export default async function SalesCommandBoardPage(props: {
                     )}
             </div>
 
-            {/* Quick Actions */}
+            {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
             <div className="flex flex-wrap gap-3">
                 <Link href="/sales/orders/create">
                     <Button size="sm">
-                        <Plus className="h-4 w-4 mr-1" /> Order Baru
+                        <Plus className="h-4 w-4 mr-1" /> Pesanan baru
                     </Button>
                 </Link>
                 <Link href="/sales/orders/create?intent=quotation">
@@ -507,7 +537,7 @@ export default async function SalesCommandBoardPage(props: {
                 </Link>
                 <Link href="/field/sales">
                     <Button size="sm" variant="ghost">
-                        <Smartphone className="h-4 w-4 mr-1" /> Mode Mobile
+                        <Smartphone className="h-4 w-4 mr-1" /> Mode seluler
                     </Button>
                 </Link>
             </div>
@@ -526,21 +556,23 @@ export default async function SalesCommandBoardPage(props: {
                             <p className="text-muted-foreground">
                                 Omzet Periode
                             </p>
-                            <p className="font-semibold">
+                            <p className="font-semibold tabular-nums">
                                 {formatRupiah(performance.totalRevenue)}
                             </p>
                         </div>
                         <div>
-                            <p className="text-muted-foreground">Order Aktif</p>
-                            <p className="font-semibold">
+                            <p className="text-muted-foreground">
+                                Pesanan aktif
+                            </p>
+                            <p className="font-semibold tabular-nums">
                                 {counts.activeOrders}
                             </p>
                         </div>
                         <div>
                             <p className="text-muted-foreground">
-                                Customer Aktif
+                                Pelanggan aktif
                             </p>
-                            <p className="font-semibold">
+                            <p className="font-semibold tabular-nums">
                                 {counts.activeCustomers}
                             </p>
                         </div>

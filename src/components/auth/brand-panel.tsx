@@ -24,11 +24,11 @@ export default function BrandPanel({
                 </div>
 
                 {/* Welcome Text */}
-                <h1 className="text-4xl font-bold text-white mb-4">
+                <h2 className="text-4xl font-bold text-white mb-4">
                     {subdomain
                         ? `${L.welcomeTo} ${subdomain.toUpperCase()}`
                         : `${L.welcomeTo} PolyFlow`}
-                </h1>
+                </h2>
                 <p className="text-zinc-400 dark:text-zinc-500 text-sm leading-relaxed mb-4">
                     {subdomain ? L.signInDescription : L.brandDescription}
                 </p>

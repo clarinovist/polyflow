@@ -8,7 +8,12 @@ import { ScanRemindersButton } from '@/components/hrd/ScanRemindersButton';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 
-export default async function AlertsPage() {
+export default async function AlertsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ unread?: string }>;
+}) {
+    const params = await searchParams;
     const session = await auth();
     if (!session) redirect('/login');
     if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD']))
@@ -20,6 +25,7 @@ export default async function AlertsPage() {
         where: {
             userId,
             type: { in: ['HRD_PROBATION_ENDING', 'HRD_CONTRACT_EXPIRING'] },
+            ...(params.unread === 'true' ? { isRead: false } : {}),
         },
         orderBy: { createdAt: 'desc' },
         take: 50,
@@ -56,7 +62,9 @@ export default async function AlertsPage() {
                     {notifications.map((n) => (
                         <div
                             key={n.id}
-                            className="bg-card rounded-xl border p-4 flex items-start gap-3 hover:bg-muted/30 transition-colors"
+                            id={`alert-${n.id}`}
+                            tabIndex={-1}
+                            className="bg-card rounded-xl border p-4 flex items-start gap-3 hover:bg-muted/30 transition-colors target:ring-2 target:ring-primary focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                             <Bell className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                             <div className="flex-1 min-w-0">

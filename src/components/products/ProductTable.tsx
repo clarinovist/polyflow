@@ -504,20 +504,11 @@ export function ProductTable({
                                                                   )
                                                                 : '-'}
                                                         </span>
-                                                        {variant.currentCost ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="text-[8px] h-4 py-0 px-1 mt-1 bg-primary/5 text-primary border-primary/20"
-                                                            >
-                                                                AVG COST
-                                                            </Badge>
-                                                        ) : variant.standardCost ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="text-[8px] h-4 py-0 px-1 mt-1"
-                                                            >
-                                                                FALLBACK
-                                                            </Badge>
+                                                        {!variant.currentCost &&
+                                                        variant.standardCost ? (
+                                                            <span className="mt-1 text-[9px] text-muted-foreground">
+                                                                Biaya standar
+                                                            </span>
                                                         ) : null}
                                                     </div>
                                                 </TableCell>
@@ -538,14 +529,6 @@ export function ProductTable({
                                                                   )
                                                                 : '-'}
                                                         </span>
-                                                        {variant.standardCost && (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="text-[8px] h-4 py-0 px-1 mt-1"
-                                                            >
-                                                                PLAN COST
-                                                            </Badge>
-                                                        )}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right font-medium text-sm tabular-nums">
@@ -572,7 +555,7 @@ export function ProductTable({
                                                                     variant="outline"
                                                                     className="text-[8px] h-4 py-0 px-1 mt-1"
                                                                 >
-                                                                    LAST BUY
+                                                                    BELI TERAKHIR
                                                                 </Badge>
                                                             )}
                                                     </div>
@@ -602,7 +585,7 @@ export function ProductTable({
                                                                     variant="outline"
                                                                     className="text-[8px] h-4 py-0 px-1 mt-1"
                                                                 >
-                                                                    CATALOG
+                                                                    KATALOG
                                                                 </Badge>
                                                             )}
                                                     </div>

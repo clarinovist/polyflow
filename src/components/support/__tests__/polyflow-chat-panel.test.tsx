@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { PolyflowChatPanel } from '../polyflow-chat-panel';
@@ -40,8 +41,13 @@ function renderPanel() { return render(<PolyflowChatPanel currentPath={pathname}
 
 beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     userId = 'user-1';
     pathname = '/finance/invoices/sales/inv-1';
+    Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        value: 1024,
+    });
     Element.prototype.scrollIntoView = vi.fn();
     historyHandler = async () => json({ conversation: null });
     chatHandler = async (url) => url.endsWith('/stream')
@@ -241,15 +247,113 @@ describe('PolyflowChatPanel persistent contextual history', () => {
     });
 });
 
-describe('PolyflowChatWidget minimize', () => {
-    it('retains conversation and draft, hides dialog, and restores focus on Escape', async () => {
+describe('PolyflowChatWidget collision protection and minimize', () => {
+    it('reserves a bounded desktop safe area without inspecting page actions', () => {
+        const globalCss = readFileSync('src/app/globals.css', 'utf8');
+        expect(globalCss).toMatch(
+            /@media \(min-width: 64rem\) \{[\s\S]*?body:has\(\[data-desktop-safe-area\]\) main::after/,
+        );
+        expect(globalCss).not.toMatch(
+            /body:has\(\[data-polyflow-chat-fab\]\) main::after/,
+        );
+
+        Object.defineProperty(window, 'innerWidth', {
+            configurable: true,
+            value: 1440,
+        });
+        const mutationObserver = vi.fn();
+        const resizeObserver = vi.fn();
+        vi.stubGlobal('MutationObserver', mutationObserver);
+        vi.stubGlobal('ResizeObserver', resizeObserver);
+
+        render(
+            <>
+                <main>
+                    {Array.from({ length: 2_000 }, (_, index) => (
+                        <button
+                            key={index}
+                            data-testid={index === 1_999 ? 'bottom-right-action' : undefined}
+                            style={index < 1_999 ? { position: 'absolute', top: -10_000 } : undefined}
+                        >
+                            Action {index}
+                        </button>
+                    ))}
+                </main>
+                <PolyflowChatWidget />
+            </>,
+        );
+
+        const trigger = screen.getByRole('button', {
+            name: 'Buka Asisten Polyflow',
+        });
+        const root = trigger.parentElement;
+        expect(root?.dataset.desktopSafeArea).toBe('');
+        expect(root?.className).toContain('bottom-5');
+        expect(root?.className).toContain('right-5');
+        expect(root?.className).toContain('z-50');
+        expect(mutationObserver).not.toHaveBeenCalled();
+        expect(resizeObserver).not.toHaveBeenCalled();
+
+        const bottomRightAction = screen.getByTestId('bottom-right-action');
+        const querySelectorAll = vi.spyOn(document, 'querySelectorAll');
+        const measure = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+        act(() => {
+            for (let index = 0; index < 100; index += 1) {
+                window.dispatchEvent(new Event('scroll'));
+                window.dispatchEvent(new Event('resize'));
+            }
+            bottomRightAction.setAttribute('data-repeated-mutation', '100');
+        });
+
+        expect(querySelectorAll).not.toHaveBeenCalled();
+        expect(measure).not.toHaveBeenCalled();
+        expect(root?.dataset.desktopSafeArea).toBe('');
+    });
+
+    it.each([
+        '/warehouse/mobile/receipts',
+        '/sales/mobile/orders',
+        '/production/mobile/tasks',
+        '/finance/mobile/tasks',
+        '/purchasing/mobile/tasks',
+        '/hrd/mobile/tasks',
+    ])('preserves the mobile bottom-nav layout without a main spacer at %s', (mobilePath) => {
+        pathname = mobilePath;
+        Object.defineProperty(window, 'innerWidth', {
+            configurable: true,
+            value: 390,
+        });
+
+        render(<PolyflowChatWidget />);
+
+        const root = screen.getByRole('button', {
+            name: 'Buka Asisten Polyflow',
+        }).parentElement;
+        expect(root?.className).toContain('bottom-20');
+        expect(root?.style.bottom).toBe('');
+        expect(root?.getAttribute('data-polyflow-chat-fab')).toBe('');
+        expect(root?.hasAttribute('data-desktop-safe-area')).toBe(false);
+    });
+
+    it('retains conversation and draft, preserves events, and restores focus on Escape', async () => {
         historyHandler = async () => json({ conversation: conversation() });
+        const dispatchEvent = vi.spyOn(window, 'dispatchEvent');
         render(<PolyflowChatWidget contextualProfilesEnabled />);
         fireEvent.click(screen.getByRole('button', { name: 'Buka Asisten Polyflow' }));
+        expect(
+            dispatchEvent.mock.calls.some(
+                ([event]) => event.type === 'polyflow-assistant-open',
+            ),
+        ).toBe(true);
         await screen.findByText('Jawaban tersimpan');
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Draf belum dikirim' } });
         fireEvent.keyDown(document, { key: 'Escape' });
         expect(screen.queryByRole('dialog')).toBeNull();
+        expect(
+            dispatchEvent.mock.calls.some(
+                ([event]) => event.type === 'polyflow-assistant-close',
+            ),
+        ).toBe(true);
         expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Buka Asisten Polyflow' }));
         fireEvent.click(screen.getByRole('button', { name: 'Buka Asisten Polyflow' }));
         expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Draf belum dikirim');

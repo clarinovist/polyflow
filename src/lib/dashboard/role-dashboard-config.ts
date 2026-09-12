@@ -27,7 +27,7 @@ import {
 import type { ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { formatRupiah } from '@/lib/utils/utils';
 import { BUSINESS_TIMEZONE } from '@/lib/utils/timezone';
-import { resolvePathToModule } from '@/lib/modules/module-registry';
+import { resolveMobileAlias } from '@/lib/mobile/mobile-portal-registry';
 
 export type DashboardRole =
     | 'ADMIN'
@@ -47,11 +47,12 @@ export interface DashboardKpi {
     value: string;
     subtitle: string;
     icon: LucideIcon;
-    trend: KpiTrend;
+    trend?: KpiTrend;
     trendValue: string;
     progressValue?: number;
     progressColor?: string;
     href?: string;
+    resourceHint?: string;
 }
 
 export interface QuickActionItem {
@@ -64,35 +65,24 @@ export interface QuickActionItem {
     resourceHint?: string;
 }
 
-export interface ModuleShortcut {
-    href: string;
-    label: string;
-    description: string;
-    icon: LucideIcon;
-    iconBg: string;
-    iconColor: string;
-    resourceHint: string;
-}
-
 export interface PortalCta {
     href: string;
     title: string;
     description: string;
     ctaLabel: string;
+    resourceHint: string;
 }
 
-function trendFromNumber(n: number | undefined, invert = false): KpiTrend {
+function trendFromNumber(n: number | undefined): KpiTrend {
     if (n === undefined || n === 0) return 'neutral';
-    const positive = n > 0;
-    if (invert) return positive ? 'down' : 'up';
-    return positive ? 'up' : 'down';
+    return n > 0 ? 'up' : 'down';
 }
 
-function pctLabel(n: number | undefined, suffix: string): string {
-    // undefined = no prior-month data to compare against — distinct from a real 0% change,
-    // otherwise "Belum ada data" silently reads as "flat" (docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.A)
-    if (n === undefined) return 'Belum ada data bulan lalu';
-    return `${Math.abs(n).toFixed(1)}% ${suffix}`;
+function monthlyTrendLabel(n: number | undefined): string {
+    // undefined = no prior-month data to compare against — distinct from a real 0% change.
+    if (n === undefined) return 'Belum ada data pembanding bulan lalu';
+    const direction = n > 0 ? 'Naik' : n < 0 ? 'Turun' : 'Tetap';
+    return `${direction} ${Math.abs(n).toFixed(1)}% dibanding bulan lalu`;
 }
 
 /** Roles that land on ops portals by default — show compact dashboard + deep link */
@@ -110,6 +100,7 @@ export function getPortalCta(role: DashboardRole): PortalCta | null {
             description:
                 'Buka papan shift: terima barang, muat, bahan produksi, dan stok rendah.',
             ctaLabel: 'Buka Portal Gudang',
+            resourceHint: '/warehouse',
         };
     }
     if (r === 'PRODUCTION') {
@@ -119,6 +110,7 @@ export function getPortalCta(role: DashboardRole): PortalCta | null {
             description:
                 'Buka pulse lantai, antrean SPK, dan overview mesin shift ini.',
             ctaLabel: 'Buka Portal Produksi',
+            resourceHint: '/production',
         };
     }
     if (r === 'HRD') {
@@ -127,6 +119,7 @@ export function getPortalCta(role: DashboardRole): PortalCta | null {
             title: 'Portal HRD',
             description: 'Kehadiran, payroll, cuti, dan manajemen karyawan.',
             ctaLabel: 'Buka Portal HRD',
+            resourceHint: '/hrd',
         };
     }
     return null;
@@ -143,17 +136,15 @@ export function buildKpis(
     stats: ExecutiveStats,
 ): DashboardKpi[] {
     const r = role.toUpperCase();
-    const vs = 'vs bulan lalu';
 
     const revenue: DashboardKpi = {
         id: 'revenue',
         title: 'Pendapatan (MTD)',
         value: formatRupiah(stats.sales.mtdRevenue),
-        subtitle: `${stats.sales.activeOrders} pesanan aktif`,
+        subtitle: `${stats.sales.activeOrders} pesanan aktif MTD`,
         icon: Wallet,
         trend: trendFromNumber(stats.sales.trend),
-        trendValue: pctLabel(stats.sales.trend, vs),
-        href: '/sales',
+        trendValue: monthlyTrendLabel(stats.sales.trend),
     };
 
     const spending: DashboardKpi = {
@@ -162,22 +153,31 @@ export function buildKpis(
         value: formatRupiah(stats.purchasing.mtdSpending),
         subtitle: `${stats.purchasing.pendingPOs} PO tertunda`,
         icon: ShoppingCart,
-        trend: trendFromNumber(stats.purchasing.trend, true),
-        trendValue: pctLabel(stats.purchasing.trend, vs),
-        href: '/purchasing',
+        trend: trendFromNumber(stats.purchasing.trend),
+        trendValue: monthlyTrendLabel(stats.purchasing.trend),
     };
 
+    // The available source data is a current-state count, not a utilization
+    // percentage: execution hours exist, but machine capacity hours do not.
+    // Keep this distinct from MTD yield rather than inventing a denominator.
     const machines: DashboardKpi = {
         id: 'machines',
-        title: 'Utilisasi Mesin',
-        value: `${stats.production.runningMachines} / ${stats.production.totalMachines} berjalan`,
-        subtitle: `Yield: ${stats.production.yieldRate.toFixed(1)}%`,
+        title: 'Mesin Berjalan Saat Ini',
+        value: `${stats.production.runningMachines} dari ${stats.production.totalMachines} mesin aktif`,
+        subtitle: 'Snapshot status saat dashboard diperbarui',
         icon: Factory,
-        trend: 'neutral',
-        trendValue: 'Kapasitas shift',
+        trendValue: 'Saat ini',
+    };
+
+    const productionYield: DashboardKpi = {
+        id: 'productionYield',
+        title: 'Yield Produksi (MTD)',
+        value: `${stats.production.yieldRate.toFixed(1)}%`,
+        subtitle: 'Output dibanding bahan terpakai',
+        icon: Factory,
+        trendValue: 'Periode bulan berjalan',
         progressValue: Math.min(100, stats.production.yieldRate),
         progressColor: 'bg-blue-600',
-        href: '/production',
     };
 
     const inventory: DashboardKpi = {
@@ -191,7 +191,6 @@ export function buildKpis(
             stats.inventory.lowStockCount > 0
                 ? 'Perlu perhatian'
                 : 'Level aman',
-        href: '/warehouse/inventory',
     };
 
     const lowStock: DashboardKpi = {
@@ -203,7 +202,11 @@ export function buildKpis(
         trend: stats.inventory.lowStockCount > 0 ? 'down' : 'neutral',
         trendValue:
             stats.inventory.lowStockCount > 0 ? 'Perlu restock' : 'Aman',
-        href: '/warehouse/inventory',
+        href:
+            stats.inventory.lowStockCount > 0
+                ? '/warehouse/inventory?lowStock=true'
+                : undefined,
+        resourceHint: '/warehouse/inventory',
     };
 
     const overdueAr: DashboardKpi = {
@@ -215,7 +218,11 @@ export function buildKpis(
         trend: stats.cashflow.overdueReceivables > 0 ? 'down' : 'neutral',
         trendValue:
             stats.cashflow.overdueReceivables > 0 ? 'Tagih segera' : 'Lancar',
-        href: '/finance/invoices/sales?status=OVERDUE',
+        href:
+            stats.cashflow.overdueReceivables > 0
+                ? '/finance/invoices/sales?overdue=true'
+                : undefined,
+        resourceHint: '/finance/invoices/sales',
     };
 
     const overdueAp: DashboardKpi = {
@@ -227,7 +234,11 @@ export function buildKpis(
         trend: stats.cashflow.overduePayables > 0 ? 'down' : 'neutral',
         trendValue:
             stats.cashflow.overduePayables > 0 ? 'Bayar segera' : 'Lancar',
-        href: '/finance/invoices/purchase?status=OVERDUE',
+        href:
+            stats.cashflow.overduePayables > 0
+                ? '/finance/invoices/purchase?overdue=true'
+                : undefined,
+        resourceHint: '/finance/invoices/purchase',
     };
 
     const dueWeek: DashboardKpi = {
@@ -241,56 +252,72 @@ export function buildKpis(
             stats.cashflow.invoicesDueThisWeek > 0
                 ? 'Siapkan penagihan'
                 : 'Tidak ada',
-        href: '/finance/invoices/sales',
     };
 
     const activeOrders: DashboardKpi = {
         id: 'activeOrders',
-        title: 'Pesanan Aktif',
+        title: 'Pesanan Aktif (MTD)',
         value: stats.sales.activeOrders.toString(),
         subtitle: `${stats.sales.pendingInvoices} invoice tertunda`,
         icon: FileText,
         trend: 'neutral',
         trendValue: 'Sales order berjalan',
-        href: '/sales/orders',
+        href:
+            stats.sales.activeOrders > 0
+                ? '/sales/orders?status=CONFIRMED,IN_PRODUCTION,READY_TO_SHIP,SHIPPED'
+                : undefined,
+        resourceHint: '/sales/orders',
     };
 
     const pendingPo: DashboardKpi = {
         id: 'pendingPo',
         title: 'PO Tertunda',
         value: stats.purchasing.pendingPOs.toString(),
-        subtitle: formatRupiah(stats.purchasing.mtdSpending) + ' spend MTD',
+        subtitle:
+            formatRupiah(stats.purchasing.mtdSpending) +
+            ' pengeluaran bulan berjalan (MTD)',
         icon: ShoppingCart,
         trend: stats.purchasing.pendingPOs > 0 ? 'neutral' : 'up',
         trendValue:
             stats.purchasing.pendingPOs > 0
                 ? 'Perlu follow-up'
                 : 'Antrian kosong',
-        href: '/purchasing/orders',
+        href:
+            stats.purchasing.pendingPOs > 0
+                ? '/purchasing/orders?status=DRAFT,SENT'
+                : undefined,
+        resourceHint: '/purchasing/orders',
     };
 
     const activeJobs: DashboardKpi = {
         id: 'activeJobs',
-        title: 'SPK Aktif',
+        title: 'SPK Dirilis/Berjalan',
         value: stats.production.activeJobs.toString(),
         subtitle: `${stats.production.delayedJobs} terlambat`,
         icon: ClipboardList,
         trend: stats.production.delayedJobs > 0 ? 'down' : 'neutral',
         trendValue:
-            stats.production.delayedJobs > 0 ? 'Ada keterlambatan' : 'On track',
-        href: '/production/orders',
+            stats.production.delayedJobs > 0
+                ? 'Ada keterlambatan'
+                : 'Sesuai jadwal',
+        href:
+            stats.production.delayedJobs > 0
+                ? '/production/orders?late=1'
+                : undefined,
+        resourceHint: '/production/orders',
     };
 
     const scrap: DashboardKpi = {
         id: 'scrap',
-        title: 'Scrap (MTD)',
+        title: 'Sisa Produksi (MTD)',
         value: `${stats.production.totalScrapKg.toFixed(1)} kg`,
-        subtitle: `Downtime ${stats.production.downtimeHours.toFixed(1)} jam`,
+        subtitle: `Waktu henti ${stats.production.downtimeHours.toFixed(1)} jam`,
         icon: Factory,
         trend: stats.production.totalScrapKg > 0 ? 'down' : 'neutral',
         trendValue:
-            stats.production.totalScrapKg > 0 ? 'Pantau yield' : 'Bersih',
-        href: '/production/analytics',
+            stats.production.totalScrapKg > 0
+                ? 'Pantau rendemen produksi'
+                : 'Bersih',
     };
 
     const cashPressure: DashboardKpi = {
@@ -311,7 +338,12 @@ export function buildKpis(
             0
                 ? 'Perlu aksi kas'
                 : 'Sehat',
-        href: '/finance/aging',
+        href:
+            stats.cashflow.overdueReceivables + stats.cashflow.overduePayables >
+            0
+                ? '/finance/aging'
+                : undefined,
+        resourceHint: '/finance/aging',
     };
 
     switch (r) {
@@ -322,18 +354,24 @@ export function buildKpis(
         case 'PROCUREMENT':
             return [pendingPo, spending, overdueAp, lowStock];
         case 'PLANNING':
-            return [activeJobs, machines, lowStock, activeOrders];
+            return [
+                activeJobs,
+                machines,
+                productionYield,
+                lowStock,
+                activeOrders,
+            ];
         case 'WAREHOUSE':
             return [lowStock, inventory, activeJobs, pendingPo];
         case 'PRODUCTION':
-            return [machines, activeJobs, scrap, lowStock];
+            return [machines, productionYield, activeJobs, scrap, lowStock];
         case 'HRD':
             // HRD has its own portal dashboard (/hrd) with dedicated KPIs.
-            // Generic dashboard shows only quick actions + module shortcuts.
+            // Generic dashboard shows only permission-filtered task shortcuts.
             return [];
         case 'ADMIN':
         default:
-            return [revenue, spending, machines, cashPressure];
+            return [revenue, spending, machines, productionYield, cashPressure];
     }
 }
 
@@ -349,7 +387,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-emerald-600',
                 bg: 'bg-emerald-50 dark:bg-emerald-900/10',
                 border: 'hover:border-emerald-200 dark:hover:border-emerald-800',
-                resourceHint: '/dashboard/products',
+                resourceHint: '/dashboard/products/create',
             },
             {
                 href: '/sales/orders',
@@ -358,7 +396,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-rose-600',
                 bg: 'bg-rose-50 dark:bg-rose-900/10',
                 border: 'hover:border-rose-200 dark:hover:border-rose-800',
-                resourceHint: '/sales',
+                resourceHint: '/sales/orders',
             },
             {
                 href: '/production/orders/create',
@@ -367,7 +405,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-blue-600',
                 bg: 'bg-blue-50 dark:bg-blue-900/10',
                 border: 'hover:border-blue-200 dark:hover:border-blue-800',
-                resourceHint: '/production',
+                resourceHint: '/production/orders/create',
             },
             {
                 href: '/dashboard/settings',
@@ -376,7 +414,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-zinc-600',
                 bg: 'bg-zinc-50 dark:bg-zinc-900/10',
                 border: 'hover:border-zinc-200 dark:hover:border-zinc-800',
-                resourceHint: '/dashboard',
+                resourceHint: '/dashboard/settings',
             },
         ],
         FINANCE: [
@@ -387,7 +425,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-emerald-600',
                 bg: 'bg-emerald-50 dark:bg-emerald-900/10',
                 border: 'hover:border-emerald-200 dark:hover:border-emerald-800',
-                resourceHint: '/finance',
+                resourceHint: '/finance/payments/received',
             },
             {
                 href: '/finance/payments/sent',
@@ -396,7 +434,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-cyan-600',
                 bg: 'bg-cyan-50 dark:bg-cyan-900/10',
                 border: 'hover:border-cyan-200 dark:hover:border-cyan-800',
-                resourceHint: '/finance',
+                resourceHint: '/finance/payments/sent',
             },
             {
                 href: '/finance/quick-entry',
@@ -405,7 +443,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-blue-600',
                 bg: 'bg-blue-50 dark:bg-blue-900/10',
                 border: 'hover:border-blue-200 dark:hover:border-blue-800',
-                resourceHint: '/finance',
+                resourceHint: '/finance/quick-entry',
             },
             {
                 href: '/finance/journals',
@@ -414,18 +452,18 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-violet-600',
                 bg: 'bg-violet-50 dark:bg-violet-900/10',
                 border: 'hover:border-violet-200 dark:hover:border-violet-800',
-                resourceHint: '/finance',
+                resourceHint: '/finance/journals',
             },
         ],
         SALES: [
             {
-                href: '/sales/orders',
+                href: '/sales/orders/create',
                 label: 'SO Baru',
                 icon: Plus,
                 color: 'text-rose-600',
                 bg: 'bg-rose-50 dark:bg-rose-900/10',
                 border: 'hover:border-rose-200 dark:hover:border-rose-800',
-                resourceHint: '/sales/orders',
+                resourceHint: '/sales/orders/create',
             },
             {
                 href: '/sales/deliveries',
@@ -452,18 +490,18 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-amber-600',
                 bg: 'bg-amber-50 dark:bg-amber-900/10',
                 border: 'hover:border-amber-200 dark:hover:border-amber-800',
-                resourceHint: '/sales',
+                resourceHint: '/field/sales',
             },
         ],
         PROCUREMENT: [
             {
-                href: '/purchasing/orders',
+                href: '/purchasing/orders/create',
                 label: 'PO Baru',
                 icon: Plus,
                 color: 'text-blue-600',
                 bg: 'bg-blue-50 dark:bg-blue-900/10',
                 border: 'hover:border-blue-200 dark:hover:border-blue-800',
-                resourceHint: '/purchasing/orders',
+                resourceHint: '/purchasing/orders/create',
             },
             {
                 href: '/purchasing/requests',
@@ -481,7 +519,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-emerald-600',
                 bg: 'bg-emerald-50 dark:bg-emerald-900/10',
                 border: 'hover:border-emerald-200 dark:hover:border-emerald-800',
-                resourceHint: '/warehouse',
+                resourceHint: '/warehouse/incoming',
             },
             {
                 href: '/purchasing/suppliers',
@@ -501,7 +539,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-blue-600',
                 bg: 'bg-blue-50 dark:bg-blue-900/10',
                 border: 'hover:border-blue-200 dark:hover:border-blue-800',
-                resourceHint: '/production/orders',
+                resourceHint: '/production/orders/create',
             },
             {
                 href: '/production/schedule',
@@ -528,7 +566,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-emerald-600',
                 bg: 'bg-emerald-50 dark:bg-emerald-900/10',
                 border: 'hover:border-emerald-200 dark:hover:border-emerald-800',
-                resourceHint: '/warehouse',
+                resourceHint: '/warehouse/materials',
             },
         ],
         WAREHOUSE: [
@@ -539,7 +577,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-blue-600',
                 bg: 'bg-blue-50 dark:bg-blue-900/10',
                 border: 'hover:border-blue-200 dark:hover:border-blue-800',
-                resourceHint: '/warehouse',
+                resourceHint: '/warehouse/incoming',
             },
             {
                 href: '/warehouse/outgoing',
@@ -548,7 +586,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-emerald-600',
                 bg: 'bg-emerald-50 dark:bg-emerald-900/10',
                 border: 'hover:border-emerald-200 dark:hover:border-emerald-800',
-                resourceHint: '/warehouse',
+                resourceHint: '/warehouse/outgoing',
             },
             {
                 href: '/warehouse/materials',
@@ -557,7 +595,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-amber-600',
                 bg: 'bg-amber-50 dark:bg-amber-900/10',
                 border: 'hover:border-amber-200 dark:hover:border-amber-800',
-                resourceHint: '/warehouse',
+                resourceHint: '/warehouse/materials',
             },
             {
                 href: '/warehouse/inventory',
@@ -566,7 +604,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-purple-600',
                 bg: 'bg-purple-50 dark:bg-purple-900/10',
                 border: 'hover:border-purple-200 dark:hover:border-purple-800',
-                resourceHint: '/warehouse',
+                resourceHint: '/warehouse/inventory',
             },
         ],
         PRODUCTION: [
@@ -586,7 +624,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-blue-600',
                 bg: 'bg-blue-50 dark:bg-blue-900/10',
                 border: 'hover:border-blue-200 dark:hover:border-blue-800',
-                resourceHint: '/production',
+                resourceHint: '/production/machines',
             },
             {
                 href: '/production/orders/create',
@@ -595,7 +633,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-amber-600',
                 bg: 'bg-amber-50 dark:bg-amber-900/10',
                 border: 'hover:border-amber-200 dark:hover:border-amber-800',
-                resourceHint: '/production',
+                resourceHint: '/production/orders/create',
             },
             {
                 href: '/production/daily',
@@ -604,7 +642,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 color: 'text-rose-600',
                 bg: 'bg-rose-50 dark:bg-rose-900/10',
                 border: 'hover:border-rose-200 dark:hover:border-rose-800',
-                resourceHint: '/production',
+                resourceHint: '/production/daily',
             },
         ],
         HRD: [
@@ -650,88 +688,21 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
     return catalog[r] ?? catalog.ADMIN;
 }
 
-export function buildModuleShortcuts(
-    activeModules?: string[],
-): ModuleShortcut[] {
-    const all: ModuleShortcut[] = [
-        {
-            href: '/sales',
-            label: 'Sales',
-            description: 'Order, kirim, invoice',
-            icon: TrendingUp,
-            iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
-            iconColor: 'text-emerald-600 dark:text-emerald-400',
-            resourceHint: '/sales',
-        },
-        {
-            href: '/purchasing',
-            label: 'Pembelian',
-            description: 'PR, PO, supplier',
-            icon: ShoppingCart,
-            iconBg: 'bg-blue-100 dark:bg-blue-900/30',
-            iconColor: 'text-blue-600 dark:text-blue-400',
-            resourceHint: '/purchasing',
-        },
-        {
-            href: '/production',
-            label: 'Produksi',
-            description: 'SPK, mesin, jadwal',
-            icon: Factory,
-            iconBg: 'bg-amber-100 dark:bg-amber-900/30',
-            iconColor: 'text-amber-600 dark:text-amber-400',
-            resourceHint: '/production',
-        },
-        {
-            href: '/warehouse',
-            label: 'Gudang',
-            description: 'Stok, terima, muat',
-            icon: Warehouse,
-            iconBg: 'bg-purple-100 dark:bg-purple-900/30',
-            iconColor: 'text-purple-600 dark:text-purple-400',
-            resourceHint: '/warehouse',
-        },
-        {
-            href: '/finance',
-            label: 'Finance',
-            description: 'AR/AP, jurnal, kas',
-            icon: Wallet,
-            iconBg: 'bg-cyan-100 dark:bg-cyan-900/30',
-            iconColor: 'text-cyan-600 dark:text-cyan-400',
-            resourceHint: '/finance',
-        },
-        {
-            href: '/dashboard/products',
-            label: 'Master Data',
-            description: 'Produk, BOM, mesin',
-            icon: Package,
-            iconBg: 'bg-zinc-100 dark:bg-zinc-800',
-            iconColor: 'text-zinc-600 dark:text-zinc-300',
-            resourceHint: '/dashboard',
-        },
-    ];
-
-    if (!activeModules || activeModules.length === 0) return all;
-
-    return all.filter((s) => {
-        const moduleKey = resolvePathToModule(s.href);
-        if (!moduleKey) return true; // CORE items always shown
-        return activeModules.includes(moduleKey);
-    });
-}
-
 export function canAccessResource(
     permissions: string[] | 'ALL',
     resourceHint?: string,
 ): boolean {
     if (permissions === 'ALL') return true;
     if (!resourceHint) return true;
-    return permissions.some(
-        (p) =>
-            p === resourceHint ||
-            p.startsWith(`${resourceHint}/`) ||
-            resourceHint.startsWith(`${p}/`) ||
-            (p === '/kiosk' && resourceHint === '/kiosk'),
-    );
+
+    const canonicalResource = resolveMobileAlias(resourceHint);
+    return permissions.some((permission) => {
+        const canonicalPermission = resolveMobileAlias(permission);
+        return (
+            canonicalPermission === canonicalResource ||
+            canonicalResource.startsWith(`${canonicalPermission}/`)
+        );
+    });
 }
 
 export function roleDisplayName(role: DashboardRole): string {
@@ -848,6 +819,7 @@ export interface DashboardPresentation {
     currentDate: string;
     greeting: string;
     encouragement: string;
+    lastUpdated: string;
 }
 
 /** Build one server-owned dashboard snapshot in the business timezone. */
@@ -878,11 +850,13 @@ export function getDashboardPresentation(
             year: 'numeric',
         }).format(date),
         greeting: greetingForHour(hour),
-        encouragement: encouragementForCalendarDate(
-            year,
-            month,
-            day,
-            hour,
-        ),
+        encouragement: encouragementForCalendarDate(year, month, day, hour),
+        lastUpdated: new Intl.DateTimeFormat('id-ID', {
+            timeZone: BUSINESS_TIMEZONE,
+            hour: '2-digit',
+            minute: '2-digit',
+            hourCycle: 'h23',
+            timeZoneName: 'short',
+        }).format(date),
     };
 }

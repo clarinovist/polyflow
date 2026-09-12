@@ -56,6 +56,7 @@ function orderPath(
 
 interface WarehouseRefreshWrapperProps {
     initialOrders: ExtendedProductionOrder[];
+    initialOrderId?: string;
     formData: {
         locations: Location[];
         operators: PrismaEmployee[];
@@ -68,12 +69,34 @@ interface WarehouseRefreshWrapperProps {
 
 export default function WarehouseRefreshWrapper({
     initialOrders: allOrders,
+    initialOrderId,
     formData,
 }: WarehouseRefreshWrapperProps) {
     const initialOrders = useMemo(() => allOrders.filter((order) => order.materialConsumptionMode !== 'DIRECT'), [allOrders]);
     const router = useRouter();
     const [isConsolDialogOpen, setIsConsolDialogOpen] = useState(false);
     const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
+    const [openOrderId, setOpenOrderId] = useState<string>();
+
+    useEffect(() => {
+        const targetOrderId = initialOrders.some(
+            (order) => order.id === initialOrderId,
+        )
+            ? initialOrderId
+            : undefined;
+        setOpenOrderId(targetOrderId);
+
+        if (!targetOrderId) return;
+        requestAnimationFrame(() => {
+            const target = document.getElementById(
+                `material-order-${targetOrderId}`,
+            );
+            target?.scrollIntoView({ block: 'center' });
+            target?.querySelector<HTMLElement>('button')?.focus({
+                preventScroll: true,
+            });
+        });
+    }, [initialOrderId, initialOrders]);
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
@@ -201,6 +224,8 @@ export default function WarehouseRefreshWrapper({
                         <Accordion
                             type="single"
                             collapsible
+                            value={openOrderId}
+                            onValueChange={setOpenOrderId}
                             className="w-full space-y-2"
                         >
                             {filteredOrders.map((order) => {
@@ -255,8 +280,13 @@ export default function WarehouseRefreshWrapper({
                                 return (
                                     <AccordionItem
                                         key={order.id}
+                                        id={`material-order-${order.id}`}
                                         value={order.id}
-                                        className="border rounded-lg px-4 bg-card shadow-sm"
+                                        className={cn(
+                                            'border rounded-lg px-4 bg-card shadow-sm',
+                                            order.id === initialOrderId &&
+                                                'ring-2 ring-primary',
+                                        )}
                                     >
                                         <AccordionTrigger className="hover:no-underline py-3">
                                             <div className="flex items-center gap-4 w-full pr-4 text-sm">

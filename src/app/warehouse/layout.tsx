@@ -102,8 +102,8 @@ export default async function WarehouseLayout({
                 {/* Simplified Header for Utility (Clock, Context) */}
                 <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
                     <div>
-                        <h1 className="text-md font-bold">Portal Gudang</h1>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                        <p className="text-md font-bold">Portal Gudang</p>
+                        <p className="text-[10px] text-muted-foreground tracking-widest font-bold">
                             Operasional Stok & Material
                         </p>
                     </div>

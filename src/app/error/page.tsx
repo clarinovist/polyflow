@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
@@ -15,8 +15,7 @@ const ERROR_MESSAGES: Record<string, { title: string; description: string }> = {
     },
     Unauthorized: {
         title: 'Akses Ditolak',
-        description:
-            'Anda tidak memiliki izin untuk mengakses halaman ini.',
+        description: 'Anda tidak memiliki izin untuk mengakses halaman ini.',
     },
 };
 
@@ -35,7 +34,9 @@ function ErrorPageContent() {
                     <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
                         <AlertTriangle className="h-6 w-6 text-destructive" />
                     </div>
-                    <CardTitle className="text-lg">{info.title}</CardTitle>
+                    <h1 className="text-lg font-semibold leading-none">
+                        {info.title}
+                    </h1>
                 </CardHeader>
                 <CardContent className="text-center space-y-4">
                     <p className="text-sm text-muted-foreground">

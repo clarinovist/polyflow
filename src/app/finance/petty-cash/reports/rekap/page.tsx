@@ -345,9 +345,9 @@ export default function RekapKasPage() {
                     >
                         {/* ===== HEADER ===== */}
                         <div className="text-center mb-2">
-                            <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
-                                REKAP PEMASUKAN & PENGELUARAN KAS
-                            </h1>
+                            <h2 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
+                                Rekap Pemasukan & Pengeluaran Kas
+                            </h2>
                             <p className="text-sm text-gray-700 dark:text-gray-300">
                                 Cash Opname : Kas Kecil
                             </p>

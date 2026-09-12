@@ -9,10 +9,13 @@ export default async function CoaPage() {
 
     return (
         <div className="space-y-6">
+            <h1 className="sr-only">Bagan Akun</h1>
             <AccountListClient initialAccounts={accounts} />
 
             <div className="mt-8 pt-8 border-t">
-                <h3 className="text-lg font-semibold mb-4">Integrity Check</h3>
+                <h2 className="text-lg font-semibold mb-4">
+                    Pemeriksaan Integritas
+                </h2>
                 <COAAuditTool />
             </div>
         </div>

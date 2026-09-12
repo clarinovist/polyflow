@@ -8,8 +8,8 @@ export default async function ProcessPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Process & Capability</h1>
-        <p className="text-sm text-muted-foreground">Master process produksi — MIXING, EXTRUSION, PACKING, STERILIZATION, INJECTION dll tanpa tambah enum</p>
+        <h1 className="text-2xl font-bold">Proses & Kapabilitas</h1>
+        <p className="text-sm text-muted-foreground">Master proses produksi — MIXING, EXTRUSION, PACKING, STERILIZATION, dan INJECTION tanpa menambah enum</p>
       </div>
       <ProcessListClient initialProcesses={processes} initialCapabilities={caps} />
     </div>

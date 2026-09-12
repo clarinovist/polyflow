@@ -38,7 +38,7 @@ describe('JournalListClient accessibility', () => {
         render(<JournalListClient />);
         await waitFor(() => expect(getJournalEntries).toHaveBeenCalled());
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Jurnal' })).toBeTruthy();
+        expect(screen.getByRole('heading', { level: 2, name: 'Jurnal' })).toBeTruthy();
         expect(
             screen.getByRole('heading', { level: 2, name: 'Filter Transaksi' }),
         ).toBeTruthy();

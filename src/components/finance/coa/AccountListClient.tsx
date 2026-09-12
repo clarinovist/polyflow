@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -73,10 +74,10 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">
-                        Chart of Accounts
+                        Daftar Akun
                     </h2>
                     <p className="text-muted-foreground">
-                        Manage your general ledger accounts.
+                        Kelola akun buku besar.
                     </p>
                 </div>
                 <AccountForm
@@ -88,13 +89,14 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base">
-                            Accounts Directory
+                            Direktori Akun
                         </CardTitle>
                         <div className="relative w-[300px]">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 type="search"
-                                placeholder="Search code, name, or category..."
+                                aria-label="Cari akun"
+                                placeholder="Cari kode, nama, atau kategori akun..."
                                 className="pl-8"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
@@ -105,17 +107,20 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
+                            <TableCaption className="sr-only">
+                                Daftar akun buku besar
+                            </TableCaption>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[100px]">
-                                        Code
+                                        Kode
                                     </TableHead>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead>Parent</TableHead>
+                                    <TableHead>Nama</TableHead>
+                                    <TableHead>Jenis</TableHead>
+                                    <TableHead>Kategori</TableHead>
+                                    <TableHead>Induk</TableHead>
                                     <TableHead className="w-[100px] text-right">
-                                        Actions
+                                        Tindakan
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -148,7 +153,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                                                 <TableCell>
                                                     <div className="font-medium">
                                                         {account.name ||
-                                                            'Unknown'}
+                                                            'Tidak diketahui'}
                                                     </div>
                                                     {account.description && (
                                                         <div className="text-xs text-muted-foreground">
@@ -225,7 +230,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                         </Table>
                     </div>
                     <div className="text-xs text-muted-foreground mt-4 text-center">
-                        Showing {filteredAccounts.length} accounts
+                        Menampilkan {filteredAccounts.length} akun
                     </div>
                 </CardContent>
             </Card>

@@ -22,6 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -267,12 +268,12 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                 </Button>
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        {bom ? 'Edit Recipe' : 'Design New Recipe'}
+                        {bom ? 'Edit Resep' : 'Buat Resep Baru'}
                     </h1>
                     <p className="text-muted-foreground text-sm">
                         {bom
-                            ? `Refining ${bom.name}`
-                            : 'Construct a new Bill of Materials architecture.'}
+                            ? `Perbarui ${bom.name}`
+                            : 'Susun struktur BOM baru.'}
                     </p>
                 </div>
             </div>
@@ -592,6 +593,9 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                         <CardContent>
                             <div className="rounded-md border">
                                 <Table>
+                                    <TableCaption className="sr-only">
+                                        Daftar bahan, jumlah, persentase scrap, dan biaya formula BOM
+                                    </TableCaption>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead className="w-[400px]">

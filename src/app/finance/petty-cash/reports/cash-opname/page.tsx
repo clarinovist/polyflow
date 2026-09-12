@@ -424,9 +424,9 @@ export default function CashOpnamePage() {
                     >
                         {/* ===== HEADER ===== */}
                         <div className="text-center mb-2">
-                            <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
-                                BERITA ACARA
-                            </h1>
+                            <h2 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
+                                Berita Acara
+                            </h2>
                             <p className="text-sm text-gray-700 dark:text-gray-300">
                                 Cash Opname : Kas Kecil
                             </p>

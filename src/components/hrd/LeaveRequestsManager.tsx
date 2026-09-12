@@ -48,7 +48,15 @@ const STATUS_BADGE: Record<LeaveStatus, string> = {
     REJECTED: 'bg-red-500/10 text-red-700',
 };
 
-export function LeaveRequestsManager() {
+interface LeaveRequestsManagerProps {
+    initialStatus?: LeaveStatus;
+    initialRequestId?: string;
+}
+
+export function LeaveRequestsManager({
+    initialStatus,
+    initialRequestId,
+}: LeaveRequestsManagerProps) {
     const [employees, setEmployees] = useState<
         { id: string; name: string; code: string }[]
     >([]);
@@ -67,7 +75,7 @@ export function LeaveRequestsManager() {
     const [loading, setLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState<
         'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
-    >('ALL');
+    >(initialStatus ?? 'ALL');
     const now = new Date();
     const [recapYear, setRecapYear] = useState(now.getFullYear());
     const [recapMonth, setRecapMonth] = useState(now.getMonth() + 1);
@@ -136,12 +144,25 @@ export function LeaveRequestsManager() {
 
     useEffect(() => {
         loadEmployees();
-        loadRequests();
-    }, [loadEmployees, loadRequests]);
+    }, [loadEmployees]);
+
+    useEffect(() => {
+        setFilterStatus(initialStatus ?? 'ALL');
+    }, [initialStatus]);
 
     useEffect(() => {
         loadRequests();
     }, [loadRequests]);
+
+    useEffect(() => {
+        if (!initialRequestId || loading) return;
+
+        const target = document.getElementById(
+            `leave-request-${initialRequestId}`,
+        );
+        target?.scrollIntoView({ block: 'center' });
+        target?.focus({ preventScroll: true });
+    }, [initialRequestId, loading, requests]);
 
     useEffect(() => {
         loadRecap();
@@ -549,7 +570,16 @@ export function LeaveRequestsManager() {
                                     </tr>
                                 )}
                                 {requests.map((r) => (
-                                    <tr key={r.id} className="border-t">
+                                    <tr
+                                        key={r.id}
+                                        id={`leave-request-${r.id}`}
+                                        tabIndex={-1}
+                                        className={`border-t focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary ${
+                                            initialRequestId === r.id
+                                                ? 'bg-primary/5'
+                                                : ''
+                                        }`}
+                                    >
                                         <td className="p-2">
                                             {r.employee?.code} —{' '}
                                             {r.employee?.name}

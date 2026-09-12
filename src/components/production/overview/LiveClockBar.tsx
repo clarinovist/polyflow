@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, RefreshCw, Monitor, LayoutGrid } from 'lucide-react';
+import { Clock, RefreshCw, Monitor } from 'lucide-react';
 import Link from 'next/link';
 
 interface LiveClockBarProps {
@@ -14,7 +14,7 @@ interface LiveClockBarProps {
 
 const BUSINESS_TZ = 'Asia/Jakarta';
 
-function formatWibClock(date: Date): string {
+export function formatWibClock(date: Date): string {
     const datePart = new Intl.DateTimeFormat('id-ID', {
         timeZone: BUSINESS_TZ,
         weekday: 'long',
@@ -30,6 +30,16 @@ function formatWibClock(date: Date): string {
         hour12: false,
     }).format(date);
     return `${timePart} WIB • ${datePart}`;
+}
+
+export function formatWibUpdateTime(date: Date): string {
+    return new Intl.DateTimeFormat('id-ID', {
+        timeZone: BUSINESS_TZ,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).format(date);
 }
 
 function getWibHour(date: Date): number {
@@ -53,10 +63,11 @@ export function LiveClockBar({
     isLoading,
     lastUpdated,
 }: LiveClockBarProps) {
-    const [time, setTime] = useState<Date>(() => new Date());
+    const [time, setTime] = useState<Date | null>(null);
     const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
 
     useEffect(() => {
+        setTime(new Date());
         const interval = setInterval(() => {
             setTime(new Date());
         }, 1000);
@@ -75,8 +86,7 @@ export function LiveClockBar({
         return () => clearInterval(interval);
     }, [lastUpdated]);
 
-    const wibHour = getWibHour(time);
-    const shiftLabel = getShiftByHour(wibHour);
+    const shiftLabel = time ? getShiftByHour(getWibHour(time)) : '';
 
     return (
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md shadow-sm">
@@ -84,21 +94,28 @@ export function LiveClockBar({
                 <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
                     <Clock className="h-5 w-5 animate-pulse" />
                 </div>
-                <div className="space-y-1">
+                <div
+                    className={`space-y-1 ${time ? 'visible' : 'invisible'}`}
+                    aria-hidden={time ? undefined : true}
+                >
                     <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 font-mono">
-                        {formatWibClock(time)}
+                        {time
+                            ? formatWibClock(time)
+                            : '00.00.00 WIB • Minggu, 00 September 0000'}
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge
                             variant="secondary"
                             className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-none"
                         >
-                            {shiftLabel}
+                            {shiftLabel || 'Shift Pagi'}
                         </Badge>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
                             {isLoading
-                                ? 'Memperbarui...'
-                                : `Diperbarui ${secondsSinceUpdate} detik lalu • auto 30s`}
+                                ? 'Memperbarui…'
+                                : lastUpdated
+                                  ? `Diperbarui pukul ${formatWibUpdateTime(lastUpdated)} WIB · ${secondsSinceUpdate} detik lalu · otomatis 30 detik`
+                                  : 'Belum pernah diperbarui'}
                         </span>
                     </div>
                 </div>
@@ -115,21 +132,8 @@ export function LiveClockBar({
                     <RefreshCw
                         className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
                     />
-                    Refresh
+                    Segarkan
                 </Button>
-                <Link
-                    href="/production/machines"
-                    className="flex-1 md:flex-initial"
-                >
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full font-bold flex items-center gap-2 h-9"
-                    >
-                        <LayoutGrid className="h-4 w-4" />
-                        Papan Mesin
-                    </Button>
-                </Link>
                 <Link href="/kiosk" className="flex-1 md:flex-initial">
                     <Button
                         variant="default"

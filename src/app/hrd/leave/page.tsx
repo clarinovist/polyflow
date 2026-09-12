@@ -1,7 +1,23 @@
 import { LeaveRequestsManager } from '@/components/hrd/LeaveRequestsManager';
 import { CalendarDays } from 'lucide-react';
 
-export default function LeavePage() {
+const LEAVE_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+type LeaveStatus = (typeof LEAVE_STATUSES)[number];
+
+function isLeaveStatus(value: string | undefined): value is LeaveStatus {
+    return LEAVE_STATUSES.some((status) => status === value);
+}
+
+export default async function LeavePage({
+    searchParams,
+}: {
+    searchParams: Promise<{ status?: string; requestId?: string }>;
+}) {
+    const params = await searchParams;
+    const initialStatus = isLeaveStatus(params.status)
+        ? params.status
+        : undefined;
+    const initialRequestId = params.requestId?.trim() || undefined;
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
             <div className="flex items-center gap-3">
@@ -17,7 +33,10 @@ export default function LeavePage() {
                     </p>
                 </div>
             </div>
-            <LeaveRequestsManager />
+            <LeaveRequestsManager
+                initialStatus={initialStatus}
+                initialRequestId={initialRequestId}
+            />
         </div>
     );
 }

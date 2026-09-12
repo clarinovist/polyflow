@@ -47,7 +47,7 @@ const productionLinks = [
             {
                 href: '/production/runs',
                 icon: Factory,
-                label: 'Production Runs',
+                label: 'Rangkaian Produksi',
             },
             {
                 href: '/production/orders',

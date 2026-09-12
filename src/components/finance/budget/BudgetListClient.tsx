@@ -6,6 +6,7 @@ import { Account } from '@prisma/client';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -151,10 +152,10 @@ export function BudgetListClient({
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">
-                        Budgeting
+                        Matriks Anggaran
                     </h2>
                     <p className="text-muted-foreground">
-                        Plan and track monthly budgets per account.
+                        Rencanakan dan pantau anggaran bulanan per akun.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -166,7 +167,7 @@ export function BudgetListClient({
                         }}
                     >
                         <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="Year" />
+                            <SelectValue placeholder="Tahun" />
                         </SelectTrigger>
                         <SelectContent>
                             {buildYearOptions().map((y) => (
@@ -182,16 +183,19 @@ export function BudgetListClient({
             <Card>
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base">
-                        Budget Matrix ({year})
+                        Matriks Anggaran ({year})
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="overflow-x-auto">
                     <div className="rounded-md border min-w-[1200px]">
                         <Table>
+                            <TableCaption className="sr-only">
+                                Anggaran bulanan per akun untuk tahun {year}
+                            </TableCaption>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[200px] sticky left-0 bg-background z-10">
-                                        Account
+                                        Akun
                                     </TableHead>
                                     <TableHead className="text-right font-bold">
                                         Total

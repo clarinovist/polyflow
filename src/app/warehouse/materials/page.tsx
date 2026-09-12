@@ -7,10 +7,22 @@ import type { ComponentProps } from 'react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function WarehouseMaterialsPage() {
+export default async function WarehouseMaterialsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ orderId?: string }>;
+}) {
+    const params = await searchParams;
     const ordersRes = await getProductionOrders();
     const activeStatuses = ['RELEASED', 'IN_PROGRESS', 'WAITING_MATERIAL'];
     const orders = ordersRes.filter((o) => activeStatuses.includes(o.status));
+    const initialOrderId = orders.some(
+        (order) =>
+            order.id === params.orderId &&
+            order.materialConsumptionMode !== 'DIRECT',
+    )
+        ? params.orderId
+        : undefined;
 
     const formDataRes = await getProductionFormData();
     const formData =
@@ -42,6 +54,7 @@ export default async function WarehouseMaterialsPage() {
 
             <div className="grid gap-4 h-[calc(100vh-140px)]">
                 <WarehouseRefreshWrapper
+                    initialOrderId={initialOrderId}
                     initialOrders={
                         serializeData(
                             orders,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { getProductionLiveOverview } from '@/actions/dashboard/production-live-overview';
@@ -168,8 +168,12 @@ export function ProductionOverviewClient({
     thresholds,
 }: ProductionOverviewClientProps) {
     const th = resolveProductionAlertThresholds(thresholds);
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [tab, setTab] = useState<TabKey>('EXTRUSION');
+
+    useEffect(() => {
+        setLastUpdated(new Date());
+    }, []);
 
     const fetcher = async (): Promise<ProductionOverviewData> => {
         const res = await getProductionLiveOverview();
@@ -232,7 +236,7 @@ export function ProductionOverviewClient({
                         'Terjadi kesalahan koneksi saat memuat data lantai produksi.'}
                 </p>
                 <Button onClick={handleRefresh} className="mt-4 font-bold">
-                    Coba Lagi
+                    Coba lagi
                 </Button>
             </div>
         );
@@ -251,7 +255,7 @@ export function ProductionOverviewClient({
                 <div className="flex items-center gap-2 mb-2.5">
                     <h2 className="text-sm font-bold">Hari Ini — Produksi</h2>
                     <span className="text-[11px] text-muted-foreground">
-                        Pulse lantai + antrean yang butuh tindakan.
+                        Kondisi lantai dan antrean yang memerlukan tindakan.
                     </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -294,7 +298,7 @@ export function ProductionOverviewClient({
                         />
                     )}
                 </div>
-                {/* Quick actions */}
+                {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
                 <div className="flex flex-wrap gap-1.5 mt-2.5">
                     <Button
                         asChild
@@ -306,85 +310,30 @@ export function ProductionOverviewClient({
                     </Button>
                     <Button
                         asChild
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] font-bold"
-                    >
-                        <Link href="/production/requests">Papan FG</Link>
-                    </Button>
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] font-bold"
-                    >
-                        <Link href="/production/daily">SPK Aktif</Link>
-                    </Button>
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] font-bold"
-                    >
-                        <Link href="/warehouse/materials">Bahan Gudang</Link>
-                    </Button>
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] font-bold"
-                    >
-                        <Link href="/kiosk">Kiosk</Link>
-                    </Button>
-                    <Button
-                        asChild
                         variant="ghost"
                         size="sm"
                         className="h-7 text-[11px]"
                     >
                         <Link href="/production/history?from=today&to=today">
-                            Log hari ini →
+                            Riwayat hari ini →
                         </Link>
                     </Button>
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-                    <TabsList className="h-auto flex-wrap">
-                        {TABS.map((t) => (
-                            <TabsTrigger
-                                key={t.key}
-                                value={t.key}
-                                className="text-xs font-bold tracking-wide"
-                            >
-                                {t.label}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
-                <div className="flex gap-2">
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="font-bold"
-                    >
-                        <Link href="/production/daily">
-                            SPK Aktif
-                            <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                        </Link>
-                    </Button>
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="font-bold"
-                    >
-                        <Link href="/production/machines">Papan Mesin</Link>
-                    </Button>
-                </div>
-            </div>
+            <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+                <TabsList className="h-auto flex-wrap">
+                    {TABS.map((t) => (
+                        <TabsTrigger
+                            key={t.key}
+                            value={t.key}
+                            className="text-xs font-bold tracking-wide"
+                        >
+                            {t.label}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+            </Tabs>
 
             {/* KPI row */}
             {tab === 'ALL' ? (
@@ -424,7 +373,7 @@ export function ProductionOverviewClient({
                                         </span>
                                     </div>
                                     <p className="text-[11px] text-muted-foreground mt-1">
-                                        scrap {p.scrapRate.toFixed(1)}% ·{' '}
+                                        susut {p.scrapRate.toFixed(1)}% ·{' '}
                                         {p.activeJobs} SPK jalan
                                     </p>
                                 </CardContent>
@@ -463,7 +412,7 @@ export function ProductionOverviewClient({
                             }
                         />
                         <KpiCard
-                            label="Scrap rate"
+                            label="Tingkat susut"
                             value={processPulse.scrapRate.toFixed(1)}
                             suffix="%"
                             valueClass={
@@ -473,12 +422,12 @@ export function ProductionOverviewClient({
                             }
                             hint={
                                 <span className="text-muted-foreground">
-                                    scrap / (bagus + scrap) ·{' '}
+                                    susut / (hasil baik + susut) ·{' '}
                                     {processPulse.scrapToday.toLocaleString(
                                         'id-ID',
                                         { maximumFractionDigits: 1 },
                                     )}{' '}
-                                    scrap
+                                    susut
                                 </span>
                             }
                         />
@@ -504,7 +453,7 @@ export function ProductionOverviewClient({
                             suffix="KG"
                             hint={
                                 <span className="text-muted-foreground">
-                                    Waktu log kiosk — bukan run-rate mesin
+                                    Waktu pencatatan kiosk — bukan laju mesin
                                 </span>
                             }
                         />
@@ -542,7 +491,7 @@ export function ProductionOverviewClient({
                                 : `proses ${tab === 'OTHER' ? 'Lainnya' : tab}`}
                         </CardTitle>
                         <CardDescription>
-                            Progress order — satu SPK = satu proses.
+                            Progres pesanan — satu SPK untuk satu proses.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2.5">
@@ -629,7 +578,7 @@ export function ProductionOverviewClient({
                             Butuh perhatian
                         </CardTitle>
                         <CardDescription>
-                            Tap untuk buka SPK / mesin.
+                            Pilih item untuk membuka SPK atau mesin terkait.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">

@@ -19,7 +19,7 @@ const PATH_LABELS: Record<string, string> = {
     // planning merged into production
     production: 'Produksi',
     warehouse: 'Gudang',
-    finance: 'Finance',
+    finance: 'Keuangan',
     hrd: 'HRD',
     maklon: 'Maklon',
     admin: 'Admin',
@@ -37,10 +37,10 @@ const PATH_LABELS: Record<string, string> = {
 
     // Sales
     quotations: 'Penawaran',
-    orders: 'Sales Order',
-    invoices: 'Invoice',
+    orders: 'Pesanan Penjualan',
+    invoices: 'Faktur',
     deliveries: 'Surat Jalan',
-    customers: 'Customer',
+    customers: 'Pelanggan',
 
     // Planning
     requests: 'Permintaan Masuk',
@@ -58,8 +58,11 @@ const PATH_LABELS: Record<string, string> = {
     resources: 'Tim / Shift',
     history: 'Log Riwayat',
     shifts: 'Shift Kerja',
-    costing: 'Costing',
+    costing: 'Perhitungan Biaya',
     'packing-monthly': 'Laporan Packing',
+    runs: 'Rangkaian Produksi',
+    routings: 'Rute Produksi',
+    processes: 'Proses & Kapabilitas',
 
     // Warehouse
     incoming: 'Penerimaan Barang',
@@ -67,16 +70,16 @@ const PATH_LABELS: Record<string, string> = {
     opname: 'Stock Opname',
     transfer: 'Transfer Stok',
     adjustment: 'Penyesuaian Stok',
-    aging: 'Aging',
+    aging: 'Umur Stok',
     locations: 'Lokasi',
 
     // Finance
-    'petty-cash': 'Petty Cash',
+    'petty-cash': 'Kas Kecil',
     'bank-reconciliation': 'Rekonsiliasi Bank',
     budgeting: 'Anggaran',
     'foh-allocation': 'Alokasi FOH',
     'hpp-report': 'Laporan HPP',
-    'quick-entry': 'Quick Entry',
+    'quick-entry': 'Entri Cepat',
     reports: 'Laporan',
     journals: 'Jurnal',
     assets: 'Aset Tetap',
@@ -153,9 +156,10 @@ export function PathBreadCrumb({ className }: PathBreadCrumbProps) {
         >
             <Link
                 href="/dashboard"
+                aria-label="Beranda"
                 className="hover:text-foreground transition-colors flex items-center gap-1"
             >
-                <Home className="h-3.5 w-3.5" />
+                <Home aria-hidden="true" className="h-3.5 w-3.5" />
             </Link>
             {crumbs.map((crumb) => (
                 <span key={crumb.href} className="flex items-center gap-1">

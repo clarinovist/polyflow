@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -86,17 +87,20 @@ export function ProductStockByLocationTab({
                 ) : (
                     <div className="overflow-x-auto">
                         <Table>
+                            <TableCaption className="sr-only">
+                                Stok produk per lokasi
+                            </TableCaption>
                             <TableHeader className="bg-muted/30">
                                 <TableRow>
                                     <TableHead>Lokasi</TableHead>
                                     <TableHead className="text-right">
-                                        Qty
+                                        Jumlah
                                     </TableHead>
                                     <TableHead className="text-right">
-                                        Avg Cost
+                                        Biaya Rata-rata
                                     </TableHead>
                                     <TableHead className="text-right">
-                                        Value
+                                        Nilai
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -109,10 +113,10 @@ export function ProductStockByLocationTab({
                                                 ({r.location.slug})
                                             </span>
                                         </TableCell>
-                                        <TableCell className="text-right font-mono text-sm">
+                                        <TableCell className="text-right font-mono text-sm tabular-nums">
                                             {formatQuantity(toN(r.quantity))}
                                         </TableCell>
-                                        <TableCell className="text-right font-mono text-sm">
+                                        <TableCell className="text-right font-mono text-sm tabular-nums">
                                             {r.averageCost
                                                 ? fmtIdr(toN(r.averageCost))
                                                 : '-'}

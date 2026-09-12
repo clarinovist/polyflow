@@ -16,7 +16,6 @@ export const dashboardLabels = {
     ceoNotesEmpty: 'Belum ada catatan — bagus.',
 
     // Sections
-    moduleShortcuts: 'Pintasan Modul',
     quickActions: 'Aksi Cepat',
     revenueTrend: 'Tren Pendapatan Tahunan',
     cashflowSnapshot: 'Snapshot Kas',
@@ -75,6 +74,7 @@ export const dashboardLabels = {
     // Misc
     refresh: 'Segarkan',
     refreshDashboard: 'Segarkan data dashboard',
+    lastUpdated: 'Terakhir diperbarui',
     loadFailed: 'Gagal memuat statistik dashboard',
     tryAgain: 'Coba Lagi',
 } as const;

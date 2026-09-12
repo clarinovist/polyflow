@@ -4,7 +4,7 @@ import { getProductVariants } from '@/actions/inventory/inventory';
 import { getSalesOrderById } from '@/actions/sales/sales';
 import { SalesOrderForm } from '@/components/sales/SalesOrderForm';
 import { SalesOrderIntentPicker } from '@/components/sales/SalesOrderIntentPicker';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import type { SalesOrderFormProps } from '@/components/sales/sales-order-types';
 import type { SalesOrderType } from '@prisma/client';
 
@@ -119,11 +119,11 @@ export default async function CreateSalesOrderPage({
         <div className="p-6 max-w-5xl mx-auto">
             <Card>
                 <CardHeader>
-                    <CardTitle>
+                    <h1 className="text-lg font-semibold leading-none">
                         {reorderData
-                            ? 'Pesan Ulang dari Order Sebelumnya'
+                            ? 'Pesan Ulang dari Pesanan Sebelumnya'
                             : `Pesanan Baru — ${intent ? intentLabels[intent] || intent : 'Pesanan Baru'}`}
-                    </CardTitle>
+                    </h1>
                 </CardHeader>
                 <CardContent>
                     <SalesOrderForm

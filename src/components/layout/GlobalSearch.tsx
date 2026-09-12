@@ -78,11 +78,11 @@ export function GlobalSearch({ className, activeModules, ...props }: GlobalSearc
                 {...props}
             >
                 <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                <span className="hidden lg:inline-flex truncate">Cari...</span>
-                <span className="inline-flex lg:hidden truncate">Cari...</span>
+                <span className="hidden lg:inline-flex truncate">Cari modul atau data…</span>
+                <span className="inline-flex lg:hidden truncate">Cari…</span>
             </Button>
             <CommandDialog open={open} onOpenChange={setOpen}>
-                <CommandInput placeholder="Cari..." />
+                <CommandInput placeholder="Cari modul atau data…" />
                 <CommandList>
                     <CommandEmpty>Tidak ada hasil ditemukan.</CommandEmpty>
                     <CommandGroup heading="Ganti Aplikasi">

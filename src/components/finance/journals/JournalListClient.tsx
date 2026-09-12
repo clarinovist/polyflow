@@ -94,10 +94,9 @@ export function JournalListClient() {
         const value = urlSearchParams.get('sortBy');
         return isJournalSortColumn(value) ? value : 'entryDate';
     });
-    const [sortDirection, setSortDirection] =
-        useState<JournalSortDirection>(() =>
-            urlSearchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc',
-        );
+    const [sortDirection, setSortDirection] = useState<JournalSortDirection>(
+        () => (urlSearchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc'),
+    );
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -214,9 +213,9 @@ export function JournalListClient() {
         <div className="space-y-6 max-w-full overflow-hidden">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
+                    <h2 className="text-2xl font-bold tracking-tight">
                         Jurnal
-                    </h1>
+                    </h2>
                     <p className="text-muted-foreground text-sm">
                         Kelola dan posting transaksi buku besar dari semua
                         modul.
@@ -261,7 +260,7 @@ export function JournalListClient() {
                             </label>
                             <Input
                                 id="journal-search"
-                                placeholder="Nomor, ref..."
+                                placeholder="Nomor jurnal atau referensi..."
                                 className="h-9 w-[180px] bg-background"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
@@ -345,16 +344,16 @@ export function JournalListClient() {
                                                         header.column.id,
                                                     ) &&
                                                     sortBy === header.column.id
-                                                        ? sortDirection === 'asc'
+                                                        ? sortDirection ===
+                                                          'asc'
                                                             ? 'ascending'
                                                             : 'descending'
                                                         : undefined
                                                 }
                                             >
-                                                {header.isPlaceholder ? null :
-                                                isJournalSortColumn(
-                                                    header.column.id,
-                                                ) ? (
+                                                {header.isPlaceholder ? null : isJournalSortColumn(
+                                                      header.column.id,
+                                                  ) ? (
                                                     <button
                                                         type="button"
                                                         className="flex w-full items-center gap-2 text-left"

@@ -197,19 +197,20 @@
  * FAB itu fixed di kanan-bawah, sedangkan hampir semua form menaruh baris aksi
  * (Save as Draft / Save & Post) di kanan-bawah halaman — tanpa padding ini
  * tombolnya ketutup FAB saat halaman di-scroll mentok bawah.
- * Aturan hanya aktif ketika FAB benar-benar ter-render (lihat route filter di
- * src/components/support/polyflow-chat-widget.tsx).
- * Dipasang sebagai spacer ::after, bukan padding-bottom, supaya tidak menimpa
- * padding bottom-nav milik layout mobile (`pb-[calc(4rem+safe-area)]`).
+ * Widget memasang sentinel hanya untuk route desktop. Breakpoint ini juga
+ * memastikan route desktop yang dibuka pada viewport kecil tidak mendapat
+ * spacer tambahan di atas layout bottom-nav mobile.
  */
-body:has([data-polyflow-chat-fab]) main::after {
-    content: '';
-    display: block;
-    height: 5.5rem;
+@media (min-width: 64rem) {
+    body:has([data-desktop-safe-area]) main::after {
+        content: '';
+        display: block;
+        height: 5.5rem;
+    }
 }
 
 @media print {
-    body:has([data-polyflow-chat-fab]) main::after {
+    body:has([data-desktop-safe-area]) main::after {
         display: none;
     }
 }

@@ -21,6 +21,14 @@ export default async function BudgetInputPage(props: {
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-10">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                    Input Anggaran
+                </h1>
+                <p className="text-muted-foreground">
+                    Rencanakan anggaran bulanan per akun.
+                </p>
+            </div>
             <BudgetingTabs activeTab="input" />
             <BudgetListClient
                 initialBudgets={budgets}

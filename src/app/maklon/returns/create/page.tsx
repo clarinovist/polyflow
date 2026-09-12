@@ -6,7 +6,6 @@ import {
     Card,
     CardContent,
     CardHeader,
-    CardTitle,
     CardDescription,
 } from '@/components/ui/card';
 import { serializeData } from '@/lib/utils/utils';
@@ -55,7 +54,9 @@ export default async function CreateMaklonReturnPage() {
         <div className="flex flex-col gap-6">
             <Card className="rounded-xl border bg-white dark:bg-sidebar">
                 <CardHeader>
-                    <CardTitle>Buat Retur Maklon Baru</CardTitle>
+                    <h1 className="text-lg font-semibold leading-none">
+                        Buat Retur Maklon Baru
+                    </h1>
                     <CardDescription>
                         Kembalikan sisa bahan milik customer dari Area Packing
                         Maklon terlebih dahulu, atau dari tahap customer-owned

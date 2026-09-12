@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -66,10 +67,10 @@ export default async function MachinesPage({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Machines & Equipment
+                        Mesin & Peralatan
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Configure your production fleet and maintenance status.
+                        Kelola armada produksi dan status perawatan.
                     </p>
                 </div>
                 <Link href="/dashboard/machines/create">
@@ -83,15 +84,13 @@ export default async function MachinesPage({
             <Tabs defaultValue={currentStatus} className="w-full">
                 <TabsList className="mb-4">
                     <Link href="/dashboard/machines">
-                        <TabsTrigger value="all">All Fleet</TabsTrigger>
+                        <TabsTrigger value="all">Semua Mesin</TabsTrigger>
                     </Link>
                     <Link href="/dashboard/machines?status=ACTIVE">
-                        <TabsTrigger value="ACTIVE">Active</TabsTrigger>
+                        <TabsTrigger value="ACTIVE">Aktif</TabsTrigger>
                     </Link>
                     <Link href="/dashboard/machines?status=MAINTENANCE">
-                        <TabsTrigger value="MAINTENANCE">
-                            Maintenance
-                        </TabsTrigger>
+                        <TabsTrigger value="MAINTENANCE">Perawatan</TabsTrigger>
                     </Link>
                 </TabsList>
 
@@ -101,7 +100,8 @@ export default async function MachinesPage({
                             <div className="relative max-w-sm">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search machines..."
+                                    aria-label="Cari mesin"
+                                    placeholder="Cari mesin..."
                                     className="pl-9 bg-background/50 h-9 text-sm"
                                 />
                             </div>
@@ -109,16 +109,19 @@ export default async function MachinesPage({
 
                         <div className="overflow-x-auto">
                             <Table>
+                                <TableCaption className="sr-only">
+                                    Daftar mesin dan peralatan produksi
+                                </TableCaption>
                                 <TableHeader className="bg-muted/30">
                                     <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
                                         <TableHead className="pl-6">
-                                            Machine Detail
+                                            Detail Mesin
                                         </TableHead>
-                                        <TableHead>Code</TableHead>
-                                        <TableHead>Location</TableHead>
+                                        <TableHead>Kode</TableHead>
+                                        <TableHead>Lokasi</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right pr-6">
-                                            Actions
+                                            Tindakan
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -165,7 +168,8 @@ export default async function MachinesPage({
                                                 <TableCell>
                                                     <span className="text-[11px] font-semibold text-muted-foreground">
                                                         {machine.location
-                                                            ?.name || 'Unknown'}
+                                                            ?.name ||
+                                                            'Tidak diketahui'}
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>

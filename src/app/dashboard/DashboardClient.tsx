@@ -9,7 +9,6 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { dashboardLabels } from '@/lib/labels';
 import {
     buildKpis,
-    buildModuleShortcuts,
     buildQuickActions,
     canAccessResource,
     canSeeExecutiveChart,
@@ -33,7 +32,6 @@ import {
     TrendingUp,
     TrendingDown,
     ArrowRight,
-    ArrowUpRight,
     AlertCircle,
     AlertTriangle,
     RefreshCw,
@@ -41,7 +39,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useTransition } from 'react';
 import { cn } from '@/lib/utils/utils';
 
 interface DashboardCeoNote {
@@ -68,21 +66,24 @@ export default function DashboardClient({
     userName,
     userRole,
     permissions,
-    activeModules,
     presentation,
 }: DashboardClientProps) {
     const router = useRouter();
-    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isRefreshing, startRefreshTransition] = useTransition();
 
     const role = (userRole || 'ADMIN') as DashboardRole;
     const opsCompact = isOpsPortalRole(role);
     const portalCta = getPortalCta(role);
+    const visiblePortalCta =
+        portalCta && canAccessResource(permissions, portalCta.resourceHint)
+            ? portalCta
+            : null;
     const showChart = canSeeExecutiveChart(role) && !opsCompact;
 
     const handleRefresh = () => {
-        setIsRefreshing(true);
-        router.refresh();
-        setTimeout(() => setIsRefreshing(false), 1000);
+        startRefreshTransition(() => {
+            router.refresh();
+        });
     };
 
     const { currentDate, greeting, encouragement } = presentation;
@@ -92,9 +93,9 @@ export default function DashboardClient({
         return (
             <div className="p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[50vh] space-y-4">
                 <AlertCircle className="w-12 h-12 text-muted-foreground/50" />
-                <h2 className="text-xl font-semibold">
+                <h1 className="text-xl font-semibold">
                     {dashboardLabels.loadFailed}
-                </h2>
+                </h1>
                 <Button
                     variant="outline"
                     onClick={handleRefresh}
@@ -109,14 +110,12 @@ export default function DashboardClient({
         );
     }
 
-    const kpis = buildKpis(role, stats);
+    const kpis = buildKpis(role, stats).filter((kpi) =>
+        canAccessResource(permissions, kpi.resourceHint),
+    );
     const quickActions = buildQuickActions(role).filter((a) =>
         canAccessResource(permissions, a.resourceHint),
     );
-    const modules = buildModuleShortcuts(activeModules).filter((m) =>
-        canAccessResource(permissions, m.resourceHint),
-    );
-
     return (
         <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto">
             {/* Header */}
@@ -138,7 +137,7 @@ export default function DashboardClient({
                     </p>
                 </div>
 
-                <div className="flex gap-2 items-center shrink-0">
+                <div className="flex flex-col items-end gap-1 shrink-0">
                     <Button
                         variant="outline"
                         size="sm"
@@ -154,11 +153,17 @@ export default function DashboardClient({
                             {dashboardLabels.refresh}
                         </span>
                     </Button>
+                    <p
+                        className="text-xs text-muted-foreground tabular-nums"
+                        aria-live="polite"
+                    >
+                        {dashboardLabels.lastUpdated} {presentation.lastUpdated}
+                    </p>
                 </div>
             </div>
 
             {/* Ops portal CTA (Warehouse / Production) */}
-            {opsCompact && portalCta && (
+            {opsCompact && visiblePortalCta && (
                 <Card className="border border-primary/20 bg-primary/5 shadow-sm">
                     <CardContent className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
@@ -166,15 +171,15 @@ export default function DashboardClient({
                                 {dashboardLabels.yourWorkspace}
                             </p>
                             <h2 className="text-lg font-semibold text-foreground">
-                                {portalCta.title}
+                                {visiblePortalCta.title}
                             </h2>
                             <p className="text-sm text-muted-foreground mt-0.5 max-w-xl">
-                                {portalCta.description}
+                                {visiblePortalCta.description}
                             </p>
                         </div>
                         <Button asChild className="shrink-0 gap-2 min-h-11">
-                            <Link href={portalCta.href}>
-                                {portalCta.ctaLabel}
+                            <Link href={visiblePortalCta.href}>
+                                {visiblePortalCta.ctaLabel}
                                 <ArrowRight className="h-4 w-4" />
                             </Link>
                         </Button>
@@ -189,24 +194,25 @@ export default function DashboardClient({
                         id="ceonotes-heading"
                         className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2"
                     >
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        {ceoNotes.length > 0 ? (
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        ) : (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        )}
                         {dashboardLabels.ceoNotesTitle}
                     </h2>
-                    {ceoNotes.length > 0 && (
+                    {ceoNotes.length > 0 ? (
                         <Badge variant="outline" className="tabular-nums">
                             {ceoNotes.length}
                         </Badge>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">
+                            {dashboardLabels.ceoNotesEmpty}
+                        </span>
                     )}
                 </div>
 
-                {ceoNotes.length === 0 ? (
-                    <Card className="shadow-sm border-dashed bg-card">
-                        <CardContent className="py-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                            {dashboardLabels.ceoNotesEmpty}
-                        </CardContent>
-                    </Card>
-                ) : (
+                {ceoNotes.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                         {ceoNotes.map((note) => (
                             <CeoNoteCard key={note.id} note={note} />
@@ -222,78 +228,27 @@ export default function DashboardClient({
                 ))}
             </div>
 
-            {/* Module shortcuts + Quick actions */}
-            {!opsCompact && (
-                <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-                    <section
-                        className="xl:col-span-3 space-y-3"
-                        aria-labelledby="modules-heading"
+            {/* Task-oriented shortcuts; complete module navigation stays in the sidebar. */}
+            {!opsCompact && quickActions.length > 0 && (
+                <section
+                    className="space-y-3"
+                    aria-labelledby="actions-heading"
+                >
+                    <h2
+                        id="actions-heading"
+                        className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
                     >
-                        <h2
-                            id="modules-heading"
-                            className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
-                        >
-                            {dashboardLabels.moduleShortcuts}
-                        </h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {modules.map((mod) => {
-                                const Icon = mod.icon;
-                                return (
-                                    <Link
-                                        key={mod.href}
-                                        href={mod.href}
-                                        className="group"
-                                    >
-                                        <Card className="h-full shadow-sm border-border/60 bg-card hover:shadow-md hover:border-primary/30 transition-all cursor-pointer">
-                                            <CardContent className="p-4 flex items-start gap-3 min-h-[72px]">
-                                                <div
-                                                    className={cn(
-                                                        'p-2.5 rounded-lg shrink-0',
-                                                        mod.iconBg,
-                                                        mod.iconColor,
-                                                    )}
-                                                >
-                                                    <Icon className="h-4 w-4" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center justify-between gap-1">
-                                                        <p className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
-                                                            {mod.label}
-                                                        </p>
-                                                        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    </div>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                        {mod.description}
-                                                    </p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </section>
-
-                    <section
-                        className="xl:col-span-2 space-y-3"
-                        aria-labelledby="actions-heading"
-                    >
-                        <h2
-                            id="actions-heading"
-                            className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
-                        >
-                            {dashboardLabels.quickActions}
-                        </h2>
-                        <div className="grid grid-cols-2 gap-3">
-                            {quickActions.map((action) => (
-                                <QuickAction
-                                    key={action.href + action.label}
-                                    {...action}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                </div>
+                        {dashboardLabels.quickActions}
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {quickActions.map((action) => (
+                            <QuickAction
+                                key={action.href + action.label}
+                                {...action}
+                            />
+                        ))}
+                    </div>
+                </section>
             )}
 
             {/* Compact ops: only quick actions under KPIs */}

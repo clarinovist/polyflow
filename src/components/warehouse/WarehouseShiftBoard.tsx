@@ -36,29 +36,44 @@ function StatCard({
     ctaLabel: string;
     colorClass: string;
 }) {
-    return (
-        <Link href={href} className="contents">
-            <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full">
-                <CardContent className="p-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <div className={cn('p-2 rounded-lg', colorClass)}>
-                            <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="text-2xl font-bold tabular-nums">
-                            {count}
-                        </span>
+    const isActionable = count > 0;
+    const card = (
+        <Card
+            className={
+                isActionable
+                    ? 'hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full'
+                    : 'h-full'
+            }
+        >
+            <CardContent className="p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                    <div className={cn('p-2 rounded-lg', colorClass)}>
+                        <Icon className="h-5 w-5" />
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                            {label}
-                        </p>
+                    <span className="text-2xl font-bold tabular-nums">
+                        {count}
+                    </span>
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                        {label}
+                    </p>
+                    {isActionable && (
                         <p className="text-xs text-primary font-semibold flex items-center gap-1 mt-1 group-hover:underline">
                             {ctaLabel} <ArrowRight className="h-3 w-3" />
                         </p>
-                    </div>
-                </CardContent>
-            </Card>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+
+    return isActionable ? (
+        <Link href={href} className="contents">
+            {card}
         </Link>
+    ) : (
+        card
     );
 }
 
@@ -109,7 +124,7 @@ export function WarehouseShiftBoardComponent({
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Hari Ini</h1>
                 <p className="text-muted-foreground">
-                    Ringkasan pekerjaan shift + antrean prioritas.
+                    Ringkasan pekerjaan sif dan antrean prioritas.
                 </p>
             </div>
 
@@ -132,7 +147,7 @@ export function WarehouseShiftBoardComponent({
                     colorClass="bg-emerald-500/10 text-emerald-600"
                 />
                 <StatCard
-                    label="Bahan Produksi"
+                    label="Bahan produksi"
                     count={counts.materialQueue}
                     icon={ClipboardList}
                     href="/warehouse/materials"
@@ -140,7 +155,7 @@ export function WarehouseShiftBoardComponent({
                     colorClass="bg-amber-500/10 text-amber-600"
                 />
                 <StatCard
-                    label="Stok Menipis"
+                    label="Stok menipis"
                     count={counts.lowStock}
                     icon={TrendingDown}
                     href="/warehouse/inventory?lowStock=true"
@@ -148,11 +163,11 @@ export function WarehouseShiftBoardComponent({
                     colorClass="bg-red-500/10 text-red-600"
                 />
                 <StatCard
-                    label="Perlu Reorder"
+                    label="Perlu dipesan ulang"
                     count={counts.suggestedReorder}
                     icon={ShoppingCart}
                     href="/warehouse/analytics#reorder"
-                    ctaLabel="Analitik"
+                    ctaLabel="Tinjau"
                     colorClass="bg-purple-500/10 text-purple-600"
                 />
             </div>
@@ -166,13 +181,13 @@ export function WarehouseShiftBoardComponent({
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <AttentionSection
-                            title="SJ Loading belum diverifikasi"
+                            title="SJ sedang dimuat, belum diverifikasi"
                             items={attention.loadingUnverified.map((d) => ({
                                 id: d.id,
                                 number: d.number,
                                 customerName: d.customerName ?? '',
                             }))}
-                            emptyMessage="Tidak ada SJ pending verifikasi"
+                            emptyMessage="Tidak ada SJ menunggu verifikasi"
                             renderItem={(item) => (
                                 <Link
                                     href={`/warehouse/outgoing/${String(item.id)}`}
@@ -196,13 +211,13 @@ export function WarehouseShiftBoardComponent({
                         />
 
                         <AttentionSection
-                            title="PO partial menunggu sisa"
+                            title="PO diterima sebagian, menunggu sisa"
                             items={attention.partialPOs.map((p) => ({
                                 id: p.id,
                                 orderNumber: p.orderNumber,
                                 supplierName: p.supplierName,
                             }))}
-                            emptyMessage="Tidak ada PO partial"
+                            emptyMessage="Tidak ada PO diterima sebagian"
                             renderItem={(item) => (
                                 <Link
                                     href={`/warehouse/incoming/orders/${String(item.id)}`}
@@ -227,10 +242,10 @@ export function WarehouseShiftBoardComponent({
                                 id: p.id,
                                 orderNumber: p.orderNumber,
                             }))}
-                            emptyMessage="Tidak ada SPK waiting material"
+                            emptyMessage="Tidak ada SPK menunggu bahan"
                             renderItem={(item) => (
                                 <Link
-                                    href={`/warehouse/materials`}
+                                    href={`/warehouse/materials?orderId=${String(item.id)}`}
                                     className="flex-1 flex items-center justify-between group/link"
                                 >
                                     <span className="text-sm font-mono font-bold">
@@ -256,7 +271,7 @@ export function WarehouseShiftBoardComponent({
                             <span className="text-muted-foreground">
                                 Diterima:
                             </span>
-                            <span className="font-bold">
+                            <span className="font-bold tabular-nums">
                                 {today.goodsReceipts} GR
                             </span>
                         </div>
@@ -265,16 +280,16 @@ export function WarehouseShiftBoardComponent({
                             <span className="text-muted-foreground">
                                 Dikirim:
                             </span>
-                            <span className="font-bold">
+                            <span className="font-bold tabular-nums">
                                 {today.deliveriesShipped} SJ
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
                             <ClipboardList className="h-4 w-4 text-amber-500" />
                             <span className="text-muted-foreground">
-                                Issue bahan:
+                                Pengeluaran bahan:
                             </span>
-                            <span className="font-bold">
+                            <span className="font-bold tabular-nums">
                                 {today.materialIssues}
                             </span>
                         </div>

@@ -13,7 +13,6 @@ import {
     ArrowRight,
     Wallet,
     Clock,
-    Users,
     UserX,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
@@ -63,8 +62,7 @@ function StatCard({
     label,
     count,
     icon: Icon,
-    href,
-    ctaLabel,
+    action,
     colorClass,
     subtitle,
     valueTitle,
@@ -72,57 +70,64 @@ function StatCard({
     label: string;
     count: string | number;
     icon: ComponentType<{ className?: string }>;
-    href: string;
-    ctaLabel: string;
+    action?: { href: string; label: string };
     colorClass: string;
     subtitle?: string;
     /** Full value for native tooltip when count is compacted */
     valueTitle?: string;
 }) {
-    return (
-        <Link href={href} className="block h-full min-w-0">
-            <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full min-w-0 overflow-hidden">
-                <CardContent className="p-3 sm:p-4 flex flex-col gap-2.5 sm:gap-3 min-w-0 h-full">
-                    <div
-                        className={cn(
-                            'p-2 rounded-lg w-fit shrink-0',
-                            colorClass,
-                        )}
+    const card = (
+        <Card
+            className={cn(
+                'h-full min-w-0 overflow-hidden',
+                action &&
+                    'hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group',
+            )}
+        >
+            <CardContent className="p-3 sm:p-4 flex flex-col gap-2.5 sm:gap-3 min-w-0 h-full">
+                <div
+                    className={cn(
+                        'p-2 rounded-lg w-fit shrink-0',
+                        colorClass,
+                    )}
+                >
+                    <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1 flex flex-col">
+                    <p
+                        className="text-lg sm:text-xl font-bold tabular-nums leading-tight tracking-tight break-words"
+                        title={valueTitle ?? String(count)}
                     >
-                        <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1 flex flex-col">
+                        {count}
+                    </p>
+                    <p className="text-sm font-medium text-muted-foreground mt-1.5 leading-snug">
+                        {label}
+                    </p>
+                    {subtitle && (
                         <p
-                            className="text-lg sm:text-xl font-bold tabular-nums leading-tight tracking-tight break-words"
-                            title={
-                                valueTitle ??
-                                (typeof count === 'string' ||
-                                typeof count === 'number'
-                                    ? String(count)
-                                    : undefined)
-                            }
+                            className="text-xs text-muted-foreground mt-0.5 truncate"
+                            title={subtitle}
                         >
-                            {count}
+                            {subtitle}
                         </p>
-                        <p className="text-sm font-medium text-muted-foreground mt-1.5 leading-snug">
-                            {label}
-                        </p>
-                        {subtitle && (
-                            <p
-                                className="text-xs text-muted-foreground mt-0.5 truncate"
-                                title={subtitle}
-                            >
-                                {subtitle}
-                            </p>
-                        )}
+                    )}
+                    {action && (
                         <p className="text-xs text-primary font-semibold inline-flex items-center gap-1 mt-auto pt-2 group-hover:underline">
-                            {ctaLabel}{' '}
+                            {action.label}{' '}
                             <ArrowRight className="h-3 w-3 shrink-0" />
                         </p>
-                    </div>
-                </CardContent>
-            </Card>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+
+    return action ? (
+        <Link href={action.href} className="block h-full min-w-0">
+            {card}
         </Link>
+    ) : (
+        card
     );
 }
 
@@ -173,7 +178,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Hari Ini</h1>
                 <p className="text-muted-foreground">
-                    Ringkasan shift + yang harus diputuskan.
+                    Ringkasan sif dan keputusan yang perlu ditindaklanjuti.
                 </p>
             </div>
 
@@ -183,39 +188,49 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                     label="Hadir hari ini"
                     count={counts.presentToday}
                     icon={UserCheck}
-                    href="/hrd/attendance"
-                    ctaLabel="Rekap"
                     colorClass="bg-emerald-500/10 text-emerald-600"
                     subtitle={data.today}
                 />
                 <StatCard
-                    label="Cuti pending"
+                    label="Cuti menunggu persetujuan"
                     count={counts.leavePending}
                     icon={CalendarDays}
-                    href="/hrd/leave"
-                    ctaLabel="Proses"
+                    action={
+                        counts.leavePending > 0
+                            ? {
+                                  href: '/hrd/leave?status=PENDING',
+                                  label: 'Proses',
+                              }
+                            : undefined
+                    }
                     colorClass="bg-amber-500/10 text-amber-600"
                 />
                 <StatCard
-                    label="Kasbon outstanding"
+                    label="Sisa kasbon"
                     count={formatIdrCompact(counts.loanOutstanding)}
                     valueTitle={formatIdr(counts.loanOutstanding)}
                     icon={HandCoins}
-                    href="/hrd/loans"
-                    ctaLabel="Lihat"
+                    action={
+                        counts.loanOutstanding > 0
+                            ? { href: '/hrd/loans', label: 'Lihat' }
+                            : undefined
+                    }
                     colorClass="bg-rose-500/10 text-rose-600"
                     subtitle={`${counts.loanActiveCount} aktif`}
                 />
                 <StatCard
-                    label="Periode OPEN"
+                    label="Periode terbuka"
                     count={counts.openPayrollPeriods}
                     icon={CalendarRange}
-                    href="/hrd/payroll-monthly"
-                    ctaLabel="Proses"
+                    action={
+                        counts.openPayrollPeriods > 0
+                            ? { href: '/hrd/payroll-monthly', label: 'Proses' }
+                            : undefined
+                    }
                     colorClass="bg-blue-500/10 text-blue-600"
                     subtitle={
                         counts.periodsNeedGenerate > 0
-                            ? `${counts.periodsNeedGenerate} perlu generate`
+                            ? `${counts.periodsNeedGenerate} perlu dibuatkan slip`
                             : undefined
                     }
                 />
@@ -223,16 +238,20 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                     label="Peserta BPJS"
                     count={counts.bpjsParticipants}
                     icon={Shield}
-                    href="/hrd/bpjs"
-                    ctaLabel="Rekap"
                     colorClass="bg-purple-500/10 text-purple-600"
                 />
                 <StatCard
-                    label="Alert HR unread"
+                    label="Peringatan HR belum dibaca"
                     count={counts.hrAlertsUnread}
                     icon={AlertTriangle}
-                    href="/hrd/alerts"
-                    ctaLabel="Tinjau"
+                    action={
+                        counts.hrAlertsUnread > 0
+                            ? {
+                                  href: '/hrd/alerts?unread=true',
+                                  label: 'Tinjau',
+                              }
+                            : undefined
+                    }
                     colorClass="bg-orange-500/10 text-orange-600"
                 />
             </div>
@@ -254,10 +273,10 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                                 type: l.type,
                                 daysPending: l.daysPending,
                             }))}
-                            emptyMessage="Tidak ada cuti pending"
+                            emptyMessage="Tidak ada cuti yang menunggu persetujuan"
                             renderItem={(item) => (
                                 <Link
-                                    href={`/hrd/leave`}
+                                    href={`/hrd/leave?status=PENDING&requestId=${String(item.id)}`}
                                     className="flex-1 flex items-center justify-between group/link"
                                 >
                                     <div>
@@ -280,17 +299,17 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                         />
 
                         <AttentionSection
-                            title="Alert kontrak/probation"
+                            title="Peringatan kontrak/masa percobaan"
                             icon={AlertTriangle}
                             items={attention.hrAlerts.map((a) => ({
                                 id: a.id,
                                 title: a.title,
                                 type: a.type,
                             }))}
-                            emptyMessage="Tidak ada alert baru"
+                            emptyMessage="Tidak ada peringatan baru"
                             renderItem={(item) => (
                                 <Link
-                                    href={`/hrd/alerts`}
+                                    href={`/hrd/alerts?unread=true#alert-${String(item.id)}`}
                                     className="flex-1 flex items-center justify-between group/link"
                                 >
                                     <div>
@@ -300,7 +319,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                                         <span className="text-xs text-muted-foreground ml-2">
                                             {String(item.type) ===
                                             'HRD_PROBATION_ENDING'
-                                                ? 'Probation'
+                                                ? 'Masa percobaan'
                                                 : 'Kontrak'}
                                         </span>
                                     </div>
@@ -321,7 +340,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                             emptyMessage="Semua periode sudah ditutup"
                             renderItem={(item) => (
                                 <Link
-                                    href={`/hrd/payroll-monthly`}
+                                    href={`/hrd/payroll-monthly/${String(item.id)}`}
                                     className="flex-1 flex items-center justify-between group/link"
                                 >
                                     <div>
@@ -330,7 +349,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                                         </span>
                                         {Boolean(item.needsGenerate) && (
                                             <span className="text-xs text-amber-600 ml-2 font-medium">
-                                                Perlu generate
+                                                Perlu dibuatkan slip
                                             </span>
                                         )}
                                     </div>
@@ -350,7 +369,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                             emptyMessage="Semua hadir kemarin"
                             renderItem={(item) => (
                                 <Link
-                                    href={`/hrd/attendance`}
+                                    href={`/dashboard/employees/${String(item.id)}?tab=attendance`}
                                     className="flex-1 flex items-center justify-between group/link"
                                 >
                                     <div>
@@ -404,11 +423,11 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                 </CardContent>
             </Card>
 
-            {/* Quick Actions */}
+            {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
             <Card>
                 <CardContent className="p-4">
                     <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-3">
-                        Cepat
+                        Aksi cepat
                     </h2>
                     <div className="flex flex-wrap gap-2">
                         <Link
@@ -432,85 +451,6 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                             <CalendarRange className="h-4 w-4" />
                             Gaji Bulanan
                         </Link>
-                        <Link
-                            href="/hrd/employees"
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-muted hover:bg-muted/80 text-sm font-medium transition-colors"
-                        >
-                            <Users className="h-4 w-4" />
-                            Karyawan
-                        </Link>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Compact Menu Links */}
-            <Card>
-                <CardContent className="p-4">
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-3">
-                        Semua Menu
-                    </h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                        {[
-                            {
-                                href: '/hrd/attendance',
-                                label: 'Rekap Kehadiran',
-                                icon: Clock,
-                            },
-                            {
-                                href: '/hrd/alerts',
-                                label: 'Alert HR',
-                                icon: AlertTriangle,
-                            },
-                            {
-                                href: '/hrd/payroll',
-                                label: 'Gaji Mingguan',
-                                icon: Wallet,
-                            },
-                            {
-                                href: '/hrd/payroll-monthly',
-                                label: 'Gaji Bulanan',
-                                icon: CalendarRange,
-                            },
-                            {
-                                href: '/hrd/bpjs',
-                                label: 'Rekap BPJS',
-                                icon: Shield,
-                            },
-                            {
-                                href: '/hrd/piece-rates',
-                                label: 'Tarif Borongan',
-                                icon: HandCoins,
-                            },
-                            {
-                                href: '/hrd/loans',
-                                label: 'Kasbon',
-                                icon: HandCoins,
-                            },
-                            {
-                                href: '/hrd/employees',
-                                label: 'Karyawan',
-                                icon: Users,
-                            },
-                            {
-                                href: '/hrd/leave',
-                                label: 'Cuti & Izin',
-                                icon: CalendarDays,
-                            },
-                            {
-                                href: '/hrd/disciplinary',
-                                label: 'Sanksi Disiplin',
-                                icon: AlertTriangle,
-                            },
-                        ].map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-colors text-sm"
-                            >
-                                <item.icon className="h-4 w-4 text-muted-foreground" />
-                                <span>{item.label}</span>
-                            </Link>
-                        ))}
                     </div>
                 </CardContent>
             </Card>

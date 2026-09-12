@@ -16,9 +16,12 @@ export default async function PeriodsPage({
         periodsRes.success && periodsRes.data ? periodsRes.data : [];
 
     return (
-        <PeriodManagementClient
-            initialPeriods={periods}
-            currentYear={selectedYear}
-        />
+        <div className="space-y-6">
+            <h1 className="sr-only">Periode Fiskal</h1>
+            <PeriodManagementClient
+                initialPeriods={periods}
+                currentYear={selectedYear}
+            />
+        </div>
     );
 }

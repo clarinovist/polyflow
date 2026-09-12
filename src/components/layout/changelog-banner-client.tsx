@@ -1,26 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { X, Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import DOMPurify from 'dompurify';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
-const CHANGELOG_SANITIZE_CONFIG = {
-    ALLOWED_TAGS: ['h3', 'strong', 'li', 'br'],
-    ALLOWED_ATTR: ['class'],
-    ALLOW_DATA_ATTR: false,
-};
-
-/**
- * Routes that anonymous visitors can reach. The changelog is an internal release
- * note — it names unreleased modules, internal phases, and links the private repo —
- * so it must never render on a public surface.
- *
- * `/` is the marketing landing page and is matched exactly, not by prefix:
- * a prefix match on '/' would suppress the banner everywhere.
- */
+/** Public routes must never render an internal release announcement. */
 const PUBLIC_PATH_PREFIXES = [
     '/login',
     '/register',
@@ -31,8 +23,7 @@ const PUBLIC_PATH_PREFIXES = [
 ];
 
 export function isPublicChangelogPath(pathname: string | null): boolean {
-    if (!pathname) return true;
-    if (pathname === '/') return true;
+    if (!pathname || pathname === '/') return true;
     return PUBLIC_PATH_PREFIXES.some(
         (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
@@ -40,20 +31,26 @@ export function isPublicChangelogPath(pathname: string | null): boolean {
 
 interface ChangelogBannerClientProps {
     version: string;
-    notesHtml: string;
+    summaries: string[];
 }
 
 export function ChangelogBannerClient({
     version,
-    notesHtml,
+    summaries,
 }: ChangelogBannerClientProps) {
     const pathname = usePathname();
     const isPublicPage = isPublicChangelogPath(pathname);
     const [isVisible, setIsVisible] = useState(false);
+    const [detailsOpen, setDetailsOpen] = useState(false);
     const [assistantOpen, setAssistantOpen] = useState(false);
+    const visibleSummaries = summaries.slice(0, 3);
+    const dismissalKey = `dismissed_changelog_${version}`;
 
     useEffect(() => {
-        const handleAssistantOpen = () => setAssistantOpen(true);
+        const handleAssistantOpen = () => {
+            setDetailsOpen(false);
+            setAssistantOpen(true);
+        };
         const handleAssistantClose = () => setAssistantOpen(false);
         window.addEventListener('polyflow-assistant-open', handleAssistantOpen);
         window.addEventListener(
@@ -75,53 +72,92 @@ export function ChangelogBannerClient({
     useEffect(() => {
         if (isPublicPage) {
             setIsVisible(false);
+            setDetailsOpen(false);
             return;
         }
-        const dismissed = localStorage.getItem(
-            `dismissed_changelog_${version}`,
-        );
-        if (!dismissed) {
+
+        try {
+            setIsVisible(localStorage.getItem(dismissalKey) !== 'true');
+        } catch {
+            // Storage can be unavailable in privacy-restricted browsers.
             setIsVisible(true);
         }
-    }, [version, isPublicPage]);
-
-    if (isPublicPage || !isVisible || assistantOpen) return null;
+    }, [dismissalKey, isPublicPage]);
 
     const handleDismiss = () => {
-        localStorage.setItem(`dismissed_changelog_${version}`, 'true');
+        try {
+            localStorage.setItem(dismissalKey, 'true');
+        } catch {
+            // Dismiss for this page even if persistence is unavailable.
+        }
+        setDetailsOpen(false);
         setIsVisible(false);
     };
 
+    if (isPublicPage || !isVisible || assistantOpen) return null;
+
     return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 fade-in duration-500">
-            <Card className="w-80 shadow-2xl border-primary/20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 overflow-hidden">
-                <div className="bg-primary/10 px-4 py-2.5 flex items-center justify-between border-b border-primary/10">
-                    <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-                        <Sparkles className="h-4 w-4" />
-                        <span>What&apos;s New in {version}</span>
-                    </div>
+        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <aside
+                aria-label="Pemberitahuan pembaruan"
+                data-layout="in-flow"
+                className="relative z-10 mx-auto my-2 flex w-fit max-w-[calc(100%-1rem)] flex-wrap items-center justify-center gap-2 rounded-full border border-primary/20 bg-background px-2 py-1.5 text-sm shadow-sm"
+            >
+                <Sparkles
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 text-primary"
+                />
+                <span className="font-medium">Pembaruan {version} tersedia</span>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-full px-2 text-xs"
+                    aria-haspopup="dialog"
+                    onClick={() => setDetailsOpen(true)}
+                >
+                    Lihat detail pembaruan
+                </Button>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 rounded-full"
+                    aria-label="Tutup pemberitahuan pembaruan"
+                    onClick={handleDismiss}
+                >
+                    <X aria-hidden="true" className="h-3.5 w-3.5" />
+                </Button>
+            </aside>
+
+            <DialogContent showCloseButton={false} className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Pembaruan Polyflow {version}</DialogTitle>
+                    <DialogDescription>
+                        Ringkasan perubahan yang membantu pekerjaan Anda.
+                    </DialogDescription>
+                </DialogHeader>
+                <ul className="list-disc space-y-2 pl-5 text-sm">
+                    {visibleSummaries.map((summary) => (
+                        <li key={summary}>{summary}</li>
+                    ))}
+                </ul>
+                <div className="flex justify-end gap-2">
                     <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                        type="button"
+                        variant="outline"
                         onClick={handleDismiss}
                     >
-                        <X className="h-3 w-3" />
+                        Jangan tampilkan lagi
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={() => setDetailsOpen(false)}
+                    >
+                        Tutup
                     </Button>
                 </div>
-                <div className="p-4 text-xs text-muted-foreground max-h-64 overflow-y-auto">
-                    {/* notesHtml comes from local CHANGELOG.md parser and is sanitized before render as defense-in-depth */}
-                    <div
-                        className="space-y-1"
-                        dangerouslySetInnerHTML={{
-                            __html: DOMPurify.sanitize(
-                                notesHtml,
-                                CHANGELOG_SANITIZE_CONFIG,
-                            ),
-                        }}
-                    />
-                </div>
-            </Card>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }

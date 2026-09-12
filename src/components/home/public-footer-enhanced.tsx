@@ -110,9 +110,10 @@ export default function PublicFooterEnhanced() {
                                     <Button
                                         type="submit"
                                         size="icon"
+                                        aria-label="Berlangganan newsletter"
                                         className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg"
                                     >
-                                        <ArrowRight className="w-4 h-4" />
+                                        <ArrowRight aria-hidden="true" className="w-4 h-4" />
                                     </Button>
                                 </motion.div>
                             </form>

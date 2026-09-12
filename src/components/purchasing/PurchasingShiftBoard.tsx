@@ -14,7 +14,6 @@ import {
     ArrowRight,
     TrendingUp,
     Plus,
-    ExternalLink,
 } from 'lucide-react';
 import type { PurchasingShiftBoard } from '@/actions/purchasing/purchasing-types';
 import { PR_AGING_THRESHOLD_DAYS } from '@/actions/purchasing/purchasing-types';
@@ -33,41 +32,56 @@ function StatCard({
     sub,
 }: {
     label: string;
-    count: number | string;
+    count: number;
     icon: React.ComponentType<{ className?: string }>;
     href: string;
     ctaLabel: string;
     colorClass: string;
     sub?: string;
 }) {
-    return (
-        <Link href={href} className="contents">
-            <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full">
-                <CardContent className="p-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <div className={`p-2 rounded-lg ${colorClass}`}>
-                            <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="text-2xl font-bold tabular-nums">
-                            {count}
-                        </span>
+    const isActionable = count > 0;
+    const card = (
+        <Card
+            className={
+                isActionable
+                    ? 'hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full'
+                    : 'h-full'
+            }
+        >
+            <CardContent className="p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                    <div className={`p-2 rounded-lg ${colorClass}`}>
+                        <Icon className="h-5 w-5" />
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                            {label}
+                    <span className="text-2xl font-bold tabular-nums">
+                        {count}
+                    </span>
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                        {label}
+                    </p>
+                    {sub && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {sub}
                         </p>
-                        {sub && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                {sub}
-                            </p>
-                        )}
+                    )}
+                    {isActionable && (
                         <p className="text-xs text-primary font-semibold flex items-center gap-1 mt-1 group-hover:underline">
                             {ctaLabel} <ArrowRight className="h-3 w-3" />
                         </p>
-                    </div>
-                </CardContent>
-            </Card>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+
+    return isActionable ? (
+        <Link href={href} className="contents">
+            {card}
         </Link>
+    ) : (
+        card
     );
 }
 
@@ -121,7 +135,7 @@ export function PurchasingShiftBoardComponent({
                     Hari Ini — Pembelian
                 </h1>
                 <p className="text-muted-foreground">
-                    Antrean kerja procurement.
+                    Antrean kerja pengadaan yang perlu ditindaklanjuti.
                 </p>
             </div>
 
@@ -136,7 +150,7 @@ export function PurchasingShiftBoardComponent({
                     colorClass="bg-blue-500/10 text-blue-600"
                 />
                 <StatCard
-                    label="DRAFT PO"
+                    label="PO draf"
                     count={counts.draftPos}
                     icon={FileText}
                     href="/purchasing/orders?status=DRAFT"
@@ -152,7 +166,7 @@ export function PurchasingShiftBoardComponent({
                     colorClass="bg-emerald-500/10 text-emerald-600"
                 />
                 <StatCard
-                    label="Partial sisa"
+                    label="Sisa penerimaan"
                     count={counts.partialPos}
                     icon={Package}
                     href="/purchasing/orders?status=PARTIAL_RECEIVED"
@@ -160,11 +174,11 @@ export function PurchasingShiftBoardComponent({
                     colorClass="bg-purple-500/10 text-purple-600"
                 />
                 <StatCard
-                    label="AP overdue"
+                    label="Hutang jatuh tempo"
                     count={counts.overdueApCount}
                     icon={AlertTriangle}
-                    href="/purchasing/invoices"
-                    ctaLabel="Lihat Invoice"
+                    href="/purchasing/invoices?overdue=true"
+                    ctaLabel="Lihat invoice"
                     colorClass="bg-red-500/10 text-red-600"
                     sub={
                         counts.overdueApAmount > 0
@@ -221,14 +235,14 @@ export function PurchasingShiftBoardComponent({
                         />
 
                         <AttentionSection
-                            title="PO DRAFT menua"
+                            title="PO draf menua"
                             items={attention.draftPos.map((d) => ({
                                 id: d.id,
                                 orderNumber: d.orderNumber,
                                 supplierName: d.supplierName,
                                 daysOld: d.daysOld,
                             }))}
-                            emptyMessage="Tidak ada PO DRAFT"
+                            emptyMessage="Tidak ada PO draf"
                             renderItem={(item) => (
                                 <Link
                                     href={`/purchasing/orders/${String(item.id)}`}
@@ -279,13 +293,13 @@ export function PurchasingShiftBoardComponent({
                         />
 
                         <AttentionSection
-                            title="PO partial — sisa qty"
+                            title="PO diterima sebagian — sisa kuantitas"
                             items={attention.partialPos.map((d) => ({
                                 id: d.id,
                                 orderNumber: d.orderNumber,
                                 supplierName: d.supplierName,
                             }))}
-                            emptyMessage="Tidak ada PO partial"
+                            emptyMessage="Tidak ada PO diterima sebagian"
                             renderItem={(item) => (
                                 <div className="flex-1 flex items-center justify-between gap-2">
                                     <Link
@@ -317,10 +331,10 @@ export function PurchasingShiftBoardComponent({
                                 supplierName: d.supplierName,
                                 remaining: d.remaining,
                             }))}
-                            emptyMessage="Tidak ada AP overdue"
+                            emptyMessage="Tidak ada hutang jatuh tempo"
                             renderItem={(item) => (
                                 <Link
-                                    href="/purchasing/invoices"
+                                    href={`/purchasing/invoices?overdue=true&search=${encodeURIComponent(String(item.invoiceNumber))}`}
                                     className="flex-1 flex items-center justify-between group/link"
                                 >
                                     <div>
@@ -340,7 +354,7 @@ export function PurchasingShiftBoardComponent({
 
                         {attention.suggestedReorder.length > 0 && (
                             <AttentionSection
-                                title="Perlu reorder (gudang)"
+                                title="Perlu dipesan ulang (gudang)"
                                 items={attention.suggestedReorder.map((d) => ({
                                     id: d.id,
                                     name: d.name,
@@ -362,10 +376,14 @@ export function PurchasingShiftBoardComponent({
                                                     ? ` · ${String(item.supplierName)}`
                                                     : ''}
                                                 {' · '}Stok:{' '}
-                                                {Number(item.totalStock)} /
-                                                Reorder:{' '}
+                                                <span className="tabular-nums">
+                                                    {Number(item.totalStock)}
+                                                </span>{' '}
+                                                / Titik pesan ulang:{' '}
                                                 {item.reorderPoint != null
-                                                    ? Number(item.reorderPoint)
+                                                    ? Number(
+                                                          item.reorderPoint,
+                                                      ).toLocaleString('id-ID')
                                                     : '—'}
                                             </span>
                                         </div>
@@ -384,35 +402,7 @@ export function PurchasingShiftBoardComponent({
                 </CardContent>
             </Card>
 
-            {/* Cross-module notes */}
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                    <Truck className="h-3.5 w-3.5" />
-                    <span>
-                        Terima barang di{' '}
-                        <Link
-                            href="/warehouse/incoming"
-                            className="text-primary hover:underline font-medium"
-                        >
-                            Portal Gudang → Penerimaan
-                        </Link>
-                    </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    <span>
-                        Bayar hutang di{' '}
-                        <Link
-                            href="/finance/invoices/purchase"
-                            className="text-primary hover:underline font-medium"
-                        >
-                            Finance → Hutang
-                        </Link>
-                    </span>
-                </div>
-            </div>
-
-            {/* Quick Actions */}
+            {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
             <div className="flex flex-wrap gap-3">
                 <Link href="/purchasing/requests">
                     <Button size="sm">
@@ -422,16 +412,6 @@ export function PurchasingShiftBoardComponent({
                 <Link href="/purchasing/orders/create">
                     <Button size="sm" variant="outline">
                         <Plus className="h-4 w-4 mr-1" /> PO
-                    </Button>
-                </Link>
-                <Link href="/purchasing/suppliers">
-                    <Button size="sm" variant="outline">
-                        Supplier
-                    </Button>
-                </Link>
-                <Link href="/purchasing/analytics">
-                    <Button size="sm" variant="ghost">
-                        Analitik
                     </Button>
                 </Link>
             </div>
@@ -446,15 +426,15 @@ export function PurchasingShiftBoardComponent({
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                         <div>
                             <p className="text-muted-foreground">
-                                Belanja Bulan Ini
+                                Belanja bulan ini
                             </p>
-                            <p className="font-semibold">
+                            <p className="font-semibold tabular-nums">
                                 {formatRupiah(performance.monthlySpend)}
                             </p>
                         </div>
                         <div>
                             <p className="text-muted-foreground">
-                                Supplier Teratas
+                                Pemasok teratas
                             </p>
                             <p className="font-semibold">
                                 {performance.topSupplierName ?? '-'}
@@ -462,9 +442,9 @@ export function PurchasingShiftBoardComponent({
                         </div>
                         <div>
                             <p className="text-muted-foreground">
-                                Total di Supplier Teratas
+                                Total pada pemasok teratas
                             </p>
-                            <p className="font-semibold">
+                            <p className="font-semibold tabular-nums">
                                 {performance.topSupplierSpend > 0
                                     ? formatRupiah(performance.topSupplierSpend)
                                     : '-'}

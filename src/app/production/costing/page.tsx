@@ -20,6 +20,7 @@ import {
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -150,11 +151,11 @@ export default async function CostingPage(props: {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Costing Dashboard
+                        Analisis Biaya Produksi
                     </h1>
                     <p className="text-muted-foreground">
-                        Production cost analysis using persisted issue cost and
-                        actual execution data.
+                        Analisis biaya produksi berdasarkan biaya material dan
+                        data pelaksanaan aktual.
                     </p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -166,11 +167,11 @@ export default async function CostingPage(props: {
                     </Button>
                     <Button variant="outline">
                         <Filter className="mr-2 h-4 w-4" />
-                        Filters
+                        Filter
                     </Button>
                     <Button variant="outline">
                         <FileText className="mr-2 h-4 w-4" />
-                        Export
+                        Ekspor
                     </Button>
                 </div>
             </div>
@@ -179,7 +180,7 @@ export default async function CostingPage(props: {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Total COGM
+                            Total Biaya Produksi
                         </CardTitle>
                         <TrendingUp className="h-4 w-4 text-primary" />
                     </CardHeader>
@@ -188,14 +189,14 @@ export default async function CostingPage(props: {
                             {formatRupiah(totalCOGM)}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Cost of Goods Manufactured
+                            Harga pokok produksi
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Material Share
+                            Porsi Material
                         </CardTitle>
                         <Package className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
@@ -207,14 +208,14 @@ export default async function CostingPage(props: {
                             {totalCOGM > 0
                                 ? ((totalMaterial / totalCOGM) * 100).toFixed(1)
                                 : 0}
-                            % of total
+                            % dari total
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Labor Share
+                            Porsi Tenaga Kerja
                         </CardTitle>
                         <Users className="h-4 w-4 text-blue-500" />
                     </CardHeader>
@@ -226,14 +227,14 @@ export default async function CostingPage(props: {
                             {totalCOGM > 0
                                 ? ((totalLabor / totalCOGM) * 100).toFixed(1)
                                 : 0}
-                            % of total
+                            % dari total
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Machine Share
+                            Porsi Mesin
                         </CardTitle>
                         <Settings className="h-4 w-4 text-amber-500" />
                     </CardHeader>
@@ -245,7 +246,7 @@ export default async function CostingPage(props: {
                             {totalCOGM > 0
                                 ? ((totalMachine / totalCOGM) * 100).toFixed(1)
                                 : 0}
-                            % of total
+                            % dari total
                         </p>
                     </CardContent>
                 </Card>
@@ -257,17 +258,17 @@ export default async function CostingPage(props: {
                         <div>
                             <CardTitle className="flex items-center gap-2">
                                 <AlertTriangle className="h-5 w-5 text-amber-600" />
-                                Cost Guardrail Audit
+                                Audit Batas Biaya
                             </CardTitle>
                             <CardDescription>
-                                Review variant cost basis, gap vs standard, dan
-                                anomaly signal untuk cari penyebab selisih antar
-                                family/ukuran.
+                                Tinjau dasar biaya varian, selisih terhadap
+                                standar, dan indikasi anomali antar kelompok
+                                atau ukuran.
                             </CardDescription>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                            Showing {filteredAuditRows.length} of{' '}
-                            {allAuditRows.length} variants
+                            Menampilkan {filteredAuditRows.length} dari{' '}
+                            {allAuditRows.length} varian
                         </div>
                     </div>
                 </CardHeader>
@@ -276,7 +277,7 @@ export default async function CostingPage(props: {
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-medium">
-                                    Variants Scanned
+                                    Varian Diperiksa
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -292,7 +293,7 @@ export default async function CostingPage(props: {
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-medium">
-                                    Review Needed
+                                    Perlu Ditinjau
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -307,7 +308,7 @@ export default async function CostingPage(props: {
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-medium">
-                                    Low Stock Outlier
+                                    Anomali Stok Rendah
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -323,7 +324,7 @@ export default async function CostingPage(props: {
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-medium">
-                                    Inventory Avg Basis
+                                    Basis Rata-rata Persediaan
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -356,7 +357,7 @@ export default async function CostingPage(props: {
                                     flag: 'all',
                                 })}
                             >
-                                All Variants
+                                Semua Varian
                             </Link>
                         </Button>
                         <Button
@@ -370,7 +371,7 @@ export default async function CostingPage(props: {
                                     flag: 'all',
                                 })}
                             >
-                                Review Needed
+                                Perlu Ditinjau
                             </Link>
                         </Button>
                         <Button
@@ -388,7 +389,7 @@ export default async function CostingPage(props: {
                                     flag: 'all',
                                 })}
                             >
-                                Inventory Avg
+                                Rata-rata Persediaan
                             </Link>
                         </Button>
                         <Button
@@ -406,7 +407,7 @@ export default async function CostingPage(props: {
                                     flag: 'all',
                                 })}
                             >
-                                Standard Fallback
+                                Cadangan Biaya Standar
                             </Link>
                         </Button>
                         <Button
@@ -424,7 +425,7 @@ export default async function CostingPage(props: {
                                     source: 'all',
                                 })}
                             >
-                                Low Stock Outlier
+                                Anomali Stok Rendah
                             </Link>
                         </Button>
                         <Button
@@ -442,25 +443,28 @@ export default async function CostingPage(props: {
                                     source: 'all',
                                 })}
                             >
-                                Std Gap
+                                Selisih Standar
                             </Link>
                         </Button>
                     </div>
 
                     <div className="rounded-md border">
                         <Table>
+                            <TableCaption className="sr-only">
+                                Audit dasar biaya per varian produk
+                            </TableCaption>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Product / Variant</TableHead>
+                                    <TableHead>Produk / Varian</TableHead>
                                     <TableHead className="text-right">
-                                        Current Cost
+                                        Biaya Saat Ini
                                     </TableHead>
                                     <TableHead className="text-right">
-                                        Standard Cost
+                                        Biaya Standar
                                     </TableHead>
-                                    <TableHead>Source</TableHead>
+                                    <TableHead>Sumber</TableHead>
                                     <TableHead className="text-right">
-                                        Stock Qty
+                                        Jumlah Stok
                                     </TableHead>
                                     <TableHead className="text-right">
                                         Gap
@@ -475,8 +479,8 @@ export default async function CostingPage(props: {
                                             colSpan={7}
                                             className="text-center h-24 text-muted-foreground"
                                         >
-                                            No variants match the current audit
-                                            filter.
+                                            Tidak ada varian yang sesuai dengan
+                                            filter audit saat ini.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -574,8 +578,8 @@ export default async function CostingPage(props: {
                                                         >
                                                             {row.health ===
                                                             'review_needed'
-                                                                ? 'Review Needed'
-                                                                : 'Within Range'}
+                                                                ? 'Perlu Ditinjau'
+                                                                : 'Dalam Rentang'}
                                                         </Badge>
                                                         {row.flags.map(
                                                             (flag) => (
@@ -603,18 +607,21 @@ export default async function CostingPage(props: {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Detailed Cost Breakdown</CardTitle>
+                    <CardTitle>Rincian Biaya</CardTitle>
                     <CardDescription>
-                        Costs per production order based on actual issue
-                        movements, labor, and machine time.
+                        Biaya per SPK berdasarkan material aktual, tenaga kerja,
+                        dan waktu mesin.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
+                            <TableCaption className="sr-only">
+                                Rincian biaya per SPK
+                            </TableCaption>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Order #</TableHead>
+                                    <TableHead>No. SPK</TableHead>
                                     <TableHead className="text-right">
                                         Qty
                                     </TableHead>
