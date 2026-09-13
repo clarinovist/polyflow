@@ -89,14 +89,14 @@ export function SalesOrderCustomerPicker({
                     aria-controls={listboxId}
                     aria-expanded={open}
                     className={cn(
-                        'w-full justify-between',
+                        'w-full min-w-0 justify-between',
                         !selectedCustomer && 'text-muted-foreground',
                         isOverLimit &&
                             'border-red-500 bg-red-50 text-red-900',
                         className,
                     )}
                 >
-                    <span className="truncate">
+                    <span className="min-w-0 flex-1 truncate text-left">
                         {selectedCustomer
                             ? `${selectedCustomer.name} — ${getStableIdentity(selectedCustomer)}`
                             : 'Pilih customer'}
@@ -106,11 +106,16 @@ export function SalesOrderCustomerPicker({
             </PopoverTrigger>
             <PopoverContent
                 id={listboxId}
-                className="w-[--radix-popover-trigger-width] p-0"
+                align="start"
+                collisionPadding={12}
+                className="max-h-[var(--radix-popover-content-available-height)] w-[min(var(--radix-popover-trigger-width),calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-hidden p-0"
             >
-                <Command>
-                    <CommandInput placeholder="Cari customer..." />
-                    <CommandList>
+                <Command className="min-w-0">
+                    <CommandInput
+                        placeholder="Cari customer..."
+                        className="text-base sm:text-sm"
+                    />
+                    <CommandList className="max-h-[min(18.75rem,calc(var(--radix-popover-content-available-height)-5.75rem))]">
                         <CommandEmpty>Customer tidak ditemukan.</CommandEmpty>
                         <CommandGroup>
                             {customers.map((customer) => {
@@ -124,7 +129,7 @@ export function SalesOrderCustomerPicker({
                                             onChange(customer.id);
                                             setOpen(false);
                                         }}
-                                        className="items-start"
+                                        className="min-w-0 items-start py-2"
                                     >
                                         <Check
                                             className={cn(
@@ -135,22 +140,22 @@ export function SalesOrderCustomerPicker({
                                             )}
                                         />
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-baseline gap-x-2">
-                                                <span className="font-medium">
+                                            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                                                <span className="min-w-0 break-words font-medium">
                                                     {customer.name}
                                                 </span>
-                                                <span className="font-mono text-xs text-muted-foreground">
+                                                <span className="min-w-0 break-all font-mono text-xs text-muted-foreground">
                                                     {getStableIdentity(customer)}
                                                 </span>
                                             </div>
                                             {context.length > 0 && (
-                                                <div className="truncate text-xs text-muted-foreground">
+                                                <div className="break-words text-xs text-muted-foreground">
                                                     {context.join(' • ')}
                                                 </div>
                                             )}
                                         </div>
                                         {!!customer.creditLimit && (
-                                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                                            <span className="w-full break-words pl-6 text-xs text-muted-foreground sm:ml-auto sm:w-auto sm:shrink-0 sm:pl-0">
                                                 Limit:{' '}
                                                 {formatRupiah(customer.creditLimit)}
                                             </span>
@@ -176,12 +181,12 @@ export function SalesOrderCustomerPicker({
                         </CommandGroup>
                     </CommandList>
                 </Command>
-                <div className="border-t p-2">
+                <div className="shrink-0 border-t bg-popover p-2">
                     <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="w-full"
+                        className="min-h-11 w-full"
                         aria-label="Tutup pemilih customer"
                         onClick={() => setOpen(false)}
                     >

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { canViewPrices, getProductCatalogPage, productTable } = vi.hoisted(() => ({
@@ -73,6 +73,32 @@ describe('ProductsPage', () => {
         expect(productTable).toHaveBeenCalledWith({
             catalogPage: page,
             showPrices: true,
+        });
+        expect(
+            screen.getByRole('region', { name: 'Filter tipe produk' }),
+        ).toBeTruthy();
+        const activeFilter = screen.getByRole('tab', { name: 'Bahan Baku' });
+        expect(activeFilter.tagName).toBe('A');
+        expect(activeFilter.getAttribute('href')).toBe(
+            '/dashboard/products?type=RAW_MATERIAL',
+        );
+    });
+
+    it('keeps price visibility denied when the permission check fails', async () => {
+        canViewPrices.mockResolvedValue({
+            success: false,
+            error: 'Forbidden',
+        });
+
+        render(
+            await ProductsPage({
+                searchParams: Promise.resolve({}),
+            }),
+        );
+
+        expect(productTable).toHaveBeenCalledWith({
+            catalogPage: page,
+            showPrices: false,
         });
     });
 

@@ -228,11 +228,12 @@ export function SettingsTabs({
     };
 
     return (
-        <div>
+        <div className="min-w-0 max-w-full">
             <nav
-                className="flex overflow-x-auto gap-1 border-b mb-6 -mx-1 px-1 scrollbar-thin"
+                className="mb-6 flex max-w-full gap-1 overflow-x-auto border-b px-1 pb-1 scrollbar-thin focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                 role="tablist"
                 aria-label="Settings sections"
+                tabIndex={0}
             >
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.value;
@@ -244,7 +245,7 @@ export function SettingsTabs({
                             aria-current={isActive ? 'page' : undefined}
                             onClick={() => setActiveTab(tab.value as TabValue)}
                             className={cn(
-                                'inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                                'inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                                 isActive
                                     ? 'border-primary text-foreground'
                                     : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30',
@@ -256,7 +257,7 @@ export function SettingsTabs({
                     );
                 })}
             </nav>
-            <div className="min-w-0">{renderContent()}</div>
+            <div className="min-w-0 max-w-full overflow-x-auto">{renderContent()}</div>
         </div>
     );
 }

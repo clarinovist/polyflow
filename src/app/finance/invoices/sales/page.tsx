@@ -113,8 +113,8 @@ export default async function InvoicesPage({
     const invoicePage = serializeData(invoices.data);
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="min-w-0 max-w-full space-y-6 p-4 sm:p-6">
+            <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-3xl font-bold tracking-tight">
                         Invoice Sales
@@ -123,7 +123,7 @@ export default async function InvoicesPage({
                         Kelola tagihan customer dan lacak pembayaran tertunggak.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <ContextualHelp
                         title="Panduan Invoice"
                         prefillQuestion="Kenapa error period locked saat posting invoice?"
@@ -146,7 +146,7 @@ export default async function InvoicesPage({
                 </div>
             </div>
 
-            <Tabs defaultValue={demand} className="w-full">
+            <Tabs defaultValue={demand} className="min-w-0 max-w-full">
                 <TabsList className="grid w-full grid-cols-2 md:w-[420px]">
                     <TabsTrigger value="customer" asChild>
                         <Link href={buildDemandHref('customer')}>

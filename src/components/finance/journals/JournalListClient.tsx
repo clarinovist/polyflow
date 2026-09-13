@@ -210,8 +210,8 @@ export function JournalListClient() {
     // Date Shortcuts removed as they are no longer relevant for daily view
 
     return (
-        <div className="space-y-6 max-w-full overflow-hidden">
-            <div className="flex items-center justify-between">
+        <div className="min-w-0 max-w-full space-y-6 overflow-hidden">
+            <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">
                         Jurnal
@@ -221,7 +221,7 @@ export function JournalListClient() {
                         modul.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                     {selectedRows.length > 0 && (
                         <Button
                             variant="default"
@@ -249,9 +249,9 @@ export function JournalListClient() {
                     <h2 className="text-sm font-medium">Filter Transaksi</h2>
                 </CardHeader>
                 <CardContent className="px-4">
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="grid min-w-0 grid-cols-1 items-center gap-4 sm:flex sm:flex-wrap">
                         {/* Search */}
-                        <div className="flex items-center gap-2">
+                        <div className="grid min-w-0 grid-cols-1 items-start gap-2 sm:flex sm:items-center">
                             <label
                                 htmlFor="journal-search"
                                 className="text-sm text-muted-foreground whitespace-nowrap"
@@ -261,14 +261,14 @@ export function JournalListClient() {
                             <Input
                                 id="journal-search"
                                 placeholder="Nomor jurnal atau referensi..."
-                                className="h-9 w-[180px] bg-background"
+                                className="h-11 w-full min-w-0 bg-background text-base sm:h-9 sm:w-[180px] sm:text-sm"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </div>
 
                         {/* Status */}
-                        <div className="flex items-center gap-2">
+                        <div className="grid min-w-0 grid-cols-1 items-start gap-2 sm:flex sm:items-center">
                             <label
                                 htmlFor="journal-status"
                                 className="text-sm text-muted-foreground whitespace-nowrap"
@@ -283,7 +283,7 @@ export function JournalListClient() {
                             >
                                 <SelectTrigger
                                     id="journal-status"
-                                    className="h-9 w-[140px] bg-background"
+                                    className="h-11 w-full min-w-0 bg-background sm:h-9 sm:w-[140px]"
                                 >
                                     <SelectValue placeholder="Semua" />
                                 </SelectTrigger>
@@ -303,7 +303,7 @@ export function JournalListClient() {
                         </div>
 
                         {/* Date Navigation */}
-                        <div className="flex items-center gap-2 ml-auto">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
                             <TransactionDateFilter
                                 date={dateRange}
                                 onDateChange={setDateRange}
@@ -322,7 +322,10 @@ export function JournalListClient() {
                 <CardContent>
                     <div
                         data-journal-scroll
-                        className="max-h-[70vh] overflow-y-auto rounded-md border [&_[data-slot=table-container]]:overflow-visible"
+                        role="region"
+                        aria-label="Tabel riwayat jurnal; geser horizontal untuk melihat semua kolom dan aksi"
+                        tabIndex={0}
+                        className="max-h-[70vh] max-w-full overflow-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&_[data-slot=table-container]]:overflow-visible"
                     >
                         <Table>
                             <TableCaption className="sr-only">
@@ -462,14 +465,14 @@ export function JournalListClient() {
                     {/* Pagination Footer */}
                     <nav
                         aria-label="Paginasi jurnal"
-                        className="flex items-center justify-between px-2 pt-4"
+                        className="flex min-w-0 flex-wrap items-center justify-between gap-4 overflow-x-auto px-2 pt-4"
                     >
                         <div className="flex-1 text-sm text-muted-foreground">
                             Menampilkan{' '}
                             {data.length > 0 ? (page - 1) * limit + 1 : 0}–
                             {Math.min(page * limit, total)} dari {total} jurnal
                         </div>
-                        <div className="flex items-center space-x-6 lg:space-x-8">
+                        <div className="flex min-w-max items-center space-x-4 lg:space-x-8">
                             <div className="flex items-center space-x-2">
                                 <label
                                     htmlFor="journal-page-size"

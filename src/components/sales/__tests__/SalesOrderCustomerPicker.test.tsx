@@ -134,6 +134,45 @@ describe('SalesOrderCustomerPicker', () => {
         });
     });
 
+    it('keeps the popover viewport-bounded and long customer content wrappable', async () => {
+        renderPicker({
+            customers: [
+                ...customers,
+                {
+                    id: 'customer-with-an-extremely-long-unbroken-identity-1234567890',
+                    name: 'Customer Dengan Nama Sangat Panjang Tanpa Mengubah Identitas',
+                    code: 'CUSTOMER-CODE-WITHOUT-BREAK-POINTS-1234567890',
+                    city: null,
+                    billingAddress:
+                        'Alamat pelanggan yang sangat panjang untuk memastikan konteks tetap dapat dibaca pada layar sempit',
+                    shippingAddress: null,
+                    phone: null,
+                    creditLimit: 12_345_678,
+                },
+            ],
+        });
+        await openPicker();
+
+        const popup = document.querySelector<HTMLElement>(
+            '[data-slot="popover-content"]',
+        );
+        expect(popup?.className).toContain('max-w-[calc(100vw-1.5rem)]');
+        expect(popup?.getAttribute('data-align')).toBe('start');
+
+        const longOption = screen.getByRole('option', {
+            name: /Customer Dengan Nama Sangat Panjang/i,
+        });
+        expect(within(longOption).getByText(/CUSTOMER-CODE-WITHOUT/).className).toContain(
+            'break-all',
+        );
+        expect(
+            within(longOption).getByText(/Alamat pelanggan yang sangat panjang/).className,
+        ).toContain('break-words');
+        const creditLimit = within(longOption).getByText(/Limit:/);
+        expect(creditLimit.className).toContain('w-full');
+        expect(creditLimit.className).toContain('sm:w-auto');
+    });
+
     it('emits the exact ID when selecting the second duplicate', async () => {
         const { onChange } = renderPicker();
         await openPicker();
@@ -164,6 +203,21 @@ describe('SalesOrderCustomerPicker', () => {
         const trigger = screen.getByRole('combobox');
         expect(trigger.textContent).toContain('Toko Kembar');
         expect(trigger.textContent).toContain('ID: customer-duplicate-2');
+    });
+
+    it('dismisses with Escape without changing selection and restores focus', async () => {
+        const { onChange } = renderPicker();
+        const trigger = screen.getByRole('combobox');
+        const search = await openPicker();
+
+        search.focus();
+        fireEvent.keyDown(search, { key: 'Escape', code: 'Escape' });
+
+        await waitFor(() => {
+            expect(trigger.getAttribute('aria-expanded')).toBe('false');
+            expect(document.activeElement).toBe(trigger);
+        });
+        expect(onChange).not.toHaveBeenCalled();
     });
 
     it('closes from a visible accessible Tutup action and returns focus', async () => {

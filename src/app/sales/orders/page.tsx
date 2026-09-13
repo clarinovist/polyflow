@@ -246,8 +246,8 @@ export default async function SalesPage({
     // Archive mode
     if (isArchive) {
         return (
-            <div className="flex flex-col space-y-6 p-6">
-                <div className="flex items-center justify-between">
+            <div className="flex min-w-0 max-w-full flex-col space-y-6 p-4 sm:p-6">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                         <Button variant="ghost" size="sm" asChild>
                             <Link href={mainListHref}>
@@ -306,9 +306,9 @@ export default async function SalesPage({
 
     // Single list + dropdown filters only
     return (
-        <div className="flex flex-col space-y-6 p-6">
-            <div className="flex items-center justify-between">
-                <div>
+        <div className="flex min-w-0 max-w-full flex-col space-y-6 p-4 sm:p-6">
+            <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                <div className="min-w-0">
                     <h1 className="text-3xl font-bold tracking-tight">
                         {salesLabels.salesOrders}
                     </h1>
@@ -316,7 +316,7 @@ export default async function SalesPage({
                         {salesLabels.salesOrdersDesc}
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <ContextualHelp
                         title="Panduan SO"
                         prefillQuestion="Cara membuat Sales Order di Polyflow?"
@@ -503,8 +503,8 @@ export default async function SalesPage({
                 </Card>
             </div>
 
-            <Card>
-                <CardHeader>
+            <Card className="min-w-0 max-w-full">
+                <CardHeader className="min-w-0">
                     <div className="flex flex-col gap-3">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <CardTitle>{salesLabels.allOrders}</CardTitle>
@@ -520,7 +520,7 @@ export default async function SalesPage({
                         </Suspense>
                     </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="min-w-0 px-3 sm:px-6">
                     <SalesOrderTable
                         initialData={
                             serializedOrders as unknown as ComponentProps<

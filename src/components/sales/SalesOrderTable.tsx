@@ -450,19 +450,19 @@ export function SalesOrderTable({
                     return (
                         <Card
                             key={order.id}
-                            className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+                            className="min-w-0 max-w-full overflow-hidden transition-transform active:scale-[0.99] cursor-pointer"
                             onClick={() =>
                                 router.push(`${basePath}/${order.id}`)
                             }
                         >
                             <CardHeader className="p-4 pb-2">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-2">
                                         <div className="bg-primary/10 p-1.5 rounded-full">
                                             <FileText className="h-4 w-4 text-primary" />
                                         </div>
-                                        <div>
-                                            <h3 className="font-semibold text-sm">
+                                        <div className="min-w-0">
+                                            <h3 className="break-all text-sm font-semibold">
                                                 {order.orderNumber}
                                             </h3>
                                             <p className="text-xs text-muted-foreground">
@@ -470,7 +470,7 @@ export function SalesOrderTable({
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-1 items-end">
+                                    <div className="flex max-w-full flex-col items-end gap-1">
                                         <Badge
                                             variant="secondary"
                                             className={`text-[10px] px-1.5 h-5 ${getStatusColor(order.status)}`}
@@ -501,7 +501,7 @@ export function SalesOrderTable({
                             </CardHeader>
                             <CardContent className="p-4 pt-1">
                                 <div className="space-y-3">
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div className="grid min-w-0 grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                                         <div>
                                             <p className="text-[10px] text-muted-foreground uppercase font-semibold">
                                                 {salesLabels.customer}
@@ -515,7 +515,7 @@ export function SalesOrderTable({
                                                 </p>
                                             )}
                                         </div>
-                                        <div className="text-right">
+                                        <div className="min-w-0 sm:text-right">
                                             <p className="text-[10px] text-muted-foreground uppercase font-semibold">
                                                 {formLabels.total}
                                             </p>
@@ -530,7 +530,7 @@ export function SalesOrderTable({
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
+                                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs">
                                         <span className="text-muted-foreground">
                                             {formLabels.type}
                                         </span>
@@ -546,7 +546,7 @@ export function SalesOrderTable({
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
+                                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs">
                                         <span className="text-muted-foreground">
                                             {salesLabels.payment}
                                         </span>
@@ -566,7 +566,7 @@ export function SalesOrderTable({
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
+                                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-[11px] text-muted-foreground">
                                         <div className="flex items-center gap-1">
                                             <span>
                                                 • {getItemSummary(order)}
@@ -587,7 +587,7 @@ export function SalesOrderTable({
     );
 
     return (
-        <div className="rounded-md border-none sm:border">
+        <div className="min-w-0 max-w-full rounded-md border-none sm:border">
             <DataTable
                 columns={columns}
                 data={initialData}

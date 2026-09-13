@@ -100,7 +100,7 @@ function FilterSelect({
 
     return (
         <Select value={currentValue || '__all__'} onValueChange={handleChange}>
-            <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectTrigger className="h-11 w-full min-w-0 text-xs sm:h-8 sm:w-[160px]">
                 <SelectValue placeholder={label} />
             </SelectTrigger>
             <SelectContent>
@@ -156,7 +156,7 @@ export function SalesOrderFilters({ customers }: SalesOrderFiltersProps) {
     return (
         <div className="flex flex-col gap-3">
             {/* Phase tabs */}
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex min-w-0 flex-wrap gap-1.5">
                 {PHASE_TABS.map((tab) => {
                     const isActive =
                         tab.value === currentStatus ||
@@ -167,7 +167,7 @@ export function SalesOrderFilters({ customers }: SalesOrderFiltersProps) {
                             variant={isActive ? 'default' : 'ghost'}
                             size="sm"
                             className={cn(
-                                'h-7 text-xs px-3',
+                                'min-h-11 max-w-full whitespace-normal px-3 text-xs sm:min-h-7',
                                 isActive && 'shadow-sm',
                             )}
                             onClick={() => handlePhaseClick(tab.value)}
@@ -178,21 +178,21 @@ export function SalesOrderFilters({ customers }: SalesOrderFiltersProps) {
                 })}
             </div>
             {/* Detailed filters */}
-            <div className="flex flex-wrap gap-2 items-center">
-                <div className="flex items-center gap-1">
+            <div className="grid min-w-0 grid-cols-1 items-center gap-2 sm:flex sm:flex-wrap">
+                <div className="flex min-w-0 items-center gap-1">
                     <CustomerCombobox
                         customers={customers}
                         value={currentCustomer}
                         onChange={handleCustomerChange}
                         placeholder="Semua customer"
-                        className="h-8 w-[220px] text-xs"
+                        className="h-11 min-w-0 flex-1 text-xs sm:h-8 sm:w-[220px] sm:flex-none"
                     />
                     {currentCustomer && (
                         <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-11 w-11 shrink-0 sm:h-8 sm:w-8"
                             onClick={() => handleCustomerChange('')}
                             aria-label="Hapus filter customer"
                             title="Semua customer"
@@ -226,7 +226,7 @@ export function SalesOrderFilters({ customers }: SalesOrderFiltersProps) {
                             : 'outline'
                     }
                     size="sm"
-                    className="h-8 text-xs"
+                    className="min-h-11 max-w-full whitespace-normal text-xs sm:min-h-8"
                     onClick={() => {
                         const params = new URLSearchParams(
                             searchParams.toString(),

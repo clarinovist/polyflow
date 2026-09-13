@@ -68,7 +68,16 @@ describe('PurchaseOrderTable paged list', () => {
                 name: 'Urutkan berdasarkan No. PO',
             }),
         ).toBeTruthy();
-        expect(table.closest('[data-sticky-table="true"]')).toBeTruthy();
+        const tableScroller = table.closest('[data-sticky-table="true"]');
+        expect(tableScroller).toBeTruthy();
+        expect(tableScroller?.getAttribute('role')).toBe('region');
+        expect(tableScroller?.getAttribute('aria-label')).toMatch(
+            /geser horizontal/i,
+        );
+        expect(tableScroller?.getAttribute('tabindex')).toBe('0');
+        expect(screen.getByLabelText('Cari order pembelian').className).toContain(
+            'w-full',
+        );
     });
 
     it('updates URL-backed page, page size, search, status, and sorting controls', () => {

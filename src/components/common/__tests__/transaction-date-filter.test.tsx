@@ -30,6 +30,26 @@ describe('transaction date filter upper-only bounds', () => {
         expect(range.to.getDate()).toBe(toDay);
         if (label !== 'Minggu Ini') expect(range.from.getMonth()).toBe(8);
     });
+    it('bounds the trigger and calendar popover to the mobile viewport', () => {
+        render(
+            <TransactionDateFilter
+                date={{
+                    from: new Date(2026, 7, 1),
+                    to: new Date(2026, 7, 31),
+                }}
+            />,
+        );
+        const trigger = screen.getByRole('button', { name: /Agt 01, 2026/ });
+        expect(trigger.className).toContain('max-w-full');
+        fireEvent.click(trigger);
+
+        const popup = document.querySelector<HTMLElement>(
+            '[data-slot="popover-content"]',
+        );
+        expect(popup?.className).toContain('max-w-[calc(100vw-1.5rem)]');
+        expect(popup?.getAttribute('data-side')).toBeTruthy();
+    });
+
     it('preserves an explicit upper cutoff instead of applying this-month default', () => {
         const onDateChange = vi.fn();
         render(<DatePickerWithRange date={{ from: undefined, to: new Date('2026-07-31T17:00:00Z') }} onDateChange={onDateChange} />);

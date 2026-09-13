@@ -37,7 +37,7 @@ function AnimatedGradientText({
 function PipelinePanel({ animated }: { animated: boolean }) {
     const { title, steps } = heroPipeline;
     return (
-        <div className="relative w-full rounded-2xl border border-white/10 bg-zinc-900/40 backdrop-blur-sm p-6 md:p-7 overflow-hidden">
+        <div className="relative w-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 p-4 backdrop-blur-sm sm:p-6 md:p-7">
             {/* Glow behind panel */}
             <div className="absolute -top-20 -right-20 w-48 h-48 bg-blue-500/15 rounded-full blur-[80px] pointer-events-none" />
             <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-purple-500/10 rounded-full blur-[70px] pointer-events-none" />
@@ -59,17 +59,17 @@ function PipelinePanel({ animated }: { animated: boolean }) {
                                     delay: animated ? 0.6 + i * 0.15 : 0,
                                     duration: 0.4,
                                 }}
-                                className="relative flex items-center gap-4"
+                                className="relative flex min-w-0 items-center gap-3 sm:gap-4"
                             >
                                 {/* Node circle */}
                                 <div className="relative z-10 flex w-10 h-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-zinc-950 text-xs font-bold text-blue-400">
                                     {step.num}
                                 </div>
-                                <div>
-                                    <p className="text-sm font-semibold text-white">
+                                <div className="min-w-0">
+                                    <p className="break-words text-sm font-semibold text-white">
                                         {step.label}
                                     </p>
-                                    <p className="text-xs text-zinc-500">
+                                    <p className="break-words text-xs text-zinc-500">
                                         {step.desc}
                                     </p>
                                 </div>
@@ -135,7 +135,7 @@ export default function HeroSectionEnhanced() {
     });
 
     return (
-        <section className="relative pt-28 pb-16 lg:pt-36 lg:pb-24 overflow-hidden flex flex-col items-center justify-center text-center px-6">
+        <section className="relative flex flex-col items-center justify-center overflow-hidden px-4 pt-28 pb-16 text-center sm:px-6 lg:pt-36 lg:pb-24">
             {/* Multi-layer background */}
             <div className="absolute inset-0 bg-zinc-950" />
             <div className="absolute inset-0 bg-gradient-to-b from-purple-500/10 to-transparent" />
@@ -177,15 +177,15 @@ export default function HeroSectionEnhanced() {
                 />
             ))}
 
-            <div className="relative z-10 max-w-6xl mx-auto w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="relative z-10 mx-auto grid w-full min-w-0 max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
                 {/* LEFT — text block */}
-                <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
+                <div className="flex w-full min-w-0 flex-col items-center text-center lg:items-start lg:text-left">
                     {/* Badge */}
                     <motion.div
                         initial={false}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.2, duration: 0.5 }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm mb-6 relative overflow-hidden"
+                        className="relative mb-6 inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm"
                     >
                         {!prefersReducedMotion && (
                             <motion.div
@@ -194,8 +194,8 @@ export default function HeroSectionEnhanced() {
                                 transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
                             />
                         )}
-                        <Sparkles className="w-4 h-4 text-blue-400 relative z-10" />
-                        <span className="text-sm font-medium text-zinc-300 relative z-10">
+                        <Sparkles className="relative z-10 h-4 w-4 shrink-0 text-blue-400" />
+                        <span className="relative z-10 min-w-0 break-words text-sm font-medium text-zinc-300">
                             {L.badge}
                         </span>
                     </motion.div>
@@ -203,7 +203,7 @@ export default function HeroSectionEnhanced() {
                     {/* Headline */}
                     <motion.h1
                         {...entry(0.3)}
-                        className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-5 leading-[1.08]"
+                        className="mb-5 w-full max-w-full break-words text-4xl leading-[1.08] font-bold tracking-tight text-white md:text-5xl lg:text-6xl"
                     >
                         {L.headline}{' '}
                         <AnimatedGradientText animated={!prefersReducedMotion}>
@@ -215,7 +215,7 @@ export default function HeroSectionEnhanced() {
                     {/* Tagline */}
                     <motion.p
                         {...entry(0.4)}
-                        className="text-base md:text-lg text-zinc-400 max-w-xl mb-8 leading-relaxed"
+                        className="mb-8 w-full max-w-xl break-words text-base leading-relaxed text-zinc-400 md:text-lg"
                     >
                         {L.tagline}
                     </motion.p>
@@ -223,10 +223,10 @@ export default function HeroSectionEnhanced() {
                     {/* CTA Buttons */}
                     <motion.div
                         {...entry(0.5)}
-                        className="flex flex-col sm:flex-row items-center gap-4 mb-8"
+                        className="mb-8 flex w-full flex-col items-center gap-4 sm:w-auto sm:flex-row"
                     >
                         <Button
-                            className="h-14 px-10 bg-white hover:bg-zinc-100 text-zinc-950 text-base font-semibold rounded-full transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-105"
+                            className="h-14 w-full max-w-full rounded-full bg-white px-6 text-base font-semibold text-zinc-950 shadow-[0_0_30px_rgba(255,255,255,0.15)] transition-all duration-300 hover:scale-105 hover:bg-zinc-100 hover:shadow-[0_0_50px_rgba(255,255,255,0.2)] sm:w-auto sm:px-10"
                             asChild
                         >
                             <a href={homeLinks.contactSales}>
@@ -236,7 +236,7 @@ export default function HeroSectionEnhanced() {
                         </Button>
                         <Button
                             variant="ghost"
-                            className="h-14 px-8 text-zinc-400 hover:text-white text-base font-medium rounded-full hover:bg-white/5 transition-all duration-300"
+                            className="h-14 w-full max-w-full rounded-full px-6 text-base font-medium text-zinc-400 transition-all duration-300 hover:bg-white/5 hover:text-white sm:w-auto sm:px-8"
                             asChild
                         >
                             <a href={homeLinks.exploreFeatures}>
@@ -248,18 +248,21 @@ export default function HeroSectionEnhanced() {
                     {/* Stats strip */}
                     <motion.div
                         {...entry(0.6)}
-                        className="flex items-center gap-6 lg:gap-8"
+                        className="grid w-full min-w-0 grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-6 lg:gap-8"
                     >
                         {heroStats.map((stat, i) => (
-                            <div key={stat.label} className="flex items-center gap-6 lg:gap-8">
+                            <div
+                                key={stat.label}
+                                className="flex min-w-0 items-center justify-center gap-2 sm:justify-start sm:gap-6 lg:gap-8"
+                            >
                                 {i > 0 && (
-                                    <div className="h-8 w-px bg-white/10" />
+                                    <div className="hidden h-8 w-px shrink-0 bg-white/10 sm:block" />
                                 )}
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-2xl font-bold text-white">
                                         {stat.value}
                                     </p>
-                                    <p className="text-xs text-zinc-500 whitespace-nowrap">
+                                    <p className="break-words text-xs leading-tight text-zinc-500">
                                         {stat.label}
                                     </p>
                                 </div>
@@ -273,7 +276,7 @@ export default function HeroSectionEnhanced() {
                     initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: prefersReducedMotion ? 0.2 : 0.8, delay: 0.4 }}
-                    className="w-full max-w-md mx-auto lg:max-w-none"
+                    className="mx-auto w-full min-w-0 max-w-md lg:max-w-none"
                 >
                     <PipelinePanel animated={!prefersReducedMotion} />
                 </motion.div>

@@ -897,7 +897,10 @@ export function ProductionOrderForm({
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="min-w-0 max-w-full space-y-6"
+            >
                 <CreateSpkStepper currentStep={step} />
 
                 {/* Step 1: Spesifikasi */}
@@ -1156,7 +1159,7 @@ export function ProductionOrderForm({
                 )}
 
                 {/* Navigation */}
-                <div className="flex justify-between gap-4 pt-4 border-t">
+                <div className="flex min-w-0 flex-wrap justify-between gap-4 border-t pt-4">
                     <Button
                         variant="outline"
                         type="button"
@@ -1164,7 +1167,7 @@ export function ProductionOrderForm({
                     >
                         Batal
                     </Button>
-                    <div className="flex gap-2">
+                    <div className="flex min-w-0 flex-wrap justify-end gap-2">
                         {step > 1 && (
                             <Button
                                 variant="outline"

@@ -338,10 +338,13 @@ export function PurchaseOrderTable({
     );
 
     return (
-        <div className="space-y-4">
+        <div className="min-w-0 max-w-full space-y-4">
             <div
                 data-sticky-table="true"
-                className="max-h-[65vh] overflow-auto [&_.overflow-x-auto]:overflow-visible [&_[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background"
+                role="region"
+                aria-label="Tabel order pembelian; geser horizontal untuk melihat semua kolom"
+                tabIndex={0}
+                className="max-h-[65vh] max-w-full overflow-auto rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&_.overflow-x-auto]:overflow-visible [&_[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background"
             >
                 <DataTable
                     columns={columns}
@@ -350,8 +353,8 @@ export function PurchaseOrderTable({
                     emptyMessage={purchasingLabels.emptyOrders}
                     minWidth={780}
                 >
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
+                    <div className="grid min-w-0 grid-cols-1 items-center gap-2 sm:flex sm:flex-wrap">
+                        <div className="relative min-w-0">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 aria-label="Cari order pembelian"
@@ -363,7 +366,7 @@ export function PurchaseOrderTable({
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter') applyFilters();
                                 }}
-                                className="pl-9 w-[250px]"
+                                className="w-full min-w-0 pl-9 text-base sm:w-[250px] sm:text-sm"
                             />
                         </div>
                         <select
@@ -372,7 +375,7 @@ export function PurchaseOrderTable({
                             onChange={(event) =>
                                 setStatusFilter(event.target.value)
                             }
-                            className="h-9 w-[150px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:h-9 sm:w-[150px] sm:text-sm"
                         >
                             <option value="all">Semua Status</option>
                             {Object.values(PurchaseOrderStatus).map((status) => (
@@ -386,14 +389,14 @@ export function PurchaseOrderTable({
                             type="date"
                             value={startDate}
                             onChange={(event) => setStartDate(event.target.value)}
-                            className="w-[150px]"
+                            className="h-11 w-full min-w-0 text-base sm:h-9 sm:w-[150px] sm:text-sm"
                         />
                         <Input
                             aria-label="Tanggal order akhir"
                             type="date"
                             value={endDate}
                             onChange={(event) => setEndDate(event.target.value)}
-                            className="w-[150px]"
+                            className="h-11 w-full min-w-0 text-base sm:h-9 sm:w-[150px] sm:text-sm"
                         />
                         <Button type="button" variant="outline" onClick={applyFilters}>
                             Terapkan filter
@@ -409,12 +412,12 @@ export function PurchaseOrderTable({
             </div>
 
             {pagination && (
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground" role="status">
                         Menampilkan {orders.length} dari {pagination.totalCount}{' '}
                         order
                     </p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-3">
                         <label className="flex items-center gap-2 text-sm">
                             Baris
                             <select
@@ -437,7 +440,7 @@ export function PurchaseOrderTable({
                         </label>
                         <nav
                             aria-label="Paginasi order pembelian"
-                            className="flex items-center gap-2"
+                            className="flex min-w-0 flex-wrap items-center gap-2"
                         >
                             <span className="text-sm text-muted-foreground">
                                 Halaman {pagination.page} dari{' '}

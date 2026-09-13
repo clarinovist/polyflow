@@ -126,8 +126,8 @@ export default async function FinanceDashboardPage({
         board.queues.openBankRecs > 0;
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex min-w-0 max-w-full flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <PageHeader
                     title="Papan Keuangan"
                     description="Hari ini: tagih piutang jatuh tempo, bayar hutang, posting jurnal draf, dan rekonsiliasi. Ringkasan GL di bawah mengikuti filter periode, bukan antrean invoice."
@@ -143,7 +143,7 @@ export default async function FinanceDashboardPage({
                     className={`border-l-4 ${board.period.currentPeriod ? (board.period.daysToMonthEnd !== null && board.period.daysToMonthEnd <= 5 ? 'border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20' : 'border-l-emerald-500') : 'border-l-slate-300'}`}
                 >
                     <CardContent className="p-4 flex flex-wrap items-center gap-3 justify-between">
-                        <div className="flex items-center gap-2 text-sm">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
                             <CalendarClock className="h-4 w-4" />
                             {board.period.currentPeriod ? (
                                 <>
@@ -217,7 +217,7 @@ export default async function FinanceDashboardPage({
 
             {/* Queues — snapshot (NOT period-bound) */}
             <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
                     <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                         Antrean kerja (kondisi terkini, bukan filter periode)
                     </h2>
@@ -297,7 +297,7 @@ export default async function FinanceDashboardPage({
                                     href={`/finance/invoices/sales/${it.id}`}
                                     className="block rounded-md border p-2.5 hover:bg-muted/50 transition"
                                 >
-                                    <div className="flex items-start justify-between gap-2">
+                                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                                         <div className="min-w-0">
                                             <div className="text-xs font-medium truncate">
                                                 {it.invoiceNumber}
@@ -360,7 +360,7 @@ export default async function FinanceDashboardPage({
                                     href={`/finance/invoices/purchase/${it.id}`}
                                     className="block rounded-md border p-2.5 hover:bg-muted/50 transition"
                                 >
-                                    <div className="flex items-start justify-between gap-2">
+                                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                                         <div className="min-w-0">
                                             <div className="text-xs font-medium truncate">
                                                 {it.invoiceNumber}
@@ -422,7 +422,7 @@ export default async function FinanceDashboardPage({
                                     href={`/finance/journals/${j.id}`}
                                     className="block rounded-md border p-2.5 hover:bg-muted/50 transition"
                                 >
-                                    <div className="flex items-start justify-between gap-2">
+                                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                                         <div className="min-w-0">
                                             <div className="text-xs font-medium truncate">
                                                 {j.entryNumber}

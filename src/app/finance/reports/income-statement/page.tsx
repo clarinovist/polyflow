@@ -178,8 +178,8 @@ export default function IncomeStatementPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="min-w-0 max-w-full space-y-6">
+            <div className="flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
                         Laporan Laba Rugi
@@ -189,22 +189,24 @@ export default function IncomeStatementPage() {
                         dipilih.
                     </p>
                 </div>
-                <div className="flex gap-2 items-center">
-                    <div className="flex items-center border rounded-md bg-background">
+                <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+                    <div className="flex min-w-0 max-w-full items-center rounded-md border bg-background">
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={handlePrevMonth}
+                            aria-label="Periode sebelumnya"
                         >
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <div className="w-40 text-center font-medium">
+                        <div className="min-w-0 flex-1 px-2 text-center font-medium sm:w-40 sm:flex-none">
                             {format(date, 'MMMM yyyy', { locale: id })}
                         </div>
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={handleNextMonth}
+                            aria-label="Periode berikutnya"
                         >
                             <ChevronRight className="h-4 w-4" />
                         </Button>
@@ -212,7 +214,12 @@ export default function IncomeStatementPage() {
                     <Button variant="outline" onClick={handleCurrentMonth}>
                         Bulan Ini
                     </Button>
-                    <Button variant="outline" size="icon" onClick={fetchData}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={fetchData}
+                        aria-label="Muat ulang laporan"
+                    >
                         <RotateCw className="h-4 w-4" />
                     </Button>
                     <Button
@@ -220,13 +227,14 @@ export default function IncomeStatementPage() {
                         size="icon"
                         onClick={handleDownload}
                         disabled={!data}
+                        aria-label="Unduh laporan"
                     >
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
             </div>
 
-            <div className="flex items-center space-x-2 bg-muted/20 p-3 rounded-lg border w-fit">
+            <div className="flex max-w-full items-center space-x-2 rounded-lg border bg-muted/20 p-3 sm:w-fit">
                 <Switch
                     id="hide-zero"
                     checked={hideZero}
@@ -303,7 +311,13 @@ export default function IncomeStatementPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border">
+                    <div
+                        role="region"
+                        aria-label="Tabel laporan laba rugi; geser horizontal untuk melihat nilai penuh"
+                        tabIndex={0}
+                        className="max-w-full overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                        <div className="min-w-[640px]">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -553,6 +567,7 @@ export default function IncomeStatementPage() {
                                 )}
                             </TableBody>
                         </Table>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

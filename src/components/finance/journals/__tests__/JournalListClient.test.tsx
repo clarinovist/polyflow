@@ -72,9 +72,13 @@ describe('JournalListClient accessibility', () => {
                 name: 'Urutkan berdasarkan Entry #',
             }),
         ).toBeTruthy();
-        expect(
-            table.closest('[data-journal-scroll]')?.className,
-        ).toContain('overflow-y-auto');
+        const tableScroller = table.closest('[data-journal-scroll]');
+        expect(tableScroller?.className).toContain('overflow-auto');
+        expect(tableScroller?.getAttribute('role')).toBe('region');
+        expect(tableScroller?.getAttribute('aria-label')).toMatch(
+            /geser horizontal/i,
+        );
+        expect(tableScroller?.getAttribute('tabindex')).toBe('0');
     });
 
     it('resets page and requests server sorting before pagination', async () => {

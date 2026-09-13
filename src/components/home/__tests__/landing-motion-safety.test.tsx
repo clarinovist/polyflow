@@ -72,6 +72,27 @@ describe('landing motion safety', () => {
         expectInitiallyVisible(hero.querySelector('a[href^="mailto:"]'));
     });
 
+    it('keeps mobile hero content shrinkable and allows long labels to wrap', () => {
+        const hero = renderMarkup(<HeroSectionEnhanced />);
+        const headline = hero.querySelector('h1');
+        const badge = hero.querySelector('h1')?.parentElement?.querySelector('span');
+        const stats = Array.from(
+            hero.querySelectorAll('p'),
+        ).filter((element) =>
+            ['Modul Terintegrasi', 'Sistem, Bukan Taburan', 'Pelacakan Real-time'].includes(
+                element.textContent ?? '',
+            ),
+        );
+
+        expect(headline?.className).toContain('break-words');
+        expect(badge?.className).toContain('break-words');
+        expect(stats).toHaveLength(3);
+        for (const stat of stats) {
+            expect(stat.className).toContain('break-words');
+            expect(stat.className).not.toContain('whitespace-nowrap');
+        }
+    });
+
     it('keeps the complete home composition, including footer semantics, visible by default', () => {
         const home = renderMarkup(<Home />);
         const footer = home.querySelector('footer');

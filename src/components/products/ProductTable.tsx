@@ -205,9 +205,9 @@ export function ProductTable({
             <form
                 role="search"
                 onSubmit={handleSearch}
-                className="flex flex-wrap items-center gap-3 border-b border-white/5 px-4 py-3"
+                className="flex min-w-0 flex-wrap items-center gap-3 border-b border-white/5 px-4 py-3"
             >
-                <div className="relative min-w-64 flex-1 max-w-sm">
+                <div className="relative w-full min-w-0 flex-1 sm:min-w-64 sm:max-w-sm">
                     <Search
                         aria-hidden="true"
                         className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -218,7 +218,7 @@ export function ProductTable({
                         aria-label="Cari katalog produk"
                         placeholder="Cari nama produk, varian, atau SKU..."
                         defaultValue={query.search}
-                        className="w-full rounded-lg border border-white/10 bg-muted/30 py-2 pl-9 pr-3 text-sm transition-colors placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-white/10 bg-muted/30 py-2 pr-3 pl-9 text-base transition-colors placeholder:text-muted-foreground/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/30 focus:outline-none sm:text-sm"
                     />
                 </div>
                 <Button type="submit" variant="outline" size="sm">
@@ -263,9 +263,13 @@ export function ProductTable({
             ) : (
                 <ResponsiveTable
                     data-testid="product-catalog-scroll"
+                    role="region"
+                    aria-label="Tabel katalog produk; geser horizontal untuk melihat semua kolom dan aksi"
+                    tabIndex={0}
                     minWidth={showPrices ? 1000 : 780}
                     stickyHeader
                     maxHeight="70vh"
+                    className="mx-0 max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&_[data-slot=table-container]]:overflow-visible"
                 >
                     <Table>
                         <TableCaption className="sr-only">
@@ -593,11 +597,11 @@ export function ProductTable({
                                             </>
                                         )}
                                         <TableCell className="text-right pr-6">
-                                            <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                                            <div className="flex justify-end gap-1 opacity-100 transition-opacity">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
+                                                    className="h-11 w-11 transition-colors hover:bg-primary/10 hover:text-primary sm:h-8 sm:w-8"
                                                     aria-label={actionName(
                                                         'Edit',
                                                         variant,
@@ -616,7 +620,7 @@ export function ProductTable({
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-8 w-8 hover:bg-green-500/10 hover:text-green-600 transition-colors"
+                                                                className="h-11 w-11 transition-colors hover:bg-green-500/10 hover:text-green-600 sm:h-8 sm:w-8"
                                                                 aria-label={actionName(
                                                                     'Pulihkan',
                                                                     variant,
@@ -645,7 +649,7 @@ export function ProductTable({
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-8 w-8 hover:bg-amber-500/10 hover:text-amber-600 transition-colors"
+                                                                className="h-11 w-11 transition-colors hover:bg-amber-500/10 hover:text-amber-600 sm:h-8 sm:w-8"
                                                                 aria-label={actionName(
                                                                     'Arsipkan',
                                                                     variant,
@@ -672,7 +676,7 @@ export function ProductTable({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                                                    className="h-11 w-11 transition-colors hover:bg-red-500/10 hover:text-red-500 sm:h-8 sm:w-8"
                                                     aria-label={actionName(
                                                         'Hapus',
                                                         variant,
@@ -697,7 +701,7 @@ export function ProductTable({
                     </ResponsiveTable>
             )}
 
-            <div className="border-t border-white/5 px-4 py-3">
+            <div className="max-w-full overflow-x-auto border-t border-white/5 px-4 py-3">
                 <DataTablePagination
                     pageIndex={page - 1}
                     pageCount={pageCount}

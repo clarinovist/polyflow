@@ -605,11 +605,11 @@ export function InvoiceTable({
     );
 
     return (
-        <div className="[&_[data-slot=table-container]]:max-h-[70vh] [&_[data-slot=table-container]]:overflow-auto [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background">
+        <div className="min-w-0 max-w-full [&_[data-slot=table-container]]:max-h-[70vh] [&_[data-slot=table-container]]:overflow-auto [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background">
             {serverSorting ? (
                 <>
-                    <div className="mb-4 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                        <div className="relative max-w-sm flex-1 sm:w-80">
+                    <div className="mb-4 flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row">
+                        <div className="relative w-full min-w-0 max-w-sm flex-1 sm:w-80">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 aria-label="Cari invoice sales"
@@ -631,7 +631,7 @@ export function InvoiceTable({
                         >
                             <SelectTrigger
                                 aria-label="Filter status invoice"
-                                className="w-[180px]"
+                                className="w-full min-w-0 sm:w-[180px]"
                             >
                                 <SelectValue placeholder="Semua Status" />
                             </SelectTrigger>
@@ -782,8 +782,8 @@ export function InvoiceTable({
                     renderMobileView={renderMobileView}
                     caption="Daftar invoice sales"
                 >
-                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                        <div className="relative max-w-sm flex-1 sm:w-80">
+                    <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row">
+                        <div className="relative w-full min-w-0 max-w-sm flex-1 sm:w-80">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 aria-label="Cari invoice sales"
@@ -807,7 +807,7 @@ export function InvoiceTable({
                         >
                             <SelectTrigger
                                 aria-label="Filter status invoice"
-                                className="w-[180px]"
+                                className="w-full min-w-0 sm:w-[180px]"
                             >
                                 <SelectValue placeholder="Semua Status" />
                             </SelectTrigger>
@@ -837,7 +837,7 @@ export function InvoiceTable({
             {pagination && (
                 <nav
                     aria-label="Paginasi invoice sales"
-                    className="mt-4 flex flex-wrap items-center justify-between gap-4"
+                    className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-4"
                 >
                     <p className="text-sm text-muted-foreground">
                         Menampilkan{' '}

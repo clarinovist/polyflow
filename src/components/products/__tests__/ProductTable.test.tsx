@@ -95,9 +95,14 @@ describe('ProductTable', () => {
         expect(screen.getByText('Daftar varian produk')).toBeTruthy();
         expect(screen.getByText('Menampilkan 1–50 dari 102 varian')).toBeTruthy();
         expect(screen.getByText('Halaman 1 dari 3')).toBeTruthy();
-        expect(screen.getByTestId('product-catalog-scroll').getAttribute('style')).toContain(
-            'max-height',
+        const tableScroller = screen.getByTestId('product-catalog-scroll');
+        expect(tableScroller.getAttribute('style')).toContain('max-height');
+        expect(tableScroller.getAttribute('role')).toBe('region');
+        expect(tableScroller.getAttribute('aria-label')).toMatch(
+            /geser horizontal/i,
         );
+        expect(tableScroller.getAttribute('tabindex')).toBe('0');
+        expect(tableScroller.className).toContain('max-w-full');
 
         const nameHeader = screen.getByRole('columnheader', {
             name: /Item Katalog/,
@@ -134,7 +139,9 @@ describe('ProductTable', () => {
                 name: 'Hapus Rafia Merah (FGRAF001)',
             }),
         ).toBeTruthy();
-        expect(edit.parentElement?.className).toContain('group-focus-within:opacity-100');
+        expect(edit.parentElement?.className).toContain('opacity-100');
+        expect(edit.className).toContain('h-11');
+        expect(edit.className).toContain('sm:h-8');
         expect(screen.getByText('5.00')).toBeTruthy();
         expect(screen.getByText(/Rp\s*8\.000/)).toBeTruthy();
     });
@@ -165,6 +172,21 @@ describe('ProductTable', () => {
         const deleteDialog = await screen.findByRole('dialog');
         fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Hapus SKU' }));
         await waitFor(() => expect(deleteVariant).toHaveBeenCalledWith('variant-active'));
+    });
+
+    it('does not render price fields when price access is denied', () => {
+        render(<ProductTable catalogPage={catalogPage} showPrices={false} />);
+
+        expect(
+            screen.queryByRole('columnheader', { name: /Biaya Saat Ini/i }),
+        ).toBeNull();
+        expect(
+            screen.queryByRole('button', { name: 'Informasi biaya saat ini' }),
+        ).toBeNull();
+        expect(screen.queryByText(/Rp\s*8\.000/)).toBeNull();
+        expect(screen.queryByText(/Rp\s*9\.000/)).toBeNull();
+        expect(screen.queryByText(/Rp\s*10\.000/)).toBeNull();
+        expect(screen.queryByText(/Rp\s*15\.000/)).toBeNull();
     });
 
     it('uses URL navigation for server-side search, sorting, page size, and paging', () => {

@@ -100,6 +100,9 @@ describe('InvoiceTable finance server pagination', () => {
                 name: /Urutkan berdasarkan No\./,
             }),
         ).toBeTruthy();
+        expect(screen.getByLabelText('Filter status invoice').className).toContain(
+            'w-full',
+        );
 
         fireEvent.click(
             screen.getByRole('button', { name: 'Halaman berikutnya' }),

@@ -140,24 +140,24 @@ export function TransactionDateFilter({
     }, []);
 
     return (
-        <div className={cn('flex items-center gap-2', className)}>
+        <div className={cn('flex min-w-0 max-w-full items-center gap-2', className)}>
             <Popover open={isOpen} onOpenChange={setIsOpen}>
                 <PopoverTrigger asChild>
                     <Button
                         id="date"
                         variant={'outline'}
                         className={cn(
-                            'w-fit justify-start text-left font-normal',
+                            'w-fit max-w-full min-w-0 justify-start overflow-hidden text-left font-normal',
                             !date && 'text-muted-foreground',
                         )}
                     >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                         {date?.from ? (
                             date.to ? (
                                 isSameDay(date.from, date.to) ? (
                                     format(date.from, 'PPP', { locale: id })
                                 ) : (
-                                    <>
+                                    <span className="truncate">
                                         {format(date.from, 'LLL dd, y', {
                                             locale: id,
                                         })}{' '}
@@ -165,7 +165,7 @@ export function TransactionDateFilter({
                                         {format(date.to, 'LLL dd, y', {
                                             locale: id,
                                         })}
-                                    </>
+                                    </span>
                                 )
                             ) : (
                                 format(date.from, 'MMM dd, y', { locale: id })
@@ -179,7 +179,11 @@ export function TransactionDateFilter({
                         )}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align={align}>
+                <PopoverContent
+                    className="max-w-[calc(100vw-1.5rem)] overflow-x-auto p-0"
+                    align={align}
+                    collisionPadding={12}
+                >
                     <div className="flex flex-col p-2 gap-2">
                         <div className="flex items-center justify-between gap-2 px-1">
                             <span className="text-xs font-semibold text-muted-foreground">
