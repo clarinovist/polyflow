@@ -29,7 +29,7 @@ export default async function HrdAttendancePage({
 
     return (
         <div className="space-y-4">
-            <MobileSectionHeader title="Rekap Absensi Karyawan" />
+            <MobileSectionHeader title="Rekap Absensi Karyawan" level={1} />
             <p className="text-xs text-slate-500">
                 View-only HRD — filter tanggal, shift, status. Koreksi tetap via
                 desktop HRD.

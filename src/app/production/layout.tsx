@@ -84,6 +84,10 @@ export default async function ProductionLayout({
         redirect(getPreferredWorkspaceLanding('production', permissions));
     }
 
+    if (pathname.startsWith('/production/mobile')) {
+        return <>{children}</>;
+    }
+
     return (
         <div className="min-h-screen bg-background">
             <SkipToMainContent />

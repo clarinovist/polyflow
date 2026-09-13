@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
@@ -14,12 +14,25 @@ export default function PublicNavEnhanced() {
     const animated = !prefersReducedMotion;
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const mobileMenuButton = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    useEffect(() => {
+        if (!mobileOpen) return;
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            setMobileOpen(false);
+            mobileMenuButton.current?.focus();
+        };
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [mobileOpen]);
 
     const navLinks = [
         { href: homeLinks.exploreFeatures, label: L.features },
@@ -46,7 +59,10 @@ export default function PublicNavEnhanced() {
                     whileHover={{ scale: 1.05 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
-                    <Link href="/" className="flex items-center gap-2 group">
+                    <Link
+                        href="/"
+                        className="group flex min-h-11 items-center gap-2"
+                    >
                         <PolyFlowLogo variant="dark" size="sm" />
                     </Link>
                 </motion.div>
@@ -102,13 +118,15 @@ export default function PublicNavEnhanced() {
 
                 {/* Mobile hamburger */}
                 <motion.button
+                    ref={mobileMenuButton}
                     type="button"
                     aria-label={mobileOpen ? L.closeMenu : L.openMenu}
                     aria-expanded={mobileOpen}
+                    aria-controls="public-mobile-menu"
                     initial={false}
                     animate={{ opacity: 1 }}
                     transition={{ delay: animated ? 0.5 : 0, duration: 0.5 }}
-                    className="md:hidden text-zinc-900 dark:text-white p-2"
+                    className="flex min-h-11 min-w-11 items-center justify-center p-2 text-zinc-900 dark:text-white md:hidden"
                     onClick={() => setMobileOpen(!mobileOpen)}
                     whileTap={animated ? { scale: 0.9 } : undefined}
                 >
@@ -148,6 +166,7 @@ export default function PublicNavEnhanced() {
             <AnimatePresence>
                 {mobileOpen && (
                     <motion.div
+                        id="public-mobile-menu"
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
@@ -170,7 +189,7 @@ export default function PublicNavEnhanced() {
                                 >
                                     <Link
                                         href={link.href}
-                                        className="block text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors py-2"
+                                        className="flex min-h-11 items-center py-2 text-zinc-700 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                                         onClick={() => setMobileOpen(false)}
                                     >
                                         {link.label}
@@ -186,7 +205,7 @@ export default function PublicNavEnhanced() {
                                 }}
                             >
                                 <Button
-                                    className="w-full bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 rounded-full font-semibold"
+                                    className="min-h-11 w-full rounded-full bg-zinc-900 font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
                                     asChild
                                 >
                                     <Link

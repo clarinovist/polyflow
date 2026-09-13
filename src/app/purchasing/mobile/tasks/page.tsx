@@ -9,7 +9,7 @@ export default async function PurchasingTasksPage() {
 
     return (
         <div className="space-y-4">
-            <MobileSectionHeader title="Daftar Purchase Order" />
+            <MobileSectionHeader title="Daftar Purchase Order" level={1} />
 
             {!recentOrders.length ? (
                 <p className="text-sm text-slate-500 py-4">

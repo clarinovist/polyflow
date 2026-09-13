@@ -15,7 +15,7 @@ export default async function PurchasingInsightsPage() {
 
     return (
         <div className="space-y-6">
-            <MobileSectionHeader title="Purchasing Insights" />
+            <MobileSectionHeader title="Purchasing Insights" level={1} />
 
             <div className="grid grid-cols-1 gap-3">
                 <MobileInsightCard

@@ -45,7 +45,7 @@ export default async function ProductionTasksPage({
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <MobileSectionHeader title="Tugas & Status SPK" />
+                <MobileSectionHeader title="Tugas & Status SPK" level={1} />
                 <Link
                     href="/production/mobile/tasks/new"
                     className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"

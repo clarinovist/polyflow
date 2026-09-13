@@ -9,7 +9,7 @@ export default async function QuickCreateSpkPage() {
 
     return (
         <div className="space-y-4">
-            <MobileSectionHeader title="Buat SPK Mendadak" />
+            <MobileSectionHeader title="Buat SPK Mendadak" level={1} />
             <p className="text-xs text-slate-500">
                 Pakai business logic existing. SPK yang dibuat akan langsung terlihat di Kiosk untuk eksekusi operator.
             </p>

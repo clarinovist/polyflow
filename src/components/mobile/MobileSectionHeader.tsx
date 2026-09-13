@@ -4,6 +4,7 @@ interface MobileSectionHeaderProps {
     title: string;
     action?: React.ReactNode;
     className?: string;
+    level?: 1 | 2;
 }
 
 /**
@@ -14,7 +15,10 @@ export function MobileSectionHeader({
     title,
     action,
     className,
+    level = 2,
 }: MobileSectionHeaderProps) {
+    const Heading = level === 1 ? 'h1' : 'h2';
+
     return (
         <div
             className={cn(
@@ -22,9 +26,14 @@ export function MobileSectionHeader({
                 className,
             )}
         >
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <Heading
+                className={cn(
+                    'font-semibold tracking-wider text-muted-foreground uppercase',
+                    level === 1 ? 'text-sm' : 'text-xs',
+                )}
+            >
                 {title}
-            </h2>
+            </Heading>
             {action}
         </div>
     );

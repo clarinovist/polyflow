@@ -75,6 +75,10 @@ export default async function FinanceLayout({
         redirect(getPreferredWorkspaceLanding('finance', permissions));
     }
 
+    if (pathname.startsWith('/finance/mobile')) {
+        return <>{children}</>;
+    }
+
     return (
         <div className="min-h-screen bg-background print:bg-white">
             <SkipToMainContent />

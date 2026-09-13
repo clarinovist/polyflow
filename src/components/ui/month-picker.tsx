@@ -56,20 +56,26 @@ export function MonthPicker({
     const isCurrentMonth = isSameMonth(currentDate, new Date());
 
     return (
-        <div className={cn('flex items-center gap-2', className)}>
-            <div className="flex items-center border rounded-md bg-background overflow-hidden">
+        <div
+            className={cn(
+                'flex min-w-0 max-w-full flex-wrap items-center gap-2',
+                className,
+            )}
+        >
+            <div className="flex min-w-0 max-w-full items-center overflow-hidden rounded-md border bg-background">
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-none border-r"
+                    className="h-11 w-11 shrink-0 rounded-none border-r sm:h-9 sm:w-9"
                     onClick={handlePrevMonth}
+                    aria-label="Bulan sebelumnya"
                 >
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
 
-                <div className="flex items-center gap-2 px-4 py-1.5 min-w-[160px] justify-center text-sm font-medium">
+                <div className="flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-1.5 text-sm font-medium sm:min-w-[160px] sm:px-4">
                     <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="capitalize">
+                    <span className="truncate capitalize">
                         {format(currentDate, 'MMMM yyyy', { locale: id })}
                     </span>
                 </div>
@@ -77,8 +83,9 @@ export function MonthPicker({
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-none border-l"
+                    className="h-11 w-11 shrink-0 rounded-none border-l sm:h-9 sm:w-9"
                     onClick={handleNextMonth}
+                    aria-label="Bulan berikutnya"
                 >
                     <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -88,7 +95,7 @@ export function MonthPicker({
                 variant="outline"
                 size="sm"
                 className={cn(
-                    'text-xs h-9 px-3',
+                    'min-h-11 px-3 text-xs sm:min-h-9',
                     isCurrentMonth &&
                         'bg-muted text-muted-foreground cursor-default hover:bg-muted',
                 )}

@@ -12,7 +12,7 @@ export default function RegisterPage() {
         <div className="bg-zinc-950 min-h-screen flex flex-col text-foreground selection:bg-white/10 selection:text-white pb-20">
             <PublicNav />
 
-            <main className="flex-1 flex flex-col items-center justify-center pt-32 px-6">
+            <main className="flex flex-1 flex-col items-center justify-center px-4 pt-32 sm:px-6">
                 <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.03] pointer-events-none" />
 
                 <div className="relative z-10 w-full max-w-lg">
@@ -25,7 +25,7 @@ export default function RegisterPage() {
                         </p>
                     </div>
 
-                    <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 shadow-2xl">
+                    <div className="rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl sm:p-8">
                         <RegisterForm />
                     </div>
                 </div>

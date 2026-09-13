@@ -9,7 +9,7 @@ export default async function FinanceTasksPage() {
 
     return (
         <div className="space-y-4">
-            <MobileSectionHeader title="Faktur & Pengawasan Transaksi" />
+            <MobileSectionHeader title="Faktur & Pengawasan Transaksi" level={1} />
 
             {!recentInvoices.length ? (
                 <p className="text-sm text-slate-500 py-4">

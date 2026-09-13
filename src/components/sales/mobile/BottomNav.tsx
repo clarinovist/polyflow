@@ -84,7 +84,10 @@ export function BottomNav({ permissions, badges }: BottomNavProps) {
     );
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t pb-[env(safe-area-inset-bottom)]">
+        <nav
+            aria-label="Navigasi sales mobile"
+            className="fixed right-0 bottom-0 left-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)]"
+        >
             <div
                 className="grid h-16"
                 style={{
@@ -96,22 +99,28 @@ export function BottomNav({ permissions, badges }: BottomNavProps) {
                         tab.href === '/sales/mobile'
                             ? pathname === tab.href
                             : tab.href === '/sales/mobile/orders'
-                              ? pathname === tab.href
-                              : pathname.startsWith(tab.href);
+                              ? pathname === tab.href ||
+                                (pathname.startsWith(`${tab.href}/`) &&
+                                    !pathname.startsWith(
+                                        '/sales/mobile/orders/create',
+                                    ))
+                              : pathname === tab.href ||
+                                pathname.startsWith(`${tab.href}/`);
                     const badgeCount = badges?.[tab.badgeKey];
                     return (
                         <Link
                             key={tab.href}
                             href={tab.href}
+                            aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'relative flex flex-col items-center justify-center gap-0.5 text-xs transition-colors',
+                                'relative flex min-h-11 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
                                 isActive
                                     ? 'text-primary font-medium'
                                     : 'text-muted-foreground active:text-primary',
                             )}
                         >
                             <span className="relative">
-                                <tab.icon className="h-5 w-5" />
+                                <tab.icon aria-hidden="true" className="h-5 w-5" />
                                 {!!badgeCount && badgeCount > 0 && (
                                     <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
                                         {badgeCount > 99 ? '99+' : badgeCount}

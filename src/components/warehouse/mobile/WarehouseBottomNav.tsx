@@ -16,7 +16,10 @@ export function WarehouseBottomNav() {
     const pathname = usePathname();
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t pb-[env(safe-area-inset-bottom)]">
+        <nav
+            aria-label="Navigasi gudang mobile"
+            className="fixed right-0 bottom-0 left-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)]"
+        >
             <div
                 className="grid h-16"
                 style={{
@@ -32,14 +35,15 @@ export function WarehouseBottomNav() {
                         <Link
                             key={tab.href}
                             href={tab.href}
+                            aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'relative flex flex-col items-center justify-center gap-0.5 text-xs transition-colors',
+                                'relative flex min-h-11 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
                                 isActive
                                     ? 'text-primary font-medium'
                                     : 'text-muted-foreground active:text-primary',
                             )}
                         >
-                            <tab.icon className="h-5 w-5" />
+                            <tab.icon aria-hidden="true" className="h-5 w-5" />
                             <span>{tab.label}</span>
                         </Link>
                     );

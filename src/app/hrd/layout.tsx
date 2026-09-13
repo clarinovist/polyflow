@@ -75,6 +75,10 @@ export default async function HrdLayout({
         redirect(getPreferredWorkspaceLanding('hrd', permissions));
     }
 
+    if (pathname.startsWith('/hrd/mobile')) {
+        return <>{children}</>;
+    }
+
     return (
         <div className="min-h-screen bg-background">
             <SkipToMainContent />

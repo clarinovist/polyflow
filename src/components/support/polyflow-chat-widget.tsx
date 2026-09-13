@@ -94,14 +94,15 @@ function AuthenticatedWidget({
     return (
         <div
             ref={root}
-            // globals.css uses this sentinel to append one bounded safe-area
-            // spacer to main; no per-control measurement or observers needed.
+            // globals.css uses these sentinels to reserve one bounded area at
+            // the end of document flow. No page-wide measurement is needed.
             data-polyflow-chat-fab=""
+            data-mobile-safe-area={mobile ? '' : undefined}
             data-desktop-safe-area={mobile ? undefined : ''}
-            className={`fixed z-50 print:hidden ${
+            className={`fixed z-[60] print:hidden ${
                 mobile
-                    ? 'bottom-20 right-4 sm:bottom-5 sm:right-5'
-                    : 'bottom-5 right-5'
+                    ? 'right-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:right-5'
+                    : 'right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:right-5 sm:bottom-5'
             }`}
         >
             {visited && (
@@ -112,14 +113,14 @@ function AuthenticatedWidget({
                     aria-label="Asisten Polyflow"
                     tabIndex={-1}
                     hidden={!open}
-                    className="absolute bottom-full right-0 mb-4 w-[calc(100vw-2.5rem)] sm:w-[400px] md:w-[420px] outline-none"
+                    className="absolute right-0 bottom-full mb-3 max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-[calc(100vw-1.5rem)] max-w-[420px] outline-none sm:mb-4 sm:w-[400px] md:w-[420px]"
                 >
                     <Button
                         type="button"
                         variant="secondary"
                         size="sm"
                         aria-label="Minimize asisten"
-                        className="absolute -top-3 right-3 z-10 h-7 rounded-full shadow"
+                        className="absolute -top-3 right-3 z-10 min-h-11 min-w-11 rounded-full shadow sm:h-7 sm:min-h-7 sm:min-w-0"
                         onClick={() => {
                             setOpen(false);
                             trigger.current?.focus();

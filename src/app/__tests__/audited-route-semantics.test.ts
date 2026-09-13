@@ -94,6 +94,24 @@ const explicitHeadingPages = [
     'src/app/sales/returns/create/page.tsx',
 ];
 
+const mobileRouteHeadingPages = [
+    'src/app/finance/mobile/page.tsx',
+    'src/app/finance/mobile/tasks/page.tsx',
+    'src/app/finance/mobile/insights/page.tsx',
+    'src/app/hrd/mobile/page.tsx',
+    'src/app/hrd/mobile/tasks/page.tsx',
+    'src/app/hrd/mobile/insights/page.tsx',
+    'src/app/hrd/mobile/attendance/page.tsx',
+    'src/app/production/mobile/page.tsx',
+    'src/app/production/mobile/tasks/page.tsx',
+    'src/app/production/mobile/tasks/new/page.tsx',
+    'src/app/production/mobile/insights/page.tsx',
+    'src/app/production/mobile/attendance/page.tsx',
+    'src/app/purchasing/mobile/page.tsx',
+    'src/app/purchasing/mobile/tasks/page.tsx',
+    'src/app/purchasing/mobile/insights/page.tsx',
+];
+
 const printReportPages = [
     'src/app/finance/petty-cash/reports/cash-opname/page.tsx',
     'src/app/finance/petty-cash/reports/daily/page.tsx',
@@ -116,6 +134,33 @@ describe('audited route semantics', () => {
             expect(jsxOpenings(parse(file), 'h1')).toHaveLength(1);
         },
     );
+
+    it.each(mobileRouteHeadingPages)(
+        '%s delegates exactly one route H1 to MobileSectionHeader',
+        (file) => {
+            const sourceFile = parse(file);
+            expect(jsxOpenings(sourceFile, 'h1')).toHaveLength(0);
+            const pageHeadings = jsxOpenings(
+                sourceFile,
+                'MobileSectionHeader',
+            ).filter((opening) => attribute(opening, 'level'));
+            expect(pageHeadings).toHaveLength(1);
+            expect(
+                pageHeadings[0].getText(sourceFile),
+            ).toContain('level={1}');
+        },
+    );
+
+    it.each([
+        'src/app/finance/mobile/layout.tsx',
+        'src/app/hrd/mobile/layout.tsx',
+        'src/app/production/mobile/layout.tsx',
+        'src/app/purchasing/mobile/layout.tsx',
+    ])('%s does not add a competing heading', (file) => {
+        const sourceFile = parse(file);
+        expect(jsxOpenings(sourceFile, 'h1')).toHaveLength(0);
+        expect(jsxOpenings(sourceFile, 'h2')).toHaveLength(0);
+    });
 
     it('composes /kiosk/jobs with one useful visible H1', () => {
         const routeFiles = [

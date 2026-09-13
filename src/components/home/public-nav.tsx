@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Menu, X } from 'lucide-react';
 export default function PublicNav() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const mobileMenuButton = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -16,12 +17,27 @@ export default function PublicNav() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
+    useEffect(() => {
+        if (!mobileOpen) return;
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            setMobileOpen(false);
+            mobileMenuButton.current?.focus();
+        };
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [mobileOpen]);
+
     return (
         <header
             className={`fixed top-0 w-full z-50 transition-all duration-500 ${scrolled ? 'bg-white/80 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-200 dark:border-white/5 shadow-lg shadow-black/20' : 'bg-transparent'}`}
         >
             <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-                <Link href="/" className="flex items-center gap-2 group">
+                <Link
+                    href="/"
+                    className="group flex min-h-11 items-center gap-2"
+                >
                     <PolyFlowLogo variant="dark" size="sm" />
                 </Link>
 
@@ -55,7 +71,12 @@ export default function PublicNav() {
 
                 {/* Mobile hamburger */}
                 <button
-                    className="md:hidden text-zinc-900 dark:text-white p-2"
+                    ref={mobileMenuButton}
+                    type="button"
+                    aria-label={mobileOpen ? 'Tutup menu' : 'Buka menu'}
+                    aria-expanded={mobileOpen}
+                    aria-controls="register-mobile-menu"
+                    className="flex min-h-11 min-w-11 items-center justify-center p-2 text-zinc-900 dark:text-white md:hidden"
                     onClick={() => setMobileOpen(!mobileOpen)}
                 >
                     {mobileOpen ? (
@@ -68,30 +89,33 @@ export default function PublicNav() {
 
             {/* Mobile Menu */}
             {mobileOpen && (
-                <div className="md:hidden bg-white dark:bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-200 dark:border-white/5 px-6 py-6 space-y-4 animate-in slide-in-from-top duration-300">
+                <div
+                    id="register-mobile-menu"
+                    className="animate-in space-y-4 border-t border-zinc-200 bg-white px-6 py-6 backdrop-blur-xl duration-300 slide-in-from-top dark:border-white/5 dark:bg-zinc-950/95 md:hidden"
+                >
                     <Link
                         href="#features"
-                        className="block text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors py-2"
+                        className="flex min-h-11 items-center py-2 text-zinc-700 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                         onClick={() => setMobileOpen(false)}
                     >
                         Features
                     </Link>
                     <Link
                         href="#testimonials"
-                        className="block text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors py-2"
+                        className="flex min-h-11 items-center py-2 text-zinc-700 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                         onClick={() => setMobileOpen(false)}
                     >
                         About Us
                     </Link>
                     <Link
                         href="/login"
-                        className="block text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors py-2"
+                        className="flex min-h-11 items-center py-2 text-zinc-700 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                         onClick={() => setMobileOpen(false)}
                     >
                         Tenant Login
                     </Link>
                     <Button
-                        className="w-full bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 rounded-full font-semibold"
+                        className="min-h-11 w-full rounded-full bg-zinc-900 font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
                         asChild
                     >
                         <Link

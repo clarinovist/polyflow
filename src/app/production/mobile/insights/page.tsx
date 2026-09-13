@@ -39,7 +39,7 @@ export default async function ProductionInsightsPage() {
 
     return (
         <div className="space-y-6">
-            <MobileSectionHeader title="Insight & KPI Produksi" />
+            <MobileSectionHeader title="Insight & KPI Produksi" level={1} />
 
             <div className="grid grid-cols-1 gap-3">
                 <MobileInsightCard

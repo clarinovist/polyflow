@@ -177,6 +177,37 @@ describe('PolyflowChatPanel persistent contextual history', () => {
         expect(screen.getAllByText(/Ceritakan apa yang ingin/)).toHaveLength(1);
         expect(screen.getByRole('textbox')).toBeTruthy();
     });
+    it('provides named touch-sized controls for assistant message actions', async () => {
+        chatHandler = async (url) =>
+            url.endsWith('/stream')
+                ? json({}, 500)
+                : json({
+                      success: true,
+                      data: {
+                          answer: 'Jawaban dengan feedback.',
+                          interactionId: 'interaction-1',
+                      },
+                  });
+        renderPanel();
+        await ask();
+        await screen.findByText('Jawaban dengan feedback.');
+
+        const copy = screen.getAllByRole('button', {
+            name: 'Salin jawaban',
+        }).at(-1)!;
+        const helpful = screen.getByRole('button', {
+            name: 'Jawaban membantu',
+        });
+        const unhelpful = screen.getByRole('button', {
+            name: 'Jawaban tidak membantu',
+        });
+        expect(copy.className).toContain('min-h-11');
+        expect(helpful.className).toContain('min-h-11');
+        expect(helpful.className).toContain('min-w-11');
+        expect(unhelpful.className).toContain('min-h-11');
+        expect(unhelpful.className).toContain('min-w-11');
+    });
+
     it('shows delivery status separately and retains useful clarification suggestions on JSON fallback', async () => {
         chatHandler = async (url) => url.endsWith('/stream') ? json({}, 500) : json({ success: true, data: {
             answer: 'Dugaan bug perlu diperiksa.', bugReportNotice: 'Telegram belum tersedia.', suggestions: ['Field mana yang berubah?'],
@@ -253,6 +284,12 @@ describe('PolyflowChatWidget collision protection and minimize', () => {
         expect(globalCss).toMatch(
             /@media \(min-width: 64rem\) \{[\s\S]*?body:has\(\[data-desktop-safe-area\]\) main::after/,
         );
+        expect(globalCss).toMatch(
+            /@media \(max-width: 63\.999rem\) \{[\s\S]*?body:has\(\[data-desktop-safe-area\]\) main::after/,
+        );
+        expect(globalCss).toMatch(
+            /body:has\(\[data-mobile-safe-area\]\) main::after/,
+        );
         expect(globalCss).not.toMatch(
             /body:has\(\[data-polyflow-chat-fab\]\) main::after/,
         );
@@ -290,7 +327,7 @@ describe('PolyflowChatWidget collision protection and minimize', () => {
         expect(root?.dataset.desktopSafeArea).toBe('');
         expect(root?.className).toContain('bottom-5');
         expect(root?.className).toContain('right-5');
-        expect(root?.className).toContain('z-50');
+        expect(root?.className).toContain('z-[60]');
         expect(mutationObserver).not.toHaveBeenCalled();
         expect(resizeObserver).not.toHaveBeenCalled();
 
@@ -329,10 +366,37 @@ describe('PolyflowChatWidget collision protection and minimize', () => {
         const root = screen.getByRole('button', {
             name: 'Buka Asisten Polyflow',
         }).parentElement;
-        expect(root?.className).toContain('bottom-20');
+        expect(root?.className).toContain(
+            'bottom-[calc(5rem+env(safe-area-inset-bottom))]',
+        );
+        expect(root?.className).toContain('z-[60]');
         expect(root?.style.bottom).toBe('');
         expect(root?.getAttribute('data-polyflow-chat-fab')).toBe('');
+        expect(root?.getAttribute('data-mobile-safe-area')).toBe('');
         expect(root?.hasAttribute('data-desktop-safe-area')).toBe(false);
+    });
+
+    it('keeps the opened mobile panel inside the short viewport allowance', async () => {
+        pathname = '/warehouse/mobile/receipts';
+        Object.defineProperty(window, 'innerWidth', {
+            configurable: true,
+            value: 375,
+        });
+        render(<PolyflowChatWidget contextualProfilesEnabled />);
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Buka Asisten Polyflow' }),
+        );
+        const dialog = await screen.findByRole('dialog', {
+            name: 'Asisten Polyflow',
+        });
+        expect(dialog.className).toContain('w-[calc(100vw-1.5rem)]');
+        expect(dialog.className).toContain(
+            'max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))]',
+        );
+        expect(
+            screen.getByRole('button', { name: 'Minimize asisten' }).className,
+        ).toContain('min-h-11');
     });
 
     it('retains conversation and draft, preserves events, and restores focus on Escape', async () => {

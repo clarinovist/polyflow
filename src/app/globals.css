@@ -201,6 +201,20 @@
  * memastikan route desktop yang dibuka pada viewport kecil tidak mendapat
  * spacer tambahan di atas layout bottom-nav mobile.
  */
+body:has([data-mobile-safe-area]) main::after {
+    content: '';
+    display: block;
+    height: 4rem;
+}
+
+@media (max-width: 63.999rem) {
+    body:has([data-desktop-safe-area]) main::after {
+        content: '';
+        display: block;
+        height: 4rem;
+    }
+}
+
 @media (min-width: 64rem) {
     body:has([data-desktop-safe-area]) main::after {
         content: '';
@@ -210,7 +224,8 @@
 }
 
 @media print {
-    body:has([data-desktop-safe-area]) main::after {
+    body:has([data-desktop-safe-area]) main::after,
+    body:has([data-mobile-safe-area]) main::after {
         display: none;
     }
 }

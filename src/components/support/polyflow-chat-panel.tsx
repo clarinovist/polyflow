@@ -942,7 +942,7 @@ function AuthenticatedChatPanel({
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0"
+                            className="h-11 w-11 p-0 sm:h-8 sm:w-8"
                             title="Riwayat chat"
                             aria-label="Riwayat chat"
                             onClick={() => {
@@ -957,7 +957,7 @@ function AuthenticatedChatPanel({
                             variant="outline"
                             size="sm"
                             onClick={handleResetChat}
-                            className="h-8 w-8 p-0 rounded-xl border-border/60 hover:bg-muted/80"
+                            className="h-11 w-11 rounded-xl border-border/60 p-0 hover:bg-muted/80 sm:h-8 sm:w-8"
                             title="Mulai Chat Baru"
                             aria-label="Chat baru"
                         >
@@ -1206,7 +1206,7 @@ function AuthenticatedChatPanel({
                                                                         suggestion,
                                                                     )
                                                                 }
-                                                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/50 transition-colors font-medium"
+                                                                className="inline-flex min-h-11 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/15 dark:text-emerald-300 sm:min-h-0"
                                                             >
                                                                 <ArrowRight className="h-3 w-3" />
                                                                 {suggestion.length >
@@ -1226,11 +1226,13 @@ function AuthenticatedChatPanel({
                                     {/* Feedback & Copy Toolbar */}
                                     <div className="flex items-center gap-2 px-1">
                                         <button
+                                            type="button"
                                             onClick={() =>
                                                 handleCopy(msg.id, msg.text)
                                             }
-                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors opacity-70 group-hover/msg:opacity-100 focus:opacity-100"
+                                            className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground opacity-70 transition-colors hover:bg-muted/60 hover:text-foreground focus:opacity-100 group-hover/msg:opacity-100 sm:min-h-0"
                                             title="Salin jawaban"
+                                            aria-label="Salin jawaban"
                                         >
                                             {copiedId === msg.id ? (
                                                 <>
@@ -1252,6 +1254,8 @@ function AuthenticatedChatPanel({
                                         {msg.interactionId && !msg.feedback && (
                                             <div className="flex items-center gap-1 pl-2 border-l border-border/40 opacity-70 group-hover/msg:opacity-100">
                                                 <button
+                                                    type="button"
+                                                    aria-label="Jawaban membantu"
                                                     onClick={() =>
                                                         sendFeedback(
                                                             msg.id,
@@ -1259,12 +1263,14 @@ function AuthenticatedChatPanel({
                                                             'UP',
                                                         )
                                                     }
-                                                    className="p-1 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10 transition-colors"
+                                                    className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1 text-muted-foreground transition-colors hover:bg-emerald-500/10 hover:text-emerald-600 sm:min-h-0 sm:min-w-0"
                                                     title="Membantu"
                                                 >
                                                     <ThumbsUp className="h-3.5 w-3.5" />
                                                 </button>
                                                 <button
+                                                    type="button"
+                                                    aria-label="Jawaban tidak membantu"
                                                     onClick={() =>
                                                         sendFeedback(
                                                             msg.id,
@@ -1272,7 +1278,7 @@ function AuthenticatedChatPanel({
                                                             'DOWN',
                                                         )
                                                     }
-                                                    className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+                                                    className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1 text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-600 sm:min-h-0 sm:min-w-0"
                                                     title="Tidak membantu"
                                                 >
                                                     <ThumbsDown className="h-3.5 w-3.5" />
@@ -1326,8 +1332,9 @@ function AuthenticatedChatPanel({
                             {longWait && (
                                 <div className="pl-13">
                                     <button
+                                        type="button"
                                         onClick={handleCancel}
-                                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border/60 rounded-full px-3 py-1 bg-card hover:bg-muted transition-colors"
+                                        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:min-h-0"
                                     >
                                         <X className="h-3.5 w-3.5" />
                                         Batalkan Pemrosesan
@@ -1371,8 +1378,9 @@ function AuthenticatedChatPanel({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="mb-1 shrink-0 rounded-xl h-10 px-3 border-border/60"
+                                className="mb-1 h-11 min-w-11 shrink-0 rounded-xl border-border/60 px-3 sm:h-10"
                                 onClick={handleCancel}
+                                aria-label="Batalkan respons"
                             >
                                 <X className="h-4 w-4" />
                             </Button>
@@ -1380,7 +1388,7 @@ function AuthenticatedChatPanel({
                             <Button
                                 type="submit"
                                 disabled={!canSend}
-                                className="mb-1 shrink-0 rounded-xl h-10 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
+                                className="mb-1 h-11 shrink-0 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 font-semibold text-white shadow-md transition-all duration-150 hover:scale-[1.02] hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg active:scale-[0.98] disabled:opacity-50 sm:h-10"
                             >
                                 <Send className="h-4 w-4 mr-1.5" />
                                 Kirim

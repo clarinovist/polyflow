@@ -16,7 +16,7 @@ export default async function FinanceInsightsPage() {
 
     return (
         <div className="space-y-6">
-            <MobileSectionHeader title="Finance Insights" />
+            <MobileSectionHeader title="Finance Insights" level={1} />
 
             <div className="grid grid-cols-1 gap-3">
                 <MobileInsightCard

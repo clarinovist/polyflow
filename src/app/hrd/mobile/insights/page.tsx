@@ -15,7 +15,7 @@ export default async function HrdInsightsPage() {
 
     return (
         <div className="space-y-6">
-            <MobileSectionHeader title="HRD Insights" />
+            <MobileSectionHeader title="HRD Insights" level={1} />
 
             <div className="grid grid-cols-1 gap-3">
                 <MobileInsightCard

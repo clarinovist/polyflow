@@ -9,7 +9,7 @@ export default async function HrdTasksPage() {
 
     return (
         <div className="space-y-4">
-            <MobileSectionHeader title="Pengajuan Cuti Karyawan" />
+            <MobileSectionHeader title="Pengajuan Cuti Karyawan" level={1} />
 
             {!pendingLeaves.length ? (
                 <p className="text-sm text-slate-500 py-4">

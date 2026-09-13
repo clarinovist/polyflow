@@ -17,7 +17,7 @@ export default async function FinanceMobilePage() {
 
     return (
         <div className="space-y-6">
-            <MobileSectionHeader title="Finance Pulse Hari Ini" />
+            <MobileSectionHeader title="Finance Pulse Hari Ini" level={1} />
 
             <div className="grid grid-cols-2 gap-3">
                 <MobileInsightCard

@@ -69,7 +69,7 @@ export default function RegisterForm() {
                     required
                     value={companyName}
                     onChange={handleCompanyChange}
-                    className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-primary/50"
+                    className="h-11 border-zinc-200 bg-white text-base text-zinc-900 placeholder:text-zinc-400 focus:border-primary/50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-600"
                     placeholder="Acme Plastics Ltd."
                 />
             </div>
@@ -87,7 +87,7 @@ export default function RegisterForm() {
                     required
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-primary/50"
+                    className="h-11 border-zinc-200 bg-white text-base text-zinc-900 placeholder:text-zinc-400 focus:border-primary/50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-600"
                     placeholder="admin@acmeplastics.com"
                 />
             </div>
@@ -99,7 +99,7 @@ export default function RegisterForm() {
                 >
                     Workspace URL
                 </Label>
-                <div className="flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus-within:ring-1 focus-within:border-primary/50 focus-within:ring-primary/20 transition-all">
+                <div className="flex min-w-0 items-center overflow-hidden rounded-md border border-zinc-200 bg-white transition-all focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 dark:border-zinc-700 dark:bg-zinc-950">
                     <span className="pl-3 text-zinc-500 dark:text-zinc-400 text-sm whitespace-nowrap hidden sm:inline">
                         https://
                     </span>
@@ -114,10 +114,10 @@ export default function RegisterForm() {
                                     .replace(/[^a-z0-9-]/g, ''),
                             )
                         }
-                        className="border-0 bg-transparent text-zinc-900 dark:text-white focus-visible:ring-0 px-2 sm:px-1 text-right sm:text-left h-10"
+                        className="h-11 min-w-0 border-0 bg-transparent px-2 text-right text-base text-zinc-900 focus-visible:ring-0 dark:text-white sm:px-1 sm:text-left"
                         placeholder="acme"
                     />
-                    <span className="pr-3 text-zinc-500 dark:text-zinc-400 text-sm whitespace-nowrap bg-zinc-50 dark:bg-zinc-900 h-full flex items-center rounded-r-md border-l border-zinc-200 dark:border-zinc-700">
+                    <span className="flex h-11 shrink-0 items-center whitespace-nowrap rounded-r-md border-l border-zinc-200 bg-zinc-50 pr-3 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                         .polyflow.uk
                     </span>
                 </div>

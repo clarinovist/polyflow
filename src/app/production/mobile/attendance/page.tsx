@@ -31,7 +31,7 @@ export default async function ProductionAttendancePage({
 
     return (
         <div className="space-y-4">
-            <MobileSectionHeader title="Absensi Produksi Hari Ini" />
+            <MobileSectionHeader title="Absensi Produksi Hari Ini" level={1} />
             <p className="text-xs text-slate-500">
                 View-only. Supervisor melihat jam masuk, jam pulang, status, dan
                 indikator terlambat. Koreksi absensi tetap via HRD desktop.

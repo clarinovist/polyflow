@@ -76,6 +76,10 @@ export default async function PurchasingLayout({
         redirect(getPreferredWorkspaceLanding('purchasing', permissions));
     }
 
+    if (pathname.startsWith('/purchasing/mobile')) {
+        return <>{children}</>;
+    }
+
     return (
         <div className="min-h-screen bg-background">
             <SkipToMainContent />

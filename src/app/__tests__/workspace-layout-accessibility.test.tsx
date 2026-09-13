@@ -20,8 +20,9 @@ vi.mock('next/navigation', () => ({
         throw new Error(`Unexpected redirect to ${destination}`);
     },
 }));
+let requestedPath = '/dashboard';
 vi.mock('next/headers', () => ({
-    headers: async () => ({ get: () => '/dashboard' }),
+    headers: async () => ({ get: () => requestedPath }),
 }));
 vi.mock('@/actions/admin/permissions', () => ({
     getMyPermissions: async () => ({ success: true, data: 'ALL' }),
@@ -83,7 +84,10 @@ const layouts = [
     ['maklon', MaklonLayout],
 ] as const;
 
-afterEach(() => cleanup());
+afterEach(() => {
+    cleanup();
+    requestedPath = '/dashboard';
+});
 
 describe('desktop workspace layout accessibility', () => {
     it.each(layouts)(
@@ -104,6 +108,29 @@ describe('desktop workspace layout accessibility', () => {
             expect(mainLandmarks).toHaveLength(1);
             expect(mainLandmarks[0].id).toBe('main-content');
             expect(mainLandmarks[0].getAttribute('tabindex')).toBe('-1');
+        },
+    );
+
+    it.each([
+        ['finance', FinanceLayout, '/finance/mobile'],
+        ['HRD', HrdLayout, '/hrd/mobile'],
+        ['production', ProductionLayout, '/production/mobile'],
+        ['purchasing', PurchasingLayout, '/purchasing/mobile'],
+    ] as const)(
+        '%s parent delegates mobile chrome and main ownership to its nested layout',
+        async (_name, Layout, pathname) => {
+            requestedPath = pathname;
+            render(
+                await Layout({
+                    children: <main id="nested-mobile-main">Isi mobile</main>,
+                }),
+            );
+
+            expect(screen.getAllByRole('main')).toHaveLength(1);
+            expect(screen.getByRole('main').id).toBe('nested-mobile-main');
+            expect(
+                screen.queryByRole('link', { name: 'Lewati ke konten utama' }),
+            ).toBeNull();
         },
     );
 });
