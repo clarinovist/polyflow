@@ -62,7 +62,7 @@ export default function RegisterForm() {
                     htmlFor="companyName"
                     className="text-zinc-900 dark:text-zinc-100"
                 >
-                    Company Name
+                    Nama Perusahaan
                 </Label>
                 <Input
                     id="companyName"
@@ -79,7 +79,7 @@ export default function RegisterForm() {
                     htmlFor="adminEmail"
                     className="text-zinc-900 dark:text-zinc-100"
                 >
-                    Admin Email
+                    Email Admin
                 </Label>
                 <Input
                     id="adminEmail"
@@ -97,7 +97,7 @@ export default function RegisterForm() {
                     htmlFor="subdomain"
                     className="text-zinc-900 dark:text-zinc-100"
                 >
-                    Workspace URL
+                    URL Workspace
                 </Label>
                 <div className="flex min-w-0 items-center overflow-hidden rounded-md border border-zinc-200 bg-white transition-all focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 dark:border-zinc-700 dark:bg-zinc-950">
                     <span className="pl-3 text-zinc-500 dark:text-zinc-400 text-sm whitespace-nowrap hidden sm:inline">
@@ -122,8 +122,8 @@ export default function RegisterForm() {
                     </span>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 flex items-center gap-1">
-                    <Info className="w-3 h-3" /> This will be your dedicated
-                    login address.
+                    <Info aria-hidden="true" className="h-3 w-3 shrink-0" />
+                    Ini akan menjadi alamat login khusus perusahaan Anda.
                 </p>
             </div>
 
@@ -137,18 +137,22 @@ export default function RegisterForm() {
                 {isLoading ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Setting up workspace...
+                        Menyiapkan workspace...
                     </>
                 ) : (
                     <>
-                        Create Workspace <ArrowRight className="ml-2 w-4 h-4" />
+                        Buat Workspace{' '}
+                        <ArrowRight
+                            aria-hidden="true"
+                            className="ml-2 h-4 w-4"
+                        />
                     </>
                 )}
             </Button>
 
             <p className="text-center text-xs text-zinc-500 dark:text-zinc-400 mt-6">
-                By creating a workspace, you agree to our Terms of Service and
-                Privacy Policy.
+                Dengan membuat workspace, Anda menyetujui Ketentuan Layanan
+                dan Kebijakan Privasi kami.
             </p>
         </form>
     );

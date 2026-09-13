@@ -9,15 +9,15 @@ import { useState } from 'react';
 
 const footerLinks = {
     product: [
-        { label: 'Features', href: '#features' },
+        { label: 'Fitur', href: '#features' },
         { label: 'Kenapa PolyFlow', href: '#testimonials' },
-        { label: 'Contact Sales', href: homeLinks.contactSales },
+        { label: 'Hubungi Penjualan', href: homeLinks.contactSales },
     ],
     company: [
-        { label: 'Register', href: '/register' },
-        { label: 'Tenant Login', href: '/login' },
-        { label: 'Terms of Service', href: '/terms' },
-        { label: 'Privacy Policy', href: '/privacy' },
+        { label: 'Daftar', href: '/register' },
+        { label: 'Login Tenant', href: '/login' },
+        { label: 'Ketentuan Layanan', href: '/terms' },
+        { label: 'Kebijakan Privasi', href: '/privacy' },
     ],
 };
 
@@ -79,7 +79,7 @@ export default function PublicFooterEnhanced() {
                         {/* Newsletter signup */}
                         <div className="mb-6">
                             <h4 className="text-sm font-semibold text-white mb-3">
-                                Subscribe untuk update
+                                Berlangganan pembaruan
                             </h4>
                             <form
                                 onSubmit={handleSubscribe}
@@ -93,7 +93,8 @@ export default function PublicFooterEnhanced() {
                                         onChange={(e) =>
                                             setEmail(e.target.value)
                                         }
-                                        placeholder="Email anda"
+                                        aria-label="Alamat email untuk pembaruan"
+                                        placeholder="Email Anda"
                                         className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                                         required
                                     />
@@ -123,7 +124,7 @@ export default function PublicFooterEnhanced() {
                                     animate={{ opacity: 1, y: 0 }}
                                     className="text-sm text-emerald-400 mt-2"
                                 >
-                                    Terima kasih telah subscribe!
+                                    Terima kasih telah berlangganan!
                                 </motion.p>
                             )}
                         </div>

@@ -22,7 +22,7 @@ export const navLabels = {
 
 /** Hero section labels */
 export const heroLabels = {
-    badge: 'Dibangun untuk Industri Plastik Konverting',
+    badge: 'Dibangun untuk Industri Konversi Plastik',
     headline: 'Optimalkan operasi',
     headlineAccent: 'manufaktur',
     headlineEnd: 'Anda',
@@ -35,18 +35,18 @@ export const heroLabels = {
 /** Hero stats strip — small numbers below the CTA */
 export const heroStats = [
     { value: '6', label: 'Modul Terintegrasi' },
-    { value: '1', label: 'Sistem, Bukan Taburan' },
-    { value: '∞', label: 'Pelacakan Real-time' },
+    { value: '1', label: 'Platform Terpadu' },
+    { value: '24/7', label: 'Pelacakan Real-time' },
 ] as const;
 
 /** Hero pipeline panel — the vertical flow diagram on the right side */
 export const heroPipeline = {
     title: 'Alur Produksi PolyFlow',
     steps: [
-        { num: '01', label: 'Sales Order', desc: 'Pesanan masuk' },
-        { num: '02', label: 'Produksi', desc: 'Mesin & BOM' },
-        { num: '03', label: 'Gudang', desc: 'Stok & Material' },
-        { num: '04', label: 'Invoice', desc: 'Tagih & Lunas' },
+        { num: '01', label: 'Pesanan Penjualan', desc: 'Pesanan diterima' },
+        { num: '02', label: 'Produksi', desc: 'Mesin & daftar bahan' },
+        { num: '03', label: 'Gudang', desc: 'Stok & material' },
+        { num: '04', label: 'Faktur', desc: 'Penagihan & pelunasan' },
     ],
 } as const;
 
@@ -123,27 +123,27 @@ export const whyPolyflow = {
     sectionTitle: 'Kenapa PolyFlow',
     sectionHeading: 'Dibangun untuk Realitas Pabrik Konversi',
     sectionDescription:
-        'Bukan ERP generik yang dipaksa. Setiap keputusan desain lahir dari kebutuhan operasi plastik konverting nyata.',
+        'Bukan ERP generik yang dipaksakan. Setiap keputusan desain lahir dari kebutuhan nyata operasi konversi plastik.',
     items: {
         multiTenant: {
-            title: 'Multi-Tenant dari Hari 1',
+            title: 'Multi-Tenant Sejak Awal',
             description:
                 'Satu sistem, banyak perusahaan. Setiap tenant punya database terpisah — data tidak pernah bercampur. Tambah perusahaan baru tanpa setup infrastruktur.',
         },
         soFirst: {
             title: 'Alur SO-First',
             description:
-                'Pesanan penjualan adalah sumber kebenaran. Produksi, gudang, dan invoice terhubung otomatis — tidak ada entri manual yang terputus di tengah jalan.',
+                'Pesanan penjualan menjadi acuan utama. Produksi, gudang, dan faktur terhubung otomatis—tidak ada entri manual yang terputus di tengah proses.',
         },
         auditTrail: {
-            title: 'Status Audit Trail',
+            title: 'Jejak Audit Status',
             description:
-                'Setiap perubahan status (SO, PO, DO, Invoice, Journal) tercatat otomatis dengan siapa, kapan, dan dari status apa. Bukan plugin — built-in.',
+                'Setiap perubahan status pesanan, pengiriman, faktur, dan jurnal mencatat pelaku, waktu, serta status sebelumnya secara otomatis.',
         },
         accessibility: {
             title: 'Aksesibilitas Bawaan',
             description:
-                'Dukungan prefers-reduced-motion di setiap halaman. Bukan karena compliance — karena tim produksi yang pakai di lapangan juga butuh.',
+                'Dukungan pengurangan animasi tersedia di setiap halaman agar antarmuka tetap nyaman bagi tim yang bekerja di lapangan.',
         },
     },
 } as const;

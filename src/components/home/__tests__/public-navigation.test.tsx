@@ -12,7 +12,7 @@ for (const [name, Navigation] of [
     describe(`${name} public mobile navigation`, () => {
         afterEach(() => document.body.replaceChildren());
 
-        it('exposes state, touch sizing, dismisses with Escape, and restores focus', () => {
+        it('exposes localized state, touch sizing, dismisses with Escape, and restores focus', () => {
             render(<Navigation />);
             const openButton = screen.getByRole('button', { name: /Buka menu/i });
             expect(openButton.getAttribute('aria-expanded')).toBe('false');
@@ -30,6 +30,15 @@ for (const [name, Navigation] of [
             expect(screen.getByRole('button', { name: /Buka menu/i })).toBe(
                 document.activeElement,
             );
+            expect(
+                screen.getAllByRole('link', { name: 'Fitur' }).length,
+            ).toBeGreaterThan(0);
+            expect(
+                screen.getAllByRole('link', { name: 'Kenapa PolyFlow' }).length,
+            ).toBeGreaterThan(0);
+            expect(
+                screen.getAllByRole('link', { name: 'Login Tenant' }).length,
+            ).toBeGreaterThan(0);
         });
     });
 }

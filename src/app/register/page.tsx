@@ -3,8 +3,8 @@ import PublicNav from '@/components/home/public-nav';
 import RegisterForm from './register-form';
 
 export const metadata: Metadata = {
-    title: 'Register Company | PolyFlow ERP',
-    description: 'Create a new PolyFlow ERP workspace for your business.',
+    title: 'Daftarkan Perusahaan | PolyFlow ERP',
+    description: 'Buat workspace PolyFlow ERP baru untuk bisnis Anda.',
 };
 
 export default function RegisterPage() {
@@ -18,10 +18,10 @@ export default function RegisterPage() {
                 <div className="relative z-10 w-full max-w-lg">
                     <div className="text-center mb-10">
                         <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
-                            Create your workspace
+                            Buat workspace Anda
                         </h1>
                         <p className="text-zinc-400">
-                            Set up PolyFlow ERP for your manufacturing team.
+                            Siapkan PolyFlow ERP untuk tim manufaktur Anda.
                         </p>
                     </div>
 

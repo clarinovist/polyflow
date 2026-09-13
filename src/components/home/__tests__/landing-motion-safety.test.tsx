@@ -79,9 +79,11 @@ describe('landing motion safety', () => {
         const stats = Array.from(
             hero.querySelectorAll('p'),
         ).filter((element) =>
-            ['Modul Terintegrasi', 'Sistem, Bukan Taburan', 'Pelacakan Real-time'].includes(
-                element.textContent ?? '',
-            ),
+            [
+                'Modul Terintegrasi',
+                'Platform Terpadu',
+                'Pelacakan Real-time',
+            ].includes(element.textContent ?? ''),
         );
 
         expect(headline?.className).toContain('break-words');
@@ -91,6 +93,17 @@ describe('landing motion safety', () => {
             expect(stat.className).toContain('break-words');
             expect(stat.className).not.toContain('whitespace-nowrap');
         }
+    });
+
+    it('uses clear Indonesian proof points and connected-flow terminology', () => {
+        const hero = renderMarkup(<HeroSectionEnhanced />);
+
+        expect(hero.textContent).toContain('Industri Konversi Plastik');
+        expect(hero.textContent).toContain('Platform Terpadu');
+        expect(hero.textContent).toContain('24/7');
+        expect(hero.textContent).toContain('Terhubung');
+        expect(hero.textContent).not.toContain('Sistem, Bukan Taburan');
+        expect(hero.textContent).not.toContain('sync');
     });
 
     it('keeps the complete home composition, including footer semantics, visible by default', () => {

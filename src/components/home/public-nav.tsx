@@ -47,25 +47,25 @@ export default function PublicNav() {
                         href="#features"
                         className="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors duration-300 relative after:absolute after:bottom-[-4px] after:left-0 after:w-0 after:h-[2px] after:bg-zinc-900 dark:after:bg-white hover:after:w-full after:transition-all after:duration-300"
                     >
-                        Features
+                        Fitur
                     </Link>
                     <Link
                         href="#testimonials"
                         className="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors duration-300 relative after:absolute after:bottom-[-4px] after:left-0 after:w-0 after:h-[2px] after:bg-zinc-900 dark:after:bg-white hover:after:w-full after:transition-all after:duration-300"
                     >
-                        About Us
+                        Kenapa PolyFlow
                     </Link>
                     <Link
                         href="/login"
                         className="text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors duration-300"
                     >
-                        Tenant Login
+                        Login Tenant
                     </Link>
                     <Button
                         className="bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-sm h-9 px-6 rounded-full font-semibold shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.15)] transition-all duration-300"
                         asChild
                     >
-                        <Link href="#contact">Contact Sales</Link>
+                        <Link href="#contact">Hubungi Penjualan</Link>
                     </Button>
                 </nav>
 
@@ -98,21 +98,21 @@ export default function PublicNav() {
                         className="flex min-h-11 items-center py-2 text-zinc-700 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                         onClick={() => setMobileOpen(false)}
                     >
-                        Features
+                        Fitur
                     </Link>
                     <Link
                         href="#testimonials"
                         className="flex min-h-11 items-center py-2 text-zinc-700 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                         onClick={() => setMobileOpen(false)}
                     >
-                        About Us
+                        Kenapa PolyFlow
                     </Link>
                     <Link
                         href="/login"
                         className="flex min-h-11 items-center py-2 text-zinc-700 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                         onClick={() => setMobileOpen(false)}
                     >
-                        Tenant Login
+                        Login Tenant
                     </Link>
                     <Button
                         className="min-h-11 w-full rounded-full bg-zinc-900 font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
@@ -122,7 +122,7 @@ export default function PublicNav() {
                             href="#contact"
                             onClick={() => setMobileOpen(false)}
                         >
-                            Contact Sales
+                            Hubungi Penjualan
                         </Link>
                     </Button>
                 </div>

@@ -43,7 +43,7 @@ function PipelinePanel({ animated }: { animated: boolean }) {
             <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-purple-500/10 rounded-full blur-[70px] pointer-events-none" />
 
             <div className="relative z-10">
-                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-5">
+                <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-zinc-400">
                     {title}
                 </p>
                 <div className="relative">
@@ -69,7 +69,7 @@ function PipelinePanel({ animated }: { animated: boolean }) {
                                     <p className="break-words text-sm font-semibold text-white">
                                         {step.label}
                                     </p>
-                                    <p className="break-words text-xs text-zinc-500">
+                                    <p className="break-words text-xs text-zinc-400">
                                         {step.desc}
                                     </p>
                                 </div>
@@ -92,8 +92,8 @@ function PipelinePanel({ animated }: { animated: boolean }) {
                                         }}
                                     >
                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                        <span className="text-[10px] text-zinc-400">
-                                            sync
+                                        <span className="text-[10px] text-zinc-300">
+                                            Terhubung
                                         </span>
                                     </motion.div>
                                 )}
@@ -215,7 +215,7 @@ export default function HeroSectionEnhanced() {
                     {/* Tagline */}
                     <motion.p
                         {...entry(0.4)}
-                        className="mb-8 w-full max-w-xl break-words text-base leading-relaxed text-zinc-400 md:text-lg"
+                        className="mb-8 w-full max-w-xl break-words text-base leading-relaxed text-zinc-300 md:text-lg"
                     >
                         {L.tagline}
                     </motion.p>
@@ -262,7 +262,7 @@ export default function HeroSectionEnhanced() {
                                     <p className="text-2xl font-bold text-white">
                                         {stat.value}
                                     </p>
-                                    <p className="break-words text-xs leading-tight text-zinc-500">
+                                    <p className="break-words text-xs leading-tight text-zinc-400">
                                         {stat.label}
                                     </p>
                                 </div>
