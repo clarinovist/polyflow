@@ -16,39 +16,15 @@ import {
 import { createSalesOrder, updateSalesOrder } from '@/actions/sales/sales';
 import { isBillableDeliveryStatus } from '@/lib/sales/delivery-status';
 import { Input } from '@/components/ui/input';
-
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Form,
     FormControl,
-    FormDescription,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
 } from '@/components/ui/form';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import {
     Table,
     TableBody,
@@ -57,62 +33,49 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { cn, formatRupiah } from '@/lib/utils/utils';
-import {
-    calculatePpn,
-    DEFAULT_PPN_PERCENT,
-    type PpnMode,
-} from '@/lib/utils/ppn';
+import { formatRupiah } from '@/lib/utils/utils';
+import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
 import {
     parseIndonesianPrice,
     formatIndonesianPrice,
 } from '@/lib/utils/price-format';
-import {
-    CalendarIcon,
-    Plus,
-    Trash2,
-    Loader2,
-    Check,
-    Info,
-    Settings,
-} from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { CreditExposure } from '@/services/sales/credit-service';
 import { getSalesTeamAction } from '@/actions/sales/sales-team';
-
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
-} from '@/components/ui/command';
 import { SalesOrderType, ProductType, Unit } from '@prisma/client';
 import { useAction } from '@/hooks/use-action';
 import { ErrorAlert } from '@/components/ui/error-alert';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
     getProductionUnitMeta,
     toBaseQuantity,
 } from '@/lib/utils/production-units';
-import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
+import { salesLabels, actionLabels } from '@/lib/labels';
 import { computeOrderTotals } from '@/lib/utils/order-totals';
 import type {
     SerializedProductVariant,
     SalesOrderFormProps,
 } from './sales-order-types';
 import { QuickProductDialog } from './QuickProductDialog';
-import { SalesOrderCustomerPicker } from './SalesOrderCustomerPicker';
 import { CustomerDialog } from '@/components/customers/CustomerDialog';
+import type { SalesOrderFormValues } from './order-form/types';
+import { OrderHeaderFields } from './order-form/OrderHeaderFields';
+import { DesktopProductCell } from './order-form/DesktopProductCell';
+import { DesktopQuantityCell } from './order-form/DesktopQuantityCell';
+import { DesktopPriceCell } from './order-form/DesktopPriceCell';
+import { DesktopDiscountField } from './order-form/DesktopDiscountField';
+import { DesktopTaxCell } from './order-form/DesktopTaxCell';
+import { MobileProductHeader } from './order-form/MobileProductHeader';
+import { MobileQuantityPriceFields } from './order-form/MobileQuantityPriceFields';
+import { MobileDiscountField } from './order-form/MobileDiscountField';
+import {
+    DesktopOrderTotals,
+    MobileOrderTotals,
+} from './order-form/OrderTotals';
+import { CustomItemDialog } from './order-form/CustomItemDialog';
+import { MobileProductSearchDialog } from './order-form/MobileProductSearchDialog';
 
 export function SalesOrderForm({
     customers,
@@ -247,40 +210,6 @@ export function SalesOrderForm({
     const maklonProductionLocations = locations.filter(
         (l) => l.locationType === 'CUSTOMER_OWNED',
     );
-
-    // Unified type to satisfy react-hook-form's need for a consistent generic standard
-    type SalesOrderFormValues = {
-        id?: string;
-        customerId?: string;
-        salesRepId?: string | null;
-        sourceLocationId: string;
-        orderDate: Date;
-        expectedDate?: Date | null;
-        orderType?: SalesOrderType; // Optional in form state logic, handled by schema defaults
-        notes?: string;
-        shippingCost?: number;
-        nextFollowUpDate?: Date | null;
-        items: {
-            id?: string;
-            productVariantId: string;
-            quantity: number;
-            unitPrice: number;
-            enteredQuantity?: number;
-            enteredUnit?: Unit;
-            conversionFactorSnapshot?: number;
-            enteredUnitPrice?: number;
-            discountPercent?: number;
-            taxPercent?: number;
-            dppOtherAmount?: number | null;
-            ppnMode?: 'INCLUDE' | 'EXCLUDE';
-            isFreeItem?: boolean;
-        }[];
-        customItems?: {
-            tempId: string;
-            name: string;
-            sellPrice: number;
-        }[];
-    };
 
     const form = useForm<SalesOrderFormValues>({
         resolver: zodResolver(
@@ -957,507 +886,27 @@ export function SalesOrderForm({
                 </Alert>
 
                 {/* Header Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                        control={form.control}
-                        name="customerId"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>{salesLabels.customer}</FormLabel>
-                                <FormControl>
-                                    <SalesOrderCustomerPicker
-                                        customers={customers}
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                        onAddCustomer={() =>
-                                            setOpenNewCustomer(true)
-                                        }
-                                        isOverLimit={isOverLimit}
-                                    />
-                                </FormControl>
-                                <FormDescription>
-                                    Wajib diisi untuk Sales Order customer.
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Credit Exposure Banner */}
-                    {watchCustomerId && loadingExposure && (
-                        <div className="col-span-full flex items-center gap-2 text-xs text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Memeriksa limit kredit...
-                        </div>
-                    )}
-                    {creditExposure && !loadingExposure && (
-                        <div className="col-span-full">
-                            <Alert
-                                className={cn(
-                                    isOverLimit
-                                        ? 'border-red-300 bg-red-50 text-red-900'
-                                        : isNearLimit
-                                          ? 'border-amber-300 bg-amber-50 text-amber-900'
-                                          : 'border-green-300 bg-green-50 text-green-900',
-                                )}
-                            >
-                                <Info className="h-4 w-4" />
-                                <AlertTitle className="text-sm font-medium">
-                                    {isOverLimit
-                                        ? 'Batas kredit akan terlampaui'
-                                        : isNearLimit
-                                          ? 'Kredit mendekati batas'
-                                          : 'Informasi kredit'}
-                                </AlertTitle>
-                                <AlertDescription className="text-xs mt-1">
-                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                        <span>Limit:</span>
-                                        <span className="font-medium">
-                                            {formatRupiah(
-                                                creditExposure.creditLimit,
-                                            )}
-                                        </span>
-                                        <span>Piutang belum lunas:</span>
-                                        <span className="font-medium">
-                                            {formatRupiah(
-                                                creditExposure.unpaidInvoiceBalance,
-                                            )}
-                                        </span>
-                                        <span>SO aktif tanpa invoice:</span>
-                                        <span className="font-medium">
-                                            {formatRupiah(
-                                                creditExposure.openOrderWithoutInvoice,
-                                            )}
-                                        </span>
-                                        <span>Exposure saat ini:</span>
-                                        <span className="font-medium">
-                                            {formatRupiah(
-                                                creditExposure.currentExposure,
-                                            )}
-                                        </span>
-                                        <span>Sisa headroom:</span>
-                                        <span
-                                            className={cn(
-                                                'font-medium',
-                                                creditExposure.headroom <= 0 &&
-                                                    'text-red-600',
-                                            )}
-                                        >
-                                            {formatRupiah(
-                                                creditExposure.headroom,
-                                            )}
-                                        </span>
-                                    </div>
-                                    {isOverLimit && (
-                                        <p className="mt-2 text-xs font-medium">
-                                            Konfirmasi akan gagal — total
-                                            melebihi limit kredit.
-                                        </p>
-                                    )}
-                                    {!isOverLimit &&
-                                        headroomAfterProposal !== null &&
-                                        headroomAfterProposal <
-                                            creditExposure.creditLimit *
-                                                0.1 && (
-                                            <p className="mt-2 text-xs">
-                                                Akan melebihi jika confirm: sisa
-                                                setelah proposal{' '}
-                                                {formatRupiah(
-                                                    headroomAfterProposal,
-                                                )}
-                                            </p>
-                                        )}
-                                </AlertDescription>
-                            </Alert>
-                        </div>
-                    )}
-
-                    {/* Source Location */}
-                    <FormField
-                        control={form.control}
-                        name="sourceLocationId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>{sourceLocationLabel}</FormLabel>
-                                <Select
-                                    onValueChange={(value) => {
-                                        // "none" sentinel means no location selected
-                                        field.onChange(
-                                            value === '__none__' ? '' : value,
-                                        );
-                                    }}
-                                    value={field.value || '__none__'}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue
-                                                placeholder={
-                                                    sourceLocationPlaceholder
-                                                }
-                                            />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {!isLocationRequired && (
-                                            <SelectItem value="__none__">
-                                                <span className="text-muted-foreground italic">
-                                                    Semua gudang
-                                                </span>
-                                            </SelectItem>
-                                        )}
-                                        {selectableLocations.map((loc) => (
-                                            <SelectItem
-                                                key={loc.id}
-                                                value={loc.id}
-                                            >
-                                                {loc.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormDescription>
-                                    {sourceLocationDescription}
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Order Type */}
-                    <FormField
-                        control={form.control}
-                        name="orderType"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="flex items-center gap-1.5">
-                                    {salesLabels.orderType}
-                                    {!lockedOrderType && (
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <span
-                                                    aria-label="Penjelasan tipe pesanan"
-                                                    className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
-                                                    tabIndex={0}
-                                                >
-                                                    <Info className="h-3.5 w-3.5" />
-                                                </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="max-w-xs text-left leading-relaxed">
-                                                <p>
-                                                    {
-                                                        salesLabels.fulfillFromStock
-                                                    }
-                                                    : dipenuhi dari stok
-                                                    tersedia.
-                                                </p>
-                                                <p>
-                                                    {salesLabels.fulfillProduce}
-                                                    : produksi berdasarkan
-                                                    pesanan.
-                                                </p>
-                                                <p>
-                                                    {salesLabels.fulfillMaklon}:
-                                                    jasa berbasis bahan titipan
-                                                    customer; konsumsi bahan
-                                                    lewat Production Execution.
-                                                </p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )}
-                                </FormLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    defaultValue={
-                                        field.value ||
-                                        lockedOrderType ||
-                                        'MAKE_TO_STOCK'
-                                    }
-                                    disabled={!!lockedOrderType}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Pilih tipe order" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="MAKE_TO_STOCK">
-                                            {salesLabels.fulfillFromStock}
-                                        </SelectItem>
-                                        <SelectItem value="MAKE_TO_ORDER">
-                                            {salesLabels.fulfillProduce}
-                                        </SelectItem>
-                                        <SelectItem value="MAKLON_JASA">
-                                            {salesLabels.fulfillMaklon}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormDescription>
-                                    {mode === 'edit'
-                                        ? salesLabels.orderTypeHelpLockedOnEdit
-                                        : lockedOrderType
-                                          ? salesLabels.orderTypeHelpFromIntent
-                                          : salesLabels.orderTypeHelpPick}
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Order Date */}
-                    <FormField
-                        control={form.control}
-                        name="orderDate"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>{salesLabels.orderDate}</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant={'outline'}
-                                                className={cn(
-                                                    'w-full pl-3 text-left font-normal',
-                                                    !field.value &&
-                                                        'text-muted-foreground',
-                                                )}
-                                            >
-                                                {field.value ? (
-                                                    format(field.value, 'PPP')
-                                                ) : (
-                                                    <span>Pilih tanggal</span>
-                                                )}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                        className="w-auto p-0"
-                                        align="start"
-                                    >
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) => {
-                                                const maxDate = new Date();
-                                                maxDate.setHours(
-                                                    23,
-                                                    59,
-                                                    59,
-                                                    999,
-                                                );
-                                                // Allow selection up to end of today, but maybe also allow some future dates if order can be backdated/postdated?
-                                                // User mentioned they couldn't change month, which might be because they were trying to select a different month but arrows weren't working.
-                                                // Let's allow a wider range for order date if needed, or just fix the UI.
-                                                return (
-                                                    date <
-                                                        new Date(
-                                                            '1900-01-01',
-                                                        ) || date > maxDate
-                                                );
-                                            }}
-                                            captionLayout="dropdown"
-                                            fromYear={2000}
-                                            toYear={
-                                                new Date().getFullYear() + 1
-                                            }
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Expected Date */}
-                    {selectedOrderType !== 'MAKE_TO_STOCK' && (
-                        <FormField
-                            control={form.control}
-                            name="expectedDate"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>
-                                        {salesLabels.expectedDate}
-                                    </FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant={'outline'}
-                                                    className={cn(
-                                                        'w-full pl-3 text-left font-normal',
-                                                        !field.value &&
-                                                            'text-muted-foreground',
-                                                    )}
-                                                >
-                                                    {field.value ? (
-                                                        format(
-                                                            field.value,
-                                                            'PPP',
-                                                        )
-                                                    ) : (
-                                                        <span>
-                                                            Pilih tanggal
-                                                        </span>
-                                                    )}
-                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent
-                                            className="w-auto p-0"
-                                            align="start"
-                                        >
-                                            <Calendar
-                                                mode="single"
-                                                selected={field.value as Date} // Type assertion since expectedDate can be null
-                                                onSelect={field.onChange}
-                                                disabled={(date) =>
-                                                    date <
-                                                    new Date('1900-01-01')
-                                                }
-                                                captionLayout="dropdown"
-                                                fromYear={2000}
-                                                toYear={
-                                                    new Date().getFullYear() +
-                                                    10
-                                                }
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    )}
-
-                    {/* Notes */}
-                    <FormField
-                        control={form.control}
-                        name="notes"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>{formLabels.notes}</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        placeholder="Catatan opsional..."
-                                        {...field}
-                                        value={field.value || ''}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {documentIntent === 'quotation' && (
-                        <FormField
-                            control={form.control}
-                            name="nextFollowUpDate"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Jadwal Follow-up</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant="outline"
-                                                    className={cn(
-                                                        'w-full pl-3 text-left font-normal',
-                                                        !field.value &&
-                                                            'text-muted-foreground',
-                                                    )}
-                                                >
-                                                    {field.value ? (
-                                                        format(
-                                                            field.value as Date,
-                                                            'PPP',
-                                                        )
-                                                    ) : (
-                                                        <span>
-                                                            Pilih tanggal
-                                                            follow-up
-                                                        </span>
-                                                    )}
-                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent
-                                            className="w-auto p-0"
-                                            align="start"
-                                        >
-                                            <Calendar
-                                                mode="single"
-                                                selected={field.value as Date}
-                                                onSelect={field.onChange}
-                                                disabled={(date) =>
-                                                    date <
-                                                    new Date('1900-01-01')
-                                                }
-                                                captionLayout="dropdown"
-                                                fromYear={2000}
-                                                toYear={
-                                                    new Date().getFullYear() + 5
-                                                }
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormDescription>
-                                        Kapan harus hubungi customer lagi.
-                                        Opsional.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    )}
-
-                    {/* Sales Rep */}
-                    <FormField
-                        control={form.control}
-                        name="salesRepId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Sales</FormLabel>
-                                <Select
-                                    onValueChange={(value) =>
-                                        field.onChange(
-                                            value === '__none__' ? null : value,
-                                        )
-                                    }
-                                    value={field.value ?? '__none__'}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Pilih sales" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">
-                                            <span className="text-muted-foreground italic">
-                                                Tanpa sales
-                                            </span>
-                                        </SelectItem>
-                                        {salesTeam.map((s) => (
-                                            <SelectItem key={s.id} value={s.id}>
-                                                {s.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormDescription>
-                                    Sales pemilik order. Kosongkan jika belum
-                                    ditentukan.
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                <OrderHeaderFields
+                    form={form}
+                    customers={customers}
+                    setOpenNewCustomer={setOpenNewCustomer}
+                    isOverLimit={isOverLimit}
+                    watchCustomerId={watchCustomerId}
+                    loadingExposure={loadingExposure}
+                    creditExposure={creditExposure}
+                    isNearLimit={isNearLimit}
+                    headroomAfterProposal={headroomAfterProposal}
+                    sourceLocationLabel={sourceLocationLabel}
+                    sourceLocationPlaceholder={sourceLocationPlaceholder}
+                    sourceLocationDescription={sourceLocationDescription}
+                    isLocationRequired={isLocationRequired}
+                    selectableLocations={selectableLocations}
+                    lockedOrderType={lockedOrderType}
+                    mode={mode}
+                    selectedOrderType={selectedOrderType}
+                    documentIntent={documentIntent}
+                    salesTeam={salesTeam}
+                />
 
                 {/* Line Items */}
                 <div className="space-y-4">
@@ -1565,512 +1014,42 @@ export function SalesOrderForm({
                                             </TableCell>
 
                                             {/* Produk */}
-                                            <TableCell className="pt-3">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`items.${index}.productVariantId`}
-                                                    render={({
-                                                        field: productField,
-                                                        fieldState,
-                                                    }) => (
-                                                        <div className="flex flex-col gap-1">
-                                                            <Popover
-                                                                open={
-                                                                    openProduct[
-                                                                        index
-                                                                    ]
-                                                                }
-                                                                onOpenChange={(
-                                                                    open,
-                                                                ) =>
-                                                                    setOpenProduct(
-                                                                        (
-                                                                            prev,
-                                                                        ) => ({
-                                                                            ...prev,
-                                                                            [index]:
-                                                                                open,
-                                                                        }),
-                                                                    )
-                                                                }
-                                                            >
-                                                                <PopoverTrigger
-                                                                    asChild
-                                                                >
-                                                                    <FormControl>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            role="combobox"
-                                                                            className={cn(
-                                                                                'w-full justify-between h-9 px-3 font-normal text-left truncate',
-                                                                                !productField.value &&
-                                                                                    'text-muted-foreground',
-                                                                            )}
-                                                                        >
-                                                                            <div className="truncate text-left flex-1">
-                                                                                {productField.value
-                                                                                    ? productField.value.startsWith(
-                                                                                          CUSTOM_ITEM_PREFIX,
-                                                                                      )
-                                                                                        ? (() => {
-                                                                                              const custom =
-                                                                                                  customItems.find(
-                                                                                                      (
-                                                                                                          c,
-                                                                                                      ) =>
-                                                                                                          c.tempId ===
-                                                                                                          productField.value,
-                                                                                                  );
-                                                                                              return custom
-                                                                                                  ? `✏️ ${custom.name}`
-                                                                                                  : 'Pilih Produk';
-                                                                                          })()
-                                                                                        : (() => {
-                                                                                              const p =
-                                                                                                  filteredProducts.find(
-                                                                                                      (
-                                                                                                          p,
-                                                                                                      ) =>
-                                                                                                          p.id ===
-                                                                                                          productField.value,
-                                                                                                  );
-                                                                                              return p
-                                                                                                  ? p
-                                                                                                        .product
-                                                                                                        .name ===
-                                                                                                    p.name
-                                                                                                      ? p.name
-                                                                                                      : `${p.product.name} - ${p.name}`
-                                                                                                  : 'Pilih Produk';
-                                                                                          })()
-                                                                                    : 'Pilih Produk'}
-                                                                            </div>
-                                                                            <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                                        </Button>
-                                                                    </FormControl>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent
-                                                                    className="w-[400px] p-0"
-                                                                    align="start"
-                                                                >
-                                                                    <Command>
-                                                                        <CommandInput placeholder="Cari produk..." />
-                                                                        <CommandList>
-                                                                            <CommandEmpty>
-                                                                                {
-                                                                                    productEmptyMessage
-                                                                                }
-                                                                            </CommandEmpty>
-                                                                            <CommandGroup>
-                                                                                {filteredProducts.map(
-                                                                                    (
-                                                                                        p: SerializedProductVariant,
-                                                                                    ) => (
-                                                                                        <CommandItem
-                                                                                            key={
-                                                                                                p.id
-                                                                                            }
-                                                                                            value={`${p.product.name} ${p.name} ${p.skuCode}`.toLowerCase()}
-                                                                                            onSelect={() => {
-                                                                                                selectProduct(
-                                                                                                    index,
-                                                                                                    p,
-                                                                                                );
-                                                                                                setOpenProduct(
-                                                                                                    (
-                                                                                                        prev,
-                                                                                                    ) => ({
-                                                                                                        ...prev,
-                                                                                                        [index]: false,
-                                                                                                    }),
-                                                                                                );
-                                                                                            }}
-                                                                                        >
-                                                                                            <Check
-                                                                                                className={cn(
-                                                                                                    'mr-2 h-4 w-4',
-                                                                                                    p.id ===
-                                                                                                        productField.value
-                                                                                                        ? 'opacity-100'
-                                                                                                        : 'opacity-0',
-                                                                                                )}
-                                                                                            />
-                                                                                            <div className="flex flex-col">
-                                                                                                <span>
-                                                                                                    {p
-                                                                                                        .product
-                                                                                                        .name ===
-                                                                                                    p.name
-                                                                                                        ? p.name
-                                                                                                        : `${p.product.name} - ${p.name}`}
-                                                                                                </span>
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    {
-                                                                                                        p.skuCode
-                                                                                                    }{' '}
-                                                                                                    •{' '}
-                                                                                                    {formatRupiah(
-                                                                                                        toDisplayUnitPrice(
-                                                                                                            p,
-                                                                                                            getCustomerBasePrice(
-                                                                                                                p,
-                                                                                                            ),
-                                                                                                        ),
-                                                                                                    )}
-
-                                                                                                    /
-                                                                                                    {
-                                                                                                        getProductionUnitMeta(
-                                                                                                            p,
-                                                                                                        )
-                                                                                                            .displayUnit
-                                                                                                    }
-                                                                                                    {
-                                                                                                        ' · '
-                                                                                                    }
-                                                                                                    {getPriceSourceLabel(
-                                                                                                        p,
-                                                                                                    )}
-                                                                                                </span>
-                                                                                            </div>
-                                                                                        </CommandItem>
-                                                                                    ),
-                                                                                )}
-                                                                            </CommandGroup>
-                                                                            <CommandSeparator />
-                                                                            <CommandGroup>
-                                                                                <CommandItem
-                                                                                    onSelect={() => {
-                                                                                        setOpenProduct(
-                                                                                            (
-                                                                                                prev,
-                                                                                            ) => ({
-                                                                                                ...prev,
-                                                                                                [index]: false,
-                                                                                            }),
-                                                                                        );
-                                                                                        setCustomItemIndex(
-                                                                                            index,
-                                                                                        );
-                                                                                    }}
-                                                                                    className="flex items-center gap-2 text-amber-600 cursor-pointer"
-                                                                                >
-                                                                                    <span className="text-lg leading-none">
-                                                                                        ✏️
-                                                                                    </span>
-                                                                                    <span className="font-medium">
-                                                                                        Ketik
-                                                                                        Nama
-                                                                                        Produk
-                                                                                        Sendiri
-                                                                                    </span>
-                                                                                </CommandItem>
-                                                                                <CommandItem
-                                                                                    onSelect={() => {
-                                                                                        setOpenProduct(
-                                                                                            (
-                                                                                                prev,
-                                                                                            ) => ({
-                                                                                                ...prev,
-                                                                                                [index]: false,
-                                                                                            }),
-                                                                                        );
-                                                                                        setQuickAddIndex(
-                                                                                            index,
-                                                                                        );
-                                                                                    }}
-                                                                                    className="flex items-center gap-2 text-primary cursor-pointer"
-                                                                                >
-                                                                                    <Plus className="h-4 w-4" />
-                                                                                    <span className="font-medium">
-                                                                                        Tambah
-                                                                                        Produk
-                                                                                        Baru
-                                                                                    </span>
-                                                                                </CommandItem>
-                                                                            </CommandGroup>
-                                                                        </CommandList>
-                                                                    </Command>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                            {fieldState.error && (
-                                                                <span className="text-xs text-destructive whitespace-nowrap px-1">
-                                                                    {
-                                                                        fieldState
-                                                                            .error
-                                                                            .message
-                                                                    }
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                />
-                                                {variant && (
-                                                    <div className="text-[11px] text-muted-foreground mt-1 px-1">
-                                                        {variant.skuCode}
-                                                    </div>
-                                                )}
-                                            </TableCell>
+                                            <DesktopProductCell
+                                                form={form}
+                                                index={index}
+                                                openProduct={openProduct}
+                                                setOpenProduct={setOpenProduct}
+                                                CUSTOM_ITEM_PREFIX={CUSTOM_ITEM_PREFIX}
+                                                customItems={customItems}
+                                                filteredProducts={filteredProducts}
+                                                productEmptyMessage={productEmptyMessage}
+                                                selectProduct={selectProduct}
+                                                toDisplayUnitPrice={toDisplayUnitPrice}
+                                                getCustomerBasePrice={getCustomerBasePrice}
+                                                getPriceSourceLabel={getPriceSourceLabel}
+                                                setCustomItemIndex={setCustomItemIndex}
+                                                setQuickAddIndex={setQuickAddIndex}
+                                                variant={variant}
+                                            />
 
                                             {/* Qty */}
-                                            <TableCell className="px-2 pt-3">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`items.${index}.quantity`}
-                                                    render={({
-                                                        field: qtyField,
-                                                    }) => (
-                                                        <div className="flex flex-col items-center">
-                                                            <FormControl>
-                                                                <Input
-                                                                    type="text"
-                                                                    inputMode="decimal"
-                                                                    className="h-9 w-full text-center font-mono text-sm px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                                    value={
-                                                                        rawQtyInputs[
-                                                                            index
-                                                                        ] !==
-                                                                        undefined
-                                                                            ? rawQtyInputs[
-                                                                                  index
-                                                                              ]
-                                                                            : (qtyField.value ??
-                                                                              '')
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) => {
-                                                                        setRawQtyInputs(
-                                                                            (
-                                                                                prev,
-                                                                            ) => ({
-                                                                                ...prev,
-                                                                                [index]:
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                            }),
-                                                                        );
-                                                                        const num =
-                                                                            Number(
-                                                                                e.target.value.replace(
-                                                                                    ',',
-                                                                                    '.',
-                                                                                ),
-                                                                            );
-                                                                        if (
-                                                                            !isNaN(
-                                                                                num,
-                                                                            ) &&
-                                                                            e
-                                                                                .target
-                                                                                .value !==
-                                                                                ''
-                                                                        ) {
-                                                                            qtyField.onChange(
-                                                                                num,
-                                                                            );
-                                                                        }
-                                                                    }}
-                                                                    onBlur={() => {
-                                                                        const raw =
-                                                                            rawQtyInputs[
-                                                                                index
-                                                                            ];
-                                                                        const num =
-                                                                            Number(
-                                                                                (
-                                                                                    raw ||
-                                                                                    '0'
-                                                                                ).replace(
-                                                                                    ',',
-                                                                                    '.',
-                                                                                ),
-                                                                            );
-                                                                        qtyField.onChange(
-                                                                            isNaN(
-                                                                                num,
-                                                                            )
-                                                                                ? 0
-                                                                                : num,
-                                                                        );
-                                                                        setRawQtyInputs(
-                                                                            (
-                                                                                prev,
-                                                                            ) => {
-                                                                                const next =
-                                                                                    {
-                                                                                        ...prev,
-                                                                                    };
-                                                                                delete next[
-                                                                                    index
-                                                                                ];
-                                                                                return next;
-                                                                            },
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            </FormControl>
-                                                            {unitMeta && (
-                                                                <span className="text-[10px] text-muted-foreground mt-1 font-medium whitespace-nowrap">
-                                                                    {
-                                                                        unitMeta.displayUnit
-                                                                    }
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                />
-                                            </TableCell>
+                                            <DesktopQuantityCell
+                                                form={form}
+                                                index={index}
+                                                rawQtyInputs={rawQtyInputs}
+                                                setRawQtyInputs={setRawQtyInputs}
+                                                unitMeta={unitMeta}
+                                            />
 
                                             {/* Harga Satuan */}
-                                            <TableCell className="pt-3">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`items.${index}.unitPrice`}
-                                                    render={({
-                                                        field: priceField,
-                                                    }) => (
-                                                        <div className="flex flex-col">
-                                                            <FormControl>
-                                                                <div className="relative">
-                                                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                                                        Rp
-                                                                    </span>
-                                                                    <Input
-                                                                        type="text"
-                                                                        inputMode="decimal"
-                                                                        value={
-                                                                            rawPriceInputs[
-                                                                                index
-                                                                            ] !==
-                                                                            undefined
-                                                                                ? rawPriceInputs[
-                                                                                      index
-                                                                                  ]
-                                                                                : formatIndonesianPrice(
-                                                                                      priceField.value ??
-                                                                                          0,
-                                                                                  )
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) => {
-                                                                            setRawPriceInputs(
-                                                                                (
-                                                                                    prev,
-                                                                                ) => ({
-                                                                                    ...prev,
-                                                                                    [index]:
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                }),
-                                                                            );
-                                                                            const num =
-                                                                                parseIndonesianPrice(
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                );
-                                                                            priceField.onChange(
-                                                                                num,
-                                                                            );
-                                                                        }}
-                                                                        onBlur={() => {
-                                                                            const num =
-                                                                                parseIndonesianPrice(
-                                                                                    rawPriceInputs[
-                                                                                        index
-                                                                                    ] ||
-                                                                                        '0',
-                                                                                );
-                                                                            priceField.onChange(
-                                                                                num,
-                                                                            );
-                                                                            setRawPriceInputs(
-                                                                                (
-                                                                                    prev,
-                                                                                ) => {
-                                                                                    const next =
-                                                                                        {
-                                                                                            ...prev,
-                                                                                        };
-                                                                                    delete next[
-                                                                                        index
-                                                                                    ];
-                                                                                    return next;
-                                                                                },
-                                                                            );
-                                                                        }}
-                                                                        className="h-9 pl-7 text-right font-mono text-sm"
-                                                                    />
-                                                                </div>
-                                                            </FormControl>
-                                                            {variant && (
-                                                                <span className="mt-1 text-[10px] text-muted-foreground text-right block">
-                                                                    {getPriceSourceLabel(
-                                                                        variant,
-                                                                    )}
-                                                                </span>
-                                                            )}
-                                                            <div className="flex items-center justify-end gap-1.5 mt-1">
-                                                                <Checkbox
-                                                                    id={`isFreeItem-${index}`}
-                                                                    checked={Boolean(
-                                                                        form.watch(
-                                                                            'items',
-                                                                        )?.[
-                                                                            index
-                                                                        ]
-                                                                            ?.isFreeItem,
-                                                                    )}
-                                                                    onCheckedChange={(
-                                                                        checked,
-                                                                    ) => {
-                                                                        form.setValue(
-                                                                            `items.${index}.isFreeItem`,
-                                                                            Boolean(
-                                                                                checked,
-                                                                            ),
-                                                                            {
-                                                                                shouldDirty: true,
-                                                                            },
-                                                                        );
-                                                                        if (
-                                                                            checked
-                                                                        ) {
-                                                                            form.setValue(
-                                                                                `items.${index}.unitPrice`,
-                                                                                0,
-                                                                                {
-                                                                                    shouldDirty: true,
-                                                                                },
-                                                                            );
-                                                                            setRawPriceInputs(
-                                                                                (
-                                                                                    prev,
-                                                                                ) => ({
-                                                                                    ...prev,
-                                                                                    [index]:
-                                                                                        '0',
-                                                                                }),
-                                                                            );
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <label
-                                                                    htmlFor={`isFreeItem-${index}`}
-                                                                    className="text-[10px] text-muted-foreground cursor-pointer font-medium select-none whitespace-nowrap"
-                                                                >
-                                                                    Sampel /
-                                                                    Gratis
-                                                                </label>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                />
-                                            </TableCell>
+                                            <DesktopPriceCell
+                                                form={form}
+                                                index={index}
+                                                rawPriceInputs={rawPriceInputs}
+                                                setRawPriceInputs={setRawPriceInputs}
+                                                variant={variant}
+                                                getPriceSourceLabel={getPriceSourceLabel}
+                                            />
 
                                             {/* Diskon */}
                                             <TableCell className="px-2 pt-3">
@@ -2139,397 +1118,33 @@ export function SalesOrderForm({
                                                         }
 
                                                         return (
-                                                            <div className="flex flex-col items-end gap-1">
-                                                                <div className="relative w-full">
-                                                                    <Input
-                                                                        type="text"
-                                                                        inputMode="decimal"
-                                                                        placeholder="0"
-                                                                        value={
-                                                                            displayValue
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) =>
-                                                                            handleDiscountChange(
-                                                                                index,
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                            )
-                                                                        }
-                                                                        onBlur={() => {
-                                                                            const rawVal =
-                                                                                rawDiscountInputs[
-                                                                                    index
-                                                                                ] ||
-                                                                                '';
-                                                                            if (
-                                                                                rawVal
-                                                                            ) {
-                                                                                if (
-                                                                                    discType ===
-                                                                                    'NOMINAL'
-                                                                                ) {
-                                                                                    const nominal =
-                                                                                        parseIndonesianPrice(
-                                                                                            rawVal,
-                                                                                        );
-                                                                                    setRawDiscountInputs(
-                                                                                        (
-                                                                                            prev,
-                                                                                        ) => ({
-                                                                                            ...prev,
-                                                                                            [index]:
-                                                                                                formatIndonesianPrice(
-                                                                                                    nominal,
-                                                                                                ),
-                                                                                        }),
-                                                                                    );
-                                                                                } else {
-                                                                                    const percent =
-                                                                                        Number(
-                                                                                            rawVal,
-                                                                                        );
-                                                                                    setRawDiscountInputs(
-                                                                                        (
-                                                                                            prev,
-                                                                                        ) => ({
-                                                                                            ...prev,
-                                                                                            [index]:
-                                                                                                String(
-                                                                                                    percent,
-                                                                                                ),
-                                                                                        }),
-                                                                                    );
-                                                                                }
-                                                                            } else {
-                                                                                setRawDiscountInputs(
-                                                                                    (
-                                                                                        prev,
-                                                                                    ) => {
-                                                                                        const next =
-                                                                                            {
-                                                                                                ...prev,
-                                                                                            };
-                                                                                        delete next[
-                                                                                            index
-                                                                                        ];
-                                                                                        return next;
-                                                                                    },
-                                                                                );
-                                                                            }
-                                                                        }}
-                                                                        className="h-9 pl-2 pr-9 text-right font-mono text-sm"
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            toggleDiscountType(
-                                                                                index,
-                                                                            )
-                                                                        }
-                                                                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-1 py-0.5 rounded border border-input hover:bg-muted bg-popover text-foreground transition-colors cursor-pointer select-none"
-                                                                        title="Klik untuk mengubah tipe diskon (% / Rp)"
-                                                                    >
-                                                                        {discType ===
-                                                                        'PERCENT'
-                                                                            ? '%'
-                                                                            : 'Rp'}
-                                                                    </button>
-                                                                </div>
-                                                                {afterDisc <
-                                                                    sub && (
-                                                                    <span className="text-[10px] font-mono text-red-500 whitespace-nowrap">
-                                                                        -
-                                                                        {formatRupiah(
-                                                                            sub -
-                                                                                afterDisc,
-                                                                        )}
-                                                                    </span>
-                                                                )}
-                                                                {selectedCustomerCeiling !=
-                                                                    null &&
-                                                                    Number(
-                                                                        discField.value ||
-                                                                            0,
-                                                                    ) >
-                                                                        selectedCustomerCeiling && (
-                                                                        <span className="text-[10px] text-amber-600 whitespace-normal max-w-[120px] leading-tight">
-                                                                            Melebihi
-                                                                            plafon
-                                                                            {
-                                                                                selectedCustomerCeiling
-                                                                            }
-                                                                            % —
-                                                                            akan
-                                                                            jadi
-                                                                            PENDING
-                                                                        </span>
-                                                                    )}
-                                                            </div>
+                                                            <DesktopDiscountField
+                                                                index={index}
+                                                                displayValue={displayValue}
+                                                                handleDiscountChange={handleDiscountChange}
+                                                                rawDiscountInputs={rawDiscountInputs}
+                                                                discType={discType}
+                                                                setRawDiscountInputs={setRawDiscountInputs}
+                                                                toggleDiscountType={toggleDiscountType}
+                                                                afterDisc={afterDisc}
+                                                                sub={sub}
+                                                                selectedCustomerCeiling={selectedCustomerCeiling}
+                                                                discField={discField}
+                                                            />
                                                         );
                                                     }}
                                                 />
                                             </TableCell>
 
                                             {/* Pajak */}
-                                            <TableCell className="pt-3">
-                                                <div className="flex items-center justify-center gap-1 mt-1.5">
-                                                    <Checkbox
-                                                        id={`taxable-so-table-${index}`}
-                                                        checked={
-                                                            taxableItems[
-                                                                index
-                                                            ] ?? false
-                                                        }
-                                                        onCheckedChange={(
-                                                            checked,
-                                                        ) => {
-                                                            setTaxableItems(
-                                                                (prev) => ({
-                                                                    ...prev,
-                                                                    [index]:
-                                                                        !!checked,
-                                                                }),
-                                                            );
-                                                            if (!checked) {
-                                                                form.setValue(
-                                                                    `items.${index}.taxPercent`,
-                                                                    0,
-                                                                );
-                                                                form.setValue(
-                                                                    `items.${index}.dppOtherAmount`,
-                                                                    null,
-                                                                );
-                                                            } else {
-                                                                const currentTax =
-                                                                    Number(
-                                                                        form.getValues(
-                                                                            `items.${index}.taxPercent`,
-                                                                        ) || 0,
-                                                                    );
-                                                                if (
-                                                                    currentTax ===
-                                                                    0
-                                                                ) {
-                                                                    form.setValue(
-                                                                        `items.${index}.taxPercent`,
-                                                                        DEFAULT_PPN_PERCENT,
-                                                                    );
-                                                                }
-                                                                // Default to INCLUDE if no mode set
-                                                                const currentMode =
-                                                                    form.getValues(
-                                                                        `items.${index}.ppnMode`,
-                                                                    );
-                                                                if (
-                                                                    !currentMode ||
-                                                                    currentMode ===
-                                                                        'EXCLUDE'
-                                                                ) {
-                                                                    form.setValue(
-                                                                        `items.${index}.ppnMode`,
-                                                                        'INCLUDE',
-                                                                    );
-                                                                }
-                                                            }
-                                                        }}
-                                                    />
-                                                    <label
-                                                        htmlFor={`taxable-so-table-${index}`}
-                                                        className="text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap"
-                                                    >
-                                                        PPN
-                                                    </label>
-
-                                                    {(taxableItems[index] ??
-                                                        false) && (
-                                                        <Popover>
-                                                            <PopoverTrigger
-                                                                asChild
-                                                            >
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
-                                                                >
-                                                                    <Settings className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent
-                                                                className="w-80 p-4 space-y-4"
-                                                                align="end"
-                                                            >
-                                                                <h4 className="font-medium text-sm border-b pb-2">
-                                                                    Opsi Pajak
-                                                                    Lanjutan
-                                                                </h4>
-
-                                                                <div className="space-y-1.5">
-                                                                    <Label className="text-xs text-muted-foreground">
-                                                                        Mode PPN
-                                                                    </Label>
-                                                                    <FormField
-                                                                        control={
-                                                                            form.control
-                                                                        }
-                                                                        name={`items.${index}.ppnMode`}
-                                                                        render={({
-                                                                            field: ppnField,
-                                                                        }) => (
-                                                                            <RadioGroup
-                                                                                value={
-                                                                                    ppnField.value ||
-                                                                                    'EXCLUDE'
-                                                                                }
-                                                                                onValueChange={
-                                                                                    ppnField.onChange
-                                                                                }
-                                                                                className="flex flex-col gap-2 pt-1"
-                                                                            >
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <RadioGroupItem
-                                                                                        value="EXCLUDE"
-                                                                                        id={`ppn-excl-pop-${index}`}
-                                                                                    />
-                                                                                    <Label
-                                                                                        htmlFor={`ppn-excl-pop-${index}`}
-                                                                                        className="text-xs cursor-pointer"
-                                                                                    >
-                                                                                        Exclude
-                                                                                        (harga
-                                                                                        +
-                                                                                        pajak)
-                                                                                    </Label>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <RadioGroupItem
-                                                                                        value="INCLUDE"
-                                                                                        id={`ppn-incl-pop-${index}`}
-                                                                                    />
-                                                                                    <Label
-                                                                                        htmlFor={`ppn-incl-pop-${index}`}
-                                                                                        className="text-xs cursor-pointer"
-                                                                                    >
-                                                                                        Include
-                                                                                        (harga
-                                                                                        termasuk)
-                                                                                    </Label>
-                                                                                </div>
-                                                                            </RadioGroup>
-                                                                        )}
-                                                                    />
-                                                                </div>
-
-                                                                <div className="space-y-1.5">
-                                                                    <Label className="text-xs text-muted-foreground">
-                                                                        Tarif
-                                                                        Pajak
-                                                                        (%)
-                                                                    </Label>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <FormField
-                                                                            control={
-                                                                                form.control
-                                                                            }
-                                                                            name={`items.${index}.taxPercent`}
-                                                                            render={({
-                                                                                field: taxField,
-                                                                            }) => (
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    min="0"
-                                                                                    max="100"
-                                                                                    step="1"
-                                                                                    className="h-8 w-20 text-center font-mono text-sm"
-                                                                                    {...taxField}
-                                                                                />
-                                                                            )}
-                                                                        />
-                                                                        <span className="text-xs text-muted-foreground">
-                                                                            %
-                                                                        </span>
-                                                                        <span className="text-xs font-mono text-muted-foreground ml-auto">
-                                                                            {afterDisc *
-                                                                                (tax /
-                                                                                    100) >
-                                                                            0
-                                                                                ? formatRupiah(
-                                                                                      afterDisc *
-                                                                                          (tax /
-                                                                                              100),
-                                                                                  )
-                                                                                : 'Rp 0'}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="space-y-1.5">
-                                                                    <Label className="text-xs text-muted-foreground">
-                                                                        DPP
-                                                                        (Dasar
-                                                                        Pengenaan
-                                                                        Pajak)
-                                                                    </Label>
-                                                                    <FormField
-                                                                        control={
-                                                                            form.control
-                                                                        }
-                                                                        name={`items.${index}.dppOtherAmount`}
-                                                                        render={({
-                                                                            field: dppField,
-                                                                        }) => (
-                                                                            <div className="relative">
-                                                                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                                                                    Rp
-                                                                                </span>
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    min="0"
-                                                                                    step="any"
-                                                                                    placeholder="Auto (11/12)"
-                                                                                    value={
-                                                                                        dppField.value ??
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) => {
-                                                                                        const normalized =
-                                                                                            e.target.value.replace(
-                                                                                                ',',
-                                                                                                '.',
-                                                                                            );
-                                                                                        const num =
-                                                                                            Number(
-                                                                                                normalized,
-                                                                                            );
-                                                                                        dppField.onChange(
-                                                                                            e
-                                                                                                .target
-                                                                                                .value ===
-                                                                                                ''
-                                                                                                ? null
-                                                                                                : isNaN(
-                                                                                                        num,
-                                                                                                    )
-                                                                                                  ? 0
-                                                                                                  : num,
-                                                                                        );
-                                                                                    }}
-                                                                                    className="h-8 pl-7 text-right font-mono text-xs bg-zinc-50 dark:bg-zinc-900"
-                                                                                />
-                                                                            </div>
-                                                                        )}
-                                                                    />
-                                                                </div>
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                    )}
-                                                </div>
-                                            </TableCell>
+                                            <DesktopTaxCell
+                                                form={form}
+                                                index={index}
+                                                taxableItems={taxableItems}
+                                                setTaxableItems={setTaxableItems}
+                                                afterDisc={afterDisc}
+                                                tax={tax}
+                                            />
 
                                             {/* Subtotal */}
                                             <TableCell className="pt-4 text-right font-bold font-mono text-sm text-foreground">
@@ -2570,69 +1185,12 @@ export function SalesOrderForm({
 
                     {/* Desktop Summary Totals */}
                     {fields.length > 0 && (
-                        <div className="hidden md:block w-full max-w-sm ml-auto border rounded-lg p-4 bg-muted/30 space-y-2">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">
-                                    {formLabels.subtotal}
-                                </span>
-                                <span className="tabular-nums">
-                                    {formatRupiah(
-                                        totals.hasInclude
-                                            ? totals.dpp
-                                            : totals.gross,
-                                    )}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">
-                                    Diskon
-                                </span>
-                                <span className="text-red-500 tabular-nums">
-                                    -{formatRupiah(totals.discount)}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">
-                                    Pajak
-                                </span>
-                                <span className="tabular-nums">
-                                    {formatRupiah(totals.tax)}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">
-                                    Ongkos Kirim
-                                </span>
-                                {isShippingFromFleet ? (
-                                    <div className="text-right">
-                                        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                            {formatRupiah(watchShippingCost)}
-                                        </span>
-                                        <p className="text-[10px] text-muted-foreground">
-                                            Dari surat jalan
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        {...form.register('shippingCost', {
-                                            valueAsNumber: true,
-                                        })}
-                                        className="w-32 text-right h-9"
-                                        placeholder="0"
-                                    />
-                                )}
-                            </div>
-                            <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
-                                <span>Total Keseluruhan</span>
-                                <span className="tabular-nums">
-                                    {formatRupiah(
-                                        totals.net + watchShippingCost,
-                                    )}
-                                </span>
-                            </div>
-                        </div>
+                        <DesktopOrderTotals
+                            form={form}
+                            totals={totals}
+                            isShippingFromFleet={isShippingFromFleet}
+                            watchShippingCost={watchShippingCost}
+                        />
                     )}
 
                     {/* Mobile: Card view */}
@@ -2665,222 +1223,28 @@ export function SalesOrderForm({
                                     className="border rounded-lg p-4 space-y-3 bg-card"
                                 >
                                     {/* Product header */}
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="flex-1 min-w-0">
-                                            <FormField
-                                                control={form.control}
-                                                name={`items.${index}.productVariantId`}
-                                                render={({
-                                                    field: productField,
-                                                }) => (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        className={cn(
-                                                            'w-full justify-between h-11 text-left font-normal',
-                                                            !productField.value &&
-                                                                'text-muted-foreground',
-                                                        )}
-                                                        onClick={() =>
-                                                            setMobileProductSearch(
-                                                                {
-                                                                    open: true,
-                                                                    index,
-                                                                },
-                                                            )
-                                                        }
-                                                    >
-                                                        <span className="truncate">
-                                                            {productField.value
-                                                                ? productField.value.startsWith(
-                                                                      CUSTOM_ITEM_PREFIX,
-                                                                  )
-                                                                    ? (() => {
-                                                                          const custom =
-                                                                              customItems.find(
-                                                                                  (
-                                                                                      c,
-                                                                                  ) =>
-                                                                                      c.tempId ===
-                                                                                      productField.value,
-                                                                              );
-                                                                          return custom
-                                                                              ? `✏️ ${custom.name}`
-                                                                              : 'Pilih Produk';
-                                                                      })()
-                                                                    : (() => {
-                                                                          const p =
-                                                                              filteredProducts.find(
-                                                                                  (
-                                                                                      pv: SerializedProductVariant,
-                                                                                  ) =>
-                                                                                      pv.id ===
-                                                                                      productField.value,
-                                                                              );
-                                                                          return p
-                                                                              ? p
-                                                                                    .product
-                                                                                    .name ===
-                                                                                p.name
-                                                                                  ? p.name
-                                                                                  : `${p.product.name} - ${p.name}`
-                                                                              : 'Pilih Produk';
-                                                                      })()
-                                                                : 'Pilih Produk'}
-                                                        </span>
-                                                        <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                )}
-                                            />
-                                            {variant && (
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {variant.skuCode}
-                                                    {unitMeta?.hasAlternateUnit &&
-                                                        ` • ${unitMeta.displayUnit}`}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-11 w-11 text-muted-foreground hover:text-red-500 shrink-0"
-                                            onClick={() =>
-                                                handleRemoveItem(index)
-                                            }
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                                    <MobileProductHeader
+                                        form={form}
+                                        index={index}
+                                        setMobileProductSearch={setMobileProductSearch}
+                                        CUSTOM_ITEM_PREFIX={CUSTOM_ITEM_PREFIX}
+                                        customItems={customItems}
+                                        filteredProducts={filteredProducts}
+                                        variant={variant}
+                                        unitMeta={unitMeta}
+                                        handleRemoveItem={handleRemoveItem}
+                                    />
 
                                     {/* Qty & Price */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.quantity`}
-                                            render={({ field: qtyField }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs text-muted-foreground">
-                                                        Qty
-                                                        {unitMeta
-                                                            ? ` (${unitMeta.displayUnit})`
-                                                            : ''}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="text"
-                                                            inputMode="decimal"
-                                                            className="h-11"
-                                                            value={
-                                                                rawQtyInputs[
-                                                                    index
-                                                                ] !== undefined
-                                                                    ? rawQtyInputs[
-                                                                          index
-                                                                      ]
-                                                                    : (qtyField.value ??
-                                                                      '')
-                                                            }
-                                                            onChange={(e) => {
-                                                                setRawQtyInputs(
-                                                                    (prev) => ({
-                                                                        ...prev,
-                                                                        [index]:
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                    }),
-                                                                );
-                                                                const num =
-                                                                    Number(
-                                                                        e.target.value.replace(
-                                                                            ',',
-                                                                            '.',
-                                                                        ),
-                                                                    );
-                                                                if (
-                                                                    !isNaN(
-                                                                        num,
-                                                                    ) &&
-                                                                    e.target
-                                                                        .value !==
-                                                                        ''
-                                                                ) {
-                                                                    qtyField.onChange(
-                                                                        num,
-                                                                    );
-                                                                }
-                                                            }}
-                                                            onBlur={() => {
-                                                                const raw =
-                                                                    rawQtyInputs[
-                                                                        index
-                                                                    ];
-                                                                const num =
-                                                                    Number(
-                                                                        (
-                                                                            raw ||
-                                                                            '0'
-                                                                        ).replace(
-                                                                            ',',
-                                                                            '.',
-                                                                        ),
-                                                                    );
-                                                                qtyField.onChange(
-                                                                    isNaN(num)
-                                                                        ? 0
-                                                                        : num,
-                                                                );
-                                                                setRawQtyInputs(
-                                                                    (prev) => {
-                                                                        const next =
-                                                                            {
-                                                                                ...prev,
-                                                                            };
-                                                                        delete next[
-                                                                            index
-                                                                        ];
-                                                                        return next;
-                                                                    },
-                                                                );
-                                                            }}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.unitPrice`}
-                                            render={({ field: priceField }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs text-muted-foreground">
-                                                        Harga
-                                                        {unitMeta
-                                                            ? ` /${unitMeta.displayUnit}`
-                                                            : ''}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="number"
-                                                            step="100"
-                                                            className="h-11"
-                                                            {...priceField}
-                                                        />
-                                                    </FormControl>
-                                                    {variant && (
-                                                        <div className="text-[10px] text-muted-foreground text-right">
-                                                            {getPriceSourceLabel(
-                                                                variant,
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
+                                    <MobileQuantityPriceFields
+                                        form={form}
+                                        index={index}
+                                        unitMeta={unitMeta}
+                                        rawQtyInputs={rawQtyInputs}
+                                        setRawQtyInputs={setRawQtyInputs}
+                                        variant={variant}
+                                        getPriceSourceLabel={getPriceSourceLabel}
+                                    />
 
                                     {/* Discount & Tax */}
                                     <div className="grid grid-cols-2 gap-3">
@@ -2938,143 +1302,19 @@ export function SalesOrderForm({
                                                 }
 
                                                 return (
-                                                    <FormItem>
-                                                        <FormLabel className="text-xs text-muted-foreground flex justify-between items-center">
-                                                            <span>Diskon</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    toggleDiscountType(
-                                                                        index,
-                                                                    )
-                                                                }
-                                                                className="text-[10px] font-semibold text-primary border rounded px-1 hover:bg-muted transition-colors cursor-pointer"
-                                                            >
-                                                                Tipe:{' '}
-                                                                {discType ===
-                                                                'PERCENT'
-                                                                    ? '%'
-                                                                    : 'Rp'}
-                                                            </button>
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <div className="relative">
-                                                                <Input
-                                                                    type="text"
-                                                                    inputMode="decimal"
-                                                                    placeholder="0"
-                                                                    value={
-                                                                        displayValue
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) =>
-                                                                        handleDiscountChange(
-                                                                            index,
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        )
-                                                                    }
-                                                                    onBlur={() => {
-                                                                        const rawVal =
-                                                                            rawDiscountInputs[
-                                                                                index
-                                                                            ] ||
-                                                                            '';
-                                                                        if (
-                                                                            rawVal
-                                                                        ) {
-                                                                            if (
-                                                                                discType ===
-                                                                                'NOMINAL'
-                                                                            ) {
-                                                                                const nominal =
-                                                                                    parseIndonesianPrice(
-                                                                                        rawVal,
-                                                                                    );
-                                                                                setRawDiscountInputs(
-                                                                                    (
-                                                                                        prev,
-                                                                                    ) => ({
-                                                                                        ...prev,
-                                                                                        [index]:
-                                                                                            formatIndonesianPrice(
-                                                                                                nominal,
-                                                                                            ),
-                                                                                    }),
-                                                                                );
-                                                                            } else {
-                                                                                const percent =
-                                                                                    Number(
-                                                                                        rawVal,
-                                                                                    );
-                                                                                setRawDiscountInputs(
-                                                                                    (
-                                                                                        prev,
-                                                                                    ) => ({
-                                                                                        ...prev,
-                                                                                        [index]:
-                                                                                            String(
-                                                                                                percent,
-                                                                                            ),
-                                                                                    }),
-                                                                                );
-                                                                            }
-                                                                        } else {
-                                                                            setRawDiscountInputs(
-                                                                                (
-                                                                                    prev,
-                                                                                ) => {
-                                                                                    const next =
-                                                                                        {
-                                                                                            ...prev,
-                                                                                        };
-                                                                                    delete next[
-                                                                                        index
-                                                                                    ];
-                                                                                    return next;
-                                                                                },
-                                                                            );
-                                                                        }
-                                                                    }}
-                                                                    className="h-11 pr-8 text-right font-mono"
-                                                                />
-                                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
-                                                                    {discType ===
-                                                                    'PERCENT'
-                                                                        ? '%'
-                                                                        : 'Rp'}
-                                                                </span>
-                                                            </div>
-                                                        </FormControl>
-                                                        {afterDisc < sub && (
-                                                            <div className="text-[10px] font-mono text-red-500 text-right mt-1">
-                                                                -
-                                                                {formatRupiah(
-                                                                    sub -
-                                                                        afterDisc,
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                        {selectedCustomerCeiling !=
-                                                            null &&
-                                                            Number(
-                                                                discField.value ||
-                                                                    0,
-                                                            ) >
-                                                                selectedCustomerCeiling && (
-                                                                <div className="text-[10px] text-amber-600 leading-tight mt-1">
-                                                                    Melebihi
-                                                                    plafon{' '}
-                                                                    {
-                                                                        selectedCustomerCeiling
-                                                                    }
-                                                                    % → PENDING
-                                                                </div>
-                                                            )}
-                                                        <FormMessage />
-                                                    </FormItem>
+                                                    <MobileDiscountField
+                                                        index={index}
+                                                        displayValue={displayValue}
+                                                        handleDiscountChange={handleDiscountChange}
+                                                        rawDiscountInputs={rawDiscountInputs}
+                                                        discType={discType}
+                                                        setRawDiscountInputs={setRawDiscountInputs}
+                                                        toggleDiscountType={toggleDiscountType}
+                                                        afterDisc={afterDisc}
+                                                        sub={sub}
+                                                        selectedCustomerCeiling={selectedCustomerCeiling}
+                                                        discField={discField}
+                                                    />
                                                 );
                                             }}
                                         />
@@ -3125,67 +1365,12 @@ export function SalesOrderForm({
 
                         {/* Mobile totals */}
                         {fields.length > 0 && (
-                            <div className="border rounded-lg p-4 bg-muted/30 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                        Subtotal
-                                    </span>
-                                    <span className="tabular-nums">
-                                        {formatRupiah(totals.gross)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                        Diskon
-                                    </span>
-                                    <span className="text-red-500 tabular-nums">
-                                        -{formatRupiah(totals.discount)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                        Pajak
-                                    </span>
-                                    <span className="tabular-nums">
-                                        {formatRupiah(totals.tax)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-muted-foreground">
-                                        Ongkos Kirim
-                                    </span>
-                                    {isShippingFromFleet ? (
-                                        <div className="text-right">
-                                            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                                {formatRupiah(
-                                                    watchShippingCost,
-                                                )}
-                                            </span>
-                                            <p className="text-[10px] text-muted-foreground">
-                                                Dari surat jalan
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <Input
-                                            type="number"
-                                            min={0}
-                                            {...form.register('shippingCost', {
-                                                valueAsNumber: true,
-                                            })}
-                                            className="w-28 text-right h-11"
-                                            placeholder="0"
-                                        />
-                                    )}
-                                </div>
-                                <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
-                                    <span>Total</span>
-                                    <span className="tabular-nums">
-                                        {formatRupiah(
-                                            totals.net + watchShippingCost,
-                                        )}
-                                    </span>
-                                </div>
-                            </div>
+                            <MobileOrderTotals
+                                form={form}
+                                totals={totals}
+                                isShippingFromFleet={isShippingFromFleet}
+                                watchShippingCost={watchShippingCost}
+                            />
                         )}
                     </div>
                 </div>
@@ -3211,85 +1396,15 @@ export function SalesOrderForm({
 
             {/* Inline Custom Item Form */}
             {customItemIndex !== null && (
-                <Dialog
-                    open={customItemIndex !== null}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            setCustomItemIndex(null);
-                            setCustomItemName('');
-                            setCustomItemPrice('');
-                        }
-                    }}
-                >
-                    <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>Ketik Nama Produk</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="custom-item-name">
-                                    Nama Produk *
-                                </Label>
-                                <Input
-                                    id="custom-item-name"
-                                    value={customItemName}
-                                    onChange={(e) =>
-                                        setCustomItemName(e.target.value)
-                                    }
-                                    placeholder="Contoh: Plastik OPP 8 micron"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (
-                                            e.key === 'Enter' &&
-                                            customItemName.trim()
-                                        ) {
-                                            e.preventDefault();
-                                            confirmCustomItem();
-                                        }
-                                    }}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="custom-item-price">
-                                    Harga (Rp)
-                                </Label>
-                                <Input
-                                    id="custom-item-price"
-                                    type="number"
-                                    min="0"
-                                    step="100"
-                                    value={customItemPrice}
-                                    onChange={(e) =>
-                                        setCustomItemPrice(e.target.value)
-                                    }
-                                    placeholder="0 (harga nego, bisa diisi nanti)"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    Kosongkan atau isi 0 jika harga masih nego.
-                                    Bisa diubah setelah order dibuat.
-                                </p>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setCustomItemIndex(null);
-                                        setCustomItemName('');
-                                        setCustomItemPrice('');
-                                    }}
-                                >
-                                    Batal
-                                </Button>
-                                <Button
-                                    onClick={confirmCustomItem}
-                                    disabled={!customItemName.trim()}
-                                >
-                                    Pilih Produk Ini
-                                </Button>
-                            </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                <CustomItemDialog
+                    customItemIndex={customItemIndex}
+                    setCustomItemIndex={setCustomItemIndex}
+                    customItemName={customItemName}
+                    setCustomItemName={setCustomItemName}
+                    customItemPrice={customItemPrice}
+                    setCustomItemPrice={setCustomItemPrice}
+                    confirmCustomItem={confirmCustomItem}
+                />
             )}
 
             {/* Quick Add Product Dialog */}
@@ -3308,119 +1423,19 @@ export function SalesOrderForm({
             />
 
             {/* Mobile product search dialog */}
-            <Dialog
-                open={mobileProductSearch.open}
-                onOpenChange={(open) =>
-                    setMobileProductSearch((prev) => ({ ...prev, open }))
-                }
-            >
-                <DialogContent className="p-0 max-w-none sm:max-w-lg h-[90vh] flex flex-col">
-                    <DialogHeader className="px-4 pt-4 pb-2">
-                        <DialogTitle>Pilih Produk</DialogTitle>
-                    </DialogHeader>
-                    <Command className="flex-1 overflow-hidden">
-                        <CommandInput placeholder="Cari nama, SKU, atau kode produk..." />
-                        <CommandList className="flex-1 overflow-y-auto">
-                            <CommandEmpty>{productEmptyMessage}</CommandEmpty>
-                            <CommandGroup>
-                                {filteredProducts.map(
-                                    (p: SerializedProductVariant) => (
-                                        <CommandItem
-                                            key={p.id}
-                                            value={`${p.product.name} ${p.name} ${p.skuCode}`.toLowerCase()}
-                                            onSelect={() => {
-                                                selectProduct(
-                                                    mobileProductSearch.index,
-                                                    p,
-                                                );
-                                                setMobileProductSearch({
-                                                    open: false,
-                                                    index: 0,
-                                                });
-                                            }}
-                                            className="py-3"
-                                        >
-                                            <Check
-                                                className={cn(
-                                                    'mr-2 h-4 w-4',
-                                                    p.id ===
-                                                        form.getValues(
-                                                            `items.${mobileProductSearch.index}.productVariantId`,
-                                                        )
-                                                        ? 'opacity-100'
-                                                        : 'opacity-0',
-                                                )}
-                                            />
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">
-                                                    {p.product.name === p.name
-                                                        ? p.name
-                                                        : `${p.product.name} - ${p.name}`}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground">
-                                                    {p.skuCode} •{' '}
-                                                    {formatRupiah(
-                                                        toDisplayUnitPrice(
-                                                            p,
-                                                            getCustomerBasePrice(
-                                                                p,
-                                                            ),
-                                                        ),
-                                                    )}
-                                                    /
-                                                    {
-                                                        getProductionUnitMeta(p)
-                                                            .displayUnit
-                                                    }
-                                                    {' · '}
-                                                    {getPriceSourceLabel(p)}
-                                                </span>
-                                            </div>
-                                        </CommandItem>
-                                    ),
-                                )}
-                            </CommandGroup>
-                            <CommandSeparator />
-                            <CommandGroup>
-                                <CommandItem
-                                    onSelect={() => {
-                                        const idx = mobileProductSearch.index;
-                                        setMobileProductSearch({
-                                            open: false,
-                                            index: 0,
-                                        });
-                                        setCustomItemIndex(idx);
-                                    }}
-                                    className="flex items-center gap-2 text-amber-600 cursor-pointer py-3"
-                                >
-                                    <span className="text-lg leading-none">
-                                        ✏️
-                                    </span>
-                                    <span className="font-medium">
-                                        Ketik Nama Produk Sendiri
-                                    </span>
-                                </CommandItem>
-                                <CommandItem
-                                    onSelect={() => {
-                                        const idx = mobileProductSearch.index;
-                                        setMobileProductSearch({
-                                            open: false,
-                                            index: 0,
-                                        });
-                                        setQuickAddIndex(idx);
-                                    }}
-                                    className="flex items-center gap-2 text-primary cursor-pointer py-3"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    <span className="font-medium">
-                                        Tambah Produk Baru
-                                    </span>
-                                </CommandItem>
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
-                </DialogContent>
-            </Dialog>
+            <MobileProductSearchDialog
+                form={form}
+                mobileProductSearch={mobileProductSearch}
+                setMobileProductSearch={setMobileProductSearch}
+                productEmptyMessage={productEmptyMessage}
+                filteredProducts={filteredProducts}
+                selectProduct={selectProduct}
+                toDisplayUnitPrice={toDisplayUnitPrice}
+                getCustomerBasePrice={getCustomerBasePrice}
+                getPriceSourceLabel={getPriceSourceLabel}
+                setCustomItemIndex={setCustomItemIndex}
+                setQuickAddIndex={setQuickAddIndex}
+            />
 
             {/* New Customer Dialog — triggered from customer picker */}
             <CustomerDialog

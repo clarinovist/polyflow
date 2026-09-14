@@ -336,6 +336,43 @@ describe('SalesOrderForm payload characterization', () => {
         ]);
     });
 
+    it('removes the middle duplicate row without remounting the surviving rows or changing their persisted IDs', async () => {
+        renderForm({
+            mode: 'edit',
+            initialData: editData([
+                item({ discountPercent: 5 }),
+                item({ id: 'fixture-line-b', quantity: 3, unitPrice: 50_000, discountPercent: 10 }),
+                item({ id: 'fixture-line-c', quantity: 4, unitPrice: 25_000, discountPercent: 15 }),
+            ]),
+        });
+        const firstRow = desktopRow(0);
+        const lastRow = desktopRow(2);
+        const lastQuantity = rowInput(2, 2);
+        const lastMobileQuantity = screen.getAllByRole('textbox', { name: 'Qty (KG)' })[2];
+        enter(lastQuantity, '6');
+        // The final cell is the existing unlabelled remove button. Do not
+        // change production labels/DOM as part of this move-only batch.
+        const removeCell = within(desktopRow(1)).getAllByRole('cell')[7];
+        fireEvent.click(within(removeCell).getByRole('button'));
+
+        expect(desktopRow(0)).toBe(firstRow);
+        expect(desktopRow(1)).toBe(lastRow);
+        expect(rowInput(2, 1)).toBe(lastQuantity);
+        expect(screen.getAllByRole('textbox', { name: 'Qty (KG)' })[1]).toBe(lastMobileQuantity);
+        expect(lastMobileQuantity).toHaveProperty('value', '6');
+        expect(rowInput(2, 1)).toHaveProperty('value', '6');
+        expect(rowInput(4, 1)).toHaveProperty('value', '15');
+        submit('edit');
+
+        const payload = await updatedPayload();
+        expect(payload.items.map(({ id, quantity, unitPrice, discountPercent }) => ({
+            id, quantity, unitPrice, discountPercent,
+        }))).toEqual([
+            { id: 'fixture-line-a', quantity: 2, unitPrice: 120_000, discountPercent: 5 },
+            { id: 'fixture-line-c', quantity: 6, unitPrice: 25_000, discountPercent: 15 },
+        ]);
+    });
+
     it.each([
         { accept: true, enteredPrice: 150_000, basePrice: 6_000 },
         { accept: false, enteredPrice: 125_000, basePrice: 5_000 },

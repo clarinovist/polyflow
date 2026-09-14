@@ -1,5 +1,11 @@
 'use client';
 
+import { OrderInfoCard } from './order-detail/OrderInfoCard';
+import { OrderSidebar } from './order-detail/OrderSidebar';
+import { InvoiceDialog } from './order-detail/InvoiceDialog';
+import { FollowUpDialog } from './order-detail/FollowUpDialog';
+import { RejectQuotationDialog } from './order-detail/RejectQuotationDialog';
+
 import { SalesOrderStatus, SalesLostReason } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +22,6 @@ import {
     actionLabels,
 } from '@/lib/labels';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import {
     ArrowLeft,
@@ -52,16 +57,10 @@ import { createInvoice } from '@/actions/finance/invoice';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { ProductionStatusCard } from './ProductionStatusCard';
-import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { ShipmentDialog } from './ShipmentDialog';
 import { CreateDeliveryOrderDialog } from './CreateDeliveryOrderDialog';
 import { AddToScheduleDialog } from './AddToScheduleDialog';
-import { isBillableDeliveryStatus } from '@/lib/sales/delivery-status';
-import {
-    PAYMENT_TERM_OPTIONS,
-    calculateDueDate,
-} from '@/lib/finance/payment-terms';
+import { calculateDueDate } from '@/lib/finance/payment-terms';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -80,34 +79,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    getEnteredQuantityDisplay,
-    getEnteredUnitPriceDisplay,
-} from '@/lib/utils/production-units';
 import type { SalesOrderDetailClientProps } from './sales-order-types';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { CalendarClock } from 'lucide-react';
-import {
-    SALES_LOST_REASON_LABELS,
-    SALES_LOST_REASON_OPTIONS,
-} from '@/lib/sales/order-phase';
 
 export function SalesOrderDetailClient({
     order,
@@ -432,6 +405,80 @@ export function SalesOrderDetailClient({
             }
         } catch {
             toast.error('Gagal menolak harga. Coba lagi.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleClearFollowUp = async () => {
+        setIsLoading(true);
+        try {
+            const res = await updateFollowUpDateAction(order.id, null);
+            if (res.success) {
+                toast.success('Jadwal follow-up dihapus.');
+                setFollowUpDateInput('');
+                setIsFollowUpDialogOpen(false);
+                router.refresh();
+            } else {
+                toast.error(res.error || 'Gagal menghapus jadwal.');
+            }
+        } catch {
+            toast.error('Gagal menghapus jadwal follow-up.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSaveFollowUp = async () => {
+        if (!followUpDateInput) {
+            toast.error('Pilih tanggal follow-up terlebih dahulu.');
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const iso = new Date(followUpDateInput).toISOString();
+            const res = await updateFollowUpDateAction(order.id, iso);
+            if (res.success) {
+                toast.success('Jadwal follow-up disimpan.');
+                setIsFollowUpDialogOpen(false);
+                router.refresh();
+            } else {
+                toast.error(res.error || 'Gagal menyimpan jadwal.');
+            }
+        } catch {
+            toast.error('Gagal menyimpan jadwal follow-up.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRejectQuotation = async () => {
+        if (!lostReasonValue) {
+            toast.error('Alasan kalah wajib dipilih.');
+            return;
+        }
+        if (lostReasonValue === 'LAINNYA' && !lostReasonNotes.trim()) {
+            toast.error('Catatan wajib diisi untuk alasan Lainnya.');
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const res = await rejectQuotationOrder(
+                order.id,
+                lostReasonValue as SalesLostReason,
+                lostReasonNotes.trim() ? lostReasonNotes.trim() : undefined,
+            );
+            if (res.success) {
+                toast.success(`Penawaran ${order.orderNumber} ditolak.`);
+                setIsRejectDialogOpen(false);
+                setLostReasonValue('');
+                setLostReasonNotes('');
+                router.refresh();
+            } else {
+                toast.error(res.error || 'Gagal menolak penawaran.');
+            }
+        } catch {
+            toast.error('Gagal menolak penawaran. Coba lagi.');
         } finally {
             setIsLoading(false);
         }
@@ -896,210 +943,24 @@ export function SalesOrderDetailClient({
                                         Invoice
                                     </Button>
 
-                                    <Dialog
-                                        open={invoiceDialogOpen}
-                                        onOpenChange={setInvoiceDialogOpen}
-                                    >
-                                        <DialogContent className="sm:max-w-[480px]">
-                                            <DialogHeader>
-                                                <DialogTitle>
-                                                    Buat Sales Invoice
-                                                </DialogTitle>
-                                                <DialogDescription>
-                                                    Tentukan tanggal invoice &
-                                                    tempo. Jatuh tempo = Invoice
-                                                    + Tempo (atau manual).
-                                                </DialogDescription>
-                                            </DialogHeader>
-
-                                            <div className="space-y-4 py-2">
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div className="space-y-1.5">
-                                                        <Label>
-                                                            Tanggal Invoice
-                                                        </Label>
-                                                        <Input
-                                                            type="date"
-                                                            value={invoiceDate}
-                                                            onChange={(e) =>
-                                                                setInvoiceDate(
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label>
-                                                            Tempo Default
-                                                            Customer
-                                                        </Label>
-                                                        <div className="text-sm font-medium py-2">
-                                                            {order.customer
-                                                                ?.paymentTermDays ??
-                                                                30}{' '}
-                                                            hari (dari master
-                                                            customer)
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <Label>
-                                                        Tempo Pembayaran
-                                                    </Label>
-                                                    <Select
-                                                        value={String(termDays)}
-                                                        onValueChange={(v) =>
-                                                            setTermDays(
-                                                                parseInt(v, 10),
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {PAYMENT_TERM_OPTIONS.map(
-                                                                (opt) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            opt.value
-                                                                        }
-                                                                        value={String(
-                                                                            opt.value,
-                                                                        )}
-                                                                    >
-                                                                        {
-                                                                            opt.label
-                                                                        }
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                            <SelectItem value="-1">
-                                                                Custom...
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-
-                                                {termDays === -1 && (
-                                                    <div className="space-y-1.5">
-                                                        <Label>
-                                                            Custom Tempo (hari)
-                                                        </Label>
-                                                        <Input
-                                                            type="number"
-                                                            min={0}
-                                                            max={365}
-                                                            value={
-                                                                customTermDays
-                                                            }
-                                                            onChange={(e) =>
-                                                                setCustomTermDays(
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder="Misal 21"
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                <div className="flex items-center gap-2 pt-1">
-                                                    <input
-                                                        id="manual-due-sales"
-                                                        type="checkbox"
-                                                        checked={useManualDue}
-                                                        onChange={(e) =>
-                                                            setUseManualDue(
-                                                                e.target.checked,
-                                                            )
-                                                        }
-                                                        className="h-4 w-4"
-                                                    />
-                                                    <Label
-                                                        htmlFor="manual-due-sales"
-                                                        className="cursor-pointer"
-                                                    >
-                                                        Input tanggal jatuh tempo
-                                                        manual
-                                                    </Label>
-                                                </div>
-
-                                                {useManualDue && (
-                                                    <div className="space-y-1.5">
-                                                        <Label>
-                                                            Tanggal Jatuh Tempo
-                                                            (manual)
-                                                        </Label>
-                                                        <Input
-                                                            type="date"
-                                                            value={
-                                                                manualDueDate
-                                                            }
-                                                            onChange={(e) =>
-                                                                setManualDueDate(
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                <div className="rounded-md bg-muted p-3 text-sm">
-                                                    <div className="text-muted-foreground">
-                                                        Preview Jatuh Tempo:
-                                                    </div>
-                                                    <div className="font-bold text-base mt-1">
-                                                        {format(
-                                                            computedDueDate,
-                                                            'dd MMM yyyy',
-                                                        )}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground mt-1">
-                                                        Rumus: Invoice{' '}
-                                                        {invoiceDate
-                                                            ? format(
-                                                                  new Date(
-                                                                      invoiceDate,
-                                                                  ),
-                                                                  'dd MMM yyyy',
-                                                              )
-                                                            : '-'}{' '}
-                                                        +{' '}
-                                                        {useManualDue
-                                                            ? 'Manual'
-                                                            : `${termDays === -1 ? customTermDays || 0 : termDays} hari`}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <DialogFooter>
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        setInvoiceDialogOpen(
-                                                            false,
-                                                        )
-                                                    }
-                                                >
-                                                    Batal
-                                                </Button>
-                                                <Button
-                                                    onClick={
-                                                        handleGenerateInvoice
-                                                    }
-                                                    disabled={isLoading}
-                                                >
-                                                    {isLoading
-                                                        ? 'Membuat...'
-                                                        : 'Buat Invoice'}
-                                                </Button>
-                                            </DialogFooter>
-                                        </DialogContent>
-                                    </Dialog>
+                                    <InvoiceDialog
+                                        order={order}
+                                        invoiceDialogOpen={invoiceDialogOpen}
+                                        setInvoiceDialogOpen={setInvoiceDialogOpen}
+                                        invoiceDate={invoiceDate}
+                                        setInvoiceDate={setInvoiceDate}
+                                        termDays={termDays}
+                                        setTermDays={setTermDays}
+                                        customTermDays={customTermDays}
+                                        setCustomTermDays={setCustomTermDays}
+                                        useManualDue={useManualDue}
+                                        setUseManualDue={setUseManualDue}
+                                        manualDueDate={manualDueDate}
+                                        setManualDueDate={setManualDueDate}
+                                        computedDueDate={computedDueDate}
+                                        isLoading={isLoading}
+                                        handleGenerateInvoice={handleGenerateInvoice}
+                                    />
                                 </>
                             )}
                             {!warehouseMode &&
@@ -1206,560 +1067,24 @@ export function SalesOrderDetailClient({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Main Order Info */}
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Detail Pesanan</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">
-                                    {salesLabels.customer}
-                                </h3>
-                                <p className="text-lg">{customerLabel}</p>
-                                <p className="text-sm text-muted-foreground">
-                                    {order.customer?.email ||
-                                        (isLegacyInternalOrder
-                                            ? 'No customer assigned'
-                                            : 'No email')}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    {order.customer?.phone || ''}
-                                </p>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">
-                                    {isMaklonOrder
-                                        ? 'Lokasi Produksi'
-                                        : salesLabels.sourceWarehouse}
-                                </h3>
-                                <p className="text-lg">
-                                    {order.sourceLocation?.name || 'N/A'}
-                                </p>
-                                {isMaklonOrder && (
-                                    <p className="text-sm text-muted-foreground">
-                                        Dipakai sebagai lokasi produksi/default
-                                        consumption location untuk work order
-                                        maklon.
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">
-                                    {salesLabels.expectedDate}
-                                </h3>
-                                <p>
-                                    {order.expectedDate
-                                        ? format(
-                                              new Date(order.expectedDate),
-                                              'PPP',
-                                          )
-                                        : '-'}
-                                </p>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">
-                                    {salesLabels.orderType}
-                                </h3>
-                                <Badge variant="outline">
-                                    {order.orderType.replace(/_/g, ' ')}
-                                </Badge>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">
-                                    Follow-up
-                                </h3>
-                                {followUpDate ? (
-                                    <div className="flex items-center gap-2">
-                                        <p
-                                            className={
-                                                isFollowUpOverdue
-                                                    ? 'text-destructive font-medium'
-                                                    : ''
-                                            }
-                                        >
-                                            {format(followUpDate, 'PPP')}
-                                        </p>
-                                        {isFollowUpOverdue && (
-                                            <Badge variant="destructive">
-                                                Terlambat
-                                            </Badge>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        Belum dijadwalkan
-                                    </p>
-                                )}
-                            </div>
-
-                            {(order as { lostReason?: string | null })
-                                .lostReason &&
-                                order.status === 'QUOTATION_REJECTED' && (
-                                    <div>
-                                        <h3 className="font-semibold text-sm text-muted-foreground">
-                                            Alasan Kalah
-                                        </h3>
-                                        <p className="font-medium">
-                                            {(() => {
-                                                const lr = (
-                                                    order as {
-                                                        lostReason?:
-                                                            | string
-                                                            | null;
-                                                    }
-                                                ).lostReason as string;
-                                                return (
-                                                    SALES_LOST_REASON_LABELS[
-                                                        lr
-                                                    ] ?? lr
-                                                );
-                                            })()}
-                                        </p>
-                                        {(
-                                            order as {
-                                                lostReasonNotes?: string | null;
-                                            }
-                                        ).lostReasonNotes && (
-                                            <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">
-                                                {
-                                                    (
-                                                        order as {
-                                                            lostReasonNotes?:
-                                                                | string
-                                                                | null;
-                                                        }
-                                                    ).lostReasonNotes
-                                                }
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                        </div>
-
-                        {order.notes && (
-                            <div className="bg-muted/50 p-4 rounded-md">
-                                <h3 className="font-semibold text-sm mb-1">
-                                    {formLabels.notes}
-                                </h3>
-                                <p className="text-sm whitespace-pre-wrap">
-                                    {order.notes}
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="border rounded-lg overflow-hidden">
-                            <table className="w-full text-sm">
-                                <thead className="bg-muted/50 border-b">
-                                    <tr>
-                                        <th className="h-10 px-4 text-left font-medium">
-                                            {formLabels.product}
-                                        </th>
-                                        <th className="h-10 px-4 text-right font-medium">
-                                            {formLabels.qty}
-                                        </th>
-                                        <th className="h-10 px-4 text-right font-medium">
-                                            Terkirim
-                                        </th>
-                                        {!warehouseMode && (
-                                            <th className="h-10 px-4 text-right font-medium">
-                                                {formLabels.unitPrice}
-                                            </th>
-                                        )}
-                                        {!warehouseMode &&
-                                            order.items.some(
-                                                (item) =>
-                                                    Number(
-                                                        item.taxPercent || 0,
-                                                    ) > 0 ||
-                                                    Number(
-                                                        item.taxAmount || 0,
-                                                    ) > 0,
-                                            ) && (
-                                                <th className="h-10 px-4 text-right font-medium">
-                                                    DPP
-                                                </th>
-                                            )}
-                                        {!warehouseMode && (
-                                            <th className="h-10 px-4 text-right font-medium">
-                                                {formLabels.subtotal}
-                                            </th>
-                                        )}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {order.items.map((item) => (
-                                        <tr
-                                            key={item.id}
-                                            className="hover:bg-muted/50"
-                                        >
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <div className="font-medium">
-                                                        {
-                                                            item.productVariant
-                                                                .product.name
-                                                        }
-                                                    </div>
-                                                    {(item.isFreeItem ||
-                                                        Number(
-                                                            item.unitPrice,
-                                                        ) === 0) && (
-                                                        <Badge
-                                                            variant="outline"
-                                                            className="text-[10px] px-1.5 h-4 font-normal bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                                                        >
-                                                            Sampel / Gratis
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {item.productVariant.name} -{' '}
-                                                    {
-                                                        item.productVariant
-                                                            .skuCode
-                                                    }
-                                                </div>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                {getEnteredQuantityDisplay({
-                                                    ...item,
-                                                    ...item.productVariant,
-                                                })}
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span
-                                                    className={
-                                                        Number(
-                                                            item.deliveredQty,
-                                                        ) > 0
-                                                            ? 'text-emerald-600 dark:text-emerald-400 font-medium'
-                                                            : 'text-muted-foreground'
-                                                    }
-                                                >
-                                                    {getEnteredQuantityDisplay({
-                                                        ...item,
-                                                        ...item.productVariant,
-                                                        quantity:
-                                                            item.deliveredQty,
-                                                        enteredQuantity:
-                                                            item.enteredQuantity &&
-                                                            Number(
-                                                                item.quantity,
-                                                            ) > 0
-                                                                ? (Number(
-                                                                      item.enteredQuantity,
-                                                                  ) *
-                                                                      Number(
-                                                                          item.deliveredQty,
-                                                                      )) /
-                                                                  Number(
-                                                                      item.quantity,
-                                                                  )
-                                                                : null,
-                                                    })}
-                                                </span>
-                                            </td>
-                                            {!warehouseMode && (
-                                                <td className="p-4 text-right">
-                                                    {(() => {
-                                                        const price =
-                                                            getEnteredUnitPriceDisplay(
-                                                                {
-                                                                    ...item,
-                                                                    ...item.productVariant,
-                                                                },
-                                                            );
-                                                        return `${formatRupiah(price.price)}/${price.unit}`;
-                                                    })()}
-                                                </td>
-                                            )}
-                                            {!warehouseMode &&
-                                                order.items.some(
-                                                    (i) =>
-                                                        Number(
-                                                            i.taxPercent || 0,
-                                                        ) > 0 ||
-                                                        Number(
-                                                            i.taxAmount || 0,
-                                                        ) > 0,
-                                                ) && (
-                                                    <td className="p-4 text-right text-muted-foreground">
-                                                        {item.dppOtherAmount
-                                                            ? formatRupiah(
-                                                                  Number(
-                                                                      item.dppOtherAmount,
-                                                                  ),
-                                                              )
-                                                            : '-'}
-                                                    </td>
-                                                )}
-                                            {!warehouseMode && (
-                                                <td className="p-4 text-right font-medium">
-                                                    {formatRupiah(
-                                                        Number(item.subtotal),
-                                                    )}
-                                                </td>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                {!warehouseMode && (
-                                    <tfoot className="bg-muted/50 border-t">
-                                        {Number(order.discountAmount) > 0 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={5}
-                                                    className="p-2 text-right text-sm text-muted-foreground"
-                                                >
-                                                    Diskon
-                                                </td>
-                                                <td className="p-2 text-right text-sm text-red-500">
-                                                    -
-                                                    {formatRupiah(
-                                                        Number(
-                                                            order.discountAmount,
-                                                        ),
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {Number(order.taxAmount) > 0 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={5}
-                                                    className="p-2 text-right text-sm text-muted-foreground"
-                                                >
-                                                    PPN
-                                                    {(() => {
-                                                        // Check if any item has INCLUDE mode
-                                                        const hasInclude =
-                                                            order.items.some(
-                                                                (item: {
-                                                                    ppnMode?: string;
-                                                                }) =>
-                                                                    item.ppnMode ===
-                                                                    'INCLUDE',
-                                                            );
-                                                        const hasExclude =
-                                                            order.items.some(
-                                                                (item: {
-                                                                    ppnMode?: string;
-                                                                }) =>
-                                                                    item.ppnMode ===
-                                                                        'EXCLUDE' ||
-                                                                    !item.ppnMode,
-                                                            );
-                                                        if (
-                                                            hasInclude &&
-                                                            !hasExclude
-                                                        ) {
-                                                            return (
-                                                                <span className="ml-1 text-xs">
-                                                                    (Include)
-                                                                </span>
-                                                            );
-                                                        } else if (
-                                                            hasInclude &&
-                                                            hasExclude
-                                                        ) {
-                                                            return (
-                                                                <span className="ml-1 text-xs">
-                                                                    (Campur)
-                                                                </span>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
-                                                </td>
-                                                <td className="p-2 text-right text-sm">
-                                                    {formatRupiah(
-                                                        Number(order.taxAmount),
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {Number(order.shippingCost || 0) >
-                                            0 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={5}
-                                                    className="p-2 text-right text-sm text-muted-foreground"
-                                                >
-                                                    Ongkos Kirim
-                                                    {Array.isArray(
-                                                        order.deliveryOrders,
-                                                    ) &&
-                                                        order.deliveryOrders.some(
-                                                            (d) =>
-                                                                d.totalCharge !=
-                                                                    null &&
-                                                                isBillableDeliveryStatus(
-                                                                    d.status,
-                                                                ),
-                                                        ) && (
-                                                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400">
-                                                                (dari armada)
-                                                            </span>
-                                                        )}
-                                                </td>
-                                                <td className="p-2 text-right text-sm">
-                                                    {formatRupiah(
-                                                        Number(
-                                                            order.shippingCost,
-                                                        ),
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )}
-                                        <tr>
-                                            <td
-                                                colSpan={5}
-                                                className="p-4 text-right font-bold"
-                                            >
-                                                Total Keseluruhan
-                                            </td>
-                                            <td className="p-4 text-right font-bold text-lg">
-                                                {formatRupiah(
-                                                    Number(order.totalAmount),
-                                                )}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                )}
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
+                <OrderInfoCard
+                    order={order}
+                    warehouseMode={warehouseMode}
+                    customerLabel={customerLabel}
+                    isLegacyInternalOrder={isLegacyInternalOrder}
+                    isMaklonOrder={isMaklonOrder}
+                    followUpDate={followUpDate}
+                    isFollowUpOverdue={isFollowUpOverdue}
+                />
 
                 {/* Sidebar Info (Invoices / Movements / Production) */}
-                <div className="space-y-6">
-                    {/* INVOICES CARD */}
-                    {!warehouseMode && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>{salesLabels.invoice}</CardTitle>
-                                <CardDescription>
-                                    Invoice yang diterbitkan untuk order ini
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {order.invoices && order.invoices.length > 0 ? (
-                                    <ul className="space-y-4">
-                                        {order.invoices.map((inv) => (
-                                            <li
-                                                key={inv.id}
-                                                className="border p-3 rounded-md hover:bg-muted/50 transition-colors"
-                                            >
-                                                <Link
-                                                    href={`/finance/invoices/sales/${inv.id}`}
-                                                    className="block"
-                                                >
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                                                            {inv.invoiceNumber}
-                                                        </span>
-                                                        <Badge
-                                                            variant={
-                                                                inv.status ===
-                                                                'PAID'
-                                                                    ? 'default'
-                                                                    : 'destructive'
-                                                            }
-                                                        >
-                                                            {getStatusLabel(
-                                                                inv.status,
-                                                                'finance',
-                                                            )}
-                                                        </Badge>
-                                                    </div>
-                                                    <div className="text-sm text-muted-foreground mb-1">
-                                                        {format(
-                                                            new Date(
-                                                                inv.invoiceDate,
-                                                            ),
-                                                            'PP',
-                                                        )}
-                                                    </div>
-                                                    <div className="font-semibold">
-                                                        {formatRupiah(
-                                                            Number(
-                                                                inv.totalAmount,
-                                                            ),
-                                                        )}
-                                                    </div>
-                                                </Link>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        {salesLabels.emptyInvoices}
-                                    </p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    <EntityStatusTimeline
-                        entityType="SalesOrder"
-                        entityId={order.id}
-                    />
-
-                    <ProductionStatusCard
-                        salesOrderId={order.id}
-                        status={order.status}
-                        productionOrders={order.productionOrders}
-                        items={order.items}
-                        currentUserRole={currentUserRole}
-                        canPlan={canPlan}
-                    />
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>
-                                {isMaklonOrder
-                                    ? 'Riwayat Penutupan Jasa'
-                                    : 'Riwayat Pengiriman'}
-                            </CardTitle>
-                            <CardDescription>
-                                {isMaklonOrder
-                                    ? 'Progres penutupan untuk order jasa maklon'
-                                    : 'Mutasi stok terkait order ini'}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {order.movements.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                    {isMaklonOrder
-                                        ? 'Belum ada mutasi stok penutupan jasa yang tercatat dari sales. Konsumsi bahan dilacak dari eksekusi produksi.'
-                                        : 'Belum ada pengiriman.'}
-                                </p>
-                            ) : (
-                                <ul className="space-y-4">
-                                    {order.movements.map((m) => (
-                                        <li
-                                            key={m.id}
-                                            className="text-sm border-l-2 border-purple-200 dark:border-purple-800/50 pl-4 py-1"
-                                        >
-                                            <div className="font-medium">
-                                                {isMaklonOrder
-                                                    ? `Recorded sales shipment movement ${Number(m.quantity)} units`
-                                                    : `Shipped ${Number(m.quantity)} units`}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {format(
-                                                    new Date(m.createdAt),
-                                                    'PP p',
-                                                )}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+                <OrderSidebar
+                    order={order}
+                    warehouseMode={warehouseMode}
+                    isMaklonOrder={isMaklonOrder}
+                    currentUserRole={currentUserRole}
+                    canPlan={canPlan}
+                />
             </div>
             {/* MRP Simulation Dialog */}
 
@@ -1782,256 +1107,28 @@ export function SalesOrderDetailClient({
                 }
             />
 
-            <Dialog
-                open={isFollowUpDialogOpen}
-                onOpenChange={(open) => {
-                    if (!open) setIsFollowUpDialogOpen(false);
-                }}
-            >
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <CalendarClock className="h-5 w-5" />
-                            Jadwalkan Follow-up
-                        </DialogTitle>
-                        <DialogDescription>
-                            Atur tanggal follow-up untuk {order.orderNumber}.
-                            Kosongkan untuk hapus jadwal.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="followUpDate">
-                                Tanggal follow-up
-                            </Label>
-                            <Input
-                                id="followUpDate"
-                                type="date"
-                                value={followUpDateInput}
-                                onChange={(e) =>
-                                    setFollowUpDateInput(e.target.value)
-                                }
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                setFollowUpDateInput('');
-                                setIsFollowUpDialogOpen(false);
-                            }}
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            variant="outline"
-                            disabled={isLoading}
-                            onClick={async () => {
-                                setIsLoading(true);
-                                try {
-                                    const res = await updateFollowUpDateAction(
-                                        order.id,
-                                        null,
-                                    );
-                                    if (res.success) {
-                                        toast.success(
-                                            'Jadwal follow-up dihapus.',
-                                        );
-                                        setFollowUpDateInput('');
-                                        setIsFollowUpDialogOpen(false);
-                                        router.refresh();
-                                    } else {
-                                        toast.error(
-                                            res.error ||
-                                                'Gagal menghapus jadwal.',
-                                        );
-                                    }
-                                } catch {
-                                    toast.error(
-                                        'Gagal menghapus jadwal follow-up.',
-                                    );
-                                } finally {
-                                    setIsLoading(false);
-                                }
-                            }}
-                        >
-                            Hapus jadwal
-                        </Button>
-                        <Button
-                            disabled={isLoading}
-                            onClick={async () => {
-                                if (!followUpDateInput) {
-                                    toast.error(
-                                        'Pilih tanggal follow-up terlebih dahulu.',
-                                    );
-                                    return;
-                                }
-                                setIsLoading(true);
-                                try {
-                                    const iso = new Date(
-                                        followUpDateInput,
-                                    ).toISOString();
-                                    const res = await updateFollowUpDateAction(
-                                        order.id,
-                                        iso,
-                                    );
-                                    if (res.success) {
-                                        toast.success(
-                                            'Jadwal follow-up disimpan.',
-                                        );
-                                        setIsFollowUpDialogOpen(false);
-                                        router.refresh();
-                                    } else {
-                                        toast.error(
-                                            res.error ||
-                                                'Gagal menyimpan jadwal.',
-                                        );
-                                    }
-                                } catch {
-                                    toast.error(
-                                        'Gagal menyimpan jadwal follow-up.',
-                                    );
-                                } finally {
-                                    setIsLoading(false);
-                                }
-                            }}
-                        >
-                            Simpan
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <FollowUpDialog
+                order={order}
+                isFollowUpDialogOpen={isFollowUpDialogOpen}
+                setIsFollowUpDialogOpen={setIsFollowUpDialogOpen}
+                followUpDateInput={followUpDateInput}
+                setFollowUpDateInput={setFollowUpDateInput}
+                isLoading={isLoading}
+                handleClearFollowUp={handleClearFollowUp}
+                handleSaveFollowUp={handleSaveFollowUp}
+            />
 
-            <Dialog
-                open={isRejectDialogOpen}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setIsRejectDialogOpen(false);
-                    }
-                }}
-            >
-                <DialogContent className="sm:max-w-[420px]">
-                    <DialogHeader>
-                        <DialogTitle>Tolak penawaran</DialogTitle>
-                        <DialogDescription>
-                            Pilih alasan penolakan untuk {order.orderNumber}.
-                            Alasan wajib diisi.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="lostReason">Alasan kalah *</Label>
-                            <Select
-                                value={lostReasonValue}
-                                onValueChange={setLostReasonValue}
-                            >
-                                <SelectTrigger id="lostReason">
-                                    <SelectValue placeholder="Pilih alasan" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SALES_LOST_REASON_OPTIONS.map((opt) => (
-                                        <SelectItem
-                                            key={opt.value}
-                                            value={opt.value}
-                                        >
-                                            {opt.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="lostReasonNotes">
-                                Catatan
-                                {lostReasonValue === 'LAINNYA'
-                                    ? ' *'
-                                    : ' (opsional)'}
-                            </Label>
-                            <Textarea
-                                id="lostReasonNotes"
-                                value={lostReasonNotes}
-                                onChange={(e) =>
-                                    setLostReasonNotes(e.target.value)
-                                }
-                                placeholder={
-                                    lostReasonValue === 'LAINNYA'
-                                        ? 'Jelaskan alasan lainnya (wajib)'
-                                        : 'Catatan tambahan (opsional)'
-                                }
-                                rows={3}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                setIsRejectDialogOpen(false);
-                            }}
-                            disabled={isLoading}
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            disabled={
-                                isLoading ||
-                                !lostReasonValue ||
-                                (lostReasonValue === 'LAINNYA' &&
-                                    !lostReasonNotes.trim())
-                            }
-                            onClick={async () => {
-                                if (!lostReasonValue) {
-                                    toast.error('Alasan kalah wajib dipilih.');
-                                    return;
-                                }
-                                if (
-                                    lostReasonValue === 'LAINNYA' &&
-                                    !lostReasonNotes.trim()
-                                ) {
-                                    toast.error(
-                                        'Catatan wajib diisi untuk alasan Lainnya.',
-                                    );
-                                    return;
-                                }
-                                setIsLoading(true);
-                                try {
-                                    const res = await rejectQuotationOrder(
-                                        order.id,
-                                        lostReasonValue as SalesLostReason,
-                                        lostReasonNotes.trim()
-                                            ? lostReasonNotes.trim()
-                                            : undefined,
-                                    );
-                                    if (res.success) {
-                                        toast.success(
-                                            `Penawaran ${order.orderNumber} ditolak.`,
-                                        );
-                                        setIsRejectDialogOpen(false);
-                                        setLostReasonValue('');
-                                        setLostReasonNotes('');
-                                        router.refresh();
-                                    } else {
-                                        toast.error(
-                                            res.error ||
-                                                'Gagal menolak penawaran.',
-                                        );
-                                    }
-                                } catch {
-                                    toast.error(
-                                        'Gagal menolak penawaran. Coba lagi.',
-                                    );
-                                } finally {
-                                    setIsLoading(false);
-                                }
-                            }}
-                        >
-                            Tolak penawaran
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <RejectQuotationDialog
+                order={order}
+                isRejectDialogOpen={isRejectDialogOpen}
+                setIsRejectDialogOpen={setIsRejectDialogOpen}
+                lostReasonValue={lostReasonValue}
+                setLostReasonValue={setLostReasonValue}
+                lostReasonNotes={lostReasonNotes}
+                setLostReasonNotes={setLostReasonNotes}
+                isLoading={isLoading}
+                handleRejectQuotation={handleRejectQuotation}
+            />
         </div>
     );
 }
