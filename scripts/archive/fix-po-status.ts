@@ -1,7 +1,7 @@
 /**
  * One-time script to fix Purchase Orders that have received goods but are still in DRAFT status
  *
- * Run with: npx ts-node scripts/fix-po-status.ts
+ * ARCHIVED: historical repair evidence only; do not rerun. See archive README.md.
  */
 
 import { PrismaClient, PurchaseOrderStatus } from '@prisma/client';

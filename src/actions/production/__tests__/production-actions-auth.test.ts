@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Imported per module rather than through the production.ts barrel: the barrel
 // re-exports nine modules, and pulling all of them in would drag a large
 // untested surface into the coverage denominator for no added assurance.
-import { logMachineDowntime } from '../production-downtime';
 import { simulateMrp } from '../production-mrp';
 import {
     updateProductionIssueStatus,
@@ -23,6 +22,7 @@ import { getProductionOrderStats } from '../production-orders';
 import { logMachineDowntime as logKioskDowntime } from '../downtime';
 import { prisma } from '@/lib/core/prisma';
 import { MachineStatus } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production/production-service';
 import { MrpService } from '@/services/production/mrp-service';
 import { auth } from '@/auth';
@@ -86,7 +86,6 @@ vi.mock('@/services/production/production-service', () => ({
         startExecution: vi.fn(),
         logRunningOutput: vi.fn(),
         getActiveExecutions: vi.fn(),
-        recordDowntime: vi.fn(),
         updateIssueStatus: vi.fn(),
         deleteIssue: vi.fn(),
         batchIssueMaterials: vi.fn(),
@@ -125,18 +124,6 @@ describe('production actions — auth guards', () => {
     });
 
     describe('guarded actions redirect an anonymous caller to /login', () => {
-        it('logMachineDowntime', async () => {
-            // Act + Assert
-            await expect(
-                logMachineDowntime({
-                    machineId: 'mac-1',
-                    reason: 'Broken',
-                    startTime: new Date(),
-                }),
-            ).rejects.toThrow(/NEXT_REDIRECT/);
-            expect(ProductionService.recordDowntime).not.toHaveBeenCalled();
-        });
-
         it('simulateMrp', async () => {
             // Act + Assert
             await expect(
@@ -263,9 +250,8 @@ describe('production actions — auth guards', () => {
     });
 
     describe('kiosk downtime logging', () => {
-        // downtime.ts is the kiosk twin of production-downtime.ts. It writes a
-        // downtime row and flips the machine to MAINTENANCE, so it must not be
-        // callable with neither a session nor an operator to attribute it to.
+        // downtime.ts writes a downtime row and flips the machine to MAINTENANCE.
+        // It must not be callable with neither a session nor an operator.
         beforeEach(() => {
             kioskTx.machineDowntime.create.mockResolvedValue({ id: 'dt-1' });
             kioskTx.machine.update.mockResolvedValue({ id: 'mac-1' });
@@ -308,6 +294,50 @@ describe('production actions — auth guards', () => {
                 where: { id: 'mac-1' },
                 data: { status: MachineStatus.MAINTENANCE },
             });
+        });
+
+        it('accepts a signed-in caller without an operator id', async () => {
+            asMock(auth).mockResolvedValue({ user: { id: 'user-1' } });
+            asMock(prisma.user.findUnique).mockResolvedValueOnce({ id: 'user-1' });
+
+            const result = await logKioskDowntime('mac-1', 'Rantai putus');
+
+            expect(result.success).toBe(true);
+            expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+            expect(kioskTx.machineDowntime.create).toHaveBeenCalledWith({
+                data: {
+                    machineId: 'mac-1',
+                    reason: 'Rantai putus',
+                    startTime: expect.any(Date),
+                    createdById: undefined,
+                },
+            });
+            expect(kioskTx.machine.update).toHaveBeenCalledWith({
+                where: { id: 'mac-1' },
+                data: { status: MachineStatus.MAINTENANCE },
+            });
+            expect(revalidatePath).toHaveBeenCalledWith('/kiosk');
+            expect(revalidatePath).toHaveBeenCalledWith('/production');
+        });
+
+        it('returns a safe failure without revalidation when the transaction rejects', async () => {
+            asMock(prisma.$transaction).mockRejectedValueOnce(
+                new Error('internal database failure'),
+            );
+
+            const result = await logKioskDowntime(
+                'mac-1',
+                'Rantai putus',
+                'op-7',
+            );
+
+            expect(result.success).toBe(false);
+            if (!result.success) {
+                expect(result.error).toBe(
+                    'Gagal mencatat downtime. Periksa batasan sistem.',
+                );
+            }
+            expect(revalidatePath).not.toHaveBeenCalled();
         });
 
         it('still rejects a blank reason', async () => {

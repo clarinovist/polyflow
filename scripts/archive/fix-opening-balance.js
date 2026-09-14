@@ -4,9 +4,8 @@
  * Script ini membuat jurnal koreksi "OB-CORRECTION" tanggal 31 Jan 2026
  * untuk menyesuaikan saldo akun dengan neraca CPN Januari 2026.
  *
- * Aman dijalankan ulang: jika OB-CORRECTION sudah ada, akan dihapus dan dibuat ulang.
- *
- * Usage: node scripts/fix-opening-balance.js
+ * ARCHIVED: bukti koreksi historis, bukan alat operasional untuk dijalankan ulang.
+ * Lihat README.md di direktori archive untuk kebijakan retensi dan eksekusi.
  */
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();

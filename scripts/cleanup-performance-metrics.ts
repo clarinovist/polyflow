@@ -1,81 +1,72 @@
 import { PrismaClient } from '@prisma/client';
+import {
+    runPerformanceMetricCleanup,
+    type PerformanceMetricDb,
+    type PerformanceMetricMainDb,
+    type PerformanceMetricCleanupReport,
+} from '../src/lib/ops/performance-metrics-cleanup';
 
-// Kept in sync with PERFORMANCE_METRIC_RETENTION_DAYS in
-// src/services/admin/performance-metrics-cleanup.service.ts. Duplicated here
-// (not imported) because this file is compiled standalone via `tsc
-// --ignoreConfig` for the production image (see Dockerfile) and can't
-// resolve the `@/` path aliases used inside src/.
-const RETENTION_DAYS = 30;
+type OwnedDb<T> = T & { $disconnect: () => Promise<void> };
 
-const prisma = new PrismaClient();
-
-async function cleanupPerformanceMetrics() {
-    const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    console.log(
-        `[PerformanceMetricCleanup] Cleaning rows older than ${RETENTION_DAYS} days (cutoff: ${cutoff.toISOString()})...`,
-    );
-
-    let hasFailure = false;
-    let totalDeleted = 0;
-
-    try {
-        const mainDeleted = await prisma.performanceMetric.deleteMany({
-            where: { createdAt: { lt: cutoff } },
-        });
-        totalDeleted += mainDeleted.count;
-        console.log(
-            `  -> [main] deleted ${mainDeleted.count} PerformanceMetric row(s).`,
-        );
-
-        const tenants = await prisma.tenant.findMany({
-            where: { status: 'ACTIVE' },
-            select: { id: true, name: true, dbUrl: true },
-        });
-
-        for (const tenant of tenants) {
-            if (!tenant.dbUrl) {
-                console.error(
-                    `  -> [${tenant.name}] no dbUrl configured, skipping.`,
-                );
-                hasFailure = true;
-                continue;
-            }
-
-            const tenantDb = new PrismaClient({
-                datasources: { db: { url: tenant.dbUrl } },
-            });
-            try {
-                const deleted = await tenantDb.performanceMetric.deleteMany({
-                    where: { createdAt: { lt: cutoff } },
-                });
-                totalDeleted += deleted.count;
-                console.log(
-                    `  -> [${tenant.name}] deleted ${deleted.count} PerformanceMetric row(s).`,
-                );
-            } catch (err) {
-                hasFailure = true;
-                console.error(`  -> [${tenant.name}] FAILED:`, err);
-            } finally {
-                await tenantDb.$disconnect();
-            }
-        }
-
-        console.log(
-            `[PerformanceMetricCleanup] Done. Total deleted: ${totalDeleted}.`,
-        );
-
-        if (hasFailure) {
-            process.exitCode = 1;
-        }
-    } catch (error) {
-        console.error(
-            '[PerformanceMetricCleanup] Error during retention cleanup:',
-            error,
-        );
-        process.exitCode = 1;
-    } finally {
-        await prisma.$disconnect();
-    }
+export interface PerformanceMetricCleanupCliDependencies {
+    createMainClient: () => OwnedDb<PerformanceMetricMainDb>;
+    createTenantClient: (url: string) => OwnedDb<PerformanceMetricDb>;
+    now: () => Date;
+    logger: Pick<Console, 'log' | 'error'>;
+    setExitCode: (code: number) => void;
 }
 
-cleanupPerformanceMetrics();
+/** Import-safe adapter; only the entrypoint below uses ambient runtime dependencies. */
+export async function runPerformanceMetricCleanupCli(
+    dependencies: PerformanceMetricCleanupCliDependencies,
+    retentionDays?: number,
+): Promise<PerformanceMetricCleanupReport> {
+    const report = await runPerformanceMetricCleanup({
+        now: dependencies.now,
+        acquireMain: () => {
+            const db = dependencies.createMainClient();
+            return { db, ownership: 'owned', disconnect: () => db.$disconnect() };
+        },
+        acquireTenant: (url) => {
+            const db = dependencies.createTenantClient(url);
+            return { db, ownership: 'owned', disconnect: () => db.$disconnect() };
+        },
+    }, retentionDays);
+
+    // Never log registry names/IDs, URLs or raw exceptions. Ordinals preserve
+    // per-target status without allowing credential-bearing metadata into logs.
+    report.results.forEach((result, index) => {
+        const target = index === 0 ? 'main' : `tenant #${index}`;
+        const message = `  -> [${target}] ${result.online ? 'OK' : 'FAILED'}: deleted ${result.deletedCount} PerformanceMetric row(s).${result.error ? ` ${result.error}.` : ''}`;
+        if (result.online) {
+            dependencies.logger.log(message);
+        } else {
+            dependencies.logger.error(message);
+        }
+    });
+    for (const error of report.errors) {
+        dependencies.logger.error(`[PerformanceMetricCleanup] ${error}.`);
+    }
+    dependencies.logger.log(
+        `[PerformanceMetricCleanup] Done. Total deleted: ${report.totalDeleted}. Status: ${report.hasFailure ? 'FAILED' : 'OK'}.`,
+    );
+    if (report.hasFailure) {
+        dependencies.setExitCode(1);
+    }
+    return report;
+}
+
+if (require.main === module) {
+    void runPerformanceMetricCleanupCli({
+        createMainClient: () => new PrismaClient(),
+        createTenantClient: (url) => new PrismaClient({
+            datasources: { db: { url } },
+        }),
+        now: () => new Date(),
+        logger: console,
+        setExitCode: (code) => { process.exitCode = code; },
+    }).catch(() => {
+        console.error('[PerformanceMetricCleanup] Unexpected cleanup failure.');
+        process.exitCode = 1;
+    });
+}

@@ -2,7 +2,7 @@
 // New code should import from specific domain files:
 //   production-orders, production-execution, production-materials,
 //   production-issues, production-inspection, production-shifts,
-//   production-mrp, production-child, production-downtime
+//   production-mrp, production-child
 
 export {
     getInitData,

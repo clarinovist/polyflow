@@ -1,8 +1,7 @@
 /**
- * scripts/apply-all-fixes.ts
- * ============================================================
- * Master script — jalankan SATU INI setelah sync dari production.
- * Script ini IDEMPOTENT: aman dijalankan berkali-kali.
+ * ARCHIVED: historical repair evidence only; do not rerun.
+ * The original execution order is retained below for audit provenance.
+ * See README.md in this archive for retention and execution policy.
  *
  * Urutan:
  *   1. Fix product inventoryAccountId

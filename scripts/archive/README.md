@@ -28,7 +28,7 @@ Direktori ini inert secara teknis, dan itu memang disengaja:
 | `eslint.config.mjs` | `globalIgnores: scripts/**` — tidak ikut lint                                |
 | `package.json`      | tidak ada script yang memanggil direktori ini                                |
 | CI (`.github/`)     | tidak dirujuk                                                                |
-| `Dockerfile`        | hanya menyalin `scripts/*.js` (top level) — arsip tidak masuk image produksi |
+| `Dockerfile` / `.dockerignore` | daftar entrypoint operasional eksplisit; `scripts/archive` dikecualikan dari build context |
 
 ## Kalau mau mengarsipkan skrip baru
 

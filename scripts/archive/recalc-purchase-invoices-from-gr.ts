@@ -1,6 +1,6 @@
 /**
  * Dry-run: cek selisih invoice Purchase vs total GR aktual.
- * Usage: npx tsx scripts/recalc-purchase-invoices-from-gr.ts [--apply]
+ * ARCHIVED: historical repair evidence only; do not rerun. See archive README.md.
  *
  * --apply will actually update DRAFT / UNPAID-paid0 invoices to GR-based total.
  * Without --apply: read-only report.

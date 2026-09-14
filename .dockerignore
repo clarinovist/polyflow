@@ -9,6 +9,7 @@
 #
 # JANGAN tambahkan prisma/, scripts/, atau public/ ke daftar ini: Dockerfile
 # butuh ketiganya (npx tsc prisma+scripts, COPY public, COPY prisma).
+# Pengecualian: scripts/archive inert dan tidak boleh menjadi input image.
 
 # Dependencies & build output (di-generate ulang di dalam image)
 node_modules
@@ -25,9 +26,10 @@ build
 graphify-out
 coverage
 
-# Dokumentasi (tidak dipakai runtime)
+# Dokumentasi dan arsip historis (tidak dipakai runtime)
 docs
 README.md
+scripts/archive
 
 # Secrets & environment — jangan sampai masuk image
 .env

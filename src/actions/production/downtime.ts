@@ -9,12 +9,9 @@ import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 
 /**
- * Kiosk variant of downtime logging: the shop-floor terminal runs without a
- * NextAuth session, so `createdById` (the operator) stands in as attribution.
- *
- * The session-backed variant lives in `production-downtime.ts` and is what the
- * barrel re-exports; this one exists for the kiosk and is called by
- * `DowntimeDialog`.
+ * Downtime logging used by `DowntimeDialog`. The shop-floor terminal can run
+ * without a NextAuth session, so `createdById` (the operator) stands in as
+ * attribution for the kiosk flow.
  */
 export const logMachineDowntime = withTenant(async function logMachineDowntime(
     machineId: string,

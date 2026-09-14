@@ -3,8 +3,8 @@
 Re-sync: Fix production output movements with cost=0
 and recalculate inventory.averageCost for affected variants.
 
-Run: python3 scripts/fix-zero-cost-outputs.py --dry-run
-Then: python3 scripts/fix-zero-cost-outputs.py --apply
+ARCHIVED: historical repair evidence only; do not rerun.
+See README.md in this archive for retention and execution policy.
 """
 import sys
 import argparse

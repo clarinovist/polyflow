@@ -1,7 +1,7 @@
 /**
  * One-time script to fix Purchase Invoices that are DRAFT but should be UNPAID
  *
- * Run with: npx ts-node scripts/fix-draft-bills.ts
+ * ARCHIVED: historical repair evidence only; do not rerun. See archive README.md.
  */
 
 import {

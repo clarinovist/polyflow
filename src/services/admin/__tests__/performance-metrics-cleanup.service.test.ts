@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { cleanupOldPerformanceMetrics } from '../performance-metrics-cleanup.service';
-import { prisma, getTenantDb } from '@/lib/core/prisma';
+import { prisma, getMainPrisma, getTenantDb } from '@/lib/core/prisma';
 
-vi.mock('@/lib/core/prisma', () => ({
-    prisma: {
+vi.mock('@/lib/core/prisma', () => {
+    const main = {
         tenant: { findMany: vi.fn() },
         performanceMetric: { deleteMany: vi.fn() },
-    },
-    getTenantDb: vi.fn(),
-}));
+        $disconnect: vi.fn(),
+    };
+    return {
+        prisma: main,
+        getMainPrisma: vi.fn(() => main),
+        getTenantDb: vi.fn(),
+    };
+});
 
 const mockGetTenantDb = vi.mocked(getTenantDb);
 
@@ -17,6 +22,7 @@ function makeMockTenantDb(deletedCount: number) {
         performanceMetric: {
             deleteMany: vi.fn().mockResolvedValue({ count: deletedCount }),
         },
+        $disconnect: vi.fn(),
     };
 }
 
@@ -30,8 +36,8 @@ describe('cleanupOldPerformanceMetrics', () => {
             count: 12,
         } as never);
         vi.mocked(prisma.tenant.findMany).mockResolvedValue([
-            { id: 't1', name: 'Tenant A', dbUrl: 'postgres://a' },
-            { id: 't2', name: 'Tenant B', dbUrl: 'postgres://b' },
+            { id: 't1', name: 'Tenant A', dbUrl: 'postgres://a/metrics' },
+            { id: 't2', name: 'Tenant B', dbUrl: 'postgres://b/metrics' },
         ] as never);
         mockGetTenantDb
             .mockReturnValueOnce(makeMockTenantDb(3) as never)
@@ -105,8 +111,8 @@ describe('cleanupOldPerformanceMetrics', () => {
             count: 0,
         } as never);
         vi.mocked(prisma.tenant.findMany).mockResolvedValue([
-            { id: 't1', name: 'Tenant A', dbUrl: 'postgres://a' },
-            { id: 't2', name: 'Tenant B', dbUrl: 'postgres://b' },
+            { id: 't1', name: 'Tenant A', dbUrl: 'postgres://a/metrics' },
+            { id: 't2', name: 'Tenant B', dbUrl: 'postgres://b/metrics' },
         ] as never);
         mockGetTenantDb
             .mockReturnValueOnce({
@@ -124,7 +130,7 @@ describe('cleanupOldPerformanceMetrics', () => {
             tenantId: 't1',
             tenantName: 'Tenant A',
             online: false,
-            error: 'connection refused',
+            error: 'Performance metric deletion failed',
             deletedCount: 0,
         });
         expect(results[2]).toEqual({
@@ -153,6 +159,66 @@ describe('cleanupOldPerformanceMetrics', () => {
             deletedCount: 0,
         });
         expect(mockGetTenantDb).not.toHaveBeenCalled();
+    });
+
+    it('uses the cached main client explicitly and never disconnects cached clients', async () => {
+        const tenantDb = makeMockTenantDb(2);
+        const main = {
+            ...makeMockTenantDb(1),
+            tenant: { findMany: vi.fn().mockResolvedValue([
+                { id: 't1', name: 'Tenant A', dbUrl: 'postgres://a/metrics' },
+            ]) },
+        };
+        vi.mocked(getMainPrisma).mockReturnValueOnce(main as never);
+        mockGetTenantDb.mockReturnValueOnce(tenantDb as never);
+
+        const results = await cleanupOldPerformanceMetrics();
+
+        expect(results.map((result) => result.deletedCount)).toEqual([1, 2]);
+        expect(getMainPrisma).toHaveBeenCalledOnce();
+        expect(prisma.performanceMetric.deleteMany).not.toHaveBeenCalled();
+        expect(prisma.tenant.findMany).not.toHaveBeenCalled();
+        expect(prisma.$disconnect).not.toHaveBeenCalled();
+        expect(main.$disconnect).not.toHaveBeenCalled();
+        expect(tenantDb.$disconnect).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid retention before acquiring clients or deleting', async () => {
+        await expect(cleanupOldPerformanceMetrics(0)).rejects.toThrow('Invalid retention period');
+        expect(getMainPrisma).not.toHaveBeenCalled();
+        expect(prisma.performanceMetric.deleteMany).not.toHaveBeenCalled();
+        expect(mockGetTenantDb).not.toHaveBeenCalled();
+    });
+
+    it('sanitizes a main delete rejection and does not start tenant cleanup', async () => {
+        vi.mocked(prisma.performanceMetric.deleteMany).mockRejectedValueOnce(new Error('secret raw detail'));
+
+        await expect(cleanupOldPerformanceMetrics()).rejects.toThrow('Performance metric deletion failed');
+        expect(prisma.tenant.findMany).not.toHaveBeenCalled();
+        expect(prisma.$disconnect).not.toHaveBeenCalled();
+    });
+
+    it('sanitizes a registry rejection without releasing the cached main client', async () => {
+        vi.mocked(prisma.performanceMetric.deleteMany).mockResolvedValueOnce({ count: 2 });
+        vi.mocked(prisma.tenant.findMany).mockRejectedValueOnce(new Error('secret raw detail'));
+
+        await expect(cleanupOldPerformanceMetrics()).rejects.toThrow('Tenant registry lookup failed');
+        expect(mockGetTenantDb).not.toHaveBeenCalled();
+        expect(prisma.$disconnect).not.toHaveBeenCalled();
+    });
+
+    it('sanitizes cached-client factory failures and continues to the next tenant', async () => {
+        vi.mocked(prisma.performanceMetric.deleteMany).mockResolvedValueOnce({ count: 0 });
+        vi.mocked(prisma.tenant.findMany).mockResolvedValueOnce([
+            { id: 't1', name: 'Tenant A', dbUrl: 'postgres://a/metrics' },
+            { id: 't2', name: 'Tenant B', dbUrl: 'postgres://b/metrics' },
+        ] as never);
+        mockGetTenantDb.mockImplementationOnce(() => { throw new Error('secret raw detail'); })
+            .mockReturnValueOnce(makeMockTenantDb(4) as never);
+
+        const results = await cleanupOldPerformanceMetrics();
+        expect(results[1]).toMatchObject({ online: false, error: 'Database client creation failed' });
+        expect(results[2]).toMatchObject({ online: true, deletedCount: 4 });
     });
 
     it('returns only the main DB result when there are no active tenants', async () => {

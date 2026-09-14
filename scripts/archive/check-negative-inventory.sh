@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Usage: ./scripts/check-negative-inventory.sh [location_slug]
-# Example: ./scripts/check-negative-inventory.sh mixing_area
+# ARCHIVED: historical diagnostic evidence only; do not rerun.
+# See README.md in this archive for retention and execution policy.
 
 LOCATION_SLUG=${1:-mixing_area}
 CONTAINER=${POLYFLOW_DB_CONTAINER:-polyflow-db}

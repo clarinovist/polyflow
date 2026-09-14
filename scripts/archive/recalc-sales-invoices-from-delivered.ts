@@ -1,6 +1,6 @@
 /**
  * Dry-run: cek selisih Sales Invoice vs total delivered qty (DO).
- * Usage: npx tsx scripts/recalc-sales-invoices-from-delivered.ts [--apply]
+ * ARCHIVED: historical repair evidence only; do not rerun. See archive README.md.
  *
  * --apply will update DRAFT invoices to delivered-based total.
  */

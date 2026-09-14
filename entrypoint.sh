@@ -22,7 +22,7 @@ else
 	fi
 
 	echo "Running Prisma migrations..."
-	npx prisma@5.22.0 migrate deploy
+	node node_modules/prisma/build/index.js migrate deploy
     
 	echo "Running Tenant migrations..."
 	node scripts/migrate-all-tenants.js

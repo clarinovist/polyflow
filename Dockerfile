@@ -28,11 +28,8 @@ RUN npx prisma generate
 # ENV NEXT_TELEMETRY_DISABLED 1
 
 
-# Compile seed scripts + multi-tenant CLI scripts.
-# Satu invocation, bukan enam: tiap `npx tsc` mem-boot compiler dari nol, dan
-# tiap RUN menambah satu layer. Diukur lokal: 6x terpisah 4.65s vs 1x gabungan
-# 0.83s. Output identik (superset — seed-coa.js ikut ter-emit sebagai dependency
-# seed.ts, sama seperti sebelumnya).
+# Compile standalone tooling and its shared cores without emitting JS into src.
+# Preserve the scripts/prisma entry paths when copying this isolated output.
 RUN npx tsc \
   prisma/seed.ts \
   prisma/seed-baseline.ts \
@@ -40,7 +37,8 @@ RUN npx tsc \
   scripts/provision-tenant.ts \
   scripts/migrate-all-tenants.ts \
   scripts/cleanup-performance-metrics.ts \
-  --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+  --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck \
+  --rootDir . --outDir /app/ops-dist
 
 # The TypeScript worker exceeds Node's ~2 GiB default heap on CI.
 # Scope the larger heap to this build command; do not change runtime limits.
@@ -78,15 +76,44 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma schema and migrations if needed for runtime migrations
 COPY --from=builder /app/prisma ./prisma
 
-# Copy operational scripts (e.g. one-time purge, and multi-tenant scripts)
-COPY --from=builder --chown=nextjs:nodejs /app/scripts/*.js ./scripts/
+# Explicit operational entrypoints: new scripts must be deliberately opted in.
+# Keep current manual repair/audit capabilities until their owners retire them.
+COPY --from=builder --chown=nextjs:nodejs \
+  /app/ops-dist/scripts/provision-tenant.js \
+  /app/ops-dist/scripts/migrate-all-tenants.js \
+  /app/ops-dist/scripts/cleanup-performance-metrics.js \
+  /app/scripts/audit-duplicate-production-voids.js \
+  /app/scripts/check-ob.js \
+  /app/scripts/repair-maklon-sales-order-locations.js \
+  /app/scripts/repair-maklon-stock-locations.js \
+  ./scripts/
+COPY --from=builder --chown=nextjs:nodejs \
+  /app/ops-dist/src/lib/ops/tenant-migrations.js \
+  /app/ops-dist/src/lib/ops/performance-metrics-cleanup.js \
+  ./src/lib/ops/
+
+# Operational CLIs are outside Next's route trace. Ship the installed Prisma CLI
+# and its runtime dependencies explicitly; startup must not download tooling.
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+# seed-baseline uses bcryptjs; it is not guaranteed by the app's output trace.
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+COPY --from=builder /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
+COPY --from=builder /app/node_modules/@prisma/engines-version ./node_modules/@prisma/engines-version
+COPY --from=builder /app/node_modules/@prisma/debug ./node_modules/@prisma/debug
+COPY --from=builder /app/node_modules/@prisma/fetch-engine ./node_modules/@prisma/fetch-engine
+COPY --from=builder /app/node_modules/@prisma/get-platform ./node_modules/@prisma/get-platform
 
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-# Copy compiled seed scripts
-COPY --from=builder --chown=nextjs:nodejs /app/prisma/*.js ./prisma/
+# Retain the existing seed entrypoints and the seedCoA helper dependency.
+COPY --from=builder --chown=nextjs:nodejs \
+  /app/ops-dist/prisma/seed.js \
+  /app/ops-dist/prisma/seed-baseline.js \
+  /app/ops-dist/prisma/fix-coa.js \
+  /app/ops-dist/prisma/seed-coa.js \
+  ./prisma/
 
 USER nextjs
 

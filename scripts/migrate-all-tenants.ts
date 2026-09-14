@@ -1,81 +1,104 @@
 import { PrismaClient } from '@prisma/client';
-import { exec } from 'child_process';
-import util from 'util';
+import { execFile, type ExecFileException } from 'node:child_process';
+import {
+    migrateAllTenants,
+    MigrationCommandError,
+    type TenantMigrationRegistry,
+} from '../src/lib/ops/tenant-migrations';
 
-const execPromise = util.promisify(exec);
-const prisma = new PrismaClient();
+export interface TenantMigratorCliDependencies {
+    createRegistry(): TenantMigrationRegistry;
+    resolvePrismaCli(): string;
+    execPath: string;
+    cwd(): string;
+    env: NodeJS.ProcessEnv;
+    execute(
+        file: string,
+        args: string[],
+        options: {
+            env: NodeJS.ProcessEnv;
+            cwd: string;
+            shell: false;
+            encoding: 'utf8';
+        },
+        callback: (error: ExecFileException | null) => void,
+    ): void;
+    log(message: string): void;
+    error(message: string): void;
+    setExitCode(code: number): void;
+}
 
-async function migrateAllTenants() {
-    console.log('=== Polyflow Tenant Migrator ===');
+const defaultDependencies: TenantMigratorCliDependencies = {
+    createRegistry: () => new PrismaClient(),
+    resolvePrismaCli: () => require.resolve('prisma/build/index.js'),
+    execPath: process.execPath,
+    cwd: () => process.cwd(),
+    env: process.env,
+    execute: (file, args, options, callback) => {
+        // Capture output; neither stdout nor stderr is forwarded to logs.
+        execFile(file, args, options, callback);
+    },
+    log: (message) => console.log(message),
+    error: (message) => console.error(message),
+    setExitCode: (code) => { process.exitCode = code; },
+};
 
+export async function runTenantMigratorCli(
+    dependencies: TenantMigratorCliDependencies = defaultDependencies,
+): Promise<void> {
     try {
-        console.log('Fetching active tenants from registry...');
-        const tenants = await prisma.tenant.findMany({
-            where: {
-                status: 'ACTIVE',
-            },
-        });
-
-        if (tenants.length === 0) {
-            console.log('No active tenants found.');
-            process.exit(0);
-        }
-
-        console.log(
-            `Found ${tenants.length} active tenants. Starting migrations...\n`,
-        );
-
-        for (const tenant of tenants) {
-            console.log(`[${tenant.subdomain}] Running migration...`);
-            try {
-                // Ensure we pass the exact DB URL to the Prisma CLI for this specific iteration
-                const { stdout, stderr } = await execPromise(
-                    `DATABASE_URL="${tenant.dbUrl}" npx prisma@5.22.0 migrate deploy`,
-                );
-
-                // Keep output concise
-                const updatedLines = stdout
-                    .split('\n')
-                    .filter(
-                        (line) =>
-                            line.includes('migration') ||
-                            line.includes('Applied'),
+        dependencies.log('=== Polyflow Tenant Migrator ===');
+        const result = await migrateAllTenants({
+            createRegistry: () => dependencies.createRegistry(),
+            migrate: (databaseUrl) => new Promise<void>((resolve, reject) => {
+                try {
+                    dependencies.execute(
+                        dependencies.execPath,
+                        [dependencies.resolvePrismaCli(), 'migrate', 'deploy'],
+                        {
+                            cwd: dependencies.cwd(),
+                            env: { ...dependencies.env, DATABASE_URL: databaseUrl },
+                            shell: false,
+                            encoding: 'utf8',
+                        },
+                        (error) => {
+                            if (!error) {
+                                resolve();
+                            } else {
+                                const category = error.killed || error.signal
+                                    ? 'MIGRATION_INTERRUPTED'
+                                    : typeof error.code === 'string'
+                                        ? 'MIGRATION_LAUNCH_FAILED'
+                                        : 'MIGRATION_FAILED';
+                                reject(new MigrationCommandError(category));
+                            }
+                        },
                     );
-                if (updatedLines.length > 0) {
-                    console.log(`  -> ${updatedLines.join('\n  -> ')}`);
-                } else {
-                    console.log(`  -> Up to date.`);
+                } catch {
+                    // Resolver, synchronous launch and environment failures are
+                    // also sanitized and allow the next tenant to be attempted.
+                    reject(new MigrationCommandError('MIGRATION_LAUNCH_FAILED'));
                 }
-
-                // Filter out Prisma's "Update available" banner from stderr
-                const filteredStderr = stderr
-                    ?.split('\n')
-                    .filter(
-                        (line) =>
-                            !line.match(
-                                /Update available|major-version-upgrade|npm i.*prisma|pris\.ly|[┌┐└┘│─█▀▄]/,
-                            ),
-                    )
-                    .join('\n')
-                    .trim();
-                if (filteredStderr)
-                    console.error(`  -> Warning/Error: ${filteredStderr}`);
-            } catch (err) {
-                console.error(
-                    `\n❌ Failed to migrate tenant ${tenant.subdomain} (${tenant.id}):`,
-                );
-                console.error(err);
-                // Depending on strictness, we might want to continue or abort.
-                // For now, continue to other tenants but log the error.
-            }
+            }),
+        });
+        dependencies.setExitCode(result.failures.length > 0 ? 1 : 0);
+        for (const failure of result.failures) {
+            const scope = failure.tenantNumber === undefined
+                ? 'registry'
+                : `tenant #${failure.tenantNumber}`;
+            dependencies.error(`[${scope}] ${failure.category}`);
         }
-
-        console.log('\n✅ All tenant migrations completed.');
-    } catch (error) {
-        console.error('\n❌ Migration loop failed:', error);
-    } finally {
-        await prisma.$disconnect();
+        dependencies.log(
+            `Tenant migrations: selected=${result.selected}, attempted=${result.attempted}, ` +
+            `migrated=${result.migrated}, failures=${result.failures.length}`,
+        );
+    } catch {
+        dependencies.setExitCode(1);
+        dependencies.error('TENANT_MIGRATOR_FAILED');
     }
 }
 
-migrateAllTenants();
+// Compiled CommonJS remains scripts/migrate-all-tenants.js. Imports are inert.
+if (require.main === module) {
+    void runTenantMigratorCli();
+}
