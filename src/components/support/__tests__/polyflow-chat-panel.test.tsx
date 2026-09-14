@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { PolyflowChatPanel } from '../polyflow-chat-panel';
+import type { CitedArticle } from '../cited-article-cards';
 import { PolyflowChatWidget } from '../polyflow-chat-widget';
 
 let userId: string | null = 'user-1';
@@ -13,9 +14,6 @@ vi.mock('next-auth/react', () => ({ useSession: () => ({
     data: userId ? { user: { id: userId } } : null,
 }) }));
 vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
-vi.mock('next/link', () => ({
-    default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a {...props}>{children}</a>,
-}));
 vi.mock('@/components/ui/button', () => ({
     Button: ({ children, asChild, variant: _variant, size: _size, ...props }:
         React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean; variant?: string; size?: string }) =>
@@ -275,6 +273,75 @@ describe('PolyflowChatPanel persistent contextual history', () => {
         renderPanel();
         await ask();
         expect(await screen.findByText(/Jawaban ini belum tersimpan/)).toBeTruthy();
+    });
+});
+
+describe('PolyflowChatPanel article references', () => {
+    const citedArticles: CitedArticle[] = [
+        { slug: 'first-guide', title: 'Panduan pertama', summary: 'Ringkasan pertama' },
+        { slug: 'second-guide', title: 'Panduan kedua' },
+        { slug: 'third-guide', title: 'Panduan ketiga', summary: '' },
+        { slug: 'fourth-guide', title: 'Panduan keempat' },
+    ];
+    const relatedArticles: CitedArticle[] = [
+        { slug: 'related-one', title: 'Artikel terkait singkat' },
+        { slug: 'related-two', title: 'Judul artikel terkait yang lebih panjang dari tiga puluh lima karakter' },
+        { slug: 'related-three', title: 'Artikel terkait ketiga' },
+        { slug: 'related-four', title: 'Artikel terkait keempat' },
+    ];
+
+    it.each(['json', 'sse', 'history'] as const)(
+        'preserves article order, links, limits and related title truncation from %s',
+        async (source) => {
+            const data = {
+                answer: 'Jawaban dengan referensi.',
+                citedArticles,
+                relatedArticles,
+            };
+            if (source === 'history') {
+                historyHandler = async () => json({
+                    conversation: {
+                        ...conversation(),
+                        messages: [{ id: 'cited-answer', role: 'assistant', text: data.answer, citedArticles, relatedArticles }],
+                    },
+                });
+            } else {
+                chatHandler = async (url) => source === 'sse'
+                    ? new Response(`data: ${JSON.stringify({ type: 'done', data })}\n\n`)
+                    : url.endsWith('/stream') ? json({}, 500) : json({ success: true, data });
+            }
+
+            renderPanel();
+            if (source !== 'history') await ask();
+            await screen.findByText(data.answer);
+
+            expect(screen.getByText('Referensi Artikel Bantuan:')).toBeTruthy();
+            expect(screen.getByText('Ringkasan pertama')).toBeTruthy();
+            expect(screen.getByText('Terkait:')).toBeTruthy();
+            const links = screen.getAllByRole('link');
+            expect(links.map((link) => link.getAttribute('href'))).toEqual([
+                '/support/first-guide', '/support/second-guide', '/support/third-guide',
+                '/support/related-one', '/support/related-two', '/support/related-three',
+            ]);
+            expect(links.map((link) => link.textContent)).toEqual([
+                'Panduan pertamaRingkasan pertama', 'Panduan kedua', 'Panduan ketiga',
+                relatedArticles[0].title, relatedArticles[1].title.slice(0, 35) + '…', relatedArticles[2].title,
+            ]);
+            expect(screen.queryByText('Panduan keempat')).toBeNull();
+            expect(screen.queryByText('Artikel terkait keempat')).toBeNull();
+        },
+    );
+
+    it.each([undefined, []])('hides references without citations (%j), even with related articles', async (citations) => {
+        chatHandler = async (url) => url.endsWith('/stream')
+            ? json({}, 500)
+            : json({ success: true, data: { answer: 'Jawaban tanpa referensi.', citedArticles: citations, relatedArticles } });
+        renderPanel();
+        await ask();
+        await screen.findByText('Jawaban tanpa referensi.');
+        expect(screen.queryByText('Referensi Artikel Bantuan:')).toBeNull();
+        expect(screen.queryByText('Terkait:')).toBeNull();
+        expect(screen.queryAllByRole('link')).toHaveLength(0);
     });
 });
 
