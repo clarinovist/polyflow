@@ -80,6 +80,19 @@ function decodeText(bytes: number[]): string {
 }
 
 describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)', () => {
+    it('prints rounded total without adjustment row or changing VAT / remaining balance', () => {
+        const bytes = generateEscpInvoice(baseData({
+            grandTotal: 16642500, remainingBalance: 100.25,
+            isPPN: true, taxAmount: 1649238.92, discountAmount: 100, shippingCost: 100,
+        }));
+        const text = decodeText(bytes);
+        expect(text).not.toContain('PEMBULATAN :');
+        expect(text).toContain('16.642.500,00');
+        expect(text).toContain('1.649.238,92');
+        expect(text).toContain('100,25');
+        expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));
+    });
+
     it('fits a baseline invoice (no diskon/PPN/ongkir) within the configured page length', () => {
         const bytes = generateEscpInvoice(baseData());
         expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));

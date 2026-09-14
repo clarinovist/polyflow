@@ -3,10 +3,12 @@ import { describe, it, expect, vi, beforeEach  } from 'vitest';
 import { InvoiceService } from '../finance/invoice-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../finance/auto-journal-service';
-import { logger } from '@/lib/config/logger';
+import { logActivity } from '@/lib/tools/audit';
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
+        $transaction: vi.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma)),
+        $queryRaw: vi.fn(),
         invoice: {
             findFirst: vi.fn(),
             create: vi.fn(),
@@ -68,23 +70,13 @@ describe('InvoiceService', () => {
                 invoiceNumber: 'INV-20231010-0001',
             });
 
-            const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
-
             const mockError = new Error('Journal generation failed');
-             
-            (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
-
-            await InvoiceService.createInvoice({
-                salesOrderId: 'so-1',
-                invoiceDate: new Date(),
-                dueDate: new Date(),
-                termOfPaymentDays: 30,
-            }, 'user-1');
-
-            expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('inv-1');
-            expect(loggerErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for invoice", expect.objectContaining({ error: mockError }));
-
-            loggerErrorSpy.mockRestore();
+            vi.mocked(AutoJournalService.handleSalesInvoiceCreated).mockRejectedValue(mockError);
+            await expect(InvoiceService.createInvoice({
+                salesOrderId: 'so-1', invoiceDate: new Date(), termOfPaymentDays: 30,
+            }, 'user-1')).rejects.toThrow(mockError);
+            expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('inv-1', { tx: prisma });
+            expect(logActivity).not.toHaveBeenCalled();
         });
     });
 
@@ -116,18 +108,11 @@ describe('InvoiceService', () => {
                 invoiceNumber: 'INV-20231010-0002',
             });
 
-            const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
-
             const mockError = new Error('Journal generation failed');
-             
-            (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
-
-            await InvoiceService.createDraftInvoiceFromOrder('so-1', 'user-1');
-
-            expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('inv-2');
-            expect(loggerErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for invoice", expect.objectContaining({ error: mockError }));
-
-            loggerErrorSpy.mockRestore();
+            vi.mocked(AutoJournalService.handleSalesInvoiceCreated).mockRejectedValue(mockError);
+            await expect(InvoiceService.createDraftInvoiceFromOrder('so-1', 'user-1')).rejects.toThrow(mockError);
+            expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('inv-2', { tx: prisma });
+            expect(logActivity).not.toHaveBeenCalled();
         });
 
         it('should reject invoice creation when sales order has no customer', async () => {

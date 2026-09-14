@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 const { mockGetTenantIdFromContext, mockGetMainPrisma, mockLoadActiveTenantRevenueRules } =
     vi.hoisted(() => ({
@@ -13,7 +14,7 @@ vi.mock('@/lib/core/prisma', () => ({
         purchaseInvoice: { findUnique: vi.fn() },
         account: { findUnique: vi.fn(), findFirst: vi.fn() },
         // Idempotency guard: default "no existing journal" for every test.
-        journalEntry: { findFirst: vi.fn().mockResolvedValue(null) },
+        journalEntry: { findFirst: vi.fn().mockResolvedValue(null), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     },
     getTenantIdFromContext: mockGetTenantIdFromContext,
     getMainPrisma: mockGetMainPrisma,
@@ -32,6 +33,7 @@ vi.mock('../../accounting/account-resolver', () => ({
         const map: Record<string, { id: string; code: string; name: string }> = {
             'accounts-receivable': { id: 'acc-ar', code: '11210', name: 'Accounts Receivable' },
             'sales-revenue': { id: 'acc-rev', code: '41100', name: 'Sales Revenue' },
+            'sales-rounding-income': { id: 'acc-rounding', code: 'ROUND', name: 'Rounding Income' },
             'vat-output': { id: 'acc-vat', code: '21310', name: 'VAT Output' },
             'vat-input': { id: 'acc-vat-in', code: '21320', name: 'VAT Input' },
             'accounts-payable': { id: 'acc-ap', code: '21110', name: 'AP' },
@@ -480,6 +482,61 @@ describe('handleSalesInvoiceCreated (tenant-backed rules)', () => {
         );
     });
 
+    it.each([0, 1649238.92])('keeps VAT %s unchanged and credits rounding separately', async tax => {
+        vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+            ...mockInvoiceWithItems([]), totalAmount: dec(16642500), roundingAmount: dec(180),
+            salesOrder: { totalAmount: dec(16642320), taxAmount: dec(tax), items: [] },
+        } as never);
+        await handleSalesInvoiceCreated('inv-1');
+        const { lines } = vi.mocked(AccountingService.createJournalEntry).mock.calls[0][0];
+        expect(lines[0].debit).toBe(16642500);
+        expect(lines.find(l => l.accountId === 'acc-rev')?.credit).toBeCloseTo(16642320 - tax, 2);
+        expect(lines.find(l => l.accountId === 'acc-rounding')).toMatchObject({ credit: 180 });
+        expect(lines.find(l => l.accountId === 'acc-vat')?.credit ?? 0).toBeCloseTo(tax, 2);
+        const sum = (side: 'debit' | 'credit') => lines.reduce((s, l) => s.plus(new Prisma.Decimal(l[side]).toDecimalPlaces(2)), new Prisma.Decimal(0));
+        expect(sum('debit').eq(sum('credit'))).toBe(true);
+    });
+
+    it('refreshes only a draft journal using the same transaction', async () => {
+        vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ ...mockInvoiceWithItems([]), status: 'DRAFT' } as never);
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValueOnce({ id: 'old', status: 'DRAFT' } as never);
+        await handleSalesInvoiceCreated('inv-1', { tx: prisma, refreshDraft: true });
+        expect(prisma.journalEntry.updateMany).toHaveBeenCalledWith({ where: { id: 'old', status: 'DRAFT' }, data: { status: 'VOIDED' } });
+        expect(AccountingService.createJournalEntry).toHaveBeenCalledWith(expect.any(Object), prisma);
+    });
+
+    it.each(['POSTED', 'DRAFT'])('rejects unsafe refresh (%s) without a draft source and transaction', async status => {
+        vi.mocked(prisma.invoice.findUnique).mockResolvedValue(mockInvoiceWithItems([]) as never);
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValueOnce({ id: 'old', status } as never);
+        await expect(handleSalesInvoiceCreated('inv-1', { refreshDraft: true })).rejects.toThrow();
+        expect(prisma.journalEntry.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects concurrent journal posting during a draft refresh', async () => {
+        vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ ...mockInvoiceWithItems([]), status: 'DRAFT' } as never);
+        vi.mocked(prisma.journalEntry.findFirst).mockResolvedValueOnce({ id: 'old', status: 'DRAFT' } as never);
+        vi.mocked(prisma.journalEntry.updateMany).mockResolvedValueOnce({ count: 0 });
+        await expect(handleSalesInvoiceCreated('inv-1', { tx: prisma, refreshDraft: true })).rejects.toThrow('Status jurnal berubah');
+        expect(AccountingService.createJournalEntry).not.toHaveBeenCalled();
+    });
+
+    it('balances fractional revenue allocations at persisted cents before adding rounding', async () => {
+        seedAccounts([
+            { id: 'one', code: 'REV-1', name: 'Revenue One', isActive: true },
+            { id: 'two', code: 'REV-2', name: 'Revenue Two', isActive: true },
+        ]);
+        mockAccountLookup();
+        const invoice = mockInvoiceWithItems([
+            { quantity: 1, unitPrice: 410.004, variant: { name: 'One', skuCode: 'ONE', revenueAccountId: 'one' } },
+            { quantity: 1, unitPrice: 410.004, variant: { name: 'Two', skuCode: 'TWO', revenueAccountId: 'two' } },
+        ]);
+        vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ ...invoice, totalAmount: dec(1000), roundingAmount: dec(179.99) } as never);
+        await handleSalesInvoiceCreated('inv-1');
+        const { lines } = vi.mocked(AccountingService.createJournalEntry).mock.calls[0][0];
+        const credits = lines.reduce((s, l) => s.plus(new Prisma.Decimal(l.credit).toDecimalPlaces(2)), new Prisma.Decimal(0));
+        expect(credits.eq(1000)).toBe(true);
+    });
+
     it('sets taxAmount=0 when sales order has no tax info — no VAT line', async () => {
         vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
             id: 'inv-2',
@@ -568,7 +625,7 @@ describe('auto-journal idempotency & repair journalDate', () => {
         await handleSalesInvoiceCreated('inv-1', { journalDate: repairDate });
 
         expect(AccountingService.createJournalEntry).toHaveBeenCalledWith(
-            expect.objectContaining({ entryDate: repairDate }),
+            expect.objectContaining({ entryDate: repairDate }), undefined,
         );
     });
 

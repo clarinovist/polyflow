@@ -28,8 +28,11 @@ export type EnsureJournalOutcome = {
 };
 
 export class AutoJournalService {
-    static async handleSalesInvoiceCreated(invoiceId: string) {
-        return handleSalesInvoiceCreated(invoiceId);
+    static async handleSalesInvoiceCreated(
+        invoiceId: string,
+        options?: { tx?: Prisma.TransactionClient; refreshDraft?: boolean },
+    ) {
+        return handleSalesInvoiceCreated(invoiceId, options);
     }
 
     static async handlePurchaseInvoiceCreated(invoiceId: string) {
@@ -73,8 +76,8 @@ export class AutoJournalService {
     /**
      * Idempotent "make sure this document has a journal in the right status".
      *
-     * All creation-time call sites run post-commit with swallowed errors, so
-     * any transient failure (unresolvable account, closed period, ...) leaves
+     * Legacy creation-time call sites ran post-commit with swallowed errors, so
+     * a transient failure (unresolvable account, closed period, ...) could leave
      * the document permanently journal-less. This is the single entry point
      * for repair paths (health checks, backfill scripts): safe to call any
      * number of times — existing journals are kept (never duplicated), DRAFT

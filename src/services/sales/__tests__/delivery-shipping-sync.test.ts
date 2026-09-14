@@ -13,9 +13,11 @@ vi.mock('@/lib/core/prisma', () => ({
       findMany: vi.fn(),
     },
     invoice: {
-      findMany: vi.fn(),
+      findMany: vi.fn(), findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma)),
   },
 }));
 
@@ -23,7 +25,33 @@ vi.mock('@/lib/tools/audit', () => ({
   logActivity: vi.fn(),
 }));
 
+vi.mock('@/services/finance/auto-journal-service', () => ({ AutoJournalService: { handleSalesInvoiceCreated: vi.fn() } }));
+import { AutoJournalService } from '@/services/finance/auto-journal-service';
+
 describe('syncSalesOrderShippingFromDeliveries', () => {
+  it('preserves new draft rounding and refreshes GL/audit in its transaction', async () => {
+    vi.mocked(prisma.salesOrder.findUniqueOrThrow).mockResolvedValue({
+      id: 'so-1', status: 'CONFIRMED', totalAmount: 1320, shippingCost: 0,
+    } as never);
+    vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([{ status: 'DRAFT', totalCharge: 100 }] as never);
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([{ id: 'new', status: 'DRAFT', roundingAmount: 180 }] as never);
+    vi.mocked(prisma.invoice.findUniqueOrThrow).mockResolvedValue({ id: 'new', status: 'DRAFT' } as never);
+    await syncSalesOrderShippingFromDeliveries('so-1');
+    expect(prisma.invoice.update).toHaveBeenCalledWith({ where: { id: 'new' }, data: { totalAmount: 1500, roundingAmount: 80 } });
+    expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('new', { tx: prisma, refreshDraft: true });
+    expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ tx: prisma, entityId: 'new' }));
+  });
+
+  it('refuses a rounded draft that was approved during shipping sync', async () => {
+    vi.mocked(prisma.salesOrder.findUniqueOrThrow).mockResolvedValue({
+      id: 'so-1', status: 'CONFIRMED', totalAmount: 1320, shippingCost: 0,
+    } as never);
+    vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([{ id: 'new', status: 'DRAFT', roundingAmount: 180 }] as never);
+    vi.mocked(prisma.invoice.findUniqueOrThrow).mockResolvedValue({ id: 'new', status: 'UNPAID' } as never);
+    await expect(syncSalesOrderShippingFromDeliveries('so-1')).rejects.toThrow('sudah dikonfirmasi');
+    expect(prisma.invoice.update).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });

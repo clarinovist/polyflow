@@ -1,12 +1,7 @@
 import { addDays } from 'date-fns';
-import {
-    InvoiceStatus,
-    SalesOrderStatus,
-    Prisma,
-} from '@prisma/client';
+import { InvoiceStatus, SalesOrderStatus, Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
-import { logger } from '@/lib/config/logger';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import {
     CreateInvoiceValues,
@@ -16,6 +11,10 @@ import { logActivity } from '@/lib/tools/audit';
 
 import { AutoJournalService } from './auto-journal-service';
 import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
+import {
+    calculateInvoiceRounding,
+    invoiceAmountsForPolicy,
+} from '@/lib/finance/invoice-rounding';
 
 /**
  * Calculate sales invoice total from actual delivered/shipped quantities (not SO ordered qty).
@@ -24,8 +23,9 @@ import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
  */
 export async function calculateSalesInvoiceTotalFromDelivered(
     salesOrderId: string,
+    db: Prisma.TransactionClient = prisma,
 ): Promise<number> {
-    const so = await prisma.salesOrder.findUnique({
+    const so = await db.salesOrder.findUnique({
         where: { id: salesOrderId },
         select: {
             totalAmount: true,
@@ -196,6 +196,27 @@ export async function createInvoiceWithNumberRetry<T>(
     throw lastError;
 }
 
+/** Invoice, rounded receivable, journal and audit must commit together. */
+async function persistNewInvoice(
+    tx: Prisma.TransactionClient,
+    data: Prisma.InvoiceUncheckedCreateInput,
+    userId: string,
+    action: string,
+    details: string,
+) {
+    const invoice = await tx.invoice.create({ data });
+    await AutoJournalService.handleSalesInvoiceCreated(invoice.id, { tx });
+    await logActivity({
+        userId,
+        action,
+        entityType: 'Invoice',
+        entityId: invoice.id,
+        details,
+        tx,
+    });
+    return invoice;
+}
+
 export async function createInvoice(data: CreateInvoiceValues, userId: string) {
     const { salesOrderId, invoiceDate, dueDate, termOfPaymentDays, notes } =
         data;
@@ -251,44 +272,28 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
     const calculatedTotal =
         await calculateSalesInvoiceTotalFromDelivered(salesOrderId);
 
-    const { invoice, invoiceNumber } = await createInvoiceWithNumberRetry(
-        async (num) => {
-            const created = await prisma.invoice.create({
-                data: {
+    const amounts = calculateInvoiceRounding(calculatedTotal);
+    return createInvoiceWithNumberRetry((num) =>
+        prisma.$transaction((tx) =>
+            persistNewInvoice(
+                tx,
+                {
                     invoiceNumber: num,
                     salesOrderId,
                     invoiceDate,
                     dueDate: finalDueDate,
                     termOfPaymentDays: termOfPaymentDays || 0,
-                    totalAmount: calculatedTotal,
+                    ...amounts,
                     paidAmount: 0,
                     status: InvoiceStatus.UNPAID,
                     notes,
                 },
-            });
-            return { invoice: created, invoiceNumber: num };
-        },
+                userId,
+                'CREATE_INVOICE',
+                `Invoice ${num} created for Order ${salesOrder.orderNumber} (base: ${calculatedTotal}, rounding: ${amounts.roundingAmount}, total: ${amounts.totalAmount})`,
+            ),
+        ),
     );
-
-    await logActivity({
-        userId,
-        action: 'CREATE_INVOICE',
-        entityType: 'Invoice',
-        entityId: invoice.id,
-        details: `Invoice ${invoiceNumber} created for Order ${salesOrder.orderNumber} (total from delivered: ${calculatedTotal})`,
-    });
-
-    await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(
-        (error) => {
-            logger.error('Failed to generate auto-journal for invoice', {
-                error,
-                invoiceId: invoice.id,
-                module: 'FinanceInvoiceService',
-            });
-        },
-    );
-
-    return invoice;
 }
 
 export async function updateInvoiceStatus(
@@ -296,38 +301,75 @@ export async function updateInvoiceStatus(
     userId: string,
     tx?: Prisma.TransactionClient,
 ): Promise<void> {
-    if (!tx) return prisma.$transaction(db => updateInvoiceStatus(data, userId, db));
-    const { lockSalesInvoice, postSalesInvoiceJournal, requireOpenJournalPeriod, RECOGNIZED_INVOICE_STATUSES } = await import('./sales-recognition-service');
+    if (!tx)
+        return prisma.$transaction((db) =>
+            updateInvoiceStatus(data, userId, db),
+        );
+    const {
+        lockSalesInvoice,
+        postSalesInvoiceJournal,
+        requireOpenJournalPeriod,
+        RECOGNIZED_INVOICE_STATUSES,
+    } = await import('./sales-recognition-service');
     const { id, status, paidAmount } = data;
     const invoice = await lockSalesInvoice(tx, id);
-    if (invoice.status === 'DRAFT' && invoice.salesOrder.entrySource === 'EMERGENCY_DISPATCH' &&
-        (RECOGNIZED_INVOICE_STATUSES as readonly string[]).includes(status)) {
+    if (
+        invoice.status === 'DRAFT' &&
+        invoice.salesOrder.entrySource === 'EMERGENCY_DISPATCH' &&
+        (RECOGNIZED_INVOICE_STATUSES as readonly string[]).includes(status)
+    ) {
         throw new BusinessRuleError(
             'Invoice masih DRAFT. Finance harus approve terlebih dahulu sebelum bisa dibayar.',
-            { invoiceId: id, currentStatus: invoice.status, targetStatus: status }, 'INVOICE_DRAFT',
+            {
+                invoiceId: id,
+                currentStatus: invoice.status,
+                targetStatus: status,
+            },
+            'INVOICE_DRAFT',
         );
     }
     if (status === 'DRAFT' && invoice.status !== 'DRAFT') {
-        throw new BusinessRuleError('Invoice yang sudah dikonfirmasi tidak dapat dikembalikan ke DRAFT.', { invoiceId: id }, 'INVALID_STATUS_TRANSITION');
+        throw new BusinessRuleError(
+            'Invoice yang sudah dikonfirmasi tidak dapat dikembalikan ke DRAFT.',
+            { invoiceId: id },
+            'INVALID_STATUS_TRANSITION',
+        );
     }
-    await tx.invoice.update({ where: { id }, data: { status, ...(paidAmount !== undefined && { paidAmount }) } });
+    await tx.invoice.update({
+        where: { id },
+        data: { status, ...(paidAmount !== undefined && { paidAmount }) },
+    });
     if ((RECOGNIZED_INVOICE_STATUSES as readonly string[]).includes(status)) {
         await postSalesInvoiceJournal(tx, id, userId);
     } else if (status === 'CANCELLED') {
         const journals = await tx.journalEntry.findMany({
-            where: { referenceId: id, referenceType: 'SALES_INVOICE', status: { not: 'VOIDED' } },
+            where: {
+                referenceId: id,
+                referenceType: 'SALES_INVOICE',
+                status: { not: 'VOIDED' },
+            },
             select: { entryDate: true },
         });
-        for (const journal of journals) await requireOpenJournalPeriod(tx, journal.entryDate);
+        for (const journal of journals)
+            await requireOpenJournalPeriod(tx, journal.entryDate);
         await tx.journalEntry.updateMany({
-            where: { referenceId: id, referenceType: 'SALES_INVOICE', status: { not: 'VOIDED' } },
+            where: {
+                referenceId: id,
+                referenceType: 'SALES_INVOICE',
+                status: { not: 'VOIDED' },
+            },
             data: { status: 'VOIDED' },
         });
     }
     await logActivity({
-        userId, action: 'UPDATE_INVOICE', entityType: 'Invoice', entityId: id,
+        userId,
+        action: 'UPDATE_INVOICE',
+        entityType: 'Invoice',
+        entityId: id,
         details: `Invoice ${invoice.invoiceNumber} status updated to ${status}`,
-        fromStatus: invoice.status, toStatus: status, tx,
+        fromStatus: invoice.status,
+        toStatus: status,
+        tx,
     });
 }
 
@@ -350,145 +392,97 @@ export async function createDraftInvoiceFromOrder(
         return;
     }
 
-    // Calculate total from delivered qty
-    const calculatedTotal =
-        await calculateSalesInvoiceTotalFromDelivered(salesOrderId);
+    return createInvoiceWithNumberRetry((num) =>
+        prisma.$transaction(async (tx) => {
+            // Serialize draft/supplementary generation and lock invoices against payment/approval.
+            await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
+            await tx.$queryRaw`SELECT id FROM "Invoice" WHERE "salesOrderId" = ${salesOrderId} ORDER BY id FOR UPDATE`;
+            const calculatedTotal =
+                await calculateSalesInvoiceTotalFromDelivered(salesOrderId, tx);
+            const invoices = await tx.invoice.findMany({
+                where: { salesOrderId, status: { not: 'CANCELLED' } },
+                orderBy: { createdAt: 'asc' },
+            });
+            const draft = invoices.find(
+                (invoice) => invoice.status === 'DRAFT',
+            );
+            const committedBase = invoices
+                .filter((invoice) => invoice.id !== draft?.id)
+                .reduce(
+                    (sum, invoice) =>
+                        sum
+                            .plus(invoice.totalAmount.toNumber())
+                            .minus(invoice.roundingAmount ?? 0),
+                    new Prisma.Decimal(0),
+                );
+            const remaining = Prisma.Decimal.max(
+                0,
+                new Prisma.Decimal(calculatedTotal).minus(committedBase),
+            ).toNumber();
 
-    const existingInvoice = await prisma.invoice.findFirst({
-        where: { salesOrderId },
-    });
-
-    // Upsert: if DRAFT invoice exists, sync totalAmount from delivered qty
-    if (existingInvoice) {
-        if (existingInvoice.status === 'DRAFT') {
-            const existingTotal = existingInvoice.totalAmount.toNumber();
-            if (Math.abs(existingTotal - calculatedTotal) > 0.01) {
-                await prisma.invoice.update({
-                    where: { id: existingInvoice.id },
-                    data: { totalAmount: calculatedTotal },
+            if (draft) {
+                const amounts = invoiceAmountsForPolicy(
+                    remaining,
+                    draft.roundingAmount,
+                );
+                const changed =
+                    !new Prisma.Decimal(draft.totalAmount.toNumber()).eq(
+                        amounts.totalAmount,
+                    ) ||
+                    ('roundingAmount' in amounts &&
+                        Number(draft.roundingAmount) !==
+                            amounts.roundingAmount);
+                if (!changed) return draft;
+                const updated = await tx.invoice.update({
+                    where: { id: draft.id },
+                    data: amounts,
                 });
+                if (draft.roundingAmount != null) {
+                    await AutoJournalService.handleSalesInvoiceCreated(
+                        draft.id,
+                        { tx, refreshDraft: true },
+                    );
+                }
                 await logActivity({
                     userId,
                     action: 'SYNC_INVOICE_FROM_DELIVERED',
                     entityType: 'Invoice',
-                    entityId: existingInvoice.id,
-                    details: `Invoice ${existingInvoice.invoiceNumber} total updated from ${existingTotal} to ${calculatedTotal} based on delivered quantities`,
+                    entityId: draft.id,
+                    details: `Invoice ${draft.invoiceNumber} total updated from ${draft.totalAmount} to ${amounts.totalAmount} (base: ${remaining})`,
+                    tx,
                 });
+                return updated;
             }
-            return {
-                ...existingInvoice,
-                totalAmount: { toNumber: () => calculatedTotal } as never,
-            };
-        }
-        if (
-            existingInvoice.status === 'UNPAID' ||
-            existingInvoice.status === 'PARTIAL' ||
-            existingInvoice.status === 'OVERDUE'
-        ) {
-            // #3: delivered increased after invoice locked — don't overwrite, but emit warning + create second DRAFT for remaining.
-            // Caller (delivery commit) will log mismatch; second draft creation attempted via createSecondaryInvoiceIfNeeded below.
-            const existingTotal = existingInvoice.totalAmount.toNumber();
-            if (calculatedTotal > existingTotal + 0.01) {
-                // There's additional delivered value not covered by existing locked invoice → create supplementary DRAFT
-                const remaining = calculatedTotal - existingTotal;
-                try {
-                    const termOfPaymentDays =
-                        salesOrder.customer?.paymentTermDays ?? 30;
-                    const invoiceDate = new Date();
-                    const dueDate = addDays(invoiceDate, termOfPaymentDays);
-                    const { supplementary, invoiceNumber } =
-                        await createInvoiceWithNumberRetry(async (num) => {
-                            const created = await prisma.invoice.create({
-                                data: {
-                                    invoiceNumber: num,
-                                    salesOrderId,
-                                    invoiceDate,
-                                    dueDate,
-                                    termOfPaymentDays,
-                                    totalAmount: remaining,
-                                    paidAmount: 0,
-                                    status: InvoiceStatus.DRAFT,
-                                    notes: `Suplementer: tambahan kirim setelah invoice ${existingInvoice.invoiceNumber} (sisa ${remaining}) — SO ${salesOrder.orderNumber}`,
-                                },
-                            });
-                            return {
-                                supplementary: created,
-                                invoiceNumber: num,
-                            };
-                        });
-                    await logActivity({
-                        userId,
-                        action: 'CREATE_SUPPLEMENTARY_INVOICE',
-                        entityType: 'Invoice',
-                        entityId: supplementary.id,
-                        details: `Supplementary invoice ${invoiceNumber} for remaining ${remaining} after ${existingInvoice.invoiceNumber} (total delivered now ${calculatedTotal})`,
-                    });
-                    await AutoJournalService.handleSalesInvoiceCreated(
-                        supplementary.id,
-                    ).catch((err) => {
-                        logger.error(
-                            'Auto-Journal failed for supplementary invoice',
-                            {
-                                error: err,
-                                invoiceId: supplementary.id,
-                                module: 'FinanceInvoiceService',
-                            },
-                        );
-                    });
-                } catch (e) {
-                    logger.error('Failed to create supplementary invoice', {
-                        error: e,
-                        salesOrderId,
-                        module: 'FinanceInvoiceService',
-                    });
-                }
-            }
-        }
-        return existingInvoice;
-    }
+            if (invoices.length > 0 && remaining <= 0) return invoices[0];
 
-    const termOfPaymentDays = salesOrder.customer?.paymentTermDays ?? 30;
-    const invoiceDate = new Date();
-    const dueDate = addDays(invoiceDate, termOfPaymentDays);
-
-    const { invoice, invoiceNumber } = await createInvoiceWithNumberRetry(
-        async (num) => {
-            const created = await prisma.invoice.create({
-                data: {
+            const amounts = calculateInvoiceRounding(remaining);
+            const termOfPaymentDays =
+                salesOrder.customer?.paymentTermDays ?? 30;
+            const invoiceDate = new Date();
+            const supplementary = invoices.length > 0;
+            return persistNewInvoice(
+                tx,
+                {
                     invoiceNumber: num,
                     salesOrderId,
                     invoiceDate,
-                    dueDate,
+                    dueDate: addDays(invoiceDate, termOfPaymentDays),
                     termOfPaymentDays,
-                    totalAmount: calculatedTotal,
+                    ...amounts,
                     paidAmount: 0,
                     status: InvoiceStatus.DRAFT,
-                    notes: `System generated draft invoice for Order ${salesOrder.orderNumber} (based on delivered quantities)`,
+                    notes: supplementary
+                        ? `Suplementer: tambahan kirim — SO ${salesOrder.orderNumber}`
+                        : `System generated draft invoice for Order ${salesOrder.orderNumber} (based on delivered quantities)`,
                 },
-            });
-            return { invoice: created, invoiceNumber: num };
-        },
+                userId,
+                supplementary
+                    ? 'CREATE_SUPPLEMENTARY_INVOICE'
+                    : 'AUTO_GENERATE_INVOICE',
+                `Invoice ${num} for Order ${salesOrder.orderNumber} (base: ${remaining}, rounding: ${amounts.roundingAmount}, total: ${amounts.totalAmount})`,
+            );
+        }),
     );
-
-    await logActivity({
-        userId,
-        action: 'AUTO_GENERATE_INVOICE',
-        entityType: 'Invoice',
-        entityId: invoice.id,
-        details: `Automated draft invoice ${invoiceNumber} generated for shipped Order ${salesOrder.orderNumber} (total from delivered: ${calculatedTotal})`,
-    });
-
-    await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(
-        (error) => {
-            logger.error('Failed to generate auto-journal for invoice', {
-                error,
-                invoiceId: invoice.id,
-                module: 'FinanceInvoiceService',
-            });
-        },
-    );
-
-    return invoice;
 }
 
 export async function updateSalesInvoiceDueDate(

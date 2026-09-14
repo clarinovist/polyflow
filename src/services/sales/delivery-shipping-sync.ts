@@ -14,6 +14,9 @@ import {
     sumBillableCharges,
 } from '@/lib/sales/delivery-pricing';
 import { logActivity } from '@/lib/tools/audit';
+import { calculateInvoiceRounding } from '@/lib/finance/invoice-rounding';
+import { AutoJournalService } from '@/services/finance/auto-journal-service';
+import { BusinessRuleError } from '@/lib/errors/errors';
 
 const LOCKED_INVOICE_STATUSES = [
     'UNPAID',
@@ -238,7 +241,7 @@ export async function syncSalesOrderShippingFromDeliveries(
     // Check invoices
     const invoices = await db.invoice.findMany({
         where: { salesOrderId, status: { not: 'CANCELLED' } },
-        select: { id: true, status: true },
+        select: { id: true, status: true, roundingAmount: true },
     });
 
     const hasLocked = invoices.some((i) =>
@@ -257,37 +260,83 @@ export async function syncSalesOrderShippingFromDeliveries(
         };
     }
 
-    // Update SO display totals (shipping + totalAmount)
-    await db.salesOrder.update({
-        where: { id: salesOrderId },
-        data: {
-            shippingCost: shippingCost > 0 ? shippingCost : null,
-            totalAmount,
-        },
-    });
-
-    // Update DRAFT invoices ONLY when goodsBasis is ORDERED (no delivery yet).
-    // When DELIVERED, invoice-lifecycle-service is source of truth; do not overwrite.
-    let invoiceUpdated = false;
-    if (goodsBasis === 'ORDERED') {
-        for (const inv of invoices.filter((i) => i.status === 'DRAFT')) {
-            await db.invoice.update({
-                where: { id: inv.id },
-                data: { totalAmount },
-            });
-            invoiceUpdated = true;
+    // Rounded invoices require SO totals, invoice, replacement GL and audit to be atomic.
+    const needsTransaction =
+        goodsBasis === 'ORDERED' &&
+        invoices.some((i) => i.roundingAmount != null);
+    const persist = async (writer: Prisma.TransactionClient) => {
+        if (needsTransaction) {
+            await writer.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
         }
-    }
-
-    if (opts?.userId) {
-        await logActivity({
-            userId: opts.userId,
-            action: 'SYNC_SHIPPING_FROM_DELIVERIES',
-            entityType: 'SalesOrder',
-            entityId: salesOrderId,
-            details: `shippingCost=${shippingCost} totalAmount=${totalAmount} goodsBasis=${goodsBasis}`,
+        await writer.salesOrder.update({
+            where: { id: salesOrderId },
+            data: {
+                shippingCost: shippingCost > 0 ? shippingCost : null,
+                totalAmount,
+            },
         });
-    }
+
+        // Update DRAFT invoices ONLY when goodsBasis is ORDERED (no delivery yet).
+        // When DELIVERED, invoice-lifecycle-service is source of truth; do not overwrite.
+        let invoiceUpdated = false;
+        if (goodsBasis === 'ORDERED') {
+            for (const inv of invoices.filter((i) => i.status === 'DRAFT')) {
+                if (inv.roundingAmount != null) {
+                    const sync = async (tx: Prisma.TransactionClient) => {
+                        await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${inv.id} FOR UPDATE`;
+                        const current = await tx.invoice.findUniqueOrThrow({
+                            where: { id: inv.id },
+                        });
+                        if (current.status !== 'DRAFT') {
+                            throw new BusinessRuleError(
+                                'Invoice sudah dikonfirmasi. Muat ulang sebelum mengubah ongkir.',
+                            );
+                        }
+                        const amounts = calculateInvoiceRounding(totalAmount);
+                        await tx.invoice.update({
+                            where: { id: inv.id },
+                            data: amounts,
+                        });
+                        await AutoJournalService.handleSalesInvoiceCreated(
+                            inv.id,
+                            { tx, refreshDraft: true },
+                        );
+                        await logActivity({
+                            userId: opts?.userId ?? 'system',
+                            action: 'SYNC_INVOICE_SHIPPING',
+                            entityType: 'Invoice',
+                            entityId: inv.id,
+                            details: `Invoice total=${amounts.totalAmount}, rounding=${amounts.roundingAmount}`,
+                            tx,
+                        });
+                    };
+                    await sync(writer);
+                } else {
+                    await writer.invoice.update({
+                        where: { id: inv.id },
+                        data: { totalAmount },
+                    });
+                }
+                invoiceUpdated = true;
+            }
+        }
+
+        if (opts?.userId) {
+            await logActivity({
+                userId: opts.userId,
+                action: 'SYNC_SHIPPING_FROM_DELIVERIES',
+                entityType: 'SalesOrder',
+                entityId: salesOrderId,
+                details: `shippingCost=${shippingCost} totalAmount=${totalAmount} goodsBasis=${goodsBasis}`,
+                ...(needsTransaction && { tx: writer }),
+            });
+        }
+        return invoiceUpdated;
+    };
+    const invoiceUpdated =
+        needsTransaction && !opts?.tx
+            ? await prisma.$transaction(persist)
+            : await persist(db);
 
     return {
         shippingCost,

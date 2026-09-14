@@ -50,6 +50,17 @@ describe('ACCOUNT_ROLE_PATTERNS — prioritas akun selisih persediaan', () => {
         vi.clearAllMocks();
     });
 
+    it('rounding prefers its dedicated income account, never inventory adjustment', async () => {
+        const accounts = [
+            { id: 'stock', code: '81100', name: 'Inventory Adjustment Gain', isActive: true },
+            { id: 'other', code: 'OTHER', name: 'Other Income', isActive: true },
+            { id: 'rounding', code: 'ROUND', name: 'Pendapatan Pembulatan', isActive: true },
+        ];
+        expect((await resolveByPatterns('sales-rounding-income', makeDb(accounts))).id).toBe('rounding');
+        expect((await resolveByPatterns('sales-rounding-income', makeDb(accounts.slice(0, 2)))).id).toBe('other');
+        await expect(resolveByPatterns('sales-rounding-income', makeDb(accounts.slice(0, 1)))).rejects.toThrow();
+    });
+
     it('COA gaya Indonesia (7-xxx/8-xxx): pilih 7-103/8-203, BUKAN 7-101/8-202', async () => {
         const db = makeDb([
             ID_STYLE_COA_MARKER,

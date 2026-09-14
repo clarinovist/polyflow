@@ -129,6 +129,16 @@ describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
         mockRecordCustomerPayment.mockResolvedValue({ success: true });
     });
 
+    it('shows the persisted rounding adjustment independently of VAT', () => {
+        render(<FinancialInvoiceDetail invoice={makeInvoice({ totalAmount: 16642500, roundingAmount: 180 })} />);
+        expect(screen.getByText('Pembulatan').parentElement?.textContent).toContain('180');
+    });
+
+    it('keeps legacy invoice details without a rounding row', () => {
+        render(<FinancialInvoiceDetail invoice={makeInvoice({ roundingAmount: null })} />);
+        expect(screen.queryByText('Pembulatan')).toBeNull();
+    });
+
     it('shows Konfirmasi Invoice when status DRAFT', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'DRAFT' })} />);
         expect(

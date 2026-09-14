@@ -18,6 +18,7 @@ export type AccountRole =
     | 'vat-input'
     | 'income-tax'
     | 'sales-revenue'
+    | 'sales-rounding-income'
     | 'sales-return'
     | 'cogs'
     | 'inventory'
@@ -131,6 +132,13 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
         { code: '41100' },
         { nameContains: 'Penjualan' },
         { nameContains: 'Sales Revenue' },
+    ],
+    // Collection rounding is not an inventory adjustment gain.
+    'sales-rounding-income': [
+        { nameContains: 'Pendapatan Pembulatan' },
+        { nameContains: 'Rounding Income' },
+        { nameContains: 'Pendapatan Lain-lain' },
+        { nameContains: 'Other Income' },
     ],
     'sales-return': [
         { code: '4-302' },

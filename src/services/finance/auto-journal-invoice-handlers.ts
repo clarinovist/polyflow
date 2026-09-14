@@ -1,7 +1,7 @@
-import { JournalStatus, ReferenceType } from '@prisma/client';
+import { JournalStatus, ReferenceType, Prisma } from '@prisma/client';
 
 import { prisma, getTenantIdFromContext } from '@/lib/core/prisma';
-import { NotFoundError } from '@/lib/errors/errors';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { AccountingService } from '../accounting/accounting-service';
 import { resolveAccount } from '@/services/accounting/account-resolver';
 import { resolveRevenueAccount } from '@/services/accounting/revenue-account-resolver';
@@ -35,9 +35,14 @@ async function loadRulesForInvoice(
 
 export async function handleSalesInvoiceCreated(
     invoiceId: string,
-    options?: { journalDate?: Date },
+    options?: {
+        journalDate?: Date;
+        tx?: Prisma.TransactionClient;
+        refreshDraft?: boolean;
+    },
 ) {
-    const invoice = await prisma.invoice.findUnique({
+    const db = options?.tx ?? prisma;
+    const invoice = await db.invoice.findUnique({
         where: { id: invoiceId },
         include: {
             salesOrder: {
@@ -62,31 +67,61 @@ export async function handleSalesInvoiceCreated(
     // post-commit with swallowed errors, so a retry (repair/backfill) must not
     // duplicate an existing journal. VOIDED journals don't count — the source
     // invoice was cancelled and a fresh document state deserves a fresh check.
-    const existing = await prisma.journalEntry.findFirst({
+    const existing = await db.journalEntry.findFirst({
         where: {
             referenceType: ReferenceType.SALES_INVOICE,
             referenceId: invoiceId,
             status: { not: JournalStatus.VOIDED },
         },
-        select: { id: true },
+        select: { id: true, status: true },
     });
-    if (existing) return;
+    if (existing && !options?.refreshDraft) return;
+    if (
+        options?.refreshDraft &&
+        (!options.tx ||
+            invoice.status !== 'DRAFT' ||
+            (existing && existing.status !== JournalStatus.DRAFT))
+    ) {
+        throw new BusinessRuleError(
+            'Jurnal invoice yang sudah diakui tidak dapat dihitung ulang.',
+        );
+    }
+    if (existing) {
+        // The caller locks the invoice; guard against concurrent GL posting as well.
+        const replaced = await db.journalEntry.updateMany({
+            where: { id: existing.id, status: 'DRAFT' },
+            data: { status: 'VOIDED' },
+        });
+        if (replaced.count !== 1)
+            throw new BusinessRuleError(
+                'Status jurnal berubah. Muat ulang sebelum sinkronisasi invoice.',
+            );
+    }
 
     const arAccount = await resolveAccount('accounts-receivable');
     const vatAccount = await resolveAccount('vat-output');
 
     const totalAmount = Number(invoice.totalAmount);
+    const roundingAmount = Number(invoice.roundingAmount ?? 0);
+    const commercialTotal = new Prisma.Decimal(totalAmount)
+        .minus(roundingAmount)
+        .toNumber();
     const soTotal = Number(invoice.salesOrder.totalAmount || 0);
     const soTax = Number(invoice.salesOrder.taxAmount || 0);
 
     let taxAmount = 0;
     if (soTotal > 0 && soTax > 0 && soTotal > soTax) {
         const taxRate = soTax / (soTotal - soTax);
-        const netAmount = totalAmount / (1 + taxRate);
-        taxAmount = totalAmount - netAmount;
+        const netAmount = commercialTotal / (1 + taxRate);
+        taxAmount = commercialTotal - netAmount;
+        if (invoice.roundingAmount != null) {
+            taxAmount = new Prisma.Decimal(taxAmount).toDecimalPlaces(2).toNumber();
+        }
     }
 
-    const subtotal = totalAmount - taxAmount;
+    const subtotal = new Prisma.Decimal(commercialTotal)
+        .minus(taxAmount)
+        .toNumber();
     const journalStatus =
         invoice.status === 'DRAFT' ? JournalStatus.DRAFT : JournalStatus.POSTED;
 
@@ -161,7 +196,7 @@ export async function handleSalesInvoiceCreated(
                           }
                         : null,
                 },
-                prisma,
+                db,
                 rules,
                 cacheKey,
             );
@@ -198,12 +233,19 @@ export async function handleSalesInvoiceCreated(
         });
     }
 
+    // New-policy invoices must balance at the persisted cent precision, even
+    // with fractional prices across several revenue accounts.
+    if (invoice.roundingAmount != null) {
+        for (const value of revenueMap.values()) {
+            value.amount = new Prisma.Decimal(value.amount).toDecimalPlaces(2).toNumber();
+        }
+    }
     // Scale credits to match subtotal (rounding / tax-base drift)
     const totalMapped = Array.from(revenueMap.values()).reduce(
         (s, v) => s + v.amount,
         0,
     );
-    if (Math.abs(totalMapped - subtotal) > 0.01 && totalMapped > 0) {
+    if (totalMapped !== subtotal && totalMapped > 0) {
         const largest = Array.from(revenueMap.entries()).reduce((a, b) =>
             b[1].amount > a[1].amount ? b : a,
         );
@@ -232,6 +274,17 @@ export async function handleSalesInvoiceCreated(
                 description: `${description} - ${invoice.invoiceNumber}`,
             }),
         ),
+        ...(roundingAmount > 0
+            ? [
+                  {
+                      accountId: (await resolveAccount('sales-rounding-income'))
+                          .id,
+                      debit: 0,
+                      credit: roundingAmount,
+                      description: `Pembulatan - ${invoice.invoiceNumber}`,
+                  },
+              ]
+            : []),
         ...(taxAmount > 0
             ? [
                   {
@@ -244,18 +297,21 @@ export async function handleSalesInvoiceCreated(
             : []),
     ];
 
-    await AccountingService.createJournalEntry({
-        // journalDate override: repair/backfill paths post into the CURRENT
-        // open fiscal period instead of backdating into a closed one.
-        entryDate: options?.journalDate ?? invoice.invoiceDate,
-        description: `Sales Invoice #${invoice.invoiceNumber}`,
-        reference: invoice.invoiceNumber,
-        referenceType: ReferenceType.SALES_INVOICE,
-        referenceId: invoice.id,
-        isAutoGenerated: true,
-        status: journalStatus,
-        lines: journalLines,
-    });
+    await AccountingService.createJournalEntry(
+        {
+            // journalDate override: repair/backfill paths post into the CURRENT
+            // open fiscal period instead of backdating into a closed one.
+            entryDate: options?.journalDate ?? invoice.invoiceDate,
+            description: `Sales Invoice #${invoice.invoiceNumber}`,
+            reference: invoice.invoiceNumber,
+            referenceType: ReferenceType.SALES_INVOICE,
+            referenceId: invoice.id,
+            isAutoGenerated: true,
+            status: journalStatus,
+            lines: journalLines,
+        },
+        options?.tx,
+    );
 }
 
 export async function handlePurchaseInvoiceCreated(

@@ -11,7 +11,6 @@ import {
   updateSalesInvoiceDueDate,
 } from "../invoice-lifecycle-service";
 import { prisma } from "@/lib/core/prisma";
-import { logger } from "@/lib/config/logger";
 import { logActivity } from "@/lib/tools/audit";
 import { AutoJournalService } from "../auto-journal-service";
 
@@ -19,6 +18,7 @@ import { AutoJournalService } from "../auto-journal-service";
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
     $transaction: vi.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma)),
+    $queryRaw: vi.fn(),
     invoice: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -381,44 +381,19 @@ describe("invoice-lifecycle-service", () => {
         "user-1",
       );
 
-      // Assert
       expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith(
-        "inv-1",
+        "inv-1", { tx: prisma },
       );
     });
 
-    it("should log error when AutoJournalService fails without throwing", async () => {
-      // Arrange
-      const journalError = new Error("Journal failed");
-      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
-        mockSalesOrder as any,
-      );
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null);
-      vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as any);
-      vi.mocked(
-        AutoJournalService.handleSalesInvoiceCreated,
-      ).mockRejectedValueOnce(journalError);
-
-      // Act
-      const result = await createInvoice(
-        {
-          salesOrderId: "so-1",
-          invoiceDate: new Date(2026, 5, 24),
-          termOfPaymentDays: 30,
-        },
-        "user-1",
-      );
-
-      // Assert - should not throw
-      expect(result).toEqual(mockInvoice);
-      expect(logger.error).toHaveBeenCalledWith(
-        "Failed to generate auto-journal for invoice",
-        expect.objectContaining({
-          error: journalError,
-          invoiceId: "inv-1",
-          module: "FinanceInvoiceService",
-        }),
-      );
+    it("propagates journal failure to roll back invoice creation", async () => {
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockSalesOrder as never);
+      vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as never);
+      vi.mocked(AutoJournalService.handleSalesInvoiceCreated).mockRejectedValueOnce(new Error('Journal failed'));
+      await expect(createInvoice({ salesOrderId: 'so-1', invoiceDate: new Date(), termOfPaymentDays: 30 }, 'user-1'))
+        .rejects.toThrow('Journal failed');
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(logActivity).not.toHaveBeenCalled();
     });
 
     it("should throw error when sales order tidak ditemukan", async () => {
@@ -841,37 +816,18 @@ describe("invoice-lifecycle-service", () => {
       // Act
       await createDraftInvoiceFromOrder("so-1", "user-1");
 
-      // Assert
       expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith(
-        "inv-1",
+        "inv-1", { tx: prisma },
       );
     });
 
-    it("should log error when AutoJournalService fails without throwing", async () => {
-      // Arrange
-      const journalError = new Error("Journal failed");
-      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
-        mockSalesOrder as any,
-      );
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null);
-      vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as any);
-      vi.mocked(
-        AutoJournalService.handleSalesInvoiceCreated,
-      ).mockRejectedValueOnce(journalError);
-
-      // Act
-      const result = await createDraftInvoiceFromOrder("so-1", "user-1");
-
-      // Assert - should not throw
-      expect(result).toEqual(mockInvoice);
-      expect(logger.error).toHaveBeenCalledWith(
-        "Failed to generate auto-journal for invoice",
-        expect.objectContaining({
-          error: journalError,
-          invoiceId: "inv-1",
-          module: "FinanceInvoiceService",
-        }),
-      );
+    it("propagates journal failure to roll back draft creation", async () => {
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockSalesOrder as never);
+      vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as never);
+      vi.mocked(AutoJournalService.handleSalesInvoiceCreated).mockRejectedValueOnce(new Error('Journal failed'));
+      await expect(createDraftInvoiceFromOrder('so-1', 'user-1')).rejects.toThrow('Journal failed');
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(logActivity).not.toHaveBeenCalled();
     });
 
     it("should return undefined when sales order tidak ditemukan", async () => {
@@ -937,7 +893,7 @@ describe("invoice-lifecycle-service", () => {
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
         mockSOWithDelivery as any,
       );
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(existingInvoice as any);
+      vi.mocked(prisma.invoice.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([existingInvoice] as never);
       vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
 
       const result = await createDraftInvoiceFromOrder("so-1", "user-1");
@@ -970,7 +926,7 @@ describe("invoice-lifecycle-service", () => {
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
         mockSOWithDelivery as any,
       );
-      vi.mocked(prisma.invoice.findFirst).mockResolvedValue(existingInvoice as any);
+      vi.mocked(prisma.invoice.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([existingInvoice] as never);
 
       const result = await createDraftInvoiceFromOrder("so-1", "user-1");
 

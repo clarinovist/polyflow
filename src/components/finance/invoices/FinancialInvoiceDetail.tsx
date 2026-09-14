@@ -536,7 +536,7 @@ export function FinancialInvoiceDetail({
                                     <span>
                                         {formatRupiah(
                                             Number(invoice.totalAmount) -
-                                                taxAmount,
+                                                Number(invoice.roundingAmount ?? 0) - taxAmount,
                                         )}
                                     </span>
                                 </div>
@@ -545,6 +545,12 @@ export function FinancialInvoiceDetail({
                                 <span>Tax / VAT</span>
                                 <span>{formatRupiah(taxAmount)}</span>
                             </div>
+                            {Number(invoice.roundingAmount ?? 0) > 0 && (
+                                <div className="flex justify-between text-sm py-2">
+                                    <span>Pembulatan</span>
+                                    <span>{formatRupiah(Number(invoice.roundingAmount))}</span>
+                                </div>
+                            )}
                             <Separator className="my-2" />
                             <div className="flex justify-between font-bold">
                                 <span>Total</span>
