@@ -1,33 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { Button } from '@/components/ui/button';
+import { usePublicNavState } from '@/hooks/use-public-nav-state';
 import { Menu, X } from 'lucide-react';
 
 export default function PublicNav() {
-    const [scrolled, setScrolled] = useState(false);
-    const [mobileOpen, setMobileOpen] = useState(false);
-    const mobileMenuButton = useRef<HTMLButtonElement>(null);
-
-    useEffect(() => {
-        const handleScroll = () => setScrolled(window.scrollY > 20);
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-
-    useEffect(() => {
-        if (!mobileOpen) return;
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            setMobileOpen(false);
-            mobileMenuButton.current?.focus();
-        };
-        document.addEventListener('keydown', handleEscape);
-        return () => document.removeEventListener('keydown', handleEscape);
-    }, [mobileOpen]);
+    const { scrolled, mobileOpen, setMobileOpen, mobileMenuButton } =
+        usePublicNavState();
 
     return (
         <header
