@@ -35,21 +35,54 @@ describe('parseLatestRelease', () => {
         );
     });
 
-    it('localizes representative entries from the actual latest changelog', () => {
+    it.each(['1.9.0', '1.10.0', '2.0.0'])(
+        'localizes a fixed release fixture independently of version %s',
+        (version) => {
+            const release = parseLatestRelease(`
+# Changelog
+
+## [${version}](https://github.example/project/compare) (2026-09-15)
+
+### Features
+* **360:** sales customer + supplier + warehouse product 360 profiles
+* **accounting:** simplify direct labor journal input
+* **customer:** default vehicle dropdown in customer form
+
+## [1.8.0] (2026-06-18)
+* **products:** add simpler product filters
+`);
+
+            expect(release).toEqual({
+                version,
+                summaries: [
+                    'Profil menyeluruh pelanggan, pemasok, dan produk gudang kini tersedia.',
+                    'Pencatatan jurnal tenaga kerja langsung kini lebih sederhana.',
+                    'Pilihan kendaraan bawaan kini tersedia di formulir pelanggan.',
+                ],
+            });
+        },
+    );
+
+    it('keeps the actual changelog aligned with package metadata and safe to announce', () => {
         const changelog = fs.readFileSync(
             path.join(process.cwd(), 'CHANGELOG.md'),
             'utf8',
         );
+        const packageMetadata = JSON.parse(
+            fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'),
+        ) as { version: string };
         const release = parseLatestRelease(changelog);
 
-        expect(release).toEqual({
-            version: '1.9.0',
-            summaries: [
-                'Profil menyeluruh pelanggan, pemasok, dan produk gudang kini tersedia.',
-                'Pencatatan jurnal tenaga kerja langsung kini lebih sederhana.',
-                'Pilihan kendaraan bawaan kini tersedia di formulir pelanggan.',
-            ],
-        });
+        expect(release).not.toBeNull();
+        expect(release?.version).toBe(packageMetadata.version);
+        expect(release?.summaries.length).toBeGreaterThanOrEqual(1);
+        expect(release?.summaries.length).toBeLessThanOrEqual(3);
+        for (const summary of release?.summaries ?? []) {
+            expect(summary.trim()).not.toBe('');
+            expect(summary).not.toMatch(
+                /https?:\/\/|docs\/plan|permissions?|tenant|migration|deploy|credential|prisma|schema|\bapi\b|private|admin|auth/i,
+            );
+        }
     });
 
     it.each([

@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.10.0](https://github.com/clarinovist/polyflow/compare/polyflow-v1.9.0...polyflow-v1.10.0) (2026-09-15)
+
+### Fitur
+
+- Laporan produksi harian dan rekap mesin yang lebih rinci, termasuk hasil produksi dan sisa bahan.
+- Penyempurnaan perencanaan produksi, pemilihan bahan, lokasi penyimpanan, dan kontrol kualitas.
+- Alur persetujuan permintaan pembelian serta pengajuan bukti pembayaran untuk verifikasi keuangan.
+- Penyempurnaan laporan hutang dan piutang, pencatatan pembayaran, serta pelunasan kasbon.
+- Perencanaan rute, target penjualan, daftar harga pelanggan, dan pemantauan aktivitas penjualan.
+- Penyempurnaan penghitungan stok, rincian opname, dan penerimaan barang melalui perangkat seluler.
+- Bantuan kontekstual, riwayat percakapan, dan kotak masuk tindak lanjut pekerjaan.
+
+### Perbaikan
+
+- Perbaikan pencarian dan pemilihan pelanggan, pemasok, serta produk pada formulir transaksi.
+- Penyelarasan tampilan tanggal dan waktu, input angka desimal, serta perhitungan biaya dan pembulatan transaksi.
+- Penyempurnaan cetak invoice, surat jalan, dan laporan kas.
+- Peningkatan navigasi, aksesibilitas, keterbacaan, dan tata letak desktop maupun seluler.
+- Pembaruan keamanan dan kompatibilitas komponen aplikasi.
+
+### Kinerja
+
+- Peningkatan respons halaman produksi, laporan keuangan, dan daftar transaksi.
+
 ## [1.9.0](https://github.com/clarinovist/polyflow/compare/polyflow-v1.8.0...polyflow-v1.9.0) (2026-07-31)
 
 
