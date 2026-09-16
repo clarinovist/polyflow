@@ -18,7 +18,7 @@ import Link from 'next/link';
 
 interface Transaction {
     id: string;
-    journalEntryId?: string;
+    journalEntryId?: string | null;
     voucherNumber: string;
     /** Invoice / PO number of the document that produced this entry, if any. */
     sourceDocNumber?: string | null;
@@ -44,6 +44,7 @@ interface ReportData {
 
 interface LedgerRow {
     id: string;
+    journalEntryId?: string | null;
     date: string;
     noInv: string;
     voucherNumber: string;
@@ -187,6 +188,7 @@ export default function RekapKasPage() {
             runningBalance += amt;
             rows.push({
                 id: t.id,
+                journalEntryId: t.journalEntryId,
                 date: formatWibDate(t.date),
                 noInv: t.sourceDocNumber ?? '',
                 voucherNumber: t.voucherNumber,
@@ -204,6 +206,7 @@ export default function RekapKasPage() {
             runningBalance -= amt;
             rows.push({
                 id: t.id,
+                journalEntryId: t.journalEntryId,
                 date: formatWibDate(t.date),
                 noInv: t.sourceDocNumber ?? '',
                 voucherNumber: t.voucherNumber,
@@ -453,9 +456,10 @@ export default function RekapKasPage() {
                                                         }
                                                     >
                                                         {row.id !== 'opening' &&
+                                                        row.journalEntryId &&
                                                         row.voucherNumber ? (
                                                             <Link
-                                                                href="/finance/petty-cash"
+                                                                href={`/finance/journals/${row.journalEntryId}`}
                                                                 className="text-blue-600 dark:text-blue-400 hover:underline"
                                                             >
                                                                 {
