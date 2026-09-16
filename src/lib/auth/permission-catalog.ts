@@ -103,6 +103,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/production/shifts', label: 'Shift Kerja' },
             { key: '/production/analytics', label: 'Analitik Produksi' },
             { key: '/production/daily-report', label: 'Produksi Harian' },
+            { key: '/production/output-report', label: 'Rekap Hasil Produksi' },
             { key: '/production/costing', label: 'Costing' },
             { key: '/kiosk', label: 'Kiosk Operator' },
         ],

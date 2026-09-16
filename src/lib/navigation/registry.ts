@@ -404,6 +404,14 @@ const productionNavItems: NavItem[] = [
         owner: 'production',
     },
     {
+        id: 'prod-output-report',
+        label: 'Rekap Hasil Produksi',
+        href: '/production/output-report',
+        workspace: 'production',
+        section: 'analitik',
+        owner: 'production',
+    },
+    {
         id: 'prod-costing',
         label: 'Costing',
         href: '/production/costing',

@@ -60,6 +60,7 @@ const PATH_LABELS: Record<string, string> = {
     shifts: 'Shift Kerja',
     costing: 'Perhitungan Biaya',
     'packing-monthly': 'Laporan Packing',
+    'output-report': 'Rekap Hasil Produksi',
     runs: 'Rangkaian Produksi',
     routings: 'Rute Produksi',
     processes: 'Proses & Kapabilitas',

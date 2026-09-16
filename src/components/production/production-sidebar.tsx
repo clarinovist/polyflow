@@ -29,7 +29,7 @@ interface ProductionSidebarProps {
     permissions?: string[] | 'ALL';
 }
 
-const productionLinks = [
+export const productionLinks = [
     {
         heading: 'Hari Ini',
         items: [
@@ -123,6 +123,11 @@ const productionLinks = [
                 href: '/production/daily-report',
                 icon: BarChart3,
                 label: productionSidebarLabels.dailyReport,
+            },
+            {
+                href: '/production/output-report',
+                icon: FileText,
+                label: productionSidebarLabels.outputReport,
             },
             {
                 href: '/production/costing',
