@@ -30,8 +30,16 @@ export function OrderInfoCard({
     followUpDate,
     isFollowUpOverdue,
 }: OrderInfoCardProps) {
+    const showDpp =
+        !warehouseMode &&
+        order.items.some(
+            (item) =>
+                Number(item.taxPercent || 0) > 0 || Number(item.taxAmount || 0) > 0,
+        );
+    const summaryColSpan = showDpp ? 5 : 4;
+
     return (
-        <Card className="md:col-span-2">
+        <Card className="min-w-0 md:col-span-2">
             <CardHeader>
                 <CardTitle>Detail Pesanan</CardTitle>
             </CardHeader>
@@ -164,7 +172,12 @@ export function OrderInfoCard({
                     </div>
                 )}
 
-                <div className="border rounded-lg overflow-hidden">
+                <div
+                    className="border rounded-lg overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    role="region"
+                    aria-label="Rincian item pesanan"
+                    tabIndex={0}
+                >
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 border-b">
                             <tr>
@@ -182,16 +195,11 @@ export function OrderInfoCard({
                                         {formLabels.unitPrice}
                                     </th>
                                 )}
-                                {!warehouseMode &&
-                                    order.items.some(
-                                        (item) =>
-                                            Number(item.taxPercent || 0) > 0 ||
-                                            Number(item.taxAmount || 0) > 0,
-                                    ) && (
-                                        <th className="h-10 px-4 text-right font-medium">
-                                            DPP
-                                        </th>
-                                    )}
+                                {showDpp && (
+                                    <th className="h-10 px-4 text-right font-medium">
+                                        DPP
+                                    </th>
+                                )}
                                 {!warehouseMode && (
                                     <th className="h-10 px-4 text-right font-medium">
                                         {formLabels.subtotal}
@@ -270,22 +278,15 @@ export function OrderInfoCard({
                                             })()}
                                         </td>
                                     )}
-                                    {!warehouseMode &&
-                                        order.items.some(
-                                            (i) =>
-                                                Number(i.taxPercent || 0) > 0 ||
-                                                Number(i.taxAmount || 0) > 0,
-                                        ) && (
-                                            <td className="p-4 text-right text-muted-foreground">
-                                                {item.dppOtherAmount
-                                                    ? formatRupiah(
-                                                          Number(
-                                                              item.dppOtherAmount,
-                                                          ),
-                                                      )
-                                                    : '-'}
-                                            </td>
-                                        )}
+                                    {showDpp && (
+                                        <td className="p-4 text-right text-muted-foreground">
+                                            {item.dppOtherAmount
+                                                ? formatRupiah(
+                                                      Number(item.dppOtherAmount),
+                                                  )
+                                                : '-'}
+                                        </td>
+                                    )}
                                     {!warehouseMode && (
                                         <td className="p-4 text-right font-medium">
                                             {formatRupiah(
@@ -297,11 +298,11 @@ export function OrderInfoCard({
                             ))}
                         </tbody>
                         {!warehouseMode && (
-                            <tfoot className="bg-muted/50 border-t">
+                            <tfoot className="bg-muted/50 border-t [&_td:last-child]:whitespace-nowrap">
                                 {Number(order.discountAmount) > 0 && (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={summaryColSpan}
                                             className="p-2 text-right text-sm text-muted-foreground"
                                         >
                                             Diskon
@@ -317,7 +318,7 @@ export function OrderInfoCard({
                                 {Number(order.taxAmount) > 0 && (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={summaryColSpan}
                                             className="p-2 text-right text-sm text-muted-foreground"
                                         >
                                             PPN
@@ -369,7 +370,7 @@ export function OrderInfoCard({
                                 {Number(order.shippingCost || 0) > 0 && (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={summaryColSpan}
                                             className="p-2 text-right text-sm text-muted-foreground"
                                         >
                                             Ongkos Kirim
@@ -397,7 +398,7 @@ export function OrderInfoCard({
                                 )}
                                 <tr>
                                     <td
-                                        colSpan={5}
+                                        colSpan={summaryColSpan}
                                         className="p-4 text-right font-bold"
                                     >
                                         Total Keseluruhan

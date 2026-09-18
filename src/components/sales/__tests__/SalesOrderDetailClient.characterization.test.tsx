@@ -307,13 +307,21 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(mocks.refresh).toHaveBeenCalledTimes(2);
     });
 
-    it('renders real item units, delivered quantity, DPP and billable shipping without changing row identity', () => {
+    it.each([
+        { scenario: 'without item tax', taxPercent: null, taxAmount: null, columns: 5 },
+        { scenario: 'with zero item tax', taxPercent: 0, taxAmount: 0, columns: 5 },
+        { scenario: 'with tax percent only', taxPercent: 11, taxAmount: 0, columns: 6 },
+        { scenario: 'with tax amount only', taxPercent: 0, taxAmount: 550, columns: 6 },
+        { scenario: 'with both tax fields', taxPercent: 11, taxAmount: 550, columns: 6 },
+    ])('aligns all summary rows $scenario while preserving units and warehouse visibility', ({ taxPercent, taxAmount, columns }) => {
         const item: SerializedSalesOrder['items'][number] = {
             id: 'fixture-item', salesOrderId: 'fixture-order', productVariantId: 'fixture-variant',
             quantity: 50, unitPrice: 100, subtotal: 5_000, deliveredQty: 25,
             enteredQuantity: null, enteredUnit: null, enteredUnitPrice: null, conversionFactorSnapshot: null,
-            isFreeItem: false, discountPercent: null, taxPercent: new Prisma.Decimal(11),
-            taxAmount: new Prisma.Decimal(550), dppOtherAmount: new Prisma.Decimal(5_000), ppnMode: 'INCLUDE',
+            isFreeItem: false, discountPercent: null,
+            taxPercent: taxPercent === null ? null : new Prisma.Decimal(taxPercent),
+            taxAmount: taxAmount === null ? null : new Prisma.Decimal(taxAmount),
+            dppOtherAmount: new Prisma.Decimal(5_000), ppnMode: 'INCLUDE',
             createdAt: NOW, updatedAt: NOW,
             productVariant: {
                 id: 'fixture-variant', productId: 'fixture-product', name: 'Synthetic bags', skuCode: 'FIXTURE-BAG',
@@ -328,7 +336,9 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
             },
         };
         const fixture = order({
-            status: 'DELIVERED', items: [item], taxAmount: new Prisma.Decimal(550),
+            status: 'DELIVERED',
+            items: [{ ...item, id: 'fixture-untaxed-item', taxPercent: null, taxAmount: null }, item],
+            taxAmount: new Prisma.Decimal(550),
             shippingCost: new Prisma.Decimal(100), discountAmount: new Prisma.Decimal(50),
             deliveryOrders: [{ id: 'fixture-delivery', status: 'SHIPPED', totalCharge: 100 }],
         });
@@ -338,13 +348,38 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(within(row).getByText('2 ZAK (50 KG)')).toBeTruthy();
         expect(within(row).getByText('1 ZAK (25 KG)')).toBeTruthy();
         expect(within(row).getByText(/2.500.*\/ZAK/)).toBeTruthy();
-        expect(table.getByRole('columnheader', { name: 'DPP' })).toBeTruthy();
+        expect(table.getAllByRole('columnheader')).toHaveLength(columns);
+        expect(Boolean(table.queryByRole('columnheader', { name: 'DPP' }))).toBe(columns === 6);
+        const tableElement = screen.getByRole<HTMLTableElement>('table');
+        for (const itemRow of Array.from(tableElement.tBodies[0].rows)) {
+            expect(itemRow.cells).toHaveLength(columns);
+        }
+        const footerRows = Array.from(tableElement.tFoot!.rows);
+        expect(footerRows).toHaveLength(4);
+        for (const footerRow of footerRows) {
+            expect(Array.from(footerRow.cells).reduce((total, cell) => total + cell.colSpan, 0)).toBe(columns);
+            expect(footerRow.cells[0].colSpan).toBe(columns - 1);
+            expect(footerRow.cells[1].colSpan).toBe(1);
+        }
+        expect(footerRows.map((footerRow) => footerRow.cells[1].textContent?.replace(/\s/g, ''))).toEqual([
+            '-Rp50', 'Rp550', 'Rp100', 'Rp125.000',
+        ]);
         expect(table.getByText('(Include)')).toBeTruthy();
         expect(table.getByText('(dari armada)')).toBeTruthy();
         view.rerender(<SalesOrderDetailClient order={fixture} warehouseMode />);
         expect(within(screen.getByRole('table')).getAllByRole('row')[1]).toBe(row);
         expect(screen.queryByRole('columnheader', { name: 'DPP' })).toBeNull();
         expect(within(row).getAllByRole('cell')).toHaveLength(3);
+        expect(tableElement.tFoot).toBeNull();
+        expect(within(tableElement).getAllByRole('columnheader')).toHaveLength(3);
+    });
+
+    it('aligns the total with the subtotal column for an empty order', () => {
+        renderOrder();
+        const table = screen.getByRole<HTMLTableElement>('table');
+        expect(table.tHead!.rows[0].cells).toHaveLength(5);
+        expect(table.tFoot!.rows).toHaveLength(1);
+        expect(table.tFoot!.rows[0].cells[0].colSpan).toBe(4);
     });
 
     it('requires notes for LAINNYA and trims rejection payload before closing', async () => {
