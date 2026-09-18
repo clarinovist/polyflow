@@ -55,17 +55,38 @@ Each approved dispatch runs the same checkout/lockfile on `ubuntu-latest`:
    memory budget is a hypothesis to test, not a new production setting.
 3. Two official Vitest shards with default workers and isolation unchanged. Each writes
    a blob with coverage. Partial maps do not enforce global percentages; the mandatory
-   aggregate job invokes the **original** config and `--mergeReports --coverage` once.
-   Vitest merges coverage maps/counters, never averages percentages or reruns tests.
+   `shard-coverage` job invokes the **original** config and `--mergeReports --coverage`
+   once. Vitest merges coverage maps/counters, never averages percentages or reruns tests.
 
-A missing/failed candidate skips the aggregate gate (not success). Missing/duplicate
-shards, foreign run/attempt/SHA/fingerprint, blob checksum mismatch, incomplete/disjoint
-file discovery, failed/pending tests, merge errors and global threshold failure all
-prevent a successful benchmark gate. Full-suite discovery is obtained with Vitest's
-`list --filesOnly`, not a historical file-count constant. Results/counts per file must
-also match both complete-suite comparators after merge. Artifacts are from the current
-run only, named with run/attempt/SHA; rerun the **whole benchmark**, not failed jobs only,
-because mixed-attempt artifacts intentionally fail. Artifacts expire after seven days.
+The dependency paths are independent:
+
+```text
+candidates (default / explicit) ─────────────────┐
+                                               ├─ test (final comparison gate)
+shards (1/2 / 2/2) ── shard-coverage ────────────┘
+```
+
+`shard-coverage` requires **both shards to succeed**, but does not wait for comparators.
+A failed experimental worker therefore cannot suppress otherwise-valid shard timings
+and merged coverage. The final `test` gate always evaluates dependency results; failure,
+cancellation or skip in either path makes it fail explicitly before downloading results.
+If all jobs succeed, it compares both complete-suite results with the merged shard result.
+A green shard gate with a failed comparator is **not** a green benchmark.
+
+Missing/duplicate shards, foreign run/attempt/SHA/fingerprint, blob checksum mismatch,
+incomplete/disjoint discovery, failed/pending tests, merge errors and global threshold
+failure still prevent a successful shard gate. Full-suite discovery uses Vitest's
+`list --filesOnly`, not a historical count. Merge checks replayed per-file counts against
+collected shard counts; final comparison additionally checks both full-suite comparators.
+The final comparison uses Node built-ins and JSON manifests only: no dependency install,
+coverage recalculation or test execution. `globalCoveragePassed` is written only after
+the official merge process exits zero, including threshold enforcement; the replay
+reporter's `coverageGenerated` flag is not a substitute for that gate.
+
+Artifact namespaces/download patterns separate `single-*`, `shard-*`, and the merged
+`shard-coverage-*` result. Downloads stay in the current run, with exact attempt/SHA in
+the names. Rerun the **whole benchmark**, not failed jobs only: mixed-attempt artifacts
+intentionally fail. Artifacts expire after seven days.
 
 Version evidence: installed `vitest --help --coverage --shard --mergeReports`, public
 Reporter type declarations, BlobReporter/readBlobs and coverage-provider merge code
@@ -77,8 +98,9 @@ prove low coverage, malformed blobs and failed tests return nonzero.
 ### Budget and decision
 
 Start with **two dispatches**, approximately **40–70 Linux runner-minutes** total using
-historical suite times. There are four candidate jobs and one aggregate job per dispatch,
-plus a short summary. This is an estimate, not measured billing. Compare candidate job
+historical suite times. There are two comparator jobs, two shard jobs, one shard merge,
+a short final comparison gate and a summary per dispatch. This is an estimate, not
+measured billing. Compare candidate job
 critical paths plus aggregate setup/download/merge, not just test subprocess duration.
 Runner pricing depends on the repository plan. Do not repeat identical local suites to
 claim hosted performance. A third repetition needs a reason (e.g. results within runner
