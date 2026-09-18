@@ -18,10 +18,9 @@ vi.mock('next/server', () => {
     return { NextResponse: MockNextResponse };
 });
 
-const mockRequirePurchasingRemittanceCreator = vi.fn();
-vi.mock('@/lib/auth/purchasing-access', () => ({
-    requirePurchasingRemittanceCreator: (...args: unknown[]) =>
-        mockRequirePurchasingRemittanceCreator(...args),
+const mockRequireApiAuth = vi.fn();
+vi.mock('@/lib/tools/api-auth', () => ({
+    requireApiAuth: (...args: unknown[]) => mockRequireApiAuth(...args),
 }));
 
 vi.mock('@/lib/modules/guard', () => ({
@@ -43,6 +42,7 @@ vi.mock('@/lib/storage/r2', () => ({
     uploadToR2: (...args: unknown[]) => mockUploadToR2(...args),
 }));
 
+import { NextResponse, type NextRequest } from 'next/server';
 import { POST } from '../route';
 
 function makeFile(name = 'kwitansi.jpg', type = 'image/jpeg', size = 200_000) {
@@ -51,15 +51,13 @@ function makeFile(name = 'kwitansi.jpg', type = 'image/jpeg', size = 200_000) {
 }
 
 function fakeReq(fd: FormData) {
-    return { formData: async () => fd } as any;
+    return { formData: vi.fn(async () => fd) } as unknown as NextRequest;
 }
 
 describe('/api/upload/purchase-remittance-proof', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockRequirePurchasingRemittanceCreator.mockResolvedValue({
-            user: { id: 'wh-1', role: 'WAREHOUSE' },
-        });
+        mockRequireApiAuth.mockResolvedValue({ response: null, userId: 'wh-1' });
         mockUploadToR2.mockResolvedValue(
             '/api/images/tenant/remittance-proof/wh-1/123.jpg',
         );
@@ -87,18 +85,17 @@ describe('/api/upload/purchase-remittance-proof', () => {
         expect(res.status).toBe(400);
     });
 
-    it('500 when caller is not ADMIN/PROCUREMENT/WAREHOUSE (guard rejects)', async () => {
-        mockRequirePurchasingRemittanceCreator.mockRejectedValue(
-            new Error(
-                'Unauthorized: Hanya admin, procurement, atau warehouse yang dapat mengajukan setoran pembayaran supplier.',
-            ),
-        );
-        const fd = new FormData();
-        fd.append('file', makeFile());
-        const res = await POST(fakeReq(fd));
-        expect(res.status).toBe(500);
-        const json = (await res.json()) as any;
-        expect(json.error).toContain('Unauthorized');
+    it('403 when caller is not ADMIN/PROCUREMENT/WAREHOUSE, before reading the body', async () => {
+        mockRequireApiAuth.mockResolvedValue({
+            response: NextResponse.json({ error: 'Forbidden', code: 'FORBIDDEN' }, { status: 403 }),
+            userId: '',
+        });
+        const request = fakeReq(new FormData());
+        const res = await POST(request);
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: 'Forbidden', code: 'FORBIDDEN' });
+        expect(request.formData).not.toHaveBeenCalled();
+        expect(mockUploadToR2).not.toHaveBeenCalled();
     });
 
     it('200 success uploads and returns url/key', async () => {
@@ -106,7 +103,8 @@ describe('/api/upload/purchase-remittance-proof', () => {
         fd.append('file', makeFile());
         const res = await POST(fakeReq(fd));
         expect(res.status).toBe(200);
-        const json = (await res.json()) as any;
+        const json = await res.json();
+        expect(mockRequireApiAuth).toHaveBeenCalledWith(expect.anything(), ['ADMIN', 'PROCUREMENT', 'WAREHOUSE']);
         expect(json.success).toBe(true);
         expect(json.url).toContain('/api/images/');
         expect(json.key).toBe('tenant/remittance-proof/wh-1/123.jpg');

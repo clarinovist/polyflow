@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireApiAuth } from '@/lib/tools/api-auth';
 import {
     getTenantPrefix,
     buildWarehouseAttachmentKey,
@@ -39,11 +39,12 @@ function isAllowedImageType(mime: string, filename: string): boolean {
 
 export async function POST(request: NextRequest) {
     try {
+        const auth = await requireApiAuth(request);
+        if (auth.response) return auth.response;
+
         // ── Module entitlement guard: warehouse attachments belong to INVENTORY ──
         const moduleDeny = await requireModuleFromRequest(request, 'INVENTORY');
         if (moduleDeny) return moduleDeny;
-
-        await requireAuth();
 
         const formData = await request.formData();
         const file = formData.get('file') as File | null;

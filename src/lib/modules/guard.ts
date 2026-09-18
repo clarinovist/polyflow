@@ -177,11 +177,9 @@ export async function requireModuleFromRequest(
     try {
         const { resolveTenantContext } = await import('@/lib/core/tenant');
         const result = await resolveTenantContext(req.headers);
-        if (result.type !== 'RESOLVED') {
-            // No tenant resolved — non-tenant request (super admin), allow
-            return null;
-        }
-        if (!result.activeModules.includes(moduleKey)) {
+        // Only NONE is a non-tenant request; NOT_FOUND may be a registry failure.
+        if (result.type === 'NONE') return null;
+        if (result.type === 'NOT_FOUND' || !result.activeModules.includes(moduleKey)) {
             return NextResponse.json(
                 {
                     error: 'MODULE_NOT_ENTITLED',

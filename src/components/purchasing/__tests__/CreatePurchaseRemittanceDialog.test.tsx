@@ -151,6 +151,34 @@ describe('CreatePurchaseRemittanceDialog', () => {
         expect(mockCreatePurchaseRemittanceAction).not.toHaveBeenCalled();
     });
 
+    it.each([true, false])('shows session expiry for 401 (JSON body: %s) without saving proof', async (isJson) => {
+        const json = vi.fn(async () => {
+            if (!isJson) throw new Error('Not JSON');
+            return { error: 'Unauthorized', code: 'UNAUTHORIZED' };
+        });
+        vi.mocked(global.fetch).mockResolvedValue({ ok: false, status: 401, json } as unknown as Response);
+        render(<CreatePurchaseRemittanceDialog open={true} onOpenChange={() => {}} invoices={invoices} />);
+        selectInvoice();
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        fireEvent.change(fileInput, { target: { files: [new File(['x'], 'denied.jpg', { type: 'image/jpeg' })] } });
+        await waitFor(() => expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
+            description: 'Sesi berakhir, silakan login kembali.', variant: 'destructive',
+        })));
+        expect(json).not.toHaveBeenCalled();
+        expect(screen.queryByText('denied.jpg')).toBeNull();
+        expect(mockCreatePurchaseRemittanceAction).not.toHaveBeenCalled();
+        expect(screen.getByRole('button', { name: /upload bukti bayar/i }).hasAttribute('disabled')).toBe(false);
+    });
+
+    it.each([403, 500])('preserves server error message for HTTP %s', async (status) => {
+        vi.mocked(global.fetch).mockResolvedValue({ ok: false, status, json: async () => ({ error: 'Existing upload error' }) } as Response);
+        render(<CreatePurchaseRemittanceDialog open={true} onOpenChange={() => {}} invoices={invoices} />);
+        const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+        fireEvent.change(fileInput, { target: { files: [new File(['x'], 'denied.jpg', { type: 'image/jpeg' })] } });
+        await waitFor(() => expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: 'Existing upload error' })));
+        expect(mockCreatePurchaseRemittanceAction).not.toHaveBeenCalled();
+    });
+
     it('uploads photo then includes proof fields in submitted item', async () => {
         (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
             ok: true,

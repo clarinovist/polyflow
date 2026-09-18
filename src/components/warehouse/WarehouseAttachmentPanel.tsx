@@ -113,6 +113,11 @@ export function WarehouseAttachmentPanel({
                     },
                 );
 
+                if (response.status === 401) {
+                    toast.error('Sesi berakhir, silakan login kembali.');
+                    return;
+                }
+
                 if (
                     response.redirected ||
                     !response.headers

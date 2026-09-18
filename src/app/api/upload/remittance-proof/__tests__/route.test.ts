@@ -18,10 +18,9 @@ vi.mock('next/server', () => {
     return { NextResponse: MockNextResponse };
 });
 
-const mockRequireSalesAccess = vi.fn();
-vi.mock('@/lib/auth/sales-access', () => ({
-    requireSalesAccess: (...args: unknown[]) =>
-        mockRequireSalesAccess(...args),
+const mockRequireApiAuth = vi.fn();
+vi.mock('@/lib/tools/api-auth', () => ({
+    requireApiAuth: (...args: unknown[]) => mockRequireApiAuth(...args),
 }));
 
 vi.mock('@/lib/modules/guard', () => ({
@@ -43,6 +42,7 @@ vi.mock('@/lib/storage/r2', () => ({
     uploadToR2: (...args: unknown[]) => mockUploadToR2(...args),
 }));
 
+import { NextResponse, type NextRequest } from 'next/server';
 import { POST } from '../route';
 
 function makeFile(name = 'bukti.jpg', type = 'image/jpeg', size = 200_000) {
@@ -51,15 +51,13 @@ function makeFile(name = 'bukti.jpg', type = 'image/jpeg', size = 200_000) {
 }
 
 function fakeReq(fd: FormData) {
-    return { formData: async () => fd } as any;
+    return { formData: vi.fn(async () => fd) } as unknown as NextRequest;
 }
 
 describe('/api/upload/remittance-proof', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockRequireSalesAccess.mockResolvedValue({
-            user: { id: 'u1', role: 'MARKETING' },
-        });
+        mockRequireApiAuth.mockResolvedValue({ response: null, userId: 'u1' });
         mockUploadToR2.mockResolvedValue(
             '/api/images/tenant/remittance-proof/u1/123.jpg',
         );
@@ -87,18 +85,17 @@ describe('/api/upload/remittance-proof', () => {
         expect(res.status).toBe(400);
     });
 
-    it('500 when caller is not SALES/MARKETING/ADMIN (guard rejects)', async () => {
-        mockRequireSalesAccess.mockRejectedValue(
-            new Error(
-                'Unauthorized: Akses sales hanya untuk admin atau sales.',
-            ),
-        );
-        const fd = new FormData();
-        fd.append('file', makeFile());
-        const res = await POST(fakeReq(fd));
-        expect(res.status).toBe(500);
-        const json = (await res.json()) as any;
-        expect(json.error).toContain('Unauthorized');
+    it('403 when caller is not SALES/MARKETING/ADMIN, before reading the body', async () => {
+        mockRequireApiAuth.mockResolvedValue({
+            response: NextResponse.json({ error: 'Forbidden', code: 'FORBIDDEN' }, { status: 403 }),
+            userId: '',
+        });
+        const request = fakeReq(new FormData());
+        const res = await POST(request);
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: 'Forbidden', code: 'FORBIDDEN' });
+        expect(request.formData).not.toHaveBeenCalled();
+        expect(mockUploadToR2).not.toHaveBeenCalled();
     });
 
     it('200 success uploads and returns url/key', async () => {
@@ -106,7 +103,8 @@ describe('/api/upload/remittance-proof', () => {
         fd.append('file', makeFile());
         const res = await POST(fakeReq(fd));
         expect(res.status).toBe(200);
-        const json = (await res.json()) as any;
+        const json = await res.json();
+        expect(mockRequireApiAuth).toHaveBeenCalledWith(expect.anything(), ['ADMIN', 'SALES', 'MARKETING']);
         expect(json.success).toBe(true);
         expect(json.url).toContain('/api/images/');
         expect(json.key).toBe('tenant/remittance-proof/u1/123.jpg');

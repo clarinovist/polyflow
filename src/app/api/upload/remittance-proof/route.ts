@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSalesAccess } from '@/lib/auth/sales-access';
+import { requireApiAuth } from '@/lib/tools/api-auth';
 import {
     getTenantPrefix,
     buildRemittanceProofKey,
@@ -36,11 +36,12 @@ function isAllowedImageType(mime: string, filename: string): boolean {
 
 export async function POST(request: NextRequest) {
     try {
+        const auth = await requireApiAuth(request, ['ADMIN', 'SALES', 'MARKETING']);
+        if (auth.response) return auth.response;
+
         // ── Module entitlement guard: remittance proof belongs to FINANCE ──
         const moduleDeny = await requireModuleFromRequest(request, 'FINANCE');
         if (moduleDeny) return moduleDeny;
-
-        const session = await requireSalesAccess();
 
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
         }
 
         const tenant = await getTenantPrefix();
-        const key = buildRemittanceProofKey(tenant, session.user.id, file.name);
+        const key = buildRemittanceProofKey(tenant, auth.userId, file.name);
 
         const buffer = Buffer.from(await file.arrayBuffer());
         const publicUrl = await uploadToR2(key, buffer, file.type);

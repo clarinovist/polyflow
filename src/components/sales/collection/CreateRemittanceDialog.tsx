@@ -143,6 +143,15 @@ export function CreateRemittanceDialog({
                 body: formData,
             });
 
+            if (response.status === 401) {
+                toast({
+                    title: 'Gagal',
+                    description: 'Sesi berakhir, silakan login kembali.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+
             let result: {
                 key?: string;
                 url?: string;
