@@ -115,6 +115,13 @@ export function PurchaseOrderDetailClient({
     basePath = '/purchasing/orders',
     warehouseMode = false,
 }: PurchaseOrderDetailClientProps) {
+    const showDpp =
+        !warehouseMode &&
+        order.items.some(
+            (item) =>
+                Number(item.taxPercent || 0) > 0 || Number(item.taxAmount || 0) > 0,
+        );
+    const summaryColSpan = showDpp ? 5 : 4;
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -557,13 +564,18 @@ export function PurchaseOrderDetailClient({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-6">
+                <div className="min-w-0 md:col-span-2 space-y-6">
                     <Card>
                         <CardHeader>
                             <CardTitle>Item PO</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="border rounded-lg overflow-hidden">
+                            <div
+                                className="border rounded-lg overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                role="region"
+                                aria-label="Rincian item pembelian"
+                                tabIndex={0}
+                            >
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50 border-b">
                                         <tr>
@@ -581,20 +593,11 @@ export function PurchaseOrderDetailClient({
                                                     {formLabels.unitPrice}
                                                 </th>
                                             )}
-                                            {!warehouseMode &&
-                                                order.items.some(
-                                                    (item) =>
-                                                        Number(
-                                                            item.taxPercent || 0,
-                                                        ) > 0 ||
-                                                        Number(
-                                                            item.taxAmount || 0,
-                                                        ) > 0,
-                                                ) && (
-                                                    <th className="h-10 px-4 text-right font-medium">
-                                                        DPP
-                                                    </th>
-                                                )}
+                                            {showDpp && (
+                                                <th className="h-10 px-4 text-right font-medium">
+                                                    DPP
+                                                </th>
+                                            )}
                                             {!warehouseMode && (
                                                 <th className="h-10 px-4 text-right font-medium">
                                                     {formLabels.subtotal}
@@ -657,24 +660,15 @@ export function PurchaseOrderDetailClient({
                                                         )}
                                                     </td>
                                                 )}
-                                                {!warehouseMode &&
-                                                    order.items.some(
-                                                        (i) =>
-                                                            Number(
-                                                                i.taxPercent || 0,
-                                                            ) > 0 ||
-                                                            Number(
-                                                                i.taxAmount || 0,
-                                                            ) > 0,
-                                                    ) && (
-                                                        <td className="p-4 text-right text-muted-foreground">
-                                                            {item.dppOtherAmount
-                                                                ? formatRupiah(
-                                                                      item.dppOtherAmount,
-                                                                  )
-                                                                : '-'}
-                                                        </td>
-                                                    )}
+                                                {showDpp && (
+                                                    <td className="p-4 text-right text-muted-foreground">
+                                                        {item.dppOtherAmount
+                                                            ? formatRupiah(
+                                                                  item.dppOtherAmount,
+                                                              )
+                                                            : '-'}
+                                                    </td>
+                                                )}
                                                 {!warehouseMode && (
                                                     <td className="p-4 text-right font-medium">
                                                         {formatRupiah(
@@ -686,12 +680,12 @@ export function PurchaseOrderDetailClient({
                                         ))}
                                     </tbody>
                                     {!warehouseMode && (
-                                        <tfoot className="bg-muted/50 border-t">
+                                        <tfoot className="bg-muted/50 border-t [&_td:last-child]:whitespace-nowrap">
                                         {Number(order.discountAmount || 0) >
                                             0 && (
                                             <tr>
                                                 <td
-                                                    colSpan={5}
+                                                    colSpan={summaryColSpan}
                                                     className="p-2 text-right text-sm text-muted-foreground"
                                                 >
                                                     Diskon
@@ -709,7 +703,7 @@ export function PurchaseOrderDetailClient({
                                         {Number(order.taxAmount || 0) > 0 && (
                                             <tr>
                                                 <td
-                                                    colSpan={5}
+                                                    colSpan={summaryColSpan}
                                                     className="p-2 text-right text-sm text-muted-foreground"
                                                 >
                                                     PPN
@@ -765,7 +759,7 @@ export function PurchaseOrderDetailClient({
                                             0 && (
                                             <tr>
                                                 <td
-                                                    colSpan={5}
+                                                    colSpan={summaryColSpan}
                                                     className="p-2 text-right text-sm text-muted-foreground"
                                                 >
                                                     Ongkos Kirim
@@ -781,7 +775,7 @@ export function PurchaseOrderDetailClient({
                                         )}
                                         <tr>
                                             <td
-                                                colSpan={5}
+                                                colSpan={summaryColSpan}
                                                 className="p-4 text-right font-bold underline decoration-blue-500/30 dark:decoration-blue-400/30 decoration-2"
                                             >
                                                 Total Keseluruhan

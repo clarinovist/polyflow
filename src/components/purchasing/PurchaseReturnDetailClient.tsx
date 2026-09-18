@@ -211,7 +211,7 @@ export function PurchaseReturnDetailClient({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2">
+                <Card className="min-w-0 md:col-span-2">
                     <CardHeader>
                         <div className="flex justify-between items-start">
                             <div>
@@ -297,7 +297,12 @@ export function PurchaseReturnDetailClient({
                             <h4 className="text-lg font-semibold mb-3">
                                 Item Diretur
                             </h4>
-                            <div className="border rounded-md overflow-hidden">
+                            <div
+                                className="border rounded-md overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                role="region"
+                                aria-label="Item retur pembelian"
+                                tabIndex={0}
+                            >
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50">
                                         <tr>
@@ -376,7 +381,7 @@ export function PurchaseReturnDetailClient({
                                             >
                                                 Total Keseluruhan
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold text-primary">
+                                            <td className="px-4 py-3 text-right font-bold text-primary whitespace-nowrap">
                                                 {purchaseReturn.totalAmount
                                                     ? formatRupiah(
                                                           Number(
