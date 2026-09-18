@@ -60,7 +60,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
-      - run: npm ci
+      - run: node scripts/ci/metrics.mjs install npm ci
 
       # Required: eslint-config-next type-aware rules resolve imports that
       # include the generated Prisma client. Without this the lint job fails on
@@ -69,7 +69,7 @@ jobs:
         run: npx prisma generate
 
       - name: Run ESLint
-        run: npm run lint
+        run: node scripts/ci/metrics.mjs lint npm run lint
 
   # ─────────────────────────────────────────────
   # 2b. Tests
@@ -90,13 +90,16 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
-      - run: npm ci
+      - run: node scripts/ci/metrics.mjs install npm ci
 
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Record runner and runtime (allowlisted fields only)
+        run: node scripts/ci/metrics.mjs hardware
+
       - name: Run Tests with Coverage
-        run: npx vitest run --coverage
+        run: node scripts/ci/metrics.mjs test-and-coverage npx vitest run --coverage --reporter=default --reporter=./scripts/ci/timing-reporter.mjs
 
       # Next.js build intentionally NOT run here — the Dockerfile builds it anyway
       # (RUN npm run build), so doing it twice added ~102s to the critical path for
@@ -202,3 +205,21 @@ jobs:
             docker image prune -f
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
+
+  # Observability only, never a replacement for deploy's three required gates.
+  timing:
+    name: Pipeline timing
+    if: ${{ always() }}
+    needs: [test, lint, build-and-push, deploy, agents-consistency, release-please]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            await require('./scripts/ci/timeline.cjs').report({ github, context, core });

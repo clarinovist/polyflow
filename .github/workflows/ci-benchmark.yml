@@ -1,0 +1,108 @@
+name: CI Test Benchmark (no deploy)
+
+# No push, pull_request, workflow_run or reusable trigger; approval before dispatch.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+# Never cancels an active run or shares a concurrency group with production.
+concurrency:
+  group: ci-test-benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  candidates:
+    name: Benchmark ${{ matrix.candidate }} ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - candidate: default
+            shard: ''
+            artifact: default
+          - candidate: explicit
+            shard: ''
+            artifact: explicit
+          - candidate: shards
+            shard: '1/2'
+            artifact: shard-1
+          - candidate: shards
+            shard: '2/2'
+            artifact: shard-2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - run: bash scripts/check-node-version.sh
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: node scripts/ci/metrics.mjs install npm ci
+      - run: node scripts/ci/metrics.mjs prisma npx prisma generate
+      - name: Measure complete candidate
+        env:
+          CANDIDATE: ${{ matrix.candidate }}
+          SHARD: ${{ matrix.shard }}
+        run: node scripts/ci/benchmark.mjs run "$CANDIDATE" "$SHARD"
+      - name: Upload current candidate only
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-${{ matrix.artifact }}
+          path: |
+            coverage/ci-benchmark/result.json
+            coverage/ci-benchmark/blob.json
+            coverage/ci-benchmark/metrics.jsonl
+          if-no-files-found: error
+          retention-days: 7
+
+  test:
+    name: Benchmark full test and coverage gate
+    needs: candidates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: node scripts/ci/metrics.mjs install npm ci
+      - run: node scripts/ci/metrics.mjs prisma npx prisma generate
+      - uses: actions/download-artifact@v4
+        with:
+          # No run-id/token: only artifacts from THIS run. Attempt and SHA also exact.
+          pattern: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-*
+          path: coverage/ci-input
+          merge-multiple: false
+      - name: Require all artifacts, merge once, enforce global thresholds and reconcile counts
+        run: node scripts/ci/benchmark.mjs merge coverage/ci-input
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-gate-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            coverage/ci-merged/result.json
+            coverage/ci-merged/metrics.jsonl
+            coverage/ci-merged/coverage/coverage-final.json
+          if-no-files-found: error
+          retention-days: 7
+
+  timing:
+    if: ${{ always() }}
+    needs: [candidates, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            await require('./scripts/ci/timeline.cjs').report({ github, context, core });
