@@ -182,6 +182,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/finance/aging', label: 'Aging AR/AP' },
             { key: '/finance/quick-entry', label: 'Quick Entry' },
             { key: '/finance/invoices/sales', label: 'Piutang' },
+            { key: '/finance/returns', label: 'Retur Penjualan' },
             { key: '/finance/payments/received', label: 'Penerimaan Customer' },
             { key: '/finance/invoices/purchase', label: 'Hutang' },
             { key: '/finance/payments/sent', label: 'Pembayaran Supplier' },

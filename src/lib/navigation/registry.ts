@@ -676,6 +676,14 @@ export const NAV_REGISTRY: NavItem[] = [
     ...warehouseNavItems,
     ...purchasingNavItems,
     ...distributionNavItems,
+    {
+        id: 'finance-sales-returns',
+        label: 'Retur Penjualan',
+        href: '/finance/returns',
+        workspace: 'finance',
+        section: 'transaksi',
+        owner: 'finance',
+    },
 ];
 
 /**

@@ -1,4 +1,6 @@
 import { getFinanceShiftBoard } from '@/actions/dashboard/finance-dashboard';
+import { getFinanceSalesReturnSummary } from '@/actions/finance/sales-returns';
+import { FinanceReturnQueue } from '@/components/finance/returns/FinanceReturnQueue';
 import {
     Card,
     CardContent,
@@ -96,10 +98,11 @@ export default async function FinanceDashboardPage({
         : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const boardRes = await getFinanceShiftBoard({
-        startDate: checkStart,
-        endDate: checkEnd,
-    });
+    const [boardRes, returnsRes] = await Promise.all([
+        getFinanceShiftBoard({ startDate: checkStart, endDate: checkEnd }),
+        getFinanceSalesReturnSummary(),
+    ]);
+    const returnSummary = returnsRes.success ? returnsRes.data ?? null : null;
     const board = boardRes.success && boardRes.data ? boardRes.data : null;
 
     // Fallback if board fails to load
@@ -123,7 +126,9 @@ export default async function FinanceDashboardPage({
         board.queues.arOverdueCount > 0 ||
         board.queues.apOverdueCount > 0 ||
         board.queues.draftJournals > 0 ||
-        board.queues.openBankRecs > 0;
+        board.queues.openBankRecs > 0 ||
+        !returnSummary ||
+        returnSummary.count > 0;
 
     return (
         <div className="flex min-w-0 max-w-full flex-col gap-6">
@@ -271,6 +276,8 @@ export default async function FinanceDashboardPage({
                     />
                 </div>
             </div>
+
+            <FinanceReturnQueue summary={returnSummary} />
 
             {/* Attention lists */}
             <div className="grid gap-6 lg:grid-cols-3">

@@ -107,6 +107,7 @@ export const financeSidebarLabels = {
     hppReport: 'Laporan HPP',
     quickEntry: 'Quick Entry',
     receivables: 'Invoice Sales',
+    salesReturns: 'Retur Penjualan',
     customerPayments: 'Terima Bayar',
     payables: 'Invoice Purchase',
     supplierPayments: 'Bayar Supplier',

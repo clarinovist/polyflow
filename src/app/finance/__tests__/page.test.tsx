@@ -5,10 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     getFinanceShiftBoard: vi.fn(),
+    getFinanceSalesReturnSummary: vi.fn(),
 }));
 
 vi.mock('@/actions/dashboard/finance-dashboard', () => ({
     getFinanceShiftBoard: mocks.getFinanceShiftBoard,
+}));
+
+vi.mock('@/actions/finance/sales-returns', () => ({
+    getFinanceSalesReturnSummary: mocks.getFinanceSalesReturnSummary,
 }));
 
 vi.mock('@/components/finance/finance-date-filter', () => ({
@@ -53,6 +58,7 @@ function dashboardData(arOverdueCount: number) {
 
 describe('FinanceDashboardPage', () => {
     beforeEach(() => {
+        mocks.getFinanceSalesReturnSummary.mockResolvedValue({ success: true, data: { count: 0, draftCount: 0, confirmedCount: 0, receivedCount: 0, documentAmount: 0 } });
         mocks.getFinanceShiftBoard.mockResolvedValue({
             success: true,
             data: dashboardData(1),
@@ -83,6 +89,25 @@ describe('FinanceDashboardPage', () => {
         expect(
             screen.queryByRole('link', { name: /laporan/i }),
         ).not.toBeTruthy();
+    });
+
+    it('shows pending drafts and does not claim all queues are clean', async () => {
+        const data = dashboardData(0);
+        Object.assign(data.queues, { apOverdueCount: 0, draftJournals: 0, openBankRecs: 0 });
+        mocks.getFinanceShiftBoard.mockResolvedValue({ success: true, data });
+        mocks.getFinanceSalesReturnSummary.mockResolvedValue({ success: true, data: { count: 2, draftCount: 2, confirmedCount: 0, receivedCount: 0, documentAmount: 300 } });
+        render(await FinanceDashboardPage({ searchParams: Promise.resolve({ startDate: '2026-01-01', endDate: '2026-01-31' }) }));
+        expect(screen.getByText(/2 draft/)).toBeTruthy();
+        expect(screen.queryByText(/Semua antrean bersih/)).toBeNull();
+        expect(screen.getByRole('link', { name: 'Lihat retur penjualan' }).getAttribute('href')).toBe('/finance/returns');
+        expect(mocks.getFinanceSalesReturnSummary).toHaveBeenCalledWith();
+    });
+
+    it('never treats a failed return query as an empty queue', async () => {
+        mocks.getFinanceSalesReturnSummary.mockResolvedValue({ success: false, error: 'denied' });
+        render(await FinanceDashboardPage({ searchParams: Promise.resolve({}) }));
+        expect(screen.getByRole('alert').textContent).toContain('tidak tersedia');
+        expect(screen.queryByText(/Semua antrean bersih/)).toBeNull();
     });
 
     it('shows a zero-count queue card without link semantics or hover styling', async () => {

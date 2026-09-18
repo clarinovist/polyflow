@@ -95,6 +95,11 @@ export const financeLinks = [
                 label: financeSidebarLabels.receivables,
             },
             {
+                href: '/finance/returns',
+                icon: HistoryIcon,
+                label: financeSidebarLabels.salesReturns,
+            },
+            {
                 href: '/finance/payments/received',
                 icon: CreditCard,
                 label: financeSidebarLabels.customerPayments,
