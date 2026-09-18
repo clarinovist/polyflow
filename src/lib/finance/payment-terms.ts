@@ -32,9 +32,10 @@ function toFiniteAmount(value: AmountLike): number {
 export function getInvoiceRemainingAmount(
     totalAmount: AmountLike,
     paidAmount: AmountLike,
+    creditedAmount: AmountLike = 0,
 ): number {
     return Math.max(
-        toFiniteAmount(totalAmount) - toFiniteAmount(paidAmount),
+        toFiniteAmount(totalAmount) - toFiniteAmount(paidAmount) - toFiniteAmount(creditedAmount),
         0,
     );
 }
@@ -44,6 +45,7 @@ export type ActionableInvoiceOverdueInput = {
     status?: string | null;
     totalAmount: AmountLike;
     paidAmount: AmountLike;
+    creditedAmount?: AmountLike;
 };
 
 /**
@@ -60,7 +62,7 @@ export function isActionableInvoiceOverdue(
     const status = invoice.status?.toUpperCase();
     if (!status || !OVERDUE_ACTION_STATUSES.has(status)) return false;
     if (
-        getInvoiceRemainingAmount(invoice.totalAmount, invoice.paidAmount) <= 0
+        getInvoiceRemainingAmount(invoice.totalAmount, invoice.paidAmount, invoice.creditedAmount) <= 0
     ) {
         return false;
     }

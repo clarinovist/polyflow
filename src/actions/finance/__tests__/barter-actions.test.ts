@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 const { guards, partnerService, settlementService, prisma } = vi.hoisted(() => ({
     guards: {
@@ -120,9 +121,8 @@ describe('barter actions authorization and routing', () => {
         prisma.invoice.findUnique.mockResolvedValue({
             id: invoiceId,
             status: 'UNPAID',
-            totalAmount: {
-                minus: () => ({ lte: () => false, valueOf: () => 500 }),
-            },
+            totalAmount: new Prisma.Decimal(500),
+            creditedAmount: new Prisma.Decimal(100),
             paidAmount: 0,
             salesOrder: { customerId },
         });
@@ -155,7 +155,8 @@ describe('barter actions authorization and routing', () => {
         prisma.invoice.findUnique.mockResolvedValue({
             id: invoiceId,
             status: 'PAID',
-            totalAmount: { minus: () => ({ lte: () => true }) },
+            totalAmount: new Prisma.Decimal(500),
+            creditedAmount: new Prisma.Decimal(0),
             paidAmount: 500,
             salesOrder: { customerId },
         });

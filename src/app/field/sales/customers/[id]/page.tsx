@@ -78,6 +78,7 @@ export default async function SalesMobileCustomerDetailPage(props: {
                 dueDate: inv.dueDate,
                 totalAmount: Number(inv.totalAmount),
                 paidAmount: Number(inv.paidAmount),
+                creditedAmount: Number(inv.creditedAmount ?? 0),
                 status: inv.status,
                 orderNumber: inv.salesOrder?.orderNumber || '',
             }))}

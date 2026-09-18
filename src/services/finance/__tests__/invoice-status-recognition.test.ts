@@ -3,7 +3,7 @@ const mocks = vi.hoisted(() => ({
     db: { invoice: { findUnique: vi.fn(), update: vi.fn() }, journalEntry: { updateMany: vi.fn(), findMany: vi.fn() }, $transaction: vi.fn() },
     recognize: vi.fn(), audit: vi.fn(),
 }));
-vi.mock('@/lib/core/prisma', () => ({ prisma: mocks.db }));
+vi.mock('@/lib/core/prisma', () => ({ prisma: mocks.db, getTenantDbFromContext: () => mocks.db }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: mocks.audit }));
 vi.mock('../auto-journal-service', () => ({ AutoJournalService: {} }));
 vi.mock('../sales-recognition-service', () => ({

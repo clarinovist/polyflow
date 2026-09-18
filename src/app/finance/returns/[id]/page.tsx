@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getFinanceSalesReturnDetail } from '@/actions/finance/sales-returns';
+import { FinanceReturnCredit } from '@/components/finance/returns/FinanceReturnCredit';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,13 +67,13 @@ export default async function FinanceReturnDetailPage({
                     </Badge>
                     <p>{financeReturnGuidance(row.status)}</p>
                     <p className="text-muted-foreground">
-                        Tampilan Finance ini hanya untuk pemeriksaan. Konfirmasi
-                        dan penerimaan barang dilakukan di Penjualan oleh
-                        petugas berwenang. Potongan invoice belum dapat
-                        diterapkan dari halaman ini.
+                        Konfirmasi dan penerimaan barang dilakukan di Penjualan
+                        oleh petugas berwenang. Kredit piutang merupakan transaksi
+                        Finance terpisah berdasarkan bukti invoice asal.
                     </p>
                 </CardContent>
             </Card>
+            <FinanceReturnCredit row={row} />
             <dl className="grid gap-4 rounded-md border p-4 text-sm sm:grid-cols-2">
                 {[
                     ['Customer', row.customer?.name ?? 'Tanpa customer'],

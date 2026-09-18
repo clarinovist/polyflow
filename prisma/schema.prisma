@@ -53,6 +53,9 @@ model User {
   apiKeys                        ApiKey[]
   archivedBoms                   Bom[]
   salesReturns                   SalesReturn[]                    @relation("SalesReturnCreator")
+  returnCredits                  SalesReturnCredit[]
+  reversedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditReversedBy")
+  returnReceipts                 SalesReturnReceiptLine[]
   purchaseReturns                PurchaseReturn[]                 @relation("PurchaseReturnCreator")
   notifications                  Notification[]
   claimedFindings                Finding[]                        @relation("FindingClaimedBy")
@@ -513,6 +516,7 @@ model ProductVariant {
   customerPrices         CustomerProductPrice[]
   costHistory            CostHistory[]
   salesReturnItems       SalesReturnItem[]
+  returnBasisLines       InvoiceReturnBasisLine[]
   purchaseReturnItems    PurchaseReturnItem[]
   maklonReturnItems      MaklonMaterialReturnItem[]
   productionRoutes       ProductionRoute[]
@@ -633,6 +637,8 @@ model StockMovement {
   toLocation        Location?        @relation("ToLocation", fields: [toLocationId], references: [id])
   productionOrderId String?
   productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
+  returnSources     SalesReturnReceiptLine[] @relation("ReturnSourceMovement")
+  returnReceipt     SalesReturnReceiptLine? @relation("ReturnReceiptMovement")
 
   @@index([productionOrderId])
   @@index([productVariantId])
@@ -1393,6 +1399,11 @@ model Invoice {
   /// null = historical invoice; 0 or positive = round up to Rp500 on this invoice.
   roundingAmount       Decimal?              @db.Decimal(15, 2)
   paidAmount           Decimal               @default(0) @db.Decimal(15, 2)
+  creditedAmount       Decimal               @default(0) @db.Decimal(15, 2)
+  /// PostgreSQL GENERATED ALWAYS; never supplied by an application writer.
+  remainingAmount      Decimal               @default(dbgenerated("((\"totalAmount\" - \"paidAmount\") - \"creditedAmount\")")) @db.Decimal(15, 2)
+  returnBasisLines     InvoiceReturnBasisLine[]
+  returnAllocations    SalesReturnCreditAllocation[]
   notes                String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -1773,6 +1784,10 @@ model JournalEntry {
   details                   JournalEntryDetail[]
   pettyCashTransaction      PettyCashTransaction?
   reconciliationAdjustments BankReconciliationAdjustment[]
+  returnBasisLines           InvoiceReturnBasisLine[]
+  returnCredit              SalesReturnCredit?
+  returnReceipt             SalesReturnReceiptLine?
+  returnCreditReversal      SalesReturnCredit? @relation("ReturnCreditReversalJournal")
 
   @@index([entryDate])
   @@index([referenceType, referenceId])
@@ -2646,6 +2661,7 @@ model SalesReturn {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
+  credit         SalesReturnCredit?
   items          SalesReturnItem[]
   salesOrder     SalesOrder        @relation(fields: [salesOrderId], references: [id])
   deliveryOrder  DeliveryOrder?    @relation(fields: [deliveryOrderId], references: [id])
@@ -2668,8 +2684,105 @@ model SalesReturnItem {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
+  allocations    SalesReturnCreditAllocation[]
+  receipt        SalesReturnReceiptLine?
   salesReturn    SalesReturn    @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
   productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+model SalesReturnReceiptLine {
+  id               String          @id @default(uuid())
+  returnItemId     String          @unique
+  sourceMovementId String
+  movementId       String?         @unique
+  journalId        String?         @unique
+  quantity         Decimal         @db.Decimal(15, 4)
+  restockValue     Decimal         @db.Decimal(15, 2)
+  receivedAt       DateTime
+  createdById      String
+  returnItem       SalesReturnItem @relation(fields: [returnItemId], references: [id], onDelete: Restrict)
+  sourceMovement   StockMovement   @relation("ReturnSourceMovement", fields: [sourceMovementId], references: [id], onDelete: Restrict)
+  movement         StockMovement?  @relation("ReturnReceiptMovement", fields: [movementId], references: [id], onDelete: Restrict)
+  journal          JournalEntry?   @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy        User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([sourceMovementId])
+}
+
+// Immutable original-invoice values. Missing legacy basis requires Finance review.
+model InvoiceReturnBasisLine {
+  id                String   @id @default(uuid())
+  invoiceId         String
+  sourceItemId      String
+  productVariantId  String
+  quantity          Decimal  @db.Decimal(15, 4)
+  netAmount         Decimal  @db.Decimal(15, 2)
+  taxAmount         Decimal  @db.Decimal(15, 2)
+  discountAmount    Decimal  @db.Decimal(15, 2)
+  sourceJournalId   String
+  sourceEvidence    Json
+  createdAt         DateTime @default(now())
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  allocations       SalesReturnCreditAllocation[]
+  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  sourceJournal     JournalEntry @relation(fields: [sourceJournalId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, sourceItemId])
+  @@index([invoiceId, productVariantId])
+}
+
+enum SalesReturnCreditStatus {
+  REVIEW_REQUIRED
+  POSTED
+  REVERSED
+}
+
+model SalesReturnCredit {
+  id             String                  @id @default(uuid())
+  salesReturnId  String                  @unique
+  status         SalesReturnCreditStatus @default(REVIEW_REQUIRED)
+  reviewReason   String?
+  postedAt       DateTime?
+  netAmount      Decimal                 @default(0) @db.Decimal(15, 2)
+  taxAmount      Decimal                 @default(0) @db.Decimal(15, 2)
+  totalAmount    Decimal                 @default(0) @db.Decimal(15, 2)
+  journalId      String?                 @unique
+  reversedAt     DateTime?
+  reversedById   String?
+  reversedBy     User?                   @relation("ReturnCreditReversedBy", fields: [reversedById], references: [id], onDelete: Restrict)
+  reversalReason String?
+  reversalJournalId String?              @unique
+  reversalJournal JournalEntry?         @relation("ReturnCreditReversalJournal", fields: [reversalJournalId], references: [id], onDelete: Restrict)
+  createdById    String
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  salesReturn    SalesReturn             @relation(fields: [salesReturnId], references: [id], onDelete: Restrict)
+  journal        JournalEntry?           @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy      User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  allocations    SalesReturnCreditAllocation[]
+
+  @@index([status, createdAt])
+}
+
+model SalesReturnCreditAllocation {
+  id             String                 @id @default(uuid())
+  creditId       String
+  invoiceId      String
+  basisLineId    String
+  returnItemId   String
+  quantity       Decimal                @db.Decimal(15, 4)
+  netAmount      Decimal                @db.Decimal(15, 2)
+  taxAmount      Decimal                @db.Decimal(15, 2)
+  discountAmount Decimal                @db.Decimal(15, 2)
+  totalAmount    Decimal                @db.Decimal(15, 2)
+  credit         SalesReturnCredit      @relation(fields: [creditId], references: [id], onDelete: Restrict)
+  invoice        Invoice                @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  basisLine      InvoiceReturnBasisLine @relation(fields: [basisLineId], references: [id], onDelete: Restrict)
+  returnItem     SalesReturnItem        @relation(fields: [returnItemId], references: [id], onDelete: Restrict)
+
+  @@unique([creditId, returnItemId, basisLineId], map: "ReturnCreditAllocation_source_key")
+  @@index([invoiceId])
+  @@index([basisLineId])
 }
 
 model PurchaseReturn {

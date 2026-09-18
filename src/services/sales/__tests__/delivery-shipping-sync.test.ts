@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('@/services/finance/invoice-return-basis-capture', () => ({ refreshDraftInvoiceReturnBasis: vi.fn().mockResolvedValue('CAPTURED') }));
 import { syncSalesOrderShippingFromDeliveries } from '../delivery-shipping-sync';
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';

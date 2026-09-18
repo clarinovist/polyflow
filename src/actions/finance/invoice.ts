@@ -8,6 +8,7 @@ import {
     requireFinanceMutation,
     requireFinanceReadCrossPortal,
 } from '@/lib/auth/finance-access';
+import { positiveSalesReceivableWhere } from '@/services/finance/sales-receivable-query';
 import { InvoiceService } from '@/services/finance/invoice-service';
 import {
     createInvoiceSchema,
@@ -146,7 +147,6 @@ function buildFinanceSalesInvoiceWhere(
         ).startOfDay;
         filters.push({
             dueDate: { lt: currentBusinessDayStart },
-            paidAmount: { lt: prisma.invoice.fields.totalAmount },
             status: {
                 in: [
                     InvoiceStatus.UNPAID,
@@ -192,7 +192,9 @@ export const getFinanceSalesInvoicePage = withTenant(
                 normalizePositiveInteger(params.pageSize, 50),
                 100,
             );
-            const where = buildFinanceSalesInvoiceWhere(params);
+            const baseWhere = buildFinanceSalesInvoiceWhere(params);
+            const where: Prisma.InvoiceWhereInput = params.overdue || ['UNPAID', 'PARTIAL', 'OVERDUE'].includes(params.status ?? '')
+                ? { AND: [baseWhere, await positiveSalesReceivableWhere()] } : baseWhere;
             const { sort, direction } = normalizeFinanceSalesInvoiceSort(
                 params.sort,
                 params.direction,
@@ -333,6 +335,7 @@ export const getOutstandingInvoicesByCustomerId = withTenant(
             ]);
             const invoices = await prisma.invoice.findMany({
                 where: {
+                    ...(await positiveSalesReceivableWhere()),
                     salesOrder: {
                         customerId: customerId,
                     },

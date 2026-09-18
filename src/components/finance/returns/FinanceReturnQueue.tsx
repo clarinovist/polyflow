@@ -23,13 +23,13 @@ export function FinanceReturnQueue({
                         <p className="text-2xl font-bold tabular-nums">
                             {summary.count}{' '}
                             <span className="text-xs font-normal text-muted-foreground">
-                                retur belum selesai
+                                retur menunggu tindak lanjut
                             </span>
                         </p>
                         <p>
                             {summary.draftCount} draft ·{' '}
                             {summary.confirmedCount} menunggu barang ·{' '}
-                            {summary.receivedCount} diterima
+                            {summary.receivedCount} menunggu Finance
                         </p>
                         <p>
                             Nilai dokumen:{' '}
@@ -38,7 +38,8 @@ export function FinanceReturnQueue({
                         <p className="text-xs text-muted-foreground">
                             Kondisi terkini, bukan filter periode. Nilai dokumen
                             bukan kredit yang sudah memotong piutang. Retur
-                            selesai tetap dapat diperiksa di daftar.
+                            selesai secara operasional tetap dalam antrean
+                            sampai kredit terposting.
                         </p>
                     </>
                 ) : (

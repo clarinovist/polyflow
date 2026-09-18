@@ -6,6 +6,7 @@ import { AutoJournalService } from '../finance/auto-journal-service';
 import { logActivity } from '@/lib/tools/audit';
 
 vi.mock('@/lib/core/prisma', () => ({
+    getTenantDbFromContext: () => prisma,
     prisma: {
         $transaction: vi.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma)),
         $queryRaw: vi.fn(),

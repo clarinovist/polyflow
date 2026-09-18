@@ -256,7 +256,7 @@ export const getMyFieldReceivables = withTenant(
         return safeAction(async () => {
             const session = await requireSalesAccess();
             const scope = getFieldSalesScope(session);
-            const where = scopedInvoiceWhere(scope);
+            const where = { AND: [scopedInvoiceWhere(scope), await (await import('@/services/finance/sales-receivable-query')).positiveSalesReceivableWhere()] };
 
             const invoices = await prisma.invoice.findMany({
                 where,

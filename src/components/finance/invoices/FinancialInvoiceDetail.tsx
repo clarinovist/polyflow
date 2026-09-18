@@ -91,7 +91,7 @@ export function FinancialInvoiceDetail({
     const [isUpdating, setIsUpdating] = useState(false);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState(() =>
-        Math.max(0, Number(invoice.totalAmount) - Number(invoice.paidAmount)),
+        Math.max(0, Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0)),
     );
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
         DEFAULT_PAYMENT_METHOD,
@@ -107,7 +107,7 @@ export function FinancialInvoiceDetail({
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
     const remainingAmount =
-        Number(invoice.totalAmount) - Number(invoice.paidAmount);
+        Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
 
     const handleConfirmInvoice = async () => {
         setIsUpdating(true);
@@ -461,15 +461,16 @@ export function FinancialInvoiceDetail({
                                 {formatRupiah(Number(invoice.paidAmount))}
                             </span>
                         </div>
+                        {Number(invoice.creditedAmount ?? 0) > 0 && <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Kredit retur (bukan pembayaran)</span>
+                            <span className="font-medium">{formatRupiah(Number(invoice.creditedAmount))}</span>
+                        </div>}
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">
                                 Remaining Balance
                             </span>
                             <span className="font-medium text-red-600">
-                                {formatRupiah(
-                                    Number(invoice.totalAmount) -
-                                        Number(invoice.paidAmount),
-                                )}
+                                {formatRupiah(remainingAmount)}
                             </span>
                         </div>
                     </CardContent>
@@ -585,6 +586,7 @@ export function FinancialInvoiceDetail({
                         ...invoice,
                         totalAmount: Number(invoice.totalAmount),
                         paidAmount: Number(invoice.paidAmount),
+                        creditedAmount: Number(invoice.creditedAmount ?? 0),
                         salesOrder: invoice.salesOrder
                             ? {
                                   ...invoice.salesOrder,

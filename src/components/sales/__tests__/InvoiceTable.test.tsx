@@ -32,6 +32,12 @@ const invoice = {
 };
 
 describe('InvoiceTable finance server pagination', () => {
+    it('shows credit separately from cash payments and reduces remaining balance', () => {
+        render(<InvoiceTable invoices={[{ ...invoice, creditedAmount: 25000 }]} basePath="/finance/invoices/sales" />);
+        expect(screen.getByText(/Kredit retur:/).textContent).toContain('25.000');
+        expect(screen.getByText(/Sisa:/).textContent).toContain('75.000');
+        expect(screen.queryByText(/Dibayar:/)).toBeNull();
+    });
     it('renders accessible server-sort headers and preserves URL state when sorting', () => {
         render(
             <InvoiceTable

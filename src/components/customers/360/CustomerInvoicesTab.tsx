@@ -22,6 +22,7 @@ type Invoice = {
     dueDate: string | Date | null;
     totalAmount: { toNumber(): number } | number;
     paidAmount: { toNumber(): number } | number;
+    creditedAmount?: { toNumber(): number } | number;
     status: string;
     salesOrder: { orderNumber: string } | null;
 };
@@ -73,8 +74,8 @@ export function CustomerInvoicesTab({ customerId }: { customerId: string }) {
     }, [load]);
 
     const totalUnpaid = invoices
-        .filter((i) => i.status !== 'PAID')
-        .reduce((s, i) => s + (toN(i.totalAmount) - toN(i.paidAmount)), 0);
+        .filter((i) => ['UNPAID', 'PARTIAL', 'OVERDUE'].includes(i.status))
+        .reduce((s, i) => s + (toN(i.totalAmount) - toN(i.paidAmount) - toN(i.creditedAmount ?? 0)), 0);
 
     return (
         <Card>

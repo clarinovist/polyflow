@@ -16,6 +16,7 @@ import { AutoJournalService } from "../auto-journal-service";
 
 // Mock prisma
 vi.mock("@/lib/core/prisma", () => ({
+  getTenantDbFromContext: () => prisma,
   prisma: {
     $transaction: vi.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma)),
     $queryRaw: vi.fn(),
@@ -35,6 +36,8 @@ vi.mock("@/lib/core/prisma", () => ({
     },
   },
 }));
+
+vi.mock('../invoice-return-basis-capture', () => ({ captureInvoiceReturnBasis: vi.fn().mockResolvedValue('CAPTURED'), refreshDraftInvoiceReturnBasis: vi.fn().mockResolvedValue('CAPTURED') }));
 
 // Mock audit
 vi.mock("@/lib/tools/audit", () => ({

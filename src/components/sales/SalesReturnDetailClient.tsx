@@ -19,12 +19,12 @@ import {
 } from '@/lib/labels';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { ArrowLeft, CheckCircle, PackageCheck, Ban } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Ban } from 'lucide-react';
+import { ReturnReceiveDialog } from './ReturnReceiveDialog';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
     confirmSalesReturnAction,
-    receiveSalesReturnAction,
     completeSalesReturnAction,
     cancelSalesReturnAction,
 } from '@/actions/sales/sales-returns';
@@ -39,6 +39,7 @@ type ReturnDetail = SalesReturn & {
     deliveryOrder: { deliveryNumber: string } | null;
     createdBy: { name: string } | null;
     items: {
+        id: string;
         condition: string;
         returnedQty: number | string;
         unitPrice: number | string;
@@ -120,7 +121,11 @@ export function SalesReturnDetailClient({
     ) => {
         setActionLoading(actionName);
         try {
-            await actionFn(salesReturn.id);
+            const result = await actionFn(salesReturn.id) as { success: boolean; error?: string };
+            if (!result.success) {
+                toast.error(result.error ?? 'Gagal memproses retur penjualan.');
+                return;
+            }
             const actionText =
                 actionName === 'CONFIRM'
                     ? 'dikonfirmasi'
@@ -170,26 +175,7 @@ export function SalesReturnDetailClient({
                     )}
 
                     {salesReturn.status === 'CONFIRMED' && (
-                        <Button
-                            variant="default"
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() =>
-                                handleAction(
-                                    receiveSalesReturnAction,
-                                    'Receive',
-                                )
-                            }
-                            disabled={!!actionLoading}
-                        >
-                            {actionLoading === 'Receive' ? (
-                                'Memproses...'
-                            ) : (
-                                <>
-                                    <PackageCheck className="mr-2 h-4 w-4" />{' '}
-                                    Terima Item
-                                </>
-                            )}
-                        </Button>
+                        <ReturnReceiveDialog returnId={salesReturn.id} items={salesReturn.items.map(item => ({ id: item.id, name: item.productVariant?.skuCode ?? 'Item retur' }))} />
                     )}
 
                     {salesReturn.status === 'RECEIVED' && (
@@ -460,8 +446,8 @@ export function SalesReturnDetailClient({
                             </p>
                             <p>
                                 <strong>DITERIMA:</strong> Item dikembalikan ke
-                                inventaris (jika kondisi baik). Jurnal otomatis
-                                dibuat untuk nota kredit.
+                                inventaris (jika kondisi baik) dengan HPP asal.
+                                Kredit piutang diposting terpisah oleh Finance.
                             </p>
                             <p>
                                 <strong>SELESAI:</strong> Akhir dari siklus

@@ -23,6 +23,11 @@ describe('ESC/P invoice persisted rounding mapping', () => {
         }));
         expect(generate.mock.calls[0][0]).not.toHaveProperty('roundingAmount');
     });
+    it('maps net receivable after return credit without changing payment or gross', async () => {
+        db.invoice.findUnique.mockResolvedValue({ invoiceNumber: 'INV-TEST', invoiceDate: new Date(), totalAmount: 1000, paidAmount: 200, creditedAmount: 300, salesOrder: { items: [] } });
+        await buildInvoiceDocument('test');
+        expect(generate).toHaveBeenCalledWith(expect.objectContaining({ grandTotal: 1000, paidAmount: 200, remainingBalance: 500 }));
+    });
     it('returns null when invoice is absent', async () => {
         db.invoice.findUnique.mockResolvedValue(null);
         expect(await buildInvoiceDocument('missing')).toBeNull();

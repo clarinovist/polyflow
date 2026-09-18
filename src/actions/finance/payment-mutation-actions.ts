@@ -1,14 +1,13 @@
 'use server';
 
 import {
-    InvoiceStatus,
     PurchaseInvoiceStatus,
     ReferenceType,
 } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { logger } from '@/lib/config/logger';
 import {
     BusinessRuleError,
@@ -64,7 +63,9 @@ export const recordCustomerPayment = withTenant(
                 await retryOnPaymentNumberConflict(async () => {
                     // Allocate outside the retried transaction: rollback must not reuse a conflicting number.
                     const paymentNumber = await getNextSequence('PAYMENT_IN');
-                    return prisma.$transaction(tx => recordCustomerPaymentInTransaction(
+                    const db = getTenantDbFromContext();
+                    if (!db) throw new BusinessRuleError('Konteks tenant wajib untuk pembayaran.');
+                    return db.$transaction(tx => recordCustomerPaymentInTransaction(
                         tx, { ...data, ...paymentFields }, paymentNumber, session.user.id,
                     ));
                 });
@@ -263,7 +264,9 @@ export const deletePayment = withTenant(async function deletePayment(
         const authSession = await requireFinanceMutation();
 
         try {
-            await prisma.$transaction(async (tx) => {
+            const db = getTenantDbFromContext();
+            if (!db) throw new BusinessRuleError('Konteks tenant wajib untuk penghapusan pembayaran.');
+            await db.$transaction(async (tx) => {
                 const payment = await tx.payment.findUnique({
                     where: { id },
                     include: {
@@ -273,6 +276,11 @@ export const deletePayment = withTenant(async function deletePayment(
                 });
 
                 if (!payment) throw new NotFoundError('Payment record', id);
+                if (payment.invoiceId) {
+                    const { deleteCustomerPaymentInTransaction } = await import('@/services/finance/customer-payment-delete-service');
+                    await deleteCustomerPaymentInTransaction(tx, id, authSession.user.id);
+                    return;
+                }
                 if (payment.barterSettlementId) {
                     throw new BusinessRuleError(
                         'Pembayaran ini merupakan bagian paket barter. Gunakan aksi Batalkan Barter agar seluruh kaki dibatalkan secara atomic.',
@@ -299,36 +307,7 @@ export const deletePayment = withTenant(async function deletePayment(
                     }
                 }
 
-                if (payment.invoiceId && payment.invoice) {
-                    const newPaid =
-                        Number(payment.invoice.paidAmount) -
-                        Number(payment.amount);
-                    const total = Number(payment.invoice.totalAmount);
-
-                    let newStatus: InvoiceStatus = InvoiceStatus.PARTIAL;
-                    if (newPaid <= 0) {
-                        newStatus = InvoiceStatus.UNPAID;
-                    }
-
-                    if (
-                        newPaid < total &&
-                        payment.invoice.dueDate &&
-                        new Date(payment.invoice.dueDate) < new Date()
-                    ) {
-                        newStatus = InvoiceStatus.OVERDUE;
-                    }
-
-                    await tx.invoice.update({
-                        where: { id: payment.invoiceId },
-                        data: {
-                            paidAmount: newPaid,
-                            status: newStatus,
-                        },
-                    });
-                } else if (
-                    payment.purchaseInvoiceId &&
-                    payment.purchaseInvoice
-                ) {
+                if (payment.purchaseInvoiceId && payment.purchaseInvoice) {
                     const newPaid =
                         Number(payment.purchaseInvoice.paidAmount) -
                         Number(payment.amount);
@@ -385,14 +364,14 @@ export const deletePayment = withTenant(async function deletePayment(
                 });
 
                 await tx.payment.delete({ where: { id } });
-            });
-
-            await logActivity({
-                userId: authSession.user.id,
-                action: 'DELETE_PAYMENT',
-                entityType: 'Payment',
-                entityId: id,
-                details: `Deleted payment ${id}`,
+                await logActivity({
+                    userId: authSession.user.id,
+                    action: 'DELETE_PAYMENT',
+                    entityType: 'Payment',
+                    entityId: id,
+                    details: `Deleted payment ${id}`,
+                    tx,
+                });
             });
 
             revalidatePath('/finance/payments/received');

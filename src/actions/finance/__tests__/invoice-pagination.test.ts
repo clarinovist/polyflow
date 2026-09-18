@@ -175,7 +175,7 @@ describe('getFinanceSalesInvoicePage', () => {
         expect(JSON.stringify(findArgs.where)).toContain('INV-42');
         expect(JSON.stringify(findArgs.where)).toContain('customerId');
         expect(JSON.stringify(findArgs.where)).toContain('dueDate');
-        expect(JSON.stringify(findArgs.where)).toContain('paidAmount');
+        expect(findArgs.where.AND).toContainEqual({ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, remainingAmount: { gt: 0 } });
         expect(JSON.stringify(findArgs.where)).toContain('invoiceDate');
     });
 });

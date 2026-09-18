@@ -8,10 +8,12 @@ const { db, journal, audit } = vi.hoisted(() => ({
         invoice: { create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     }, journal: vi.fn(), audit: vi.fn(),
 }));
-vi.mock('@/lib/core/prisma', () => ({ prisma: db }));
+vi.mock('@/lib/core/prisma', () => ({ prisma: db, getTenantDbFromContext: () => db }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: audit }));
 vi.mock('../auto-journal-service', () => ({ AutoJournalService: { handleSalesInvoiceCreated: journal } }));
 import { createInvoice, createDraftInvoiceFromOrder } from '../invoice-lifecycle-service';
+import { captureInvoiceReturnBasis, refreshDraftInvoiceReturnBasis } from '../invoice-return-basis-capture';
+vi.mock('../invoice-return-basis-capture', () => ({ captureInvoiceReturnBasis: vi.fn().mockResolvedValue('CAPTURED'), refreshDraftInvoiceReturnBasis: vi.fn().mockResolvedValue('CAPTURED') }));
 
 const dec = (n: number) => new Prisma.Decimal(n);
 const input = { salesOrderId: 'so', invoiceDate: new Date('2026-09-14'), termOfPaymentDays: 30 };
@@ -38,6 +40,7 @@ describe('new-only sales invoice rounding', () => {
         const result = mode === 'manual' ? await createInvoice(input, 'actor') : await createDraftInvoiceFromOrder('so', 'actor');
         expect(result).toMatchObject({ totalAmount: 16642500, roundingAmount: 180 });
         expect(journal).toHaveBeenCalledWith('new', { tx: db });
+        expect(captureInvoiceReturnBasis).toHaveBeenCalledWith(db, 'new');
         expect(audit).toHaveBeenCalledWith(expect.objectContaining({ tx: db, userId: 'actor' }));
     });
     it('rounds delivered quantity + VAT + shipping, not ordered quantity', async () => {
@@ -60,6 +63,7 @@ describe('new-only sales invoice rounding', () => {
         await createDraftInvoiceFromOrder('so', 'actor');
         expect(db.invoice.update).toHaveBeenCalledWith({ where: { id: 'new-draft' }, data: { totalAmount: 16642500, roundingAmount: 180 } });
         expect(journal).toHaveBeenCalledWith('new-draft', { tx: db, refreshDraft: true });
+        expect(refreshDraftInvoiceReturnBasis).toHaveBeenCalledWith(db, 'new-draft');
     });
     it('keeps a zero-adjustment new draft opted in on later sync', async () => {
         invoices = [row('new-draft', 16642000, 0)];

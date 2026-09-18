@@ -13,6 +13,7 @@ export default async function SalesMobileReceivablesPage() {
         dueDate: inv.dueDate,
         totalAmount: Number(inv.totalAmount),
         paidAmount: Number(inv.paidAmount),
+        creditedAmount: Number(inv.creditedAmount ?? 0),
         status: inv.status,
         customerName: inv.salesOrder?.customer?.name || 'Customer Umum',
         orderNumber: inv.salesOrder?.orderNumber || '',

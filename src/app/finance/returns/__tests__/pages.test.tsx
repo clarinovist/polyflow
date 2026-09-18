@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ page: vi.fn(), detail: vi.fn() }));
 vi.mock('@/actions/finance/sales-returns', () => ({ getFinanceSalesReturnPage: mocks.page, getFinanceSalesReturnDetail: mocks.detail }));
-vi.mock('next/navigation', () => ({ notFound: () => { throw new Error('NOT_FOUND'); } }));
+vi.mock('next/navigation', () => ({ notFound: () => { throw new Error('NOT_FOUND'); }, useRouter: () => ({ refresh: vi.fn() }) }));
 import FinanceReturnsPage from '../page';
 import FinanceReturnDetailPage from '../[id]/page';
 import { financeReturnGuidance, financeReturnStatuses } from '@/components/finance/returns/return-status';
@@ -15,7 +15,7 @@ const row = { id: 'return-1', returnNumber: 'SR-TEST', returnDate: '2026-09-18T0
 describe('Finance return read-only pages', () => {
     beforeEach(() => {
         mocks.page.mockResolvedValue({ success: true, data: { rows: [row], page: 1, totalPages: 2, total: 26 } });
-        mocks.detail.mockResolvedValue({ success: true, data: { ...row, reason: 'OTHER', notes: 'Example note', deliveryOrder: null, returnLocation: { name: 'Returns' }, items: [{ id: 'item-1', productVariant: { skuCode: 'SKU-TEST', name: 'Example item' }, condition: 'GOOD', returnedQty: 3, unitPrice: 100 }] } });
+        mocks.detail.mockResolvedValue({ success: true, data: { ...row, invoices: [], credit: null, reason: 'OTHER', notes: 'Example note', deliveryOrder: null, returnLocation: { name: 'Returns' }, items: [{ id: 'item-1', productVariant: { skuCode: 'SKU-TEST', name: 'Example item' }, condition: 'GOOD', returnedQty: 3, unitPrice: 100 }] } });
     });
 
     it('lists drafts with correct links, guidance, and persistent pagination filters', async () => {
@@ -50,7 +50,7 @@ describe('Finance return read-only pages', () => {
         expect(screen.getByText('SR-TEST')).toBeTruthy();
         expect(screen.getByText('SO-TEST')).toBeTruthy();
         expect(screen.getByText('SKU-TEST')).toBeTruthy();
-        expect(screen.getByText(/Potongan invoice belum dapat/)).toBeTruthy();
+        expect(screen.getByText('Belum mengurangi piutang')).toBeTruthy();
         expect(screen.getByText('Nilai dokumen (bukan kredit terposting)')).toBeTruthy();
         expect(screen.queryAllByRole('button')).toHaveLength(0);
     });

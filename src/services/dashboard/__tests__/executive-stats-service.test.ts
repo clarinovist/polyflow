@@ -135,7 +135,7 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         mockPrisma.materialIssue.aggregate.mockResolvedValue({ _sum: { quantity: new FakeDecimal(100) } });
         mockPrisma.productVariant.aggregate.mockResolvedValue({ _sum: { price: new FakeDecimal(0) }, _count: { id: 12 } });
         mockPrisma.invoice.aggregate.mockResolvedValue({
-            _sum: { totalAmount: new FakeDecimal(1000), paidAmount: new FakeDecimal(250) }
+            _sum: { totalAmount: new FakeDecimal(1000), paidAmount: new FakeDecimal(250), creditedAmount: new FakeDecimal(100) }
         });
         mockPrisma.purchaseInvoice.aggregate.mockResolvedValue({
             _sum: { totalAmount: new FakeDecimal(600), paidAmount: new FakeDecimal(100) }
@@ -169,6 +169,7 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         expect(mockPrisma.journalLine.aggregate).toHaveBeenCalledTimes(4);
         expect(mockPrisma.invoice.count).toHaveBeenNthCalledWith(1, {
             where: {
+                AND: [{ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, remainingAmount: { gt: 0 } }],
                 status: {
                     in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE],
                 },
@@ -179,6 +180,7 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         // would also count DRAFT and CANCELLED invoices as "due this week".
         expect(mockPrisma.invoice.count).toHaveBeenNthCalledWith(2, {
             where: {
+                AND: [{ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, remainingAmount: { gt: 0 } }],
                 dueDate: { gte: expect.any(Date), lte: expect.any(Date) },
                 status: {
                     in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE],
@@ -209,8 +211,9 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                     },
                 ],
                 salesOrder: buildOperationalSalesReceivableOrderWhere(),
+                AND: [{ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, remainingAmount: { gt: 0 } }],
             },
-            _sum: { totalAmount: true, paidAmount: true },
+            _sum: { totalAmount: true, paidAmount: true, creditedAmount: true },
         });
         // lowStock uses minStockAlert per variant aggregated across RAW_MATERIAL+FINISHING warehouses
         expect(mockPrisma.productVariant.findMany).toHaveBeenCalledWith({
@@ -247,7 +250,7 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 trend: 0,
             },
             cashflow: {
-                overdueReceivables: 750,
+                overdueReceivables: 650,
                 overduePayables: 500,
                 invoicesDueThisWeek: 2,
             },

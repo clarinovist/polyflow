@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { invoiceSelectionEvidence, invoiceDiagnosisEvidence, reconciliationEvidence } from '../finance-evidence';
 import { evidenceToText } from '../evidence';
 const dec = (n: number) => new Prisma.Decimal(n);
-const invoice = { id: 'i', invoiceNumber: 'INV-1', status: 'PAID' as const, totalAmount: dec(100), paidAmount: dec(100), invoiceDate: new Date('2026-08-31T17:00:00Z'), dueDate: null, salesOrder: { customer: { name: 'Customer' } } };
+const invoice = { id: 'i', invoiceNumber: 'INV-1', status: 'PAID' as const, totalAmount: dec(100), paidAmount: dec(100), creditedAmount: dec(0), invoiceDate: new Date('2026-08-31T17:00:00Z'), dueDate: null, salesOrder: { customer: { name: 'Customer' } } };
 const selection = { kind: 'selected' as const, invoices: [invoice], total: 1, truncated: false };
 const report = { revenue: [], cogs: [], opex: [], other: [], totalRevenue: 1000, totalManufacturingCosts: 300, inventoryChange: 0, totalCOGS: 300, grossProfit: 700, totalOpEx: 50, operatingIncome: 650, totalOther: -10, netIncome: 640 };
 const range = { startDate: '2026-08-01', endDate: '2026-08-31', start: new Date('2026-07-31T17:00:00Z'), end: new Date('2026-08-31T16:59:59.999Z') };
@@ -37,7 +37,7 @@ describe('finance evidence delivered to the model', () => {
     });
     it('delivers all P&L totals, source ids and explicit cohort limitations to evidenceToText', () => {
         const input = { ...recon, cogs: { rows: [{ id: 'j', entryNumber: 'JE', entryDate: range.start, reference: null, referenceId: null, referenceType: null, net: dec(-20), totalCount: BigInt(1), totalNet: dec(-20) }], count: 1, total: -20, truncated: false },
-            invoices: { rows: [{ ...invoice, customer: null, paymentTotal: dec(0), activeJournals: BigInt(0), postedJournals: BigInt(0), draftJournals: BigInt(0), totalCount: BigInt(1), totalValue: dec(100) }], count: 1, total: 100, truncated: false } };
+            invoices: { rows: [{ ...invoice, customer: null, allocatedCredit: dec(0), paymentTotal: dec(0), activeJournals: BigInt(0), postedJournals: BigInt(0), draftJournals: BigInt(0), totalCount: BigInt(1), totalValue: dec(100) }], count: 1, total: 100, truncated: false } };
         const evidence = reconciliationEvidence(input);
         expect(evidenceToText(evidence)).toContain('640,00'); expect(evidenceToText(evidence)).toContain('-Rp');
         expect(evidenceToText(evidence)).toContain('BUKAN tambahan laba'); expect(evidenceToText(evidence)).toContain('Tanggal jurnal');

@@ -20,7 +20,7 @@ export default async function QuickEntryPage() {
 
     // Fetch unpaid invoices for the wizard
     const [salesInvoicesRes, purchaseInvoicesRes] = await Promise.all([
-        getSalesInvoices(),
+        getSalesInvoices(undefined, { outstandingOnly: true }),
         getPurchaseInvoices(),
     ]);
     const salesInvoices =

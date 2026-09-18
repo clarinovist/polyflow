@@ -27,7 +27,7 @@ export async function collectBarterHealth(
         take: BARTER_HEALTH_LIMIT + 1,
         include: {
             payments: { take: 4 },
-            invoice: { select: { paidAmount: true, totalAmount: true } },
+            invoice: { select: { paidAmount: true, totalAmount: true, creditedAmount: true } },
             purchaseInvoice: {
                 select: { paidAmount: true, totalAmount: true },
             },
@@ -153,7 +153,7 @@ export async function collectBarterHealth(
         if (
             !s.invoice.paidAmount.eq(arSum._sum.amount ?? 0) ||
             !s.purchaseInvoice.paidAmount.eq(apSum._sum.amount ?? 0) ||
-            s.invoice.paidAmount.gt(s.invoice.totalAmount) ||
+            s.invoice.paidAmount.plus(s.invoice.creditedAmount ?? 0).gt(s.invoice.totalAmount) ||
             s.purchaseInvoice.paidAmount.gt(s.purchaseInvoice.totalAmount)
         )
             report('BALANCE_MISMATCH');

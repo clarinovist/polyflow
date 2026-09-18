@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { getSalesInvoiceBalance, getSalesInvoiceSettlementStatus } from '@/lib/finance/sales-return-allocation';
 
 import {
     BarterLeg,
@@ -8,7 +9,7 @@ import {
     type PurchaseInvoiceStatus,
 } from '@prisma/client';
 
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import {
     calculateBarterSummary,
@@ -207,7 +208,9 @@ export class BarterSettlementService {
                 ? await getNextSequence('PAYMENT_OUT')
                 : null;
 
-            return prisma.$transaction(
+            const db = getTenantDbFromContext();
+            if (!db) throw new BusinessRuleError('Konteks tenant wajib untuk barter.');
+            return db.$transaction(
                 async (tx) => {
                     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${input.idempotencyKey}))::text`;
                     const replay = await tx.barterSettlement.findUnique({
@@ -289,7 +292,7 @@ export class BarterSettlementService {
                             salesInvoice.status,
                         ) ||
                         salesInvoice.paidAmount.lt(0) ||
-                        salesInvoice.paidAmount.gt(salesInvoice.totalAmount)
+                        getSalesInvoiceBalance(salesInvoice).lt(0)
                     ) {
                         throw new BusinessRuleError(
                             'Invoice penjualan tidak memenuhi syarat barter.',
@@ -332,9 +335,7 @@ export class BarterSettlementService {
                     }
 
                     const summary = calculateBarterSummary({
-                        receivableBalance: salesInvoice.totalAmount.minus(
-                            salesInvoice.paidAmount,
-                        ),
+                        receivableBalance: getSalesInvoiceBalance(salesInvoice),
                         payableBalance: purchaseInvoice.totalAmount.minus(
                             purchaseInvoice.paidAmount,
                         ),
@@ -414,11 +415,7 @@ export class BarterSettlementService {
                         where: { id: salesInvoice.id },
                         data: {
                             paidAmount: salesPaid,
-                            status: statusForRemainingBalance(
-                                salesInvoice.totalAmount.minus(salesPaid),
-                                salesPaid,
-                                salesInvoice.dueDate,
-                            ) as InvoiceStatus,
+                            status: getSalesInvoiceSettlementStatus({ ...salesInvoice, paidAmount: salesPaid }) as InvoiceStatus,
                         },
                     });
                     await tx.purchaseInvoice.update({
@@ -548,8 +545,10 @@ export class BarterSettlementService {
     }
 
     static async void(input: VoidBarterSettlementInput, userId: string) {
+        const db = getTenantDbFromContext();
+        if (!db) throw new BusinessRuleError('Konteks tenant wajib untuk barter.');
         return retryBarterWrite(() =>
-            prisma.$transaction(
+            db.$transaction(
                 async (tx) => {
                     await tx.$queryRaw`SELECT id FROM "BarterSettlement" WHERE id = ${input.settlementId} FOR UPDATE`;
                     const settlement = await tx.barterSettlement.findUnique({
@@ -706,11 +705,7 @@ export class BarterSettlementService {
                         where: { id: salesInvoice.id },
                         data: {
                             paidAmount: salesPaid,
-                            status: statusForRemainingBalance(
-                                salesInvoice.totalAmount.minus(salesPaid),
-                                salesPaid,
-                                salesInvoice.dueDate,
-                            ) as InvoiceStatus,
+                            status: getSalesInvoiceSettlementStatus({ ...salesInvoice, paidAmount: salesPaid }) as InvoiceStatus,
                         },
                     });
                     await tx.purchaseInvoice.update({

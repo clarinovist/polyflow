@@ -42,6 +42,7 @@ type Stats = {
 
 /** 'PENDING' = belum lunas (UNPAID + PARTIAL + OVERDUE), dipakai deep-link dari dashboard */
 const PENDING_STATUSES = ['UNPAID', 'PARTIAL', 'OVERDUE'];
+const hasPositiveBalance = (invoice: Record<string, unknown>) => Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0) > 0;
 
 function isActionableOverdueRecord(inv: Record<string, unknown>): boolean {
     return isActionableInvoiceOverdue({
@@ -49,6 +50,7 @@ function isActionableOverdueRecord(inv: Record<string, unknown>): boolean {
         status: inv.status as string | null | undefined,
         totalAmount: inv.totalAmount as number | string | null | undefined,
         paidAmount: inv.paidAmount as number | string | null | undefined,
+        creditedAmount: inv.creditedAmount as number | string | null | undefined,
     });
 }
 
@@ -91,14 +93,14 @@ export function SalesInvoicesShell({
             return initialInvoices.filter((inv) =>
                 PENDING_STATUSES.includes(
                     (inv as { status?: string }).status ?? '',
-                ),
+                ) && hasPositiveBalance(inv),
             );
         }
         if (filter === 'OVERDUE') {
             return initialInvoices.filter(isActionableOverdueRecord);
         }
         return initialInvoices.filter(
-            (inv) => (inv as { status?: string }).status === filter,
+            (inv) => (inv as { status?: string }).status === filter && (!PENDING_STATUSES.includes(filter) || hasPositiveBalance(inv)),
         );
     }, [initialInvoices, filter]);
 
@@ -106,10 +108,10 @@ export function SalesInvoicesShell({
         () => ({
             all: initialInvoices.length,
             UNPAID: initialInvoices.filter(
-                (inv) => (inv as { status?: string }).status === 'UNPAID',
+                (inv) => (inv as { status?: string }).status === 'UNPAID' && hasPositiveBalance(inv),
             ).length,
             PARTIAL: initialInvoices.filter(
-                (inv) => (inv as { status?: string }).status === 'PARTIAL',
+                (inv) => (inv as { status?: string }).status === 'PARTIAL' && hasPositiveBalance(inv),
             ).length,
             OVERDUE: initialInvoices.filter(isActionableOverdueRecord).length,
             PAID: initialInvoices.filter(

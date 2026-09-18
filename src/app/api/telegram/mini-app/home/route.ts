@@ -91,7 +91,7 @@ export const GET = withTenantRoute(async function GET(req: NextRequest) {
   } catch { /* ignore */ }
 
   try {
-    const overdue = await prisma.invoice.count({ where: { status: 'OVERDUE' } }).catch(() => 0);
+    const overdue = await prisma.invoice.count({ where: { status: 'OVERDUE', AND: [await (await import('@/services/finance/sales-receivable-query')).positiveSalesReceivableWhere()] } }).catch(() => 0);
     kpis.push({ key: 'overdueInvoices', label: 'Invoice overdue', value: overdue, checkedAt, domain: 'finance' });
   } catch { /* ignore */ }
 

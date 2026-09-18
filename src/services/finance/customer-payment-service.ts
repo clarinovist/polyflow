@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { BusinessRuleError, ValidationError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
+import { getSalesInvoiceBalance } from '@/lib/finance/sales-return-allocation';
 import { AutoJournalService } from './auto-journal-service';
 import { lockSalesInvoice, postSalesInvoiceJournal, requireOpenJournalPeriod } from './sales-recognition-service';
 
@@ -45,12 +46,12 @@ export async function recordCustomerPaymentInTransaction(
     }
     await requireOpenJournalPeriod(tx, data.paymentDate);
     if (data.journalDate) await requireOpenJournalPeriod(tx, data.journalDate);
-    const remaining = invoice.totalAmount.minus(invoice.paidAmount);
+    const remaining = getSalesInvoiceBalance(invoice);
     if (remaining.lte(0) || new Prisma.Decimal(data.amount).gt(remaining)) {
         throw new BusinessRuleError('Pembayaran melebihi sisa tagihan atau invoice sudah lunas.', { invoiceId: invoice.id }, 'PAYMENT_EXCEEDS_BALANCE');
     }
     const paidAmount = invoice.paidAmount.plus(data.amount);
-    const status = paidAmount.gte(invoice.totalAmount) ? 'PAID' : 'PARTIAL';
+    const status = getSalesInvoiceBalance({ ...invoice, paidAmount }).equals(0) ? 'PAID' : 'PARTIAL';
     await tx.invoice.update({ where: { id: invoice.id }, data: { paidAmount, status } });
     await postSalesInvoiceJournal(tx, invoice.id, userId);
     const payment = await tx.payment.create({

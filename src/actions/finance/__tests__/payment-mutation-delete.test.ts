@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 // Tenant wrapper pass-through — tidak ada resolusi tenant di test.
 vi.mock('@/lib/core/tenant', () => ({
@@ -50,11 +51,12 @@ vi.mock('@/services/settings/app-settings-service', () => ({
 
 // tx client dibagikan ke test lewat closure supaya assertion bisa membacanya.
 const tx = {
+    $queryRaw: vi.fn().mockResolvedValue([]),
     payment: {
         findUnique: vi.fn(),
         delete: vi.fn().mockResolvedValue({}),
     },
-    invoice: { update: vi.fn().mockResolvedValue({}) },
+    invoice: { findUnique: vi.fn(), update: vi.fn().mockResolvedValue({}) },
     purchaseInvoice: { update: vi.fn().mockResolvedValue({}) },
     journalEntry: {
         findMany: vi.fn().mockResolvedValue([]),
@@ -70,6 +72,7 @@ const tx = {
 };
 
 vi.mock('@/lib/core/prisma', () => ({
+    getTenantDbFromContext: () => ({ $transaction: async (fn: (c: unknown) => Promise<unknown>) => fn(tx) }),
     prisma: {
         invoice: { findUnique: vi.fn() },
         payment: { findMany: vi.fn().mockResolvedValue([]) },
@@ -85,10 +88,15 @@ import { deletePayment } from '../payment-mutation-actions';
 describe('deletePayment — pembersihan pointer remittance', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        tx.journalEntry.findMany.mockResolvedValue([]);
+        tx.journalEntry.findMany.mockResolvedValue([{status:'POSTED',entryDate:new Date('2026-09-18'),lines:[]}]);
         tx.journalEntry.deleteMany.mockResolvedValue({ count: 0 });
         tx.journalLine.deleteMany.mockResolvedValue({ count: 0 });
         tx.invoice.update.mockResolvedValue({});
+        tx.$queryRaw.mockResolvedValue([]);
+        tx.invoice.findUnique.mockImplementation(async () => {
+            const payment = await tx.payment.findUnique();
+            return { ...payment.invoice, status: 'PARTIAL', totalAmount: new Prisma.Decimal(payment.invoice.totalAmount), paidAmount: new Prisma.Decimal(payment.invoice.paidAmount), creditedAmount: new Prisma.Decimal(0) };
+        });
         tx.purchaseInvoice.update.mockResolvedValue({});
         tx.payment.delete.mockResolvedValue({});
         tx.salesRemittanceItem.updateMany.mockResolvedValue({ count: 0 });
@@ -97,6 +105,7 @@ describe('deletePayment — pembersihan pointer remittance', () => {
 
     it('melepas SalesRemittanceItem.paymentId agar tidak menggantung setelah payment dihapus', async () => {
         tx.payment.findUnique.mockResolvedValue({
+            paymentDate: new Date('2026-09-18'),
             id: 'pay-1',
             amount: 500,
             invoiceId: 'inv-1',
@@ -142,6 +151,7 @@ describe('deletePayment — pembersihan pointer remittance', () => {
         });
 
         tx.payment.findUnique.mockResolvedValue({
+            paymentDate: new Date('2026-09-18'),
             id: 'pay-1',
             amount: 500,
             invoiceId: 'inv-1',
@@ -166,6 +176,7 @@ describe('deletePayment — pembersihan pointer remittance', () => {
 
     it('menolak penghapusan satu kaki paket barter', async () => {
         tx.payment.findUnique.mockResolvedValue({
+            paymentDate: new Date('2026-09-18'),
             id: 'pay-barter',
             barterSettlementId: 'settlement-1',
             amount: 500,
@@ -191,6 +202,7 @@ describe('deletePayment — pembersihan pointer remittance', () => {
 
     it('payment pembelian juga membersihkan pointer PurchaseRemittanceItem', async () => {
         tx.payment.findUnique.mockResolvedValue({
+            paymentDate: new Date('2026-09-18'),
             id: 'pay-2',
             amount: 300,
             invoiceId: null,
@@ -219,6 +231,7 @@ describe('deletePayment — pembersihan pointer remittance', () => {
         vi.mocked(isPeriodOpen).mockResolvedValueOnce(false);
 
         tx.payment.findUnique.mockResolvedValue({
+            paymentDate: new Date('2026-09-18'),
             id: 'pay-3',
             amount: 100,
             invoiceId: 'inv-1',
@@ -232,7 +245,7 @@ describe('deletePayment — pembersihan pointer remittance', () => {
             purchaseInvoice: null,
         });
         tx.journalEntry.findMany.mockResolvedValue([
-            { id: 'je-1', entryNumber: 'JE-001', entryDate: new Date() },
+            { id: 'je-1', entryNumber: 'JE-001', entryDate: new Date(), lines: [] },
         ]);
 
         const res = await deletePayment('pay-3');

@@ -43,7 +43,7 @@ export function makeSalesReturn(overrides: Partial<SalesReturnFixture> = {}): Sa
         ...returnBase, status: 'DRAFT', salesOrderId: 'fixture-so', deliveryOrderId: null,
         customerId: null, returnLocationId: 'fixture-location', customer: null,
         returnLocation: null, salesOrder: null, deliveryOrder: null,
-        items: [{ condition: 'GOOD', returnedQty: '200', unitPrice: '30000', productVariant: {
+        items: [{ id: 'fixture-return-item', condition: 'GOOD', returnedQty: '200', unitPrice: '30000', productVariant: {
             skuCode: 'SAMPLE-ITEM-01', product: { name: 'Synthetic Product' },
         } }], ...overrides,
     };

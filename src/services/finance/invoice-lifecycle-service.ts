@@ -1,7 +1,13 @@
 import { addDays } from 'date-fns';
 import { InvoiceStatus, SalesOrderStatus, Prisma } from '@prisma/client';
 
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
+
+function invoiceWriter() {
+    const db = getTenantDbFromContext();
+    if (!db) throw new BusinessRuleError('Konteks tenant wajib untuk penerbitan/perubahan invoice.');
+    return db;
+}
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import {
     CreateInvoiceValues,
@@ -10,6 +16,7 @@ import {
 import { logActivity } from '@/lib/tools/audit';
 
 import { AutoJournalService } from './auto-journal-service';
+import { captureInvoiceReturnBasis, refreshDraftInvoiceReturnBasis } from './invoice-return-basis-capture';
 import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
 import {
     calculateInvoiceRounding,
@@ -206,6 +213,7 @@ async function persistNewInvoice(
 ) {
     const invoice = await tx.invoice.create({ data });
     await AutoJournalService.handleSalesInvoiceCreated(invoice.id, { tx });
+    await captureInvoiceReturnBasis(tx, invoice.id);
     await logActivity({
         userId,
         action,
@@ -268,14 +276,18 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
         );
     }
 
-    // Calculate total from delivered qty (fallback to SO total if no deliveries yet)
-    const calculatedTotal =
-        await calculateSalesInvoiceTotalFromDelivered(salesOrderId);
-
-    const amounts = calculateInvoiceRounding(calculatedTotal);
     return createInvoiceWithNumberRetry((num) =>
-        prisma.$transaction((tx) =>
-            persistNewInvoice(
+        invoiceWriter().$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
+            await tx.$queryRaw`SELECT id FROM "Invoice" WHERE "salesOrderId" = ${salesOrderId} ORDER BY id FOR UPDATE`;
+            const existing = await tx.invoice.findMany({ where: { salesOrderId, status: { not: 'CANCELLED' } } });
+            if (existing.some(invoice => invoice.status === 'DRAFT')) throw new BusinessRuleError('Selesaikan invoice draft yang ada sebelum menerbitkan invoice baru.');
+            const cumulativeTotal = await calculateSalesInvoiceTotalFromDelivered(salesOrderId, tx);
+            const committed = existing.reduce((sum, invoice) => sum.plus(invoice.totalAmount).minus(invoice.roundingAmount ?? 0), new Prisma.Decimal(0));
+            const calculatedTotal = new Prisma.Decimal(cumulativeTotal).minus(committed).toNumber();
+            if (calculatedTotal <= 0) throw new BusinessRuleError('Nilai pengiriman sudah ditagihkan; tidak membuat invoice duplikat.');
+            const amounts = calculateInvoiceRounding(calculatedTotal);
+            return persistNewInvoice(
                 tx,
                 {
                     invoiceNumber: num,
@@ -291,8 +303,8 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
                 userId,
                 'CREATE_INVOICE',
                 `Invoice ${num} created for Order ${salesOrder.orderNumber} (base: ${calculatedTotal}, rounding: ${amounts.roundingAmount}, total: ${amounts.totalAmount})`,
-            ),
-        ),
+            );
+        }),
     );
 }
 
@@ -302,7 +314,7 @@ export async function updateInvoiceStatus(
     tx?: Prisma.TransactionClient,
 ): Promise<void> {
     if (!tx)
-        return prisma.$transaction((db) =>
+        return invoiceWriter().$transaction((db) =>
             updateInvoiceStatus(data, userId, db),
         );
     const {
@@ -313,6 +325,12 @@ export async function updateInvoiceStatus(
     } = await import('./sales-recognition-service');
     const { id, status, paidAmount } = data;
     const invoice = await lockSalesInvoice(tx, id);
+    if (Number(invoice.creditedAmount ?? 0) > 0) {
+        const { getSalesInvoiceSettlementStatus } = await import('@/lib/finance/sales-return-allocation');
+        if (status === 'CANCELLED' || status === 'DRAFT' || paidAmount !== undefined || status !== getSalesInvoiceSettlementStatus(invoice)) {
+            throw new BusinessRuleError('Invoice dengan kredit retur harus dikoreksi melalui transaksi sumber, bukan override status/pembayaran.');
+        }
+    }
     if (
         invoice.status === 'DRAFT' &&
         invoice.salesOrder.entrySource === 'EMERGENCY_DISPATCH' &&
@@ -393,7 +411,7 @@ export async function createDraftInvoiceFromOrder(
     }
 
     return createInvoiceWithNumberRetry((num) =>
-        prisma.$transaction(async (tx) => {
+        invoiceWriter().$transaction(async (tx) => {
             // Serialize draft/supplementary generation and lock invoices against payment/approval.
             await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
             await tx.$queryRaw`SELECT id FROM "Invoice" WHERE "salesOrderId" = ${salesOrderId} ORDER BY id FOR UPDATE`;
@@ -432,7 +450,11 @@ export async function createDraftInvoiceFromOrder(
                     ('roundingAmount' in amounts &&
                         Number(draft.roundingAmount) !==
                             amounts.roundingAmount);
-                if (!changed) return draft;
+                if (!changed) {
+                    // Composition may change while total stays equal; refresh issuance evidence too.
+                    if (draft.roundingAmount != null) await refreshDraftInvoiceReturnBasis(tx, draft.id);
+                    return draft;
+                }
                 const updated = await tx.invoice.update({
                     where: { id: draft.id },
                     data: amounts,
@@ -442,6 +464,7 @@ export async function createDraftInvoiceFromOrder(
                         draft.id,
                         { tx, refreshDraft: true },
                     );
+                    await refreshDraftInvoiceReturnBasis(tx, draft.id);
                 }
                 await logActivity({
                     userId,

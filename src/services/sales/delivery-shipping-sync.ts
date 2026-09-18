@@ -301,6 +301,8 @@ export async function syncSalesOrderShippingFromDeliveries(
                             inv.id,
                             { tx, refreshDraft: true },
                         );
+                        const { refreshDraftInvoiceReturnBasis } = await import('@/services/finance/invoice-return-basis-capture');
+                        await refreshDraftInvoiceReturnBasis(tx, inv.id);
                         await logActivity({
                             userId: opts?.userId ?? 'system',
                             action: 'SYNC_INVOICE_SHIPPING',

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
     },
     paymentJournal: vi.fn(), audit: vi.fn(),
 }));
-vi.mock('@/lib/core/prisma', () => ({ prisma: mocks.db }));
+vi.mock('@/lib/core/prisma', () => ({ prisma: mocks.db, getTenantDbFromContext: () => mocks.db }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceMutation: vi.fn().mockResolvedValue({ user: { id: 'finance' } }) }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -29,7 +29,7 @@ import { recordCustomerPayment } from '../payment-mutation-actions';
 
 const input = { invoiceId: 'invoice', amount: 100, paymentDate: '2026-08-20', method: 'Cash' };
 const original = () => ({
-    invoice: { id: 'invoice', invoiceNumber: 'INV-TEST', status: 'DRAFT', totalAmount: new Prisma.Decimal(100), paidAmount: new Prisma.Decimal(0), salesOrder: { entrySource: 'STANDARD' } },
+    invoice: { id: 'invoice', invoiceNumber: 'INV-TEST', status: 'DRAFT', totalAmount: new Prisma.Decimal(100), paidAmount: new Prisma.Decimal(0), creditedAmount: new Prisma.Decimal(0), salesOrder: { entrySource: 'STANDARD' } },
     journalStatus: 'DRAFT', payments: [] as { id: string; amount: number }[],
 });
 let state = original();
@@ -87,6 +87,14 @@ describe('customer payment recognition transaction', () => {
         expect((await recordCustomerPayment({ ...input, amount: 40 })).success).toBe(true);
         expect(state.invoice.status).toBe('PARTIAL');
         expect(state.journalStatus).toBe('POSTED');
+    });
+
+    it('settles only the cash remainder when part of the invoice is credited', async () => {
+        state.invoice.creditedAmount = new Prisma.Decimal(30);
+        expect((await recordCustomerPayment({ ...input, amount: 70 })).success).toBe(true);
+        expect(state.invoice.status).toBe('PAID');
+        expect(state.invoice.paidAmount.toString()).toBe('70');
+        expect(state.invoice.creditedAmount.toString()).toBe('30');
     });
 
     it('rejects cancelled invoices without creating payments', async () => {

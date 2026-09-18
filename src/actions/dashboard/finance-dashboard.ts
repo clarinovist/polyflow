@@ -107,7 +107,10 @@ export const getFinanceShiftBoard = withTenant(
             }
 
             // Overdue = dueDate < now AND remaining > 0 AND status in UNPAID/PARTIAL/OVERDUE
+            const { positiveSalesReceivableWhere } = await import('@/services/finance/sales-receivable-query');
+            const positiveBalance = await positiveSalesReceivableWhere();
             const overdueWhereSales: Prisma.InvoiceWhereInput = {
+                AND: [positiveBalance],
                 dueDate: { lt: now },
                 status: {
                     in: [
@@ -128,6 +131,7 @@ export const getFinanceShiftBoard = withTenant(
                 },
             };
             const unpaidWhereSales: Prisma.InvoiceWhereInput = {
+                AND: [positiveBalance],
                 status: {
                     in: [
                         InvoiceStatus.UNPAID,
@@ -169,6 +173,7 @@ export const getFinanceShiftBoard = withTenant(
                         invoiceNumber: true,
                         totalAmount: true,
                         paidAmount: true,
+                        creditedAmount: true,
                         dueDate: true,
                         salesOrder: {
                             select: { customer: { select: { name: true } } },
@@ -192,7 +197,7 @@ export const getFinanceShiftBoard = withTenant(
                 }),
                 prisma.invoice.findMany({
                     where: unpaidWhereSales,
-                    select: { totalAmount: true, paidAmount: true },
+                    select: { totalAmount: true, paidAmount: true, creditedAmount: true },
                 }),
                 prisma.purchaseInvoice.findMany({
                     where: unpaidWherePurchase,
@@ -272,12 +277,12 @@ export const getFinanceShiftBoard = withTenant(
             ]);
 
             const sumRemaining = (
-                rows: Array<{ totalAmount: unknown; paidAmount: unknown }>,
+                rows: Array<{ totalAmount: unknown; paidAmount: unknown; creditedAmount?: unknown }>,
             ) =>
                 rows.reduce(
                     (acc, r) =>
                         acc +
-                        (toNumber(r.totalAmount) - toNumber(r.paidAmount)),
+                        (toNumber(r.totalAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount)),
                     0,
                 );
 
@@ -317,7 +322,7 @@ export const getFinanceShiftBoard = withTenant(
                 id: r.id,
                 invoiceNumber: r.invoiceNumber,
                 customerName: r.salesOrder?.customer?.name ?? '-',
-                remaining: toNumber(r.totalAmount) - toNumber(r.paidAmount),
+                remaining: toNumber(r.totalAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount),
                 dueDate: r.dueDate ? r.dueDate.toISOString() : null,
                 totalAmount: toNumber(r.totalAmount),
             }));

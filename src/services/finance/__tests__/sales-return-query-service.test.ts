@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), groupBy: vi.fn() }));
-vi.mock('@/lib/core/prisma', () => ({ prisma: { salesReturn: mocks } }));
+vi.mock('@/lib/core/prisma', () => ({ prisma: { salesReturn: mocks, invoice: { findMany: vi.fn().mockResolvedValue([]) } } }));
 import { getFinanceReturnDetail, getFinanceReturnPage, getFinanceReturnSummary } from '../sales-return-query-service';
 
 describe('finance return queries (read only)', () => {
@@ -21,7 +21,7 @@ describe('finance return queries (read only)', () => {
         ]);
         expect(await getFinanceReturnSummary()).toEqual({ draftCount: 2, confirmedCount: 1, receivedCount: 1, count: 4, documentAmount: 350 });
         expect(mocks.groupBy).toHaveBeenCalledWith(expect.objectContaining({
-            where: { status: { in: ['DRAFT', 'CONFIRMED', 'RECEIVED'] } },
+            where: { OR: [ { status: { in: ['DRAFT', 'CONFIRMED'] } }, { status: { in: ['RECEIVED', 'COMPLETED'] }, OR: [{ credit: { is: null } }, { credit: { status: { not: 'POSTED' } } }] } ] },
         }));
     });
 

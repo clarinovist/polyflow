@@ -27,6 +27,7 @@ vi.mock('@/lib/core/prisma', () => ({
             findMany: vi.fn(),
             create: vi.fn(),
         },
+        salesReturnReceiptLine: { count: vi.fn().mockResolvedValue(0) },
         stockReservation: {
             updateMany: vi.fn(),
         },
@@ -109,8 +110,15 @@ function makeMovement(overrides: Record<string, unknown> = {}) {
 }
 
 describe('reverseDeliveryShipment', () => {
+    it('does not reverse a shipment already used by a return receipt', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDoRecord() as never);
+        vi.mocked(prisma.salesReturnReceiptLine.count).mockResolvedValue(1);
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Synthetic correction')).rejects.toThrow('retur');
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+    });
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(prisma.salesReturnReceiptLine.count).mockResolvedValue(0);
         vi.mocked(requireOpenJournalPeriod).mockResolvedValue(undefined);
         vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
         vi.mocked(prisma.salesRemittanceItem.findFirst).mockResolvedValue(null);

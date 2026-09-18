@@ -71,7 +71,7 @@ export default async function FieldSalesDashboardPage() {
         followUpsRes?.success && followUpsRes.data ? followUpsRes.data : [];
 
     const totalOutstanding = invoices.reduce(
-        (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)),
+        (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0)),
         0,
     );
 

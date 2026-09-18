@@ -58,6 +58,7 @@ interface Invoice {
     invoiceNumber: string;
     totalAmount: number;
     paidAmount: number;
+    creditedAmount?: number;
     salesOrder: {
         orderNumber: string;
         customerId?: string | null;
@@ -136,7 +137,7 @@ export function RecordCustomerPaymentDialog({
     );
     const remainingBalance = selectedInvoice
         ? Number(selectedInvoice.totalAmount) -
-          Number(selectedInvoice.paidAmount)
+          Number(selectedInvoice.paidAmount) - Number(selectedInvoice.creditedAmount ?? 0)
         : 0;
     const payableBalance = selectedPurchaseInvoice
         ? Number(selectedPurchaseInvoice.totalAmount) -
@@ -437,7 +438,7 @@ export function RecordCustomerPaymentDialog({
                                                             ) -
                                                                 Number(
                                                                     invoice.paidAmount,
-                                                                ),
+                                                                ) - Number(invoice.creditedAmount ?? 0),
                                                         )}
                                                     </span>
                                                 </CommandItem>

@@ -12,7 +12,7 @@ export function invoiceSelectionEvidence(result: Awaited<ReturnType<typeof findI
     return createEvidence({
         summary: result.kind === 'missing' ? 'Invoice tidak ditemukan.' : result.kind === 'ambiguous'
             ? `Ditemukan ${result.total} invoice. Pilih nomor/id invoice persis; diagnosis tidak dijalankan untuk match ambigu.` : 'Status invoice ditemukan.',
-        facts: result.invoices.map(i => ({ label: i.invoiceNumber, value: `${i.status} — ${i.salesOrder.customer?.name ?? 'Tanpa customer'} — Total ${money(i.totalAmount)}, dibayar ${money(i.paidAmount)}, sisa ${money(Number(i.totalAmount) - Number(i.paidAmount))}; tanggal ${date(i.invoiceDate)}, jatuh tempo ${date(i.dueDate)}` })),
+        facts: result.invoices.map(i => ({ label: i.invoiceNumber, value: `${i.status} — ${i.salesOrder.customer?.name ?? 'Tanpa customer'} — Total ${money(i.totalAmount)}, dibayar ${money(i.paidAmount)}, kredit retur ${money(i.creditedAmount ?? 0)}, sisa ${money(Number(i.totalAmount) - Number(i.paidAmount) - Number(i.creditedAmount ?? 0))}; tanggal ${date(i.invoiceDate)}, jatuh tempo ${date(i.dueDate)}` })),
         entities: result.invoices.map(invoiceEntity), source: 'tenant-data',
         completeness: result.kind === 'selected' && !result.truncated ? 'complete' : 'partial',
     });

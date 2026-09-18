@@ -178,7 +178,7 @@ export class RekapDagangService {
         const periodStart = getWibDayBounds(from).startOfDay;
         const periodEnd = getWibDayBounds(to).endOfDay;
 
-        const [invoices, payments] = await Promise.all([
+        const [invoices, payments, returnCredits] = await Promise.all([
             prisma.invoice.findMany({
                 where: {
                     status: { notIn: ['CANCELLED', 'DRAFT'] },
@@ -210,6 +210,10 @@ export class RekapDagangService {
                     },
                 },
             }),
+            prisma.salesReturnCreditAllocation.findMany({
+                where: { credit: { status: { in: ['POSTED', 'REVERSED'] }, postedAt: { lte: periodEnd } } },
+                select: { totalAmount: true, credit: { select: { postedAt: true, reversedAt: true } }, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } },
+            }),
         ]);
 
         const bucket: Bucket = new Map();
@@ -235,6 +239,17 @@ export class RekapDagangService {
             const amount = inv.totalAmount.toNumber();
             if (inv.invoiceDate < periodStart) entry.opening += amount;
             else entry.inPeriod += amount;
+        }
+
+        for (const credit of returnCredits) {
+            const customer = credit.invoice.salesOrder.customer;
+            const entry = ensure(customer?.id ?? 'no-customer', customer?.name ?? '');
+            if (credit.credit.postedAt! < periodStart) entry.opening -= Number(credit.totalAmount);
+            else entry.outPeriod += Number(credit.totalAmount);
+            if (credit.credit.reversedAt && credit.credit.reversedAt <= periodEnd) {
+                if (credit.credit.reversedAt < periodStart) entry.opening += Number(credit.totalAmount);
+                else entry.inPeriod += Number(credit.totalAmount);
+            }
         }
 
         for (const payment of payments) {

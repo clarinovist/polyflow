@@ -234,6 +234,13 @@ export async function reverseDeliveryShipment(
                     { deliveryOrderId }, 'SHIPMENT_MOVEMENTS_MISSING');
             }
 
+            // Share source locks with return receiving: reversal may never restock twice.
+            for (const movementId of movements.map(move => move.id).sort()) {
+                await tx.$queryRaw`SELECT id FROM "StockMovement" WHERE id = ${movementId} FOR UPDATE`;
+            }
+            if (await tx.salesReturnReceiptLine.count({ where: { sourceMovementId: { in: movements.map(move => move.id) } } })) {
+                throw new BusinessRuleError('Pengiriman sudah digunakan penerimaan retur. Koreksi retur dahulu sebelum reversal pengiriman.');
+            }
             // Validate the complete source before any inventory/DO/invoice mutation.
             const totals = validateMovementSet(doRecord.items, movements, doRecord.sourceLocationId);
             const updates = deliveredUpdates(totals, doRecord.salesOrder.items);

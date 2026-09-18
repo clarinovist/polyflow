@@ -72,12 +72,13 @@ export const getBarterOptions = withTenant(async function getBarterOptions(
                 status: true,
                 totalAmount: true,
                 paidAmount: true,
+                creditedAmount: true,
                 salesOrder: { select: { customerId: true } },
             },
         });
         if (!invoice) throw new NotFoundError('Invoice', invoiceId);
         const customerId = invoice.salesOrder.customerId;
-        const receivableBalance = invoice.totalAmount.minus(invoice.paidAmount);
+        const receivableBalance = invoice.totalAmount.minus(invoice.paidAmount).minus(invoice.creditedAmount ?? 0);
         if (!customerId) {
             throw new BusinessRuleError(
                 'Barter hanya tersedia untuk invoice customer eksternal.',

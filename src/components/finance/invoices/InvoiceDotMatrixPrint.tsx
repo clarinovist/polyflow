@@ -29,6 +29,7 @@ interface InvoicePrintData {
     status: InvoiceStatus;
     totalAmount: number;
     paidAmount: number;
+    creditedAmount?: number;
     salesOrder?: {
         orderNumber: string;
         taxAmount?: unknown;
@@ -98,7 +99,7 @@ export function InvoiceDotMatrixPrint({
     const rawSubtotal = subtotal + discountAmount - taxAmount;
     // DPP = dasar pengenaan pajak = rawSubtotal - discountAmount = subtotal - taxAmount
     const dpp = subtotal - taxAmount;
-    const sisaTagihan = grandTotal - Number(invoice.paidAmount);
+    const sisaTagihan = grandTotal - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
 
     const { paperSize } = COMPANY;
 
@@ -370,6 +371,8 @@ export function InvoiceDotMatrixPrint({
                                 <span>TOTAL :</span>
                                 <span>{formatNumberWithDots(grandTotal)}</span>
                             </div>
+                            {Number(invoice.paidAmount) > 0 && <div className="summary-row"><span>PEMBAYARAN :</span><span>{formatNumberWithDots(Number(invoice.paidAmount))}</span></div>}
+                            {Number(invoice.creditedAmount ?? 0) > 0 && <div className="summary-row"><span>KREDIT RETUR :</span><span>{formatNumberWithDots(Number(invoice.creditedAmount))}</span></div>}
                             <div className="summary-row bold">
                                 <span>SISA TAGIHAN :</span>
                                 <span className="highlight">

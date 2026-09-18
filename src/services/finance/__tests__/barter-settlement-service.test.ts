@@ -37,7 +37,7 @@ const { tx, prisma, postSales, offsetJournal, cashJournal, audit } = vi.hoisted(
     },
 );
 
-vi.mock('@/lib/core/prisma', () => ({ prisma }));
+vi.mock('@/lib/core/prisma', () => ({ prisma, getTenantDbFromContext: () => prisma }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: audit }));
 vi.mock('@/lib/utils/sequence', () => ({
     getNextSequence: vi.fn(async (key: string) => `${key}-00001`),
@@ -98,6 +98,7 @@ const salesInvoice = {
     status: 'UNPAID',
     totalAmount: new Prisma.Decimal(600),
     paidAmount: new Prisma.Decimal(0),
+    creditedAmount: new Prisma.Decimal(0),
     dueDate: null,
     salesOrder: { customerId: 'customer-1', entrySource: 'STANDARD' },
 };
@@ -187,6 +188,20 @@ describe('BarterSettlementService', () => {
         expect(audit).toHaveBeenCalledWith(
             expect.objectContaining({ tx, action: 'CREATE_BARTER_SETTLEMENT' }),
         );
+    });
+
+    it('rejects a barter above receivable after return credits', async () => {
+        tx.invoice.findUnique.mockReset();
+        tx.invoice.findUnique.mockResolvedValueOnce({ salesOrder: { customerId: 'customer-1' } }).mockResolvedValueOnce({ ...salesInvoice, creditedAmount: new Prisma.Decimal(100) });
+        await expect(BarterSettlementService.create(input, 'user-1')).rejects.toMatchObject({ code: 'BARTER_EXCEEDS_BALANCE' });
+        expect(tx.invoice.update).not.toHaveBeenCalled();
+    });
+
+    it('settles exactly the remaining receivable after return credits', async () => {
+        tx.invoice.findUnique.mockReset();
+        tx.invoice.findUnique.mockResolvedValueOnce({ salesOrder: { customerId: 'customer-1' } }).mockResolvedValueOnce({ ...salesInvoice, creditedAmount: new Prisma.Decimal(100) });
+        await BarterSettlementService.create({ ...input, barterAmount: 500 }, 'user-1');
+        expect(tx.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: { paidAmount: new Prisma.Decimal(500), status: 'PAID' } }));
     });
 
     it('returns an existing matching idempotency key and rejects a changed payload', async () => {

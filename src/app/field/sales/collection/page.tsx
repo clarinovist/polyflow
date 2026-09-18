@@ -9,6 +9,7 @@ type InvoiceRow = {
     dueDate: string | Date | null;
     totalAmount: unknown;
     paidAmount: unknown;
+    creditedAmount: unknown;
     status: string;
     salesOrder?: {
         customer?: { name?: string | null } | null;
@@ -55,6 +56,7 @@ export default async function SalesMobileCollectionPage() {
         dueDate: inv.dueDate,
         totalAmount: Number(inv.totalAmount as number),
         paidAmount: Number(inv.paidAmount as number),
+        creditedAmount: Number(inv.creditedAmount ?? 0),
         status: inv.status,
         customerName: inv.salesOrder?.customer?.name || 'Customer Umum',
         orderNumber: inv.salesOrder?.orderNumber || '',

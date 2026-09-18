@@ -9,6 +9,7 @@ vi.mock('@/lib/core/prisma', () => ({
         purchaseInvoice: { findMany: vi.fn() },
         invoice: { findMany: vi.fn() },
         payment: { findMany: vi.fn() },
+        salesReturnCreditAllocation: { findMany: vi.fn().mockResolvedValue([]) },
         employeeLoan: { findMany: vi.fn() },
         employeeLoanPayment: { findMany: vi.fn() },
     },
@@ -209,6 +210,29 @@ describe('RekapDagangService.getPiutangRecap', () => {
         });
 
         expect(result.rows[0].id).toBe('cus-1'); // sorted by closing balance desc
+    });
+
+    it('subtracts return credits by posting date, not return creation or current balance', async () => {
+        vi.mocked(prisma.invoice.findMany).mockResolvedValue([{ totalAmount: dec(1000), invoiceDate: BEFORE_PERIOD, salesOrder: { customer: { id: 'cus-1', name: 'Synthetic Customer' } } }]);
+        vi.mocked(prisma.payment.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.salesReturnCreditAllocation.findMany).mockResolvedValueOnce([
+            { totalAmount: dec(100), credit: { postedAt: BEFORE_PERIOD }, invoice: { salesOrder: { customer: { id: 'cus-1', name: 'Synthetic Customer' } } } },
+            { totalAmount: dec(200), credit: { postedAt: IN_PERIOD }, invoice: { salesOrder: { customer: { id: 'cus-1', name: 'Synthetic Customer' } } } },
+        ]);
+        const result = await RekapDagangService.getPiutangRecap({ from: FROM, to: TO });
+        expect(result.totals).toEqual({ openingBalance: 900, totalIn: 0, totalOut: 200, closingBalance: 700 });
+        expect(prisma.salesReturnCreditAllocation.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { credit: { status: { in: ['POSTED', 'REVERSED'] }, postedAt: { lte: new Date('2026-08-31T16:59:59.999Z') } } } }));
+    });
+
+    it('retains original posting and applies compensation only at the reversal effective date', async () => {
+        vi.mocked(prisma.invoice.findMany).mockResolvedValue([{ totalAmount: dec(1000), invoiceDate: BEFORE_PERIOD, salesOrder: { customer: { id: 'cus-1', name: 'Synthetic Customer' } } }]);
+        vi.mocked(prisma.payment.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.salesReturnCreditAllocation.findMany).mockResolvedValueOnce([
+            { totalAmount: dec(100), credit: { postedAt: BEFORE_PERIOD, reversedAt: IN_PERIOD }, invoice: { salesOrder: { customer: { id: 'cus-1', name: 'Synthetic Customer' } } } },
+            { totalAmount: dec(200), credit: { postedAt: IN_PERIOD, reversedAt: new Date('2026-09-10') }, invoice: { salesOrder: { customer: { id: 'cus-1', name: 'Synthetic Customer' } } } },
+        ]);
+        const result = await RekapDagangService.getPiutangRecap({ from: FROM, to: TO });
+        expect(result.totals).toEqual({ openingBalance: 900, totalIn: 100, totalOut: 200, closingBalance: 800 });
     });
 
     it('filters AR payments by invoiceId not null', async () => {

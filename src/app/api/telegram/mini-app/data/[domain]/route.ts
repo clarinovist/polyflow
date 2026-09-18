@@ -212,7 +212,7 @@ async function fetchFinance(
     pageSize: number,
 ): Promise<{ total: number; items: DataItem[] }> {
     const statusFilter =
-        filter === 'overdue' ? { status: 'OVERDUE' as const } : {};
+        filter === 'overdue' ? { status: 'OVERDUE' as const, AND: [await (await import('@/services/finance/sales-receivable-query')).positiveSalesReceivableWhere()] } : {};
 
     const [rows, total] = await Promise.all([
         prisma.invoice.findMany({
@@ -237,7 +237,7 @@ async function fetchFinance(
     };
 
     const items: DataItem[] = rows.map((r) => {
-        const remaining = Number(r.totalAmount) - Number(r.paidAmount);
+        const remaining = Number(r.totalAmount) - Number(r.paidAmount) - Number(r.creditedAmount ?? 0);
         const customerName = (
             r as typeof r & {
                 salesOrder?: { customer?: { name: string } | null };

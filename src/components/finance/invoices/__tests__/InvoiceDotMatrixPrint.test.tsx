@@ -15,6 +15,11 @@ const company = { ...getCompanyConfig(), name: 'Example Company', address: 'Exam
     phone: '', whatsapp: '', email: '', signerName: 'Finance', bankAccountsPPN: [], bankAccountsNonPPN: [] };
 
 describe('InvoiceDotMatrixPrint persisted totals', () => {
+    it('deducts posted return credit without changing gross or tax', () => {
+        render(<InvoiceDotMatrixPrint invoice={{ ...invoice, creditedAmount: 50 }} showButton={false} companyConfig={company} />);
+        expect(screen.getByText('SISA TAGIHAN :').parentElement?.textContent).toContain('50,25');
+        expect(screen.getByText('PPN :').parentElement?.textContent).toContain('1.649.238,92');
+    });
     it('prints rounded total without adjustment row, unchanged VAT and exact remaining', () => {
         render(<InvoiceDotMatrixPrint invoice={invoice} showButton={false} companyConfig={company} />);
         expect(screen.queryByText('PEMBULATAN :')).toBeNull();

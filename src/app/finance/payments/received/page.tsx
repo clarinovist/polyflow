@@ -24,6 +24,7 @@ type UnpaidSalesInvoice = {
     invoiceNumber: string;
     totalAmount: Prisma.Decimal;
     paidAmount: Prisma.Decimal;
+    creditedAmount: Prisma.Decimal;
     salesOrder: {
         orderNumber: string;
         customerId?: string | null;
@@ -86,7 +87,7 @@ export default async function ReceivedPaymentsPage({
     const unpaidInvoices = (allInvoices as UnpaidSalesInvoice[]).filter(
         (inv) => {
             const hasOutstanding =
-                Number(inv.totalAmount) - Number(inv.paidAmount) > 0;
+                Number(inv.totalAmount) - Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0) > 0;
             if (!hasOutstanding) return false;
             if (demand === 'customer') {
                 return inv.salesOrder?.customerId != null;

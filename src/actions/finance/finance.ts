@@ -58,6 +58,7 @@ export const updateOverdueStatuses = withTenant(
                 const salesResult = await prisma.invoice.updateMany({
                     where: {
                         dueDate: { lt: now },
+                        AND: [await (await import('@/services/finance/sales-receivable-query')).positiveSalesReceivableWhere()],
                         status: {
                             in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL],
                         },

@@ -100,7 +100,7 @@ describe('getSalesInvoices identity contract', () => {
     it('bounds and filters the receipt selector in SQL before limiting, with search for older invoices', async () => {
         const { getSalesInvoices } = await import('../invoices');
         await getSalesInvoices(undefined, { paymentSelector: true, search: 'INV-OLD' });
-        expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 200, where: expect.objectContaining({ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, paidAmount: { lt: 'totalAmount' }, OR: expect.any(Array) }) }));
+        expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 200, where: expect.objectContaining({ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, AND: [{ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, remainingAmount: { gt: 0 } }], OR: expect.any(Array) }) }));
     });
 
     it('queries only internal invoices for the legacy tab', async () => {
@@ -118,7 +118,7 @@ describe('getInvoiceStats', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockPrisma.invoice.aggregate.mockResolvedValue({
-            _sum: { totalAmount: 3_000, paidAmount: 1_000 },
+            _sum: { totalAmount: 3_000, paidAmount: 1_000, creditedAmount: 400 },
         });
         mockPrisma.invoice.findMany.mockResolvedValue([
             {
@@ -162,7 +162,7 @@ describe('getInvoiceStats', () => {
         expect(result.success).toBe(true);
         if (!result.success || !result.data) return;
 
-        expect(result.data.totalOutstanding).toBe(2_000);
+        expect(result.data.totalOutstanding).toBe(1_600);
         expect(result.data.overdueCount).toBe(1);
         expect(result.data.partialCount).toBe(4);
         expect(result.data.paidCount).toBe(7);

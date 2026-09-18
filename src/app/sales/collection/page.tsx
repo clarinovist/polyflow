@@ -62,6 +62,7 @@ export default async function SalesCollectionPage() {
             invoiceNumber: string;
             totalAmount: unknown;
             paidAmount: unknown;
+            creditedAmount: unknown;
             salesOrder: {
                 orderNumber: string;
                 customer: { name: string } | null;
@@ -70,7 +71,7 @@ export default async function SalesCollectionPage() {
     > | null;
     const allInvoices = invoicesRaw?.success ? (invoicesRaw.data ?? []) : [];
     const unpaidInvoices = allInvoices.filter(
-        (inv) => Number(inv.totalAmount) - Number(inv.paidAmount) > 0,
+        (inv) => Number(inv.totalAmount) - Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0) > 0,
     );
 
     const paymentBanksRaw = paymentBanksRes as ActionRes | null;

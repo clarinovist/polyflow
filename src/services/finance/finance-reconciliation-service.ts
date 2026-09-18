@@ -11,7 +11,7 @@ type CogsSource = {
 };
 type InvoiceSource = {
     id: string; invoiceNumber: string; invoiceDate: Date; status: string; customer: string | null;
-    totalAmount: Prisma.Decimal; paidAmount: Prisma.Decimal; paymentTotal: Prisma.Decimal;
+    totalAmount: Prisma.Decimal; paidAmount: Prisma.Decimal; creditedAmount: Prisma.Decimal; allocatedCredit: Prisma.Decimal; paymentTotal: Prisma.Decimal;
     activeJournals: bigint; postedJournals: bigint; draftJournals: bigint;
     totalCount: bigint; totalValue: Prisma.Decimal;
 };
@@ -39,11 +39,16 @@ async function invoiceSources(tx: Prisma.TransactionClient, start: Date, end: Da
     // Invoice-date cohort, NOT journal-date revenue. This value must never be added to profit.
     return tx.$queryRaw<InvoiceSource[]>(Prisma.sql`
         WITH source AS (
-            SELECT i.id, i."invoiceNumber", i."invoiceDate", i.status, i."totalAmount", i."paidAmount", c.name AS customer,
+            SELECT i.id, i."invoiceNumber", i."invoiceDate", i.status, i."totalAmount", i."paidAmount", i."creditedAmount", COALESCE(rc.total, 0) AS "allocatedCredit", c.name AS customer,
                 COALESCE(p.total, 0) AS "paymentTotal", j.active AS "activeJournals", j.posted AS "postedJournals", j.draft AS "draftJournals"
             FROM "Invoice" i JOIN "SalesOrder" so ON so.id = i."salesOrderId"
             LEFT JOIN "Customer" c ON c.id = so."customerId"
             LEFT JOIN LATERAL (SELECT SUM(amount) total FROM "Payment" WHERE "invoiceId" = i.id) p ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT SUM(a."totalAmount") total FROM "SalesReturnCreditAllocation" a
+                JOIN "SalesReturnCredit" c ON c.id = a."creditId"
+                WHERE a."invoiceId" = i.id AND c.status = 'POSTED'
+            ) rc ON TRUE
             CROSS JOIN LATERAL (
                 SELECT COUNT(*) FILTER (WHERE status <> 'VOIDED') active,
                     COUNT(*) FILTER (WHERE status = 'POSTED') posted,
@@ -55,7 +60,8 @@ async function invoiceSources(tx: Prisma.TransactionClient, start: Date, end: Da
             SELECT * FROM source WHERE
                 (status IN ('UNPAID','PARTIAL','PAID','OVERDUE') AND ("activeJournals" <> 1 OR "postedJournals" <> 1))
                 OR (status IN ('DRAFT','CANCELLED') AND "postedJournals" > 0)
-                OR "paymentTotal" <> "paidAmount" OR "paymentTotal" > "totalAmount"
+                OR "paymentTotal" <> "paidAmount" OR "paymentTotal" + "creditedAmount" > "totalAmount"
+                OR "creditedAmount" <> "allocatedCredit"
         )
         SELECT *, COUNT(*) OVER () AS "totalCount", SUM("totalAmount") OVER () AS "totalValue"
         FROM anomalies ORDER BY ABS("totalAmount") DESC, id ASC LIMIT ${SAMPLE_LIMIT}

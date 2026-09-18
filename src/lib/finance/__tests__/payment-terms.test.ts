@@ -91,6 +91,10 @@ describe("isActionableInvoiceOverdue", () => {
 });
 
 describe("getInvoiceRemainingAmount", () => {
+  it("subtracts return credit and excludes fully credited overdue invoices", () => {
+    expect(getInvoiceRemainingAmount(1000, 200, 300)).toBe(500);
+    expect(isActionableInvoiceOverdue({ totalAmount: 1000, paidAmount: 200, creditedAmount: 800, status: 'OVERDUE', dueDate: '2026-01-01' }, new Date('2026-09-18'))).toBe(false);
+  });
   it("never returns a negative remaining amount", () => {
     expect(getInvoiceRemainingAmount(1000, 1200)).toBe(0);
   });

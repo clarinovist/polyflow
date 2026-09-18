@@ -160,9 +160,16 @@ export default async function FinanceReturnsPage({
                                                 {formatRupiah(row.totalAmount)}
                                             </TableCell>
                                             <TableCell className="min-w-60 max-w-sm whitespace-normal text-xs">
-                                                {financeReturnGuidance(
-                                                    row.status,
-                                                )}
+                                                {row.credit?.status === 'POSTED'
+                                                    ? `Kredit terposting ${formatRupiah(row.credit.totalAmount)} (bukan pembayaran).`
+                                                    : row.credit?.status ===
+                                                        'REVERSED'
+                                                      ? 'Kredit dibalik; piutang dipulihkan. Perlu pemeriksaan Finance.'
+                                                      : row.credit
+                                                            ?.reviewReason ||
+                                                        financeReturnGuidance(
+                                                            row.status,
+                                                        )}
                                             </TableCell>
                                         </TableRow>
                                     ))

@@ -4,12 +4,13 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/core/prisma', async () => {
     const { PrismaClient } = await import('@prisma/client');
     const connection = process.env.ROUNDING_TEST_DATABASE_URL;
-    if (!connection) return { prisma: undefined, getTenantIdFromContext: () => undefined };
+    if (!connection) return { prisma: undefined, getTenantDbFromContext: () => undefined, getTenantIdFromContext: () => undefined };
     const url = new URL(connection);
     if (url.hostname !== '127.0.0.1' || url.pathname !== '/polyflow_rounding_test') {
         throw new Error('Requires disposable localhost polyflow_rounding_test database');
     }
-    return { prisma: new PrismaClient({ datasources: { db: { url: connection } } }), getTenantIdFromContext: () => undefined };
+    const client = new PrismaClient({ datasources: { db: { url: connection } } });
+    return { prisma: client, getTenantDbFromContext: () => client, getTenantIdFromContext: () => undefined };
 });
 vi.mock('@/services/accounting/account-resolver', () => ({ resolveAccount: vi.fn() }));
 vi.mock('@/services/accounting/tenant-revenue-rule-service', () => ({ loadActiveTenantRevenueRules: vi.fn().mockResolvedValue([]) }));

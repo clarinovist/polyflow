@@ -51,6 +51,7 @@ interface Invoice {
     invoiceNumber: string;
     totalAmount: number;
     paidAmount: number;
+    creditedAmount?: number;
     salesOrder: {
         orderNumber: string;
         customer: { name: string } | null;
@@ -103,7 +104,7 @@ export function CreateRemittanceDialog({
     );
     const remainingBalance = selectedInvoice
         ? Number(selectedInvoice.totalAmount) -
-          Number(selectedInvoice.paidAmount)
+          Number(selectedInvoice.paidAmount) - Number(selectedInvoice.creditedAmount ?? 0)
         : 0;
 
     const resetForm = () => {
@@ -346,7 +347,7 @@ export function CreateRemittanceDialog({
                                                     ) -
                                                         Number(
                                                             selectedInvoice.paidAmount,
-                                                        ),
+                                                        ) - Number(selectedInvoice.creditedAmount ?? 0),
                                                 )}
                                             </span>
                                         </span>
@@ -391,7 +392,7 @@ export function CreateRemittanceDialog({
                                             {invoices.map((inv) => {
                                                 const balance =
                                                     Number(inv.totalAmount) -
-                                                    Number(inv.paidAmount);
+                                                    Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0);
                                                 const customerLabel =
                                                     inv.salesOrder.customer
                                                         ?.name ||

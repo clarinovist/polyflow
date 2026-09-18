@@ -56,6 +56,7 @@ type SerializedSalesOrder = Omit<
         status: InvoiceStatus;
         totalAmount: number;
         paidAmount: number;
+        creditedAmount?: number;
         invoiceDate: string | Date;
         dueDate?: string | Date | null;
     }>;
@@ -203,7 +204,7 @@ export function SalesOrderTable({
     };
 
     const getPaymentSummary = (order: SerializedSalesOrder) => {
-        const invoices = order.invoices || [];
+        const invoices = (order.invoices || []).filter(invoice => !['DRAFT', 'CANCELLED'].includes(invoice.status));
         if (invoices.length === 0) {
             return {
                 label: 'Belum invoice',
@@ -214,7 +215,7 @@ export function SalesOrderTable({
         const outstanding = invoices.reduce((sum, invoice) => {
             const remaining =
                 Number(invoice.totalAmount || 0) -
-                Number(invoice.paidAmount || 0);
+                Number(invoice.paidAmount || 0) - Number(invoice.creditedAmount ?? 0);
             return remaining > 0 ? sum + remaining : sum;
         }, 0);
         if (outstanding > 0) {

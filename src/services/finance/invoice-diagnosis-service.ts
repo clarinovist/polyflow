@@ -10,6 +10,7 @@ const invoiceSelect = {
     status: true,
     totalAmount: true,
     paidAmount: true,
+    creditedAmount: true,
     invoiceDate: true,
     dueDate: true,
     salesOrder: { select: { customer: { select: { name: true } } } },
@@ -95,16 +96,17 @@ function paymentIssues(invoice: Invoice, total: Prisma.Decimal) {
         invoice.status,
     );
     const paid = invoice.paidAmount;
+    const settled = paid.plus(invoice.creditedAmount ?? 0);
     const statusMismatch =
         recognized &&
-        ((invoice.status === 'PAID' && differs(paid, invoice.totalAmount)) ||
-            (invoice.status !== 'PAID' && paid.gte(invoice.totalAmount)) ||
-            (invoice.status === 'PARTIAL' && paid.lte(0)) ||
-            (invoice.status === 'UNPAID' && paid.gt(0)));
+        ((invoice.status === 'PAID' && differs(settled, invoice.totalAmount)) ||
+            (invoice.status !== 'PAID' && settled.gte(invoice.totalAmount)) ||
+            (invoice.status === 'PARTIAL' && settled.lte(0)) ||
+            (invoice.status === 'UNPAID' && settled.gt(0)));
     return [
         ...(!total.eq(paid) ? ['PAYMENT_TOTAL_MISMATCH'] : []),
         ...(statusMismatch ? ['INVOICE_STATUS_MISMATCH'] : []),
-        ...(total.gt(invoice.totalAmount) || paid.gt(invoice.totalAmount)
+        ...(total.plus(invoice.creditedAmount ?? 0).gt(invoice.totalAmount) || settled.gt(invoice.totalAmount)
             ? ['OVERPAYMENT']
             : []),
         ...(total.lt(0) || paid.lt(0) ? ['NEGATIVE_PAYMENT'] : []),

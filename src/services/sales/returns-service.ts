@@ -1,13 +1,16 @@
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import {
     CreateSalesReturnValues,
     UpdateSalesReturnValues,
 } from '@/lib/schemas/returns';
-import { SalesReturnStatus, MovementType } from '@prisma/client';
+import { SalesReturnStatus } from '@prisma/client';
 import { format } from 'date-fns';
 import { logActivity } from '@/lib/tools/audit';
-import { AutoJournalService } from '../finance/auto-journal-service';
-import { logger } from '@/lib/config/logger';
+import {
+    receiveSalesReturn,
+    type ReturnSourceSelection,
+} from './return-receiving-service';
+import { transitionSalesReturn } from './return-status-service';
 import {
     BusinessRuleError,
     NotFoundError,
@@ -85,228 +88,92 @@ export class SalesReturnService {
 
     static async updateReturn(data: UpdateSalesReturnValues, userId: string) {
         if (!data.id) throw new ValidationError('ID retur wajib diisi');
-
-        const existing = await prisma.salesReturn.findUnique({
-            where: { id: data.id },
-        });
-        if (!existing) throw new NotFoundError('Sales Return', data.id);
-        if (existing.status !== 'DRAFT')
+        const db = getTenantDbFromContext();
+        if (!db)
             throw new BusinessRuleError(
-                'Can only update DRAFT returns',
-                { status: existing.status, returnId: data.id },
-                'INVALID_RETURN_STATUS',
+                'Konteks tenant wajib untuk mengubah retur.',
             );
-
-        let totalAmount = existing.totalAmount
-            ? Number(existing.totalAmount)
-            : 0;
-
-        const updateData: Record<string, unknown> = {
-            salesOrderId: data.salesOrderId,
-            deliveryOrderId: data.deliveryOrderId,
-            customerId: data.customerId,
-            returnLocationId: data.returnLocationId,
-            reason: data.reason,
-            notes: data.notes,
-        };
-
-        if (data.items) {
-            totalAmount = data.items.reduce(
-                (sum, item) => sum + item.returnedQty * item.unitPrice,
-                0,
-            );
-            updateData.totalAmount = totalAmount;
-            updateData.items = {
-                deleteMany: {},
-                create: data.items.map((item) => ({
-                    productVariantId: item.productVariantId,
-                    returnedQty: item.returnedQty,
-                    unitPrice: item.unitPrice,
-                    reason: item.reason,
-                    condition: item.condition,
-                    notes: item.notes,
-                })),
-            };
-        }
-
-        const salesReturn = await prisma.salesReturn.update({
-            where: { id: data.id },
-            data: updateData,
-        });
-
-        await logActivity({
-            userId,
-            action: 'UPDATE_SALES_RETURN',
-            entityType: 'SalesReturn',
-            entityId: salesReturn.id,
-            details: `Updated Sales Return ${salesReturn.returnNumber}`,
-        });
-
-        return salesReturn;
-    }
-
-    static async confirmReturn(id: string, userId: string) {
-        const existing = await prisma.salesReturn.findUnique({ where: { id } });
-        if (!existing) throw new NotFoundError('Sales Return', id);
-        if (existing.status !== 'DRAFT')
-            throw new BusinessRuleError(
-                'Only DRAFT returns can be confirmed',
-                { status: existing.status, returnId: id },
-                'INVALID_RETURN_STATUS',
-            );
-
-        const updated = await prisma.salesReturn.update({
-            where: { id },
-            data: { status: SalesReturnStatus.CONFIRMED },
-        });
-
-        await logActivity({
-            userId,
-            action: 'CONFIRM_SALES_RETURN',
-            entityType: 'SalesReturn',
-            entityId: id,
-            details: `Confirmed Sales Return ${existing.returnNumber}`,
-        });
-
-        return updated;
-    }
-
-    static async receiveReturn(id: string, userId: string) {
-        const salesReturn = await prisma.salesReturn.findUnique({
-            where: { id },
-            include: { items: true, salesOrder: true },
-        });
-
-        if (!salesReturn) throw new NotFoundError('Sales Return', id);
-        if (salesReturn.status !== 'CONFIRMED')
-            throw new BusinessRuleError(
-                'Only CONFIRMED returns can be received',
-                { status: salesReturn.status, returnId: id },
-                'INVALID_RETURN_STATUS',
-            );
-
-        // Process receiving in transaction
-        await prisma.$transaction(async (tx) => {
-            // 1. Update Return Status
-            await tx.salesReturn.update({
-                where: { id },
-                data: { status: SalesReturnStatus.RECEIVED },
+        return db.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM "SalesReturn" WHERE id = ${data.id} FOR UPDATE`;
+            const existing = await tx.salesReturn.findUnique({
+                where: { id: data.id },
             });
+            if (!existing) throw new NotFoundError('Sales Return', data.id);
+            if (existing.status !== 'DRAFT')
+                throw new BusinessRuleError(
+                    'Can only update DRAFT returns',
+                    { status: existing.status, returnId: data.id },
+                    'INVALID_RETURN_STATUS',
+                );
 
-            // 2. Process Inventory & Movements
-            for (const item of salesReturn.items) {
-                // If condition is GOOD, we restock to inventory
-                if (item.condition === 'GOOD') {
-                    await tx.inventory.upsert({
-                        where: {
-                            locationId_productVariantId: {
-                                locationId: salesReturn.returnLocationId,
-                                productVariantId: item.productVariantId,
-                            },
-                        },
-                        update: {
-                            quantity: { increment: item.returnedQty },
-                        },
-                        create: {
-                            locationId: salesReturn.returnLocationId,
-                            productVariantId: item.productVariantId,
-                            quantity: item.returnedQty,
-                        },
-                    });
-                }
+            let totalAmount = existing.totalAmount
+                ? Number(existing.totalAmount)
+                : 0;
 
-                // Record stock movement (RETURN_IN) regardless of condition,
-                // but if damaged, maybe it goes to a different logical state,
-                // for now we just record it to the returnLocation.
-                await tx.stockMovement.create({
-                    data: {
+            const updateData: Record<string, unknown> = {
+                salesOrderId: data.salesOrderId,
+                deliveryOrderId: data.deliveryOrderId,
+                customerId: data.customerId,
+                returnLocationId: data.returnLocationId,
+                reason: data.reason,
+                notes: data.notes,
+            };
+
+            if (data.items) {
+                totalAmount = data.items.reduce(
+                    (sum, item) => sum + item.returnedQty * item.unitPrice,
+                    0,
+                );
+                updateData.totalAmount = totalAmount;
+                updateData.items = {
+                    deleteMany: {},
+                    create: data.items.map((item) => ({
                         productVariantId: item.productVariantId,
-                        fromLocationId: null, // From Customer
-                        toLocationId: salesReturn.returnLocationId,
-                        quantity: item.returnedQty,
-                        type: MovementType.RETURN_IN,
-                        reference: salesReturn.returnNumber,
-                        createdById: userId,
-                    },
-                });
+                        returnedQty: item.returnedQty,
+                        unitPrice: item.unitPrice,
+                        reason: item.reason,
+                        condition: item.condition,
+                        notes: item.notes,
+                    })),
+                };
             }
+
+            const salesReturn = await tx.salesReturn.update({
+                where: { id: data.id },
+                data: updateData,
+            });
 
             await logActivity({
                 userId,
-                action: 'RECEIVE_SALES_RETURN',
+                action: 'UPDATE_SALES_RETURN',
                 entityType: 'SalesReturn',
-                entityId: id,
-                details: `Received items for Sales Return ${salesReturn.returnNumber}`,
+                entityId: salesReturn.id,
+                details: `Updated Sales Return ${salesReturn.returnNumber}`,
                 tx,
             });
+
+            return salesReturn;
         });
+    }
 
-        // 3. Trigger Auto-Journal for Credit Note
-        try {
-            await AutoJournalService.handleSalesReturnReceived(id);
-        } catch (error) {
-            logger.error('Failed to generate auto-journal for Sales Return', {
-                error,
-                returnId: id,
-                module: 'SalesReturnService',
-            });
-        }
+    static async confirmReturn(id: string, userId: string) {
+        return transitionSalesReturn(id, userId, 'CONFIRMED');
+    }
 
-        return this.getReturnById(id);
+    static async receiveReturn(
+        id: string,
+        userId: string,
+        selections?: ReturnSourceSelection,
+    ) {
+        return receiveSalesReturn(id, userId, selections);
     }
 
     static async completeReturn(id: string, userId: string) {
-        const existing = await prisma.salesReturn.findUnique({ where: { id } });
-        if (!existing) throw new NotFoundError('Sales Return', id);
-        // Usually completed after received
-        if (existing.status !== 'RECEIVED')
-            throw new BusinessRuleError(
-                'Only RECEIVED returns can be completed',
-                { status: existing.status, returnId: id },
-                'INVALID_RETURN_STATUS',
-            );
-
-        const updated = await prisma.salesReturn.update({
-            where: { id },
-            data: { status: SalesReturnStatus.COMPLETED },
-        });
-
-        await logActivity({
-            userId,
-            action: 'COMPLETE_SALES_RETURN',
-            entityType: 'SalesReturn',
-            entityId: id,
-            details: `Completed Sales Return ${existing.returnNumber}`,
-        });
-
-        return updated;
+        return transitionSalesReturn(id, userId, 'COMPLETED');
     }
 
     static async cancelReturn(id: string, userId: string) {
-        const existing = await prisma.salesReturn.findUnique({ where: { id } });
-        if (!existing) throw new NotFoundError('Sales Return', id);
-        if (existing.status === 'RECEIVED' || existing.status === 'COMPLETED') {
-            throw new BusinessRuleError(
-                'Cannot cancel returns that are already processing or completed',
-                { status: existing.status, returnId: id },
-                'INVALID_RETURN_STATUS',
-            );
-        }
-
-        const updated = await prisma.salesReturn.update({
-            where: { id },
-            data: { status: SalesReturnStatus.CANCELLED },
-        });
-
-        await logActivity({
-            userId,
-            action: 'CANCEL_SALES_RETURN',
-            entityType: 'SalesReturn',
-            entityId: id,
-            details: `Cancelled Sales Return ${existing.returnNumber}`,
-        });
-
-        return updated;
+        return transitionSalesReturn(id, userId, 'CANCELLED');
     }
 
     static async getReturns(filters?: {

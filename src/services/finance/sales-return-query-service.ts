@@ -21,13 +21,25 @@ const returnSelect = {
     totalAmount: true,
     customer: { select: { name: true } },
     salesOrder: { select: { orderNumber: true } },
+    credit: { select: { status: true, totalAmount: true, reviewReason: true } },
 } satisfies Prisma.SalesReturnSelect;
 
 /** Snapshot of operational work, never an amount of posted financial credit. */
 export async function getFinanceReturnSummary() {
     const groups = await prisma.salesReturn.groupBy({
         by: ['status'],
-        where: { status: { in: ['DRAFT', 'CONFIRMED', 'RECEIVED'] } },
+        where: {
+            OR: [
+                { status: { in: ['DRAFT', 'CONFIRMED'] } },
+                {
+                    status: { in: ['RECEIVED', 'COMPLETED'] },
+                    OR: [
+                        { credit: { is: null } },
+                        { credit: { status: { not: 'POSTED' } } },
+                    ],
+                },
+            ],
+        },
         _count: { _all: true },
         _sum: { totalAmount: true },
     });
@@ -36,7 +48,7 @@ export async function getFinanceReturnSummary() {
     return {
         draftCount: countFor('DRAFT'),
         confirmedCount: countFor('CONFIRMED'),
-        receivedCount: countFor('RECEIVED'),
+        receivedCount: countFor('RECEIVED') + countFor('COMPLETED'),
         count: groups.reduce((sum, group) => sum + group._count._all, 0),
         documentAmount: groups.reduce(
             (sum, group) => sum + Number(group._sum.totalAmount ?? 0),
@@ -94,6 +106,9 @@ export async function getFinanceReturnPage(input: unknown) {
             ...row,
             returnDate: row.returnDate.toISOString(),
             totalAmount: Number(row.totalAmount ?? 0),
+            credit: row.credit
+                ? { ...row.credit, totalAmount: Number(row.credit.totalAmount) }
+                : null,
         })),
         page,
         totalPages,
@@ -107,6 +122,24 @@ export async function getFinanceReturnDetail(input: unknown) {
         where: { id },
         select: {
             ...returnSelect,
+            salesOrderId: true,
+            credit: {
+                select: {
+                    status: true,
+                    reviewReason: true,
+                    totalAmount: true,
+                    postedAt: true,
+                    reversedAt: true,
+                    reversalReason: true,
+                    allocations: {
+                        select: {
+                            quantity: true,
+                            totalAmount: true,
+                            invoice: { select: { invoiceNumber: true } },
+                        },
+                    },
+                },
+            },
             reason: true,
             notes: true,
             deliveryOrder: { select: { orderNumber: true } },
@@ -118,20 +151,99 @@ export async function getFinanceReturnDetail(input: unknown) {
                     returnedQty: true,
                     unitPrice: true,
                     condition: true,
+                    productVariantId: true,
+                    receipt: {
+                        select: {
+                            sourceMovementId: true,
+                            quantity: true,
+                            restockValue: true,
+                        },
+                    },
                     productVariant: { select: { skuCode: true, name: true } },
                 },
             },
         },
     });
     if (!row) return null;
+    const invoices = await prisma.invoice.findMany({
+        where: { salesOrderId: row.salesOrderId, status: { not: 'CANCELLED' } },
+        select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+            totalAmount: true,
+            paidAmount: true,
+            creditedAmount: true,
+            returnBasisLines: {
+                include: {
+                    allocations: {
+                        where: { credit: { status: 'POSTED' } },
+                        select: { quantity: true },
+                    },
+                },
+            },
+        },
+        orderBy: [{ invoiceDate: 'asc' }, { id: 'asc' }],
+    });
     return {
         ...row,
         returnDate: row.returnDate.toISOString(),
         totalAmount: Number(row.totalAmount ?? 0),
+        credit: row.credit
+            ? {
+                  status: row.credit.status,
+                  reviewReason: row.credit.reviewReason,
+                  totalAmount: row.credit.totalAmount.toFixed(2),
+                  postedAt: row.credit.postedAt?.toISOString() ?? null,
+                  reversedAt: row.credit.reversedAt?.toISOString() ?? null,
+                  reversalReason: row.credit.reversalReason,
+                  allocations: row.credit.allocations.map((line) => ({
+                      invoiceNumber: line.invoice.invoiceNumber,
+                      quantity: line.quantity.toString(),
+                      totalAmount: line.totalAmount.toFixed(2),
+                  })),
+              }
+            : null,
+        invoices: invoices.map((invoice) => ({
+            id: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            status: invoice.status,
+            totalAmount: invoice.totalAmount.toFixed(2),
+            paidAmount: invoice.paidAmount.toFixed(2),
+            creditedAmount: invoice.creditedAmount.toFixed(2),
+            remaining: invoice.totalAmount
+                .minus(invoice.paidAmount)
+                .minus(invoice.creditedAmount)
+                .toFixed(2),
+            basis: invoice.returnBasisLines.map((line) => ({
+                id: line.id,
+                productVariantId: line.productVariantId,
+                sourceItemId: line.sourceItemId,
+                quantity: line.quantity.toString(),
+                availableQuantity: line.quantity
+                    .minus(
+                        line.allocations.reduce(
+                            (sum, allocation) => sum.plus(allocation.quantity),
+                            new Prisma.Decimal(0),
+                        ),
+                    )
+                    .toString(),
+                netAmount: line.netAmount.toFixed(2),
+                taxAmount: line.taxAmount.toFixed(2),
+                discountAmount: line.discountAmount.toFixed(2),
+            })),
+        })),
         items: row.items.map((item) => ({
             ...item,
             returnedQty: Number(item.returnedQty),
             unitPrice: Number(item.unitPrice),
+            receipt: item.receipt
+                ? {
+                      sourceMovementId: item.receipt.sourceMovementId,
+                      quantity: item.receipt.quantity.toString(),
+                      restockValue: item.receipt.restockValue.toFixed(2),
+                  }
+                : null,
         })),
     };
 }

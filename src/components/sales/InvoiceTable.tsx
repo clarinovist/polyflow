@@ -72,6 +72,7 @@ interface InvoiceData {
     dueDate?: Date | string | null;
     totalAmount: number;
     paidAmount: number;
+    creditedAmount?: number;
     status: InvoiceStatus;
     salesOrderId?: string | null;
     purchaseOrderId?: string | null;
@@ -181,7 +182,7 @@ export function InvoiceTable({
                 const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
                 const remaining =
                     (Number(inv.totalAmount) || 0) -
-                    (Number(inv.paidAmount) || 0);
+                    (Number(inv.paidAmount) || 0) - Number(inv.creditedAmount ?? 0);
                 const overdueStatuses: string[] = [
                     'UNPAID',
                     'PARTIAL',
@@ -203,6 +204,7 @@ export function InvoiceTable({
                         status: inv.status,
                         totalAmount: inv.totalAmount,
                         paidAmount: inv.paidAmount,
+                        creditedAmount: inv.creditedAmount,
                     })
                 ) {
                     return false;
@@ -379,7 +381,7 @@ export function InvoiceTable({
                     const inv = row.original;
                     const remaining =
                         (Number(inv.totalAmount) || 0) -
-                        (Number(inv.paidAmount) || 0);
+                        (Number(inv.paidAmount) || 0) - Number(inv.creditedAmount ?? 0);
                     return (
                         <div className="text-right">
                             <div className="font-medium">
@@ -391,7 +393,8 @@ export function InvoiceTable({
                                     {formatRupiah(Number(inv.paidAmount))}
                                 </div>
                             )}
-                            {remaining > 0 && inv.paidAmount > 0 && (
+                            {Number(inv.creditedAmount ?? 0) > 0 && <div className="text-xs mt-0.5">Kredit retur: {formatRupiah(Number(inv.creditedAmount))}</div>}
+                            {remaining > 0 && (inv.paidAmount > 0 || Number(inv.creditedAmount ?? 0) > 0) && (
                                 <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
                                     Sisa: {formatRupiah(remaining)}
                                 </div>

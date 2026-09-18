@@ -2,9 +2,16 @@
 
 import { Role } from '@prisma/client';
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
-import { requireFinanceAccess } from '@/lib/auth/finance-access';
-import { getUserRoles, isTenantAdmin } from '@/lib/auth/roles';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
+import { revalidatePath } from 'next/cache';
+import { serializeData } from '@/lib/utils/utils';
+import { postReturnCredit } from '@/services/finance/sales-return-credit-service';
+import { reverseReturnCredit } from '@/services/finance/sales-return-credit-reversal-service';
+import {
+    requireFinanceAccess,
+    requireFinanceApprover,
+} from '@/lib/auth/finance-access';
+import { getUserRoles } from '@/lib/auth/roles';
 import {
     hasWorkspaceEntitlement,
     isPathAllowedByResources,
@@ -17,20 +24,32 @@ import {
 } from '@/services/finance/sales-return-query-service';
 
 /** Fresh resource check: direct action calls must not bypass the Finance layout. */
-async function requireReturnReadAccess() {
-    const session = await requireFinanceAccess();
+async function requireReturnReadAccess(mutation = false) {
+    const session = mutation
+        ? await requireFinanceApprover()
+        : await requireFinanceAccess();
     if (session.user.isSuperAdmin || !hasWorkspaceEntitlement('finance')) {
         throw new AuthorizationError();
     }
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { isActive: true },
+        select: {
+            isActive: true,
+            role: true,
+            roles: { select: { role: true } },
+        },
     });
     if (!user?.isActive) throw new AuthorizationError();
-    if (isTenantAdmin(session.user)) return;
-    const roles = getUserRoles(session.user).filter((role): role is Role =>
+    if (mutation && !getTenantDbFromContext()) throw new AuthorizationError();
+    const roles = getUserRoles({
+        role: user.role,
+        roles: user.roles.map((row) => row.role),
+    }).filter((role): role is Role =>
         Object.values(Role).includes(role as Role),
     );
+    if (!roles.some((role) => role === 'ADMIN' || role === 'FINANCE'))
+        throw new AuthorizationError();
+    if (roles.includes('ADMIN')) return session;
     const permissions = await prisma.rolePermission.findMany({
         where: { role: { in: roles }, canAccess: true },
         select: { resource: true },
@@ -45,7 +64,46 @@ async function requireReturnReadAccess() {
             'Anda tidak memiliki akses Retur Penjualan di Finance.',
         );
     }
+    return session;
 }
+
+function refreshReturnFinance(returnId: string) {
+    for (const path of [
+        '/finance',
+        '/finance/returns',
+        `/finance/returns/${returnId}`,
+        '/finance/invoices/sales',
+        '/finance/payments/received',
+        '/finance/rekap-piutang',
+        '/sales/returns',
+        `/sales/returns/${returnId}`,
+        '/sales/collection',
+        '/field/sales/receivables',
+    ])
+        revalidatePath(path);
+}
+
+export const postFinanceSalesReturnCredit = withTenant(
+    async function postFinanceSalesReturnCredit(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireReturnReadAccess(true);
+            const result = await postReturnCredit(input, session.user.id);
+            refreshReturnFinance(result.salesReturnId);
+            return serializeData(result);
+        });
+    },
+);
+
+export const reverseFinanceSalesReturnCredit = withTenant(
+    async function reverseFinanceSalesReturnCredit(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireReturnReadAccess(true);
+            const result = await reverseReturnCredit(input, session.user.id);
+            refreshReturnFinance(result.salesReturnId);
+            return serializeData(result);
+        });
+    },
+);
 
 export const getFinanceSalesReturnSummary = withTenant(
     async function getFinanceSalesReturnSummary() {

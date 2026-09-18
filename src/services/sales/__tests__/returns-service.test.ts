@@ -2,10 +2,13 @@ import { describe, it, expect, vi, beforeEach  } from 'vitest';
 import { SalesReturnService } from '../returns-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../../finance/auto-journal-service';
-import { logger } from '@/lib/config/logger';
+import { receiveSalesReturn } from '../return-receiving-service';
+vi.mock('../return-receiving-service', () => ({ receiveSalesReturn: vi.fn() }));
 
 vi.mock('@/lib/core/prisma', () => ({
+  getTenantDbFromContext: () => prisma,
   prisma: {
+    $queryRaw: vi.fn().mockResolvedValue([]),
     salesReturn: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -39,44 +42,16 @@ describe('SalesReturnService', () => {
   });
 
   describe('receiveReturn', () => {
-    it('should catch and log error if AutoJournalService fails', async () => {
-      // Arrange
-      const mockReturnId = 'return-123';
-      const mockUserId = 'user-123';
-
-      const mockSalesReturn = {
-        id: mockReturnId,
-        returnNumber: 'SR-20231026-0001',
-        status: 'CONFIRMED',
-        returnLocationId: 'loc-1',
-        items: [
-          { productVariantId: 'pv-1', returnedQty: 10, condition: 'GOOD' }
-        ],
-        salesOrder: { id: 'so-1' }
-      };
-
-       
-      (prisma.salesReturn.findUnique as any).mockResolvedValueOnce(mockSalesReturn as any);
-       
-      (prisma.salesReturn.update as any).mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as never);
-
-      const expectedError = new Error('Auto-journal failed');
-       
-      (AutoJournalService.handleSalesReturnReceived as any).mockRejectedValueOnce(expectedError);
-
-      const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
-
-      // Mock getReturnById which is called at the end
-      vi.spyOn(SalesReturnService, 'getReturnById').mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as never);
-
-      // Act
-      const result = await SalesReturnService.receiveReturn(mockReturnId, mockUserId);
-
-      // Assert
-      expect(AutoJournalService.handleSalesReturnReceived).toHaveBeenCalledWith(mockReturnId);
-      expect(loggerErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for Sales Return", expect.objectContaining({ error: expectedError }));
-      expect(result).toBeDefined();
-      expect(result!.status).toBe('RECEIVED');
+    it('delegates to atomic historical-cost receiving, never legacy 70%/AR auto-journal', async () => {
+      vi.mocked(receiveSalesReturn).mockResolvedValue({ id: 'return-1', status: 'RECEIVED' } as never);
+      await SalesReturnService.receiveReturn('return-1', 'user-1');
+      expect(receiveSalesReturn).toHaveBeenCalledWith('return-1', 'user-1', undefined);
+      expect(AutoJournalService.handleSalesReturnReceived).not.toHaveBeenCalled();
+    });
+    it('propagates receipt failure rather than reporting successful received status', async () => {
+      vi.mocked(receiveSalesReturn).mockRejectedValue(new Error('historical cost missing'));
+      await expect(SalesReturnService.receiveReturn('return-1', 'user-1')).rejects.toThrow('historical cost missing');
+      expect(prisma.salesReturn.update).not.toHaveBeenCalled();
     });
   });
 

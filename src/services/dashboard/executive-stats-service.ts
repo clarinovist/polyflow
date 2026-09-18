@@ -79,6 +79,8 @@ export class ExecutiveStatsService {
             new Date(now.getFullYear(), now.getMonth() - 1, 1),
         );
 
+        const { positiveSalesReceivableWhere } = await import('@/services/finance/sales-receivable-query');
+        const positiveBalance = await positiveSalesReceivableWhere();
         const [
             revenueAggMTD, // 0
             revenueAggPrevMonth, // 1
@@ -191,6 +193,7 @@ export class ExecutiveStatsService {
             // 5. Pending Sales Invoices (belum lunas = UNPAID + PARTIAL + OVERDUE)
             prisma.invoice.count({
                 where: {
+                    AND: [positiveBalance],
                     status: {
                         in: [
                             InvoiceStatus.UNPAID,
@@ -330,8 +333,9 @@ export class ExecutiveStatsService {
                         },
                     ],
                     salesOrder: buildOperationalSalesReceivableOrderWhere(),
+                    AND: [positiveBalance],
                 },
-                _sum: { totalAmount: true, paidAmount: true },
+                _sum: { totalAmount: true, paidAmount: true, creditedAmount: true },
             }),
             // 18. Overdue Payables (same dynamic definition as Overdue Receivables).
             // Unlike AR, there is currently no historical/opening-balance AP convention in
@@ -364,6 +368,7 @@ export class ExecutiveStatsService {
             // (docs/plan/2026-08-10-fix-invoices-due-this-week-status-filter.md 4.2)
             prisma.invoice.count({
                 where: {
+                    AND: [positiveBalance],
                     dueDate: {
                         gte: now,
                         lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
@@ -502,7 +507,8 @@ export class ExecutiveStatsService {
 
         const overdueReceivables =
             decimalToNumber(overdueReceivablesAgg._sum.totalAmount) -
-            decimalToNumber(overdueReceivablesAgg._sum.paidAmount);
+            decimalToNumber(overdueReceivablesAgg._sum.paidAmount) -
+            decimalToNumber(overdueReceivablesAgg._sum.creditedAmount);
         const overduePayables =
             decimalToNumber(overduePayablesAgg._sum.totalAmount) -
             decimalToNumber(overduePayablesAgg._sum.paidAmount);

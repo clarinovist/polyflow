@@ -79,7 +79,7 @@ describe("credit-service", () => {
         creditLimit: mockDecimal(10000000),
       } as never);
       vi.mocked(prisma.invoice.findMany).mockResolvedValue([
-        { totalAmount: mockDecimal(5000000), paidAmount: mockDecimal(1000000) },
+        { totalAmount: mockDecimal(5000000), paidAmount: mockDecimal(1000000), creditedAmount: mockDecimal(500000) },
         { totalAmount: mockDecimal(3000000), paidAmount: mockDecimal(0) },
       ] as never);
       vi.mocked(prisma.salesOrder.findMany).mockResolvedValue([]);
@@ -87,10 +87,10 @@ describe("credit-service", () => {
       const result = await getCustomerCreditExposure("cus-1");
       expect(result).toEqual({
         creditLimit: 10000000,
-        unpaidInvoiceBalance: 7000000,
+        unpaidInvoiceBalance: 6500000,
         openOrderWithoutInvoice: 0,
-        currentExposure: 7000000,
-        headroom: 3000000,
+        currentExposure: 6500000,
+        headroom: 3500000,
       });
     });
 

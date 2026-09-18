@@ -73,6 +73,7 @@ interface Invoice {
     invoiceNumber: string;
     totalAmount: number | { toString(): string };
     paidAmount: number | { toString(): string };
+    creditedAmount?: number | { toString(): string };
     salesOrder: {
         customer: { name: string } | null;
     } | null;
@@ -374,7 +375,7 @@ export default function TransactionWizardForm({
                                                                     ) -
                                                                     Number(
                                                                         inv.paidAmount,
-                                                                    );
+                                                                    ) - Number(inv.creditedAmount ?? 0);
                                                                 setValue(
                                                                     'amount',
                                                                     balance,
@@ -428,7 +429,7 @@ export default function TransactionWizardForm({
                                                                 ) -
                                                                 Number(
                                                                     inv.paidAmount,
-                                                                );
+                                                                ) - Number('creditedAmount' in inv ? inv.creditedAmount ?? 0 : 0);
                                                             const partyName =
                                                                 selectedType.requiresInvoice ===
                                                                 'SALES'
@@ -507,7 +508,7 @@ export default function TransactionWizardForm({
                                                                       ) -
                                                                           Number(
                                                                               inv.paidAmount,
-                                                                          ),
+                                                                          ) - Number('creditedAmount' in inv ? inv.creditedAmount ?? 0 : 0),
                                                                   )
                                                                 : '0';
                                                         })()}

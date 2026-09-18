@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
+    $queryRaw: vi.fn().mockResolvedValue([]),
     invoice: {
       findMany: vi.fn(),
       count: vi.fn(),

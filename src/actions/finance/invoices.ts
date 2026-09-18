@@ -15,6 +15,7 @@ import {
     requireFinanceMutation,
     requireFinanceReadCrossPortal,
 } from '@/lib/auth/finance-access';
+import { positiveSalesReceivableWhere } from '@/services/finance/sales-receivable-query';
 import { SALES_INVOICES_LIST_ROUTE } from '@/lib/constants/performance';
 
 export const getSalesInvoices = withTenant(async function getSalesInvoices(
@@ -26,6 +27,7 @@ export const getSalesInvoices = withTenant(async function getSalesInvoices(
         operationalOnly?: boolean;
         demandType?: 'customer' | 'legacy-internal';
         paymentSelector?: boolean;
+        outstandingOnly?: boolean;
         search?: string;
     } = {},
 ) {
@@ -45,9 +47,9 @@ export const getSalesInvoices = withTenant(async function getSalesInvoices(
             };
         }
 
-        if (options.paymentSelector) {
+        if (options.paymentSelector || options.outstandingOnly) {
             where.status = { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] };
-            where.paidAmount = { lt: prisma.invoice.fields.totalAmount };
+            where.AND = [await positiveSalesReceivableWhere()];
             if (options.search?.trim()) where.OR = [
                 { invoiceNumber: { contains: options.search.trim().slice(0, 100), mode: 'insensitive' } },
                 { salesOrder: { customer: { name: { contains: options.search.trim().slice(0, 100), mode: 'insensitive' } } } },
@@ -166,14 +168,17 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
                 : {}),
         };
 
+        const positiveBalance = await positiveSalesReceivableWhere();
         // 1. Unpaid Amount
         const unpaid = await prisma.invoice.aggregate({
             _sum: {
                 totalAmount: true,
                 paidAmount: true,
+                creditedAmount: true,
             },
             where: {
                 ...operationalCustomerArScope,
+                AND: [positiveBalance],
                 status: { in: activeInvoiceStatuses },
             },
         });
@@ -181,7 +186,8 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
         // Calculate actual outstanding (Total - Paid)
         const totalOutstanding =
             (Number(unpaid._sum.totalAmount) || 0) -
-            (Number(unpaid._sum.paidAmount) || 0);
+            (Number(unpaid._sum.paidAmount) || 0) -
+            (Number(unpaid._sum.creditedAmount) || 0);
 
         // 2. Overdue Count (same actionable definition as sales dashboard)
         const startOfToday = new Date();
@@ -189,6 +195,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
         const overdueCandidates = await prisma.invoice.findMany({
             where: {
                 ...periodWhere,
+                AND: [positiveBalance],
                 status: { in: activeInvoiceStatuses },
                 dueDate: { lt: startOfToday },
             },
@@ -197,6 +204,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
                 status: true,
                 totalAmount: true,
                 paidAmount: true,
+                creditedAmount: true,
             },
         });
         const overdueCount = overdueCandidates.filter((invoice) =>
@@ -208,6 +216,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
             where: {
                 ...periodWhere,
                 status: InvoiceStatus.PARTIAL,
+                AND: [positiveBalance],
             },
         });
 
@@ -224,6 +233,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
             where: {
                 ...periodWhere,
                 status: InvoiceStatus.UNPAID,
+                AND: [positiveBalance],
             },
         });
 

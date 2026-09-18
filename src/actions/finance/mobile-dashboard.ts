@@ -44,6 +44,7 @@ export const getFinanceMobileOverview = withTenant(
                                           in: ['UNPAID', 'OVERDUE', 'PARTIAL'],
                                       },
                                       dueDate: { lt: now },
+                                      AND: [await (await import('@/services/finance/sales-receivable-query')).positiveSalesReceivableWhere()],
                                   },
                                   include: {
                                       salesOrder: {
@@ -101,8 +102,8 @@ export const getFinanceMobileOverview = withTenant(
                 ]);
 
             const overdueArAmount = arInvoices.reduce(
-                (sum: number, inv: { totalAmount: unknown }) =>
-                    sum + Number(inv.totalAmount ?? 0),
+                (sum: number, inv) =>
+                    sum + Number(inv.totalAmount ?? 0) - Number(inv.paidAmount ?? 0) - Number(inv.creditedAmount ?? 0),
                 0,
             );
             const overdueApAmount = apInvoices.reduce(
@@ -120,6 +121,8 @@ export const getFinanceMobileOverview = withTenant(
                             customer?: { name: string } | null;
                         } | null;
                         dueDate: Date | null;
+                        paidAmount: unknown;
+                        creditedAmount: unknown;
                         totalAmount: unknown;
                         status: string;
                     }) => ({
@@ -132,7 +135,7 @@ export const getFinanceMobileOverview = withTenant(
                         dueDate: inv.dueDate
                             ? new Date(inv.dueDate).toISOString()
                             : now.toISOString(),
-                        amount: Number(inv.totalAmount ?? 0),
+                        amount: Number(inv.totalAmount ?? 0) - Number(inv.paidAmount ?? 0) - Number(inv.creditedAmount ?? 0),
                         status: inv.status,
                     }),
                 ),
