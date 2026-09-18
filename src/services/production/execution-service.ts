@@ -773,12 +773,11 @@ export class ProductionExecutionService {
                 shiftStartForLog = shiftOk.startTime;
             }
 
-            // Shift-aware business time: dialog desktop mengirim waktu submit;
-            // kalau entri nyebrang tengah malam namun masih dalam jangkauan shift,
-            // backdate ke mulai shift. Waktu yang sengaja diedit user (batch form,
-            // deviasi > 15 menit dari waktu submit) dihormati apa adanya.
+            // Explicit WO production dates win; legacy callers retain automatic
+            // overnight shift bucketing. Posting timestamps are not backdated.
             const logTimes = resolveShiftAwareLogTimes({
                 logAt: new Date(),
+                productionDate: data.productionDate,
                 clientStart: startTime ?? null,
                 clientEnd: endTime ?? null,
                 shiftStart: shiftStartForLog,

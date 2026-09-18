@@ -297,6 +297,7 @@ describe('production execution actions', () => {
             scrapDaunQty: 0,
             startTime: new Date('2026-07-01T01:00:00Z'),
             endTime: new Date('2026-07-01T09:00:00Z'),
+            cekGram: undefined,
             notes: '',
         };
 
@@ -314,6 +315,32 @@ describe('production execution actions', () => {
             expect(ProductionService.addProductionOutput).toHaveBeenCalledWith(
                 expect.objectContaining({ userId: 'user-1' }),
             );
+        });
+
+        it('passes an explicit production date with the authenticated actor', async () => {
+            vi.mocked(ProductionService.addProductionOutput).mockResolvedValue(undefined);
+            const result = await addProductionOutput({
+                ...outputInput, productionDate: '2024-02-29',
+            });
+            expect(result.success).toBe(true);
+            expect(ProductionService.addProductionOutput).toHaveBeenCalledWith(
+                expect.objectContaining({ productionDate: '2024-02-29', userId: 'user-1' }),
+            );
+        });
+
+        it.each(['2026-02-30', '9999-12-31'])(
+            'rejects invalid/future date %s before the service', async (productionDate) => {
+                const result = await addProductionOutput({ ...outputInput, productionDate });
+                expect(result.success).toBe(false);
+                expect(ProductionService.addProductionOutput).not.toHaveBeenCalled();
+            },
+        );
+
+        it('does not allow a dated WO output to bypass authentication', async () => {
+            vi.mocked(requireAuth).mockRejectedValueOnce(new Error('Authentication required'));
+            const result = await addProductionOutput({ ...outputInput, productionDate: '2024-02-29' });
+            expect(result.success).toBe(false);
+            expect(ProductionService.addProductionOutput).not.toHaveBeenCalled();
         });
 
         it('refuses output with no shift, which the schema requires', async () => {

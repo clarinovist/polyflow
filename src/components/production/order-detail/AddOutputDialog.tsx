@@ -35,6 +35,8 @@ import {
     BrandCardHeader,
 } from '@/components/brand/BrandCard';
 import { productionLabels } from '@/lib/labels';
+import { formatWIB, toBusinessDateString } from '@/lib/utils/timezone';
+import { productionOutputDateSchema } from '@/lib/schemas/production-output-date';
 
 interface OutputFormData {
     locations: Location[];
@@ -54,6 +56,9 @@ export function AddOutputDialog({
 }) {
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [productionDate, setProductionDate] = useState(() =>
+        toBusinessDateString(new Date()),
+    );
     const [showScrapWarning, setShowScrapWarning] = useState(false);
     const [rolls, setRolls] = useState<number[]>([]);
     const [currentRollWeight, setCurrentRollWeight] = useState('');
@@ -64,6 +69,11 @@ export function AddOutputDialog({
 
     const [notes, setNotes] = useState('');
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
+
+    function handleOpenChange(nextOpen: boolean) {
+        if (nextOpen) setProductionDate(toBusinessDateString(new Date()));
+        setOpen(nextOpen);
+    }
 
     // Auto-detect ProductionShift (order-scoped). WorkShift is template only — FK needs ProductionShift.id.
     const { matchedShift, defaultShift, defaultOperator, shiftOptions } =
@@ -200,6 +210,7 @@ export function AddOutputDialog({
             cekGram: undefined,
             startTime: new Date(nowIso),
             endTime: new Date(nowIso),
+            productionDate,
             notes: finalNotes,
             // Konversi UOM hanya dikirim saat ada hasil bagus — payload dengan
             // enteredQuantity 0 ditolak schema (.positive()), padahal entri
@@ -222,6 +233,7 @@ export function AddOutputDialog({
             toast.success('Hasil produksi berhasil dicatat');
             setOpen(false);
             setRolls([]);
+            setProductionDate(toBusinessDateString(new Date()));
             setScrapProngkol('');
             setScrapDaun('');
             setNotes('');
@@ -237,6 +249,11 @@ export function AddOutputDialog({
         e.preventDefault();
         if (isSubmitting) return;
         const fd = new FormData(e.currentTarget);
+        const dateResult = productionOutputDateSchema.safeParse(productionDate);
+        if (!dateResult.success) {
+            toast.error(dateResult.error.issues[0].message);
+            return;
+        }
 
         const prongkolNum = Number(scrapProngkol || 0);
         const daunNum = Number(scrapDaun || 0);
@@ -251,7 +268,7 @@ export function AddOutputDialog({
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button>
                     <Plus className="w-4 h-4 mr-2" />{' '}
@@ -283,17 +300,44 @@ export function AddOutputDialog({
 
                                 <BrandCardContent className="space-y-5">
                                     <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="wo-output-production-date">
+                                                Tanggal Produksi (WIB)
+                                            </Label>
+                                            <Input
+                                                id="wo-output-production-date"
+                                                name="productionDate"
+                                                type="date"
+                                                required
+                                                max={toBusinessDateString(
+                                                    new Date(),
+                                                )}
+                                                value={productionDate}
+                                                onChange={(e) =>
+                                                    setProductionDate(e.target.value)
+                                                }
+                                                disabled={isSubmitting}
+                                                aria-describedby="wo-output-date-help"
+                                            />
+                                            <p
+                                                id="wo-output-date-help"
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                Pilih tanggal hasil diproduksi,
+                                                lalu sesuaikan shift dan operator.
+                                                Laporan mengikuti tanggal ini;
+                                                stok dan jurnal dibukukan saat
+                                                disimpan.
+                                            </p>
+                                        </div>
                                         <div>
                                             <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1">
-                                                Tercatat Pada
+                                                Waktu Input (WIB)
                                             </span>
                                             <p className="text-sm font-semibold text-foreground">
-                                                {new Date().toLocaleString(
-                                                    'en-US',
-                                                    {
-                                                        dateStyle: 'medium',
-                                                        timeStyle: 'short',
-                                                    },
+                                                {formatWIB(
+                                                    new Date(),
+                                                    'dd MMM yyyy HH:mm',
                                                 )}
                                             </p>
                                         </div>

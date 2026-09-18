@@ -14,6 +14,29 @@ function wib(dateStr: string, timeStr: string): Date {
 }
 
 describe('resolveShiftAwareLogTimes', () => {
+    it.each(['2026-09-02', '2026-09-01', '2026-08-20'])(
+        'explicit date %s overrides automatic shift and client times', (productionDate) => {
+            const result = resolveShiftAwareLogTimes({
+                logAt: wib(day2, '00:05'),
+                productionDate,
+                clientStart: wib(day2, '00:05'),
+                clientEnd: wib(day2, '00:05'),
+                shiftStart: wib(day1, '22:00'),
+            });
+            expect(result.startTime).toEqual(wib(productionDate, '00:00'));
+            expect(result.endTime).toEqual(result.startTime);
+            expect(result.backdated).toBe(false);
+        },
+    );
+
+    it.each(['', '2026-02-30', '2026-09-03'])(
+        'rejects explicit invalid/future date %s', (productionDate) => {
+            expect(() => resolveShiftAwareLogTimes({
+                logAt: wib(day2, '00:05'), productionDate,
+            })).toThrow(/Tanggal produksi/);
+        },
+    );
+
     it('backdate ke mulai shift saat entri otomatis nyebrang tengah malam', () => {
         // Shift 3 mulai 22:00 hari-1; operator log hasil jam 00:30 hari-2.
         const logAt = wib(day2, '00:30');

@@ -134,6 +134,9 @@ vi.mock('../routing-execution-guard', () => ({
 // @ts-expect-error - __mockTx is provided by vi.mock above
 import { __mockTx as tx } from '@/lib/core/prisma';
 import { ProductionExecutionService } from '../execution-service';
+import { productionOutputSchema } from '@/lib/schemas/production';
+import { toBusinessDateString } from '@/lib/utils/timezone';
+import { backflushMaterials, recordFinishedGoodsOutput, recordExecutionScrap } from '../execution-helpers';
 
 /**
  * Regresi shift-aware business time (plan 2026-09-01): entri otomatis hasil
@@ -261,6 +264,79 @@ describe('ProductionExecutionService shift-aware business time', () => {
     });
 
     describe('addProductionOutput (dialog desktop / batch form)', () => {
+        const datedInput = (productionDate: string) => ({
+            ...productionOutputSchema.parse({
+                productionOrderId: 'po-1', shiftId: 'shift-1',
+                quantityProduced: 50, scrapQuantity: 0,
+                scrapProngkolQty: 2, scrapDaunQty: 3,
+                startTime: LOG_AT, endTime: LOG_AT,
+            }),
+            productionDate,
+            userId: 'user-1',
+        });
+
+        it.each(['2026-09-02', '2026-08-20'])(
+            'persists date %s for both report timestamps without backdating audit or posting', async (productionDate) => {
+                vi.mocked(tx.productionShift.findFirst).mockResolvedValue({
+                    id: 'shift-1', startTime: SHIFT_START,
+                });
+                await ProductionExecutionService.addProductionOutput(datedInput(productionDate));
+
+                const data = vi.mocked(tx.productionExecution.create).mock.calls[0][0].data;
+                expect(toBusinessDateString(data.startTime)).toBe(productionDate);
+                expect(data.endTime).toEqual(data.startTime);
+                expect(data).not.toHaveProperty('createdAt');
+                expect(tx.productionOrder.update).toHaveBeenCalledWith(expect.objectContaining({
+                    data: { actualQuantity: { increment: 50 } },
+                }));
+                expect(backflushMaterials).toHaveBeenCalledWith(expect.objectContaining({
+                    tx, productionOrderId: 'po-1', totalConsumed: 55, userId: 'user-1',
+                }));
+                expect(recordFinishedGoodsOutput).toHaveBeenCalledWith(expect.objectContaining({
+                    tx, productionOrderId: 'po-1', quantityProduced: 50,
+                }));
+                expect(recordExecutionScrap).toHaveBeenCalledWith(expect.objectContaining({
+                    tx, executionId: 'exec-new', scrapProngkolQty: 2, scrapDaunQty: 3,
+                }));
+                // Dates are execution-only; stock/journal helpers retain current posting semantics.
+                const posting = vi.mocked(recordFinishedGoodsOutput).mock.calls[0][0];
+                expect(posting).not.toHaveProperty('productionDate');
+                expect(posting).not.toHaveProperty('createdAt');
+            },
+        );
+
+        it.each(['', '2026-02-30', '2026-09-03'])(
+            'rejects date %s even for direct service callers before any mutations', async (productionDate) => {
+                vi.mocked(tx.productionShift.findFirst).mockResolvedValue({
+                    id: 'shift-1', startTime: SHIFT_START,
+                });
+                await expect(ProductionExecutionService.addProductionOutput(datedInput(productionDate)))
+                    .rejects.toThrow(/Tanggal produksi/);
+                expect(tx.productionExecution.create).not.toHaveBeenCalled();
+                expect(tx.productionOrder.update).not.toHaveBeenCalled();
+                expect(backflushMaterials).not.toHaveBeenCalled();
+                expect(recordFinishedGoodsOutput).not.toHaveBeenCalled();
+            },
+        );
+
+        it('still rejects a shift outside the WO before writes', async () => {
+            vi.mocked(tx.productionShift.findFirst).mockResolvedValue(null);
+            await expect(ProductionExecutionService.addProductionOutput(datedInput('2026-09-01')))
+                .rejects.toThrow('Shift tidak valid');
+            expect(tx.productionExecution.create).not.toHaveBeenCalled();
+        });
+
+        it('propagates stock failure from the transaction instead of reporting success', async () => {
+            vi.mocked(tx.productionShift.findFirst).mockResolvedValue({
+                id: 'shift-1', startTime: SHIFT_START,
+            });
+            vi.mocked(backflushMaterials).mockRejectedValueOnce(new Error('Stock insufficient'));
+            await expect(ProductionExecutionService.addProductionOutput(datedInput('2026-09-01')))
+                .rejects.toThrow('Stock insufficient');
+            expect(recordFinishedGoodsOutput).not.toHaveBeenCalled();
+            expect(recordExecutionScrap).not.toHaveBeenCalled();
+        });
+
         it('backdate saat dialog kirim waktu submit otomatis nyebrang tengah malam', async () => {
             vi.mocked(tx.productionShift.findFirst).mockResolvedValue({
                 id: 'shift-1',

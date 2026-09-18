@@ -1,4 +1,9 @@
-import { toBusinessDateString } from '@/lib/utils/timezone';
+import {
+    businessDateToEntryDate,
+    toBusinessDateString,
+} from '@/lib/utils/timezone';
+import { getProductionOutputDateError } from '@/lib/schemas/production-output-date';
+import { ProductionRuleViolationError } from '@/lib/errors/errors';
 
 /**
  * Shift-aware business-time resolver untuk pencatatan hasil produksi.
@@ -8,7 +13,8 @@ import { toBusinessDateString } from '@/lib/utils/timezone';
  * di Laporan Produksi Harian, padahal secara shift masih hari sebelumnya.
  *
  * Aturan:
- * - Entri OTOMATIS (kiosk log / dialog desktop yang mengirim `now`) yang dilakukan
+ * - Tanggal eksplisit dari form WO selalu dipakai persis (start=end=00:00 WIB).
+ * - Entri OTOMATIS (kiosk log / caller lama yang mengirim `now`) yang dilakukan
  *   setelah tengah malam namun masih dalam jangkauan shift (≤ 24 jam sejak shift
  *   mulai, dan tanggal-WIB shift berbeda dari tanggal-WIB entri) di-backdate ke
  *   `shiftStart` sehingga masuk bucket tanggal shift.
@@ -32,6 +38,8 @@ export const MAX_SHIFT_GAP_MS = 24 * 60 * 60 * 1000;
 export interface ResolveShiftAwareLogTimesInput {
     /** Waktu submit di server (ground truth "sekarang"). */
     logAt: Date;
+    /** Explicit WO date, takes precedence over automatic overnight shift bucketing. */
+    productionDate?: string;
     /** Waktu mulai dari client (batch form editable); null/undefined = auto. */
     clientStart?: Date | null;
     /** Waktu selesai dari client; null/undefined = pakai logAt. */
@@ -68,7 +76,16 @@ function isDeliberate(logAt: Date, clientStart?: Date | null, clientEnd?: Date |
 export function resolveShiftAwareLogTimes(
     input: ResolveShiftAwareLogTimesInput,
 ): ShiftAwareLogTimes {
-    const { logAt, clientStart, clientEnd, shiftStart } = input;
+    const { logAt, clientStart, clientEnd, shiftStart, productionDate } = input;
+
+    if (productionDate !== undefined) {
+        const error = getProductionOutputDateError(productionDate, logAt);
+        if (error) throw new ProductionRuleViolationError(error);
+        // A date-only entry is instantaneous, not an all-day machine run.
+        // createdAt and stock/journal posting timestamps remain the actual save time.
+        const at = businessDateToEntryDate(productionDate);
+        return { startTime: at, endTime: at, backdated: false };
+    }
 
     const baseStart = clientStart ?? logAt;
     const baseEnd = clientEnd ?? logAt;

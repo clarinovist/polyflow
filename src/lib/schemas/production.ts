@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Unit } from '@prisma/client';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
+import { productionOutputDateSchema } from './production-output-date';
 
 // Production Schemas
 export const createProductionOrderSchema = z
@@ -369,6 +370,8 @@ export const productionOutputSchema = z.object({
         .transform((v) => v || undefined),
     startTime: z.coerce.date(),
     endTime: z.coerce.date(),
+    // Optional for legacy callers; explicit WO dates override auto shift bucketing.
+    productionDate: productionOutputDateSchema.optional(),
     notes: z.string().optional().transform(sanitizeHtml),
 });
 
