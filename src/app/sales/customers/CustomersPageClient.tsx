@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ComponentProps, type FormEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Customer, Prisma } from '@prisma/client';
 import {
     Loader2,
     MoreHorizontal,
@@ -46,20 +45,9 @@ import type {
     CustomerCreditSummaryPage,
 } from '@/services/sales/credit-service';
 
-type FullCustomerForEdit = Omit<
-    Customer,
-    | 'creditLimit'
-    | 'discountPercent'
-    | 'maxDiscountPercent'
-    | 'latitude'
-    | 'longitude'
-> & {
-    creditLimit: Prisma.Decimal | number | null;
-    discountPercent: Prisma.Decimal | number | null;
-    maxDiscountPercent: Prisma.Decimal | number | null;
-    latitude: Prisma.Decimal | number | null;
-    longitude: Prisma.Decimal | number | null;
-};
+type FullCustomerForEdit = NonNullable<
+    ComponentProps<typeof CustomerDialog>['initialData']
+>;
 
 type CustomersPageClientProps = {
     pageData: CustomerCreditSummaryPage;
@@ -73,11 +61,6 @@ const FILTERS: { label: string; value: CustomerCreditFilter }[] = [
     { label: 'Punya Limit', value: 'has_limit' },
     { label: 'Over Limit', value: 'over_limit' },
 ];
-
-function toNum(value: Prisma.Decimal | number | null | undefined) {
-    if (value == null) return null;
-    return typeof value === 'number' ? value : value.toNumber();
-}
 
 export default function CustomersPageClient({
     pageData,
@@ -119,7 +102,7 @@ export default function CustomersPageClient({
         try {
             const result = await getCustomerById(customerId);
             if (result.success && result.data) {
-                setEditingCustomer(result.data as FullCustomerForEdit);
+                setEditingCustomer(result.data);
                 setEditDialogOpen(true);
             } else {
                 toast.error('Gagal mengambil data customer lengkap.');
@@ -505,16 +488,7 @@ export default function CustomersPageClient({
                 <CustomerDialog
                     mode="edit"
                     trigger={<span className="hidden" aria-hidden="true" />}
-                    initialData={{
-                        ...editingCustomer,
-                        creditLimit: toNum(editingCustomer.creditLimit),
-                        discountPercent: toNum(editingCustomer.discountPercent),
-                        maxDiscountPercent: toNum(
-                            editingCustomer.maxDiscountPercent,
-                        ),
-                        latitude: toNum(editingCustomer.latitude),
-                        longitude: toNum(editingCustomer.longitude),
-                    }}
+                    initialData={editingCustomer}
                     open={editDialogOpen}
                     onOpenChange={(open) => {
                         setEditDialogOpen(open);

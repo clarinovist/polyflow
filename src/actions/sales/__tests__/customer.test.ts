@@ -134,7 +134,11 @@ describe("customer actions", () => {
   describe("getCustomerById", () => {
     it("returns customer matching the given id", async () => {
       // Arrange
-      const mockCustomer = { id: "cust-1", name: "Acme Inc", code: "CUS-001" };
+      const mockCustomer = {
+        id: "cust-1", name: "Acme Inc", code: "CUS-001",
+        creditLimit: null, discountPercent: null, maxDiscountPercent: null,
+        latitude: null, longitude: null,
+      };
       vi.mocked(prisma.customer.findUnique).mockResolvedValue(
         mockCustomer as never,
       );
@@ -147,6 +151,56 @@ describe("customer actions", () => {
       expect(prisma.customer.findUnique).toHaveBeenCalledWith({
         where: { id: "cust-1" },
       });
+    });
+
+    it.each([
+      {
+        label: "non-zero decimals and signed coordinates",
+        values: {
+          creditLimit: 5_000_000.25, discountPercent: 2.5, maxDiscountPercent: 7.75,
+          latitude: -6.123456, longitude: 106.654321,
+        },
+      },
+      {
+        label: "zero decimals",
+        values: {
+          creditLimit: 0, discountPercent: 0, maxDiscountPercent: 0,
+          latitude: 0, longitude: 0,
+        },
+      },
+      {
+        label: "null decimals",
+        values: {
+          creditLimit: null, discountPercent: null, maxDiscountPercent: null,
+          latitude: null, longitude: null,
+        },
+      },
+    ])("returns plain numeric edit values for $label without changing dates", async ({ values }) => {
+      const decimalFields = Object.fromEntries(
+        Object.entries(values).map(([key, value]) => [
+          key, value == null ? null : new Prisma.Decimal(value),
+        ]),
+      );
+      const createdAt = new Date("2026-01-01T00:00:00Z");
+      const updatedAt = new Date("2026-09-01T00:00:00Z");
+      const verifiedAt = new Date("2026-02-01T00:00:00Z");
+      vi.mocked(prisma.customer.findUnique).mockResolvedValue({
+        id: "cust-1", name: "Example Customer", code: "CUS-001",
+        createdAt, updatedAt, verifiedAt, ...decimalFields,
+      } as never);
+
+      const result = await getCustomerById("cust-1");
+
+      expect(result.success).toBe(true);
+      if (!result.success || !result.data) throw new Error("Expected customer data");
+      expect(result.data).toMatchObject(values);
+      expect(result.data.createdAt).toBe(createdAt);
+      expect(result.data.updatedAt).toBe(updatedAt);
+      expect(result.data.verifiedAt).toBe(verifiedAt);
+      // The wire representation must retain numbers, not Decimal.toJSON strings.
+      expect(JSON.parse(JSON.stringify(result.data))).toMatchObject(values);
+      expect(requireSalesAccess).toHaveBeenCalledOnce();
+      expect(prisma.customer.update).not.toHaveBeenCalled();
     });
 
     it("returns null data when customer is not found", async () => {
@@ -166,6 +220,7 @@ describe("customer actions", () => {
       const result = await getCustomerById("cust-1") as any;
       expect(result.success).toBe(false);
       expect(result.error).toMatch(/Unauthorized/);
+      expect(prisma.customer.findUnique).not.toHaveBeenCalled();
     });
   });
 

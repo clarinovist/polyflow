@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
     mockDeleteCustomer,
+    mockCustomerDialog,
     mockGetCustomerById,
     mockPathname,
     mockReplace,
@@ -12,6 +13,7 @@ const {
     mockToggleCustomer,
 } = vi.hoisted(() => ({
     mockDeleteCustomer: vi.fn(),
+    mockCustomerDialog: vi.fn(),
     mockGetCustomerById: vi.fn(),
     mockPathname: vi.fn(() => '/sales/customers'),
     mockReplace: vi.fn(),
@@ -65,12 +67,14 @@ vi.mock('@/components/customers/CustomerDialog', () => ({
         mode: 'create' | 'edit';
         open?: boolean;
         initialData?: { email?: string | null };
-    }) =>
-        mode === 'create' ? (
+    }) => {
+        mockCustomerDialog({ mode, open, initialData });
+        return mode === 'create' ? (
             <button type="button">Tambah Customer</button>
         ) : open ? (
             <div>Edit Customer {initialData?.email}</div>
-        ) : null,
+        ) : null;
+    },
 }));
 
 vi.mock('@/components/common/DeleteButton', () => ({
@@ -220,6 +224,51 @@ describe('CustomersPageClient', () => {
         expect(mockReplace).toHaveBeenLastCalledWith(
             expect.stringContaining('filter=inactive'),
         );
+    });
+
+    it.each([
+        {
+            label: 'numeric financial fields and signed coordinates',
+            values: {
+                creditLimit: 5_000_000.25,
+                discountPercent: 2.5,
+                maxDiscountPercent: 7.75,
+                latitude: -6.123456,
+                longitude: 106.654321,
+            },
+        },
+        {
+            label: 'zero values',
+            values: {
+                creditLimit: 0, discountPercent: 0, maxDiscountPercent: 0,
+                latitude: 0, longitude: 0,
+            },
+        },
+        {
+            label: 'null values',
+            values: {
+                creditLimit: null, discountPercent: null, maxDiscountPercent: null,
+                latitude: null, longitude: null,
+            },
+        },
+    ])('opens edit with unchanged $label from the action', async ({ values }) => {
+        mockGetCustomerById.mockResolvedValue({
+            success: true,
+            data: { ...fullCustomer, ...values },
+        });
+        renderPage();
+
+        const trigger = screen.getByRole('button', { name: 'Aksi Ade Hidayat' });
+        fireEvent.pointerDown(trigger, { button: 0 });
+        fireEvent.click(trigger);
+        fireEvent.click(await screen.findByText('Edit'));
+
+        expect(await screen.findByText(/ade@example.com/)).toBeTruthy();
+        expect(mockCustomerDialog).toHaveBeenLastCalledWith({
+            mode: 'edit',
+            open: true,
+            initialData: { ...fullCustomer, ...values },
+        });
     });
 
     it('keeps lazy edit, active toggle, and delete behavior', async () => {

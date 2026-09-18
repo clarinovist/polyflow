@@ -42,9 +42,29 @@ export const getCustomerById = withTenant(async function getCustomerById(
 ) {
     return safeAction(async () => {
         await requireSalesAccess();
-        return prisma.customer.findUnique({
+        const customer = await prisma.customer.findUnique({
             where: { id },
         });
+        if (!customer) return null;
+
+        // Decimal.toJSON() produces strings across the Server Action boundary.
+        // Normalize edit fields here while preserving Date metadata for server callers.
+        return {
+            ...customer,
+            creditLimit:
+                customer.creditLimit == null ? null : Number(customer.creditLimit),
+            discountPercent:
+                customer.discountPercent == null
+                    ? null
+                    : Number(customer.discountPercent),
+            maxDiscountPercent:
+                customer.maxDiscountPercent == null
+                    ? null
+                    : Number(customer.maxDiscountPercent),
+            latitude: customer.latitude == null ? null : Number(customer.latitude),
+            longitude:
+                customer.longitude == null ? null : Number(customer.longitude),
+        };
     });
 });
 

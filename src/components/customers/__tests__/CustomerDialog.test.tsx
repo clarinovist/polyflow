@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CustomerDialog } from '../CustomerDialog';
 
@@ -189,6 +189,50 @@ describe('CustomerDialog reset behavior (TOP stale fix)', () => {
         // The hidden span should not produce visible pencil text
         const titles = screen.getAllByText('Edit Customer');
         expect(titles.length).toBe(1);
+    });
+
+    it.each([true, false])('submits the edited credit limit without changing other values (success=%s)', async (success) => {
+        mockUpdateCustomer.mockResolvedValue(
+            success ? { success: true } : { success: false, error: 'Update rejected' },
+        );
+        const onOpenChange = vi.fn();
+        render(
+            <CustomerDialog
+                mode="edit"
+                initialData={makeCustomer({
+                    creditLimit: 5_000_000.25,
+                    discountPercent: 2.5,
+                    latitude: -6.123456,
+                    longitude: 106.654321,
+                })}
+                open={true}
+                onOpenChange={onOpenChange}
+            />,
+        );
+
+        const creditInput = await screen.findByRole('spinbutton', { name: 'Credit Limit' });
+        expect((creditInput as HTMLInputElement).value).toBe('5000000.25');
+        fireEvent.change(creditInput, { target: { value: '7500000' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Simpan Perubahan' }));
+
+        await waitFor(() => {
+            expect(mockUpdateCustomer).toHaveBeenCalledOnce();
+        });
+        expect(mockUpdateCustomer).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'c1', creditLimit: 7_500_000, discountPercent: 2.5,
+            latitude: -6.123456, longitude: 106.654321, paymentTermDays: 15,
+        }));
+        expect(mockCreateCustomer).not.toHaveBeenCalled();
+        if (success) {
+            expect(mockToast.success).toHaveBeenCalled();
+            expect(onOpenChange).toHaveBeenCalledWith(false);
+            expect(mockRefresh).toHaveBeenCalledOnce();
+        } else {
+            expect(mockToast.error).toHaveBeenCalledWith('Update rejected');
+            expect(mockToast.success).not.toHaveBeenCalled();
+            expect(onOpenChange).not.toHaveBeenCalled();
+            expect(mockRefresh).not.toHaveBeenCalled();
+        }
     });
 
     it('calls getVehicles when dialog opens', async () => {
