@@ -233,7 +233,12 @@ export function FinancialPurchaseInvoiceDetail({
                 </CardHeader>
                 <CardContent>
                     {hasItems ? (
-                        <div className="rounded-md border overflow-hidden">
+                        <div
+                            className="rounded-md border overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            role="region"
+                            aria-label="Rincian invoice pembelian"
+                            tabIndex={0}
+                        >
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="bg-muted/50">
@@ -295,7 +300,7 @@ export function FinancialPurchaseInvoiceDetail({
                                         >
                                             Invoice Total
                                         </td>
-                                        <td className="p-3 text-right font-bold">
+                                        <td className="p-3 text-right font-bold whitespace-nowrap">
                                             {formatRupiah(
                                                 Number(invoice.totalAmount),
                                             )}
