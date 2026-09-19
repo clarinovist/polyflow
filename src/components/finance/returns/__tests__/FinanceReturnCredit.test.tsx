@@ -46,7 +46,7 @@ describe('Finance credit posting and compensation UI',()=>{
   expect(screen.getByRole('status').textContent).toContain('Tidak ada sumber');
  });
  it('uses WIB dates and requires a correction reason before compensation',async()=>{
-  render(<FinanceReturnCredit row={{...row,credit:{status:'POSTED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:null,reversalReason:null,reviewReason:null,allocations:[]}}}/>);
+  render(<FinanceReturnCredit row={{...row,credit:{mode:'SNAPSHOT',approvalReason:null,evidenceReference:null,approvedAt:null,approvedBy:null,manualRemainingBefore:null,taxAmount:'22.00',status:'POSTED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:null,reversalReason:null,reviewReason:null,allocations:[]}}}/>);
   expect(screen.getByText(/Posting: 2026-09-18/)).toBeTruthy();
   const button=screen.getByRole('button',{name:'Balikkan kredit — pulihkan piutang'});
   expect((button as HTMLButtonElement).disabled).toBe(true);

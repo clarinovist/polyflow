@@ -53,6 +53,7 @@ model User {
   apiKeys                        ApiKey[]
   archivedBoms                   Bom[]
   salesReturns                   SalesReturn[]                    @relation("SalesReturnCreator")
+  approvedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditApprovedBy")
   returnCredits                  SalesReturnCredit[]
   reversedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditReversedBy")
   returnReceipts                 SalesReturnReceiptLine[]
@@ -1784,6 +1785,7 @@ model JournalEntry {
   details                   JournalEntryDetail[]
   pettyCashTransaction      PettyCashTransaction?
   reconciliationAdjustments BankReconciliationAdjustment[]
+  manualReturnAllocations    SalesReturnCreditAllocation[] @relation("ManualReturnSourceJournal")
   returnBasisLines           InvoiceReturnBasisLine[]
   returnCredit              SalesReturnCredit?
   returnReceipt             SalesReturnReceiptLine?
@@ -2737,11 +2739,23 @@ enum SalesReturnCreditStatus {
   REVERSED
 }
 
+enum SalesReturnCreditMode {
+  SNAPSHOT
+  MANUAL
+}
+
 model SalesReturnCredit {
   id             String                  @id @default(uuid())
   salesReturnId  String                  @unique
   status         SalesReturnCreditStatus @default(REVIEW_REQUIRED)
   reviewReason   String?
+  mode           SalesReturnCreditMode   @default(SNAPSHOT)
+  approvalReason String?
+  evidenceReference String?
+  approvedAt     DateTime?
+  approvedById   String?
+  approvedBy     User?                   @relation("ReturnCreditApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  manualRemainingBefore Decimal?         @db.Decimal(15, 2)
   postedAt       DateTime?
   netAmount      Decimal                 @default(0) @db.Decimal(15, 2)
   taxAmount      Decimal                 @default(0) @db.Decimal(15, 2)
@@ -2768,21 +2782,24 @@ model SalesReturnCreditAllocation {
   id             String                 @id @default(uuid())
   creditId       String
   invoiceId      String
-  basisLineId    String
-  returnItemId   String
-  quantity       Decimal                @db.Decimal(15, 4)
+  basisLineId    String?
+  returnItemId   String?
+  quantity       Decimal?               @db.Decimal(15, 4)
+  manualSourceJournalId String?
+  manualSourceJournal JournalEntry?     @relation("ManualReturnSourceJournal", fields: [manualSourceJournalId], references: [id], onDelete: Restrict)
   netAmount      Decimal                @db.Decimal(15, 2)
   taxAmount      Decimal                @db.Decimal(15, 2)
   discountAmount Decimal                @db.Decimal(15, 2)
   totalAmount    Decimal                @db.Decimal(15, 2)
   credit         SalesReturnCredit      @relation(fields: [creditId], references: [id], onDelete: Restrict)
   invoice        Invoice                @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  basisLine      InvoiceReturnBasisLine @relation(fields: [basisLineId], references: [id], onDelete: Restrict)
-  returnItem     SalesReturnItem        @relation(fields: [returnItemId], references: [id], onDelete: Restrict)
+  basisLine      InvoiceReturnBasisLine? @relation(fields: [basisLineId], references: [id], onDelete: Restrict)
+  returnItem     SalesReturnItem?       @relation(fields: [returnItemId], references: [id], onDelete: Restrict)
 
   @@unique([creditId, returnItemId, basisLineId], map: "ReturnCreditAllocation_source_key")
   @@index([invoiceId])
   @@index([basisLineId])
+  @@index([manualSourceJournalId], map: "ReturnAllocation_manual_source_idx")
 }
 
 model PurchaseReturn {

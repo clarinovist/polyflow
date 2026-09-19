@@ -137,6 +137,10 @@ export async function postReturnCreditInTransaction(
         throw new BusinessRuleError(
             'Kredit sudah dibalik. Pemeriksaan Finance diperlukan; riwayat tidak boleh diposting ulang.',
         );
+    if (returned.credit?.mode === 'MANUAL')
+        throw new BusinessRuleError(
+            'Retur sudah memiliki kredit manual; tidak dapat diposting dari snapshot.',
+        );
     const lines = data.lines.map((line) => {
         const item = returned.items.find(
             (candidate) => candidate.id === line.returnItemId,
@@ -175,16 +179,16 @@ export async function postReturnCreditInTransaction(
     }
     const signature = (
         values: {
-            returnItemId: string;
-            basisLineId: string;
-            quantity: Prisma.Decimal;
+            returnItemId: string | null;
+            basisLineId: string | null;
+            quantity: Prisma.Decimal | null;
         }[],
     ) =>
         JSON.stringify(
             values
                 .map(
                     (line) =>
-                        `${line.returnItemId}:${line.basisLineId}:${line.quantity.toString()}`,
+                        `${line.returnItemId}:${line.basisLineId}:${line.quantity?.toString()}`,
                 )
                 .sort(),
         );
@@ -399,7 +403,7 @@ export async function postReturnCreditInTransaction(
             },
         });
         const earlier = allocations.filter(
-            (line) => line.basisLine.connect?.id === original.id,
+            (line) => line.basisLine?.connect?.id === original.id,
         );
         const inRequest = earlier.reduce(
             (sum, line) => sum.plus(String(line.quantity)),
@@ -454,6 +458,54 @@ export async function postReturnCreditInTransaction(
         );
     }
     for (const [invoiceId, amount] of byInvoice) {
+        // Manual approval consumes money/tax, not invented basis quantities. Protect
+        // the shared invoice monetary limits when automatic allocations follow it.
+        if (
+            await tx.salesReturnCreditAllocation.count({
+                where: {
+                    invoiceId,
+                    credit: { status: 'POSTED', mode: 'MANUAL' },
+                },
+            })
+        ) {
+            const active = await tx.salesReturnCreditAllocation.aggregate({
+                where: { invoiceId, credit: { status: 'POSTED' } },
+                _sum: { netAmount: true, taxAmount: true },
+            });
+            const source = await tx.journalEntry.findUniqueOrThrow({
+                where: {
+                    id: basis.find((line) => line.invoiceId === invoiceId)!
+                        .sourceJournalId,
+                },
+                include: { lines: true },
+            });
+            const sourceTax = source.lines
+                .filter((line) => line.accountId === vat.id)
+                .reduce(
+                    (sum, line) => sum.plus(line.credit).minus(line.debit),
+                    zero(),
+                );
+            const requested = allocations.filter(
+                (line) => line.invoice.connect?.id === invoiceId,
+            );
+            const tax = requested.reduce(
+                (sum, line) => sum.plus(String(line.taxAmount)),
+                zero(),
+            );
+            const net = requested.reduce(
+                (sum, line) => sum.plus(String(line.netAmount)),
+                zero(),
+            );
+            if (
+                tax.plus(active._sum.taxAmount ?? 0).gt(sourceTax) ||
+                net
+                    .plus(active._sum.netAmount ?? 0)
+                    .gt(invoices.get(invoiceId)!.totalAmount.minus(sourceTax))
+            )
+                return review(
+                    'Komponen netto/pajak telah dipakai kredit manual. Periksa sisa nilai invoice sebelum kredit berikutnya.',
+                );
+        }
         if (amount.lte(0))
             return review(
                 'Nilai kredit setelah pembulatan belum positif. Periksa alokasi Finance; tidak membuat kredit nol.',

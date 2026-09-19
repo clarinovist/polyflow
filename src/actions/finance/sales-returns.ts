@@ -6,6 +6,7 @@ import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { postReturnCredit } from '@/services/finance/sales-return-credit-service';
+import { postManualReturnCredit } from '@/services/finance/manual-return-credit-service';
 import { reverseReturnCredit } from '@/services/finance/sales-return-credit-reversal-service';
 import {
     requireFinanceAccess,
@@ -88,6 +89,17 @@ export const postFinanceSalesReturnCredit = withTenant(
         return safeAction(async () => {
             const session = await requireReturnReadAccess(true);
             const result = await postReturnCredit(input, session.user.id);
+            refreshReturnFinance(result.salesReturnId);
+            return serializeData(result);
+        });
+    },
+);
+
+export const postFinanceManualSalesReturnCredit = withTenant(
+    async function postFinanceManualSalesReturnCredit(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireReturnReadAccess(true);
+            const result = await postManualReturnCredit(input, session.user.id);
             refreshReturnFinance(result.salesReturnId);
             return serializeData(result);
         });

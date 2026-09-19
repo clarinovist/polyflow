@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toBusinessDateString } from '@/lib/utils/timezone';
+import { ManualReturnCreditForm } from './ManualReturnCreditForm';
 
 /** Explicit quantities per invoice basis. No inferred first-invoice/FIFO allocation. */
 export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
@@ -114,8 +115,11 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                         </p>
                         {credit.allocations.map((line, index) => (
                             <p key={index}>
-                                {line.invoiceNumber} · Qty {line.quantity} · Rp{' '}
-                                {line.totalAmount}
+                                {line.invoiceNumber} ·{' '}
+                                {line.quantity === null
+                                    ? 'Alokasi nominal manual'
+                                    : `Qty ${line.quantity}`}{' '}
+                                · Rp {line.totalAmount}
                             </p>
                         ))}
                         {credit.reversedAt && (
@@ -129,12 +133,34 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                         )}
                     </div>
                 )}
+                {credit?.mode === 'MANUAL' && (
+                    <div className="space-y-1 rounded border p-3">
+                        <p className="font-medium">
+                            Disetujui manual oleh Finance
+                        </p>
+                        <p>
+                            Oleh: {credit.approvedBy} ·{' '}
+                            {credit.approvedAt
+                                ? new Date(credit.approvedAt).toLocaleString(
+                                      'id-ID',
+                                      { timeZone: 'Asia/Jakarta' },
+                                  )
+                                : '—'}
+                        </p>
+                        <p>Alasan: {credit.approvalReason}</p>
+                        <p className="break-words">
+                            Bukti: {credit.evidenceReference}
+                        </p>
+                        <p>Komponen pajak: Rp {credit.taxAmount}</p>
+                    </div>
+                )}
                 <p className="text-muted-foreground">
-                    Penerimaan fisik terpisah dari kredit. Nilai memakai
-                    snapshot invoice asal, bukan harga pada formulir retur.
-                    Invoice lunas, nilai berlebih, atau sumber tidak
-                    terverifikasi tetap diperiksa Finance; tidak ada refund
-                    otomatis.
+                    Penerimaan fisik terpisah dari kredit. Alokasi otomatis
+                    memakai snapshot invoice asal, bukan harga formulir retur.
+                    Jika snapshot tidak tersedia, Finance dapat memeriksa bukti
+                    dan menyetujui nominal melalui formulir manual di bawah.
+                    Invoice lunas, nilai berlebih, atau jurnal tidak valid tetap
+                    memerlukan pemeriksaan; tidak ada refund otomatis.
                 </p>
                 {row.items.map((item) => (
                     <p key={item.id}>
@@ -237,6 +263,10 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             </Button>
                         </>
                     )}
+                <ManualReturnCreditForm
+                    key={`${row.id}:${row.credit?.status ?? 'new'}`}
+                    row={row}
+                />
                 {!eligible && (
                     <p>
                         Menunggu penerimaan barang oleh Penjualan.

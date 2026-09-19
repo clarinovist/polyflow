@@ -127,6 +127,13 @@ export async function getFinanceReturnDetail(input: unknown) {
                 select: {
                     status: true,
                     reviewReason: true,
+                    mode: true,
+                    approvalReason: true,
+                    evidenceReference: true,
+                    approvedAt: true,
+                    approvedBy: { select: { name: true, email: true } },
+                    manualRemainingBefore: true,
+                    taxAmount: true,
                     totalAmount: true,
                     postedAt: true,
                     reversedAt: true,
@@ -192,6 +199,17 @@ export async function getFinanceReturnDetail(input: unknown) {
         credit: row.credit
             ? {
                   status: row.credit.status,
+                  mode: row.credit.mode,
+                  approvalReason: row.credit.approvalReason,
+                  evidenceReference: row.credit.evidenceReference,
+                  approvedAt: row.credit.approvedAt?.toISOString() ?? null,
+                  approvedBy:
+                      row.credit.approvedBy?.name ??
+                      row.credit.approvedBy?.email ??
+                      null,
+                  manualRemainingBefore:
+                      row.credit.manualRemainingBefore?.toFixed(2) ?? null,
+                  taxAmount: row.credit.taxAmount.toFixed(2),
                   reviewReason: row.credit.reviewReason,
                   totalAmount: row.credit.totalAmount.toFixed(2),
                   postedAt: row.credit.postedAt?.toISOString() ?? null,
@@ -199,7 +217,7 @@ export async function getFinanceReturnDetail(input: unknown) {
                   reversalReason: row.credit.reversalReason,
                   allocations: row.credit.allocations.map((line) => ({
                       invoiceNumber: line.invoice.invoiceNumber,
-                      quantity: line.quantity.toString(),
+                      quantity: line.quantity?.toString() ?? null,
                       totalAmount: line.totalAmount.toFixed(2),
                   })),
               }
@@ -223,7 +241,8 @@ export async function getFinanceReturnDetail(input: unknown) {
                 availableQuantity: line.quantity
                     .minus(
                         line.allocations.reduce(
-                            (sum, allocation) => sum.plus(allocation.quantity),
+                            (sum, allocation) =>
+                                sum.plus(allocation.quantity ?? 0),
                             new Prisma.Decimal(0),
                         ),
                     )

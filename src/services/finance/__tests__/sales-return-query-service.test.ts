@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 const mocks = vi.hoisted(() => ({ count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), groupBy: vi.fn() }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { salesReturn: mocks, invoice: { findMany: vi.fn().mockResolvedValue([]) } } }));
@@ -71,6 +72,11 @@ describe('finance return queries (read only)', () => {
         expect(select.createdBy).toBeUndefined();
     });
 
+    it('serializes approved manual history without pretending a quantity or snapshot exists', async () => {
+        const D = (value: number) => new Prisma.Decimal(value);
+        mocks.findUnique.mockResolvedValue({ id: 'return-1', returnDate: new Date('2026-09-18'), items: [], credit: { status: 'POSTED', mode: 'MANUAL', approvalReason: 'Verified amount', evidenceReference: 'Synthetic invoice reference', approvedAt: new Date('2026-09-19'), approvedBy: { name: 'Synthetic Finance' }, manualRemainingBefore: D(1110), totalAmount: D(222), taxAmount: D(22), postedAt: new Date('2026-09-19'), allocations: [{ invoice: { invoiceNumber: 'INV-SYNTHETIC' }, quantity: null, totalAmount: D(222) }] } });
+        expect(await getFinanceReturnDetail('return-1')).toMatchObject({ credit: { mode: 'MANUAL', approvedBy: 'Synthetic Finance', taxAmount: '22.00', manualRemainingBefore: '1110.00', allocations: [{ quantity: null, totalAmount: '222.00' }] } });
+    });
     it('rejects empty IDs and propagates query failures instead of an empty queue', async () => {
         await expect(getFinanceReturnDetail('')).rejects.toThrow();
         mocks.groupBy.mockRejectedValue(new Error('unavailable'));
