@@ -17,8 +17,13 @@ describe('Finance credit posting and compensation UI',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Posting kredit retur'}));
   await waitFor(()=>expect(screen.getByRole('alert').textContent).toContain('Periode ditutup'));
   expect(mocks.refresh).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button',{name:'Posting kredit retur'}));
+  // The error may render before React commits the end of the async transition.
+  const retryButton=screen.getByRole('button',{name:'Posting kredit retur'});
+  await waitFor(()=>expect(retryButton).toHaveProperty('disabled',false));
+  expect(mocks.post).toHaveBeenCalledTimes(1);
+  fireEvent.click(retryButton);
   await waitFor(()=>expect(mocks.refresh).toHaveBeenCalledTimes(1));
+  expect(mocks.post).toHaveBeenCalledTimes(2);
   expect(mocks.post).toHaveBeenLastCalledWith(expect.objectContaining({returnId:'return',lines:[{returnItemId:'item',basisLineId:'basis',quantity:'2'}]}));
  });
  it('shows Finance review as unposted, not success',async()=>{
