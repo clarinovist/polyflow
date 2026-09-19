@@ -220,7 +220,10 @@ export function FinancialInvoiceDetail({
                     invoice.status !== 'CANCELLED' && (
                         <>
                             <button
-                                onClick={() => setIsPaymentDialogOpen(true)}
+                                onClick={() => {
+                                    setPaymentAmount(Math.max(0, remainingAmount));
+                                    setIsPaymentDialogOpen(true);
+                                }}
                                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors"
                             >
                                 <CreditCard className="h-4 w-4" />

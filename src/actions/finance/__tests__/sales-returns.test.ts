@@ -2,18 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     finance: vi.fn(), user: vi.fn(), permissions: vi.fn(), entitled: vi.fn(),
-    summary: vi.fn(), page: vi.fn(), detail: vi.fn(), tenant: vi.fn(), approver: vi.fn(), db: vi.fn(), post: vi.fn(), manual: vi.fn(), reverse: vi.fn(), revalidate: vi.fn(),
+    summary: vi.fn(), page: vi.fn(), detail: vi.fn(), tenant: vi.fn(), approver: vi.fn(), db: vi.fn(), post: vi.fn(), proposed: vi.fn(), proposal: vi.fn(), transaction: vi.fn(), manual: vi.fn(), reverse: vi.fn(), revalidate: vi.fn(),
 }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => { mocks.tenant(); return fn(...args); } }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { user: { findUnique: mocks.user }, rolePermission: { findMany: mocks.permissions } }, getTenantDbFromContext: mocks.db }));
 vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: mocks.finance, requireFinanceApprover: mocks.approver }));
 vi.mock('@/services/finance/sales-return-credit-service', () => ({ postReturnCredit: mocks.post }));
 vi.mock('@/services/finance/manual-return-credit-service', () => ({ postManualReturnCredit: mocks.manual }));
+vi.mock('@/services/finance/return-credit-proposal-service', () => ({ postProposedReturnCredit: mocks.proposed, prepareReturnCreditProposal: mocks.proposal }));
 vi.mock('@/services/finance/sales-return-credit-reversal-service', () => ({ reverseReturnCredit: mocks.reverse }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }));
 vi.mock('@/lib/auth/access-policy', async (original) => ({ ...await original<object>(), hasWorkspaceEntitlement: mocks.entitled }));
 vi.mock('@/services/finance/sales-return-query-service', () => ({ getFinanceReturnSummary: mocks.summary, getFinanceReturnPage: mocks.page, getFinanceReturnDetail: mocks.detail }));
-import { getFinanceSalesReturnSummary, getFinanceSalesReturnPage, getFinanceSalesReturnDetail, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit } from '../sales-returns';
+import { getFinanceSalesReturnSummary, getFinanceSalesReturnPage, getFinanceSalesReturnDetail, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit, getFinanceReturnCreditProposal } from '../sales-returns';
 
 const calls = [() => getFinanceSalesReturnSummary(), () => getFinanceSalesReturnPage({ status: 'DRAFT' }), () => getFinanceSalesReturnDetail('return-1')];
 
@@ -22,9 +23,12 @@ describe('Finance return action authorization', () => {
         vi.clearAllMocks();
         mocks.finance.mockResolvedValue({ user: { id: 'finance-1', role: 'FINANCE', roles: ['FINANCE'] } });
         mocks.approver.mockResolvedValue({ user: { id: 'finance-1', role: 'FINANCE', roles: ['FINANCE'] } });
-        mocks.db.mockReturnValue({});
+        mocks.db.mockReturnValue({ $transaction: mocks.transaction });
+        mocks.transaction.mockImplementation((callback: (tx: object) => unknown) => callback({}));
+        mocks.proposal.mockResolvedValue({ ready: false, reason: 'Requires review' });
         mocks.post.mockResolvedValue({ salesReturnId: 'return-1', status: 'POSTED' });
         mocks.manual.mockResolvedValue({ salesReturnId: 'return-1', status: 'POSTED' });
+        mocks.proposed.mockResolvedValue({ salesReturnId: 'return-1', status: 'POSTED' });
         mocks.reverse.mockResolvedValue({ salesReturnId: 'return-1', status: 'REVERSED' });
         mocks.user.mockResolvedValue({ isActive: true, role: 'FINANCE', roles: [] });
         mocks.permissions.mockResolvedValue([{ resource: '/finance' }]);
@@ -34,10 +38,11 @@ describe('Finance return action authorization', () => {
         mocks.detail.mockResolvedValue(null);
     });
 
-    it.each([postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit])('requires approver, resource, active user, entitlement and tenant for direct mutations', async action => {
+    it.each([postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit])('requires approver, resource, active user, entitlement and tenant for direct mutations', async action => {
         expect((await action({ returnId: 'return-1' })).success).toBe(true);
         expect(mocks.revalidate).toHaveBeenCalledWith('/finance/returns/return-1');
-        mocks.revalidate.mockClear(); mocks.post.mockClear(); mocks.reverse.mockClear(); mocks.manual.mockClear();
+        expect(mocks.revalidate).toHaveBeenCalledWith('/finance/invoices/sales/[id]', 'page');
+        mocks.revalidate.mockClear(); mocks.post.mockClear(); mocks.reverse.mockClear(); mocks.manual.mockClear(); mocks.proposed.mockClear();
         mocks.db.mockReturnValue(undefined);
         expect((await action({})).success).toBe(false);
         mocks.db.mockReturnValue({}); mocks.entitled.mockReturnValue(false);
@@ -48,7 +53,7 @@ describe('Finance return action authorization', () => {
         expect((await action({})).success).toBe(false);
         mocks.permissions.mockResolvedValue([{resource:'/finance/returns'}]); mocks.approver.mockRejectedValue(new Error('Unauthorized'));
         expect((await action({})).success).toBe(false);
-        expect(mocks.post).not.toHaveBeenCalled(); expect(mocks.reverse).not.toHaveBeenCalled(); expect(mocks.manual).not.toHaveBeenCalled(); expect(mocks.revalidate).not.toHaveBeenCalled();
+        expect(mocks.post).not.toHaveBeenCalled(); expect(mocks.reverse).not.toHaveBeenCalled(); expect(mocks.manual).not.toHaveBeenCalled(); expect(mocks.proposed).not.toHaveBeenCalled(); expect(mocks.revalidate).not.toHaveBeenCalled();
     });
     it('rejects stale Finance JWT roles revoked in the tenant database', async () => {
         mocks.user.mockResolvedValue({isActive:true,role:'SALES',roles:[]});
@@ -69,6 +74,17 @@ describe('Finance return action authorization', () => {
         mocks.revalidate.mockClear(); mocks.manual.mockRejectedValue(new Error('transaction rollback'));
         expect((await postFinanceManualSalesReturnCredit(input)).success).toBe(false);
         expect(mocks.revalidate).not.toHaveBeenCalled();
+    });
+    it('requires fresh read access and tenant for proposal without allowing arbitrary mutation', async () => {
+        expect((await getFinanceReturnCreditProposal('return-1')).success).toBe(true);
+        expect(mocks.proposal).toHaveBeenCalledWith({}, 'return-1');
+        mocks.proposal.mockClear(); mocks.db.mockReturnValue(undefined);
+        expect((await getFinanceReturnCreditProposal('return-1')).success).toBe(false);
+        expect(mocks.proposal).not.toHaveBeenCalled();
+        mocks.db.mockReturnValue({ $transaction: mocks.transaction }); mocks.user.mockResolvedValue({ isActive: true, role: 'SALES', roles: [] });
+        expect((await getFinanceReturnCreditProposal('return-1')).success).toBe(false);
+        expect((await postFinanceProposedReturnCredit({})).success).toBe(false);
+        expect(mocks.proposed).not.toHaveBeenCalled();
     });
     it('runs all queries inside the tenant boundary after authorization', async () => {
         expect((await calls[0]()).success).toBe(true);

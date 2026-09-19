@@ -13,6 +13,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { ManualReturnCreditForm } from './ManualReturnCreditForm';
+import { ReturnCreditConfirmation } from './ReturnCreditConfirmation';
+import Link from 'next/link';
+import { formatRupiah } from '@/lib/utils/utils';
 
 /** Explicit quantities per invoice basis. No inferred first-invoice/FIFO allocation. */
 export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
@@ -100,6 +103,9 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                               : 'Belum mengurangi piutang'}
                     </strong>
                 </p>
+                {eligible && (!credit || credit.status === 'REVIEW_REQUIRED') && (
+                    <ReturnCreditConfirmation key={row.id} returnId={row.id} />
+                )}
                 {credit?.reviewReason && (
                     <p role="alert">{credit.reviewReason}</p>
                 )}
@@ -171,9 +177,43 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             : 'bukti penerimaan historis belum tersedia'}
                     </p>
                 ))}
+                {credit &&
+                    credit.status !== 'REVIEW_REQUIRED' &&
+                    row.invoices.map((invoice) => (
+                        <div
+                            key={invoice.id}
+                            className="space-y-1 rounded border p-3"
+                        >
+                            <Link
+                                className="font-medium underline"
+                                href={`/finance/invoices/sales/${invoice.id}`}
+                            >
+                                Lihat invoice {invoice.invoiceNumber}
+                            </Link>
+                            <p>
+                                Total invoice asli{' '}
+                                {formatRupiah(Number(invoice.totalAmount))} −
+                                pembayaran{' '}
+                                {formatRupiah(Number(invoice.paidAmount))} −
+                                kredit retur{' '}
+                                {formatRupiah(Number(invoice.creditedAmount))}
+                            </p>
+                            <p className="font-bold">
+                                Sisa tagihan saat ini:{' '}
+                                {formatRupiah(Number(invoice.remaining))}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Total invoice asli tetap; yang berkurang adalah
+                                sisa tagihan.
+                            </p>
+                        </div>
+                    ))}
                 {eligible &&
                     (!credit || credit.status === 'REVIEW_REQUIRED') && (
-                        <>
+                        <details>
+                            <summary className="min-h-11 cursor-pointer py-3 font-medium">
+                                Opsi lanjutan: alokasi snapshot per item
+                            </summary>
                             {row.invoices.map((invoice) => (
                                 <div
                                     key={invoice.id}
@@ -261,12 +301,20 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             >
                                 Posting kredit retur
                             </Button>
-                        </>
+                        </details>
                     )}
-                <ManualReturnCreditForm
-                    key={`${row.id}:${row.credit?.status ?? 'new'}`}
-                    row={row}
-                />
+                {eligible &&
+                    (!credit || credit.status === 'REVIEW_REQUIRED') && (
+                        <details>
+                            <summary className="min-h-11 cursor-pointer py-3 font-medium">
+                                Periksa atau ubah nominal secara manual
+                            </summary>
+                            <ManualReturnCreditForm
+                                key={`${row.id}:${row.credit?.status ?? 'new'}`}
+                                row={row}
+                            />
+                        </details>
+                    )}
                 {!eligible && (
                     <p>
                         Menunggu penerimaan barang oleh Penjualan.

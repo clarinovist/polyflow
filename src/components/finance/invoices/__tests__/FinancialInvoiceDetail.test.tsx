@@ -129,6 +129,13 @@ describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
         mockRecordCustomerPayment.mockResolvedValue({ success: true });
     });
 
+    it('uses refreshed credit-aware remaining as the payment default when reopening', () => {
+        const { rerender } = render(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'UNPAID', creditedAmount: 0 })} />);
+        rerender(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'PARTIAL', creditedAmount: 200000 })} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Catat Pembayaran' }));
+        expect(screen.getByLabelText('Jumlah')).toHaveProperty('value', '800000');
+        expect(screen.getByText('Remaining Balance').parentElement?.textContent).toContain('800.000');
+    });
     it('shows the persisted rounding adjustment independently of VAT', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ totalAmount: 16642500, roundingAmount: 180 })} />);
         expect(screen.getByText('Pembulatan').parentElement?.textContent).toContain('180');

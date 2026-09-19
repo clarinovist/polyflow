@@ -38,6 +38,16 @@ describe('InvoiceTable finance server pagination', () => {
         expect(screen.getByText(/Sisa:/).textContent).toContain('75.000');
         expect(screen.queryByText(/Dibayar:/)).toBeNull();
     });
+    it('shows net outstanding on the mobile invoice card, including fully credited zero', () => {
+        const { container, rerender } = render(<InvoiceTable invoices={[{ ...invoice, creditedAmount: 25000 }]} basePath="/finance/invoices/sales" />);
+        const card = container.querySelector('[data-slot="card"]');
+        expect(card?.textContent).toContain('Sisa tagihan');
+        expect(card?.textContent).toContain('75.000');
+        expect(card?.textContent).toContain('25.000');
+        rerender(<InvoiceTable invoices={[{ ...invoice, creditedAmount: 100000, status: InvoiceStatus.PAID }]} basePath="/finance/invoices/sales" />);
+        expect(container.querySelector('[data-slot="card"]')?.textContent).toContain('Sisa tagihan');
+        expect(screen.getByText(/Sisa:/).textContent).toMatch(/Rp\s*0/);
+    });
     it('renders accessible server-sort headers and preserves URL state when sorting', () => {
         render(
             <InvoiceTable
@@ -98,6 +108,7 @@ describe('InvoiceTable finance server pagination', () => {
             screen.getByRole('table', { name: 'Daftar invoice sales' }),
         ).toBeTruthy();
         expect(screen.getByText('Menampilkan 1–50 dari 120 invoice')).toBeTruthy();
+        expect(screen.getByLabelText('Baris per halaman').parentElement?.className).toContain('flex-wrap');
         expect(
             screen.getByRole('navigation', { name: 'Paginasi invoice sales' }),
         ).toBeTruthy();

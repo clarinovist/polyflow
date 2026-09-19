@@ -5,12 +5,14 @@ import type { FinanceReturnDetail } from '@/services/finance/sales-return-query-
 const mocks=vi.hoisted(()=>({post:vi.fn(),reverse:vi.fn(),refresh:vi.fn()}));
 vi.mock('@/actions/finance/sales-returns',()=>({postFinanceSalesReturnCredit:mocks.post,reverseFinanceSalesReturnCredit:mocks.reverse}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:mocks.refresh})}));
+vi.mock('../ReturnCreditConfirmation',()=>({ReturnCreditConfirmation:()=> <div>Prepared proposal</div>}));
 import { FinanceReturnCredit } from '../FinanceReturnCredit';
 const row={id:'return',status:'RECEIVED',credit:null,items:[{id:'item',productVariantId:'variant',productVariant:{name:'Synthetic item'},condition:'GOOD',returnedQty:2,receipt:{restockValue:'120.00'}}],invoices:[{id:'invoice',invoiceNumber:'INV-TEST',status:'UNPAID',totalAmount:'1110.00',paidAmount:'0.00',creditedAmount:'0.00',remaining:'1110.00',basis:[{id:'basis',sourceItemId:'source',productVariantId:'variant',quantity:'10',availableQuantity:'10',netAmount:'1000.00',taxAmount:'110.00',discountAmount:'250.00'}]}]} as unknown as FinanceReturnDetail;
 describe('Finance credit posting and compensation UI',()=>{
  beforeEach(()=>{vi.clearAllMocks();mocks.post.mockResolvedValue({success:true,data:{status:'POSTED'}});mocks.reverse.mockResolvedValue({success:true,data:{status:'REVERSED'}});});
  it('requires explicit allocation and preserves failures without false success/refresh',async()=>{
   render(<FinanceReturnCredit row={row}/>);
+  fireEvent.click(screen.getByText('Opsi lanjutan: alokasi snapshot per item'));
   expect((screen.getByRole('button',{name:'Posting kredit retur'}) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(screen.getByRole('spinbutton'),{target:{value:'2'}});
   mocks.post.mockResolvedValueOnce({success:false,error:'Periode ditutup'});
@@ -28,7 +30,7 @@ describe('Finance credit posting and compensation UI',()=>{
  });
  it('shows Finance review as unposted, not success',async()=>{
   mocks.post.mockResolvedValue({success:true,data:{status:'REVIEW_REQUIRED',reviewReason:'Invoice lunas; periksa Finance'}});
-  render(<FinanceReturnCredit row={row}/>);fireEvent.change(screen.getByRole('spinbutton'),{target:{value:'2'}});fireEvent.click(screen.getByRole('button',{name:'Posting kredit retur'}));
+  render(<FinanceReturnCredit row={row}/>);fireEvent.click(screen.getByText('Opsi lanjutan: alokasi snapshot per item'));fireEvent.change(screen.getByRole('spinbutton'),{target:{value:'2'}});fireEvent.click(screen.getByRole('button',{name:'Posting kredit retur'}));
   await waitFor(()=>expect(screen.getByRole('alert').textContent).toContain('Invoice lunas'));
   expect(screen.queryByText('Kredit terposting. Pembayaran dan total invoice asli tidak berubah.')).toBeNull();
  });

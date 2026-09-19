@@ -7,6 +7,10 @@ import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { postReturnCredit } from '@/services/finance/sales-return-credit-service';
 import { postManualReturnCredit } from '@/services/finance/manual-return-credit-service';
+import {
+    prepareReturnCreditProposal,
+    postProposedReturnCredit,
+} from '@/services/finance/return-credit-proposal-service';
 import { reverseReturnCredit } from '@/services/finance/sales-return-credit-reversal-service';
 import {
     requireFinanceAccess,
@@ -69,6 +73,9 @@ async function requireReturnReadAccess(mutation = false) {
 }
 
 function refreshReturnFinance(returnId: string) {
+    revalidatePath('/finance/invoices/sales/[id]', 'page');
+    revalidatePath('/finance/invoices/sales/[id]/print', 'page');
+    revalidatePath('/sales/invoices');
     for (const path of [
         '/finance',
         '/finance/returns',
@@ -89,6 +96,33 @@ export const postFinanceSalesReturnCredit = withTenant(
         return safeAction(async () => {
             const session = await requireReturnReadAccess(true);
             const result = await postReturnCredit(input, session.user.id);
+            refreshReturnFinance(result.salesReturnId);
+            return serializeData(result);
+        });
+    },
+);
+
+export const getFinanceReturnCreditProposal = withTenant(
+    async function getFinanceReturnCreditProposal(returnId: string) {
+        return safeAction(async () => {
+            await requireReturnReadAccess();
+            const db = getTenantDbFromContext();
+            if (!db) throw new AuthorizationError();
+            return db.$transaction((tx) =>
+                prepareReturnCreditProposal(tx, returnId),
+            );
+        });
+    },
+);
+
+export const postFinanceProposedReturnCredit = withTenant(
+    async function postFinanceProposedReturnCredit(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireReturnReadAccess(true);
+            const result = await postProposedReturnCredit(
+                input,
+                session.user.id,
+            );
             refreshReturnFinance(result.salesReturnId);
             return serializeData(result);
         });

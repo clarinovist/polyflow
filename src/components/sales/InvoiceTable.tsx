@@ -394,7 +394,7 @@ export function InvoiceTable({
                                 </div>
                             )}
                             {Number(inv.creditedAmount ?? 0) > 0 && <div className="text-xs mt-0.5">Kredit retur: {formatRupiah(Number(inv.creditedAmount))}</div>}
-                            {remaining > 0 && (inv.paidAmount > 0 || Number(inv.creditedAmount ?? 0) > 0) && (
+                            {(inv.paidAmount > 0 || Number(inv.creditedAmount ?? 0) > 0) && (
                                 <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
                                     Sisa: {formatRupiah(remaining)}
                                 </div>
@@ -582,6 +582,11 @@ export function InvoiceTable({
                                                 )}
                                             </p>
                                         </div>
+                                    </div>
+                                    <div className="space-y-1 border-t pt-2 text-xs">
+                                        {Number(invoice.paidAmount) > 0 && <div className="flex justify-between"><span>Pembayaran</span><span>{formatRupiah(Number(invoice.paidAmount))}</span></div>}
+                                        {Number(invoice.creditedAmount ?? 0) > 0 && <div className="flex justify-between"><span>Kredit retur</span><span>{formatRupiah(Number(invoice.creditedAmount))}</span></div>}
+                                        <div className="flex justify-between font-semibold text-sm"><span>Sisa tagihan</span><span>{formatRupiah(Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0))}</span></div>
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>
@@ -854,7 +859,7 @@ export function InvoiceTable({
                         )}{' '}
                         dari {pagination.total} invoice
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <label
                             htmlFor="invoice-page-size"
                             className="text-sm font-medium"
