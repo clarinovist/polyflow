@@ -42,8 +42,15 @@ describe('CI performance guardrails', () => {
         expect(Object.keys(benchmark.on)).toEqual(['workflow_dispatch']);
         expect(benchmark.permissions).toEqual({ contents: 'read', actions: 'read' });
         expect(benchmark.concurrency['cancel-in-progress']).toBe(false);
-        expect(benchmark.jobs.test.needs).toBe('candidates');
-        expect(benchmark.jobs.test.if).toBeUndefined();
+        expect(benchmark.jobs.candidates.needs).toBeUndefined();
+        expect(benchmark.jobs.shards.needs).toBeUndefined();
+        expect(benchmark.jobs.shards.strategy['fail-fast']).toBe(false);
+        expect(benchmark.jobs.shards.strategy.matrix.include.map((entry: any) => entry.shard)).toEqual(['1/2', '2/2']);
+        expect(benchmark.jobs.candidates.strategy.matrix.include.map((entry: any) => entry.candidate)).toEqual(['default', 'explicit']);
+        expect(benchmark.jobs['shard-coverage'].needs).toBe('shards');
+        expect(benchmark.jobs['shard-coverage'].if).toBeUndefined();
+        expect(benchmark.jobs.test.needs).toEqual(['candidates', 'shard-coverage']);
+        expect(benchmark.jobs.test.if).toBe('${{ always() }}');
         expect(benchmark.jobs.candidates.strategy['fail-fast']).toBe(false);
         const text = JSON.stringify(benchmark);
         expect(text).not.toMatch(/secrets\.|ssh-action|build-push-action|imagetools|workflow_run/);
@@ -51,10 +58,30 @@ describe('CI performance guardrails', () => {
             expect(job['continue-on-error']).toBeUndefined();
             for (const step of job.steps) expect(step['continue-on-error']).toBeUndefined();
         }
-        const download = benchmark.jobs.test.steps.find((step: any) => step.uses?.startsWith('actions/download-artifact'));
-        expect(download.with.pattern).toBe('bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-*');
+        const download = benchmark.jobs['shard-coverage'].steps.find((step: any) => step.uses?.startsWith('actions/download-artifact'));
+        expect(download.with.pattern).toBe('bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*');
         expect(download.with['merge-multiple']).toBe(false);
         expect(download.with['run-id']).toBeUndefined();
+        const finalDownloads = benchmark.jobs.test.steps.filter((step: any) => step.uses?.startsWith('actions/download-artifact'));
+        expect(finalDownloads.map((step: any) => step.with.pattern || step.with.name)).toEqual([
+            'bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-*',
+            'shard-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}',
+        ]);
+        expect(JSON.stringify(benchmark.jobs.test.steps)).not.toMatch(/npm ci|vitest run|benchmark\.mjs merge/);
+    });
+
+    it.each(['failure', 'skipped', 'cancelled', '', 'unknown'])('final gate rejects %j in either dependency', status => {
+        const step = benchmark.jobs.test.steps[0];
+        expect(step.env).toEqual({
+            CANDIDATES_RESULT: '${{ needs.candidates.result }}',
+            SHARD_COVERAGE_RESULT: '${{ needs.shard-coverage.result }}',
+        });
+        const runGate = (candidate: string, shards: string) => spawnSync('bash', ['-e', '-c', step.run], {
+            env: { ...process.env, CANDIDATES_RESULT: candidate, SHARD_COVERAGE_RESULT: shards },
+        }).status;
+        expect(runGate(status, 'success')).not.toBe(0);
+        expect(runGate('success', status)).not.toBe(0);
+        expect(runGate('success', 'success')).toBe(0);
     });
 
     it('accepts only complete, disjoint, successful shard sets', () => {

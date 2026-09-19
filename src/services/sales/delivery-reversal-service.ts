@@ -1,3 +1,4 @@
+import { salesTransactionClient } from './transaction-client';
 /**
  * Delivery Reversal Service
  *
@@ -19,7 +20,6 @@ import {
     ReservationType,
     SalesOrderStatus,
 } from '@prisma/client';
-import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { recordShipmentReversal } from '@/services/accounting/shipment-reversal-journal';
@@ -39,7 +39,8 @@ type ShipmentQuantity = { productVariantId: string; quantity: Prisma.Decimal };
 function movementMismatch() {
     return new BusinessRuleError(
         'Mutasi stok pengiriman tidak sesuai item atau lokasi DO; finance perlu memeriksa sumber.',
-        {}, 'SHIPMENT_MOVEMENTS_MISMATCH',
+        {},
+        'SHIPMENT_MOVEMENTS_MISMATCH',
     );
 }
 
@@ -49,38 +50,76 @@ function quantityTotals(rows: ShipmentQuantity[]) {
         if (!quantity.isFinite() || quantity.lt(0)) throw movementMismatch();
         // The shipment producer skips DO rows corrected to zero.
         if (quantity.isZero()) return totals;
-        return new Map([...totals, [row.productVariantId,
-            (totals.get(row.productVariantId) ?? new Prisma.Decimal(0)).add(quantity)]]);
+        return new Map([
+            ...totals,
+            [
+                row.productVariantId,
+                (totals.get(row.productVariantId) ?? new Prisma.Decimal(0)).add(
+                    quantity,
+                ),
+            ],
+        ]);
     }, new Map<string, Prisma.Decimal>());
 }
 
-function validateMovementSet(items: ShipmentQuantity[], movements: StockMovement[], locationId: string) {
+function validateMovementSet(
+    items: ShipmentQuantity[],
+    movements: StockMovement[],
+    locationId: string,
+) {
     // commitDeliveryShipment emits OUT from the DO source, with no destination.
-    if (movements.some(move => move.type !== MovementType.OUT ||
-        move.fromLocationId !== locationId || !move.fromLocationId || move.toLocationId !== null ||
-        move.goodsReceiptId || move.productionOrderId || !new Prisma.Decimal(move.quantity).gt(0))) {
+    if (
+        movements.some(
+            (move) =>
+                move.type !== MovementType.OUT ||
+                move.fromLocationId !== locationId ||
+                !move.fromLocationId ||
+                move.toLocationId !== null ||
+                move.goodsReceiptId ||
+                move.productionOrderId ||
+                !new Prisma.Decimal(move.quantity).gt(0),
+        )
+    ) {
         throw movementMismatch();
     }
     const expected = quantityTotals(items);
     const actual = quantityTotals(movements);
-    if (actual.size !== expected.size || [...expected].some(([variant, quantity]) =>
-        !actual.get(variant)?.equals(quantity))) throw movementMismatch();
+    if (
+        actual.size !== expected.size ||
+        [...expected].some(
+            ([variant, quantity]) => !actual.get(variant)?.equals(quantity),
+        )
+    )
+        throw movementMismatch();
     return expected;
 }
 
 function deliveredUpdates(
     totals: Map<string, Prisma.Decimal>,
-    items: { id: string; productVariantId: string; deliveredQty: Prisma.Decimal }[],
+    items: {
+        id: string;
+        productVariantId: string;
+        deliveredQty: Prisma.Decimal;
+    }[],
 ) {
     return [...totals].map(([variant, quantity]) => {
-        const matches = items.filter(item => item.productVariantId === variant);
-        // DO items have no SO-item ID. Never guess which repeated SO row shipped.
-        if (matches.length !== 1) throw new BusinessRuleError(
-            'Atribusi item SO untuk pembatalan pengiriman hilang atau ambigu; finance perlu memeriksa sumber.',
-            { productVariantId: variant }, 'SHIPMENT_ITEM_ATTRIBUTION_UNRESOLVED',
+        const matches = items.filter(
+            (item) => item.productVariantId === variant,
         );
-        return { id: matches[0].id,
-            deliveredQty: Prisma.Decimal.max(0, new Prisma.Decimal(matches[0].deliveredQty).minus(quantity)) };
+        // DO items have no SO-item ID. Never guess which repeated SO row shipped.
+        if (matches.length !== 1)
+            throw new BusinessRuleError(
+                'Atribusi item SO untuk pembatalan pengiriman hilang atau ambigu; finance perlu memeriksa sumber.',
+                { productVariantId: variant },
+                'SHIPMENT_ITEM_ATTRIBUTION_UNRESOLVED',
+            );
+        return {
+            id: matches[0].id,
+            deliveredQty: Prisma.Decimal.max(
+                0,
+                new Prisma.Decimal(matches[0].deliveredQty).minus(quantity),
+            ),
+        };
     });
 }
 
@@ -94,8 +133,11 @@ export async function reverseDeliveryShipment(
     userId: string,
     reason: string,
 ): Promise<ReverseDeliveryShipmentResult> {
-    return prisma.$transaction(
+    return salesTransactionClient().$transaction(
         async (tx) => {
+            await tx.$queryRaw`SELECT so.id FROM "SalesOrder" so
+                JOIN "DeliveryOrder" d ON d."salesOrderId" = so.id
+                WHERE d.id = ${deliveryOrderId} FOR UPDATE OF so`;
             // The source marker alone is a check-then-act race. Serialize on DO.
             await tx.$queryRaw`SELECT id FROM "DeliveryOrder" WHERE id = ${deliveryOrderId} FOR UPDATE`;
             // Payments serialize on Invoice; read paid status only after owning
@@ -132,6 +174,20 @@ export async function reverseDeliveryShipment(
 
             if (!doRecord)
                 throw new NotFoundError('Delivery Order', deliveryOrderId);
+
+            const otherShipments = await tx.deliveryOrder.count({
+                where: {
+                    salesOrderId: doRecord.salesOrderId,
+                    id: { not: deliveryOrderId },
+                    stockCommittedAt: { not: null },
+                    status: { not: DeliveryStatus.CANCELLED },
+                },
+            });
+            if (otherShipments > 0) {
+                throw new BusinessRuleError(
+                    'SO memiliki beberapa pengiriman. Gunakan Retur Penjualan agar invoice pengiriman lain tidak ikut dibatalkan.',
+                );
+            }
 
             if (doRecord.status !== DeliveryStatus.SHIPPED) {
                 throw new BusinessRuleError(
@@ -230,19 +286,36 @@ export async function reverseDeliveryShipment(
             });
 
             if (movements.length === 0) {
-                throw new BusinessRuleError('Mutasi stok pengiriman tidak ditemukan; finance perlu memeriksa sumber.',
-                    { deliveryOrderId }, 'SHIPMENT_MOVEMENTS_MISSING');
+                throw new BusinessRuleError(
+                    'Mutasi stok pengiriman tidak ditemukan; finance perlu memeriksa sumber.',
+                    { deliveryOrderId },
+                    'SHIPMENT_MOVEMENTS_MISSING',
+                );
             }
 
             // Share source locks with return receiving: reversal may never restock twice.
-            for (const movementId of movements.map(move => move.id).sort()) {
+            for (const movementId of movements.map((move) => move.id).sort()) {
                 await tx.$queryRaw`SELECT id FROM "StockMovement" WHERE id = ${movementId} FOR UPDATE`;
             }
-            if (await tx.salesReturnReceiptLine.count({ where: { sourceMovementId: { in: movements.map(move => move.id) } } })) {
-                throw new BusinessRuleError('Pengiriman sudah digunakan penerimaan retur. Koreksi retur dahulu sebelum reversal pengiriman.');
+            if (
+                await tx.salesReturnReceiptLine.count({
+                    where: {
+                        sourceMovementId: {
+                            in: movements.map((move) => move.id),
+                        },
+                    },
+                })
+            ) {
+                throw new BusinessRuleError(
+                    'Pengiriman sudah digunakan penerimaan retur. Koreksi retur dahulu sebelum reversal pengiriman.',
+                );
             }
             // Validate the complete source before any inventory/DO/invoice mutation.
-            const totals = validateMovementSet(doRecord.items, movements, doRecord.sourceLocationId);
+            const totals = validateMovementSet(
+                doRecord.items,
+                movements,
+                doRecord.sourceLocationId,
+            );
             const updates = deliveredUpdates(totals, doRecord.salesOrder.items);
 
             let reversedLines = 0;
@@ -266,7 +339,8 @@ export async function reverseDeliveryShipment(
                     },
                 });
                 await recordShipmentReversal(move, reversal, userId, tx, {
-                    offBalanceSheet: doRecord.salesOrder.orderType === 'MAKLON_JASA',
+                    offBalanceSheet:
+                        doRecord.salesOrder.orderType === 'MAKLON_JASA',
                 });
                 reversedLines += 1;
             }

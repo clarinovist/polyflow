@@ -5,6 +5,10 @@ import { id as idLocale } from 'date-fns/locale';
 import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
 import { terbilang } from '@/lib/utils/terbilang';
 import { InvoiceStatus } from '@prisma/client';
+import {
+    invoiceSnapshotOrder,
+    LEGACY_INVOICE_NOTICE,
+} from '@/lib/finance/invoice-snapshot';
 
 type InvoiceLineItem = {
     id?: string;
@@ -23,6 +27,7 @@ type InvoiceLineItem = {
 };
 
 interface InvoicePrintData {
+    commercialSnapshot?: unknown;
     invoiceNumber: string;
     invoiceDate: Date;
     dueDate: Date | null;
@@ -77,8 +82,8 @@ export function InvoiceDotMatrixPrint({
     companyConfig,
 }: InvoiceDotMatrixPrintProps) {
     const COMPANY: CompanyConfig = companyConfig || getCompanyConfig();
-    const so = invoice.salesOrder;
-    const customer = so?.customer;
+    const so = invoiceSnapshotOrder(invoice.commercialSnapshot);
+    const customer = so?.customer ?? invoice.salesOrder?.customer;
     const items = so?.items ?? [];
     const taxAmount = Number(so?.taxAmount || 0);
     const isPPN = taxAmount > 0;
@@ -87,10 +92,10 @@ export function InvoiceDotMatrixPrint({
         (sum, item) => sum + Number(item.subtotal || 0),
         0,
     );
-    const totalQty = items.reduce(
-        (sum, item) => sum + Number(item.quantity || 0),
-        0,
-    );
+    const quantityUnits = new Set(items.map(item => item.enteredUnit));
+    const totalQty = quantityUnits.size <= 1
+        ? items.reduce((sum, item) => sum + Number(item.enteredQuantity ?? item.quantity), 0)
+        : '—';
     const discountAmount = Number(so?.discountAmount || 0);
     const shippingCost = Number(so?.shippingCost || 0);
     const grandTotal = Number(invoice.totalAmount);
@@ -103,6 +108,21 @@ export function InvoiceDotMatrixPrint({
     const sisaTagihan = grandTotal + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
 
     const { paperSize } = COMPANY;
+
+    if (!so)
+        return (
+            <div className="rounded-md border p-4 space-y-2">
+                <p role="alert">{LEGACY_INVOICE_NOTICE}</p>
+                <p>
+                    Invoice {invoice.invoiceNumber} · Total tersimpan:{' '}
+                    {formatNumberWithDots(grandTotal)}
+                </p>
+                <p>
+                    Cetak rincian belum tersedia tanpa bukti historis. Jangan
+                    memakai rincian SO saat ini sebagai pengganti.
+                </p>
+            </div>
+        );
 
     const handlePrint = () => {
         window.print();
@@ -256,7 +276,7 @@ export function InvoiceDotMatrixPrint({
                                     <td className="col-price">
                                         {formatNumberWithDots(unitPrice)}
                                     </td>
-                                    <td className="col-disc">0</td>
+                                    <td className="col-disc">{item.discountPercent}%</td>
                                     <td className="col-total">
                                         {formatNumberWithDots(lineTotal)}
                                     </td>

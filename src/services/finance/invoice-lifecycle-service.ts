@@ -1,4 +1,5 @@
 import { addDays } from 'date-fns';
+import { isDeepStrictEqual } from 'node:util';
 import { InvoiceStatus, SalesOrderStatus, Prisma } from '@prisma/client';
 
 import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
@@ -49,7 +50,11 @@ export async function calculateSalesInvoiceTotalFromDelivered(
                 },
             },
             deliveryOrders: {
-                where: { status: { in: ['SHIPPED', 'DELIVERED'] } },
+                where: {
+                    status: {
+                        in: ['SHIPPED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED'],
+                    },
+                },
                 select: {
                     totalCharge: true,
                     items: {
@@ -280,13 +285,36 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
         invoiceWriter().$transaction(async (tx) => {
             await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
             await tx.$queryRaw`SELECT id FROM "Invoice" WHERE "salesOrderId" = ${salesOrderId} ORDER BY id FOR UPDATE`;
-            const existing = await tx.invoice.findMany({ where: { salesOrderId, status: { not: 'CANCELLED' } }, include: { _count: { select: { priceAdjustments: { where: { status: 'POSTED' } } } } } });
+            const freshOrder = await tx.salesOrder.findUnique({
+                where: { id: salesOrderId },
+                select: { status: true, customerId: true },
+            });
+            if (
+                !freshOrder?.customerId ||
+                nonInvoicableStatuses.includes(freshOrder.status)
+            ) {
+                throw new BusinessRuleError(
+                    'SO berubah atau tidak dapat ditagihkan. Muat ulang.',
+                );
+            }
+            const existing = await tx.invoice.findMany({
+                where: { salesOrderId, status: { not: 'CANCELLED' } },
+                include: { _count: { select: { priceAdjustments: { where: { status: 'POSTED' } } } } },
+            });
             if (existing.some(invoice => Number(invoice.priceAdjustmentAmount ?? 0) !== 0 || (invoice._count?.priceAdjustments ?? 0) > 0)) throw new BusinessRuleError('SO memiliki penyesuaian harga invoice aktif. Periksa Finance sebelum menerbitkan invoice tambahan agar selisih tidak ditagihkan dua kali.');
             if (existing.some(invoice => invoice.status === 'DRAFT')) throw new BusinessRuleError('Selesaikan invoice draft yang ada sebelum menerbitkan invoice baru.');
-            const cumulativeTotal = await calculateSalesInvoiceTotalFromDelivered(salesOrderId, tx);
-            const committed = existing.reduce((sum, invoice) => sum.plus(invoice.totalAmount).minus(invoice.roundingAmount ?? 0), new Prisma.Decimal(0));
-            const calculatedTotal = new Prisma.Decimal(cumulativeTotal).minus(committed).toNumber();
-            if (calculatedTotal <= 0) throw new BusinessRuleError('Nilai pengiriman sudah ditagihkan; tidak membuat invoice duplikat.');
+            const { buildInvoiceSnapshot } =
+                await import('./invoice-snapshot-service');
+            const snapshot = await buildInvoiceSnapshot(
+                tx,
+                salesOrderId,
+                existing,
+            );
+            const calculatedTotal = Number(snapshot.commercialTotal);
+            if (calculatedTotal <= 0)
+                throw new BusinessRuleError(
+                    'Tidak ada nilai barang/ongkir yang belum ditagihkan.',
+                );
             const amounts = calculateInvoiceRounding(calculatedTotal);
             return persistNewInvoice(
                 tx,
@@ -300,6 +328,7 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
                     paidAmount: 0,
                     status: InvoiceStatus.UNPAID,
                     notes,
+                    commercialSnapshot: snapshot,
                 },
                 userId,
                 'CREATE_INVOICE',
@@ -415,9 +444,26 @@ export async function createDraftInvoiceFromOrder(
         invoiceWriter().$transaction(async (tx) => {
             // Serialize draft/supplementary generation and lock invoices against payment/approval.
             await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
+            const freshOrder = await tx.salesOrder.findUnique({
+                where: { id: salesOrderId },
+                select: { status: true, customerId: true },
+            });
+            if (
+                !freshOrder?.customerId ||
+                [
+                    'DRAFT',
+                    'CANCELLED',
+                    'QUOTATION',
+                    'QUOTATION_SENT',
+                    'QUOTATION_REJECTED',
+                    'QUOTATION_EXPIRED',
+                ].includes(freshOrder.status)
+            ) {
+                throw new BusinessRuleError(
+                    'SO berubah atau tidak dapat ditagihkan. Muat ulang.',
+                );
+            }
             await tx.$queryRaw`SELECT id FROM "Invoice" WHERE "salesOrderId" = ${salesOrderId} ORDER BY id FOR UPDATE`;
-            const calculatedTotal =
-                await calculateSalesInvoiceTotalFromDelivered(salesOrderId, tx);
             const invoices = await tx.invoice.findMany({
                 where: { salesOrderId, status: { not: 'CANCELLED' } },
                 orderBy: { createdAt: 'asc' },
@@ -427,26 +473,27 @@ export async function createDraftInvoiceFromOrder(
             const draft = invoices.find(
                 (invoice) => invoice.status === 'DRAFT',
             );
-            const committedBase = invoices
-                .filter((invoice) => invoice.id !== draft?.id)
-                .reduce(
-                    (sum, invoice) =>
-                        sum
-                            .plus(invoice.totalAmount.toNumber())
-                            .minus(invoice.roundingAmount ?? 0),
-                    new Prisma.Decimal(0),
-                );
-            const remaining = Prisma.Decimal.max(
-                0,
-                new Prisma.Decimal(calculatedTotal).minus(committedBase),
-            ).toNumber();
+            const { buildInvoiceSnapshot } =
+                await import('./invoice-snapshot-service');
+            const snapshot = await buildInvoiceSnapshot(
+                tx,
+                salesOrderId,
+                invoices,
+                draft?.id,
+            );
+            const remaining = Number(snapshot.commercialTotal);
 
             if (draft) {
+                if (remaining <= 0)
+                    throw new BusinessRuleError(
+                        'Draft tidak lagi memiliki nilai tagihan. Batalkan draft melalui Finance sebelum melanjutkan.',
+                    );
                 const amounts = invoiceAmountsForPolicy(
                     remaining,
                     draft.roundingAmount,
                 );
                 const changed =
+                    !isDeepStrictEqual(draft.commercialSnapshot, snapshot) ||
                     !new Prisma.Decimal(draft.totalAmount.toNumber()).eq(
                         amounts.totalAmount,
                     ) ||
@@ -460,9 +507,9 @@ export async function createDraftInvoiceFromOrder(
                 }
                 const updated = await tx.invoice.update({
                     where: { id: draft.id },
-                    data: amounts,
+                    data: { ...amounts, commercialSnapshot: snapshot },
                 });
-                if (draft.roundingAmount != null) {
+                if (remaining > 0) {
                     await AutoJournalService.handleSalesInvoiceCreated(
                         draft.id,
                         { tx, refreshDraft: true },
@@ -479,7 +526,7 @@ export async function createDraftInvoiceFromOrder(
                 });
                 return updated;
             }
-            if (invoices.length > 0 && remaining <= 0) return invoices[0];
+            if (remaining <= 0) return invoices[0];
 
             const amounts = calculateInvoiceRounding(remaining);
             const termOfPaymentDays =
@@ -497,6 +544,7 @@ export async function createDraftInvoiceFromOrder(
                     ...amounts,
                     paidAmount: 0,
                     status: InvoiceStatus.DRAFT,
+                    commercialSnapshot: snapshot,
                     notes: supplementary
                         ? `Suplementer: tambahan kirim — SO ${salesOrder.orderNumber}`
                         : `System generated draft invoice for Order ${salesOrder.orderNumber} (based on delivered quantities)`,

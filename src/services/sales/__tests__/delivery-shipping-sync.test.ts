@@ -3,8 +3,10 @@ vi.mock('@/services/finance/invoice-return-basis-capture', () => ({ refreshDraft
 import { syncSalesOrderShippingFromDeliveries } from '../delivery-shipping-sync';
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
+import { snapshotFixture } from '@/lib/finance/__tests__/invoice-snapshot-fixture';
+vi.mock('@/services/finance/invoice-snapshot-service', () => ({ buildInvoiceSnapshot: vi.fn(async () => snapshotFixture({ items: [], taxAmount: '0.00', discountAmount: '0.00', shippingAmount: '1420.00', commercialTotal: '1420.00' })) }));
 
-vi.mock('@/lib/core/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: () => prisma,
   prisma: {
     salesOrder: {
       findUniqueOrThrow: vi.fn(),
@@ -36,9 +38,9 @@ describe('syncSalesOrderShippingFromDeliveries', () => {
     } as never);
     vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([{ status: 'DRAFT', totalCharge: 100 }] as never);
     vi.mocked(prisma.invoice.findMany).mockResolvedValue([{ id: 'new', status: 'DRAFT', roundingAmount: 180 }] as never);
-    vi.mocked(prisma.invoice.findUniqueOrThrow).mockResolvedValue({ id: 'new', status: 'DRAFT' } as never);
+    vi.mocked(prisma.invoice.findUniqueOrThrow).mockResolvedValue({ id: 'new', status: 'DRAFT', roundingAmount: 180 } as never);
     await syncSalesOrderShippingFromDeliveries('so-1');
-    expect(prisma.invoice.update).toHaveBeenCalledWith({ where: { id: 'new' }, data: { totalAmount: 1500, roundingAmount: 80 } });
+    expect(prisma.invoice.update).toHaveBeenCalledWith({ where: { id: 'new' }, data: expect.objectContaining({ totalAmount: 1500, roundingAmount: 80, commercialSnapshot: expect.any(Object) }) });
     expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('new', { tx: prisma, refreshDraft: true });
     expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ tx: prisma, entityId: 'new' }));
   });

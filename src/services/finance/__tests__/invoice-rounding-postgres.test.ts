@@ -34,7 +34,7 @@ describe.skipIf(!process.env.ROUNDING_TEST_DATABASE_URL)('new invoice rounding o
     beforeEach(async () => {
         vi.mocked(resolveAccount).mockImplementation(async role => accountFor(role));
         expect((await db.$queryRaw<{ db: string }[]>`SELECT current_database() db`)[0].db).toBe('polyflow_rounding_test');
-        await db.$executeRaw`TRUNCATE "AuditLog", "JournalLine", "JournalEntry", "Payment", "Invoice", "SalesOrder", "Customer", "Account", "FiscalPeriod", "SystemSequence", "User" CASCADE`;
+        await db.$executeRaw`TRUNCATE "AuditLog", "JournalLine", "JournalEntry", "Payment", "Invoice", "SalesOrder", "ProductVariant", "Product", "Customer", "Account", "FiscalPeriod", "SystemSequence", "User" CASCADE`;
         await db.user.create({ data: { id: actor, email: 'test@example.invalid', password: randomUUID(), role: 'FINANCE' } });
         await db.customer.create({ data: { id: 'customer', name: 'Synthetic customer' } });
         await db.account.createMany({ data: [
@@ -49,8 +49,11 @@ describe.skipIf(!process.env.ROUNDING_TEST_DATABASE_URL)('new invoice rounding o
             startDate: new Date(Date.UTC(date.getFullYear(), i, 1)), endDate: new Date(Date.UTC(date.getFullYear(), i + 1, 0)),
         })) });
         await db.systemSequence.create({ data: { key: `JOURNAL_ENTRY_${date.getFullYear()}`, value: 100 } });
+        await db.product.create({ data: { id: 'product', name: 'Synthetic product', productType: 'FINISHED_GOOD' } });
+        await db.productVariant.create({ data: { id: 'variant', productId: 'product', name: 'Synthetic variant', skuCode: 'ROUND-TEST', primaryUnit: 'KG' } });
         await db.salesOrder.create({ data: { id: 'order', orderNumber: 'SO-TEST', status: 'DELIVERED',
-            customerId: 'customer', totalAmount: 16642320, taxAmount: 1649238.92 } });
+            customerId: 'customer', totalAmount: 16642320, taxAmount: 1649238.92,
+            items: { create: { id: 'item', productVariantId: 'variant', quantity: 1, unitPrice: 16642320, subtotal: 16642320, taxPercent: 11, ppnMode: 'INCLUDE' } } } });
     });
     afterAll(async () => { await db.$disconnect(); });
 
@@ -89,11 +92,13 @@ describe.skipIf(!process.env.ROUNDING_TEST_DATABASE_URL)('new invoice rounding o
     it('keeps draft GL consistent when rounding changes and rolls back failed refresh', async () => {
         const invoice = (await createDraftInvoiceFromOrder('order', actor))!;
         await db.salesOrder.update({ where: { id: 'order' }, data: { totalAmount: 16642400 } });
+        await db.salesOrderItem.update({ where: { id: 'item' }, data: { unitPrice: 16642400 } });
         await createDraftInvoiceFromOrder('order', actor);
         expect(Number((await db.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).roundingAmount)).toBe(100);
         expect(await db.journalEntry.count({ where: { status: 'DRAFT' } })).toBe(1);
         expect(await db.journalEntry.count({ where: { status: 'VOIDED' } })).toBe(1);
         await db.salesOrder.update({ where: { id: 'order' }, data: { totalAmount: 16642420 } });
+        await db.salesOrderItem.update({ where: { id: 'item' }, data: { unitPrice: 16642420 } });
         await db.fiscalPeriod.updateMany({ data: { status: 'CLOSED' } });
         await expect(createDraftInvoiceFromOrder('order', actor)).rejects.toThrow();
         expect(Number((await db.invoice.findUniqueOrThrow({ where: { id: invoice.id } })).roundingAmount)).toBe(100);
@@ -119,6 +124,7 @@ describe.skipIf(!process.env.ROUNDING_TEST_DATABASE_URL)('new invoice rounding o
         expect(await db.invoice.count()).toBe(1);
         await db.invoice.updateMany({ data: { status: 'UNPAID' } });
         await db.salesOrder.update({ where: { id: 'order' }, data: { totalAmount: 16642640 } });
+        await db.salesOrderItem.create({ data: { salesOrderId: 'order', productVariantId: 'variant', quantity: 1, unitPrice: 320, subtotal: 320 } });
         await Promise.all([createDraftInvoiceFromOrder('order', actor), createDraftInvoiceFromOrder('order', actor)]);
         const invoices = await db.invoice.findMany({ orderBy: { createdAt: 'asc' } });
         expect(invoices).toHaveLength(2);

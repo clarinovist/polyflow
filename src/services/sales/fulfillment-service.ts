@@ -1,3 +1,4 @@
+import { salesTransactionClient } from './transaction-client';
 import { prisma } from '@/lib/core/prisma';
 import {
     SalesOrderStatus,
@@ -159,11 +160,24 @@ export async function shipOrder(
 }
 
 export async function deliverOrder(orderId: string, userId: string) {
-    await prisma.$transaction(async (tx) => {
+    await salesTransactionClient().$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${orderId} FOR UPDATE`;
         const order = await tx.salesOrder.findUnique({
             where: { id: orderId },
+            include: { items: true },
         });
         if (!order) throw new NotFoundError('Sales Order', orderId);
+        if (
+            order.status !== SalesOrderStatus.SHIPPED ||
+            (order.orderType !== 'MAKLON_JASA' &&
+                order.items.some(
+                    (item) => Number(item.quantity) > Number(item.deliveredQty),
+                ))
+        ) {
+            throw new BusinessRuleError(
+                'Masih ada sisa pesanan. Tandai penerimaan melalui masing-masing Surat Jalan.',
+            );
+        }
 
         await tx.salesOrder.update({
             where: { id: orderId },
@@ -174,7 +188,7 @@ export async function deliverOrder(orderId: string, userId: string) {
         const openDeliveryOrders = await tx.deliveryOrder.updateMany({
             where: {
                 salesOrderId: orderId,
-                status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] },
+                status: { in: ['SHIPPED', 'IN_TRANSIT', 'ARRIVED'] },
             },
             data: { status: 'DELIVERED' },
         });

@@ -65,6 +65,15 @@ export default async function WarehouseMobileOutgoingDetailPage({
             : [];
 
     return (
-        <WarehouseOutgoingDetailClient order={order} attachments={attachments} />
+        <WarehouseOutgoingDetailClient
+            key={order.items
+                .map(
+                    (item) =>
+                        `${item.id}:${item.quantity}:${item.verifiedQuantity}`,
+                )
+                .join('|')}
+            order={order}
+            attachments={attachments}
+        />
     );
 }

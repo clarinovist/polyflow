@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { BusinessRuleError, ValidationError } from '@/lib/errors/errors';
 import { buildInvoiceReturnBasis } from './invoice-return-basis';
+import { readInvoiceSnapshot } from '@/lib/finance/invoice-snapshot';
 
 /** A draft can be reissued, but a recognized invoice's historical basis cannot be replaced. */
 export async function refreshDraftInvoiceReturnBasis(
@@ -52,6 +53,67 @@ export async function captureInvoiceReturnBasis(
     });
     if (!invoice)
         throw new BusinessRuleError('Invoice sumber tidak ditemukan.');
+    const snapshot = readInvoiceSnapshot(invoice.commercialSnapshot);
+    if (snapshot) {
+        // Shipping-only supplementary invoices have no returnable goods basis.
+        if (snapshot.items.length === 0) return 'REVIEW_REQUIRED';
+        const journals = await tx.journalEntry.findMany({
+            where: {
+                referenceType: 'SALES_INVOICE',
+                referenceId: invoiceId,
+                status: { not: 'VOIDED' },
+            },
+            include: {
+                lines: { include: { account: { select: { type: true } } } },
+            },
+        });
+        if (journals.length !== 1)
+            throw new BusinessRuleError(
+                'Jurnal sumber snapshot invoice tidak tersedia atau ambigu.',
+            );
+        const journal = journals[0];
+        const tax = journal.lines
+            .filter((line) => line.account.type === 'LIABILITY')
+            .reduce(
+                (sum, line) => sum.plus(line.credit).minus(line.debit),
+                new Prisma.Decimal(0),
+            );
+        const lines = snapshot.items.map((item) => ({
+            sourceItemId: item.sourceItemId,
+            productVariantId: item.productVariantId,
+            quantity: String(item.quantity),
+            netAmount: item.netAmount,
+            taxAmount: item.taxAmount,
+            discountAmount: item.discountAmount,
+        }));
+        const evidence = {
+            totalAmount: invoice.totalAmount.toFixed(2),
+            roundingAmount: new Prisma.Decimal(
+                invoice.roundingAmount ?? 0,
+            ).toFixed(2),
+            shippingAmount: snapshot.shippingAmount,
+            journalTaxAmount: tax.toFixed(2),
+            lines,
+        };
+        buildInvoiceReturnBasis(evidence);
+        await tx.invoiceReturnBasisLine.createMany({
+            data: lines.map((line) => ({
+                ...line,
+                invoiceId,
+                sourceJournalId: journal.id,
+                sourceEvidence: {
+                    version: 1,
+                    capturedAtInvoiceCreation: true,
+                    commercialSnapshotVersion: 1,
+                    invoiceTotal: evidence.totalAmount,
+                    shippingAmount: evidence.shippingAmount,
+                    roundingAmount: evidence.roundingAmount,
+                    journalTaxAmount: evidence.journalTaxAmount,
+                },
+            })),
+        });
+        return 'CAPTURED';
+    }
     const other = await tx.invoice.findMany({
         where: {
             salesOrderId: invoice.salesOrderId,

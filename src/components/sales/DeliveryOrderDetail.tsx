@@ -2,6 +2,7 @@
 
 import type { DeliveryOrderDetailData } from './delivery-detail/types';
 import { DeliveryItemsCard } from './delivery-detail/DeliveryItemsCard';
+import { DeliveryRevisionDialog } from './DeliveryRevisionDialog';
 import { DeliveryProgressTimeline } from './delivery-detail/DeliveryProgressTimeline';
 import { DeliveryInformationCard } from './delivery-detail/DeliveryInformationCard';
 import { DeliveryFleetCard } from './delivery-detail/DeliveryFleetCard';
@@ -10,12 +11,7 @@ import { DeliveryOperationalEvidenceCard } from './delivery-detail/DeliveryOpera
 import { DeliveryPrintActions } from './delivery-detail/DeliveryPrintActions';
 import { DeliveryPrintPreview } from './delivery-detail/DeliveryPrintPreview';
 
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -132,6 +128,9 @@ export function DeliveryOrderDetail({
     const [reverseReason, setReverseReason] = useState('');
     const [isReversing, setIsReversing] = useState(false);
 
+    const loadVersion = items
+        .map((item) => `${item.id}:${item.quantity}:${item.verifiedQuantity}`)
+        .join('|');
     // Load stock readiness when DO is PENDING or LOADING (via server action — no Prisma on client)
     useEffect(() => {
         if (order.status === 'PENDING' || order.status === 'LOADING') {
@@ -141,7 +140,7 @@ export function DeliveryOrderDetail({
                 })
                 .catch(() => {});
         }
-    }, [order.id, order.status]);
+    }, [order.id, order.status, loadVersion]);
 
     const startEditQty = () => {
         const qtyInit: Record<string, string> = {};
@@ -219,6 +218,10 @@ export function DeliveryOrderDetail({
         try {
             const result = await updateDeliveryStatus(order.id, newStatus);
             if (result.success) {
+                if (result.data?.invoicePending)
+                    toast.warning(
+                        'Barang sudah dikirim, tetapi invoice belum berhasil disinkronkan. Hubungi Finance untuk membuat/sinkronkan invoice; jangan kirim ulang.',
+                    );
                 toast.success(
                     `Status berhasil diubah ke ${getDeliveryStatusLabel(newStatus)}`,
                 );
@@ -404,6 +407,21 @@ export function DeliveryOrderDetail({
 
     return (
         <div className="space-y-6">
+            {canEditQty && !warehouseMode && (
+                <div className="flex flex-wrap items-center gap-3">
+                    <DeliveryRevisionDialog
+                        deliveryOrderId={order.id}
+                        onSaved={() => {
+                            setEditingQty(false);
+                            setStockReadiness(null);
+                        }}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                        Jumlah atau barang berbeda? Revisi SO dan SJ bersama
+                        sebelum verifikasi muatan.
+                    </p>
+                </div>
+            )}
             {/* Qty exceeds SO residual — guided notification dialog */}
             <AlertDialog
                 open={!!qtyMismatchNotice}
@@ -435,8 +453,8 @@ export function DeliveryOrderDetail({
                                 </p>
                                 <p>
                                     {warehouseMode
-                                        ? 'Hubungi sales untuk mengubah qty di Sales Order terlebih dahulu, lalu ulangi pengisian qty di Surat Jalan.'
-                                        : 'Ubah qty di Sales Order terlebih dahulu, lalu ulangi pengisian qty di Surat Jalan.'}
+                                        ? 'Hubungi sales untuk menggunakan Revisi muatan / barang di detail Surat Jalan.'
+                                        : 'Gunakan Revisi muatan / barang di halaman ini agar SO dan Surat Jalan diperbarui bersama.'}
                                 </p>
                             </div>
                         </AlertDialogDescription>
@@ -796,6 +814,7 @@ export function DeliveryOrderDetail({
 
                     {canEditQty && (
                         <LoadVerifyPanel
+                            key={loadVersion}
                             deliveryOrderId={order.id}
                             items={items.map((item) => ({
                                 id: item.id,

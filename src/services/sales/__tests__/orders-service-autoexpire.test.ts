@@ -12,7 +12,7 @@ vi.mock("@/lib/modules/tenant-entitlements", () => ({
   hasTenantModule: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("@/lib/core/prisma", () => ({
+vi.mock("@/lib/core/prisma", () => ({ getTenantDbFromContext: () => prisma,
   prisma: {
     salesOrder: {
       findMany: vi.fn(),

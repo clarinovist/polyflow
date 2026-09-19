@@ -212,7 +212,7 @@ describe('DeliveryOrderDetail — qty mismatch dialog', () => {
         });
 
         expect(
-            screen.getByText(/Hubungi sales untuk mengubah qty/),
+            screen.getByText(/Hubungi sales untuk menggunakan Revisi muatan/),
         ).toBeDefined();
         expect(screen.getByText('Lihat Sales Order')).toBeDefined();
     });

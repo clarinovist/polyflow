@@ -9,9 +9,10 @@ import { updateInvoiceStatus } from '@/services/finance/invoice-lifecycle-servic
 import { requireOpenJournalPeriod } from '@/services/finance/sales-recognition-service';
 import { logActivity } from '@/lib/tools/audit';
 
-vi.mock('@/lib/core/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: () => prisma,
     prisma: {
         deliveryOrder: {
+            count: vi.fn().mockResolvedValue(0),
             findUnique: vi.fn(),
             update: vi.fn(),
         },
@@ -115,6 +116,12 @@ describe('reverseDeliveryShipment', () => {
         vi.mocked(prisma.salesReturnReceiptLine.count).mockResolvedValue(1);
         await expect(reverseDeliveryShipment('do-1', 'user-1', 'Synthetic correction')).rejects.toThrow('retur');
         expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+    });
+    it('rejects multi-shipment reversal rather than voiding invoices of other deliveries', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue({ id: 'do-1', salesOrderId: 'so-1', status: 'SHIPPED' } as never);
+        vi.mocked(prisma.deliveryOrder.count).mockResolvedValueOnce(1);
+        await expect(reverseDeliveryShipment('do-1', 'user-1', 'Correction')).rejects.toThrow(/beberapa pengiriman/);
+        expect(updateInvoiceStatus).not.toHaveBeenCalled();
     });
     beforeEach(() => {
         vi.clearAllMocks();

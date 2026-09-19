@@ -8,8 +8,9 @@ import { prisma } from "@/lib/core/prisma";
 import { SalesOrderStatus, SalesOrderType, ProductType } from "@prisma/client";
 import { logActivity } from "@/lib/tools/audit";
 
-vi.mock("@/lib/core/prisma", () => ({
+vi.mock("@/lib/core/prisma", () => ({ getTenantDbFromContext: () => prisma,
   prisma: {
+    $queryRaw: vi.fn(),
     salesOrder: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -57,6 +58,7 @@ describe("deliverOrder", () => {
       orderNumber: "SO-2026-0001",
       orderType: SalesOrderType.MAKE_TO_ORDER,
       status: SalesOrderStatus.SHIPPED,
+      items: [{ quantity: 100, deliveredQty: 100 }],
     } as never);
     vi.mocked(prisma.salesOrder.update).mockResolvedValue({} as never);
     vi.mocked(prisma.deliveryOrder.updateMany).mockResolvedValue({
@@ -76,7 +78,7 @@ describe("deliverOrder", () => {
     expect(prisma.deliveryOrder.updateMany).toHaveBeenCalledWith({
       where: {
         salesOrderId: "so-1",
-        status: { notIn: ["DELIVERED", "CANCELLED", "RETURNED"] },
+        status: { in: ["SHIPPED", "IN_TRANSIT", "ARRIVED"] },
       },
       data: { status: "DELIVERED" },
     });
@@ -117,6 +119,12 @@ describe("deliverOrder", () => {
         details: "Sales Order SO-2026-0002 marked as Service Delivered",
       }),
     );
+  });
+
+  it('rejects marking a residual SO delivered from the whole-order shortcut', async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({ id: 'so-1', status: 'READY_TO_SHIP', orderType: 'MAKE_TO_STOCK', items: [{ quantity: 100, deliveredQty: 80 }] } as never);
+    await expect(deliverOrder('so-1', 'user-1')).rejects.toThrow(/sisa pesanan/);
+    expect(prisma.deliveryOrder.updateMany).not.toHaveBeenCalled();
   });
 
   it("throws when SalesOrder is not found", async () => {

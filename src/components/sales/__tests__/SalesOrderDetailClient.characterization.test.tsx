@@ -91,7 +91,7 @@ function draftInvoice(): SerializedSalesOrder['invoices'][number] {
     return {
         id: 'fixture-invoice', invoiceNumber: 'INV-FIXTURE', salesOrderId: 'fixture-order',
         invoiceDate: NOW, dueDate: null, status: 'DRAFT', totalAmount: 125_000,
-        roundingAmount: null, paidAmount: 0, creditedAmount: 0, notes: null, createdAt: NOW, updatedAt: NOW,
+        roundingAmount: null, commercialSnapshot: null, paidAmount: 0, creditedAmount: 0, priceAdjustmentAmount: 0, notes: null, createdAt: NOW, updatedAt: NOW,
         termOfPaymentDays: 30,
     };
 }

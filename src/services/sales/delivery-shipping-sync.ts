@@ -1,3 +1,4 @@
+import { salesTransactionClient } from './transaction-client';
 /**
  * Sync Sales Order shipping cost from Delivery Order charges.
  * Computes Σ totalCharge of billable DOs → SO.shippingCost + goods from delivered qty.
@@ -241,7 +242,12 @@ export async function syncSalesOrderShippingFromDeliveries(
     // Check invoices
     const invoices = await db.invoice.findMany({
         where: { salesOrderId, status: { not: 'CANCELLED' } },
-        select: { id: true, status: true, roundingAmount: true },
+        select: {
+            id: true,
+            status: true,
+            roundingAmount: true,
+            commercialSnapshot: true,
+        },
     });
 
     const hasLocked = invoices.some((i) =>
@@ -263,7 +269,9 @@ export async function syncSalesOrderShippingFromDeliveries(
     // Rounded invoices require SO totals, invoice, replacement GL and audit to be atomic.
     const needsTransaction =
         goodsBasis === 'ORDERED' &&
-        invoices.some((i) => i.roundingAmount != null);
+        invoices.some(
+            (i) => i.roundingAmount != null || i.commercialSnapshot != null,
+        );
     const persist = async (writer: Prisma.TransactionClient) => {
         if (needsTransaction) {
             await writer.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
@@ -281,7 +289,10 @@ export async function syncSalesOrderShippingFromDeliveries(
         let invoiceUpdated = false;
         if (goodsBasis === 'ORDERED') {
             for (const inv of invoices.filter((i) => i.status === 'DRAFT')) {
-                if (inv.roundingAmount != null) {
+                if (
+                    inv.roundingAmount != null ||
+                    inv.commercialSnapshot != null
+                ) {
                     const sync = async (tx: Prisma.TransactionClient) => {
                         await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${inv.id} FOR UPDATE`;
                         const current = await tx.invoice.findUniqueOrThrow({
@@ -292,23 +303,47 @@ export async function syncSalesOrderShippingFromDeliveries(
                                 'Invoice sudah dikonfirmasi. Muat ulang sebelum mengubah ongkir.',
                             );
                         }
-                        const amounts = calculateInvoiceRounding(totalAmount);
+                        const { buildInvoiceSnapshot } =
+                            await import('@/services/finance/invoice-snapshot-service');
+                        const allInvoices = await tx.invoice.findMany({
+                            where: {
+                                salesOrderId,
+                                status: { not: 'CANCELLED' },
+                            },
+                        });
+                        const snapshot = await buildInvoiceSnapshot(
+                            tx,
+                            salesOrderId,
+                            allInvoices,
+                            inv.id,
+                        );
+                        const amounts =
+                            current.roundingAmount != null
+                                ? calculateInvoiceRounding(
+                                      Number(snapshot.commercialTotal),
+                                  )
+                                : {
+                                      totalAmount: Number(
+                                          snapshot.commercialTotal,
+                                      ),
+                                  };
                         await tx.invoice.update({
                             where: { id: inv.id },
-                            data: amounts,
+                            data: { ...amounts, commercialSnapshot: snapshot },
                         });
                         await AutoJournalService.handleSalesInvoiceCreated(
                             inv.id,
                             { tx, refreshDraft: true },
                         );
-                        const { refreshDraftInvoiceReturnBasis } = await import('@/services/finance/invoice-return-basis-capture');
+                        const { refreshDraftInvoiceReturnBasis } =
+                            await import('@/services/finance/invoice-return-basis-capture');
                         await refreshDraftInvoiceReturnBasis(tx, inv.id);
                         await logActivity({
                             userId: opts?.userId ?? 'system',
                             action: 'SYNC_INVOICE_SHIPPING',
                             entityType: 'Invoice',
                             entityId: inv.id,
-                            details: `Invoice total=${amounts.totalAmount}, rounding=${amounts.roundingAmount}`,
+                            details: `Invoice total=${amounts.totalAmount}, rounding=${'roundingAmount' in amounts ? amounts.roundingAmount : 'legacy'}`,
                             tx,
                         });
                     };
@@ -337,7 +372,7 @@ export async function syncSalesOrderShippingFromDeliveries(
     };
     const invoiceUpdated =
         needsTransaction && !opts?.tx
-            ? await prisma.$transaction(persist)
+            ? await salesTransactionClient().$transaction(persist)
             : await persist(db);
 
     return {

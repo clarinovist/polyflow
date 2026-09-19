@@ -85,14 +85,37 @@ async function run(candidate, shard) {
     process.exitCode = exitCode;
 }
 
-async function merge(input) {
+function readBundles(input) {
+    return readdirSync(input).map(name => ({
+        dir: `${input}/${name}`, report: readJson(`${input}/${name}/result.json`),
+    }));
+}
+
+export function validateComparison(singles, combined, expected) {
+    if (singles.length !== 2 || singles.map(r => r.candidate).sort().join(',') !== 'default,explicit') {
+        throw new Error('Missing default/explicit comparator');
+    }
+    for (const report of [...singles, combined]) {
+        for (const key of ['run', 'attempt', 'sha', 'fingerprint']) {
+            if (report[key] !== expected[key]) throw new Error(`Comparison identity mismatch: ${key}`);
+        }
+        if (report.exitCode !== 0 || report.reason !== 'passed' || report.errors !== 0 ||
+            !report.files.length || report.files.some(file => file.failed || file.pending)) {
+            throw new Error('Failed/incomplete comparison result');
+        }
+    }
+    if (singles.some(report => !report.coverageGenerated) || combined.candidate !== 'shards' ||
+        combined.globalCoveragePassed !== true) throw new Error('Missing complete coverage gate');
+    reconcile(singles[0], [singles[1], combined]);
+}
+
+export async function merge(input) {
     const directory = resolve('coverage/ci-merged');
     mkdirSync(`${directory}/blobs`, { recursive: true });
     process.env.CI_METRICS_FILE = `${directory}/metrics.jsonl`;
     const expected = identity();
-    const entries = readdirSync(input).filter(name => name.startsWith('bench-'));
-    const bundles = entries.map(name => ({ dir: `${input}/${name}`, report: readJson(`${input}/${name}/result.json`) }));
-    const reports = bundles.filter(bundle => bundle.report.candidate === 'shards');
+    // Input contains ONLY the two shard artifacts; comparators are a separate gate.
+    const reports = readBundles(input);
     const files = await discovery(directory);
     validateReports(reports.map(bundle => bundle.report), expected, files);
     for (const { dir, report } of reports) {
@@ -108,27 +131,26 @@ async function merge(input) {
     });
     if (code !== 0) { process.exitCode = code; return; }
     const combined = readJson(`${directory}/manifest.json`);
-    const singles = bundles.filter(bundle => bundle.report.candidate !== 'shards');
-    if (singles.length !== 2 || singles.map(b => b.report.candidate).sort().join(',') !== 'default,explicit') {
-        throw new Error('Missing default/explicit comparator');
-    }
-    for (const { report } of singles) {
-        for (const key of ['run', 'attempt', 'sha', 'fingerprint']) {
-            if (report[key] !== expected[key]) throw new Error(`Comparator identity mismatch: ${key}`);
-        }
-        if (report.exitCode !== 0 || report.reason !== 'passed' || report.errors || !report.coverageGenerated) {
-            throw new Error('Failed comparator');
-        }
-    }
     const collected = { files: reports.flatMap(bundle => bundle.report.files) };
-    reconcile(singles[0].report, [singles[1].report, collected, combined]);
-    writeFileSync(`${directory}/result.json`, JSON.stringify({ ...expected, ...combined, exitCode: code }));
-    emit({ kind: 'benchmark-gate', result: 'passed', fileCount: files.length });
+    reconcile(collected, [combined]);
+    // onCoverage is not replayed by Vitest merge. Attest global coverage only AFTER
+    // the merge process has exited successfully (including original thresholds).
+    writeFileSync(`${directory}/result.json`, JSON.stringify({ ...expected, ...combined,
+        candidate: 'shards', globalCoveragePassed: true, exitCode: code }));
+    emit({ kind: 'shard-coverage-gate', result: 'passed', fileCount: files.length });
+}
+
+function compare(input, merged) {
+    const singles = readBundles(input).map(bundle => bundle.report);
+    const combined = readJson(merged);
+    validateComparison(singles, combined, identity());
+    emit({ kind: 'benchmark-gate', result: 'passed', fileCount: combined.files.length });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const [mode, ...args] = process.argv.slice(2);
     if (mode === 'run') await run(...args);
     else if (mode === 'merge') await merge(...args);
-    else throw new Error('Usage: benchmark.mjs run <default|explicit|shards> [1/2|2/2] | merge <artifacts>');
+    else if (mode === 'compare') compare(...args);
+    else throw new Error('Usage: benchmark.mjs run <default|explicit|shards> [1/2|2/2] | merge <shard-artifacts> | compare <candidate-artifacts> <merged-result>');
 }

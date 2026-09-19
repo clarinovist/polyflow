@@ -1,4 +1,6 @@
+import { salesTransactionClient } from './transaction-client';
 import { prisma } from '@/lib/core/prisma';
+import { readInvoiceSnapshot } from '@/lib/finance/invoice-snapshot';
 import {
     SalesOrderStatus,
     SalesOrderType,
@@ -490,8 +492,10 @@ export async function updateOrder(
         where: { id: data.id },
         include: {
             items: true,
-            invoices: { select: { id: true, status: true } },
-            deliveryOrders: { select: { id: true } },
+            invoices: {
+                select: { id: true, status: true, commercialSnapshot: true },
+            },
+            deliveryOrders: { select: { id: true, status: true } },
         },
     });
 
@@ -518,7 +522,78 @@ export async function updateOrder(
         );
     }
 
+    if (
+        currentOrder.deliveryOrders.some((delivery) =>
+            ['PENDING', 'LOADING'].includes(delivery.status),
+        )
+    ) {
+        throw new BusinessRuleError(
+            'Ada Surat Jalan aktif. Gunakan Revisi muatan / barang di detail Surat Jalan agar SO dan SJ diperbarui bersama.',
+        );
+    }
+    if (
+        currentOrder.invoices.some(
+            (invoice) =>
+                invoice.status !== 'CANCELLED' &&
+                invoice.commercialSnapshot == null,
+        )
+    ) {
+        throw new BusinessRuleError(
+            'Invoice historis belum memiliki snapshot rincian. Periksa Finance sebelum merevisi SO.',
+        );
+    }
+    const billed = new Map<string, number>();
+    for (const invoice of currentOrder.invoices.filter(
+        (i) => !['DRAFT', 'CANCELLED'].includes(i.status),
+    )) {
+        for (const item of readInvoiceSnapshot(invoice.commercialSnapshot)
+            ?.items ?? []) {
+            billed.set(
+                item.sourceItemId,
+                (billed.get(item.sourceItemId) ?? 0) + item.quantity,
+            );
+        }
+    }
+    if (
+        currentOrder.items.some((item) => {
+            const submitted = data.items.find((line) => line.id === item.id);
+            const quantity = billed.get(item.id) ?? 0;
+            return (
+                quantity > 0 &&
+                (!submitted ||
+                    submitted.productVariantId !== item.productVariantId ||
+                    submitted.quantity < quantity ||
+                    submitted.unitPrice !== Number(item.unitPrice) ||
+                    (submitted.discountPercent ?? 0) !==
+                        Number(item.discountPercent ?? 0) ||
+                    (submitted.taxPercent ?? 0) !==
+                        Number(item.taxPercent ?? 0) ||
+                    (submitted.ppnMode ?? 'EXCLUDE') !== item.ppnMode)
+            );
+        })
+    )
+        throw new BusinessRuleError(
+            'Qty/barang sudah ditagihkan. Selesaikan koreksi invoice melalui Finance sebelum mengurangi pesanan.',
+        );
     const hasInvoices = currentOrder.invoices.length > 0;
+    for (const existing of currentOrder.items.filter(
+        (item) => Number(item.deliveredQty) > 0,
+    )) {
+        const submitted = data.items.find((item) => item.id === existing.id);
+        if (
+            !submitted ||
+            submitted.productVariantId !== existing.productVariantId ||
+            submitted.unitPrice !== Number(existing.unitPrice) ||
+            (submitted.discountPercent ?? 0) !==
+                Number(existing.discountPercent ?? 0) ||
+            (submitted.taxPercent ?? 0) !== Number(existing.taxPercent ?? 0) ||
+            (submitted.ppnMode ?? 'EXCLUDE') !== (existing.ppnMode ?? 'EXCLUDE')
+        ) {
+            throw new BusinessRuleError(
+                'Barang dan harga/pajak yang sudah dikirim tidak boleh diganti atau dihapus. Gunakan revisi muatan untuk pengiriman berikutnya.',
+            );
+        }
+    }
 
     // Build a map of existing items by id for comparison
     const existingItemsMap = new Map(
@@ -602,7 +677,33 @@ export async function updateOrder(
     );
     const needsPendingUpdate = discountCeilingPending || hasZeroPriceUpdate;
 
-    return await prisma.$transaction(async (tx) => {
+    return await salesTransactionClient().$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${data.id} FOR UPDATE`;
+        const fresh = await tx.salesOrder.findUnique({
+            where: { id: data.id },
+            include: {
+                deliveryOrders: { select: { status: true } },
+                invoices: { select: { id: true, status: true } },
+            },
+        });
+        if (
+            !fresh ||
+            fresh.status !== currentOrder.status ||
+            JSON.stringify(
+                fresh.invoices.map((i) => [i.id, i.status]).sort(),
+            ) !==
+                JSON.stringify(
+                    currentOrder.invoices.map((i) => [i.id, i.status]).sort(),
+                ) ||
+            fresh.updatedAt?.getTime() !== currentOrder.updatedAt?.getTime() ||
+            fresh.deliveryOrders.some((delivery) =>
+                ['PENDING', 'LOADING'].includes(delivery.status),
+            )
+        ) {
+            throw new BusinessRuleError(
+                'SO atau Surat Jalan telah berubah. Muat ulang sebelum mengedit.',
+            );
+        }
         // ── Diff by item id (bukan delete-all-then-recreate) ──────────────
         // Pola lama menghapus item undelivered lalu membuat ULANG seluruh
         // payload. Tiga akibatnya:
@@ -820,7 +921,7 @@ export async function confirmOrder(
     // Track whether we had creatable shortages (for MTS status upgrade)
     let hadCreatableShortage = false;
 
-    await prisma.$transaction(async (tx) => {
+    await salesTransactionClient().$transaction(async (tx) => {
         if (order.sourceLocationId) {
             const variantIds = order.items.map((item) => item.productVariantId);
 
@@ -1168,7 +1269,7 @@ export async function cancelOrder(id: string, userId: string) {
         );
     }
 
-    await prisma.$transaction(async (tx) => {
+    await salesTransactionClient().$transaction(async (tx) => {
         await tx.stockReservation.updateMany({
             where: {
                 referenceId: order.id,

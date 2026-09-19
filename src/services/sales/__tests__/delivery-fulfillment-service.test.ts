@@ -17,9 +17,11 @@ import { AccountingService } from "@/services/accounting/accounting-service";
 import { InvoiceService } from "@/services/finance/invoice-service";
 
 // --- Mocks ---
+vi.mock('@/services/finance/invoice-snapshot-service', () => ({ assertInvoiceAllocationKnown: vi.fn() }));
 
-vi.mock("@/lib/core/prisma", () => ({
+vi.mock("@/lib/core/prisma", () => ({ getTenantDbFromContext: () => prisma,
   prisma: {
+    $queryRaw: vi.fn(),
     salesOrder: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -126,6 +128,7 @@ function makeDeliveryOrder(overrides: Record<string, unknown> = {}) {
       {
         id: "doi-1",
         productVariantId: "pv-1",
+        verifiedQuantity: 100,
         quantity: { toNumber: () => 100 },
         enteredQuantity: { toNumber: () => 100 },
         enteredUnit: "Kg",
@@ -134,6 +137,7 @@ function makeDeliveryOrder(overrides: Record<string, unknown> = {}) {
       {
         id: "doi-2",
         productVariantId: "pv-2",
+        verifiedQuantity: 50,
         quantity: { toNumber: () => 50 },
         enteredQuantity: { toNumber: () => 50 },
         enteredUnit: "Kg",
@@ -572,12 +576,65 @@ describe("commitDeliveryShipment", () => {
   });
 });
 
+describe('partial shipment safety', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.deliveryOrder.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([]);
+  });
+
+  it('keeps SO READY_TO_SHIP after 80 of 100, so remaining 20 can be sent later', async () => {
+    const record = makeDeliveryOrder();
+    record.items[0].quantity = { toNumber: () => 80 };
+    record.items[0].verifiedQuantity = 80;
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(record as never);
+    await commitDeliveryShipment('do-1', 'user-1');
+    expect(prisma.salesOrder.update).toHaveBeenCalledWith({ where: { id: 'so-1' }, data: { status: 'READY_TO_SHIP' } });
+    expect(prisma.salesOrderItem.update).toHaveBeenCalledWith({ where: { id: 'soi-1' }, data: { deliveredQty: { increment: 80 } } });
+  });
+
+  it('rejects unmatched and duplicate variants before any stock deduction', async () => {
+    const record = makeDeliveryOrder();
+    record.items[0].productVariantId = 'unknown';
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(record as never);
+    await expect(commitDeliveryShipment('do-1', 'user-1')).rejects.toThrow(/tidak cocok/);
+    record.items[0].productVariantId = 'pv-2';
+    await expect(commitDeliveryShipment('do-1', 'user-1')).rejects.toThrow(/duplikat/);
+    expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+  });
+
+  it('does not ship empty loads or create an invoice for the full SO', async () => {
+    const record = makeDeliveryOrder();
+    record.items.forEach((item) => { item.quantity = { toNumber: () => 0 }; item.verifiedQuantity = 0; });
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(record as never);
+    await expect(commitDeliveryShipment('do-1', 'user-1')).rejects.toThrow(/Tidak ada barang/);
+    expect(InvoiceService.createDraftInvoiceFromOrder).not.toHaveBeenCalled();
+    expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+  });
+
+  it('reports invoicePending if invoice creation fails after stock shipment', async () => {
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(makeDeliveryOrder() as never);
+    vi.mocked(InvoiceService.createDraftInvoiceFromOrder).mockRejectedValueOnce(new Error('invoice blocked'));
+    expect(await commitDeliveryShipment('do-1', 'user-1')).toMatchObject({ success: true, invoicePending: true });
+    expect(InventoryCoreService.deductStock).toHaveBeenCalled();
+  });
+
+  it('rejects over-delivery before stock changes', async () => {
+    const record = makeDeliveryOrder();
+    record.items[0].quantity = { toNumber: () => 101 };
+    record.items[0].verifiedQuantity = 101;
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(record as never);
+    await expect(commitDeliveryShipment('do-1', 'user-1')).rejects.toThrow(/Residual/);
+    expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+  });
+});
+
 // =============================================================================
 // getDeliveryStockReadiness
 // =============================================================================
 describe("getDeliveryStockReadiness", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("returns readiness per line with available stock", async () => {

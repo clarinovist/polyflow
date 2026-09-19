@@ -1,3 +1,4 @@
+import { salesTransactionClient } from './transaction-client';
 /**
  * Delivery Fulfillment Service
  *
@@ -115,153 +116,161 @@ export async function createDeliveryOrderFromSalesOrder(
         plannedItems,
     } = params;
 
-    // 1. Load SO + items with product type
-    const salesOrder = await prisma.salesOrder.findUnique({
-        where: { id: salesOrderId },
-        include: {
-            items: {
-                include: {
-                    productVariant: { include: { product: true } },
+    return salesTransactionClient().$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
+        // 1. Load SO + items with product type
+        const salesOrder = await tx.salesOrder.findUnique({
+            where: { id: salesOrderId },
+            include: {
+                items: {
+                    include: {
+                        productVariant: { include: { product: true } },
+                    },
                 },
             },
-        },
-    });
+        });
 
-    if (!salesOrder) throw new NotFoundError('Sales Order', salesOrderId);
+        if (!salesOrder) throw new NotFoundError('Sales Order', salesOrderId);
 
-    // 2. Guard SO status (D1)
-    if (!ALLOWED_SO_STATUSES_FOR_DO.includes(salesOrder.status)) {
-        throw new BusinessRuleError(
-            `Tidak bisa membuat SJ dari SO status ${salesOrder.status}. ` +
-                `Hanya boleh dari: CONFIRMED, IN_PRODUCTION, READY_TO_SHIP.`,
-        );
-    }
-
-    // 3. Physical lines with residual qty only (D7, D12)
-    // If plannedItems provided, use those quantities; otherwise use full residual
-    const plannedItemMap = new Map(
-        (plannedItems || []).map((pi) => [
-            pi.salesOrderItemId,
-            pi.plannedQuantity,
-        ]),
-    );
-
-    const residualLines = salesOrder.items
-        .filter(
-            (item) =>
-                item.productVariant.product.productType !== ProductType.SERVICE,
-        )
-        .map((item) => {
-            const qty = item.quantity.toNumber();
-            const delivered = item.deliveredQty.toNumber();
-            const fullResidual = Math.round((qty - delivered) * 10000) / 10000;
-
-            // Use planned quantity if provided, otherwise full residual
-            const plannedQty = plannedItemMap.get(item.id);
-            const residual =
-                plannedQty !== undefined
-                    ? Math.round(plannedQty * 10000) / 10000
-                    : fullResidual;
-
-            return { item, residual, fullResidual };
-        })
-        .filter(({ residual }) => residual > 0);
-
-    if (residualLines.length === 0) {
-        throw new BusinessRuleError(
-            'Tidak ada item fisik tersisa untuk dikirim (semua SERVICE atau residual = 0).',
-        );
-    }
-
-    // 4. Check no open DO exists for this SO (D6)
-    const openDos = await prisma.deliveryOrder.findMany({
-        where: {
-            salesOrderId,
-            status: { in: ['PENDING', 'LOADING'] },
-        },
-        select: { id: true, orderNumber: true, status: true },
-    });
-
-    if (openDos.length > 0) {
-        throw new ConflictError(
-            `Sudah ada Surat Jalan aktif (${openDos[0].orderNumber} status ${openDos[0].status}). ` +
-                `Buka SJ tersebut untuk melanjutkan, atau batalkan dulu sebelum membuat SJ baru.`,
-            {
-                openDoId: openDos[0].id,
-                openDoNumber: openDos[0].orderNumber,
-                openDoStatus: openDos[0].status,
-                salesOrderId,
-            },
-        );
-    }
-
-    // 5. Generate DO number
-    const lastDo = await prisma.deliveryOrder.findFirst({
-        orderBy: { createdAt: 'desc' },
-    });
-
-    const year = new Date().getFullYear();
-    let nextDoNumber = 1;
-    if (lastDo?.orderNumber?.startsWith(`DO-${year}-`)) {
-        const parts = lastDo.orderNumber.split('-');
-        if (parts.length === 3) {
-            nextDoNumber = parseInt(parts[2]) + 1;
+        // 2. Guard SO status (D1)
+        if (!ALLOWED_SO_STATUSES_FOR_DO.includes(salesOrder.status)) {
+            throw new BusinessRuleError(
+                `Tidak bisa membuat SJ dari SO status ${salesOrder.status}. ` +
+                    `Hanya boleh dari: CONFIRMED, IN_PRODUCTION, READY_TO_SHIP.`,
+            );
         }
-    }
-    const doNumber = `DO-${year}-${nextDoNumber.toString().padStart(4, '0')}`;
 
-    // 6. Create DO with residual physical quantities only
-    const deliveryOrder = await prisma.deliveryOrder.create({
-        data: {
-            orderNumber: doNumber,
-            salesOrderId,
-            sourceLocationId,
-            status: 'PENDING',
-            deliveryDate: new Date(),
-            carrier,
-            trackingNumber,
-            notes,
-            createdById: userId,
-            vehicleId: vehicleId || null,
-            appliedRateType: (appliedRateType as never) || null,
-            appliedCostRate: appliedCostRate ?? null,
-            appliedChargeRate: appliedChargeRate ?? null,
-            appliedRouteName: appliedRouteName || null,
-            totalCost: totalCost ?? null,
-            totalCharge: totalCharge ?? null,
-            estimatedWeightKg: estimatedWeightKg ?? null,
-            destinationAddress: destinationAddress || null,
-            items: {
-                create: residualLines.map(({ item, residual }) => {
-                    const factor = item.conversionFactorSnapshot
-                        ? item.conversionFactorSnapshot.toNumber()
-                        : null;
-                    const enteredQty =
-                        factor && factor > 0
-                            ? Math.round((residual / factor) * 10000) / 10000
-                            : residual;
-                    return {
-                        productVariantId: item.productVariantId,
-                        quantity: residual,
-                        enteredQuantity: enteredQty,
-                        enteredUnit: item.enteredUnit,
-                        conversionFactorSnapshot: item.conversionFactorSnapshot,
-                    };
-                }),
+        // 3. Physical lines with residual qty only (D7, D12)
+        // If plannedItems provided, use those quantities; otherwise use full residual
+        const plannedItemMap = new Map(
+            (plannedItems || []).map((pi) => [
+                pi.salesOrderItemId,
+                pi.plannedQuantity,
+            ]),
+        );
+
+        const residualLines = salesOrder.items
+            .filter(
+                (item) =>
+                    item.productVariant.product.productType !==
+                    ProductType.SERVICE,
+            )
+            .map((item) => {
+                const qty = item.quantity.toNumber();
+                const delivered = item.deliveredQty.toNumber();
+                const fullResidual =
+                    Math.round((qty - delivered) * 10000) / 10000;
+
+                // Use planned quantity if provided, otherwise full residual
+                const plannedQty = plannedItemMap.get(item.id);
+                const residual =
+                    plannedQty !== undefined
+                        ? Math.round(plannedQty * 10000) / 10000
+                        : fullResidual;
+
+                return { item, residual, fullResidual };
+            })
+            .filter(({ residual }) => residual > 0);
+
+        if (residualLines.length === 0) {
+            throw new BusinessRuleError(
+                'Tidak ada item fisik tersisa untuk dikirim (semua SERVICE atau residual = 0).',
+            );
+        }
+
+        // 4. Check no open DO exists for this SO (D6)
+        const openDos = await tx.deliveryOrder.findMany({
+            where: {
+                salesOrderId,
+                status: { in: ['PENDING', 'LOADING'] },
             },
-        },
-    });
+            select: { id: true, orderNumber: true, status: true },
+        });
 
-    await logActivity({
-        userId,
-        action: 'CREATE_DELIVERY_ORDER',
-        entityType: 'DeliveryOrder',
-        entityId: deliveryOrder.id,
-        details: `Delivery Order ${doNumber} created for SO ${salesOrder.orderNumber} (status PENDING — no stock deducted)`,
-        toStatus: 'PENDING',
-    });
+        if (openDos.length > 0) {
+            throw new ConflictError(
+                `Sudah ada Surat Jalan aktif (${openDos[0].orderNumber} status ${openDos[0].status}). ` +
+                    `Buka SJ tersebut untuk melanjutkan, atau batalkan dulu sebelum membuat SJ baru.`,
+                {
+                    openDoId: openDos[0].id,
+                    openDoNumber: openDos[0].orderNumber,
+                    openDoStatus: openDos[0].status,
+                    salesOrderId,
+                },
+            );
+        }
 
-    return deliveryOrder;
+        // 5. Generate DO number
+        const lastDo = await tx.deliveryOrder.findFirst({
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const year = new Date().getFullYear();
+        let nextDoNumber = 1;
+        if (lastDo?.orderNumber?.startsWith(`DO-${year}-`)) {
+            const parts = lastDo.orderNumber.split('-');
+            if (parts.length === 3) {
+                nextDoNumber = parseInt(parts[2]) + 1;
+            }
+        }
+        const doNumber = `DO-${year}-${nextDoNumber.toString().padStart(4, '0')}`;
+
+        // 6. Create DO with residual physical quantities only
+        const deliveryOrder = await tx.deliveryOrder.create({
+            data: {
+                orderNumber: doNumber,
+                salesOrderId,
+                sourceLocationId,
+                status: 'PENDING',
+                deliveryDate: new Date(),
+                carrier,
+                trackingNumber,
+                notes,
+                createdById: userId,
+                vehicleId: vehicleId || null,
+                appliedRateType: (appliedRateType as never) || null,
+                appliedCostRate: appliedCostRate ?? null,
+                appliedChargeRate: appliedChargeRate ?? null,
+                appliedRouteName: appliedRouteName || null,
+                totalCost: totalCost ?? null,
+                totalCharge: totalCharge ?? null,
+                estimatedWeightKg: estimatedWeightKg ?? null,
+                destinationAddress: destinationAddress || null,
+                items: {
+                    create: residualLines.map(({ item, residual }) => {
+                        const factor = item.conversionFactorSnapshot
+                            ? item.conversionFactorSnapshot.toNumber()
+                            : null;
+                        const enteredQty =
+                            factor && factor > 0
+                                ? Math.round((residual / factor) * 10000) /
+                                  10000
+                                : residual;
+                        return {
+                            productVariantId: item.productVariantId,
+                            quantity: residual,
+                            enteredQuantity: enteredQty,
+                            enteredUnit: item.enteredUnit,
+                            conversionFactorSnapshot:
+                                item.conversionFactorSnapshot,
+                        };
+                    }),
+                },
+            },
+        });
+
+        await logActivity({
+            userId,
+            action: 'CREATE_DELIVERY_ORDER',
+            entityType: 'DeliveryOrder',
+            entityId: deliveryOrder.id,
+            details: `Delivery Order ${doNumber} created for SO ${salesOrder.orderNumber} (status PENDING — no stock deducted)`,
+            toStatus: 'PENDING',
+            tx,
+        });
+
+        return deliveryOrder;
+    });
 }
 
 // =============================================================================
@@ -288,8 +297,12 @@ export async function commitDeliveryShipment(
     let salesOrderIdForInvoice = '';
     let doOrderNumber = '';
     let soOrderNumber = '';
-    const result = await prisma.$transaction(
+    const result = await salesTransactionClient().$transaction(
         async (tx) => {
+            // Serialize revision, receiving, and shipment on the SO before claiming the DO.
+            await tx.$queryRaw`SELECT so.id FROM "SalesOrder" so
+                JOIN "DeliveryOrder" d ON d."salesOrderId" = so.id
+                WHERE d.id = ${deliveryOrderId} FOR UPDATE OF so`;
             // 1. Atomic claim: ensure DO is committable and loadVerifiedAt is set, preventing concurrent double-shipment
             const claim = await tx.deliveryOrder.updateMany({
                 where: {
@@ -359,6 +372,10 @@ export async function commitDeliveryShipment(
                 );
             }
 
+            const { assertInvoiceAllocationKnown } =
+                await import('@/services/finance/invoice-snapshot-service');
+            await assertInvoiceAllocationKnown(tx, doRecord.salesOrderId);
+
             // 4. Collect physical items for stock posting
             const soItemMap = new Map(
                 doRecord.salesOrder.items.map((item) => [
@@ -367,6 +384,20 @@ export async function commitDeliveryShipment(
                 ]),
             );
 
+            if (
+                soItemMap.size !== doRecord.salesOrder.items.length ||
+                new Set(doRecord.items.map((item) => item.productVariantId))
+                    .size !== doRecord.items.length
+            ) {
+                throw new BusinessRuleError(
+                    'Varian duplikat pada SO/SJ. Hubungi admin sebelum mengirim.',
+                );
+            }
+            if (doRecord.salesOrder.priceStatus === 'PENDING') {
+                throw new BusinessRuleError(
+                    'Harga SO masih menunggu persetujuan.',
+                );
+            }
             const stockLines: Array<{
                 doItem: (typeof doRecord.items)[number];
                 soItem: (typeof doRecord.salesOrder.items)[number];
@@ -374,14 +405,27 @@ export async function commitDeliveryShipment(
 
             for (const doItem of doRecord.items) {
                 const soItem = soItemMap.get(doItem.productVariantId);
-                if (!soItem) continue;
+                if (!soItem)
+                    throw new BusinessRuleError(
+                        'Item Surat Jalan tidak cocok dengan SO. Revisi muatan dan verifikasi ulang.',
+                    );
 
                 const productType = soItem.productVariant.product.productType;
                 if (productType === ProductType.SERVICE) continue; // D12: skip SERVICE
 
                 // Validate residual: deliveredQty + DO qty <= SO qty — allow 0 after physical correction
                 const needed = doItem.quantity.toNumber();
-                if (needed <= 0) continue; // #7: qty fisik 0 → skip stock, DO still SHIPPED, invoiced as 0
+                if (
+                    doItem.verifiedQuantity == null ||
+                    Math.abs(Number(doItem.verifiedQuantity) - needed) > 0.00001
+                ) {
+                    throw new BusinessRuleError(
+                        'Muatan telah berubah atau belum diverifikasi. Verifikasi ulang semua baris sebelum mengirim.',
+                    );
+                }
+                if (!Number.isFinite(needed) || needed < 0)
+                    throw new BusinessRuleError('Qty muatan tidak valid.');
+                if (needed === 0) continue;
                 const delivered = soItem.deliveredQty.toNumber();
                 const totalQty = soItem.quantity.toNumber();
                 if (delivered + needed > totalQty) {
@@ -395,32 +439,9 @@ export async function commitDeliveryShipment(
             }
 
             if (stockLines.length === 0) {
-                // All lines corrected to 0 after physical check → still mark DO SHIPPED (nothing to deduct), SO stays, invoice 0
-                await tx.deliveryOrder.update({
-                    where: { id: deliveryOrderId },
-                    data: {
-                        status: DeliveryStatus.SHIPPED,
-                        stockCommittedAt: new Date(),
-                        stockCommittedById: userId,
-                        ...(opts?.trackingNumber && {
-                            trackingNumber: opts.trackingNumber,
-                        }),
-                        ...(opts?.carrier && { carrier: opts.carrier }),
-                    },
-                });
-                await InvoiceService.createDraftInvoiceFromOrder(
-                    doRecord.salesOrderId,
-                    userId,
+                throw new BusinessRuleError(
+                    'Tidak ada barang yang dimuat. Batalkan Surat Jalan, bukan Tandai Dikirim.',
                 );
-                await logActivity({
-                    userId,
-                    action: 'COMMIT_DELIVERY_SHIPMENT',
-                    entityType: 'DeliveryOrder',
-                    entityId: deliveryOrderId,
-                    details: `DO ${doRecord.orderNumber} committed with all lines 0 after correction — no stock movement.`,
-                    tx,
-                });
-                return { success: true };
             }
 
             // 5. Per physical line: consume reservations + validate + deduct stock
@@ -529,10 +550,31 @@ export async function commitDeliveryShipment(
                 });
             }
 
-            // 8. SO → SHIPPED (MVP: full residual, all physical lines delivered)
+            // A partial load leaves residual available for the next DO.
+            const shippedByVariant = new Map(
+                stockLines.map(({ doItem }) => [
+                    doItem.productVariantId,
+                    doItem.quantity.toNumber(),
+                ]),
+            );
+            const hasResidual = doRecord.salesOrder.items.some(
+                (item) =>
+                    item.productVariant.product.productType !==
+                        ProductType.SERVICE &&
+                    Math.round(
+                        (item.quantity.toNumber() -
+                            item.deliveredQty.toNumber() -
+                            (shippedByVariant.get(item.productVariantId) ??
+                                0)) *
+                            10000,
+                    ) > 0,
+            );
+            const nextOrderStatus = hasResidual
+                ? SalesOrderStatus.READY_TO_SHIP
+                : SalesOrderStatus.SHIPPED;
             await tx.salesOrder.update({
                 where: { id: doRecord.salesOrderId },
-                data: { status: SalesOrderStatus.SHIPPED },
+                data: { status: nextOrderStatus },
             });
 
             // 9. Fulfill remaining reservations
@@ -557,7 +599,7 @@ export async function commitDeliveryShipment(
                 entityId: deliveryOrderId,
                 details:
                     `DO ${doRecord.orderNumber} committed: stock OUT for ${stockLines.length} items, ` +
-                    `SO ${doRecord.salesOrder.orderNumber} → SHIPPED.`,
+                    `SO ${doRecord.salesOrder.orderNumber} → ${nextOrderStatus}.`,
                 fromStatus: doRecord.status as string,
                 toStatus: 'SHIPPED',
                 tx,
@@ -587,10 +629,11 @@ export async function commitDeliveryShipment(
                 '[commitDeliveryShipment] invoice creation failed after commit (non-blocking)',
                 invErr,
             );
+            return { ...result, invoicePending: true };
         }
     }
 
-    return result;
+    return { ...result, invoicePending: false };
 }
 
 // =============================================================================

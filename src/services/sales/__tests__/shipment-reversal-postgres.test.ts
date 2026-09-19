@@ -3,7 +3,8 @@ import { Prisma } from '@prisma/client';
 
 vi.mock('@/lib/core/prisma', async () => {
     const { reversalTestClient } = await import('./shipment-reversal-postgres-fixture');
-    return { prisma: reversalTestClient() };
+    const client = reversalTestClient();
+    return { prisma: client, getTenantDbFromContext: () => client };
 });
 import { prisma as db } from '@/lib/core/prisma';
 import { reverseDeliveryShipment } from '../delivery-reversal-service';

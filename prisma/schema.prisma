@@ -1401,6 +1401,8 @@ model Invoice {
   totalAmount          Decimal               @db.Decimal(15, 2)
   /// null = historical invoice; 0 or positive = round up to Rp500 on this invoice.
   roundingAmount       Decimal?              @db.Decimal(15, 2)
+  /// Durable per-invoice allocation; null means legacy without historical line evidence.
+  commercialSnapshot   Json?
   paidAmount           Decimal               @default(0) @db.Decimal(15, 2)
   creditedAmount       Decimal               @default(0) @db.Decimal(15, 2)
   priceAdjustmentAmount Decimal              @default(0) @db.Decimal(15, 2)

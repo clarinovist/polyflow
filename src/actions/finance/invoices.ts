@@ -50,10 +50,27 @@ export const getSalesInvoices = withTenant(async function getSalesInvoices(
         if (options.paymentSelector || options.outstandingOnly) {
             where.status = { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] };
             where.AND = [await positiveSalesReceivableWhere()];
-            if (options.search?.trim()) where.OR = [
-                { invoiceNumber: { contains: options.search.trim().slice(0, 100), mode: 'insensitive' } },
-                { salesOrder: { customer: { name: { contains: options.search.trim().slice(0, 100), mode: 'insensitive' } } } },
-            ];
+            if (options.search?.trim())
+                where.OR = [
+                    {
+                        invoiceNumber: {
+                            contains: options.search.trim().slice(0, 100),
+                            mode: 'insensitive',
+                        },
+                    },
+                    {
+                        salesOrder: {
+                            customer: {
+                                name: {
+                                    contains: options.search
+                                        .trim()
+                                        .slice(0, 100),
+                                    mode: 'insensitive',
+                                },
+                            },
+                        },
+                    },
+                ];
         }
         const queryStartedAt = performance.now();
         const invoices = await prisma.invoice.findMany({
@@ -271,6 +288,14 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
                     });
 
                     if (!invoice) throw new NotFoundError('Sales Invoice', id);
+                    if (
+                        invoice.commercialSnapshot != null &&
+                        invoice.status !== 'DRAFT'
+                    ) {
+                        throw new BusinessRuleError(
+                            'Invoice yang sudah diterbitkan wajib disimpan sebagai histori. Gunakan pembatalan, bukan hapus invoice.',
+                        );
+                    }
 
                     // Validate all associated journal entries are in open periods
                     const invoiceJournals = await tx.journalEntry.findMany({

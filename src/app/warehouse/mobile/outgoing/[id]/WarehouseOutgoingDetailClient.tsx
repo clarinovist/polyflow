@@ -70,12 +70,20 @@ type Order = {
     items: OrderItem[];
 };
 
-type LoadingAction = 'starting' | 'saving' | 'locking' | 'correcting' | 'shipping' | null;
+type LoadingAction =
+    | 'starting'
+    | 'saving'
+    | 'locking'
+    | 'correcting'
+    | 'shipping'
+    | null;
 
 function getDisplayUnit(item: OrderItem): string {
     const enteredUnit = item.enteredUnit;
     const primaryUnit = item.productVariant?.primaryUnit || 'KG';
-    return enteredUnit && enteredUnit !== primaryUnit ? enteredUnit : primaryUnit;
+    return enteredUnit && enteredUnit !== primaryUnit
+        ? enteredUnit
+        : primaryUnit;
 }
 
 function getPlannedQtyInDisplayUnit(item: OrderItem): number {
@@ -110,7 +118,13 @@ function getItemStatus(
     return 'mismatch';
 }
 
-export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { order: Order; attachments?: AttachmentItem[] }) {
+export function WarehouseOutgoingDetailClient({
+    order,
+    attachments = [],
+}: {
+    order: Order;
+    attachments?: AttachmentItem[];
+}) {
     const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const router = useRouter();
     const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
@@ -122,7 +136,16 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
             for (const item of order.items) {
                 draft[item.id] =
                     item.verifiedQuantity != null
-                        ? String(item.verifiedQuantity)
+                        ? String(
+                              item.enteredUnit &&
+                                  item.enteredUnit !==
+                                      item.productVariant?.primaryUnit &&
+                                  item.conversionFactorSnapshot &&
+                                  item.conversionFactorSnapshot > 0
+                                  ? item.verifiedQuantity /
+                                        item.conversionFactorSnapshot
+                                  : item.verifiedQuantity,
+                          )
                         : '';
             }
             return draft;
@@ -134,7 +157,8 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
     const isVerified = order.loadVerifiedAt != null;
 
     const allItemsVerified = order.items.every(
-        (item) => verifyDraft[item.id] !== '' && verifyDraft[item.id] !== undefined,
+        (item) =>
+            verifyDraft[item.id] !== '' && verifyDraft[item.id] !== undefined,
     );
     const allItemsMatch = order.items.every((item) => {
         const verified = verifyDraft[item.id];
@@ -185,9 +209,12 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                     item.conversionFactorSnapshot &&
                     item.conversionFactorSnapshot > 0
                 ) {
-                    verifiedQuantity = Math.round(
-                        enteredValue * item.conversionFactorSnapshot * 10000,
-                    ) / 10000;
+                    verifiedQuantity =
+                        Math.round(
+                            enteredValue *
+                                item.conversionFactorSnapshot *
+                                10000,
+                        ) / 10000;
                 }
                 return { id, verifiedQuantity };
             });
@@ -236,9 +263,12 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                         item.conversionFactorSnapshot &&
                         item.conversionFactorSnapshot > 0
                     ) {
-                        verifiedQuantity = Math.round(
-                            enteredValue * item.conversionFactorSnapshot * 10000,
-                        ) / 10000;
+                        verifiedQuantity =
+                            Math.round(
+                                enteredValue *
+                                    item.conversionFactorSnapshot *
+                                    10000,
+                            ) / 10000;
                     }
                     return { id, verifiedQuantity };
                 });
@@ -282,9 +312,12 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                         item.conversionFactorSnapshot &&
                         item.conversionFactorSnapshot > 0
                     ) {
-                        verifiedQuantity = Math.round(
-                            enteredValue * item.conversionFactorSnapshot * 10000,
-                        ) / 10000;
+                        verifiedQuantity =
+                            Math.round(
+                                enteredValue *
+                                    item.conversionFactorSnapshot *
+                                    10000,
+                            ) / 10000;
                     }
                     return { id, verifiedQuantity };
                 });
@@ -326,7 +359,13 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
         try {
             const result = await updateDeliveryStatus(order.id, 'SHIPPED');
             if (result.success) {
-                toast.success('Barang berhasil dikirim. Stok gudang terpotong.');
+                if (result.data?.invoicePending)
+                    toast.warning(
+                        'Barang sudah dikirim, invoice belum tersinkron. Hubungi Finance; jangan kirim ulang.',
+                    );
+                toast.success(
+                    'Barang berhasil dikirim. Stok gudang terpotong.',
+                );
                 router.push('/warehouse/mobile/outgoing');
             } else {
                 toast.error(result.error || 'Gagal menandai dikirim');
@@ -431,7 +470,9 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                     )}
                 </div>
                 {order.items.map((item) => {
-                    const status = isLoading ? getItemStatus(verifyDraft, item) : null;
+                    const status = isLoading
+                        ? getItemStatus(verifyDraft, item)
+                        : null;
                     return (
                         <div
                             key={item.id}
@@ -468,7 +509,9 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                                         inputMode="decimal"
                                         min="0"
                                         step="0.01"
-                                        placeholder={String(getPlannedQtyInDisplayUnit(item))}
+                                        placeholder={String(
+                                            getPlannedQtyInDisplayUnit(item),
+                                        )}
                                         value={verifyDraft[item.id] || ''}
                                         onChange={(e) =>
                                             setVerifyDraft((prev) => ({
@@ -517,14 +560,20 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
             </div>
 
             {/* Bukti Muat — optional, visible during/after loading */}
-            {(isLoading || order.status === 'SHIPPED' || order.status === 'IN_TRANSIT' || order.status === 'ARRIVED' || order.status === 'DELIVERED') && (
+            {(isLoading ||
+                order.status === 'SHIPPED' ||
+                order.status === 'IN_TRANSIT' ||
+                order.status === 'ARRIVED' ||
+                order.status === 'DELIVERED') && (
                 <>
                     <WarehouseAttachmentPanel
                         entityId={order.id}
                         entityLabel={order.orderNumber}
                         entityType="deliveryOrderId"
                         checkpoint="LOAD"
-                        attachments={safeAttachments.filter((a) => a.checkpoint === 'LOAD')}
+                        attachments={safeAttachments.filter(
+                            (a) => a.checkpoint === 'LOAD',
+                        )}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
                         onAttachmentChange={() => router.refresh()}
                     />
@@ -533,7 +582,9 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
                         entityLabel={order.orderNumber}
                         entityType="deliveryOrderId"
                         checkpoint="DAMAGE"
-                        attachments={safeAttachments.filter((a) => a.checkpoint === 'DAMAGE')}
+                        attachments={safeAttachments.filter(
+                            (a) => a.checkpoint === 'DAMAGE',
+                        )}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
                         onAttachmentChange={() => router.refresh()}
                     />
@@ -595,9 +646,7 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
 
                         <Button
                             className="w-full h-12 bg-green-600 hover:bg-green-700"
-                            disabled={
-                                isLoadingAction || !allItemsMatch
-                            }
+                            disabled={isLoadingAction || !allItemsMatch}
                             onClick={handleLock}
                         >
                             {loadingAction === 'locking' ? (
@@ -627,13 +676,20 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
             </div>
 
             {/* Quantity Correction Confirmation */}
-            <AlertDialog open={correctConfirmOpen} onOpenChange={setCorrectConfirmOpen}>
+            <AlertDialog
+                open={correctConfirmOpen}
+                onOpenChange={setCorrectConfirmOpen}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Koreksi Kuantitas Surat Jalan?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            Koreksi Kuantitas Surat Jalan?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Perubahan ini akan mengoreksi kuantitas barang pada Surat Jalan mengikuti hasil perhitungan fisik.
-                            Stok out dan tagihan invoice akan menyesuaikan dengan kuantitas fisik terbaru ini.
+                            Perubahan ini akan mengoreksi kuantitas barang pada
+                            Surat Jalan mengikuti hasil perhitungan fisik. Stok
+                            out dan tagihan invoice akan menyesuaikan dengan
+                            kuantitas fisik terbaru ini.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -657,7 +713,10 @@ export function WarehouseOutgoingDetailClient({ order, attachments = [] }: { ord
             </AlertDialog>
 
             {/* Ship Confirmation */}
-            <AlertDialog open={shipConfirmOpen} onOpenChange={setShipConfirmOpen}>
+            <AlertDialog
+                open={shipConfirmOpen}
+                onOpenChange={setShipConfirmOpen}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Kirim Surat Jalan?</AlertDialogTitle>

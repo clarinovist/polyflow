@@ -4,6 +4,8 @@ import { InvoiceService } from '../finance/invoice-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../finance/auto-journal-service';
 import { logActivity } from '@/lib/tools/audit';
+import { snapshotFixture } from '@/lib/finance/__tests__/invoice-snapshot-fixture';
+vi.mock('../finance/invoice-snapshot-service', () => ({ buildInvoiceSnapshot: vi.fn(async () => snapshotFixture()) }));
 
 vi.mock('@/lib/core/prisma', () => ({
     getTenantDbFromContext: () => prisma,

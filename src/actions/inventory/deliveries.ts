@@ -368,15 +368,24 @@ export const updateDeliveryStatus = withTenant(
                 );
             }
 
+            let invoicePending = false;
             // When transitioning to SHIPPED → commit stock (all-in-one)
             if (newStatus === 'SHIPPED') {
                 const { commitDeliveryShipment } =
                     await import('@/services/sales/delivery-fulfillment-service');
-                await commitDeliveryShipment(deliveryOrderId, session.user.id);
+                const shipment = await commitDeliveryShipment(
+                    deliveryOrderId,
+                    session.user.id,
+                );
+                invoicePending = shipment.invoicePending;
+            } else if (newStatus === 'DELIVERED') {
+                const { receiveDelivery } =
+                    await import('@/services/sales/delivery-receiving-service');
+                await receiveDelivery(deliveryOrderId, session.user.id);
             } else if (newStatus === 'LOADING') {
-                // Set loadingStartedAt when transitioning to LOADING
+                // Conditional update: a concurrent shipment must not be reopened by stale UI.
                 await prisma.deliveryOrder.update({
-                    where: { id: deliveryOrderId },
+                    where: { id: deliveryOrderId, status: doRecord.status },
                     data: {
                         status: newStatus as DeliveryStatus,
                         loadingStartedAt: new Date(),
@@ -384,21 +393,11 @@ export const updateDeliveryStatus = withTenant(
                     },
                 });
             } else {
-                // For all other transitions, just update status
+                // Reject a stale transition if revision/shipment changed status while waiting.
                 await prisma.deliveryOrder.update({
-                    where: { id: deliveryOrderId },
+                    where: { id: deliveryOrderId, status: doRecord.status },
                     data: { status: newStatus as DeliveryStatus },
                 });
-            }
-
-            // If target is DELIVERED, also sync the SalesOrder
-            if (newStatus === 'DELIVERED') {
-                const { SalesService } =
-                    await import('@/services/sales/sales-service');
-                await SalesService.deliverOrder(
-                    doRecord.salesOrderId,
-                    session.user.id,
-                );
             }
 
             // Sync SO shipping cost when DO status changes (CANCELLED/RETURNED affect sum)
@@ -436,7 +435,7 @@ export const updateDeliveryStatus = withTenant(
             revalidatePath('/warehouse/outgoing');
             revalidatePath(`/warehouse/outgoing/${deliveryOrderId}`);
 
-            return { success: true };
+            return { success: true, invoicePending };
         });
     },
 );
@@ -675,126 +674,16 @@ export const updateDeliveryItemQuantities = withTenant(
             );
             const validated = updateDeliveryItemQuantitiesSchema.parse(data);
 
-            const doRecord = await prisma.deliveryOrder.findUnique({
-                where: { id: validated.deliveryOrderId },
-                include: {
-                    items: true,
-                    salesOrder: {
-                        include: {
-                            items: {
-                                include: {
-                                    productVariant: {
-                                        include: { product: true },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-
-            if (!doRecord) {
-                throw new NotFoundError(
-                    'Delivery Order',
-                    validated.deliveryOrderId,
-                );
-            }
-
-            if (
-                doRecord.status !== DeliveryStatus.PENDING &&
-                doRecord.status !== DeliveryStatus.LOADING
-            ) {
-                throw new BusinessRuleError(
-                    'Qty hanya bisa diubah saat Surat Jalan masih PENDING atau LOADING (sebelum stok dipotong).',
-                    { status: doRecord.status },
-                    'INVALID_DELIVERY_STATUS',
-                );
-            }
-
-            const doItemById = new Map(doRecord.items.map((i) => [i.id, i]));
-
-            for (const patch of validated.items) {
-                const doItem = doItemById.get(patch.id);
-                if (!doItem) {
-                    throw new BusinessRuleError(
-                        `Item SJ tidak ditemukan: ${patch.id}`,
-                        { itemId: patch.id },
-                    );
-                }
-
-                const soItem = doRecord.salesOrder.items.find(
-                    (si) => si.productVariantId === doItem.productVariantId,
-                );
-                if (!soItem) {
-                    throw new BusinessRuleError(
-                        'Item SJ tidak cocok dengan Sales Order.',
-                        { productVariantId: doItem.productVariantId },
-                    );
-                }
-
-                const soQty = Number(soItem.quantity);
-                const delivered = Number(soItem.deliveredQty);
-                // PENDING DO does not consume deliveredQty — max = SO residual (qty - delivered)
-                const maxAllowed = Math.max(
-                    0,
-                    Math.round((soQty - delivered) * 10000) / 10000,
-                );
-
-                if (patch.quantity > maxAllowed + 1e-9) {
-                    throw new BusinessRuleError(
-                        `Qty melebihi sisa SO yang belum terkirim (maks ${maxAllowed}).`,
-                        {
-                            requested: patch.quantity,
-                            maxAllowed,
-                            soQty,
-                            delivered,
-                        },
-                        'DO_QTY_EXCEEDS_SO_RESIDUAL',
-                    );
-                }
-            }
-
-            await prisma.$transaction(async (tx) => {
-                for (const patch of validated.items) {
-                    const doItem = doItemById.get(patch.id)!;
-                    const factor = doItem.conversionFactorSnapshot
-                        ? Number(doItem.conversionFactorSnapshot)
-                        : null;
-                    const enteredQty =
-                        factor && factor > 0
-                            ? Math.round((patch.quantity / factor) * 10000) /
-                              10000
-                            : patch.quantity;
-
-                    await tx.deliveryOrderItem.update({
-                        where: { id: patch.id },
-                        data: {
-                            quantity: patch.quantity,
-                            enteredQuantity: enteredQty,
-                            // Qty change invalidates physical load verification
-                            verifiedQuantity: null,
-                            verifiedAt: null,
-                            verifiedById: null,
-                        },
-                    });
-                }
-
-                await tx.deliveryOrder.update({
-                    where: { id: validated.deliveryOrderId },
-                    data: {
-                        loadVerifiedAt: null,
-                        loadVerifiedById: null,
-                    },
-                });
-            });
-
-            await logActivity({
-                userId: session.user.id,
-                action: 'UPDATE_DELIVERY_QTY',
-                entityType: 'DeliveryOrder',
-                entityId: validated.deliveryOrderId,
-                details: `DO ${doRecord.orderNumber}: line quantities updated (verification cleared)`,
-            });
+            const { changeDeliveryLoad } =
+                await import('@/services/sales/delivery-load-service');
+            const doRecord = await changeDeliveryLoad(
+                validated.deliveryOrderId,
+                session.user.id,
+                { kind: 'quantity', items: validated.items },
+            );
+            revalidatePath(
+                `/warehouse/mobile/outgoing/${validated.deliveryOrderId}`,
+            );
 
             revalidatePath('/sales/deliveries');
             revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
@@ -898,68 +787,16 @@ export const saveDeliveryLoadVerification = withTenant(
             );
             const validated = saveDeliveryLoadVerificationSchema.parse(data);
 
-            const doRecord = await prisma.deliveryOrder.findUnique({
-                where: { id: validated.deliveryOrderId },
-                include: { items: true },
-            });
-            if (!doRecord) {
-                throw new NotFoundError(
-                    'Delivery Order',
-                    validated.deliveryOrderId,
-                );
-            }
-            if (
-                doRecord.status !== DeliveryStatus.PENDING &&
-                doRecord.status !== DeliveryStatus.LOADING
-            ) {
-                throw new BusinessRuleError(
-                    'Verifikasi muat hanya saat SJ PENDING atau LOADING.',
-                    { status: doRecord.status },
-                    'INVALID_DELIVERY_STATUS',
-                );
-            }
-
-            const itemIds = new Set(doRecord.items.map((i) => i.id));
-            for (const patch of validated.items) {
-                if (!itemIds.has(patch.id)) {
-                    throw new BusinessRuleError(
-                        `Item SJ tidak ditemukan: ${patch.id}`,
-                        {
-                            itemId: patch.id,
-                        },
-                    );
-                }
-            }
-
-            const now = new Date();
-            await prisma.$transaction(async (tx) => {
-                for (const patch of validated.items) {
-                    await tx.deliveryOrderItem.update({
-                        where: { id: patch.id },
-                        data: {
-                            verifiedQuantity: patch.verifiedQuantity,
-                            verifiedAt: now,
-                            verifiedById: session.user.id,
-                        },
-                    });
-                }
-                // Any re-save unlocks header until confirm again
-                await tx.deliveryOrder.update({
-                    where: { id: validated.deliveryOrderId },
-                    data: {
-                        loadVerifiedAt: null,
-                        loadVerifiedById: null,
-                    },
-                });
-            });
-
-            await logActivity({
-                userId: session.user.id,
-                action: 'SAVE_DELIVERY_LOAD_VERIFICATION',
-                entityType: 'DeliveryOrder',
-                entityId: validated.deliveryOrderId,
-                details: `DO ${doRecord.orderNumber}: saved ${validated.items.length} line verification qty`,
-            });
+            const { changeDeliveryLoad } =
+                await import('@/services/sales/delivery-load-service');
+            await changeDeliveryLoad(
+                validated.deliveryOrderId,
+                session.user.id,
+                { kind: 'verify', items: validated.items },
+            );
+            revalidatePath(
+                `/warehouse/mobile/outgoing/${validated.deliveryOrderId}`,
+            );
 
             revalidatePath('/sales/deliveries');
             revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
@@ -981,70 +818,12 @@ export const confirmDeliveryLoadVerified = withTenant(
                 '/warehouse/outgoing',
             );
 
-            const doRecord = await prisma.$transaction(async (tx) => {
-                const record = await tx.deliveryOrder.findUnique({
-                    where: { id: deliveryOrderId },
-                    include: { items: true },
-                });
-                if (!record)
-                    throw new NotFoundError('Delivery Order', deliveryOrderId);
-                if (
-                    record.status !== DeliveryStatus.PENDING &&
-                    record.status !== DeliveryStatus.LOADING
-                ) {
-                    throw new BusinessRuleError(
-                        'Verifikasi muat hanya saat SJ PENDING atau LOADING.',
-                        { status: record.status },
-                        'INVALID_DELIVERY_STATUS',
-                    );
-                }
-                if (record.items.length === 0) {
-                    throw new BusinessRuleError(
-                        'Surat Jalan tidak punya item untuk diverifikasi.',
-                    );
-                }
-
-                for (const item of record.items) {
-                    if (item.verifiedQuantity == null) {
-                        throw new BusinessRuleError(
-                            'Semua baris harus punya qty dihitung sebelum dikunci.',
-                            { itemId: item.id },
-                            'LOAD_VERIFY_INCOMPLETE',
-                        );
-                    }
-                    const planned = Number(item.quantity);
-                    const verified = Number(item.verifiedQuantity);
-                    if (Math.abs(planned - verified) > 1e-6) {
-                        throw new BusinessRuleError(
-                            'Ada selisih qty fisik vs perintah. Koreksi qty SJ atau hitung ulang sampai sesuai, lalu kunci.',
-                            {
-                                itemId: item.id,
-                                planned,
-                                verified,
-                            },
-                            'LOAD_VERIFY_MISMATCH',
-                        );
-                    }
-                }
-
-                await tx.deliveryOrder.update({
-                    where: { id: deliveryOrderId },
-                    data: {
-                        loadVerifiedAt: new Date(),
-                        loadVerifiedById: session.user.id,
-                    },
-                });
-
-                return record;
+            const { changeDeliveryLoad } =
+                await import('@/services/sales/delivery-load-service');
+            await changeDeliveryLoad(deliveryOrderId, session.user.id, {
+                kind: 'lock',
             });
-
-            await logActivity({
-                userId: session.user.id,
-                action: 'CONFIRM_DELIVERY_LOAD_VERIFIED',
-                entityType: 'DeliveryOrder',
-                entityId: deliveryOrderId,
-                details: `DO ${doRecord.orderNumber}: load verification locked`,
-            });
+            revalidatePath(`/warehouse/mobile/outgoing/${deliveryOrderId}`);
 
             revalidatePath('/sales/deliveries');
             revalidatePath(`/sales/deliveries/${deliveryOrderId}`);
@@ -1068,86 +847,12 @@ export const correctDeliveryQtyToVerified = withTenant(
                 '/warehouse/outgoing',
             );
 
-            const doRecord = await prisma.deliveryOrder.findUnique({
-                where: { id: deliveryOrderId },
-                include: { items: true },
+            const { changeDeliveryLoad } =
+                await import('@/services/sales/delivery-load-service');
+            await changeDeliveryLoad(deliveryOrderId, session.user.id, {
+                kind: 'correct',
             });
-            if (!doRecord)
-                throw new NotFoundError('Delivery Order', deliveryOrderId);
-            if (
-                doRecord.status !== DeliveryStatus.PENDING &&
-                doRecord.status !== DeliveryStatus.LOADING
-            ) {
-                throw new BusinessRuleError(
-                    'Koreksi qty hanya saat SJ PENDING atau LOADING.',
-                    { status: doRecord.status },
-                    'INVALID_DELIVERY_STATUS',
-                );
-            }
-
-            // Check all items have verifiedQuantity set
-            const missingVerify = doRecord.items.filter(
-                (item) => item.verifiedQuantity == null,
-            );
-            if (missingVerify.length > 0) {
-                throw new BusinessRuleError(
-                    'Semua baris harus punya qty verifikasi sebelum dikoreksi.',
-                    { missingItemIds: missingVerify.map((i) => i.id) },
-                    'LOAD_VERIFY_INCOMPLETE',
-                );
-            }
-
-            // Check there's actually a mismatch (otherwise just lock without updating)
-            const hasMismatch = doRecord.items.some((item) => {
-                const planned = Number(item.quantity);
-                const verified = Number(item.verifiedQuantity!);
-                return Math.abs(planned - verified) > 1e-6;
-            });
-
-            await prisma.$transaction(async (tx) => {
-                if (hasMismatch) {
-                    // Update DO line quantities to match verified (physical) quantities
-                    for (const item of doRecord.items) {
-                        const verified = Number(item.verifiedQuantity!);
-                        const factor = item.conversionFactorSnapshot
-                            ? Number(item.conversionFactorSnapshot)
-                            : null;
-                        const enteredQty =
-                            factor && factor > 0
-                                ? Math.round((verified / factor) * 10000) /
-                                  10000
-                                : verified;
-
-                        await tx.deliveryOrderItem.update({
-                            where: { id: item.id },
-                            data: {
-                                quantity: verified,
-                                enteredQuantity: enteredQty,
-                                verifiedQuantity: verified,
-                                verifiedAt: new Date(),
-                                verifiedById: session.user.id,
-                            },
-                        });
-                    }
-                }
-
-                // Lock header verification
-                await tx.deliveryOrder.update({
-                    where: { id: deliveryOrderId },
-                    data: {
-                        loadVerifiedAt: new Date(),
-                        loadVerifiedById: session.user.id,
-                    },
-                });
-            });
-
-            await logActivity({
-                userId: session.user.id,
-                action: 'CORRECT_DELIVERY_QTY_TO_VERIFIED',
-                entityType: 'DeliveryOrder',
-                entityId: deliveryOrderId,
-                details: `DO ${doRecord.orderNumber}: DO quantities corrected to match verified physical count, verification locked`,
-            });
+            revalidatePath(`/warehouse/mobile/outgoing/${deliveryOrderId}`);
 
             revalidatePath('/sales/deliveries');
             revalidatePath(`/sales/deliveries/${deliveryOrderId}`);

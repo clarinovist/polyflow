@@ -30,6 +30,7 @@ import { SalesOrderStatus, SalesOrderType, Unit } from '@prisma/client';
  */
 
 const createMockPrisma = () => ({
+    $queryRaw: vi.fn(),
     salesOrder: {
         findUnique: vi.fn(),
         update: vi.fn().mockResolvedValue({ id: 'so-1', items: [] }),
@@ -47,7 +48,7 @@ const createMockPrisma = () => ({
 
 const mockPrismaInstance = createMockPrisma();
 
-vi.mock('@/lib/core/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: () => prisma,
     get prisma() {
         return {
             ...mockPrismaInstance,
@@ -115,6 +116,19 @@ describe('updateOrder — SO terkirim sebagian', () => {
             name: 'Gudang',
             locationType: 'INTERNAL',
         } as never);
+    });
+
+    it('blocks ordinary edits with an active SJ and changes to historical product identity', async () => {
+        const order = {
+            id: 'so-1', status: 'CONFIRMED', orderType: 'MAKE_TO_STOCK',
+            invoices: [], deliveryOrders: [{ id: 'do', status: 'LOADING' }],
+            items: [{ id: 'old', productVariantId: 'pv-1', quantity: dec(100), unitPrice: dec(1000), deliveredQty: dec(20) }],
+        };
+        vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(order as never);
+        await expect(updateOrder(basePayload([line({ id: 'old', quantity: 100 })]), 'user')).rejects.toThrow(/Revisi muatan/);
+        order.deliveryOrders = [];
+        await expect(updateOrder(basePayload([line({ id: 'old', productVariantId: 'replacement', quantity: 100 })]), 'user')).rejects.toThrow(/sudah dikirim/);
+        expect(mockPrismaInstance.salesOrderItem.update).not.toHaveBeenCalled();
     });
 
     it('(A) tidak menggandakan baris yang sudah terkirim saat payload mengirim ulang baris itu', async () => {

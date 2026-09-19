@@ -6,6 +6,11 @@
  */
 
 import { prisma } from '@/lib/core/prisma';
+import {
+    invoiceSnapshotOrder,
+    LEGACY_INVOICE_NOTICE,
+} from '@/lib/finance/invoice-snapshot';
+import { BusinessRuleError } from '@/lib/errors/errors';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
 import type { EscpDocument } from './escp-documents';
 import { generateEscpInvoice, type EscpInvoiceData } from './escp-generator';
@@ -32,8 +37,14 @@ export async function buildInvoiceDocument(
 
     if (!invoice) return null;
 
-    const so = invoice.salesOrder;
-    const customer = so?.customer;
+    const so = invoiceSnapshotOrder(invoice.commercialSnapshot);
+    if (!so)
+        throw new BusinessRuleError(
+            LEGACY_INVOICE_NOTICE,
+            {},
+            'INVOICE_SNAPSHOT_REVIEW_REQUIRED',
+        );
+    const customer = so?.customer ?? invoice.salesOrder?.customer;
     const items = so?.items ?? [];
 
     const subtotal = items.reduce(

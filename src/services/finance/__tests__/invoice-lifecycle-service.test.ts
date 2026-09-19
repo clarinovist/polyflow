@@ -11,6 +11,16 @@ import {
   updateSalesInvoiceDueDate,
 } from "../invoice-lifecycle-service";
 import { prisma } from "@/lib/core/prisma";
+import { snapshotFixture } from '@/lib/finance/__tests__/invoice-snapshot-fixture';
+// Lifecycle wrapper tests keep their existing amount fixtures. Real item attribution,
+// legacy rejection and immutable invoice history are covered by snapshot service + PostgreSQL tests.
+vi.mock('../invoice-snapshot-service', () => ({ buildInvoiceSnapshot: async (tx: unknown, id: string, invoices: { id: string; totalAmount: unknown; roundingAmount?: unknown }[], draftId?: string) => {
+    const total = await calculateSalesInvoiceTotalFromDelivered(id, tx as never);
+    const num = (v: unknown) => typeof (v as { toNumber?: unknown })?.toNumber === 'function' ? (v as { toNumber(): number }).toNumber() : Number(v ?? 0);
+    const prior = invoices.filter(i => i.id !== draftId).reduce((sum, i) => sum + num(i.totalAmount) - num(i.roundingAmount), 0);
+    const amount = Math.max(0, total - prior).toFixed(2);
+    return snapshotFixture({ items: [], taxAmount: '0.00', discountAmount: '0.00', shippingAmount: amount, commercialTotal: amount });
+} }));
 import { logActivity } from "@/lib/tools/audit";
 import { AutoJournalService } from "../auto-journal-service";
 
@@ -904,7 +914,7 @@ describe("invoice-lifecycle-service", () => {
       expect(result).toBeDefined();
       expect(prisma.invoice.update).toHaveBeenCalledWith({
         where: { id: "inv-existing" },
-        data: { totalAmount: 1000 },
+        data: expect.objectContaining({ totalAmount: 1000, commercialSnapshot: expect.any(Object) }),
       });
     });
 

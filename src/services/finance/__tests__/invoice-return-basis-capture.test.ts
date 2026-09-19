@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { captureInvoiceReturnBasis, refreshDraftInvoiceReturnBasis } from '../invoice-return-basis-capture';
+import { snapshotFixture } from '@/lib/finance/__tests__/invoice-snapshot-fixture';
 const D=(x:number)=>new Prisma.Decimal(x);
 const mocks={$queryRaw:vi.fn(),invoice:{findUnique:vi.fn(),findMany:vi.fn()},journalEntry:{findMany:vi.fn()},invoiceReturnBasisLine:{findMany:vi.fn(),createMany:vi.fn(),deleteMany:vi.fn()},salesReturnCreditAllocation:{count:vi.fn()}};
 const tx=mocks as unknown as Prisma.TransactionClient;
@@ -12,6 +13,26 @@ describe('capture original basis at invoice issuance only',()=>{
   mocks.invoice.findMany.mockResolvedValue([]);
   mocks.invoiceReturnBasisLine.findMany.mockResolvedValue([]);
   mocks.journalEntry.findMany.mockResolvedValue([{id:'journal',status:'DRAFT',lines:[{account:{type:'LIABILITY'},debit:D(0),credit:D(110)}]}]);
+ });
+ it('uses invoice commercial snapshot for return basis even when current SO differs',async()=>{
+  const invoice=await mocks.invoice.findUnique();
+  mocks.invoice.findUnique.mockResolvedValue({...invoice,totalAmount:D(1000),roundingAmount:D(100),commercialSnapshot:snapshotFixture()});
+  mocks.journalEntry.findMany.mockResolvedValue([{id:'journal',status:'DRAFT',lines:[{account:{type:'LIABILITY'},debit:D(0),credit:D(80)}]}]);
+  expect(await captureInvoiceReturnBasis(tx,'invoice')).toBe('CAPTURED');
+  expect(mocks.invoiceReturnBasisLine.createMany).toHaveBeenCalledWith({data:[expect.objectContaining({productVariantId:'a',quantity:'80',netAmount:'800.00',taxAmount:'80.00',sourceEvidence:expect.objectContaining({commercialSnapshotVersion:1,shippingAmount:'20.00'})})]});
+  expect(mocks.invoice.findMany).not.toHaveBeenCalled();
+ });
+ it('does not invent returnable goods for a shipping-only supplementary invoice',async()=>{
+  const invoice=await mocks.invoice.findUnique();
+  mocks.invoice.findUnique.mockResolvedValue({...invoice,commercialSnapshot:snapshotFixture({items:[],shippingAmount:'50.00',commercialTotal:'50.00',taxAmount:'0.00'})});
+  expect(await captureInvoiceReturnBasis(tx,'invoice')).toBe('REVIEW_REQUIRED');
+  expect(mocks.invoiceReturnBasisLine.createMany).not.toHaveBeenCalled();
+ });
+ it('rejects mismatching journal rather than capturing inconsistent new evidence',async()=>{
+  const invoice=await mocks.invoice.findUnique();
+  mocks.invoice.findUnique.mockResolvedValue({...invoice,totalAmount:D(1000),roundingAmount:D(100),commercialSnapshot:snapshotFixture()});
+  await expect(captureInvoiceReturnBasis(tx,'invoice')).rejects.toThrow();
+  expect(mocks.invoiceReturnBasisLine.createMany).not.toHaveBeenCalled();
  });
  it('captures exact original line net and tax without master lookups',async()=>{
   expect(await captureInvoiceReturnBasis(tx,'invoice')).toBe('CAPTURED');

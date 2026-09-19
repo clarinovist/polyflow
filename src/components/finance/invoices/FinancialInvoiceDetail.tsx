@@ -46,6 +46,11 @@ import {
     type TenantPaymentBanks,
 } from '@/lib/finance/payment-methods';
 
+import {
+    invoiceSnapshotOrder,
+    LEGACY_INVOICE_NOTICE,
+} from '@/lib/finance/invoice-snapshot';
+
 type InvoiceLineItem = {
     id?: string;
     quantity?: unknown;
@@ -105,7 +110,13 @@ export function FinancialInvoiceDetail({
         () => new Date().toISOString().split('T')[0],
     );
     const [isDueDateDialogOpen, setIsDueDateDialogOpen] = useState(false);
-    const salesOrder = invoice.salesOrder ?? null;
+    const snapshotOrder = invoiceSnapshotOrder(invoice.commercialSnapshot);
+    const salesOrder = invoice.salesOrder
+        ? {
+              ...invoice.salesOrder,
+              ...(snapshotOrder ?? { items: [], taxAmount: 0 }),
+          }
+        : null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
     const remainingAmount =
         Number(invoice.totalAmount) + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
@@ -487,6 +498,11 @@ export function FinancialInvoiceDetail({
             <Card>
                 <CardHeader>
                     <CardTitle>Line Items (Financial View)</CardTitle>
+                    {!snapshotOrder && (
+                        <p role="alert" className="text-sm text-amber-700">
+                            {LEGACY_INVOICE_NOTICE}
+                        </p>
+                    )}
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border p-4 bg-muted/20">
@@ -539,23 +555,46 @@ export function FinancialInvoiceDetail({
                                 })
                             ) : (
                                 <div className="flex justify-between text-sm py-2">
-                                    <span>Sales Order Items Total</span>
+                                    <span>
+                                        {snapshotOrder
+                                            ? 'Nilai barang invoice'
+                                            : 'Total komersial tersimpan (rincian belum tersedia)'}
+                                    </span>
                                     <span>
                                         {formatRupiah(
                                             Number(invoice.totalAmount) -
-                                                Number(invoice.roundingAmount ?? 0) - taxAmount,
+                                                Number(
+                                                    invoice.roundingAmount ?? 0,
+                                                ) -
+                                                taxAmount,
                                         )}
                                     </span>
                                 </div>
                             )}
-                            <div className="flex justify-between text-sm py-2">
-                                <span>Tax / VAT</span>
-                                <span>{formatRupiah(taxAmount)}</span>
-                            </div>
+                            {snapshotOrder && (
+                                <>
+                                    <div className="flex justify-between text-sm py-2">
+                                        <span>Ongkir</span>
+                                        <span>
+                                            {formatRupiah(
+                                                snapshotOrder.shippingCost,
+                                            )}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between text-sm py-2">
+                                        <span>Tax / VAT</span>
+                                        <span>{formatRupiah(taxAmount)}</span>
+                                    </div>
+                                </>
+                            )}
                             {Number(invoice.roundingAmount ?? 0) > 0 && (
                                 <div className="flex justify-between text-sm py-2">
                                     <span>Pembulatan</span>
-                                    <span>{formatRupiah(Number(invoice.roundingAmount))}</span>
+                                    <span>
+                                        {formatRupiah(
+                                            Number(invoice.roundingAmount),
+                                        )}
+                                    </span>
                                 </div>
                             )}
                             <Separator className="my-2" />

@@ -8,6 +8,10 @@ import {
     fetchDeliveryStockReadiness,
     updateDeliveryStatus,
     reverseDeliveryShipment,
+    saveDeliveryLoadVerification,
+    confirmDeliveryLoadVerified,
+    correctDeliveryQtyToVerified,
+    updateDeliveryItemQuantities,
 } from '../deliveries';
 import { prisma } from '@/lib/core/prisma';
 import {
@@ -22,6 +26,11 @@ vi.mock('@/services/sales/delivery-fulfillment-service', () => ({
     getDeliveryStockReadiness: (...args: unknown[]) =>
         mockGetDeliveryStockReadiness(...args),
 }));
+
+const mockReceiveDelivery = vi.fn();
+const mockChangeDeliveryLoad = vi.fn();
+vi.mock('@/services/sales/delivery-receiving-service', () => ({ receiveDelivery: (...args: unknown[]) => mockReceiveDelivery(...args) }));
+vi.mock('@/services/sales/delivery-load-service', () => ({ changeDeliveryLoad: (...args: unknown[]) => mockChangeDeliveryLoad(...args) }));
 
 const mockReverseDeliveryShipment = vi.fn();
 vi.mock('@/services/sales/delivery-reversal-service', () => ({
@@ -77,6 +86,32 @@ const baseDeliveryOrder = {
         { id: 'item-2', notes: 'lama' },
     ],
 };
+
+describe('atomic loading and receiving delegation', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireWarehouseResourcePermission).mockResolvedValue({ user: { id: 'user' } } as never);
+        mockChangeDeliveryLoad.mockResolvedValue({ salesOrderId: 'so' });
+    });
+    it('receives selected SJ through transactional service rather than all SO deliveries', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue({ id: 'do', status: 'SHIPPED', salesOrderId: 'so' } as never);
+        expect((await updateDeliveryStatus('do', 'DELIVERED')).success).toBe(true);
+        expect(mockReceiveDelivery).toHaveBeenCalledWith('do', 'user');
+        expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
+    });
+    it('routes all four loading operations through the locked service', async () => {
+        await saveDeliveryLoadVerification({ deliveryOrderId: 'do', items: [{ id: 'line', verifiedQuantity: 80 }] });
+        await confirmDeliveryLoadVerified('do');
+        await correctDeliveryQtyToVerified('do');
+        await updateDeliveryItemQuantities({ deliveryOrderId: 'do', items: [{ id: 'line', quantity: 80 }] });
+        expect(mockChangeDeliveryLoad.mock.calls.map((call) => call[2].kind)).toEqual(['verify', 'lock', 'correct', 'quantity']);
+    });
+    it('permission denial stops loading mutations', async () => {
+        vi.mocked(requireWarehouseResourcePermission).mockRejectedValue(new Error('Unauthorized'));
+        expect((await correctDeliveryQtyToVerified('do')).success).toBe(false);
+        expect(mockChangeDeliveryLoad).not.toHaveBeenCalled();
+    });
+});
 
 describe('updateDeliveryItemNotes', () => {
     beforeEach(() => {
@@ -362,7 +397,7 @@ describe('updateDeliveryStatus — SHIPPED→CANCELLED guard', () => {
 
         expect(result.success).toBe(true);
         expect(prisma.deliveryOrder.update).toHaveBeenCalledWith({
-            where: { id: 'do-1' },
+            where: { id: 'do-1', status: 'SHIPPED' },
             data: { status: 'IN_TRANSIT' },
         });
     });

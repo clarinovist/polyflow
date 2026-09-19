@@ -14,6 +14,7 @@ import { logger } from "@/lib/config/logger";
 import { logActivity } from "@/lib/tools/audit";
 
 const createMockPrisma = () => ({
+  $queryRaw: vi.fn(),
   salesOrder: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
@@ -80,7 +81,7 @@ const createMockPrisma = () => ({
 
 const mockPrismaInstance = createMockPrisma();
 
-vi.mock("@/lib/core/prisma", () => ({
+vi.mock("@/lib/core/prisma", () => ({ getTenantDbFromContext: () => prisma,
   get prisma() {
     return {
       ...mockPrismaInstance,
@@ -734,7 +735,7 @@ describe("confirmOrder", () => {
   });
 
   it("clears salesRepId when explicitly set to null on update", async () => {
-    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
       id: "so-1",
       orderType: SalesOrderType.MAKE_TO_STOCK,
       status: SalesOrderStatus.DRAFT,
@@ -788,7 +789,7 @@ describe("confirmOrder", () => {
   // Kalau suatu saat orderType dibuat editable (Opsi 8-B di plan), test ini
   // HARUS diganti — bukan dihapus diam-diam.
   it("mengabaikan orderType yang dikirim saat update — tidak pernah ditulis ke DB", async () => {
-    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
       id: "so-1",
       orderType: SalesOrderType.MAKE_TO_ORDER,
       status: SalesOrderStatus.DRAFT,

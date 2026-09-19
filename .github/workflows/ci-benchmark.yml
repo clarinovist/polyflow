@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   candidates:
-    name: Benchmark ${{ matrix.candidate }} ${{ matrix.shard }}
+    name: Benchmark ${{ matrix.candidate }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -27,12 +27,6 @@ jobs:
           - candidate: explicit
             shard: ''
             artifact: explicit
-          - candidate: shards
-            shard: '1/2'
-            artifact: shard-1
-          - candidate: shards
-            shard: '2/2'
-            artifact: shard-2
     steps:
       - uses: actions/checkout@v7
         with:
@@ -53,6 +47,43 @@ jobs:
       - name: Upload current candidate only
         uses: actions/upload-artifact@v4
         with:
+          name: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-${{ matrix.artifact }}
+          path: |
+            coverage/ci-benchmark/result.json
+            coverage/ci-benchmark/blob.json
+            coverage/ci-benchmark/metrics.jsonl
+          if-no-files-found: error
+          retention-days: 7
+
+  shards:
+    name: Benchmark shards ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: '1/2'
+            artifact: shard-1
+          - shard: '2/2'
+            artifact: shard-2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - run: bash scripts/check-node-version.sh
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: node scripts/ci/metrics.mjs install npm ci
+      - run: node scripts/ci/metrics.mjs prisma npx prisma generate
+      - name: Measure shard
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: node scripts/ci/benchmark.mjs run shards "$SHARD"
+      - uses: actions/upload-artifact@v4
+        with:
           name: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-${{ matrix.artifact }}
           path: |
             coverage/ci-benchmark/result.json
@@ -61,9 +92,11 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  test:
-    name: Benchmark full test and coverage gate
-    needs: candidates
+  shard-coverage:
+    name: Shard full test and coverage gate
+    # A failed experimental worker must not suppress successful shard measurements.
+    # Default success() still requires BOTH shard jobs to pass.
+    needs: shards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -79,14 +112,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           # No run-id/token: only artifacts from THIS run. Attempt and SHA also exact.
-          pattern: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-*
+          pattern: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*
           path: coverage/ci-input
           merge-multiple: false
-      - name: Require all artifacts, merge once, enforce global thresholds and reconcile counts
+      - name: Require both shards, merge once, enforce global thresholds and reconcile replay
         run: node scripts/ci/benchmark.mjs merge coverage/ci-input
       - uses: actions/upload-artifact@v4
         with:
-          name: benchmark-gate-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          name: shard-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           path: |
             coverage/ci-merged/result.json
             coverage/ci-merged/metrics.jsonl
@@ -94,9 +127,43 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  test:
+    name: Benchmark final comparison gate
+    # Run even after failure/skip so this named gate is explicitly red, not skipped.
+    if: ${{ always() }}
+    needs: [candidates, shard-coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every candidate and complete shard coverage
+        env:
+          CANDIDATES_RESULT: ${{ needs.candidates.result }}
+          SHARD_COVERAGE_RESULT: ${{ needs.shard-coverage.result }}
+        run: |
+          test "$CANDIDATES_RESULT" = success
+          test "$SHARD_COVERAGE_RESULT" = success
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+      # Comparison uses only Node built-ins and manifests: no install or test rerun.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-*
+          path: coverage/ci-comparators
+          merge-multiple: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: shard-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: coverage/ci-shard-result
+      - name: Reconcile all successful candidates
+        run: node scripts/ci/benchmark.mjs compare coverage/ci-comparators coverage/ci-shard-result/result.json
+
   timing:
     if: ${{ always() }}
-    needs: [candidates, test]
+    needs: [candidates, shards, shard-coverage, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
