@@ -27,6 +27,13 @@ describe('Finance credit posting and compensation UI',()=>{
   await waitFor(()=>expect(screen.getByRole('alert').textContent).toContain('Invoice lunas'));
   expect(screen.queryByText('Kredit terposting. Pembayaran dan total invoice asli tidak berubah.')).toBeNull();
  });
+ it.each(['DRAFT','CONFIRMED','CANCELLED'] as const)('keeps %s ineligible for credit posting',status=>{
+  render(<FinanceReturnCredit row={{...row,status}}/>);
+  expect(screen.queryByRole('button')).toBeNull();
+  expect(screen.queryByRole('spinbutton')).toBeNull();
+  expect(screen.getByText(/Draft\/confirmed\/cancelled tidak mengurangi piutang/)).toBeTruthy();
+  expect(mocks.post).not.toHaveBeenCalled();
+ });
  it('keeps drafts non-mutating and missing snapshots honest',()=>{
   const view=render(<FinanceReturnCredit row={{...row,status:'DRAFT'}}/>);
   expect(screen.queryByRole('button')).toBeNull();view.unmount();

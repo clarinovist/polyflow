@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { SalesReturn, SalesReturnStatus, Customer } from '@prisma/client';
 import { RotateCcw, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 type SerializedSalesReturn = Omit<SalesReturn, 'totalAmount'> & {
     totalAmount: number | null;
@@ -33,8 +33,6 @@ export function SalesReturnTable({
     initialData,
     basePath = '/sales/returns',
 }: SalesReturnTableProps) {
-    const router = useRouter();
-
     const getStatusColor = (status: SalesReturnStatus) => {
         switch (status) {
             case 'DRAFT':
@@ -66,9 +64,13 @@ export function SalesReturnTable({
                     <div>
                         <div className="flex items-center gap-2">
                             <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="font-medium">
+                            <Link
+                                href={`${basePath}/${row.original.id}`}
+                                aria-label={`Lihat Detail ${row.original.returnNumber}`}
+                                className="font-medium text-primary underline underline-offset-4 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
                                 {row.original.returnNumber}
-                            </span>
+                            </Link>
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5 ml-6">
                             {format(
@@ -134,7 +136,7 @@ export function SalesReturnTable({
                 ),
             },
         ],
-        [],
+        [basePath],
     );
 
     const renderMobileView = (returns: SerializedSalesReturn[]) => (
@@ -145,82 +147,88 @@ export function SalesReturnTable({
                 </div>
             ) : (
                 returns.map((sr) => (
-                    <Card
+                    <Link
                         key={sr.id}
-                        className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-                        onClick={() => router.push(`${basePath}/${sr.id}`)}
+                        href={`${basePath}/${sr.id}`}
+                        aria-label={`Lihat Detail ${sr.returnNumber}`}
+                        className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                        <CardHeader className="p-4 pb-2">
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-2">
-                                    <div className="bg-primary/10 p-1.5 rounded-full">
-                                        <RotateCcw className="h-4 w-4 text-primary" />
+                        <Card className="overflow-hidden active:scale-[0.99] transition-transform">
+                            <CardHeader className="p-4 pb-2">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-2">
+                                        <div className="bg-primary/10 p-1.5 rounded-full">
+                                            <RotateCcw className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-sm">
+                                                {sr.returnNumber}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                {format(
+                                                    new Date(sr.returnDate),
+                                                    'MMM d, yyyy',
+                                                )}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-sm">
-                                            {sr.returnNumber}
-                                        </h3>
-                                        <p className="text-xs text-muted-foreground">
-                                            {format(
-                                                new Date(sr.returnDate),
-                                                'MMM d, yyyy',
-                                            )}
-                                        </p>
+                                    <Badge
+                                        variant="secondary"
+                                        className={`text-[10px] px-1.5 h-5 ${getStatusColor(sr.status)}`}
+                                    >
+                                        {getStatusLabel(sr.status, 'sales')}
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-1">
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                                {salesLabels.customer}
+                                            </p>
+                                            <p className="font-medium truncate">
+                                                {sr.customer?.name || '-'}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                                Total Keseluruhan
+                                            </p>
+                                            <p className="font-semibold text-primary">
+                                                {sr.totalAmount
+                                                    ? formatRupiah(
+                                                          Number(
+                                                              sr.totalAmount,
+                                                          ),
+                                                      )
+                                                    : '-'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
+                                        <div className="flex items-center gap-1">
+                                            <Badge
+                                                variant="outline"
+                                                className="h-4 px-1 rounded-sm text-[9px] font-normal"
+                                            >
+                                                {sr.salesOrder?.orderNumber ||
+                                                    '-'}
+                                            </Badge>
+                                            <span>
+                                                • {sr._count.items}{' '}
+                                                {salesLabels.items}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center text-primary font-medium">
+                                            Lihat Detail{' '}
+                                            <ChevronRight className="h-3 w-3 ml-0.5" />
+                                        </div>
                                     </div>
                                 </div>
-                                <Badge
-                                    variant="secondary"
-                                    className={`text-[10px] px-1.5 h-5 ${getStatusColor(sr.status)}`}
-                                >
-                                    {getStatusLabel(sr.status, 'sales')}
-                                </Badge>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-1">
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                            {salesLabels.customer}
-                                        </p>
-                                        <p className="font-medium truncate">
-                                            {sr.customer?.name || '-'}
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                            Total Keseluruhan
-                                        </p>
-                                        <p className="font-semibold text-primary">
-                                            {sr.totalAmount
-                                                ? formatRupiah(
-                                                      Number(sr.totalAmount),
-                                                  )
-                                                : '-'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
-                                    <div className="flex items-center gap-1">
-                                        <Badge
-                                            variant="outline"
-                                            className="h-4 px-1 rounded-sm text-[9px] font-normal"
-                                        >
-                                            {sr.salesOrder?.orderNumber || '-'}
-                                        </Badge>
-                                        <span>
-                                            • {sr._count.items}{' '}
-                                            {salesLabels.items}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center text-primary font-medium">
-                                        Lihat Detail{' '}
-                                        <ChevronRight className="h-3 w-3 ml-0.5" />
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    </Link>
                 ))
             )}
         </>

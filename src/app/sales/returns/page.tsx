@@ -46,8 +46,23 @@ export default async function SalesReturnsPage({
         endDate: checkEnd,
     });
 
-    const returns =
-        returnsRes.success && returnsRes.data ? returnsRes.data : [];
+    if (!returnsRes.success) {
+        return (
+            <div className="space-y-4 p-6">
+                <h1 className="text-3xl font-bold tracking-tight">
+                    {salesLabels.salesReturns}
+                </h1>
+                <p role="alert" className="text-destructive">
+                    {returnsRes.error || 'Gagal memuat retur penjualan.'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Muat ulang halaman untuk mencoba lagi.
+                </p>
+            </div>
+        );
+    }
+
+    const returns = returnsRes.data ?? [];
     const serializedReturns = serializeData(returns);
 
     const totalReturns = returns.length;
@@ -71,7 +86,7 @@ export default async function SalesReturnsPage({
 
     return (
         <div className="flex flex-col space-y-6 p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
                         {salesLabels.salesReturns}
@@ -84,7 +99,7 @@ export default async function SalesReturnsPage({
                         periode ini saja.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" />
                     <Button asChild>
                         <Link href="/sales/returns/create">

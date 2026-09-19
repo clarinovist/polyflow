@@ -143,7 +143,7 @@ export function SalesReturnDetailClient({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button variant="ghost" asChild>
                     <Link href={basePath}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -151,7 +151,7 @@ export function SalesReturnDetailClient({
                     </Link>
                 </Button>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {salesReturn.status === 'DRAFT' && (
                         <Button
                             variant="default"
