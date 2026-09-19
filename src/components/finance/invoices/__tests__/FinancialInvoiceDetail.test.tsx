@@ -136,6 +136,13 @@ describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
         expect(screen.getByLabelText('Jumlah')).toHaveProperty('value', '800000');
         expect(screen.getByText('Remaining Balance').parentElement?.textContent).toContain('800.000');
     });
+    it('shows price adjustment separately and offers only adjusted cash remaining', () => {
+        render(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'PARTIAL', paidAmount: 200000, creditedAmount: 100000, priceAdjustmentAmount: -100000 })} />);
+        expect(screen.getByText('Penyesuaian harga').parentElement?.textContent).toContain('100.000');
+        expect(screen.getByText('Remaining Balance').parentElement?.textContent).toContain('600.000');
+        fireEvent.click(screen.getByRole('button', { name: 'Catat Pembayaran' }));
+        expect(screen.getByLabelText('Jumlah')).toHaveProperty('value', '600000');
+    });
     it('shows the persisted rounding adjustment independently of VAT', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ totalAmount: 16642500, roundingAmount: 180 })} />);
         expect(screen.getByText('Pembulatan').parentElement?.textContent).toContain('180');

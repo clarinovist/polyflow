@@ -280,7 +280,8 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
         invoiceWriter().$transaction(async (tx) => {
             await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
             await tx.$queryRaw`SELECT id FROM "Invoice" WHERE "salesOrderId" = ${salesOrderId} ORDER BY id FOR UPDATE`;
-            const existing = await tx.invoice.findMany({ where: { salesOrderId, status: { not: 'CANCELLED' } } });
+            const existing = await tx.invoice.findMany({ where: { salesOrderId, status: { not: 'CANCELLED' } }, include: { _count: { select: { priceAdjustments: { where: { status: 'POSTED' } } } } } });
+            if (existing.some(invoice => Number(invoice.priceAdjustmentAmount ?? 0) !== 0 || (invoice._count?.priceAdjustments ?? 0) > 0)) throw new BusinessRuleError('SO memiliki penyesuaian harga invoice aktif. Periksa Finance sebelum menerbitkan invoice tambahan agar selisih tidak ditagihkan dua kali.');
             if (existing.some(invoice => invoice.status === 'DRAFT')) throw new BusinessRuleError('Selesaikan invoice draft yang ada sebelum menerbitkan invoice baru.');
             const cumulativeTotal = await calculateSalesInvoiceTotalFromDelivered(salesOrderId, tx);
             const committed = existing.reduce((sum, invoice) => sum.plus(invoice.totalAmount).minus(invoice.roundingAmount ?? 0), new Prisma.Decimal(0));
@@ -325,7 +326,7 @@ export async function updateInvoiceStatus(
     } = await import('./sales-recognition-service');
     const { id, status, paidAmount } = data;
     const invoice = await lockSalesInvoice(tx, id);
-    if (Number(invoice.creditedAmount ?? 0) > 0) {
+    if (Number(invoice.creditedAmount ?? 0) > 0 || Number(invoice.priceAdjustmentAmount ?? 0) !== 0) {
         const { getSalesInvoiceSettlementStatus } = await import('@/lib/finance/sales-return-allocation');
         if (status === 'CANCELLED' || status === 'DRAFT' || paidAmount !== undefined || status !== getSalesInvoiceSettlementStatus(invoice)) {
             throw new BusinessRuleError('Invoice dengan kredit retur harus dikoreksi melalui transaksi sumber, bukan override status/pembayaran.');
@@ -420,7 +421,9 @@ export async function createDraftInvoiceFromOrder(
             const invoices = await tx.invoice.findMany({
                 where: { salesOrderId, status: { not: 'CANCELLED' } },
                 orderBy: { createdAt: 'asc' },
+                include: { _count: { select: { priceAdjustments: { where: { status: 'POSTED' } } } } },
             });
+            if (invoices.some(invoice => Number(invoice.priceAdjustmentAmount ?? 0) !== 0 || (invoice._count?.priceAdjustments ?? 0) > 0)) throw new BusinessRuleError('SO memiliki penyesuaian harga invoice aktif. Periksa Finance sebelum menerbitkan invoice tambahan agar selisih tidak ditagihkan dua kali.');
             const draft = invoices.find(
                 (invoice) => invoice.status === 'DRAFT',
             );

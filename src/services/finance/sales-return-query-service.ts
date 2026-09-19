@@ -181,6 +181,7 @@ export async function getFinanceReturnDetail(input: unknown) {
             totalAmount: true,
             paidAmount: true,
             creditedAmount: true,
+            priceAdjustmentAmount: true,
             returnBasisLines: {
                 include: {
                     allocations: {
@@ -229,7 +230,9 @@ export async function getFinanceReturnDetail(input: unknown) {
             totalAmount: invoice.totalAmount.toFixed(2),
             paidAmount: invoice.paidAmount.toFixed(2),
             creditedAmount: invoice.creditedAmount.toFixed(2),
+            priceAdjustmentAmount: invoice.priceAdjustmentAmount.toFixed(2),
             remaining: invoice.totalAmount
+                .plus(invoice.priceAdjustmentAmount)
                 .minus(invoice.paidAmount)
                 .minus(invoice.creditedAmount)
                 .toFixed(2),

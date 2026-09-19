@@ -186,6 +186,7 @@ export type SerializedSalesOrder = Omit<
         | 'totalAmount'
         | 'paidAmount'
         | 'creditedAmount'
+        | 'priceAdjustmentAmount'
         | 'remainingAmount'
         | 'invoiceDate'
         | 'dueDate'
@@ -195,6 +196,7 @@ export type SerializedSalesOrder = Omit<
         totalAmount: number;
         paidAmount: number;
         creditedAmount: number;
+        priceAdjustmentAmount?: number;
         invoiceDate: Date | string;
         dueDate: Date | string | null;
         createdAt: Date | string;

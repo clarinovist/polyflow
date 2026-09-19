@@ -88,6 +88,7 @@ async function getInvoiceRemaining(invoiceId: string): Promise<{
             totalAmount: true,
             paidAmount: true,
             creditedAmount: true,
+            priceAdjustmentAmount: true,
             status: true,
         },
     });
@@ -96,7 +97,7 @@ async function getInvoiceRemaining(invoiceId: string): Promise<{
 
     const totalAmount = Number(inv.totalAmount);
     const paidAmount = Number(inv.paidAmount);
-    const remaining = totalAmount - paidAmount - Number(inv.creditedAmount ?? 0);
+    const remaining = totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - paidAmount - Number(inv.creditedAmount ?? 0);
 
     return {
         totalAmount,

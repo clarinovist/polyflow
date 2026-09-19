@@ -66,7 +66,7 @@ export class AgingService {
             const customerName =
                 inv.salesOrder?.customer?.name || 'Unknown Customer';
             const outstanding =
-                inv.totalAmount.toNumber() - inv.paidAmount.toNumber() - Number(inv.creditedAmount ?? 0);
+                inv.totalAmount.toNumber() + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount.toNumber() - Number(inv.creditedAmount ?? 0);
 
             if (outstanding <= 0) continue;
 

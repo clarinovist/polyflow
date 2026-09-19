@@ -178,7 +178,7 @@ export class RekapDagangService {
         const periodStart = getWibDayBounds(from).startOfDay;
         const periodEnd = getWibDayBounds(to).endOfDay;
 
-        const [invoices, payments, returnCredits] = await Promise.all([
+        const [invoices, payments, priceAdjustments, returnCredits] = await Promise.all([
             prisma.invoice.findMany({
                 where: {
                     status: { notIn: ['CANCELLED', 'DRAFT'] },
@@ -210,6 +210,7 @@ export class RekapDagangService {
                     },
                 },
             }),
+            prisma.invoicePriceAdjustment.findMany({ where: { postingDate: { lte: periodEnd } }, select: { totalAmount: true, postingDate: true, reversedAt: true, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } } }),
             prisma.salesReturnCreditAllocation.findMany({
                 where: { credit: { status: { in: ['POSTED', 'REVERSED'] }, postedAt: { lte: periodEnd } } },
                 select: { totalAmount: true, credit: { select: { postedAt: true, reversedAt: true } }, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } },
@@ -241,6 +242,19 @@ export class RekapDagangService {
             else entry.inPeriod += amount;
         }
 
+        for (const adjustment of priceAdjustments) {
+            const customer = adjustment.invoice.salesOrder.customer;
+            const entry = ensure(customer?.id ?? 'no-customer', customer?.name ?? '');
+            const amount = Number(adjustment.totalAmount);
+            if (adjustment.postingDate < periodStart) entry.opening += amount;
+            else if (amount >= 0) entry.inPeriod += amount;
+            else entry.outPeriod -= amount;
+            if (adjustment.reversedAt && adjustment.reversedAt <= periodEnd) {
+                if (adjustment.reversedAt < periodStart) entry.opening -= amount;
+                else if (amount >= 0) entry.outPeriod += amount;
+                else entry.inPeriod -= amount;
+            }
+        }
         for (const credit of returnCredits) {
             const customer = credit.invoice.salesOrder.customer;
             const entry = ensure(customer?.id ?? 'no-customer', customer?.name ?? '');

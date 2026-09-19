@@ -49,7 +49,7 @@ export async function buildInvoiceDocument(
     const shippingCost = Number(so?.shippingCost || 0);
     const grandTotal = Number(invoice.totalAmount);
     const dpp = subtotal - taxAmount;
-    const sisaTagihan = grandTotal - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
+    const sisaTagihan = grandTotal + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
     const rawSubtotal = subtotal + discountAmount - taxAmount;
 
     const isPPN = taxAmount > 0;
@@ -87,6 +87,7 @@ export async function buildInvoiceDocument(
         grandTotal,
         paidAmount: Number(invoice.paidAmount),
         creditedAmount: Number(invoice.creditedAmount ?? 0),
+        priceAdjustmentAmount: Number(invoice.priceAdjustmentAmount ?? 0),
         remainingBalance: sisaTagihan,
         totalQty,
         bankAccounts:

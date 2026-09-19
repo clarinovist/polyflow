@@ -155,6 +155,7 @@ export const getSalesDashboardStats = withTenant(
                     totalAmount: true,
                     paidAmount: true,
                     creditedAmount: true,
+                    priceAdjustmentAmount: true,
                     dueDate: true,
                     status: true,
                     salesOrderId: true,
@@ -177,6 +178,7 @@ export const getSalesDashboardStats = withTenant(
                         invoice.totalAmount,
                         invoice.paidAmount,
                         invoice.creditedAmount,
+                        invoice.priceAdjustmentAmount,
                     ),
                 0,
             );
@@ -205,7 +207,7 @@ export const getSalesDashboardStats = withTenant(
                             salesOrder: { customerId: c.id },
                             status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
                         },
-                        _sum: { totalAmount: true, paidAmount: true, creditedAmount: true },
+                        _sum: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
                     }),
                     prisma.salesOrder.aggregate({
                         where: {
@@ -225,7 +227,7 @@ export const getSalesDashboardStats = withTenant(
                 ]);
 
                 const unpaidBalance =
-                    (Number(unpaidAgg._sum.totalAmount) || 0) -
+                    (Number(unpaidAgg._sum.totalAmount) || 0) + (Number(unpaidAgg._sum.priceAdjustmentAmount) || 0) -
                     (Number(unpaidAgg._sum.paidAmount) || 0) -
                     (Number(unpaidAgg._sum.creditedAmount) || 0);
                 const openSo = Number(openSoAgg._sum.totalAmount) || 0;
@@ -293,6 +295,7 @@ export const getSalesDashboardStats = withTenant(
                                 inv.totalAmount,
                                 inv.paidAmount,
                                 inv.creditedAmount,
+                                inv.priceAdjustmentAmount,
                             ),
                             dueDate: inv.dueDate?.toISOString() ?? '',
                             salesOrderId:

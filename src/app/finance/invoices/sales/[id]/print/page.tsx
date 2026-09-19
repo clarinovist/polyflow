@@ -30,6 +30,7 @@ export default async function InvoicePrintPage({ params }: PrintPageProps) {
         totalAmount: Number(raw.totalAmount),
         paidAmount: Number(raw.paidAmount),
         creditedAmount: Number(raw.creditedAmount ?? 0),
+        priceAdjustmentAmount: Number(raw.priceAdjustmentAmount ?? 0),
         salesOrder: raw.salesOrder
             ? {
                   ...raw.salesOrder,

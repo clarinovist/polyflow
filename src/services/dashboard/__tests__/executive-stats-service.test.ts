@@ -213,7 +213,7 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 salesOrder: buildOperationalSalesReceivableOrderWhere(),
                 AND: [{ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, remainingAmount: { gt: 0 } }],
             },
-            _sum: { totalAmount: true, paidAmount: true, creditedAmount: true },
+            _sum: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
         });
         // lowStock uses minStockAlert per variant aggregated across RAW_MATERIAL+FINISHING warehouses
         expect(mockPrisma.productVariant.findMany).toHaveBeenCalledWith({

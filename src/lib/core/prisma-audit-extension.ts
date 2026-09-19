@@ -14,6 +14,7 @@ const AUDITABLE_MODELS = new Set([
     'SalesQuotation',
     'SalesReturn',
     'SalesReturnCredit',
+    'InvoicePriceAdjustment',
     'PurchaseReturn',
     'StockOpname',
     'Machine',

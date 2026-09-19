@@ -53,6 +53,8 @@ model User {
   apiKeys                        ApiKey[]
   archivedBoms                   Bom[]
   salesReturns                   SalesReturn[]                    @relation("SalesReturnCreator")
+  invoicePriceAdjustments        InvoicePriceAdjustment[] @relation("PriceAdjustmentActor")
+  reversedPriceAdjustments       InvoicePriceAdjustment[] @relation("PriceAdjustmentReverser")
   approvedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditApprovedBy")
   returnCredits                  SalesReturnCredit[]
   reversedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditReversedBy")
@@ -1401,8 +1403,10 @@ model Invoice {
   roundingAmount       Decimal?              @db.Decimal(15, 2)
   paidAmount           Decimal               @default(0) @db.Decimal(15, 2)
   creditedAmount       Decimal               @default(0) @db.Decimal(15, 2)
+  priceAdjustmentAmount Decimal              @default(0) @db.Decimal(15, 2)
+  priceAdjustments     InvoicePriceAdjustment[]
   /// PostgreSQL GENERATED ALWAYS; never supplied by an application writer.
-  remainingAmount      Decimal               @default(dbgenerated("((\"totalAmount\" - \"paidAmount\") - \"creditedAmount\")")) @db.Decimal(15, 2)
+  remainingAmount      Decimal               @default(dbgenerated("(((\"totalAmount\" + \"priceAdjustmentAmount\") - \"paidAmount\") - \"creditedAmount\")")) @db.Decimal(15, 2)
   returnBasisLines     InvoiceReturnBasisLine[]
   returnAllocations    SalesReturnCreditAllocation[]
   notes                String?
@@ -1422,6 +1426,46 @@ model Invoice {
 // ==========================================
 // Sales Collection & Remittance (Gap 06)
 // ==========================================
+
+enum InvoicePriceAdjustmentStatus {
+  POSTED
+  REVERSED
+}
+
+model InvoicePriceAdjustment {
+  id                 String @id @default(uuid())
+  invoiceId          String
+  sourceItemId       String
+  sourceJournalId    String
+  quantity           Decimal @db.Decimal(15, 4)
+  oldNetUnitPrice     Decimal @db.Decimal(20, 6)
+  newNetUnitPrice     Decimal @db.Decimal(20, 6)
+  netAmount          Decimal @db.Decimal(15, 2)
+  taxAmount          Decimal @db.Decimal(15, 2)
+  totalAmount        Decimal @db.Decimal(15, 2)
+  status             InvoicePriceAdjustmentStatus @default(POSTED)
+  postingDate        DateTime
+  reason             String
+  sourceEvidence     Json
+  idempotencyKey     String @unique
+  requestSignature   String
+  journalId          String @unique
+  createdById        String
+  createdAt          DateTime @default(now())
+  reversedAt         DateTime?
+  reversedById       String?
+  reversalReason     String?
+  reversalJournalId  String? @unique
+  invoice            Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  sourceJournal      JournalEntry @relation("PriceAdjustmentSource", fields: [sourceJournalId], references: [id], onDelete: Restrict)
+  journal            JournalEntry @relation("PriceAdjustmentJournal", fields: [journalId], references: [id], onDelete: Restrict)
+  reversalJournal    JournalEntry? @relation("PriceAdjustmentReversal", fields: [reversalJournalId], references: [id], onDelete: Restrict)
+  createdBy          User @relation("PriceAdjustmentActor", fields: [createdById], references: [id], onDelete: Restrict)
+  reversedBy         User? @relation("PriceAdjustmentReverser", fields: [reversedById], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId, postingDate])
+  @@index([sourceJournalId])
+}
 
 model CollectionActivity {
   id             String                 @id @default(cuid())
@@ -1785,6 +1829,9 @@ model JournalEntry {
   details                   JournalEntryDetail[]
   pettyCashTransaction      PettyCashTransaction?
   reconciliationAdjustments BankReconciliationAdjustment[]
+  priceAdjustmentSources    InvoicePriceAdjustment[] @relation("PriceAdjustmentSource")
+  priceAdjustmentJournal    InvoicePriceAdjustment? @relation("PriceAdjustmentJournal")
+  priceAdjustmentReversal   InvoicePriceAdjustment? @relation("PriceAdjustmentReversal")
   manualReturnAllocations    SalesReturnCreditAllocation[] @relation("ManualReturnSourceJournal")
   returnBasisLines           InvoiceReturnBasisLine[]
   returnCredit              SalesReturnCredit?

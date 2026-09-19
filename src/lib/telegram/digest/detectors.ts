@@ -134,6 +134,7 @@ type OverdueArRow = {
     totalAmount: Prisma.Decimal;
     paidAmount: Prisma.Decimal;
     creditedAmount: Prisma.Decimal;
+    priceAdjustmentAmount: Prisma.Decimal;
     dueDate: Date | null;
     soNumber: string | null;
 };
@@ -144,12 +145,12 @@ export async function detectOverdueAr(
     const requiredResources = ['/finance/invoices'];
     try {
         const rows = await tenantDb.$queryRaw<OverdueArRow[]>(Prisma.sql`
-      SELECT i.id AS "invoiceId", i."invoiceNumber", i."totalAmount", i."paidAmount", i."creditedAmount", i."dueDate",
+      SELECT i.id AS "invoiceId", i."invoiceNumber", i."totalAmount", i."paidAmount", i."creditedAmount", i."priceAdjustmentAmount", i."dueDate",
              so."orderNumber" AS "soNumber"
       FROM "Invoice" i
       LEFT JOIN "SalesOrder" so ON i."salesOrderId" = so.id
       WHERE i."dueDate" < NOW()
-        AND i."totalAmount" > i."paidAmount" + i."creditedAmount"
+        AND i."totalAmount" + i."priceAdjustmentAmount" > i."paidAmount" + i."creditedAmount"
         AND i.status IN ('UNPAID', 'PARTIAL', 'OVERDUE')
       ORDER BY i."dueDate" ASC
       LIMIT ${FETCH_CAP}
@@ -157,7 +158,7 @@ export async function detectOverdueAr(
 
         const items: DetectedItem[] = rows.map((row) => {
             const outstanding =
-                Number(row.totalAmount) - Number(row.paidAmount) - Number(row.creditedAmount ?? 0);
+                Number(row.totalAmount) + Number(row.priceAdjustmentAmount ?? 0) - Number(row.paidAmount) - Number(row.creditedAmount ?? 0);
             return {
                 entityKey: `overdue_ar:${row.invoiceId}`,
                 entityType: 'Invoice',

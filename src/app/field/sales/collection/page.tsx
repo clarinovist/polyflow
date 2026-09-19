@@ -10,6 +10,7 @@ type InvoiceRow = {
     totalAmount: unknown;
     paidAmount: unknown;
     creditedAmount: unknown;
+    priceAdjustmentAmount: unknown;
     status: string;
     salesOrder?: {
         customer?: { name?: string | null } | null;
@@ -57,6 +58,7 @@ export default async function SalesMobileCollectionPage() {
         totalAmount: Number(inv.totalAmount as number),
         paidAmount: Number(inv.paidAmount as number),
         creditedAmount: Number(inv.creditedAmount ?? 0),
+        priceAdjustmentAmount: Number(inv.priceAdjustmentAmount ?? 0),
         status: inv.status,
         customerName: inv.salesOrder?.customer?.name || 'Customer Umum',
         orderNumber: inv.salesOrder?.orderNumber || '',

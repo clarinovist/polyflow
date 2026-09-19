@@ -106,12 +106,12 @@ export async function getCustomerCreditExposure(
             salesOrder: { customerId },
             status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
         },
-        select: { totalAmount: true, paidAmount: true, creditedAmount: true },
+        select: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
     });
 
     const unpaidInvoiceBalance = unpaidInvoices.reduce(
         (sum, invoice) =>
-            sum.plus(invoice.totalAmount).minus(invoice.paidAmount).minus(invoice.creditedAmount ?? 0),
+            sum.plus(invoice.totalAmount).plus(invoice.priceAdjustmentAmount ?? 0).minus(invoice.paidAmount).minus(invoice.creditedAmount ?? 0),
         ZERO_DECIMAL,
     );
 
@@ -239,7 +239,7 @@ async function queryOverLimitCustomerIds(
     const offset = (page - 1) * pageSize;
     const rows = await prisma.$queryRaw<OverLimitPageRow[]>(Prisma.sql`
         WITH invoice_exposure AS (
-            SELECT so."customerId", SUM(i."totalAmount" - i."paidAmount" - i."creditedAmount") AS amount
+            SELECT so."customerId", SUM(i."totalAmount" + i."priceAdjustmentAmount" - i."paidAmount" - i."creditedAmount") AS amount
             FROM "Invoice" i
             JOIN "SalesOrder" so ON so.id = i."salesOrderId"
             WHERE i.status IN ('UNPAID', 'PARTIAL', 'OVERDUE')
@@ -365,6 +365,7 @@ async function calculatePageSummaries(
                 totalAmount: true,
                 paidAmount: true,
                 creditedAmount: true,
+                priceAdjustmentAmount: true,
                 salesOrder: { select: { customerId: true } },
             },
         }),
@@ -386,7 +387,7 @@ async function calculatePageSummaries(
     for (const invoice of invoices) {
         const customerId = invoice.salesOrder.customerId;
         if (!customerId) continue;
-        const balance = invoice.totalAmount.minus(invoice.paidAmount).minus(invoice.creditedAmount ?? 0);
+        const balance = invoice.totalAmount.plus(invoice.priceAdjustmentAmount ?? 0).minus(invoice.paidAmount).minus(invoice.creditedAmount ?? 0);
         invoiceBalanceByCustomer.set(
             customerId,
             (invoiceBalanceByCustomer.get(customerId) ?? ZERO_DECIMAL).plus(

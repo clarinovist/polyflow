@@ -57,7 +57,7 @@ export async function checkOverdueSalesInvoices() {
 
     const inputs = overdueInvoices.flatMap((invoice) => {
         const outstanding =
-            invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber() - Number(invoice.creditedAmount ?? 0);
+            invoice.totalAmount.toNumber() + Number(invoice.priceAdjustmentAmount ?? 0) - invoice.paidAmount.toNumber() - Number(invoice.creditedAmount ?? 0);
         if (outstanding <= 0) return [];
         const dueDateStr =
             invoice.dueDate?.toLocaleDateString('id-ID') || 'tidak diketahui';

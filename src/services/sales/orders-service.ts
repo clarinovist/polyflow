@@ -234,6 +234,7 @@ export async function getOrders(filters?: {
                 totalAmount: true,
                 paidAmount: true,
                 creditedAmount: true,
+                priceAdjustmentAmount: true,
                 invoiceDate: true,
                 dueDate: true,
             },

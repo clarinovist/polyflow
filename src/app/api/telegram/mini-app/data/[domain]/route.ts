@@ -237,7 +237,7 @@ async function fetchFinance(
     };
 
     const items: DataItem[] = rows.map((r) => {
-        const remaining = Number(r.totalAmount) - Number(r.paidAmount) - Number(r.creditedAmount ?? 0);
+        const remaining = Number(r.totalAmount) + Number(r.priceAdjustmentAmount ?? 0) - Number(r.paidAmount) - Number(r.creditedAmount ?? 0);
         const customerName = (
             r as typeof r & {
                 salesOrder?: { customer?: { name: string } | null };

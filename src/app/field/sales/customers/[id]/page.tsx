@@ -79,6 +79,7 @@ export default async function SalesMobileCustomerDetailPage(props: {
                 totalAmount: Number(inv.totalAmount),
                 paidAmount: Number(inv.paidAmount),
                 creditedAmount: Number(inv.creditedAmount ?? 0),
+                priceAdjustmentAmount: Number(inv.priceAdjustmentAmount ?? 0),
                 status: inv.status,
                 orderNumber: inv.salesOrder?.orderNumber || '',
             }))}

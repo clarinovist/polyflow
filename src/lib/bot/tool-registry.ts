@@ -146,7 +146,7 @@ async function executeGetFinanceSummary(
     _ctx: AssistantUserContext,
 ): Promise<ToolEvidence> {
     const arRows = await prisma.$queryRaw<FinanceRow[]>(Prisma.sql`
-    SELECT COALESCE(SUM("totalAmount" - "paidAmount" - "creditedAmount"), 0) AS total
+    SELECT COALESCE(SUM("totalAmount" + "priceAdjustmentAmount" - "paidAmount" - "creditedAmount"), 0) AS total
     FROM "Invoice"
     WHERE status IN ('UNPAID', 'PARTIAL', 'OVERDUE')
   `);

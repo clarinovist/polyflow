@@ -30,6 +30,7 @@ interface InvoicePrintData {
     totalAmount: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     salesOrder?: {
         orderNumber: string;
         taxAmount?: unknown;
@@ -99,7 +100,7 @@ export function InvoiceDotMatrixPrint({
     const rawSubtotal = subtotal + discountAmount - taxAmount;
     // DPP = dasar pengenaan pajak = rawSubtotal - discountAmount = subtotal - taxAmount
     const dpp = subtotal - taxAmount;
-    const sisaTagihan = grandTotal - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
+    const sisaTagihan = grandTotal + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
 
     const { paperSize } = COMPANY;
 
@@ -371,6 +372,7 @@ export function InvoiceDotMatrixPrint({
                                 <span>TOTAL :</span>
                                 <span>{formatNumberWithDots(grandTotal)}</span>
                             </div>
+                            {Number(invoice.priceAdjustmentAmount ?? 0) !== 0 && <div className="summary-row"><span>PENYESUAIAN HARGA :</span><span>{formatNumberWithDots(Number(invoice.priceAdjustmentAmount))}</span></div>}
                             {Number(invoice.paidAmount) > 0 && <div className="summary-row"><span>PEMBAYARAN :</span><span>{formatNumberWithDots(Number(invoice.paidAmount))}</span></div>}
                             {Number(invoice.creditedAmount ?? 0) > 0 && <div className="summary-row"><span>KREDIT RETUR :</span><span>{formatNumberWithDots(Number(invoice.creditedAmount))}</span></div>}
                             <div className="summary-row bold">

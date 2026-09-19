@@ -199,11 +199,12 @@ export async function postManualReturnCreditInTransaction(
         where: { invoiceId: invoice.id, credit: { status: 'POSTED' } },
         _sum: { taxAmount: true, netAmount: true },
     });
+    const priceChanges = await tx.invoicePriceAdjustment.aggregate({ where: { invoiceId: invoice.id, status: 'POSTED' }, _sum: { netAmount: true, taxAmount: true } });
     if (
-        taxAmount.plus(active._sum.taxAmount ?? 0).gt(sourceTax) ||
+        taxAmount.plus(active._sum.taxAmount ?? 0).gt(sourceTax.plus(priceChanges._sum.taxAmount ?? 0)) ||
         netAmount
             .plus(active._sum.netAmount ?? 0)
-            .gt(invoice.totalAmount.minus(sourceTax))
+            .gt(invoice.totalAmount.minus(sourceTax).plus(priceChanges._sum.netAmount ?? 0))
     )
         throw new BusinessRuleError(
             'Komponen netto/pajak melebihi sisa nilai invoice asal. Periksa rincian Finance.',

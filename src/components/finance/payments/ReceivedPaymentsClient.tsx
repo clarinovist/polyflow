@@ -32,6 +32,7 @@ interface Invoice {
     totalAmount: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     salesOrder: {
         orderNumber: string;
         customer: { name: string } | null;

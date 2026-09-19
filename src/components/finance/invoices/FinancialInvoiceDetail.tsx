@@ -26,6 +26,7 @@ import { type CompanyConfig } from '@/lib/config/company';
 import { toast } from 'sonner';
 import { updateInvoiceStatus } from '@/actions/finance/invoice';
 import { recordCustomerPayment } from '@/actions/finance/finance';
+import { InvoicePriceAdjustment } from './InvoicePriceAdjustment';
 import { EditSalesInvoiceDueDateDialog } from './EditSalesInvoiceDueDateDialog';
 import {
     Dialog,
@@ -91,7 +92,7 @@ export function FinancialInvoiceDetail({
     const [isUpdating, setIsUpdating] = useState(false);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState(() =>
-        Math.max(0, Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0)),
+        Math.max(0, Number(invoice.totalAmount) + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0)),
     );
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
         DEFAULT_PAYMENT_METHOD,
@@ -107,7 +108,7 @@ export function FinancialInvoiceDetail({
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
     const remainingAmount =
-        Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
+        Number(invoice.totalAmount) + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0);
 
     const handleConfirmInvoice = async () => {
         setIsUpdating(true);
@@ -206,6 +207,7 @@ export function FinancialInvoiceDetail({
     return (
         <div className="space-y-6">
             <div className="flex justify-end flex-wrap gap-2">
+                {!['DRAFT','CANCELLED'].includes(invoice.status) && <InvoicePriceAdjustment invoiceId={invoice.id} />}
                 {invoice.status === 'DRAFT' && (
                     <button
                         onClick={handleConfirmInvoice}
@@ -464,6 +466,7 @@ export function FinancialInvoiceDetail({
                                 {formatRupiah(Number(invoice.paidAmount))}
                             </span>
                         </div>
+                        {Number(invoice.priceAdjustmentAmount ?? 0) !== 0 && <div className="flex justify-between text-sm"><span>Penyesuaian harga</span><span>{formatRupiah(Number(invoice.priceAdjustmentAmount))}</span></div>}
                         {Number(invoice.creditedAmount ?? 0) > 0 && <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Kredit retur (bukan pembayaran)</span>
                             <span className="font-medium">{formatRupiah(Number(invoice.creditedAmount))}</span>
@@ -590,6 +593,7 @@ export function FinancialInvoiceDetail({
                         totalAmount: Number(invoice.totalAmount),
                         paidAmount: Number(invoice.paidAmount),
                         creditedAmount: Number(invoice.creditedAmount ?? 0),
+                        priceAdjustmentAmount: Number(invoice.priceAdjustmentAmount ?? 0),
                         salesOrder: invoice.salesOrder
                             ? {
                                   ...invoice.salesOrder,

@@ -66,8 +66,11 @@ export function getSalesInvoiceBalance(invoice: {
     totalAmount: DecimalValue;
     paidAmount: DecimalValue;
     creditedAmount: DecimalValue;
+    priceAdjustmentAmount?: DecimalValue;
 }) {
-    return decimal(invoice.totalAmount, 2, 'Total invoice')
+    const adjustment = new Prisma.Decimal(invoice.priceAdjustmentAmount ?? 0);
+    if (!adjustment.isFinite() || adjustment.decimalPlaces() > 2) throw new ValidationError('Penyesuaian harga tidak valid.');
+    return decimal(invoice.totalAmount, 2, 'Total invoice').plus(adjustment)
         .minus(decimal(invoice.paidAmount, 2, 'Pembayaran'))
         .minus(decimal(invoice.creditedAmount, 2, 'Kredit retur'));
 }
@@ -76,6 +79,7 @@ export function getSalesInvoiceSettlementStatus(invoice: {
     totalAmount: DecimalValue;
     paidAmount: DecimalValue;
     creditedAmount: DecimalValue;
+    priceAdjustmentAmount?: DecimalValue;
     dueDate?: Date | null;
 }, now = new Date()): 'PAID' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' {
     const remaining = getSalesInvoiceBalance(invoice);

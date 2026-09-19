@@ -52,6 +52,7 @@ type InvoiceItem = {
     totalAmount: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     status: string;
     customerName: string;
     orderNumber: string;
@@ -206,7 +207,7 @@ export function CollectionListClient({
     const totalOutstanding = useMemo(
         () =>
             filtered.reduce(
-                (s, inv) => s + (inv.totalAmount - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
+                (s, inv) => s + (inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
                 0,
             ),
         [filtered],
@@ -453,7 +454,7 @@ export function CollectionListClient({
             ) : (
                 <div className="space-y-3">
                     {filtered.map((inv) => {
-                        const remaining = inv.totalAmount - inv.paidAmount - Number(inv.creditedAmount ?? 0);
+                        const remaining = inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0);
                         const expanded = expandedId === inv.id;
                         const history = activitiesByInvoice[inv.id] ?? [];
                         const isLoadingHist = loadingActivities === inv.id;
@@ -687,7 +688,7 @@ export function CollectionListClient({
                                     Sisa:{' '}
                                     {formatRupiah(
                                         activeInvoice.totalAmount -
-                                            activeInvoice.paidAmount - Number(activeInvoice.creditedAmount ?? 0),
+                                            activeInvoice.paidAmount - Number(activeInvoice.creditedAmount ?? 0) + Number(activeInvoice.priceAdjustmentAmount ?? 0),
                                     )}
                                 </p>
                             </div>

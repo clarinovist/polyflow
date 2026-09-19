@@ -48,6 +48,12 @@ describe('InvoiceTable finance server pagination', () => {
         expect(container.querySelector('[data-slot="card"]')?.textContent).toContain('Sisa tagihan');
         expect(screen.getByText(/Sisa:/).textContent).toMatch(/Rp\s*0/);
     });
+    it('shows signed price adjustment independently of return credit and original total', () => {
+        render(<InvoiceTable invoices={[{ ...invoice, paidAmount: 10000, creditedAmount: 5000, priceAdjustmentAmount: -20000 }]} basePath="/finance/invoices/sales" />);
+        expect(screen.getByText(/Penyesuaian harga:/).textContent).toContain('20.000');
+        expect(screen.getByText(/Sisa:/).textContent).toContain('65.000');
+        expect(screen.getByText(/Kredit retur:/).textContent).toContain('5.000');
+    });
     it('renders accessible server-sort headers and preserves URL state when sorting', () => {
         render(
             <InvoiceTable

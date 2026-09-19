@@ -335,7 +335,7 @@ export class ExecutiveStatsService {
                     salesOrder: buildOperationalSalesReceivableOrderWhere(),
                     AND: [positiveBalance],
                 },
-                _sum: { totalAmount: true, paidAmount: true, creditedAmount: true },
+                _sum: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
             }),
             // 18. Overdue Payables (same dynamic definition as Overdue Receivables).
             // Unlike AR, there is currently no historical/opening-balance AP convention in
@@ -506,7 +506,7 @@ export class ExecutiveStatsService {
         }).length;
 
         const overdueReceivables =
-            decimalToNumber(overdueReceivablesAgg._sum.totalAmount) -
+            decimalToNumber(overdueReceivablesAgg._sum.totalAmount) + decimalToNumber(overdueReceivablesAgg._sum.priceAdjustmentAmount) -
             decimalToNumber(overdueReceivablesAgg._sum.paidAmount) -
             decimalToNumber(overdueReceivablesAgg._sum.creditedAmount);
         const overduePayables =

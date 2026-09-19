@@ -25,6 +25,7 @@ type Invoice = {
     totalAmount: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     status: string;
     customerName: string;
     orderNumber: string;
@@ -85,7 +86,7 @@ export function ReceivablesListClient({
     // Sum of outstanding amounts for the filtered list
     const totalOutstanding = useMemo(() => {
         return filtered.reduce(
-            (sum, inv) => sum + (inv.totalAmount - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
+            (sum, inv) => sum + (inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
             0,
         );
     }, [filtered]);
@@ -205,7 +206,7 @@ export function ReceivablesListClient({
             ) : (
                 <div className="space-y-3">
                     {filtered.map((inv) => {
-                        const remaining = inv.totalAmount - inv.paidAmount - Number(inv.creditedAmount ?? 0);
+                        const remaining = inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0);
                         const isOverdue =
                             inv.status === 'OVERDUE' ||
                             (inv.dueDate && new Date(inv.dueDate) < new Date());

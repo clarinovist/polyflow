@@ -74,6 +74,7 @@ interface Invoice {
     totalAmount: number | { toString(): string };
     paidAmount: number | { toString(): string };
     creditedAmount?: number | { toString(): string };
+    priceAdjustmentAmount?: number | { toString(): string };
     salesOrder: {
         customer: { name: string } | null;
     } | null;
@@ -375,7 +376,7 @@ export default function TransactionWizardForm({
                                                                     ) -
                                                                     Number(
                                                                         inv.paidAmount,
-                                                                    ) - Number(inv.creditedAmount ?? 0);
+                                                                    ) - Number(inv.creditedAmount ?? 0) + Number(inv.priceAdjustmentAmount ?? 0);
                                                                 setValue(
                                                                     'amount',
                                                                     balance,
@@ -429,7 +430,7 @@ export default function TransactionWizardForm({
                                                                 ) -
                                                                 Number(
                                                                     inv.paidAmount,
-                                                                ) - Number('creditedAmount' in inv ? inv.creditedAmount ?? 0 : 0);
+                                                                ) - Number('creditedAmount' in inv ? inv.creditedAmount ?? 0 : 0) + Number('priceAdjustmentAmount' in inv ? inv.priceAdjustmentAmount ?? 0 : 0);
                                                             const partyName =
                                                                 selectedType.requiresInvoice ===
                                                                 'SALES'
@@ -508,7 +509,7 @@ export default function TransactionWizardForm({
                                                                       ) -
                                                                           Number(
                                                                               inv.paidAmount,
-                                                                          ) - Number('creditedAmount' in inv ? inv.creditedAmount ?? 0 : 0),
+                                                                          ) - Number('creditedAmount' in inv ? inv.creditedAmount ?? 0 : 0) + Number('priceAdjustmentAmount' in inv ? inv.priceAdjustmentAmount ?? 0 : 0),
                                                                   )
                                                                 : '0';
                                                         })()}

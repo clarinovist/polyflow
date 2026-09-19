@@ -287,6 +287,8 @@ export async function postReturnCreditInTransaction(
             throw new BusinessRuleError(
                 'Invoice dan retur harus berasal dari SO dan customer yang sama.',
             );
+        if (await tx.invoicePriceAdjustment.count({ where: { invoiceId: invoice.id, status: 'POSTED' } }))
+            return review('Invoice memiliki penyesuaian harga aktif. Nilai retur perlu disetujui Finance melalui kredit manual.');
         if (invoice.status === 'DRAFT')
             throw new BusinessRuleError(
                 'Invoice draft belum dapat menerima kredit retur.',

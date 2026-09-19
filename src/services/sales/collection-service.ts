@@ -271,7 +271,7 @@ export class CollectionService {
 
         for (const inv of invoices) {
             const outstanding =
-                inv.totalAmount.toNumber() - inv.paidAmount.toNumber() - Number(inv.creditedAmount ?? 0);
+                inv.totalAmount.toNumber() + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount.toNumber() - Number(inv.creditedAmount ?? 0);
             if (outstanding <= 0) continue;
 
             const resolvedRepId = resolveSalesRepIdFromInvoice(
@@ -396,7 +396,7 @@ export class CollectionService {
         const rows = invoices
             .map((inv) => {
                 const outstanding =
-                    inv.totalAmount.toNumber() - inv.paidAmount.toNumber() - Number(inv.creditedAmount ?? 0);
+                    inv.totalAmount.toNumber() + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount.toNumber() - Number(inv.creditedAmount ?? 0);
                 if (outstanding <= 0) return null;
                 const resolvedRepId = resolveSalesRepIdFromInvoice(
                     {

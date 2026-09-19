@@ -210,6 +210,7 @@ interface EscpInvoiceData {
     grandTotal: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     remainingBalance: number;
     totalQty: number;
 
@@ -401,6 +402,7 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     }
     summaryLines.push(['TOTAL :', formatRupiah(data.grandTotal)]);
     if (data.paidAmount > 0) summaryLines.push(['PEMBAYARAN :', formatRupiah(data.paidAmount)]);
+    if ((data.priceAdjustmentAmount ?? 0) !== 0) summaryLines.push(['PENYESUAIAN HARGA :', formatRupiah(data.priceAdjustmentAmount!)]);
     if ((data.creditedAmount ?? 0) > 0) summaryLines.push(['KREDIT RETUR :', formatRupiah(data.creditedAmount!)]);
     summaryLines.push(['SISA TAGIHAN :', formatRupiah(data.remainingBalance)]);
 

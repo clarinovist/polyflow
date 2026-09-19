@@ -52,6 +52,7 @@ interface Invoice {
     totalAmount: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     salesOrder: {
         orderNumber: string;
         customer: { name: string } | null;
@@ -104,7 +105,7 @@ export function CreateRemittanceDialog({
     );
     const remainingBalance = selectedInvoice
         ? Number(selectedInvoice.totalAmount) -
-          Number(selectedInvoice.paidAmount) - Number(selectedInvoice.creditedAmount ?? 0)
+          Number(selectedInvoice.paidAmount) - Number(selectedInvoice.creditedAmount ?? 0) + Number(selectedInvoice.priceAdjustmentAmount ?? 0)
         : 0;
 
     const resetForm = () => {
@@ -347,7 +348,7 @@ export function CreateRemittanceDialog({
                                                     ) -
                                                         Number(
                                                             selectedInvoice.paidAmount,
-                                                        ) - Number(selectedInvoice.creditedAmount ?? 0),
+                                                        ) - Number(selectedInvoice.creditedAmount ?? 0) + Number(selectedInvoice.priceAdjustmentAmount ?? 0),
                                                 )}
                                             </span>
                                         </span>
@@ -392,7 +393,7 @@ export function CreateRemittanceDialog({
                                             {invoices.map((inv) => {
                                                 const balance =
                                                     Number(inv.totalAmount) -
-                                                    Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0);
+                                                    Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0) + Number(inv.priceAdjustmentAmount ?? 0);
                                                 const customerLabel =
                                                     inv.salesOrder.customer
                                                         ?.name ||

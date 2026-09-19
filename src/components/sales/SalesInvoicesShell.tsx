@@ -42,7 +42,7 @@ type Stats = {
 
 /** 'PENDING' = belum lunas (UNPAID + PARTIAL + OVERDUE), dipakai deep-link dari dashboard */
 const PENDING_STATUSES = ['UNPAID', 'PARTIAL', 'OVERDUE'];
-const hasPositiveBalance = (invoice: Record<string, unknown>) => Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0) > 0;
+const hasPositiveBalance = (invoice: Record<string, unknown>) => Number(invoice.totalAmount) + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0) > 0;
 
 function isActionableOverdueRecord(inv: Record<string, unknown>): boolean {
     return isActionableInvoiceOverdue({
@@ -51,6 +51,7 @@ function isActionableOverdueRecord(inv: Record<string, unknown>): boolean {
         totalAmount: inv.totalAmount as number | string | null | undefined,
         paidAmount: inv.paidAmount as number | string | null | undefined,
         creditedAmount: inv.creditedAmount as number | string | null | undefined,
+        priceAdjustmentAmount: inv.priceAdjustmentAmount as number | string | null | undefined,
     });
 }
 

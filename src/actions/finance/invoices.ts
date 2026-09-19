@@ -175,6 +175,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
                 totalAmount: true,
                 paidAmount: true,
                 creditedAmount: true,
+                priceAdjustmentAmount: true,
             },
             where: {
                 ...operationalCustomerArScope,
@@ -185,7 +186,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
 
         // Calculate actual outstanding (Total - Paid)
         const totalOutstanding =
-            (Number(unpaid._sum.totalAmount) || 0) -
+            (Number(unpaid._sum.totalAmount) || 0) + (Number(unpaid._sum.priceAdjustmentAmount) || 0) -
             (Number(unpaid._sum.paidAmount) || 0) -
             (Number(unpaid._sum.creditedAmount) || 0);
 
@@ -205,6 +206,7 @@ export const getInvoiceStats = withTenant(async function getInvoiceStats(
                 totalAmount: true,
                 paidAmount: true,
                 creditedAmount: true,
+                priceAdjustmentAmount: true,
             },
         });
         const overdueCount = overdueCandidates.filter((invoice) =>

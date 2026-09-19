@@ -54,6 +54,7 @@ type Invoice = {
     totalAmount: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     status: string;
     orderNumber: string;
 };
@@ -91,7 +92,7 @@ export function CustomerDetailClient({
     }, [customer.id]);
 
     const totalOutstanding = outstandingInvoices.reduce(
-        (sum, inv) => sum + (inv.totalAmount - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
+        (sum, inv) => sum + (inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
         0,
     );
 
@@ -261,7 +262,7 @@ export function CustomerDetailClient({
                 ) : (
                     <div className="space-y-2.5">
                         {outstandingInvoices.map((inv) => {
-                            const remaining = inv.totalAmount - inv.paidAmount - Number(inv.creditedAmount ?? 0);
+                            const remaining = inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0);
                             const isOverdue =
                                 inv.status === 'OVERDUE' ||
                                 (inv.dueDate &&

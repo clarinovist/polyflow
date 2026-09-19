@@ -103,7 +103,7 @@ export const getFinanceMobileOverview = withTenant(
 
             const overdueArAmount = arInvoices.reduce(
                 (sum: number, inv) =>
-                    sum + Number(inv.totalAmount ?? 0) - Number(inv.paidAmount ?? 0) - Number(inv.creditedAmount ?? 0),
+                    sum + Number(inv.totalAmount ?? 0) + Number(inv.priceAdjustmentAmount ?? 0) - Number(inv.paidAmount ?? 0) - Number(inv.creditedAmount ?? 0),
                 0,
             );
             const overdueApAmount = apInvoices.reduce(
@@ -123,6 +123,7 @@ export const getFinanceMobileOverview = withTenant(
                         dueDate: Date | null;
                         paidAmount: unknown;
                         creditedAmount: unknown;
+                        priceAdjustmentAmount: unknown;
                         totalAmount: unknown;
                         status: string;
                     }) => ({
@@ -135,7 +136,7 @@ export const getFinanceMobileOverview = withTenant(
                         dueDate: inv.dueDate
                             ? new Date(inv.dueDate).toISOString()
                             : now.toISOString(),
-                        amount: Number(inv.totalAmount ?? 0) - Number(inv.paidAmount ?? 0) - Number(inv.creditedAmount ?? 0),
+                        amount: Number(inv.totalAmount ?? 0) + Number(inv.priceAdjustmentAmount ?? 0) - Number(inv.paidAmount ?? 0) - Number(inv.creditedAmount ?? 0),
                         status: inv.status,
                     }),
                 ),

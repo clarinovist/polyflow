@@ -88,6 +88,8 @@ export async function prepareReturnCreditProposal(
             'SO tidak memiliki tepat satu invoice tujuan. Pilih dan periksa alokasi manual.',
         );
     const invoice = invoices[0];
+    if (await tx.invoicePriceAdjustment.count({ where: { invoiceId: invoice.id, status: 'POSTED' } }))
+        return blocked('Invoice memiliki penyesuaian harga aktif. Periksa nilai kredit melalui persetujuan manual.');
     // Earlier credits have already consumed portions/rounding; keep this shortcut
     // for the first full-return allocation and retain the detailed/manual path otherwise.
     if (

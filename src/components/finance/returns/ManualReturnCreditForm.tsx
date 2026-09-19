@@ -140,7 +140,7 @@ export function ManualReturnCreditForm({ row }: { row: FinanceReturnDetail }) {
                 </div>
                 {invoice && (
                     <p className="rounded bg-muted p-3">
-                        Total {rupiah(Number(invoice.totalAmount))} − pembayaran{' '}
+                        Total {rupiah(Number(invoice.totalAmount))} + penyesuaian harga {rupiah(Number(invoice.priceAdjustmentAmount ?? 0))} − pembayaran{' '}
                         {rupiah(Number(invoice.paidAmount))} − kredit{' '}
                         {rupiah(Number(invoice.creditedAmount))} = sisa{' '}
                         {rupiah(Number(invoice.remaining))}

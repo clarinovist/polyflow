@@ -174,6 +174,7 @@ export const getFinanceShiftBoard = withTenant(
                         totalAmount: true,
                         paidAmount: true,
                         creditedAmount: true,
+                        priceAdjustmentAmount: true,
                         dueDate: true,
                         salesOrder: {
                             select: { customer: { select: { name: true } } },
@@ -197,7 +198,7 @@ export const getFinanceShiftBoard = withTenant(
                 }),
                 prisma.invoice.findMany({
                     where: unpaidWhereSales,
-                    select: { totalAmount: true, paidAmount: true, creditedAmount: true },
+                    select: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
                 }),
                 prisma.purchaseInvoice.findMany({
                     where: unpaidWherePurchase,
@@ -277,12 +278,12 @@ export const getFinanceShiftBoard = withTenant(
             ]);
 
             const sumRemaining = (
-                rows: Array<{ totalAmount: unknown; paidAmount: unknown; creditedAmount?: unknown }>,
+                rows: Array<{ totalAmount: unknown; paidAmount: unknown; creditedAmount?: unknown; priceAdjustmentAmount?: unknown }>,
             ) =>
                 rows.reduce(
                     (acc, r) =>
                         acc +
-                        (toNumber(r.totalAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount)),
+                        (toNumber(r.totalAmount) + toNumber(r.priceAdjustmentAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount)),
                     0,
                 );
 
@@ -322,7 +323,7 @@ export const getFinanceShiftBoard = withTenant(
                 id: r.id,
                 invoiceNumber: r.invoiceNumber,
                 customerName: r.salesOrder?.customer?.name ?? '-',
-                remaining: toNumber(r.totalAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount),
+                remaining: toNumber(r.totalAmount) + toNumber(r.priceAdjustmentAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount),
                 dueDate: r.dueDate ? r.dueDate.toISOString() : null,
                 totalAmount: toNumber(r.totalAmount),
             }));

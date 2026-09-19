@@ -192,7 +192,7 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             </Link>
                             <p>
                                 Total invoice asli{' '}
-                                {formatRupiah(Number(invoice.totalAmount))} −
+                                {formatRupiah(Number(invoice.totalAmount))} + penyesuaian harga {formatRupiah(Number(invoice.priceAdjustmentAmount ?? 0))} −
                                 pembayaran{' '}
                                 {formatRupiah(Number(invoice.paidAmount))} −
                                 kredit retur{' '}
@@ -224,7 +224,7 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                                         {invoice.status}
                                     </p>
                                     <p>
-                                        Total Rp {invoice.totalAmount} −
+                                        Total Rp {invoice.totalAmount} + penyesuaian harga Rp {invoice.priceAdjustmentAmount ?? '0.00'} −
                                         pembayaran Rp {invoice.paidAmount} −
                                         kredit Rp {invoice.creditedAmount} =
                                         sisa Rp {invoice.remaining}

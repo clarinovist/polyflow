@@ -73,6 +73,7 @@ interface InvoiceData {
     totalAmount: number;
     paidAmount: number;
     creditedAmount?: number;
+    priceAdjustmentAmount?: number;
     status: InvoiceStatus;
     salesOrderId?: string | null;
     purchaseOrderId?: string | null;
@@ -181,7 +182,7 @@ export function InvoiceTable({
             if (isOverdueMode) {
                 const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
                 const remaining =
-                    (Number(inv.totalAmount) || 0) -
+                    (Number(inv.totalAmount) || 0) + Number(inv.priceAdjustmentAmount ?? 0) -
                     (Number(inv.paidAmount) || 0) - Number(inv.creditedAmount ?? 0);
                 const overdueStatuses: string[] = [
                     'UNPAID',
@@ -205,6 +206,7 @@ export function InvoiceTable({
                         totalAmount: inv.totalAmount,
                         paidAmount: inv.paidAmount,
                         creditedAmount: inv.creditedAmount,
+                        priceAdjustmentAmount: inv.priceAdjustmentAmount,
                     })
                 ) {
                     return false;
@@ -380,7 +382,7 @@ export function InvoiceTable({
                 cell: ({ row }) => {
                     const inv = row.original;
                     const remaining =
-                        (Number(inv.totalAmount) || 0) -
+                        (Number(inv.totalAmount) || 0) + Number(inv.priceAdjustmentAmount ?? 0) -
                         (Number(inv.paidAmount) || 0) - Number(inv.creditedAmount ?? 0);
                     return (
                         <div className="text-right">
@@ -393,8 +395,9 @@ export function InvoiceTable({
                                     {formatRupiah(Number(inv.paidAmount))}
                                 </div>
                             )}
+                            {Number(inv.priceAdjustmentAmount ?? 0) !== 0 && <div className="text-xs">Penyesuaian harga: {formatRupiah(Number(inv.priceAdjustmentAmount))}</div>}
                             {Number(inv.creditedAmount ?? 0) > 0 && <div className="text-xs mt-0.5">Kredit retur: {formatRupiah(Number(inv.creditedAmount))}</div>}
-                            {(inv.paidAmount > 0 || Number(inv.creditedAmount ?? 0) > 0) && (
+                            {(inv.paidAmount > 0 || Number(inv.creditedAmount ?? 0) > 0 || Number(inv.priceAdjustmentAmount ?? 0) !== 0) && (
                                 <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
                                     Sisa: {formatRupiah(remaining)}
                                 </div>
@@ -585,8 +588,9 @@ export function InvoiceTable({
                                     </div>
                                     <div className="space-y-1 border-t pt-2 text-xs">
                                         {Number(invoice.paidAmount) > 0 && <div className="flex justify-between"><span>Pembayaran</span><span>{formatRupiah(Number(invoice.paidAmount))}</span></div>}
+                                        {Number(invoice.priceAdjustmentAmount ?? 0) !== 0 && <div className="flex justify-between"><span>Penyesuaian harga</span><span>{formatRupiah(Number(invoice.priceAdjustmentAmount))}</span></div>}
                                         {Number(invoice.creditedAmount ?? 0) > 0 && <div className="flex justify-between"><span>Kredit retur</span><span>{formatRupiah(Number(invoice.creditedAmount))}</span></div>}
-                                        <div className="flex justify-between font-semibold text-sm"><span>Sisa tagihan</span><span>{formatRupiah(Number(invoice.totalAmount) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0))}</span></div>
+                                        <div className="flex justify-between font-semibold text-sm"><span>Sisa tagihan</span><span>{formatRupiah(Number(invoice.totalAmount) + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0))}</span></div>
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>

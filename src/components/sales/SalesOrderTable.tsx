@@ -57,6 +57,7 @@ type SerializedSalesOrder = Omit<
         totalAmount: number;
         paidAmount: number;
         creditedAmount?: number;
+        priceAdjustmentAmount?: number;
         invoiceDate: string | Date;
         dueDate?: string | Date | null;
     }>;
@@ -215,7 +216,7 @@ export function SalesOrderTable({
         const outstanding = invoices.reduce((sum, invoice) => {
             const remaining =
                 Number(invoice.totalAmount || 0) -
-                Number(invoice.paidAmount || 0) - Number(invoice.creditedAmount ?? 0);
+                Number(invoice.paidAmount || 0) - Number(invoice.creditedAmount ?? 0) + Number(invoice.priceAdjustmentAmount ?? 0);
             return remaining > 0 ? sum + remaining : sum;
         }, 0);
         if (outstanding > 0) {
