@@ -747,7 +747,7 @@ export async function createDraftBillFromPo(
         const invoiceDate = new Date();
         const dueDate = addDays(invoiceDate, termOfPaymentDays);
         const isWalkIn =
-            po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED';
+            po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED' || po.status === 'CLOSED';
         const status =
             isProtected || isWalkIn && po.entrySource === 'WALK_IN_RECEIPT'
                 ? PurchaseInvoiceStatus.DRAFT

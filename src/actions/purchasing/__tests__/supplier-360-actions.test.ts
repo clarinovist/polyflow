@@ -67,6 +67,16 @@ function session(userId: string, roles: string[]) {
 describe('supplier-360.ts action auth', () => {
     beforeEach(() => vi.clearAllMocks());
 
+    it('retains closed partially received orders in supplier performance', async () => {
+        mockRequirePurchasingAccess.mockResolvedValue(session('u1', ['ADMIN']));
+        mockPrisma.purchaseOrder.findMany.mockResolvedValue([]);
+        mockPrisma.purchaseReturn.count.mockResolvedValue(0);
+        await getSupplierPerformanceStats('sup-1');
+        expect(mockPrisma.purchaseOrder.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: expect.objectContaining({ status: { in: ['RECEIVED', 'PARTIAL_RECEIVED', 'CLOSED'] } }),
+        }));
+    });
+
     const readActions: [string, (id: string) => Promise<any>][] = [
         ['listPurchaseOrdersBySupplier', listPurchaseOrdersBySupplier],
         ['listPurchaseReturnsBySupplier', listPurchaseReturnsBySupplier],

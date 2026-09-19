@@ -104,6 +104,7 @@ export const purchasingStatusLabels = {
     SENT: 'Dikirim ke Supplier',
     PARTIAL_RECEIVED: 'Diterima Sebagian',
     RECEIVED: 'Diterima',
+    CLOSED: 'Ditutup',
     UNPAID: 'Belum Dibayar',
     PARTIAL: 'Dibayar Sebagian',
     PAID: 'Lunas',

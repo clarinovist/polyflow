@@ -7,7 +7,14 @@ import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, Plus, Eye } from 'lucide-react';
+import {
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
+    Search,
+    Plus,
+    Eye,
+} from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { formatRupiah } from '@/lib/utils/utils';
@@ -18,6 +25,7 @@ import type {
     PurchasingSortDirection,
 } from '@/lib/purchasing/paged-list';
 import type { PurchaseOrderSort } from '@/services/purchasing/orders-service';
+import { ClosePurchaseOrderDialog } from './ClosePurchaseOrderDialog';
 
 type POWithRelations = {
     id: string;
@@ -65,7 +73,11 @@ function ServerSortHeader({
         tableHead.setAttribute('aria-label', children);
         tableHead.setAttribute(
             'aria-sort',
-            active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none',
+            active
+                ? direction === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                : 'none',
         );
         return () => {
             tableHead.removeAttribute('aria-label');
@@ -179,6 +191,12 @@ export function PurchaseOrderTable({
     }, [orders, pagination, searchTerm, statusFilter]);
 
     const getStatusBadge = (status: PurchaseOrderStatus) => {
+        if (status === 'CLOSED')
+            return (
+                <Badge variant="secondary">
+                    {getStatusLabel(status, 'purchasing')}
+                </Badge>
+            );
         switch (status) {
             case 'DRAFT':
                 return (
@@ -317,10 +335,16 @@ export function PurchaseOrderTable({
             {
                 id: 'actions',
                 header: () => <div className="text-right">Aksi</div>,
-                size: 80,
+                size: 180,
                 enableSorting: false,
                 cell: ({ row }) => (
-                    <div className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                        {row.original.status === 'PARTIAL_RECEIVED' && (
+                            <ClosePurchaseOrderDialog
+                                id={row.original.id}
+                                orderNumber={row.original.orderNumber}
+                            />
+                        )}
                         <Link href={`/purchasing/orders/${row.original.id}`}>
                             <Button
                                 variant="ghost"
@@ -352,6 +376,58 @@ export function PurchaseOrderTable({
                     caption="Daftar order pembelian"
                     emptyMessage={purchasingLabels.emptyOrders}
                     minWidth={780}
+                    renderMobileView={(rows) => (
+                        <ul aria-label="Daftar PO mobile" className="space-y-3">
+                            {rows.length === 0 && (
+                                <li className="p-4 text-muted-foreground">
+                                    {purchasingLabels.emptyOrders}
+                                </li>
+                            )}
+                            {rows.map((order) => (
+                                <li
+                                    key={order.id}
+                                    className="space-y-3 rounded-md border p-4"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <span className="font-medium">
+                                            {order.orderNumber}
+                                        </span>
+                                        {getStatusBadge(order.status)}
+                                    </div>
+                                    <p className="break-words text-sm text-muted-foreground">
+                                        {order.supplier.name}
+                                    </p>
+                                    <p className="text-sm">
+                                        {format(
+                                            new Date(order.orderDate),
+                                            'dd MMM yyyy',
+                                        )}{' '}
+                                        · {formatRupiah(order.totalAmount)}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            asChild
+                                        >
+                                            <Link
+                                                href={`/purchasing/orders/${order.id}`}
+                                            >
+                                                Lihat Detail
+                                            </Link>
+                                        </Button>
+                                        {order.status ===
+                                            'PARTIAL_RECEIVED' && (
+                                            <ClosePurchaseOrderDialog
+                                                id={order.id}
+                                                orderNumber={order.orderNumber}
+                                            />
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 >
                     <div className="grid min-w-0 grid-cols-1 items-center gap-2 sm:flex sm:flex-wrap">
                         <div className="relative min-w-0">
@@ -378,17 +454,21 @@ export function PurchaseOrderTable({
                             className="h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:h-9 sm:w-[150px] sm:text-sm"
                         >
                             <option value="all">Semua Status</option>
-                            {Object.values(PurchaseOrderStatus).map((status) => (
-                                <option key={status} value={status}>
-                                    {getStatusLabel(status, 'purchasing')}
-                                </option>
-                            ))}
+                            {Object.values(PurchaseOrderStatus).map(
+                                (status) => (
+                                    <option key={status} value={status}>
+                                        {getStatusLabel(status, 'purchasing')}
+                                    </option>
+                                ),
+                            )}
                         </select>
                         <Input
                             aria-label="Tanggal order mulai"
                             type="date"
                             value={startDate}
-                            onChange={(event) => setStartDate(event.target.value)}
+                            onChange={(event) =>
+                                setStartDate(event.target.value)
+                            }
                             className="h-11 w-full min-w-0 text-base sm:h-9 sm:w-[150px] sm:text-sm"
                         />
                         <Input
@@ -398,7 +478,11 @@ export function PurchaseOrderTable({
                             onChange={(event) => setEndDate(event.target.value)}
                             className="h-11 w-full min-w-0 text-base sm:h-9 sm:w-[150px] sm:text-sm"
                         />
-                        <Button type="button" variant="outline" onClick={applyFilters}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={applyFilters}
+                        >
                             Terapkan filter
                         </Button>
                         <Link href="/purchasing/orders/create">

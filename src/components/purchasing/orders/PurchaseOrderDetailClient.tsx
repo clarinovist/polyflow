@@ -58,6 +58,7 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
+import { ClosePurchaseOrderDialog } from './ClosePurchaseOrderDialog';
 import {
     Select,
     SelectContent,
@@ -184,6 +185,7 @@ export function PurchaseOrderDetailClient({
         const styles: Record<string, string> = {
             DRAFT: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200',
             SENT: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400',
+            CLOSED: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200',
             PARTIAL_RECEIVED:
                 'bg-amber-100 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400',
             RECEIVED:
@@ -263,7 +265,10 @@ export function PurchaseOrderDetailClient({
                     </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    {!warehouseMode && order.status === 'PARTIAL_RECEIVED' && (
+                        <ClosePurchaseOrderDialog id={order.id} orderNumber={order.orderNumber} />
+                    )}
                     {!warehouseMode && order.status === 'DRAFT' && (
                         <Button
                             onClick={handleConfirm}
@@ -920,6 +925,7 @@ export function PurchaseOrderDetailClient({
                     </Card>
 
                     <EntityStatusTimeline
+                        key={order.status}
                         entityType="PurchaseOrder"
                         entityId={order.id}
                     />

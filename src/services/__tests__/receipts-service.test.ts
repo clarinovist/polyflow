@@ -26,7 +26,7 @@ vi.mock('@/lib/core/prisma', () => {
         },
     };
 
-    return { prisma: mockPrisma };
+    return { prisma: mockPrisma, getTenantDbFromContext: () => undefined };
 });
 
 vi.mock('../inventory/core-service', () => ({

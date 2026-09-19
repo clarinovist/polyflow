@@ -64,7 +64,7 @@ export const getSupplierPerformanceStats = withTenant(
             const recentOrders = await prisma.purchaseOrder.findMany({
                 where: {
                     supplierId,
-                    status: { in: ['RECEIVED', 'PARTIAL_RECEIVED'] as never[] },
+                    status: { in: ['RECEIVED', 'PARTIAL_RECEIVED', 'CLOSED'] as never[] },
                 },
                 orderBy: { orderDate: 'desc' },
                 take: 20,

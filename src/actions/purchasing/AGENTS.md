@@ -59,6 +59,9 @@ Bare `requireAuth()` is NOT allowed at action boundaries — use the specific he
 **mobile-dashboard.ts**
 - `getPurchasingMobileOverview` → `requirePurchasingAccess`
 
+**close-purchase-order.ts**
+- `closePurchaseOrder` → `requirePurchasingApprover` (ADMIN/PROCUREMENT), tenant-wrapped; reason required.
+
 ### Cross-portal exceptions
 
 - **Finance opening-balance page** (`src/app/finance/opening-balance/page.tsx`) imports `getSuppliers` → allowed via `requirePurchasingAccess` (ADMIN, PROCUREMENT, PLANNING). Finance users with only FINANCE role are blocked; if this becomes a real issue, consider `requirePurchasingAnalyticsRead` for `getSuppliers`.
@@ -90,13 +93,16 @@ export const myAction = withTenant(async function myAction(data: InputType) {
 ```
 PR: OPEN → APPROVED (wajib) / REJECTED (wajib alasan) → CONVERTED
 PO: DRAFT → SENT → PARTIAL_RECEIVED → RECEIVED
-                  ↓
-              CANCELLED
+                  ↓          ↓
+              CANCELLED    CLOSED (sisa tidak dikirim)
 ```
 
 - Purchase Request WAJIB di-approve (ADMIN/PROCUREMENT) sebelum dikonversi ke PO. Tidak ada approval PO terpisah.
 - Approver metadata: `reviewedById`, `reviewedAt`, `rejectionReason` (wajib untuk REJECTED).
-- Warehouse boleh membuat Goods Receipt dari PO DRAFT, SENT, atau PARTIAL_RECEIVED.
+- Warehouse boleh membuat Goods Receipt dari PO SENT atau PARTIAL_RECEIVED.
+- CLOSED menutup sisa komersial tanpa mengubah quantity/receivedQty, GR, stok, atau tagihan.
+  Close wajib alasan dan audit di transaction; receipt/edit/status/legacy close berbagi row lock PO.
+  CLOSED terminal: tidak menerima lagi atau dibuka otomatis oleh reversal GR.
 - Purchase Invoice boleh dibuat sebelum full receipt — dibatasi kuantitas diterima yang belum ditagihkan.
 
 ### Receiving Flow

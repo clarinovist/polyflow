@@ -13,7 +13,9 @@ import { PurchaseOrderStatus } from '@prisma/client';
 
 // Mock Prisma
 vi.mock('@/lib/core/prisma', () => ({
+    getTenantDbFromContext: () => undefined,
     prisma: {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         purchaseOrder: {
             findFirst: vi.fn(),
             findMany: vi.fn(),
@@ -87,6 +89,20 @@ describe('OrdersService (Purchasing)', () => {
     });
 
     describe('updateOrderStatus', () => {
+        it.each([
+            ['CLOSED', 'SENT'], ['CLOSED', 'CANCELLED'], ['PARTIAL_RECEIVED', 'CLOSED'],
+        ] as const)('rejects %s -> %s without a status write', async (from, to) => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({ id: 'po', status: from } as never);
+            await expect(updateOrderStatus('po', to, 'actor')).rejects.toThrow();
+            expect(prisma.$queryRaw).toHaveBeenCalled();
+            expect(prisma.purchaseOrder.update).not.toHaveBeenCalled();
+        });
+        it('rejects editing CLOSED before item mutations', async () => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({ id: 'po', status: 'CLOSED', items: [], invoices: [] } as never);
+            await expect(updateOrder({ id: 'po', items: [] } as never)).rejects.toThrow();
+            expect(prisma.purchaseOrderItem.deleteMany).not.toHaveBeenCalled();
+            expect(prisma.purchaseOrder.update).not.toHaveBeenCalled();
+        });
         it('should update status and log activity', async () => {
             vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({
                 id: 'po-1',

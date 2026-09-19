@@ -6,6 +6,7 @@ import {
   getGoodsReceipts,
   reverseGoodsReceipt,
   reverseAllGoodsReceiptsForPO,
+  closePurchaseOrderWithDiscrepancy,
 } from "../receipts-service";
 import { prisma } from "@/lib/core/prisma";
 import { InventoryCoreService } from "@/services/inventory/core-service";
@@ -18,6 +19,7 @@ import { MovementType, PurchaseOrderStatus } from "@prisma/client";
 // Mock prisma
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $queryRaw: vi.fn().mockResolvedValue([]),
     goodsReceipt: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -84,7 +86,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     $transaction: vi.fn((callback) => callback(mockPrisma)),
   },
 }));
-vi.mock("@/lib/core/prisma", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/core/prisma", () => ({ prisma: mockPrisma, getTenantDbFromContext: () => undefined }));
 vi.mock("@/services/accounting/account-resolver", () => ({
   resolveAccount: vi.fn(async (role: string) => ({
     id: role === "gr-clearing" ? "acc-clearing" : "acc-inventory",
@@ -95,6 +97,7 @@ vi.mock("@/services/accounting/account-resolver", () => ({
 
 // These unit fixtures have no prior GR rows; mirror the nested rows just created.
 function withReceiptAggregate(tx: any) {
+  tx.$queryRaw ??= vi.fn().mockResolvedValue([]);
   if (!tx.goodsReceipt?.create) return tx;
   return {
     ...tx,
@@ -162,6 +165,7 @@ vi.mock("@/lib/config/logger", () => ({
 describe("receipts-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.goodsReceipt.findMany.mockResolvedValue([]);
     // Reset implementations explicitly so scoped tests do not depend on order.
     mockPrisma.$transaction.mockImplementation((callback) => callback(withReceiptAggregate(mockPrisma)));
@@ -170,6 +174,20 @@ describe("receipts-service", () => {
       id: "pv-1",
       product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" },
     });
+  });
+
+  it('rejects CLOSED receipts at the lock before any stock/GR mutation', async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([{ status: 'CLOSED' }]);
+    await expect(createGoodsReceipt({ purchaseOrderId: 'po', locationId: 'loc', receivedDate: new Date(), isMaklon: false, notes: '', items: [] }, 'actor')).rejects.toThrow(/ditutup/);
+    expect(mockPrisma.goodsReceipt.create).not.toHaveBeenCalled();
+    expect(mockPrisma.purchaseOrderItem.update).not.toHaveBeenCalled();
+  });
+
+  it('legacy discrepancy closure rejects CLOSED instead of filling receivedQty', async () => {
+    mockPrisma.purchaseOrder.findUnique.mockResolvedValue({ status: 'CLOSED', items: [] });
+    await expect(closePurchaseOrderWithDiscrepancy('po', 'actor')).rejects.toThrow();
+    expect(mockPrisma.purchaseOrderItem.update).not.toHaveBeenCalled();
+    expect(mockPrisma.purchaseOrder.update).not.toHaveBeenCalled();
   });
 
   describe("getGoodsReceiptById", () => {

@@ -685,12 +685,12 @@ describe('createDraftBillFromPo', () => {
         );
     });
 
-    it('should create draft bill using GR received qty (not PO qty)', async () => {
+    it.each(['PARTIAL_RECEIVED', 'CLOSED'])('creates bill from actual GR quantities for %s, not ordered quantities', async status => {
         const mockPO = {
             id: 'po-1',
             totalAmount: 2500000,
             orderNumber: 'PO-001',
-            status: 'PARTIAL_RECEIVED',
+            status,
             shippingCost: null,
             items: [
                 { productVariantId: 'pv-1', quantity: { toNumber: () => 250 }, unitPrice: { toNumber: () => 10000 }, discountPercent: { toNumber: () => 0 }, taxPercent: { toNumber: () => 0 }, ppnMode: 'EXCLUDE' },
@@ -717,6 +717,7 @@ describe('createDraftBillFromPo', () => {
         expect(result).toBeDefined();
         const createCall = vi.mocked(prisma.purchaseInvoice.create).mock.calls[0][0];
         expect(createCall.data.totalAmount).toBe(2470000);
+        expect(createCall.data.status).toBe(PurchaseInvoiceStatus.UNPAID);
     });
 
     it('should update existing invoice total when GR qty changes', async () => {

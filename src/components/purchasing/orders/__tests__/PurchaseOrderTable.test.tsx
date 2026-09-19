@@ -11,6 +11,9 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({ push }),
 }));
 
+vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: 'PROCUREMENT' } } }) }));
+vi.mock('@/actions/purchasing/close-purchase-order', () => ({ closePurchaseOrder: vi.fn() }));
+
 import { PurchaseOrderTable } from '../PurchaseOrderTable';
 
 const orders = [
@@ -34,6 +37,18 @@ const pagination = {
 };
 
 describe('PurchaseOrderTable paged list', () => {
+    it('offers close only for partial orders and labels CLOSED as Ditutup', () => {
+        render(<PurchaseOrderTable orders={[
+            { ...orders[0], id: 'partial', orderNumber: 'PO-PARTIAL', status: PurchaseOrderStatus.PARTIAL_RECEIVED },
+            { ...orders[0], id: 'closed', orderNumber: 'PO-CLOSED', status: PurchaseOrderStatus.CLOSED },
+            ...orders,
+        ]} />);
+        expect(screen.getAllByRole('button', { name: 'Tutup PO PO-PARTIAL' })).toHaveLength(2);
+        expect(within(screen.getByRole('list', { name: 'Daftar PO mobile' })).getByRole('button', { name: 'Tutup PO PO-PARTIAL' })).toBeTruthy();
+        expect(screen.queryByRole('button', { name: 'Tutup PO PO-CLOSED' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Tutup PO PO-2026-0051' })).toBeNull();
+        expect(screen.getAllByText('Ditutup').length).toBeGreaterThan(0);
+    });
     beforeEach(() => {
         push.mockReset();
         window.history.replaceState({}, '', '/purchasing/orders?page=2&pageSize=50&status=SENT');

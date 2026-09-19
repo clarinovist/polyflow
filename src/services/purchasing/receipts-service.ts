@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
@@ -95,7 +95,20 @@ export async function createGoodsReceipt(
         receivedQty: canonicalizeReceiptQuantity(item.receivedQty).toNumber(),
     }));
 
-    const receipt = await prisma.$transaction(async (tx) => {
+    const receipt = await (getTenantDbFromContext() ?? prisma).$transaction(async (tx) => {
+        if (data.purchaseOrderId) {
+            const locked = await tx.$queryRaw<
+                { status: PurchaseOrderStatus }[]
+            >`
+                SELECT status FROM "PurchaseOrder" WHERE id = ${data.purchaseOrderId} FOR UPDATE`;
+            if (locked[0]?.status === PurchaseOrderStatus.CLOSED) {
+                throw new BusinessRuleError(
+                    'PO sudah ditutup dan tidak dapat menerima barang lagi.',
+                    undefined,
+                    'INVALID_PO_STATUS',
+                );
+            }
+        }
         // === Atomic Duplicate submission guard (5-min window) ===
         if (data.purchaseOrderId && !data.isMaklon) {
             const recentReceipts =
@@ -120,7 +133,8 @@ export async function createGoodsReceipt(
                           include: { items: true },
                       });
             const isDuplicate = recentReceipts.some((receipt) => {
-                if (receipt.items.length !== canonicalItems.length) return false;
+                if (receipt.items.length !== canonicalItems.length)
+                    return false;
                 return canonicalItems.every((item) =>
                     receipt.items.some(
                         (ri) =>
@@ -373,9 +387,15 @@ export async function createGoodsReceipt(
                 // costs: journalTotal = round2(net(cum)) - round2(net(prior)).
                 let journalTotal: number | undefined;
                 if (item.purchaseOrderItemId) {
-                    const valuation = poItems.find(pi => pi.id === item.purchaseOrderItemId);
+                    const valuation = poItems.find(
+                        (pi) => pi.id === item.purchaseOrderItemId,
+                    );
                     if (!valuation) {
-                        throw new BusinessRuleError('Item PO penerimaan tidak ditemukan.', undefined, 'INVALID_PO_ITEM');
+                        throw new BusinessRuleError(
+                            'Item PO penerimaan tidak ditemukan.',
+                            undefined,
+                            'INVALID_PO_ITEM',
+                        );
                     }
                     const cumQty = await tx.goodsReceiptItem.aggregate({
                         where: {
@@ -416,9 +436,7 @@ export async function createGoodsReceipt(
                 await AccountingService.recordInventoryMovement(
                     movement,
                     tx,
-                    journalTotal === undefined
-                        ? undefined
-                        : { journalTotal },
+                    journalTotal === undefined ? undefined : { journalTotal },
                 );
             }
 
@@ -605,6 +623,11 @@ export async function reverseGoodsReceipt(
     options?: { syncBill?: boolean },
 ) {
     const run = async (db: Prisma.TransactionClient) => {
+        // Lock before reading item quantities; a concurrent receive/close may have committed.
+        const lockedPO = await db.$queryRaw<{ status: PurchaseOrderStatus }[]>`
+            SELECT status FROM "PurchaseOrder" WHERE id = (
+                SELECT "purchaseOrderId" FROM "GoodsReceipt" WHERE id = ${goodsReceiptId}
+            ) FOR UPDATE`;
         const gr = await db.goodsReceipt.findUnique({
             where: { id: goodsReceiptId },
             include: {
@@ -794,7 +817,9 @@ export async function reverseGoodsReceipt(
             );
 
             let status: PurchaseOrderStatus;
-            if (allReceived) {
+            if (lockedPO[0]?.status === PurchaseOrderStatus.CLOSED) {
+                status = PurchaseOrderStatus.CLOSED;
+            } else if (allReceived) {
                 status = PurchaseOrderStatus.RECEIVED;
             } else if (partialReceived) {
                 status = PurchaseOrderStatus.PARTIAL_RECEIVED;
@@ -835,7 +860,8 @@ export async function reverseGoodsReceipt(
                 if (!item.purchaseOrderItemId) continue;
                 remainingByPoItem.set(
                     item.purchaseOrderItemId,
-                    (remainingByPoItem.get(item.purchaseOrderItemId) ??
+                    (
+                        remainingByPoItem.get(item.purchaseOrderItemId) ??
                         new Prisma.Decimal(0)
                     ).plus(item.receivedQty),
                 );
@@ -846,9 +872,7 @@ export async function reverseGoodsReceipt(
                         (item) => item.id === poItemId,
                     );
                     return poItem
-                        ? total.plus(
-                              resolveReceiptNetTotal(poItem, quantity),
-                          )
+                        ? total.plus(resolveReceiptNetTotal(poItem, quantity))
                         : total;
                 },
                 new Prisma.Decimal(0),
@@ -868,8 +892,8 @@ export async function reverseGoodsReceipt(
                         referenceType: ReferenceType.GOODS_RECEIPT,
                         referenceId: {
                             in: [
-                                ...remainingMovements.map((movement) =>
-                                    movement.id,
+                                ...remainingMovements.map(
+                                    (movement) => movement.id,
                                 ),
                                 gr.purchaseOrderId,
                             ],
@@ -942,7 +966,7 @@ export async function reverseGoodsReceipt(
         };
     };
 
-    return tx ? run(tx) : prisma.$transaction(run);
+    return tx ? run(tx) : (getTenantDbFromContext() ?? prisma).$transaction(run);
 }
 
 /**
@@ -972,7 +996,7 @@ export async function reverseAllGoodsReceiptsForPO(
     if (tx) {
         return run(tx);
     }
-    return prisma.$transaction(run);
+    return (getTenantDbFromContext() ?? prisma).$transaction(run);
 }
 
 /**
@@ -984,97 +1008,105 @@ export async function closePurchaseOrderWithDiscrepancy(
     purchaseOrderId: string,
     userId: string,
 ) {
-    const po = await prisma.purchaseOrder.findUnique({
-        where: { id: purchaseOrderId },
-        include: {
-            items: {
-                select: {
-                    id: true,
-                    quantity: true,
-                    receivedQty: true,
-                    productVariant: {
+    return (getTenantDbFromContext() ?? prisma).$transaction(
+        async (tx) => {
+            await tx.$queryRaw`SELECT id FROM "PurchaseOrder" WHERE id = ${purchaseOrderId} FOR UPDATE`;
+            const po = await tx.purchaseOrder.findUnique({
+                where: { id: purchaseOrderId },
+                include: {
+                    items: {
                         select: {
-                            name: true,
-                            skuCode: true,
-                            primaryUnit: true,
+                            id: true,
+                            quantity: true,
+                            receivedQty: true,
+                            productVariant: {
+                                select: {
+                                    name: true,
+                                    skuCode: true,
+                                    primaryUnit: true,
+                                },
+                            },
                         },
                     },
                 },
-            },
-        },
-    });
+            });
 
-    if (!po) {
-        throw new BusinessRuleError(
-            'Purchase Order tidak ditemukan.',
-            { purchaseOrderId },
-            'PO_NOT_FOUND',
-        );
-    }
-
-    if (po.status !== PurchaseOrderStatus.PARTIAL_RECEIVED) {
-        throw new BusinessRuleError(
-            `PO ${po.orderNumber} tidak bisa ditutup (status: ${po.status}). Hanya PO PARTIAL_RECEIVED yang bisa ditutup.`,
-            { purchaseOrderId, status: po.status },
-            'INVALID_PO_STATUS',
-        );
-    }
-
-    // Calculate discrepancies for audit log
-    const discrepancies = po.items
-        .map((item) => {
-            const remaining = Number(item.quantity) - Number(item.receivedQty);
-            return remaining > 0
-                ? {
-                      sku: item.productVariant.skuCode,
-                      name: item.productVariant.name,
-                      unit: item.productVariant.primaryUnit,
-                      ordered: Number(item.quantity),
-                      received: Number(item.receivedQty),
-                      remaining,
-                  }
-                : null;
-        })
-        .filter(Boolean);
-
-    if (discrepancies.length === 0) {
-        // No actual discrepancy — just mark as RECEIVED
-        await prisma.purchaseOrder.update({
-            where: { id: purchaseOrderId },
-            data: { status: PurchaseOrderStatus.RECEIVED },
-        });
-        return { success: true, discrepancies: [] };
-    }
-
-    // Close: set receivedQty = quantity for all items with remaining
-    await prisma.$transaction(async (tx) => {
-        for (const item of po.items) {
-            const remaining = Number(item.quantity) - Number(item.receivedQty);
-            if (remaining > 0) {
-                await tx.purchaseOrderItem.update({
-                    where: { id: item.id },
-                    data: { receivedQty: item.quantity },
-                });
+            if (!po) {
+                throw new BusinessRuleError(
+                    'Purchase Order tidak ditemukan.',
+                    { purchaseOrderId },
+                    'PO_NOT_FOUND',
+                );
             }
-        }
 
-        await tx.purchaseOrder.update({
-            where: { id: purchaseOrderId },
-            data: { status: PurchaseOrderStatus.RECEIVED },
-        });
+            if (po.status !== PurchaseOrderStatus.PARTIAL_RECEIVED) {
+                throw new BusinessRuleError(
+                    `PO ${po.orderNumber} tidak bisa ditutup (status: ${po.status}). Hanya PO PARTIAL_RECEIVED yang bisa ditutup.`,
+                    { purchaseOrderId, status: po.status },
+                    'INVALID_PO_STATUS',
+                );
+            }
 
-        const detailLines = discrepancies.map(
-            (d) => `${d!.sku} (${d!.name}): selisih ${d!.remaining} ${d!.unit}`,
-        );
-        await logActivity({
-            userId,
-            action: 'CLOSE_PURCHASE_DISCREPANCY',
-            entityType: 'PurchaseOrder',
-            entityId: purchaseOrderId,
-            details: `PO ${po.orderNumber} ditutup dengan selisih kecil:\n${detailLines.join('\n')}`,
-            tx,
-        });
-    });
+            // Calculate discrepancies for audit log
+            const discrepancies = po.items
+                .map((item) => {
+                    const remaining =
+                        Number(item.quantity) - Number(item.receivedQty);
+                    return remaining > 0
+                        ? {
+                              sku: item.productVariant.skuCode,
+                              name: item.productVariant.name,
+                              unit: item.productVariant.primaryUnit,
+                              ordered: Number(item.quantity),
+                              received: Number(item.receivedQty),
+                              remaining,
+                          }
+                        : null;
+                })
+                .filter(Boolean);
 
-    return { success: true, discrepancies };
+            if (discrepancies.length === 0) {
+                // No actual discrepancy — just mark as RECEIVED
+                await tx.purchaseOrder.update({
+                    where: { id: purchaseOrderId },
+                    data: { status: PurchaseOrderStatus.RECEIVED },
+                });
+                return { success: true, discrepancies: [] };
+            }
+
+            // Legacy tolerance closure, serialized with commercial closure.
+            // Close: set receivedQty = quantity for all items with remaining
+            for (const item of po.items) {
+                const remaining =
+                    Number(item.quantity) - Number(item.receivedQty);
+                if (remaining > 0) {
+                    await tx.purchaseOrderItem.update({
+                        where: { id: item.id },
+                        data: { receivedQty: item.quantity },
+                    });
+                }
+            }
+
+            await tx.purchaseOrder.update({
+                where: { id: purchaseOrderId },
+                data: { status: PurchaseOrderStatus.RECEIVED },
+            });
+
+            const detailLines = discrepancies.map(
+                (d) =>
+                    `${d!.sku} (${d!.name}): selisih ${d!.remaining} ${d!.unit}`,
+            );
+            await logActivity({
+                userId,
+                action: 'CLOSE_PURCHASE_DISCREPANCY',
+                entityType: 'PurchaseOrder',
+                entityId: purchaseOrderId,
+                details: `PO ${po.orderNumber} ditutup dengan selisih kecil:\n${detailLines.join('\n')}`,
+                tx,
+            });
+
+            return { success: true, discrepancies };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
 }

@@ -2475,6 +2475,7 @@ enum PurchaseOrderStatus {
   PARTIAL_RECEIVED
   RECEIVED
   CANCELLED
+  CLOSED
 }
 
 enum PurchaseInvoiceStatus {
