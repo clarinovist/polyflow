@@ -1,5 +1,9 @@
 # UI/UX Pro Max Prompts for Polyflow Landing Page
 
+> **Arsip prompt Juni 2026.** Ini bahan eksplorasi desain, bukan spesifikasi fitur
+> atau bukti bahwa seluruh efek sudah diterapkan. Panduan desain aktif ada di
+> [DESIGN_SYSTEM.md](../../DESIGN_SYSTEM.md).
+
 ## 🎯 Overview
 
 Prompts untuk meningkatkan animasi dan visual effects pada landing page Polyflow ERP.

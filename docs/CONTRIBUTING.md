@@ -2,9 +2,9 @@
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js from [`.nvmrc`](../.nvmrc) (`nvm install && nvm use`)
 - Docker & Docker Compose v2.x
-- pnpm or npm
+- npm (use the committed `package-lock.json`)
 
 ## Development Setup
 
@@ -13,7 +13,9 @@
 ```bash
 git clone https://github.com/clarinovist/polyflow.git
 cd polyflow
-npm install
+nvm install
+nvm use
+npm ci
 ```
 
 ### 2. Environment Configuration
@@ -26,14 +28,14 @@ cp .env.example .env
 ### 3. Start Services
 
 ```bash
-# Start PostgreSQL only (recommended for local dev with `npm run dev`)
+# Start PostgreSQL only; verify .env points at this local instance
 npm run dev:db
-
-# Or start full stack in Docker
-npm run dev:up
 ```
 
 ### 4. Database Setup
+
+Use a disposable local database. Verify `DATABASE_URL` before running migrations
+or seeds; do not point these commands at production or another developer's database.
 
 ```bash
 npx prisma@5.22.0 generate
@@ -44,10 +46,19 @@ npx prisma@5.22.0 db seed
 ### 5. Run Dev Server
 
 ```bash
-npm run dev
+# Start Next.js without restoring production data into the local databases
+npx next dev
 ```
 
 App available at `http://localhost:3000`.
+
+> **Important:** `npm run dev` first invokes `scripts/sync-db-prod.sh`. It downloads
+> production data and restores local databases, so it is not a read-only preview
+> command. Use it only with explicit approval for that sync. `npx next dev` skips
+> the sync, but still connects to the database configured in `.env`.
+>
+> The full-stack `dev:up` / `dev:up:build` Docker path also runs migrations, seeds,
+> and `npm run dev`; review `docker-compose.dev.yml` before using it.
 
 ## Available Scripts
 
@@ -74,7 +85,7 @@ App available at `http://localhost:3000`.
 
 ### Writing Tests
 
-- Tests live alongside source code in `__tests__/` directories or as `*.test.ts` files
+- Tests live in `src/**/__tests__/` and use `*.test.ts`, `*.test.tsx`, or `*.spec.ts` names
 - Use **Vitest** for unit and integration tests
 - Use **Testing Library** for React component tests
 - Follow the AAA pattern: **Arrange → Act → Assert**
@@ -140,8 +151,8 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 
 1. Create a feature branch from `main`
 2. Make changes with tests
-3. Run `npm run lint && npm run test` to verify
-4. Push and create a PR
+3. Follow the risk-based verification gates in [AGENTS.md](../AGENTS.md); review the actual diff before committing
+4. Push and create a PR only with explicit user approval when working as an agent
 5. Ensure CI checks pass
 6. Request review
 
@@ -153,4 +164,6 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 - **shadcn/ui** + Radix UI for components
 - **TailwindCSS v4** for styling
 
-See `docs/ARCHITECTURE.md` for full details.
+Start with the [architecture overview](../ARCHITECTURE.md). See the
+[repository map](development/repository-structure.md) for folder responsibilities
+and the [documentation index](README.md) for domain references.

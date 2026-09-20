@@ -1,5 +1,10 @@
 # Landing Page Enhancement - Implementation Complete ✅
 
+> **Arsip Juni 2026.** Status build/test di bawah adalah catatan saat itu, bukan
+> verifikasi versi sekarang. Path `page-enhanced.tsx` / `page-backup.tsx` sudah
+> tidak ada; jangan jalankan instruksi lama sebagai panduan upgrade.
+> Mulai dari [indeks dokumentasi](../../README.md) untuk panduan aktif.
+
 ## 🎯 Status: SUCCESS
 
 Build berhasil tanpa errors! Landing page PolyFlow ERP telah di-enhance dengan UI/UX Pro Max guidelines.
@@ -23,9 +28,9 @@ Build berhasil tanpa errors! Landing page PolyFlow ERP telah di-enhance dengan U
 
 ### Documentation
 
-1. ✅ `docs/ui-ux-prompts.md` - Prompts untuk UI/UX Pro Max
-2. ✅ `docs/landing-page-enhancement-summary.md` - Ringkasan enhancement
-3. ✅ `docs/implementation-complete.md` - Dokumen ini
+1. [Prompts UI/UX historis](ui-ux-prompts.md)
+2. [Ringkasan enhancement](landing-page-enhancement-summary.md)
+3. [Catatan implementasi](implementation-complete.md) - Dokumen ini
 
 ## 🎨 Enhancements Applied
 

@@ -1,5 +1,11 @@
 # PolyFlow System Architecture
 
+> **Reference guide with legacy examples.** Start with the repository-level
+> [architecture overview](../ARCHITECTURE.md) and [repository map](development/repository-structure.md).
+> Some paths and snippets below predate the current domain/service layout; verify
+> them against source and module `AGENTS.md` files before implementation. Workflow
+> and verification policy lives in [AGENTS.md](../AGENTS.md), not in these examples.
+
 ## 🏗️ Architecture Overview
 
 PolyFlow follows a **modern full-stack architecture** using Next.js 16 with the App Router, leveraging server-side rendering (SSR), Server Actions, and server-side data fetching for optimal performance and developer experience.

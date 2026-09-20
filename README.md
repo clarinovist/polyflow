@@ -34,7 +34,7 @@ PolyFlow is a multi-tenant ERP system designed for plastic converting and manufa
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js sesuai [`.nvmrc`](.nvmrc) (gunakan `nvm install && nvm use`)
 - PostgreSQL 15+
 - npm
 
@@ -45,54 +45,78 @@ PolyFlow is a multi-tenant ERP system designed for plastic converting and manufa
 git clone <repository-url>
 cd polyflow
 
-# Install
-npm install
+# Install using the committed lockfile
+nvm install
+nvm use
+npm ci
 
 # Environment
 cp .env.example .env
-# Edit .env with your database credentials
+# Edit .env with credentials for a disposable LOCAL development database only
 
-# Database
-npx prisma migrate dev
-npx prisma db seed
+# Database (verify DATABASE_URL targets your local database before migrating/seeding)
+npm run db:generate
+npx prisma@5.22.0 migrate dev
+npm run db:seed
 
-# Run
-npm run dev
+# Run Next.js without the production-to-local DB sync wrapper
+npx next dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000).
+
+> **Database safety:** `npm run dev` also runs `scripts/sync-db-prod.sh`, which
+> downloads production data and restores local databases before starting Next.js.
+> Use it only when that sync is explicitly intended and approved. `npx next dev`
+> skips the sync, but the app still uses the database configured in `.env`.
+> See [CONTRIBUTING](docs/CONTRIBUTING.md) for setup details.
 
 ---
 
 ## Multi-Tenancy
 
-PolyFlow uses **database-per-tenant** isolation. Each tenant has its own PostgreSQL database, accessed via subdomain routing (e.g., `kiyowo.polyflow.uk`).
+PolyFlow uses **database-per-tenant** isolation. Each tenant has its own PostgreSQL database, accessed via subdomain routing (for example, `tenant.example.com`).
 
 ---
 
 ## Project Structure
 
-```
-src/
+```text
+src/               # Application source, grouped by layer and domain
 ├── actions/       # Server actions
 ├── services/      # Business logic
 ├── app/           # Next.js App Router pages
 ├── components/    # React components
-├── lib/           # Utilities, auth, schemas
-prisma/            # Database schema & migrations
-scripts/           # Operational scripts
+└── lib/           # Utilities, auth, schemas
+prisma/            # Database schema & versioned migrations
+docs/              # Guides, reference docs, and explicitly marked archives
+scripts/           # Operational tools, CI helpers, and archived scripts
+public/            # Static application assets
 ```
+
+See the [repository map](docs/development/repository-structure.md) for file placement
+and the distinction between shared source, historical documents, and local artifacts.
 
 ---
 
 ## Scripts
 
-| Command         | Description              |
-| --------------- | ------------------------ |
-| `npm run dev`   | Start development server |
-| `npm run build` | Production build         |
-| `npm run test`  | Run tests                |
-| `npm run lint`  | Run linter               |
+| Command         | Description                                      |
+| --------------- | ------------------------------------------------ |
+| `npx next dev`  | Start Next.js without production DB sync          |
+| `npm run dev`   | Sync production DB to local, then start Next.js    |
+| `npm run build` | Production build                                 |
+| `npm run test`  | Run tests                                        |
+| `npm run lint`  | Run linter                                       |
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Contributing and local setup](docs/CONTRIBUTING.md)
+- [Architecture overview](ARCHITECTURE.md)
+- [Release changelog](CHANGELOG.md)
+- [Script directory guide](scripts/README.md)
+- [Workflow and verification policy](AGENTS.md)
 
 ---
 

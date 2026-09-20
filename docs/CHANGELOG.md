@@ -1,6 +1,10 @@
-# Changelog
+# Historical Changelog
 
-All notable changes to PolyFlow ERP are documented here.
+> **Historical reference only.** The active release changelog is
+> [`/CHANGELOG.md`](../CHANGELOG.md), maintained by the release workflow.
+> This older log is retained at its existing path to preserve historical entries
+> and links. Its `Unreleased` section is historical, not the current backlog;
+> do not append new releases here.
 
 ## [Unreleased]
 

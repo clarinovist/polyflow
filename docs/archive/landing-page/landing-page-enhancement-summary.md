@@ -1,5 +1,10 @@
 # Landing Page Enhancement Summary
 
+> **Arsip Juni 2026, bukan panduan implementasi aktif.** Contoh pemindahan file dan
+> rewrite route di bawah disimpan sebagai riwayat; file `page-enhanced.tsx` dan
+> `page-backup.tsx` sudah tidak ada. Jangan menerapkan instruksi ini ke versi sekarang.
+> Lihat [indeks dokumentasi](../../README.md).
+
 ## 🎯 Overview
 
 Enhanced landing page untuk PolyFlow ERP menggunakan **UI/UX Pro Max** design guidelines dan custom component generation.
