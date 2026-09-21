@@ -3,6 +3,13 @@ name: CI Test Benchmark (no deploy)
 # No push, pull_request, workflow_run or reusable trigger; approval before dispatch.
 on:
   workflow_dispatch:
+    inputs:
+      strategy:
+        description: 'shards: option A versus default; all: also benchmark explicit workers'
+        type: choice
+        required: true
+        default: all
+        options: [all, shards]
 
 permissions:
   contents: read
@@ -20,13 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - candidate: default
-            shard: ''
-            artifact: default
-          - candidate: explicit
-            shard: ''
-            artifact: explicit
+        candidate: ${{ fromJSON(inputs.strategy == 'shards' && '["default"]' || '["default","explicit"]') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -42,12 +43,11 @@ jobs:
       - name: Measure complete candidate
         env:
           CANDIDATE: ${{ matrix.candidate }}
-          SHARD: ${{ matrix.shard }}
-        run: node scripts/ci/benchmark.mjs run "$CANDIDATE" "$SHARD"
+        run: node scripts/ci/benchmark.mjs run "$CANDIDATE"
       - name: Upload current candidate only
         uses: actions/upload-artifact@v4
         with:
-          name: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-${{ matrix.artifact }}
+          name: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-${{ matrix.candidate }}
           path: |
             coverage/ci-benchmark/result.json
             coverage/ci-benchmark/blob.json
@@ -159,7 +159,9 @@ jobs:
           name: shard-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           path: coverage/ci-shard-result
       - name: Reconcile all successful candidates
-        run: node scripts/ci/benchmark.mjs compare coverage/ci-comparators coverage/ci-shard-result/result.json
+        env:
+          BENCHMARK_STRATEGY: ${{ inputs.strategy }}
+        run: node scripts/ci/benchmark.mjs compare coverage/ci-comparators coverage/ci-shard-result/result.json "$BENCHMARK_STRATEGY"
 
   timing:
     if: ${{ always() }}

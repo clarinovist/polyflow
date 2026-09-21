@@ -8,6 +8,36 @@ const result = (candidate: string) => ({ ...expected, candidate, exitCode: 0,
 const singles = () => [result('default'), result('explicit')];
 const merged = () => ({ ...result('shards'), coverageGenerated: false, globalCoveragePassed: true });
 
+describe('option A benchmark comparison', () => {
+    it('accepts only the full default comparator when shards were explicitly selected', () => {
+        expect(() => validateComparison([result('default')], merged(), expected, 'shards')).not.toThrow();
+    });
+
+    it.each([[], [result('explicit')], singles(), [result('default'), result('default')]].map(reports => ({ reports })))(
+        'rejects a missing, duplicate or unselected comparator (%j)', ({ reports }) => {
+            expect(() => validateComparison(reports, merged(), expected, 'shards')).toThrow('comparator');
+        },
+    );
+
+    it.each(['unknown', '', 'default'])('rejects unknown strategy %j', strategy => {
+        expect(() => validateComparison(singles(), merged(), expected, strategy)).toThrow('strategy');
+    });
+
+    it.each(['run', 'attempt', 'sha', 'fingerprint'])('still rejects foreign %s', key => {
+        expect(() => validateComparison([result('default')], { ...merged(), [key]: 'wrong' }, expected, 'shards'))
+            .toThrow('identity');
+    });
+
+    it('preserves failure, coverage and exact count checks for the selected strategy', () => {
+        expect(() => validateComparison([{ ...result('default'), exitCode: 1 }], merged(), expected, 'shards'))
+            .toThrow('incomplete');
+        expect(() => validateComparison([result('default')], { ...merged(), globalCoveragePassed: false }, expected, 'shards'))
+            .toThrow('coverage');
+        expect(() => validateComparison([result('default')], { ...merged(), files: [{ ...file, skipped: 2 }] }, expected, 'shards'))
+            .toThrow('differ');
+    });
+});
+
 describe('final benchmark comparison', () => {
     it('accepts both complete comparators and successful merged coverage', () => {
         expect(() => validateComparison(singles(), merged(), expected)).not.toThrow();

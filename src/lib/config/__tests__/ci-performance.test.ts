@@ -8,11 +8,34 @@ import { identity, reconcile, validateReports } from '../../../../scripts/ci/ben
 import TimingReporter from '../../../../scripts/ci/timing-reporter.mjs';
 import base from '../../../../vitest.config';
 
+interface WorkflowStep {
+    name?: string;
+    run?: string;
+    uses?: string;
+    env: Record<string, string>;
+    with: Record<string, string | boolean>;
+    'continue-on-error'?: boolean;
+}
+interface WorkflowJob {
+    needs?: string | string[];
+    if?: string;
+    steps: WorkflowStep[];
+    strategy: { 'fail-fast': boolean; matrix: { include: { shard: string }[]; candidate: string } };
+    services: Record<string, { image: string; ports: string[] }>;
+    'continue-on-error'?: boolean;
+}
+interface Workflow {
+    on: { workflow_dispatch: { inputs: Record<string, unknown> } };
+    jobs: Record<string, WorkflowJob>;
+    permissions: Record<string, string>;
+    concurrency: { 'cancel-in-progress': boolean };
+}
+
 const require = createRequire(import.meta.url);
 const { load } = require('js-yaml'); // Already installed via ESLint; no new dependency.
 const { summarize, cacheTimings } = require('../../../../scripts/ci/timeline.cjs');
-const production = load(readFileSync(resolve('.github/workflows/production.yml'), 'utf8'));
-const benchmark = load(readFileSync(resolve('.github/workflows/ci-benchmark.yml'), 'utf8'));
+const production = load(readFileSync(resolve('.github/workflows/production.yml'), 'utf8')) as Workflow;
+const benchmark = load(readFileSync(resolve('.github/workflows/ci-benchmark.yml'), 'utf8')) as Workflow;
 const expected = { run: '123', attempt: '2', sha: 'a'.repeat(40), fingerprint: 'lock' };
 const file = (name: string) => ({ file: name, passed: 1, failed: 0, skipped: 0, pending: 0 });
 const report = (shard: string, name: string) => ({ ...expected, shard, candidate: 'shards',
@@ -26,7 +49,7 @@ describe('CI performance guardrails', () => {
             expect(production.jobs[name].needs).toBeUndefined();
             expect(production.jobs[name]['continue-on-error']).toBeUndefined();
         }
-        const command = production.jobs.test.steps.find((s: any) => s.name === 'Run Tests with Coverage').run;
+        const command = production.jobs.test.steps.find(step => step.name === 'Run Tests with Coverage')!.run;
         expect(command).toContain('vitest run --coverage');
         expect(command).not.toMatch(/--shard|--maxWorkers|--exclude|--no-isolate/);
         expect(production.jobs.deploy.if).toBeUndefined(); // default success(), not always()
@@ -55,8 +78,17 @@ describe('CI performance guardrails', () => {
         expect(benchmark.jobs.candidates.needs).toBeUndefined();
         expect(benchmark.jobs.shards.needs).toBeUndefined();
         expect(benchmark.jobs.shards.strategy['fail-fast']).toBe(false);
-        expect(benchmark.jobs.shards.strategy.matrix.include.map((entry: any) => entry.shard)).toEqual(['1/2', '2/2']);
-        expect(benchmark.jobs.candidates.strategy.matrix.include.map((entry: any) => entry.candidate)).toEqual(['default', 'explicit']);
+        expect(benchmark.jobs.shards.strategy.matrix.include.map(entry => entry.shard)).toEqual(['1/2', '2/2']);
+        expect(benchmark.on.workflow_dispatch.inputs.strategy).toEqual({
+            description: 'shards: option A versus default; all: also benchmark explicit workers',
+            type: 'choice', required: true, default: 'all', options: ['all', 'shards'],
+        });
+        expect(benchmark.jobs.candidates.strategy.matrix.candidate).toBe(
+            '${{ fromJSON(inputs.strategy == \'shards\' && \'["default"]\' || \'["default","explicit"]\') }}',
+        );
+        const comparison = benchmark.jobs.test.steps.find(step => step.name === 'Reconcile all successful candidates')!;
+        expect(comparison.env.BENCHMARK_STRATEGY).toBe('${{ inputs.strategy }}');
+        expect(comparison.run).toContain('"$BENCHMARK_STRATEGY"');
         expect(benchmark.jobs['shard-coverage'].needs).toBe('shards');
         expect(benchmark.jobs['shard-coverage'].if).toBeUndefined();
         expect(benchmark.jobs.test.needs).toEqual(['candidates', 'shard-coverage']);
@@ -64,16 +96,16 @@ describe('CI performance guardrails', () => {
         expect(benchmark.jobs.candidates.strategy['fail-fast']).toBe(false);
         const text = JSON.stringify(benchmark);
         expect(text).not.toMatch(/secrets\.|ssh-action|build-push-action|imagetools|workflow_run/);
-        for (const job of Object.values(benchmark.jobs) as any[]) {
+        for (const job of Object.values(benchmark.jobs)) {
             expect(job['continue-on-error']).toBeUndefined();
             for (const step of job.steps) expect(step['continue-on-error']).toBeUndefined();
         }
-        const download = benchmark.jobs['shard-coverage'].steps.find((step: any) => step.uses?.startsWith('actions/download-artifact'));
+        const download = benchmark.jobs['shard-coverage'].steps.find(step => step.uses?.startsWith('actions/download-artifact'))!;
         expect(download.with.pattern).toBe('bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*');
         expect(download.with['merge-multiple']).toBe(false);
         expect(download.with['run-id']).toBeUndefined();
-        const finalDownloads = benchmark.jobs.test.steps.filter((step: any) => step.uses?.startsWith('actions/download-artifact'));
-        expect(finalDownloads.map((step: any) => step.with.pattern || step.with.name)).toEqual([
+        const finalDownloads = benchmark.jobs.test.steps.filter(step => step.uses?.startsWith('actions/download-artifact'));
+        expect(finalDownloads.map(step => step.with.pattern || step.with.name)).toEqual([
             'bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-*',
             'shard-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}',
         ]);
@@ -86,7 +118,7 @@ describe('CI performance guardrails', () => {
             CANDIDATES_RESULT: '${{ needs.candidates.result }}',
             SHARD_COVERAGE_RESULT: '${{ needs.shard-coverage.result }}',
         });
-        const runGate = (candidate: string, shards: string) => spawnSync('bash', ['-e', '-c', step.run], {
+        const runGate = (candidate: string, shards: string) => spawnSync('bash', ['-e', '-c', step.run!], {
             env: { ...process.env, CANDIDATES_RESULT: candidate, SHARD_COVERAGE_RESULT: shards },
         }).status;
         expect(runGate(status, 'success')).not.toBe(0);

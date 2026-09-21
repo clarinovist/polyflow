@@ -91,9 +91,11 @@ function readBundles(input) {
     }));
 }
 
-export function validateComparison(singles, combined, expected) {
-    if (singles.length !== 2 || singles.map(r => r.candidate).sort().join(',') !== 'default,explicit') {
-        throw new Error('Missing default/explicit comparator');
+export function validateComparison(singles, combined, expected, strategy = 'all') {
+    if (!['all', 'shards'].includes(strategy)) throw new Error('Unknown benchmark strategy');
+    const required = strategy === 'shards' ? ['default'] : ['default', 'explicit'];
+    if (singles.length !== required.length || singles.map(r => r.candidate).sort().join(',') !== required.join(',')) {
+        throw new Error(`Missing or unexpected comparator for ${strategy}`);
     }
     for (const report of [...singles, combined]) {
         for (const key of ['run', 'attempt', 'sha', 'fingerprint']) {
@@ -106,7 +108,7 @@ export function validateComparison(singles, combined, expected) {
     }
     if (singles.some(report => !report.coverageGenerated) || combined.candidate !== 'shards' ||
         combined.globalCoveragePassed !== true) throw new Error('Missing complete coverage gate');
-    reconcile(singles[0], [singles[1], combined]);
+    reconcile(singles[0], [...singles.slice(1), combined]);
 }
 
 export async function merge(input) {
@@ -140,10 +142,10 @@ export async function merge(input) {
     emit({ kind: 'shard-coverage-gate', result: 'passed', fileCount: files.length });
 }
 
-function compare(input, merged) {
+function compare(input, merged, strategy = 'all') {
     const singles = readBundles(input).map(bundle => bundle.report);
     const combined = readJson(merged);
-    validateComparison(singles, combined, identity());
+    validateComparison(singles, combined, identity(), strategy);
     emit({ kind: 'benchmark-gate', result: 'passed', fileCount: combined.files.length });
 }
 
@@ -152,5 +154,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (mode === 'run') await run(...args);
     else if (mode === 'merge') await merge(...args);
     else if (mode === 'compare') compare(...args);
-    else throw new Error('Usage: benchmark.mjs run <default|explicit|shards> [1/2|2/2] | merge <shard-artifacts> | compare <candidate-artifacts> <merged-result>');
+    else throw new Error('Usage: benchmark.mjs run <default|explicit|shards> [1/2|2/2] | merge <shard-artifacts> | compare <candidate-artifacts> <merged-result> [all|shards]');
 }

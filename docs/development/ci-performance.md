@@ -47,6 +47,13 @@ manual workflow to exist on the default branch before it can be dispatched; do n
 `main` merely to register it (that triggers production). Agree on safe registration or
 an isolated benchmark repository before any remote write.
 
+The dispatch input `strategy` selects the experiment explicitly. `all` retains the
+original default + explicit-worker + shards comparison. Select `shards` for option A:
+only the complete default suite and two shards run; no two-worker setting is applied.
+The final comparison requires exactly the selected comparators, validates all original
+identity/count/coverage checks, and rejects unknown strategies or unexpected artifacts.
+A failed selected comparator still fails the entire benchmark.
+
 Each approved dispatch runs the same checkout/lockfile on `ubuntu-latest`:
 
 1. Default single full suite, global coverage enforced.
