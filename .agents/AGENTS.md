@@ -2,7 +2,8 @@
 
 > Map, not manual — this file routes you to the right context. Each module has its own AGENTS.md with deeper details.
 > Workflow, planning, and verification follow root `AGENTS.md` (Ringan / Normal / Kritis).
-> Small Normal tasks can plan in chat. Use existing local tooling; Kritis does not imply Docker.
+> Small Normal tasks can plan in chat. Keep local checks light; full suites/builds belong in CI, not automatic local Docker.
+> Root AGENTS.md grants standing permission for task-scoped push to main, deploy, and SSH to user-owned VPS hosts.
 > This guide adds domain context, not extra workflow gates.
 
 ## Context Routing
