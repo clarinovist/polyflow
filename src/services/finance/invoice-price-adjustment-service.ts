@@ -165,7 +165,7 @@ export async function postInvoicePriceAdjustment(
                             credit: Prisma.Decimal.max(delta.negated(), 0),
                         },
                         {
-                            accountId: source.accounts.revenue,
+                            accountId: item.revenueAccountId,
                             debit: Prisma.Decimal.max(net.negated(), 0),
                             credit: Prisma.Decimal.max(net, 0),
                         },
