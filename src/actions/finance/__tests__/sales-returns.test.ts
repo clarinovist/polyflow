@@ -1,20 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-    finance: vi.fn(), user: vi.fn(), permissions: vi.fn(), entitled: vi.fn(),
+    finance: vi.fn(), user: vi.fn(), permissions: vi.fn(), entitled: vi.fn(), quickPost: vi.fn(), quickPreview: vi.fn(), quickOrders: vi.fn(), quickItems: vi.fn(),
     summary: vi.fn(), page: vi.fn(), detail: vi.fn(), tenant: vi.fn(), approver: vi.fn(), db: vi.fn(), post: vi.fn(), proposed: vi.fn(), proposal: vi.fn(), transaction: vi.fn(), manual: vi.fn(), reverse: vi.fn(), revalidate: vi.fn(),
 }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => { mocks.tenant(); return fn(...args); } }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { user: { findUnique: mocks.user }, rolePermission: { findMany: mocks.permissions } }, getTenantDbFromContext: mocks.db }));
 vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: mocks.finance, requireFinanceApprover: mocks.approver }));
 vi.mock('@/services/finance/sales-return-credit-service', () => ({ postReturnCredit: mocks.post }));
+vi.mock('@/services/finance/quick-sales-return-service', () => ({ postQuickSalesReturn: mocks.quickPost, previewQuickSalesReturn: mocks.quickPreview, getQuickReturnOrders: mocks.quickOrders, getQuickReturnOrderItems: mocks.quickItems }));
 vi.mock('@/services/finance/manual-return-credit-service', () => ({ postManualReturnCredit: mocks.manual }));
 vi.mock('@/services/finance/return-credit-proposal-service', () => ({ postProposedReturnCredit: mocks.proposed, prepareReturnCreditProposal: mocks.proposal }));
 vi.mock('@/services/finance/sales-return-credit-reversal-service', () => ({ reverseReturnCredit: mocks.reverse }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }));
 vi.mock('@/lib/auth/access-policy', async (original) => ({ ...await original<object>(), hasWorkspaceEntitlement: mocks.entitled }));
 vi.mock('@/services/finance/sales-return-query-service', () => ({ getFinanceReturnSummary: mocks.summary, getFinanceReturnPage: mocks.page, getFinanceReturnDetail: mocks.detail }));
-import { getFinanceSalesReturnSummary, getFinanceSalesReturnPage, getFinanceSalesReturnDetail, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit, getFinanceReturnCreditProposal } from '../sales-returns';
+import { getFinanceQuickReturnOrders, getFinanceQuickReturnItems, previewFinanceQuickReturn, postFinanceQuickReturn, getFinanceSalesReturnSummary, getFinanceSalesReturnPage, getFinanceSalesReturnDetail, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit, getFinanceReturnCreditProposal } from '../sales-returns';
 
 const calls = [() => getFinanceSalesReturnSummary(), () => getFinanceSalesReturnPage({ status: 'DRAFT' }), () => getFinanceSalesReturnDetail('return-1')];
 
@@ -27,6 +28,7 @@ describe('Finance return action authorization', () => {
         mocks.transaction.mockImplementation((callback: (tx: object) => unknown) => callback({}));
         mocks.proposal.mockResolvedValue({ ready: false, reason: 'Requires review' });
         mocks.post.mockResolvedValue({ salesReturnId: 'return-1', status: 'POSTED' });
+        mocks.quickPost.mockResolvedValue({ id: 'return-1', returnNumber: 'SR-TEST' });
         mocks.manual.mockResolvedValue({ salesReturnId: 'return-1', status: 'POSTED' });
         mocks.proposed.mockResolvedValue({ salesReturnId: 'return-1', status: 'POSTED' });
         mocks.reverse.mockResolvedValue({ salesReturnId: 'return-1', status: 'REVERSED' });
@@ -38,7 +40,25 @@ describe('Finance return action authorization', () => {
         mocks.detail.mockResolvedValue(null);
     });
 
-    it.each([postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit])('requires approver, resource, active user, entitlement and tenant for direct mutations', async action => {
+    it('guards every quick-return entry and refreshes stock/invoice only after successful posting', async () => {
+        expect((await postFinanceQuickReturn({ actor: 'untrusted' })).success).toBe(true);
+        expect(mocks.quickPost).toHaveBeenCalledWith({ actor: 'untrusted' }, 'finance-1');
+        expect(mocks.revalidate).toHaveBeenCalledWith('/warehouse/inventory');
+        expect(mocks.revalidate).toHaveBeenCalledWith('/finance/rekap-piutang');
+        mocks.quickPost.mockClear(); mocks.revalidate.mockClear();
+        mocks.user.mockResolvedValue({ isActive: true, role: 'SALES', roles: [] });
+        for (const action of [postFinanceQuickReturn, previewFinanceQuickReturn, getFinanceQuickReturnOrders, getFinanceQuickReturnItems]) {
+            expect((await action('order')).success).toBe(false);
+        }
+        expect(mocks.quickPost).not.toHaveBeenCalled(); expect(mocks.quickPreview).not.toHaveBeenCalled();
+        expect(mocks.quickOrders).not.toHaveBeenCalled(); expect(mocks.quickItems).not.toHaveBeenCalled();
+        expect(mocks.revalidate).not.toHaveBeenCalled();
+        mocks.user.mockResolvedValue({ isActive: true, role: 'FINANCE', roles: [] });
+        mocks.quickPost.mockRejectedValue(new Error('Receipt rolled back'));
+        expect((await postFinanceQuickReturn({})).success).toBe(false);
+        expect(mocks.revalidate).not.toHaveBeenCalled();
+    });
+    it.each([postFinanceQuickReturn, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit])('requires approver, resource, active user, entitlement and tenant for direct mutations', async action => {
         expect((await action({ returnId: 'return-1' })).success).toBe(true);
         expect(mocks.revalidate).toHaveBeenCalledWith('/finance/returns/return-1');
         expect(mocks.revalidate).toHaveBeenCalledWith('/finance/invoices/sales/[id]', 'page');

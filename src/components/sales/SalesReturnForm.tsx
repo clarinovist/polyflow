@@ -103,8 +103,12 @@ export function SalesReturnForm({
         setIsSubmitting(true);
         try {
             if (mode === 'create') {
-                await createSalesReturnAction(data);
-                toast.success('Retur Penjualan berhasil dibuat');
+                const result = await createSalesReturnAction(data);
+                if (!result.success) {
+                    toast.error(result.error);
+                    return;
+                }
+                toast.success('Draft retur dibuat; stok dan tagihan belum berubah.');
                 router.push('/sales/returns');
             } else {
                 // await updateSalesReturnAction(data);
@@ -167,7 +171,7 @@ export function SalesReturnForm({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>
-                                            Referensi Sales Order (Opsional)
+                                            Referensi Sales Order *
                                         </FormLabel>
                                         <Select
                                             onValueChange={

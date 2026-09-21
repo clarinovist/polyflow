@@ -13,6 +13,12 @@ import {
 } from '@/services/finance/return-credit-proposal-service';
 import { reverseReturnCredit } from '@/services/finance/sales-return-credit-reversal-service';
 import {
+    getQuickReturnOrders,
+    getQuickReturnOrderItems,
+    previewQuickSalesReturn,
+    postQuickSalesReturn,
+} from '@/services/finance/quick-sales-return-service';
+import {
     requireFinanceAccess,
     requireFinanceApprover,
 } from '@/lib/auth/finance-access';
@@ -90,6 +96,48 @@ function refreshReturnFinance(returnId: string) {
     ])
         revalidatePath(path);
 }
+
+export const getFinanceQuickReturnOrders = withTenant(
+    async function getFinanceQuickReturnOrders(search: unknown = '') {
+        return safeAction(async () => {
+            await requireReturnReadAccess();
+            return getQuickReturnOrders(search);
+        });
+    },
+);
+
+export const getFinanceQuickReturnItems = withTenant(
+    async function getFinanceQuickReturnItems(orderId: unknown) {
+        return safeAction(async () => {
+            await requireReturnReadAccess();
+            return getQuickReturnOrderItems(orderId);
+        });
+    },
+);
+
+export const previewFinanceQuickReturn = withTenant(
+    async function previewFinanceQuickReturn(input: unknown) {
+        return safeAction(async () => {
+            await requireReturnReadAccess();
+            return previewQuickSalesReturn(input);
+        });
+    },
+);
+
+export const postFinanceQuickReturn = withTenant(
+    async function postFinanceQuickReturn(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireReturnReadAccess(true);
+            const result = await postQuickSalesReturn(input, session.user.id);
+            refreshReturnFinance(result.id);
+            revalidatePath('/warehouse/inventory');
+            revalidatePath('/warehouse/stock-movements');
+            revalidatePath('/finance/journals');
+            revalidatePath('/sales/orders/[id]', 'page');
+            return result;
+        });
+    },
+);
 
 export const postFinanceSalesReturnCredit = withTenant(
     async function postFinanceSalesReturnCredit(input: unknown) {

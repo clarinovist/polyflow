@@ -33,12 +33,11 @@ const approvedReason =
     'Finance menyetujui nominal usulan dokumen retur dan invoice terkait.';
 const zero = () => new Prisma.Decimal(0);
 
-/** Read-only proposal. The submission regenerates it under source locks before posting. */
-export async function prepareReturnCreditProposal(
+async function loadReturnProposalSource(
     tx: Prisma.TransactionClient,
     returnId: string,
-): Promise<ReturnCreditProposal> {
-    const returned = await tx.salesReturn.findUnique({
+) {
+    return tx.salesReturn.findUnique({
         where: { id: id.parse(returnId) },
         include: {
             items: { orderBy: { id: 'asc' } },
@@ -55,7 +54,70 @@ export async function prepareReturnCreditProposal(
             },
         },
     });
+}
+
+type ProposalSource = Pick<
+    NonNullable<Awaited<ReturnType<typeof loadReturnProposalSource>>>,
+    | 'id'
+    | 'status'
+    | 'returnDate'
+    | 'customerId'
+    | 'salesOrderId'
+    | 'credit'
+    | 'salesOrder'
+> & {
+    items: { productVariantId: string; returnedQty: Prisma.Decimal }[];
+};
+
+/** Read-only proposal. The submission regenerates it under source locks before posting. */
+export async function prepareReturnCreditProposal(
+    tx: Prisma.TransactionClient,
+    returnId: string,
+): Promise<ReturnCreditProposal> {
+    const returned = await loadReturnProposalSource(tx, returnId);
     if (!returned) throw new NotFoundError('Retur');
+    return calculateProposal(tx, returned);
+}
+
+/** Prospective receipt, not a persisted/received document. Only the atomic Finance
+ * workflow may consume this quote after validating physical receipt and source cost. */
+export async function prepareNewReturnCreditProposal(
+    tx: Prisma.TransactionClient,
+    input: {
+        salesOrderId: string;
+        items: ProposalSource['items'];
+        postingDate: Date;
+    },
+): Promise<ReturnCreditProposal> {
+    const salesOrder = await tx.salesOrder.findUnique({
+        where: { id: input.salesOrderId },
+        include: {
+            items: { orderBy: { id: 'asc' } },
+            deliveryOrders: {
+                where: { status: { in: ['SHIPPED', 'DELIVERED'] } },
+                orderBy: { id: 'asc' },
+                select: { totalCharge: true },
+            },
+        },
+    });
+    if (!salesOrder) throw new NotFoundError('SO');
+    return calculateProposal(tx, {
+        id: '',
+        status: 'RECEIVED',
+        returnDate: input.postingDate,
+        customerId: salesOrder.customerId,
+        salesOrderId: salesOrder.id,
+        credit: null,
+        salesOrder,
+        items: input.items,
+    });
+}
+
+async function calculateProposal(
+    tx: Prisma.TransactionClient,
+    returned: ProposalSource,
+): Promise<ReturnCreditProposal> {
+    const returnId = returned.id;
     const blocked = (reason: string): ReturnCreditProposal => ({
         ready: false,
         reason,
@@ -88,8 +150,14 @@ export async function prepareReturnCreditProposal(
             'SO tidak memiliki tepat satu invoice tujuan. Pilih dan periksa alokasi manual.',
         );
     const invoice = invoices[0];
-    if (await tx.invoicePriceAdjustment.count({ where: { invoiceId: invoice.id, status: 'POSTED' } }))
-        return blocked('Invoice memiliki penyesuaian harga aktif. Periksa nilai kredit melalui persetujuan manual.');
+    if (
+        await tx.invoicePriceAdjustment.count({
+            where: { invoiceId: invoice.id, status: 'POSTED' },
+        })
+    )
+        return blocked(
+            'Invoice memiliki penyesuaian harga aktif. Periksa nilai kredit melalui persetujuan manual.',
+        );
     // Earlier credits have already consumed portions/rounding; keep this shortcut
     // for the first full-return allocation and retain the detailed/manual path otherwise.
     if (

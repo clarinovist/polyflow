@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getCustomers } from '@/actions/sales/customer';
 import {
     getLocations,
@@ -37,6 +38,11 @@ export default async function CreateSalesReturnPage() {
                     </h1>
                 </CardHeader>
                 <CardContent>
+                    <p className="mb-6 rounded-md border p-4 text-sm">
+                        Ingin langsung menambah stok barang baik dan memotong tagihan SO?{' '}
+                        <Link href="/finance/returns/create" className="font-medium underline">Gunakan retur satu langkah (Admin/Finance)</Link>.
+                        Form di bawah hanya membuat draft; penerimaan dan kredit diproses terpisah.
+                    </p>
                     <SalesReturnForm
                         customers={customers.map((c) => ({
                             ...c,

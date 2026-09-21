@@ -43,8 +43,9 @@ export default async function FinanceReturnsPage({
         <div className="space-y-6">
             <PageHeader
                 title="Retur Penjualan"
-                description="Pantau retur dari Penjualan. Daftar ini tidak menerapkan potongan invoice; draft belum mengurangi piutang."
+                description="Buat retur barang baik dan potong tagihan dalam satu langkah. Draft dan retur lama belum otomatis mengurangi piutang."
             />
+            <Button asChild><Link href="/finance/returns/create">Retur & potong tagihan</Link></Button>
             <form
                 action="/finance/returns"
                 className="flex flex-wrap items-end gap-3"

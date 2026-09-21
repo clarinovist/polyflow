@@ -121,6 +121,43 @@ jobs:
             -v ${{ github.workspace }}/certs:/etc/letsencrypt:ro \
             nginx:alpine nginx -t
 
+  # Real transaction gate for the one-step receipt + receivable workflow.
+  return-contract:
+    name: Return PostgreSQL Contract
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RETURN_CREDIT_TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_return_credit_scope_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: node scripts/ci/setup-return-test-db.mjs
+      - name: Generate route types and validate TypeScript
+        run: npx next typegen && npx tsc --noEmit
+      - name: Receipt, credit, proposal and atomic return contracts
+        run: >-
+          npx vitest run --maxWorkers=1 --no-file-parallelism
+          src/services/finance/__tests__/quick-sales-return-postgres.test.ts
+          src/services/finance/__tests__/return-credit-proposal-postgres.test.ts
+          src/services/finance/__tests__/sales-return-receipt-postgres.test.ts
+          src/services/finance/__tests__/manual-return-credit-postgres.test.ts
+
   # ─────────────────────────────────────────────
   # 3. Build & Push Docker Image
   #    Deliberately does NOT `needs: test` — the image build consumes no test
@@ -164,7 +201,7 @@ jobs:
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
-    needs: [test, lint, build-and-push]
+    needs: [test, lint, build-and-push, return-contract]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -210,7 +247,7 @@ jobs:
   timing:
     name: Pipeline timing
     if: ${{ always() }}
-    needs: [test, lint, build-and-push, deploy, agents-consistency, release-please]
+    needs: [test, lint, build-and-push, return-contract, deploy, agents-consistency, release-please]
     runs-on: ubuntu-latest
     permissions:
       contents: read
