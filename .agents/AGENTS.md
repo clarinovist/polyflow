@@ -12,7 +12,7 @@ Route to the right module based on the problem you're solving:
 
 | Problem Domain                     | Start Here                     | Deep Dive                          |
 | ---------------------------------- | ------------------------------ | ---------------------------------- |
-| **Auth / Login / Session**         | `src/auth.ts` + `src/proxy.ts` | `src/lib/auth/AGENTS.md`           |
+| **Auth / Login / Session**         | `src/auth.ts` + `src/proxy.ts` | `src/lib/AGENTS.md`               |
 | **Tenant / Subdomain**             | `src/lib/core/tenant.ts`       | Architecture gotcha below          |
 | **Inventory / Stock**              | `src/actions/inventory/`       | `src/actions/inventory/AGENTS.md`  |
 | **Finance / Accounting / Journal** | `src/actions/finance/`         | `src/actions/finance/AGENTS.md`    |
