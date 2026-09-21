@@ -1,9 +1,10 @@
 # CI performance experiments
 
-The production test gate remains one complete `vitest run --coverage`, with default
-workers and the original global thresholds **71/63/75/72**. Lint, test and image build
-remain parallel; deploy still requires all three. No measured strategy has yet
-replaced that gate. This instrumentation is not a claim of a faster pipeline.
+Production splits the complete suite across two independent runners, retaining default
+workers and the original global thresholds **71/63/75/72**. The stable `test` gate merges
+coverage and validates the full suite before release. Lint, shards, image build and the
+PostgreSQL/typecheck contract run in parallel; all four gates remain required by deploy.
+Performance claims require paired hosted evidence, not individual shard durations.
 
 ## 1. Baseline and instrumentation
 
@@ -41,11 +42,11 @@ included in the controlled comparison; the summary job adds a small extra runner
 ## 2. Manual benchmark (no deployment)
 
 `.github/workflows/ci-benchmark.yml` has only `workflow_dispatch`, read-only permissions,
-no production secrets, no image publishing and no deployment job. Approval to edit does
-not authorize committing, pushing its branch or dispatching it. GitHub may require a
-manual workflow to exist on the default branch before it can be dispatched; do not push
-`main` merely to register it (that triggers production). Agree on safe registration or
-an isolated benchmark repository before any remote write.
+no production secrets, no image publishing and no deployment job. Follow `AGENTS.md`
+for current scope/authorization rules. GitHub may require a manual workflow to exist on
+the default branch before dispatch; do not push `main` merely to register an experiment
+(that triggers production). Use the existing registered workflow with an explicit
+benchmark branch/SHA and record the exact dispatch inputs.
 
 The dispatch input `strategy` selects the experiment explicitly. `all` retains the
 original default + explicit-worker + shards comparison. Select `shards` for option A:
@@ -57,7 +58,7 @@ A failed selected comparator still fails the entire benchmark.
 Each approved dispatch runs the same checkout/lockfile on `ubuntu-latest`:
 
 1. Default single full suite, global coverage enforced.
-2. Explicit hardware-aware worker candidate, full suite, same global coverage gate.
+2. With `strategy=all` only: explicit hardware-aware worker candidate, full suite, same global coverage gate.
    Candidate = min(available CPU, floor((memory GiB − 2) / 1.5)), minimum one. This
    memory budget is a hypothesis to test, not a new production setting.
 3. Two official Vitest shards with default workers and isolation unchanged. Each writes
@@ -77,14 +78,14 @@ shards (1/2 / 2/2) ── shard-coverage ────────────┘
 A failed experimental worker therefore cannot suppress otherwise-valid shard timings
 and merged coverage. The final `test` gate always evaluates dependency results; failure,
 cancellation or skip in either path makes it fail explicitly before downloading results.
-If all jobs succeed, it compares both complete-suite results with the merged shard result.
+If all jobs succeed, it compares all selected complete-suite results with the merged shard result.
 A green shard gate with a failed comparator is **not** a green benchmark.
 
 Missing/duplicate shards, foreign run/attempt/SHA/fingerprint, blob checksum mismatch,
 incomplete/disjoint discovery, failed/pending tests, merge errors and global threshold
 failure still prevent a successful shard gate. Full-suite discovery uses Vitest's
 `list --filesOnly`, not a historical count. Merge checks replayed per-file counts against
-collected shard counts; final comparison additionally checks both full-suite comparators.
+collected shard counts; final comparison additionally checks every selected full-suite comparator.
 The final comparison uses Node built-ins and JSON manifests only: no dependency install,
 coverage recalculation or test execution. `globalCoveragePassed` is written only after
 the official merge process exits zero, including threshold enforcement; the replay
@@ -97,7 +98,7 @@ intentionally fail. Artifacts expire after seven days.
 
 Version evidence: installed `vitest --help --coverage --shard --mergeReports`, public
 Reporter type declarations, BlobReporter/readBlobs and coverage-provider merge code
-in **4.1.11**. The config is intentionally separate from production. Revalidate these
+in **4.1.11**. The partial-coverage config is separate from the global coverage config. Revalidate these
 contracts after a Vitest upgrade. Regression fixtures execute real complementary-branch
 blob generation/merge, prove 100% combined coverage with no second test execution, and
 prove low coverage, malformed blobs and failed tests return nonzero.
@@ -105,7 +106,7 @@ prove low coverage, malformed blobs and failed tests return nonzero.
 ### Budget and decision
 
 Start with **two dispatches**, approximately **40–70 Linux runner-minutes** total using
-historical suite times. There are two comparator jobs, two shard jobs, one shard merge,
+historical suite times for `strategy=all`. There are two comparator jobs (one with `strategy=shards`), two shard jobs, one shard merge,
 a short final comparison gate and a summary per dispatch. This is an estimate, not
 measured billing. Compare candidate job
 critical paths plus aggregate setup/download/merge, not just test subprocess duration.
@@ -115,21 +116,30 @@ variance) and renewed budget agreement.
 
 ## 3. Production strategy decision
 
-Retain default single-suite testing until comparable hosted evidence exists. Compare:
-wall-clock to test gate, complete pipeline critical path, occupied/billed runner-minutes,
-peak sampled memory, failures, coverage/count reconciliation and artifact complexity.
-Reject samples with different source/dependencies/runner class; record CPU/RAM variation.
-A faster test gate may simply expose image build as the critical path. Do not promise a
-five-minute pipeline or choose shards just because individual jobs are shorter.
+Production uses **two independent shards with default workers**. The stable `test`
+job (`Test & Validate`) requires both shards and performs the official blob merge,
+full discovery/count reconciliation, original global coverage thresholds, and Nginx
+validation. Any shard failure/cancellation/skip fails the gate before artifact download.
+`deploy` still requires `test`, `lint`, `build-and-push`, and `return-contract`.
+Artifacts are bound to run ID, attempt, SHA and input fingerprint, retained for 14 days;
+rerun the whole production workflow when retesting, not only failed shard jobs.
 
-**Existing deployment hazard is unresolved:** tested SHA is promoted to `latest`, but
-remote checkout follows `origin/main` and compose consumes `latest`, without deployment
-serialization. This predates instrumentation. Do not integrate a new production strategy
-and call the deployment SHA-safe without separately reviewing the local ops runbook,
-pinning the deployed image (prefer digest), checking out the same tested SHA, serializing
-active deployments without cancellation, and preventing an older queued run from replacing
-a newer deployment. Such changes need a plan extension and deployment failure-path tests;
-no database or production operation is authorized by this document.
+Compare wall-clock through the required merge (including queue/setup/download), complete
+pipeline critical path, runner occupancy, memory, failures, coverage and test counts.
+A faster test gate can expose image build as the new critical path. Benchmark paired
+candidates on identical source/runtime; results from an earlier SHA are strategy evidence,
+not proof that a later release passed. CPU/RAM variation and increased runner-minutes
+must be reported alongside wall-time savings.
+
+**Release identity:** deployments are serialized without cancelling an active deploy.
+The revision guard rejects malformed identities, propagates API failures, and skips
+superseded main revisions before registry/SSH operations. Build output supplies an
+immutable digest; runtime checkout uses the tested SHA, and Compose receives that digest
+through `POLYFLOW_IMAGE`. Without an explicit image, manual recovery retains the tested
+`:latest` default. Set a verified digest explicitly for deterministic rollback. Dirty
+tracked server files fail closed rather than being reset. Login/pull errors stop before
+container recreation; no VPS build, forced pre-removal, image prune or database rollback
+is part of this change. Post-deploy image/health verification remains required.
 
 ## 4. Next/Docker cache experiment — blocked pending Docker access
 
@@ -175,7 +185,9 @@ No production cache optimization has been applied or performance benefit claimed
 
 ## Rollback and handoff
 
-Remove/revert only the instrumentation/benchmark workflow, helper scripts and config
-tests from this patch. Production worker defaults, coverage config, Dockerfile and cache
-backend are unchanged; no data rollback is involved. Before production integration,
-resolve the deployment hazard and complete the blocked hosted/Docker verification.
+If sharding must be rolled back, restore the full single-suite coverage command in the
+required `test` job and remove the shard dependency, retaining every release gate and the
+SHA/digest deployment protections. Keep regression tests aligned with that explicit
+strategy change. Worker defaults, coverage thresholds, Dockerfile/cache backend and
+business data are unchanged; no data rollback is involved. The separate Next/Docker
+cache experiment remains blocked and is not required for the two-shard strategy.

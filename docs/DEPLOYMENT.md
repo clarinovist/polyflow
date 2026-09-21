@@ -55,11 +55,11 @@ To enable this workflow, you must verify the following in your repository settin
 ### How it Works
 
 1.  **Trigger**: Pushing to `main`.
-2.  **Test & Validate**: Lint, typecheck, and unit tests run first (a failure blocks the deploy).
-3.  **Build**: Docker image is built using `docker build`.
-4.  **Cache**: Utilizes Docker Buildx cache (`type=registry`) stored in GHCR (`:buildcache` tag) to speed up subsequent builds.
-5.  **Push**: The final image is pushed to `ghcr.io/clarinovist/polyflow:latest`.
-6.  **Deploy**: The deploy job SSHes into the VPS, runs `git reset --hard origin/main` in `/root/polyflow`, `docker compose pull polyflow`, and recreates the container. `.env` is git-ignored, so server-only settings (e.g. `AUTH_TRUST_HOST`) survive the reset.
+2.  **Parallel gates**: Two independent test shards, lint, image build, and the isolated PostgreSQL/typecheck contract run concurrently.
+3.  **Test & Validate**: Both shards must succeed. The stable `test` job merges their blobs, reconciles complete test discovery/counts, enforces the unchanged global coverage thresholds, and validates Nginx.
+4.  **Build and cache**: GitHub Actions builds the production image with Docker Buildx and the GHCR registry cache. It publishes the commit-addressed image and exposes its immutable digest; never build on the VPS.
+5.  **Release gate**: Deploy requires `test`, `lint`, `build-and-push`, and `return-contract`. Deployments are serialized, and superseded main revisions are skipped before registry or SSH mutations.
+6.  **Deploy**: Promote the verified digest to `latest`, check out the tested SHA without discarding tracked server changes, and pass the immutable digest as `POLYFLOW_IMAGE` to Compose. Pull must succeed before `up -d --no-deps --no-build`; backups, environment files and previous images are retained. Verify the running image and health after deployment. See the private `docs/ops/vps.md` runbook for actual targets and rollback procedures.
 
 ### Usage in Production
 
@@ -68,7 +68,7 @@ To use the image built by this pipeline in your `docker-compose.yml`, update the
 ```yaml
 services:
     polyflow:
-        image: ghcr.io/clarinovist/polyflow:latest
+        image: ${POLYFLOW_IMAGE:-ghcr.io/clarinovist/polyflow:latest}
         # build: .  <-- Comment this out if pulling from registry
         # ...
 ```
@@ -91,9 +91,9 @@ Since you have a CI/CD pipeline, the recommended way is to pull the pre-built im
     docker compose up -d
     ```
 
-### Option B: Build Locally (Legacy)
+### Option B: Build Locally (development only)
 
-If you made changes directly on the server or want to build from source:
+For local development only. Production images must be built in CI, not on the VPS:
 
 ```bash
 docker compose up -d --build

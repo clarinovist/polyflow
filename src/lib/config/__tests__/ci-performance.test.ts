@@ -45,12 +45,13 @@ const reports = () => [report('1/2', 'a'), report('2/2', 'b')];
 describe('CI performance guardrails', () => {
     it('keeps production parallel and gated on original jobs plus the return transaction contract', () => {
         expect(production.jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push', 'return-contract']);
-        for (const name of ['test', 'lint', 'build-and-push', 'return-contract']) {
+        expect(production.jobs.test.needs).toBe('test-shards');
+        for (const name of ['test-shards', 'lint', 'build-and-push', 'return-contract']) {
             expect(production.jobs[name].needs).toBeUndefined();
             expect(production.jobs[name]['continue-on-error']).toBeUndefined();
         }
         const command = production.jobs.test.steps.find(step => step.name === 'Run Tests with Coverage')!.run;
-        expect(command).toContain('vitest run --coverage');
+        expect(command).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
         expect(command).not.toMatch(/--shard|--maxWorkers|--exclude|--no-isolate/);
         expect(production.jobs.deploy.if).toBeUndefined(); // default success(), not always()
         const contract = production.jobs['return-contract'];
