@@ -162,10 +162,8 @@ export function InvoicePriceAdjustment({ invoiceId }: { invoiceId: string }) {
                     <DialogHeader>
                         <DialogTitle>Penyesuaian harga invoice</DialogTitle>
                         <DialogDescription>
-                            Invoice asli, stok, dan pembayaran tidak diubah.
-                            Selisih harga dicatat sebagai debit/kredit terpisah.
-                            Koreksi faktur pajak tetap mengikuti proses
-                            perpajakan yang berlaku.
+                            Catat selisih harga tanpa mengubah invoice, stok,
+                            atau pembayaran.
                         </DialogDescription>
                     </DialogHeader>
                     {!context && !error && (
@@ -178,16 +176,26 @@ export function InvoicePriceAdjustment({ invoiceId }: { invoiceId: string }) {
                                 {context.invoiceNumber} · Sisa sekarang:{' '}
                                 <strong>{money(context.remaining)}</strong>
                             </p>
-                            <p className="text-muted-foreground">
-                                {context.sourceLabel}
-                            </p>
-                            {context.sourceError && (
-                                <p role="alert">
-                                    {context.sourceError} Riwayat dan pembalikan
-                                    tetap tersedia sesuai validasi saldo.
+                            {!context.sourceError && (
+                                <p className="text-muted-foreground">
+                                    {context.sourceLabel}
                                 </p>
                             )}
-                            <fieldset disabled={pending} className="space-y-3">
+                            {context.sourceError && (
+                                <div
+                                    role="alert"
+                                    className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3"
+                                >
+                                    <p className="font-semibold">
+                                        Penyesuaian belum tersedia
+                                    </p>
+                                    <p>{context.sourceError}</p>
+                                </div>
+                            )}
+                            {(!context.sourceError || reversing) && (
+                                <fieldset disabled={pending} className="space-y-3">
+                                    {!context.sourceError && (
+                                        <>
                                 <Label htmlFor="price-source-item">
                                     Barang yang disesuaikan
                                 </Label>
@@ -281,6 +289,8 @@ export function InvoicePriceAdjustment({ invoiceId }: { invoiceId: string }) {
                                         otomatis.
                                     </p>
                                 )}
+                                        </>
+                                    )}
                                 <Label htmlFor="price-reason">
                                     Alasan penyesuaian / pembalikan
                                 </Label>
@@ -320,23 +330,27 @@ export function InvoicePriceAdjustment({ invoiceId }: { invoiceId: string }) {
                                         ini.
                                     </span>
                                 </label>
-                                <Button
-                                    disabled={
-                                        !value ||
-                                        !confirmed ||
-                                        reason.trim().length < 5 ||
-                                        pending ||
-                                        !!reversingId ||
-                                        !item ||
-                                        Number(quantity) > Number(item.availableQuantity) ||
-                                        after === null ||
-                                        after < 0
-                                    }
-                                    onClick={() => submit()}
-                                >
-                                    Konfirmasi & posting penyesuaian
-                                </Button>
-                            </fieldset>
+                                {!context.sourceError && (
+                                    <Button
+                                        disabled={
+                                            !value ||
+                                            !confirmed ||
+                                            reason.trim().length < 5 ||
+                                            pending ||
+                                            !!reversingId ||
+                                            !item ||
+                                            Number(quantity) >
+                                                Number(item.availableQuantity) ||
+                                            after === null ||
+                                            after < 0
+                                        }
+                                        onClick={() => submit()}
+                                    >
+                                        Konfirmasi & posting penyesuaian
+                                    </Button>
+                                )}
+                                </fieldset>
+                            )}
                             <div className="space-y-2">
                                 <h4 className="font-semibold">
                                     Riwayat penyesuaian

@@ -15,6 +15,7 @@ import {
     UpdateInvoiceStatusValues,
 } from '@/lib/schemas/invoice';
 import { logActivity } from '@/lib/tools/audit';
+import { getSalesInvoiceSettlementStatus } from '@/lib/finance/sales-return-allocation';
 
 import { AutoJournalService } from './auto-journal-service';
 import { captureInvoiceReturnBasis, refreshDraftInvoiceReturnBasis } from './invoice-return-basis-capture';
@@ -356,7 +357,6 @@ export async function updateInvoiceStatus(
     const { id, status, paidAmount } = data;
     const invoice = await lockSalesInvoice(tx, id);
     if (Number(invoice.creditedAmount ?? 0) > 0 || Number(invoice.priceAdjustmentAmount ?? 0) !== 0) {
-        const { getSalesInvoiceSettlementStatus } = await import('@/lib/finance/sales-return-allocation');
         if (status === 'CANCELLED' || status === 'DRAFT' || paidAmount !== undefined || status !== getSalesInvoiceSettlementStatus(invoice)) {
             throw new BusinessRuleError('Invoice dengan kredit retur harus dikoreksi melalui transaksi sumber, bukan override status/pembayaran.');
         }
@@ -383,9 +383,46 @@ export async function updateInvoiceStatus(
             'INVALID_STATUS_TRANSITION',
         );
     }
+    // This endpoint changes recognition/status, not the payment ledger. Never
+    // turn a status selection into a cash receipt or silently repair legacy data.
+    if (paidAmount !== undefined) {
+        throw new BusinessRuleError(
+            'Nominal pembayaran tidak dapat diubah melalui status invoice. Gunakan transaksi pembayaran atau koreksi pembayaran yang terverifikasi.',
+        );
+    }
+    const payments = await tx.payment.aggregate({
+        where: { invoiceId: id },
+        _sum: { amount: true },
+    });
+    const paymentTotal = payments._sum.amount ?? new Prisma.Decimal(0);
+    if (!paymentTotal.equals(invoice.paidAmount)) {
+        throw new BusinessRuleError(
+            'Saldo pembayaran invoice tidak cocok dengan rincian pembayaran. Perlu rekonsiliasi Finance; status dan saldo belum diubah.',
+        );
+    }
+    if (status === 'CANCELLED' || status === 'DRAFT') {
+        if (!paymentTotal.isZero()) {
+            throw new BusinessRuleError(
+                'Invoice memiliki pembayaran. Koreksi transaksi pembayaran terlebih dahulu sebelum membatalkan invoice.',
+            );
+        }
+    } else {
+        const expectedStatus = getSalesInvoiceSettlementStatus(invoice);
+        // Confirmation is a recognition step. The overdue scheduler can apply
+        // the date label afterwards; it must not block an old unpaid draft.
+        const confirmingUnpaidDraft =
+            invoice.status === 'DRAFT' && status === 'UNPAID' &&
+            expectedStatus === 'OVERDUE' && paymentTotal.isZero() &&
+            invoice.creditedAmount.isZero();
+        if (status !== expectedStatus && !confirmingUnpaidDraft) {
+            throw new BusinessRuleError(
+                'Status invoice harus mengikuti saldo pembayaran, kredit retur, dan jatuh tempo. Gunakan transaksi sumber, bukan mengubah status pelunasan secara manual.',
+            );
+        }
+    }
     await tx.invoice.update({
         where: { id },
-        data: { status, ...(paidAmount !== undefined && { paidAmount }) },
+        data: { status },
     });
     if ((RECOGNIZED_INVOICE_STATUSES as readonly string[]).includes(status)) {
         await postSalesInvoiceJournal(tx, id, userId);

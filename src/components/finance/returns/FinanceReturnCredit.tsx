@@ -27,8 +27,16 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
     const [message, setMessage] = useState('');
     const credit = row.credit;
     const eligible = ['RECEIVED', 'COMPLETED'].includes(row.status);
+    const awaitingCredit =
+        eligible && (!credit || credit.status === 'REVIEW_REQUIRED');
+    const receivableInvoices = row.invoices.filter(
+        (invoice) =>
+            ['UNPAID', 'PARTIAL', 'OVERDUE'].includes(invoice.status) &&
+            Number(invoice.remaining) > 0,
+    );
+    const canPrepareCredit = awaitingCredit && receivableInvoices.length > 0;
     const candidates = row.items.flatMap((item) =>
-        row.invoices.flatMap((invoice) =>
+        receivableInvoices.flatMap((invoice) =>
             invoice.basis
                 .filter(
                     (basis) => basis.productVariantId === item.productVariantId,
@@ -103,8 +111,46 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                               : 'Belum mengurangi piutang'}
                     </strong>
                 </p>
-                {eligible && (!credit || credit.status === 'REVIEW_REQUIRED') && (
+                {canPrepareCredit && (
                     <ReturnCreditConfirmation key={row.id} returnId={row.id} />
+                )}
+                {awaitingCredit && !canPrepareCredit && (
+                    <section
+                        className="space-y-3 rounded-lg border p-4"
+                        aria-label="Pemeriksaan invoice sebelum kredit retur"
+                    >
+                        <p role="status" className="font-medium">
+                            {!row.invoices.length
+                                ? 'Belum ada invoice tujuan. Periksa penerbitan invoice di Finance.'
+                                : row.invoices.every((invoice) => invoice.status === 'PAID' && Number(invoice.remaining) === 0)
+                                  ? 'Invoice tercatat lunas di sistem. Kredit retur belum bisa mengurangi piutang.'
+                                  : row.invoices.every((invoice) => invoice.status === 'DRAFT')
+                                    ? 'Invoice belum diakui. Periksa dan konfirmasi invoice di Finance terlebih dahulu.'
+                                    : row.invoices.every((invoice) => invoice.status === 'DRAFT' || (invoice.status === 'PAID' && Number(invoice.remaining) === 0))
+                                      ? 'Belum ada invoice dengan piutang yang dapat dikreditkan. Periksa invoice tujuan di Finance.'
+                                      : 'Status dan sisa tagihan invoice tidak konsisten. Perlu pemeriksaan Finance sebelum kredit retur.'}
+                        </p>
+                        {row.invoices.map((invoice) => (
+                            <div key={invoice.id} className="space-y-1 break-words">
+                                <Link className="inline-flex min-h-11 items-center font-medium underline" href={`/finance/invoices/sales/${invoice.id}`}>
+                                    Periksa invoice {invoice.invoiceNumber}
+                                </Link>
+                                <p>Pembayaran tercatat: {formatRupiah(Number(invoice.paidAmount))} · Sisa tagihan: {formatRupiah(Number(invoice.remaining))}</p>
+                            </div>
+                        ))}
+                        <p className="text-muted-foreground">
+                            Jika sebenarnya belum lunas, cocokkan rincian pembayaran dan jurnal dengan bukti transaksi terlebih dahulu.
+                            Mengisi retur ulang atau formulir manual tidak memperbaiki saldo pembayaran.
+                            Tidak ada perubahan pembayaran, refund, atau pemotongan otomatis.
+                        </p>
+                        <Button
+                            variant="outline"
+                            className="h-auto min-h-11 whitespace-normal"
+                            onClick={() => router.refresh()}
+                        >
+                            Muat ulang saldo invoice
+                        </Button>
+                    </section>
                 )}
                 {credit?.reviewReason && (
                     <p role="alert">{credit.reviewReason}</p>
@@ -163,8 +209,7 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                 <p className="text-muted-foreground">
                     Penerimaan fisik terpisah dari kredit. Alokasi otomatis
                     memakai snapshot invoice asal, bukan harga formulir retur.
-                    Jika snapshot tidak tersedia, Finance dapat memeriksa bukti
-                    dan menyetujui nominal melalui formulir manual di bawah.
+                    {canPrepareCredit && ' Jika snapshot tidak tersedia, Finance dapat memeriksa bukti dan menyetujui nominal melalui formulir manual di bawah.'}{' '}
                     Invoice lunas, nilai berlebih, atau jurnal tidak valid tetap
                     memerlukan pemeriksaan; tidak ada refund otomatis.
                 </p>
@@ -208,8 +253,7 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             </p>
                         </div>
                     ))}
-                {eligible &&
-                    (!credit || credit.status === 'REVIEW_REQUIRED') && (
+                {canPrepareCredit && (
                         <details>
                             <summary className="min-h-11 cursor-pointer py-3 font-medium">
                                 Opsi lanjutan: alokasi snapshot per item
@@ -303,8 +347,7 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             </Button>
                         </details>
                     )}
-                {eligible &&
-                    (!credit || credit.status === 'REVIEW_REQUIRED') && (
+                {canPrepareCredit && (
                         <details>
                             <summary className="min-h-11 cursor-pointer py-3 font-medium">
                                 Periksa atau ubah nominal secara manual

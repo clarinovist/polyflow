@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 const mocks = vi.hoisted(() => ({
-    db: { invoice: { findUnique: vi.fn(), update: vi.fn() }, journalEntry: { updateMany: vi.fn(), findMany: vi.fn() }, $transaction: vi.fn() },
+    db: { payment: { aggregate: vi.fn() }, invoice: { findUnique: vi.fn(), update: vi.fn() }, journalEntry: { updateMany: vi.fn(), findMany: vi.fn() }, $transaction: vi.fn() },
     recognize: vi.fn(), audit: vi.fn(),
 }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: mocks.db, getTenantDbFromContext: () => mocks.db }));
@@ -17,7 +18,8 @@ let status = 'DRAFT';
 describe('invoice confirmation recognition boundary', () => {
     beforeEach(() => {
         vi.clearAllMocks(); status = 'DRAFT'; mocks.recognize.mockResolvedValue({ action: 'promoted' });
-        mocks.db.invoice.findUnique.mockImplementation(async () => ({ id: 'invoice', status, invoiceNumber: 'INV', salesOrder: { entrySource: 'STANDARD' } }));
+        mocks.db.payment.aggregate.mockResolvedValue({ _sum: { amount: null } });
+        mocks.db.invoice.findUnique.mockImplementation(async () => ({ id: 'invoice', status, invoiceNumber: 'INV', totalAmount: new Prisma.Decimal(1000), paidAmount: new Prisma.Decimal(0), creditedAmount: new Prisma.Decimal(0), dueDate: null, salesOrder: { entrySource: 'STANDARD' } }));
         mocks.db.invoice.update.mockImplementation(async ({ data }) => { status = data.status; });
         mocks.db.$transaction.mockImplementation(async fn => {
             const before = status;

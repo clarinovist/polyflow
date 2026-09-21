@@ -37,6 +37,7 @@ vi.mock("@/lib/core/prisma", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    payment: { aggregate: vi.fn() },
     salesOrder: {
       findUnique: vi.fn(),
     },
@@ -66,7 +67,14 @@ vi.mock('../sales-recognition-service', () => ({
   lockSalesInvoice: async (_tx: unknown, id: string) => {
     const invoice = await prisma.invoice.findUnique({ where: { id } });
     if (!invoice) throw new Error('Invoice not found');
-    return invoice;
+    return {
+      ...invoice,
+      totalAmount: invoice.totalAmount ?? new Prisma.Decimal(1000),
+      paidAmount: invoice.paidAmount ?? new Prisma.Decimal(0),
+      creditedAmount: invoice.creditedAmount ?? new Prisma.Decimal(0),
+      priceAdjustmentAmount: invoice.priceAdjustmentAmount ?? new Prisma.Decimal(0),
+      dueDate: invoice.dueDate ?? null,
+    };
   },
   postSalesInvoiceJournal: vi.fn(),
   requireOpenJournalPeriod: vi.fn(),
@@ -84,6 +92,7 @@ describe("invoice-lifecycle-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.payment.aggregate).mockResolvedValue({ _sum: { amount: null } } as never);
     vi.useFakeTimers();
     // Default to a fixed date: 2026-06-24
     vi.setSystemTime(new Date(2026, 5, 24));
@@ -480,7 +489,7 @@ describe("invoice-lifecycle-service", () => {
       status: InvoiceStatus.UNPAID,
     };
 
-    it("should update invoice status to PAID with paidAmount", async () => {
+    it("rejects payment-cache overrides through status changes", async () => {
       // Arrange
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
         mockInvoice as any,
@@ -488,27 +497,18 @@ describe("invoice-lifecycle-service", () => {
       vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
       vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
 
-      // Act
-      await updateInvoiceStatus(
-        {
-          id: "inv-1",
-          status: InvoiceStatus.PAID,
-          paidAmount: 1000,
-        },
-        "user-1",
-      );
-
-      // Assert
-      expect(prisma.invoice.update).toHaveBeenCalledWith({
-        where: { id: "inv-1" },
-        data: { status: InvoiceStatus.PAID, paidAmount: 1000 },
-      });
+      await expect(updateInvoiceStatus(
+        { id: 'inv-1', status: InvoiceStatus.PAID, paidAmount: 1000 },
+        'user-1',
+      )).rejects.toThrow(/pembayaran/i);
+      expect(prisma.invoice.update).not.toHaveBeenCalled();
     });
 
     it("should omit paidAmount when not provided", async () => {
-      // Arrange
+      // A real payment already settled the invoice; status-only never rewrites it.
+      vi.mocked(prisma.payment.aggregate).mockResolvedValue({ _sum: { amount: new Prisma.Decimal(1000) } } as never);
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
-        mockInvoice as any,
+        { ...mockInvoice, paidAmount: new Prisma.Decimal(1000) } as never,
       );
       vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
       vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
@@ -549,9 +549,9 @@ describe("invoice-lifecycle-service", () => {
     });
 
     it("should set journal to POSTED for PARTIAL status", async () => {
-      // Arrange
+      vi.mocked(prisma.payment.aggregate).mockResolvedValue({ _sum: { amount: new Prisma.Decimal(200) } } as never);
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
-        mockInvoice as any,
+        { ...mockInvoice, paidAmount: new Prisma.Decimal(200) } as never,
       );
       vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
       vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
@@ -570,9 +570,8 @@ describe("invoice-lifecycle-service", () => {
     });
 
     it("should set journal to POSTED for OVERDUE status", async () => {
-      // Arrange
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
-        mockInvoice as any,
+        { ...mockInvoice, dueDate: new Date('2026-01-01') } as never,
       );
       vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
       vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
@@ -621,9 +620,9 @@ describe("invoice-lifecycle-service", () => {
     });
 
     it("should log activity after status update", async () => {
-      // Arrange
+      vi.mocked(prisma.payment.aggregate).mockResolvedValue({ _sum: { amount: new Prisma.Decimal(1000) } } as never);
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(
-        mockInvoice as any,
+        { ...mockInvoice, paidAmount: new Prisma.Decimal(1000) } as never,
       );
       vi.mocked(prisma.invoice.update).mockResolvedValue({} as any);
       vi.mocked(prisma.journalEntry.updateMany).mockResolvedValue({ count: 1 });
