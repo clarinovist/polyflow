@@ -123,12 +123,15 @@ export default async function ProductionMachinesPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight">
-                    Machine Board
-                </h2>
+                <h1 className="text-3xl font-bold tracking-tight">
+                    Status Mesin Saat Ini
+                </h1>
                 <p className="text-muted-foreground">
-                    Live status of all production assets on the floor.
+                    Kondisi mesin dan eksekusi sekarang, termasuk penugasan shift.
                 </p>
+                <Link href="/production/schedule" className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline">
+                    Lihat rencana mesin & tanggal di Jadwal Produksi →
+                </Link>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-10">

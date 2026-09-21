@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createProductionRun, previewProductionRun } from '@/actions/production/production-runs';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,7 +33,8 @@ type RouteOption = {
 };
 
 export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
-  const [runs] = useState(initialRuns);
+  const router = useRouter();
+  const runs = initialRuns;
   const [showCreate, setShowCreate] = useState(false);
   const [formRouteId, setFormRouteId] = useState('');
   const [selectedRoute, setSelectedRoute] = useState<RouteOption | null>(null);
@@ -120,9 +122,11 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
       const res = await createProductionRun({ routeId: formRouteId, plannedQuantity: qty, priority: 'NORMAL', idempotencyKey: idempotencyKeyRef.current });
       if (res.success) {
         idempotencyKeyRef.current = `run-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
-        toast.success('Production run dibuat — SPK tahapan tergenerate');
-        window.location.reload();
-      } else toast.error(res.error || 'Gagal buat run');
+        toast.success('Rangkaian Produksi berhasil dibuat beserta SPK tahapannya');
+        router.push(`/production/runs/${res.data.id}`);
+      } else toast.error(res.error || 'Gagal membuat rangkaian produksi');
+    } catch {
+      toast.error('Gagal membuat rangkaian produksi. Silakan coba lagi.');
     } finally {
       setSubmitting(false);
     }
@@ -132,7 +136,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-end justify-between">
         <div className="flex gap-2 items-center flex-wrap">
-          <Input placeholder="Cari run / routing / sku / produk" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64" />
+          <Input placeholder="Cari rangkaian / routing / SKU / produk" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -145,7 +149,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => setShowCreate(!showCreate)} size="sm">{showCreate ? 'Tutup' : 'Buat Run Baru'}</Button>
+        <Button onClick={() => setShowCreate(!showCreate)} size="sm">{showCreate ? 'Tutup' : 'Buat Rangkaian Produksi'}</Button>
       </div>
 
       {showCreate && (
@@ -154,7 +158,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
             <div className="space-y-2">
               <Label>Routing — pilih yang sudah Published & Default</Label>
               <p className="text-[11px] text-muted-foreground">
-                Run butuh routing yang sudah <strong>Published</strong>. Idealnya pilih routing yang <Badge variant="outline" className="text-[10px] h-4">Default</Badge> karena itu versi terbaru. Satu run akan membuat N SPK berantai sesuai tahap routing.
+                Routing menentukan urutan tahap, sedangkan BOM menentukan resep tiap tahap. Rangkaian menjalankan routing yang sudah <strong>Published</strong> dan membuat satu SPK per tahap. SPK satu tahap tetap bisa dibuat tanpa rangkaian.
               </p>
 
               {selectedRoute && (
@@ -212,7 +216,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
             {(previewLoading || preview || previewError) && (
               <div className="rounded border bg-muted/30 p-3 space-y-2">
                 <div className="text-xs font-semibold">Preview SPK yang akan dibuat {previewLoading ? '(memuat...)' : ''}</div>
-                {previewError && <div className="text-[11px] text-amber-700">{previewError} — lanjut tetap bisa buat run, preview hanya informatif.</div>}
+                {previewError && <div className="text-[11px] text-amber-700">{previewError} — pratinjau belum tersedia. Validasi akhir tetap dilakukan saat membuat rangkaian.</div>}
                 {preview && preview.length > 0 && (
                   <div className="space-y-1">
                     {preview.map((p) => (
@@ -230,8 +234,13 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
               </div>
             )}
 
+            <p className="text-sm font-medium" role="status">
+              {selectedRoute?._count
+                ? `Akan membuat rangkaian dengan ${selectedRoute._count.steps} SPK, satu per tahap routing.`
+                : 'Akan membuat rangkaian dengan beberapa SPK sesuai tahap routing yang dipilih.'}
+            </p>
             <Button onClick={handleCreate} disabled={submitting || !formRouteId || !formQty}>
-              {submitting ? 'Membuat...' : 'Buat Production Run'}
+              {submitting ? 'Membuat...' : 'Buat Rangkaian Produksi'}
             </Button>
           </CardContent>
         </Card>
@@ -242,16 +251,16 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
           <CardContent className="p-8 text-center space-y-3">
             <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg">🏭</div>
             <div className="space-y-1">
-              <div className="font-semibold">Belum ada production run</div>
+              <div className="font-semibold">Belum ada rangkaian produksi</div>
               <div className="text-sm text-muted-foreground max-w-lg mx-auto">
-                Run adalah eksekusi berantai dari routing — satu run menggenerate N SPK (satu SPK per tahap). Butuh routing yang sudah <strong>Published</strong> dan idealnya <strong>Default</strong>. Tanpa routing pun tetap bisa SPK manual via BoM.
+                Rangkaian adalah pelaksanaan beberapa tahap dari routing — satu SPK per tahap, dengan resep dari BOM. Gunakan routing yang sudah <strong>Published</strong>. Untuk pekerjaan satu tahap, tetap bisa <Link href="/production/orders/create" className="underline">Buat SPK</Link> tanpa routing.
               </div>
             </div>
             {!showCreate && (
               <div className="flex gap-2 justify-center pt-2 flex-wrap">
-                <Button size="sm" onClick={() => setShowCreate(true)}>Buat Run Baru</Button>
+                <Button size="sm" onClick={() => setShowCreate(true)}>Buat Rangkaian Produksi</Button>
                 <Button size="sm" variant="outline" asChild><Link href="/production/routings">Lihat Routing</Link></Button>
-                <Button size="sm" variant="outline" asChild><Link href="/production/demand-board">Papan Permintaan</Link></Button>
+                <Button size="sm" variant="outline" asChild><Link href="/production/requests">Papan Permintaan</Link></Button>
               </div>
             )}
           </CardContent>

@@ -14,6 +14,7 @@ import { planningLabels } from '@/lib/labels';
 import { ScheduleBoardClient } from '@/components/production/schedule/ScheduleBoardClient';
 import { partitionScheduleOrders } from '@/lib/production/schedule-history';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,7 +93,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                         {planningLabels.productionSchedule}
                     </h1>
                     <p className="text-sm md:text-base text-muted-foreground">
-                        {planningLabels.scheduleDesc}
+                        Rencana pekerjaan menurut mesin dan tanggal.
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                         {planningLabels.ongoingCount(counts.ongoing)}
@@ -102,6 +103,9 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="outline" className="min-h-11">
+                        <Link href="/production/machines">Status Mesin Saat Ini →</Link>
+                    </Button>
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>

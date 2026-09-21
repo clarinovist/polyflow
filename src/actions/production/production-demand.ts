@@ -27,6 +27,35 @@ export const getFgDemandBoard = withTenant(async function getFgDemandBoard(
     });
 });
 
+/** Read-only explanation of the same automatic routing choice used on submit. */
+export const previewSpkFromDemand = withTenant(
+    async function previewSpkFromDemand(productVariantId: string) {
+        return safeAction(async () => {
+            await requireProductionLeaderRole();
+            if (typeof productVariantId !== 'string' || !productVariantId.trim() || productVariantId.length > 200) {
+                throw new BusinessRuleError('Pilih produk terlebih dahulu.');
+            }
+            if (await isRoutingEnabled()) {
+                const route = await prisma.productionRoute.findFirst({
+                    where: { productVariantId, status: 'ACTIVE', isDefault: true },
+                    select: { name: true, _count: { select: { steps: true } } },
+                });
+                if (route) {
+                    return { kind: 'run' as const, routeName: route.name, orderCount: route._count.steps };
+                }
+            }
+            const bom = await prisma.bom.findFirst({
+                where: { productVariantId, isDefault: true, isActive: true },
+                select: { id: true },
+            });
+            if (!bom) {
+                throw new BusinessRuleError('Tidak ada BOM default aktif untuk produk ini. Buat BOM terlebih dahulu.');
+            }
+            return { kind: 'order' as const, orderCount: 1 };
+        });
+    },
+);
+
 export const createSpkFromDemand = withTenant(
     async function createSpkFromDemand(data: {
         productVariantId: string;

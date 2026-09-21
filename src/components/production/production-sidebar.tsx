@@ -1,5 +1,6 @@
 'use client';
 
+import type { ComponentProps } from 'react';
 import {
     LayoutDashboard,
     CalendarPlus,
@@ -29,7 +30,10 @@ interface ProductionSidebarProps {
     permissions?: string[] | 'ALL';
 }
 
-export const productionLinks = [
+export const productionLinks: Pick<
+    ComponentProps<typeof PortalNavGroup>,
+    'heading' | 'items'
+>[] = [
     {
         heading: 'Hari Ini',
         items: [
@@ -42,17 +46,12 @@ export const productionLinks = [
         ],
     },
     {
-        heading: 'Antrean',
+        heading: 'Perencanaan',
         items: [
             {
                 href: '/production/runs',
                 icon: Factory,
                 label: 'Rangkaian Produksi',
-            },
-            {
-                href: '/production/orders',
-                icon: Factory,
-                label: productionSidebarLabels.workOrders,
             },
             {
                 href: '/production/requests',
@@ -67,17 +66,35 @@ export const productionLinks = [
         ],
     },
     {
-        heading: 'Lantai',
+        heading: 'Operasional',
         items: [
             {
-                href: '/production/daily',
-                icon: CalendarPlus,
-                label: productionSidebarLabels.dailyProduction,
+                href: '/production/orders',
+                icon: Factory,
+                label: productionSidebarLabels.workOrders,
+                children: [
+                    {
+                        href: '/production/orders',
+                        icon: Files,
+                        label: 'Daftar',
+                    },
+                    {
+                        href: '/production/daily',
+                        icon: CalendarPlus,
+                        label: 'Board Proses',
+                        exact: true,
+                    },
+                ],
             },
             {
                 href: '/production/machines',
                 icon: Factory,
                 label: productionSidebarLabels.machineBoard,
+            },
+            {
+                href: '/kiosk',
+                icon: ClipboardCheck,
+                label: productionSidebarLabels.operatorKiosk,
             },
         ],
     },
@@ -97,7 +114,7 @@ export const productionLinks = [
         ],
     },
     {
-        heading: 'Resep',
+        heading: 'Master & Pengaturan',
         items: [
             {
                 href: '/production/boms',
@@ -109,10 +126,20 @@ export const productionLinks = [
                 icon: Files,
                 label: 'Routing Produksi',
             },
+            {
+                href: '/production/resources',
+                icon: Users,
+                label: productionSidebarLabels.teamShifts,
+            },
+            {
+                href: '/production/shifts',
+                icon: Calendar,
+                label: productionSidebarLabels.workShifts,
+            },
         ],
     },
     {
-        heading: 'Analitik',
+        heading: 'Laporan & Audit',
         items: [
             {
                 href: '/production/analytics',
@@ -130,6 +157,11 @@ export const productionLinks = [
                 label: productionSidebarLabels.outputReport,
             },
             {
+                href: '/production/history',
+                icon: FileText,
+                label: productionSidebarLabels.outputLogs,
+            },
+            {
                 href: '/production/costing',
                 icon: TrendingUp,
                 label: productionSidebarLabels.costingDashboard,
@@ -141,33 +173,26 @@ export const productionLinks = [
             },
         ],
     },
-    {
-        heading: 'Lainnya',
-        items: [
-            {
-                href: '/kiosk',
-                icon: ClipboardCheck,
-                label: productionSidebarLabels.operatorKiosk,
-            },
-            {
-                href: '/production/history',
-                icon: FileText,
-                label: productionSidebarLabels.outputLogs,
-            },
-            {
-                href: '/production/resources',
-                icon: Users,
-                label: productionSidebarLabels.teamShifts,
-            },
-        ],
-    },
 ];
+
+export function getProductionNavGroups(permissions?: string[] | 'ALL') {
+    return filterNavGroups(productionLinks, permissions).map((group) => ({
+        ...group,
+        // In collapsed mode the parent is a link: target a visible view,
+        // including users granted only the board and not the list.
+        items: group.items.map((item) => ({
+            ...item,
+            href: item.children?.[0]?.href ?? item.href,
+            exact: item.children?.[0]?.exact ?? item.exact,
+        })),
+    }));
+}
 
 export function ProductionSidebar({
     user,
     permissions,
 }: ProductionSidebarProps) {
-    const filteredGroups = filterNavGroups(productionLinks, permissions);
+    const filteredGroups = getProductionNavGroups(permissions);
     return (
         <PortalSidebarBase
             user={user}

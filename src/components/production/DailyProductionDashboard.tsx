@@ -249,6 +249,7 @@ export function DailyProductionDashboard({
                                     ? ''
                                     : 'text-muted-foreground',
                             )}
+                            aria-pressed={statusFilter === f.key}
                             onClick={() => setStatusFilter(f.key)}
                         >
                             {f.label}
@@ -257,7 +258,7 @@ export function DailyProductionDashboard({
                 </div>
                 <Button onClick={() => setDialogOpen(true)} className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Tambah Produk
+                    Buat SPK Cepat
                 </Button>
             </div>
 
@@ -269,8 +270,8 @@ export function DailyProductionDashboard({
                             Belum ada produksi aktif
                         </h3>
                         <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
-                            Klik &quot;Tambah Produk&quot; untuk memulai
-                            produksi.
+                            Buat SPK Cepat untuk menjadwalkan satu pekerjaan
+                            dari BOM yang tersedia, bukan menambah master produk.
                         </p>
                         <Button
                             onClick={() => setDialogOpen(true)}
@@ -278,7 +279,7 @@ export function DailyProductionDashboard({
                             className="gap-2"
                         >
                             <Plus className="h-4 w-4" />
-                            Tambah Produk Pertama
+                            Buat SPK Cepat Pertama
                         </Button>
                     </CardContent>
                 </Card>
@@ -291,7 +292,8 @@ export function DailyProductionDashboard({
                         return (
                             <section
                                 key={col.key}
-                                className="rounded-xl border bg-card/60 min-h-[320px] flex flex-col overflow-hidden"
+                                aria-label={col.label}
+                                className="rounded-xl border bg-card/60 md:min-h-[320px] flex flex-col overflow-hidden"
                             >
                                 <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/95 backdrop-blur-sm px-3 py-2.5">
                                     <div className="flex items-center gap-2 min-w-0">
@@ -316,8 +318,8 @@ export function DailyProductionDashboard({
                                 </div>
                                 <div className="p-2.5 flex flex-col gap-2.5 flex-1">
                                     {col.orders.length === 0 ? (
-                                        <div className="flex-1 flex items-center justify-center border border-dashed rounded-lg px-3 py-10 text-center text-xs text-muted-foreground/80">
-                                            Tidak ada order di proses ini
+                                        <div className="flex-1 flex items-center justify-center border border-dashed rounded-lg px-3 py-3 md:py-10 text-center text-xs text-muted-foreground">
+                                            Tidak ada SPK di proses ini
                                         </div>
                                     ) : (
                                         col.orders.map((order) => (

@@ -5,7 +5,6 @@ import useSWR from 'swr';
 import Link from 'next/link';
 import { getProductionLiveOverview } from '@/actions/dashboard/production-live-overview';
 import { LiveClockBar } from './LiveClockBar';
-import { ProcessPulseChart } from './ProcessPulseChart';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -16,22 +15,15 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     AlertCircle,
     AlertTriangle,
     ArrowRight,
     CheckCircle2,
     ExternalLink,
-    TrendingDown,
-    TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
-import {
-    isScrapWarning,
-    resolveProductionAlertThresholds,
-    type ProductionAlertThresholds,
-} from '@/lib/production/alert-thresholds';
+import type { ProductionAlertThresholds } from '@/lib/production/alert-thresholds';
 
 type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
 export type TabKey = ProcessKey | 'ALL';
@@ -98,11 +90,11 @@ export type ProductionOverviewData = {
 };
 
 const TABS: { key: TabKey; label: string }[] = [
+    { key: 'ALL', label: 'SEMUA' },
     { key: 'MIXING', label: 'MIXING' },
     { key: 'EXTRUSION', label: 'EXTRUSION' },
     { key: 'PACKING', label: 'PACKING' },
     { key: 'OTHER', label: 'LAINNYA' },
-    { key: 'ALL', label: 'SEMUA' },
 ];
 
 const PROCESS_COLOR: Record<ProcessKey, string> = {
@@ -165,11 +157,9 @@ interface ProductionOverviewClientProps {
 
 export function ProductionOverviewClient({
     initialData,
-    thresholds,
 }: ProductionOverviewClientProps) {
-    const th = resolveProductionAlertThresholds(thresholds);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-    const [tab, setTab] = useState<TabKey>('EXTRUSION');
+    const [tab, setTab] = useState<TabKey>('ALL');
 
     useEffect(() => {
         setLastUpdated(new Date());
@@ -204,9 +194,6 @@ export function ProductionOverviewClient({
 
     const activeData = data || initialData;
 
-    const processPulse =
-        tab === 'ALL' ? null : (activeData.processes[tab] ?? emptyPulse());
-
     const filteredOrders = useMemo(() => {
         if (tab === 'ALL') return activeData.runningOrders;
         return activeData.runningOrders.filter((o) => o.processKey === tab);
@@ -218,13 +205,6 @@ export function ProductionOverviewClient({
             (a) => a.processKey === tab || a.processKey === 'ALL',
         );
     }, [activeData.attentions, tab]);
-
-    const vsYesterday =
-        processPulse && processPulse.outputYesterday > 0
-            ? ((processPulse.outputToday - processPulse.outputYesterday) /
-                  processPulse.outputYesterday) *
-              100
-            : null;
 
     if (error && !data) {
         return (
@@ -253,16 +233,15 @@ export function ProductionOverviewClient({
             {/* Work Strip — antrean kerja hari ini */}
             <div className="rounded-xl border bg-card/60 p-3">
                 <div className="flex items-center gap-2 mb-2.5">
-                    <h2 className="text-sm font-bold">Hari Ini — Produksi</h2>
-                    <span className="text-[11px] text-muted-foreground">
-                        Kondisi lantai dan antrean yang memerlukan tindakan.
-                    </span>
+                    <h2 className="text-sm font-bold">
+                        Kondisi seluruh proses
+                    </h2>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                     <WorkStripCard
                         label="SPK jalan"
                         count={activeData.totals.activeJobs}
-                        href="/production/daily"
+                        href="/production/orders?status=IN_PROGRESS"
                         accent="emerald"
                     />
                     <WorkStripCard
@@ -283,12 +262,23 @@ export function ProductionOverviewClient({
                         href="/production/machines"
                         accent="red"
                     />
-                    <WorkStripCard
-                        label="Butuh perhatian"
-                        count={activeData.attentions.length}
-                        href="#attentions"
-                        accent="rose"
-                    />
+                    <button
+                        type="button"
+                        className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-left text-rose-700 dark:text-rose-400 hover:brightness-95"
+                        onClick={() => {
+                            setTab('ALL');
+                            document
+                                .getElementById('attentions')
+                                ?.scrollIntoView({ block: 'start' });
+                        }}
+                    >
+                        <span className="block text-[11px] font-semibold">
+                            Butuh perhatian
+                        </span>
+                        <span className="text-xl font-bold tabular-nums">
+                            {activeData.attentions.length}
+                        </span>
+                    </button>
                     {activeData.totals.fgUncoveredVariants > 0 && (
                         <WorkStripCard
                             label="Belum di-SPK"
@@ -304,182 +294,50 @@ export function ProductionOverviewClient({
                         asChild
                         variant="outline"
                         size="sm"
-                        className="h-7 text-[11px] font-bold"
+                        className="min-h-11 text-xs font-bold"
                     >
-                        <Link href="/production/orders/create">+ SPK baru</Link>
+                        <Link href="/production/orders/create">Buat SPK</Link>
                     </Button>
                     <Button
                         asChild
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-[11px]"
+                        className="min-h-11 text-xs"
                     >
                         <Link href="/production/history?from=today&to=today">
-                            Riwayat hari ini →
+                            Log & Bukti hari ini →
                         </Link>
                     </Button>
                 </div>
             </div>
 
-            <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-                <TabsList className="h-auto flex-wrap">
+            <div>
+                <p className="mb-2 text-sm font-medium">
+                    Pekerjaan & perhatian per proses
+                </p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                    Filter ini berlaku untuk SPK dan perhatian di bawah. Kondisi
+                    di atas dan ringkasan hasil tetap mencakup seluruh proses.
+                </p>
+                <div
+                    role="group"
+                    aria-label="Filter proses pekerjaan dan perhatian"
+                    className="flex flex-wrap gap-2"
+                >
                     {TABS.map((t) => (
-                        <TabsTrigger
+                        <Button
                             key={t.key}
-                            value={t.key}
-                            className="text-xs font-bold tracking-wide"
+                            type="button"
+                            variant={tab === t.key ? 'default' : 'outline'}
+                            aria-pressed={tab === t.key}
+                            onClick={() => setTab(t.key)}
+                            className="min-h-11 text-xs font-bold tracking-wide"
                         >
                             {t.label}
-                        </TabsTrigger>
+                        </Button>
                     ))}
-                </TabsList>
-            </Tabs>
-
-            {/* KPI row */}
-            {tab === 'ALL' ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    {(
-                        [
-                            'MIXING',
-                            'EXTRUSION',
-                            'PACKING',
-                            'OTHER',
-                        ] as ProcessKey[]
-                    ).map((key) => {
-                        const p = activeData.processes[key];
-                        return (
-                            <Card
-                                key={key}
-                                className="shadow-sm bg-card/65 backdrop-blur-sm cursor-pointer hover:border-primary/40 transition-colors"
-                                onClick={() => setTab(key)}
-                            >
-                                <CardHeader className="pb-1 pt-4">
-                                    <CardTitle
-                                        className={cn(
-                                            'text-[11px] font-bold uppercase tracking-wider',
-                                            PROCESS_COLOR[key],
-                                        )}
-                                    >
-                                        {key === 'OTHER' ? 'Lainnya' : key}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="pb-4">
-                                    <div className="text-2xl font-extrabold tabular-nums">
-                                        {p.outputToday.toLocaleString('id-ID', {
-                                            maximumFractionDigits: 1,
-                                        })}
-                                        <span className="text-xs font-normal text-muted-foreground ml-1">
-                                            KG
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground mt-1">
-                                        susut {p.scrapRate.toFixed(1)}% ·{' '}
-                                        {p.activeJobs} SPK jalan
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
                 </div>
-            ) : (
-                processPulse && (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <KpiCard
-                            label="Output hari ini"
-                            value={processPulse.outputToday.toLocaleString(
-                                'id-ID',
-                                {
-                                    maximumFractionDigits: 1,
-                                },
-                            )}
-                            suffix="KG"
-                            hint={
-                                vsYesterday === null ? (
-                                    <span className="text-muted-foreground">
-                                        vs kemarin: n/a
-                                    </span>
-                                ) : vsYesterday >= 0 ? (
-                                    <span className="inline-flex items-center gap-1 text-emerald-500">
-                                        <TrendingUp className="h-3 w-3" />+
-                                        {vsYesterday.toFixed(1)}% vs kemarin
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-1 text-rose-500">
-                                        <TrendingDown className="h-3 w-3" />
-                                        {vsYesterday.toFixed(1)}% vs kemarin
-                                    </span>
-                                )
-                            }
-                        />
-                        <KpiCard
-                            label="Tingkat susut"
-                            value={processPulse.scrapRate.toFixed(1)}
-                            suffix="%"
-                            valueClass={
-                                isScrapWarning(th, processPulse.scrapRate)
-                                    ? 'text-rose-500'
-                                    : undefined
-                            }
-                            hint={
-                                <span className="text-muted-foreground">
-                                    susut / (hasil baik + susut) ·{' '}
-                                    {processPulse.scrapToday.toLocaleString(
-                                        'id-ID',
-                                        { maximumFractionDigits: 1 },
-                                    )}{' '}
-                                    susut
-                                </span>
-                            }
-                        />
-                        <KpiCard
-                            label="SPK proses ini"
-                            value={String(processPulse.activeJobs)}
-                            suffix="jalan"
-                            hint={
-                                <span className="text-muted-foreground">
-                                    {processPulse.released} rilis ·{' '}
-                                    {processPulse.waiting} tunggu
-                                </span>
-                            }
-                        />
-                        <KpiCard
-                            label="Dicatat jam ini"
-                            value={processPulse.recordedThisHour.toLocaleString(
-                                'id-ID',
-                                {
-                                    maximumFractionDigits: 1,
-                                },
-                            )}
-                            suffix="KG"
-                            hint={
-                                <span className="text-muted-foreground">
-                                    Waktu pencatatan kiosk — bukan laju mesin
-                                </span>
-                            }
-                        />
-                    </div>
-                )
-            )}
-
-            {/* Global SPK strip */}
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card/60 px-3 py-2.5 text-xs text-muted-foreground">
-                <span className="font-semibold">Semua proses</span>
-                <Badge variant="outline" className="font-bold">
-                    {activeData.totals.activeJobs} jalan
-                </Badge>
-                <Badge variant="outline" className="font-bold">
-                    {activeData.totals.released} rilis
-                </Badge>
-                <Badge variant="outline" className="font-bold">
-                    {activeData.totals.waiting} tunggu
-                </Badge>
             </div>
-
-            <ProcessPulseChart
-                tab={tab}
-                processHourly={processPulse?.hourly}
-                stackedHourly={activeData.stackedHourly}
-            />
 
             <div className="grid gap-4 lg:grid-cols-2">
                 <Card className="shadow-sm bg-card/65 backdrop-blur-sm">
@@ -491,16 +349,24 @@ export function ProductionOverviewClient({
                                 : `proses ${tab === 'OTHER' ? 'Lainnya' : tab}`}
                         </CardTitle>
                         <CardDescription>
-                            Progres pesanan — satu SPK untuk satu proses.
+                            {filteredOrders.length} SPK berjalan pada filter
+                            ini. Maksimal 5 ditampilkan; satu SPK untuk satu
+                            proses.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2.5">
+                        <Link
+                            href="/production/daily"
+                            className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+                        >
+                            Buka semua SPK di Board Proses →
+                        </Link>
                         {filteredOrders.length === 0 ? (
                             <div className="border border-dashed rounded-lg py-10 text-center text-sm text-muted-foreground">
                                 Tidak ada SPK berjalan di filter ini
                             </div>
                         ) : (
-                            filteredOrders.map((o) => (
+                            filteredOrders.slice(0, 5).map((o) => (
                                 <div
                                     key={o.id}
                                     className="rounded-lg border bg-background/40 p-3 space-y-2"
@@ -570,7 +436,7 @@ export function ProductionOverviewClient({
                 </Card>
 
                 <Card
-                    className="shadow-sm bg-card/65 backdrop-blur-sm"
+                    className="shadow-sm bg-card/65 backdrop-blur-sm scroll-mt-20"
                     id="attentions"
                 >
                     <CardHeader className="pb-2">
@@ -581,7 +447,7 @@ export function ProductionOverviewClient({
                             Pilih item untuk membuka SPK atau mesin terkait.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-2 max-h-[32rem] overflow-y-auto">
                         {filteredAttentions.length === 0 ? (
                             <div className="flex flex-col items-center justify-center border border-dashed rounded-lg py-10 text-center">
                                 <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
@@ -647,47 +513,59 @@ export function ProductionOverviewClient({
                     </CardContent>
                 </Card>
             </div>
-        </div>
-    );
-}
 
-function KpiCard({
-    label,
-    value,
-    suffix,
-    hint,
-    valueClass,
-}: {
-    label: string;
-    value: string;
-    suffix?: string;
-    hint: React.ReactNode;
-    valueClass?: string;
-}) {
-    return (
-        <Card className="shadow-sm bg-card/65 backdrop-blur-sm">
-            <CardHeader className="pb-1 pt-4">
-                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {label}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-                <div
-                    className={cn(
-                        'text-2xl font-extrabold tabular-nums',
-                        valueClass,
-                    )}
-                >
-                    {value}
-                    {suffix && (
-                        <span className="text-xs font-normal text-muted-foreground ml-1">
-                            {suffix}
-                        </span>
-                    )}
+            <section
+                aria-label="Ringkasan hasil hari ini"
+                className="rounded-xl border bg-card/60 p-4"
+            >
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h2 className="text-sm font-bold">
+                        Hasil hari ini · seluruh proses
+                    </h2>
+                    <Link
+                        href="/production/analytics"
+                        className="text-sm font-medium text-primary hover:underline"
+                    >
+                        Tren & Analitik →
+                    </Link>
                 </div>
-                <div className="text-[11px] mt-1.5">{hint}</div>
-            </CardContent>
-        </Card>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {(
+                        [
+                            'MIXING',
+                            'EXTRUSION',
+                            'PACKING',
+                            'OTHER',
+                        ] as ProcessKey[]
+                    ).map((key) => (
+                        <div key={key}>
+                            <p
+                                className={cn(
+                                    'text-xs font-semibold',
+                                    PROCESS_COLOR[key],
+                                )}
+                            >
+                                {key === 'OTHER' ? 'Lainnya' : key}
+                            </p>
+                            <p className="font-bold tabular-nums">
+                                {activeData.processes[
+                                    key
+                                ].outputToday.toLocaleString('id-ID', {
+                                    maximumFractionDigits: 1,
+                                })}{' '}
+                                <span className="text-xs font-normal text-muted-foreground">
+                                    KG
+                                </span>
+                            </p>
+                        </div>
+                    ))}
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                    Hasil setiap proses ditampilkan terpisah, bukan dijumlahkan
+                    sebagai produk akhir.
+                </p>
+            </section>
+        </div>
     );
 }
 
@@ -715,6 +593,7 @@ function WorkStripCard({
     return (
         <Link
             href={href}
+            aria-label={`${count} ${label}`}
             className={cn(
                 'flex flex-col gap-0.5 rounded-lg border p-2.5 text-xs transition-colors hover:opacity-80',
                 WORK_STRIP_ACCENT[accent] || WORK_STRIP_ACCENT.emerald,

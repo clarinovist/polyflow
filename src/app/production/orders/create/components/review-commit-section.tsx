@@ -145,6 +145,7 @@ export function ReviewCommitSection({
 
                 {/* Submit CTA */}
                 <div className="pt-3 border-t flex flex-col gap-2">
+                    <p className="text-sm font-medium">Akan membuat 1 SPK untuk satu tahap produksi.</p>
                     <Button
                         type="submit"
                         size="lg"

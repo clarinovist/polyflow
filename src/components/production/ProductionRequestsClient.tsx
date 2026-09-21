@@ -353,7 +353,7 @@ export function ProductionRequestsClient({
                                                     }
                                                 >
                                                     <Factory className="mr-1 h-3 w-3" />
-                                                    Buat SPK
+                                                    Siapkan Produksi
                                                 </Button>
                                             </TableCell>
                                         </TableRow>

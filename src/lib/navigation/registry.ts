@@ -325,7 +325,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-runs',
-        label: 'Production Runs',
+        label: 'Rangkaian Produksi',
         href: '/production/runs',
         workspace: 'production',
         section: 'perencanaan',
@@ -341,7 +341,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-schedule',
-        label: 'Jadwal',
+        label: 'Jadwal Produksi',
         href: '/production/schedule',
         workspace: 'production',
         section: 'perencanaan',
@@ -357,7 +357,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-daily',
-        label: 'SPK Aktif',
+        label: 'SPK — Board Proses',
         href: '/production/daily',
         workspace: 'production',
         section: 'lantai',
@@ -365,7 +365,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-machines',
-        label: 'Papan Mesin',
+        label: 'Status Mesin Saat Ini',
         href: '/production/machines',
         workspace: 'production',
         section: 'lantai',
@@ -421,7 +421,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-history',
-        label: 'Log Hasil',
+        label: 'Log & Bukti',
         href: '/production/history',
         workspace: 'production',
         section: 'sumber-daya',
@@ -429,7 +429,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-resources',
-        label: 'Tim / Shift',
+        label: 'Tim',
         href: '/production/resources',
         workspace: 'production',
         section: 'sumber-daya',
@@ -437,7 +437,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-shifts',
-        label: 'Shift Kerja',
+        label: 'Pengaturan Shift',
         href: '/production/shifts',
         workspace: 'production',
         section: 'sumber-daya',

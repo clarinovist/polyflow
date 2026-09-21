@@ -18,17 +18,17 @@ export default async function ProductionResourcesPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">
-                        Tim & Sumber Daya
-                    </h2>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Tim
+                    </h1>
                     <p className="text-muted-foreground">
-                        Manage production staff, shifts, and skill matrices.
+                        Direktori karyawan. Jadwal jam kerja dikelola terpisah di Pengaturan Shift.
                     </p>
                 </div>
                 <Link href="/dashboard/employees/create">
                     <Button variant="outline">
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Staff
+                        Tambah Karyawan
                     </Button>
                 </Link>
             </div>
@@ -46,7 +46,7 @@ export default async function ProductionResourcesPage() {
                             {employees.length}
                         </div>
                         <p className="text-xs text-muted-foreground font-medium mt-1">
-                            Personnel Directory
+                            Terdaftar di direktori
                         </p>
                     </CardContent>
                 </Card>
@@ -62,24 +62,24 @@ export default async function ProductionResourcesPage() {
                             {activeCount}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Available for assignment
+                            Berstatus aktif
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Shift Aktif
+                            Pengaturan Shift
                         </CardTitle>
                         <Clock className="h-4 w-4 text-emerald-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-amber-600">
-                            Shift 1 (Day)
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            08:00 - 16:00 (Next: Shift 2)
+                        <p className="text-sm text-muted-foreground mb-2">
+                            Kelola nama shift dan jam kerja, bukan status kehadiran tim.
                         </p>
+                        <Button asChild variant="outline" size="sm">
+                            <Link href="/production/shifts">Buka Pengaturan Shift</Link>
+                        </Button>
                     </CardContent>
                 </Card>
             </div>

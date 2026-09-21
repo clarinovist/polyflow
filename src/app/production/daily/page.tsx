@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { getDailyBoardData } from '@/actions/production/daily-board-data';
 import { serializeData } from '@/lib/utils/utils';
-import Link from 'next/link';
+import { ProductionOrderViews } from '@/components/production/ProductionOrderViews';
 import {
     DailyProductionDashboard,
     type Order,
@@ -29,33 +29,17 @@ export default async function DailyProductionPage() {
         <div className="flex flex-col gap-6">
             <div>
                 <h1 className="text-2xl font-bold text-foreground">
-                    SPK Aktif
+                    SPK
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Board per proses — SPK aktif termasuk yang terbawa dari hari
-                    sebelumnya.
+                    Board Proses — SPK siap produksi, sedang jalan, dan menunggu
+                    bahan, termasuk dari hari sebelumnya. Gunakan Daftar untuk
+                    pencarian dan status lainnya.
                 </p>
-                <div className="flex flex-wrap gap-3 mt-2 text-xs font-semibold">
-                    <Link
-                        href="/production"
-                        className="text-primary hover:underline"
-                    >
-                        ← Papan Produksi
-                    </Link>
-                    <Link
-                        href="/production/history"
-                        className="text-primary hover:underline"
-                    >
-                        Log Hasil
-                    </Link>
-                    <Link
-                        href="/production/resources"
-                        className="text-primary hover:underline"
-                    >
-                        Tim / Shift
-                    </Link>
-                </div>
+
             </div>
+
+            <ProductionOrderViews current="board" />
 
             <DailyProductionDashboard
                 orders={serializeData(orders) as unknown as Order[]}

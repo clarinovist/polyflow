@@ -39,6 +39,7 @@ import { ProductionPriorityBadge } from '@/components/production/production-prio
 import { getStatusLabel } from '@/lib/labels/helpers';
 import { cn } from '@/lib/utils/utils';
 import { ContextualHelp } from '@/components/support/contextual-help';
+import { ProductionOrderViews } from '@/components/production/ProductionOrderViews';
 
 const ALL_STATUSES = [
     'DRAFT',
@@ -186,7 +187,7 @@ export default async function ProductionOrdersPage({
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">
-                        Daftar SPK
+                        SPK
                     </h1>
                     <p className="text-muted-foreground mt-2">
                         {planningLabels.listSpkDesc}
@@ -254,6 +255,8 @@ export default async function ProductionOrdersPage({
                     </Link>
                 </div>
             </div>
+
+            <ProductionOrderViews current="list" />
 
             {/* Stats Cards - clickable */}
             <div className="grid gap-4 md:grid-cols-4">

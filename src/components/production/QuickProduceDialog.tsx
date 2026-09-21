@@ -125,15 +125,15 @@ export function QuickProduceDialog({
             });
 
             if (result.success) {
-                toast.success('Order produksi berhasil dibuat');
+                toast.success('SPK berhasil dibuat');
                 onOpenChange(false);
-                router.refresh();
+                router.push(`/production/orders/${result.data.id}`);
                 // Reset form
                 setSelectedBomId('');
                 setQuantity('');
                 setSelectedMachineId('');
             } else {
-                toast.error(result.error || 'Gagal membuat order');
+                toast.error(result.error || 'Gagal membuat SPK');
             }
         } catch {
             toast.error('Gagal menyimpan. Silakan coba lagi.');
@@ -148,10 +148,11 @@ export function QuickProduceDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Factory className="h-5 w-5" />
-                        Produksi Baru
+                        Buat SPK Cepat
                     </DialogTitle>
                     <DialogDescription>
-                        Pilih produk dan mesin untuk produksi hari ini.
+                        Akan membuat 1 SPK untuk satu tahap dari BOM yang dipilih.
+                        Ini bukan penambahan master produk.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -339,7 +340,7 @@ export function QuickProduceDialog({
                                     Membuat...
                                 </>
                             ) : (
-                                'Produksi'
+                                'Buat SPK Cepat'
                             )}
                         </Button>
                     </DialogFooter>
