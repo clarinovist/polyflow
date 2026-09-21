@@ -68,11 +68,6 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
     {
         heading: 'Modul',
         items: [
-            {
-                title: mainNavLabels.findings,
-                href: '/ceo-notes',
-                icon: AlertTriangle,
-            },
             { title: mainNavLabels.sales, href: '/sales', icon: ShoppingCart },
             {
                 title: mainNavLabels.purchasing,
@@ -190,17 +185,6 @@ export function SidebarNav({
                 }
                 // Permission filter
                 if (permissions === 'ALL') return true;
-
-                // /ceo-notes isn't itself a resource — it surfaces notes
-                // from whichever detector resources the user can already
-                // reach. Rollout scope: production + warehouse only.
-                if (item.href === '/ceo-notes') {
-                    return permissions.some(
-                        (p) =>
-                            p === '/warehouse/inventory' ||
-                            p === '/production/orders',
-                    );
-                }
 
                 return permissions.some(
                     (p) =>

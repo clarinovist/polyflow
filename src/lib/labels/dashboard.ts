@@ -11,10 +11,6 @@ export const dashboardLabels = {
     needsAttentionEmpty: 'Tidak ada item mendesak — bagus.',
     openItem: 'Buka',
 
-    // CEO Notes
-    ceoNotesTitle: 'Catatan CEO',
-    ceoNotesEmpty: 'Belum ada catatan — bagus.',
-
     // Sections
     quickActions: 'Aksi Cepat',
     revenueTrend: 'Tren Pendapatan Tahunan',

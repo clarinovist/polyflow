@@ -51,6 +51,8 @@ describe('sidebar navigation landmarks', () => {
         expect(
             screen.getByRole('navigation', { name: 'Navigasi utama' }),
         ).toBeTruthy();
+        expect(screen.queryByRole('link', { name: 'Catatan CEO' })).toBeNull();
+        expect(document.querySelector('a[href="/ceo-notes"]')).toBeNull();
     });
 
     it('uses the portal name for each portal navigation landmark', () => {

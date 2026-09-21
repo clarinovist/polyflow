@@ -61,27 +61,6 @@ vi.mock('@/lib/findings/finding-escalate', () => ({
   }),
 }));
 
-vi.mock('@/lib/ceo-notes/note-service', () => ({
-  runCeoNotesForTenant: vi.fn().mockResolvedValue({
-    created: [],
-    updated: [],
-    notificationsSent: 0,
-    usedFallback: false,
-    skipped: true,
-  }),
-}));
-
-vi.mock('@/lib/ceo-notes/note-reminder', () => ({
-  remindAndEscalateNotes: vi.fn().mockResolvedValue({
-    reminded: [],
-    escalated: [],
-  }),
-}));
-
-vi.mock('@/services/dashboard/executive-stats-service', () => ({
-  ExecutiveStatsService: { getExecutiveStats: vi.fn() },
-}));
-
 vi.mock('../detectors', () => ({
   detectCriticalStock: vi.fn(),
   detectStuckSalesOrders: vi.fn(),

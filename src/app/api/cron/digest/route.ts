@@ -16,7 +16,6 @@ export async function GET(req: Request) {
       sent: result.sent,
       skipped: result.skipped,
       failed: result.failed,
-      ceoNotes: result.ceoNotes ?? { created: 0, updated: 0, notificationsSent: 0 },
       executedAt: new Date().toISOString(),
     });
   } catch (error) {

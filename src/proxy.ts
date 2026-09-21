@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/api/rate-limit';
 import { extractSubdomain } from '@/lib/core/subdomain';
 import { isBlockedScannerProbe } from '@/lib/security/scanner-probes';
+import { retiredFeatureResponse } from '@/lib/navigation/retired-features';
 
 const { auth } = NextAuth(authConfig);
 
@@ -105,12 +106,8 @@ const handler = auth((req) => {
         request: { headers: requestHeaders },
     });
 
-    const isTelegramRoute = req.nextUrl.pathname.startsWith('/telegram');
-
-    // SECURITY: Add missing HTTP security headers
-    if (!isTelegramRoute) {
-        response.headers.set('X-Frame-Options', 'DENY');
-    }
+    // All pages use the same framing policy; no embedded Mini App exception.
+    response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.headers.set('X-XSS-Protection', '1; mode=block');
@@ -119,20 +116,7 @@ const handler = auth((req) => {
         'max-age=31536000; includeSubDomains; preload',
     );
 
-    const csp = isTelegramRoute
-        ? `
-		default-src 'self';
-		script-src 'self' 'unsafe-inline' https://telegram.org;
-		style-src 'self' 'unsafe-inline';
-		img-src 'self' data: https: blob:;
-		font-src 'self' data:;
-		connect-src 'self' https:;
-		object-src 'none';
-		base-uri 'self';
-		form-action 'self';
-		frame-ancestors 'self' https://web.telegram.org https://telegram.org;
-	`
-        : `
+    const csp = `
 		default-src 'self';
 		script-src 'self' 'unsafe-inline';
 		style-src 'self' 'unsafe-inline';
@@ -153,7 +137,10 @@ const handler = auth((req) => {
 });
 
 export default function proxy(...args: Parameters<typeof handler>) {
-    return handler(...args);
+    // Terminate retired surfaces before auth/mobile redirects or server actions.
+    // Only static responses are public; all live routes keep the existing guards.
+    const retired = retiredFeatureResponse(args[0]);
+    return retired ?? handler(...args);
 }
 
 export const config = {

@@ -11,7 +11,6 @@ export type AssistantFeatureFlag =
     | 'assistant.sensitiveDomains'
     | 'assistant.proactiveDigest'
     | 'assistant.findingLifecycle'
-    | 'assistant.ceoNotes'
     | 'assistant.contextualWorkProfiles';
 
 const FEATURE_FLAGS: Record<
@@ -48,11 +47,6 @@ const FEATURE_FLAGS: Record<
         enabled: false,
         description:
             'Sync detector results into claimable Finding records (production + warehouse only for now)',
-    },
-    'assistant.ceoNotes': {
-        enabled: false,
-        description:
-            'Compose AI CEO Notes from detector results with per-tenant memory (pilot tenant first)',
     },
     'assistant.contextualWorkProfiles': {
         enabled: false,

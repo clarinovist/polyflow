@@ -56,7 +56,6 @@ const presentation = {
 
 const defaultProps = {
     stats,
-    ceoNotes: [],
     userName: 'Budi Santoso',
     userRole: 'ADMIN',
     permissions: 'ALL' as const,
@@ -97,10 +96,12 @@ describe('DashboardClient hydration safety', () => {
         expect(html).toContain(presentation.lastUpdated);
     });
 
-    it('keeps the empty CEO-note state compact and omits module sitemap shortcuts', () => {
+    it('removes retired CEO notes while preserving dashboard actions', () => {
         const html = renderToStaticMarkup(<DashboardClient {...defaultProps} />);
 
-        expect(html).toContain('Belum ada catatan — bagus.');
+        expect(html).not.toContain('Catatan CEO');
+        expect(html).not.toContain('Belum ada catatan — bagus.');
+        expect(html).not.toContain('/ceo-notes');
         expect(html).not.toContain('border-dashed');
         expect(html).not.toContain('Pintasan Modul');
         expect(html).not.toContain('Master Data');

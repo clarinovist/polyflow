@@ -1,5 +1,12 @@
 # Polyflow Telegram Mini App — Blueprint
 
+> **Historical design — retired 2026-09-21.** The Mini App UI, sessions,
+> linking and data endpoints have been removed. Legacy URLs return a retirement
+> response, and the old webhook only acknowledges deliveries without processing
+> them. Shared Telegram alerts, digest utilities and historical database records
+> are retained. The implementation/configuration instructions below are archival,
+> not the current operating procedure.
+
 **Tanggal:** 2026-07-30  
 **Status:** Phase 1 (shell) in progress — implemented: session validation, webhook, identity linking, audit, kill switch, notification foundation (preference/dedup schema). Not yet implemented: /telegram/data/:domain routes, actual notification delivery/sending, BotFather Main Mini App config, staging UAT. See docs/plan/2026-07-30-telegram-mini-app-phase1-shell.md for details.  
 **Scope:** MVP read-only, satu tenant, role ADMIN saja

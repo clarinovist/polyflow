@@ -15,7 +15,7 @@ import { assistantBugReportNotice } from '@/lib/bot/bug-report';
  * Streaming (SSE) varian dari POST /api/chat.
  *
  * Endpoint lama TETAP ADA dan tidak berubah perilakunya — panel jatuh ke sana
- * bila stream gagal, dan Telegram mini-app masih memakainya.
+ * bila stream gagal.
  *
  * CATATAN TENANT-CONTEXT (penting):
  * Seluruh agentic loop di-await DI DALAM handler `withTenantRoute`, yaitu di

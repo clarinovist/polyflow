@@ -33,26 +33,15 @@ import {
     TrendingDown,
     ArrowRight,
     AlertCircle,
-    AlertTriangle,
     RefreshCw,
-    CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { cn } from '@/lib/utils/utils';
 
-interface DashboardCeoNote {
-    id: string;
-    priority: 'CRITICAL' | 'NORMAL';
-    status: string;
-    title: string;
-    occurrences: number;
-}
-
 interface DashboardClientProps {
     stats: ExecutiveStats | null;
-    ceoNotes: DashboardCeoNote[];
     userName: string;
     userRole: string;
     permissions: string[] | 'ALL';
@@ -62,7 +51,6 @@ interface DashboardClientProps {
 
 export default function DashboardClient({
     stats,
-    ceoNotes,
     userName,
     userRole,
     permissions,
@@ -186,40 +174,6 @@ export default function DashboardClient({
                     </CardContent>
                 </Card>
             )}
-
-            {/* CEO Notes queue */}
-            <section aria-labelledby="ceonotes-heading" className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                    <h2
-                        id="ceonotes-heading"
-                        className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2"
-                    >
-                        {ceoNotes.length > 0 ? (
-                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        ) : (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        )}
-                        {dashboardLabels.ceoNotesTitle}
-                    </h2>
-                    {ceoNotes.length > 0 ? (
-                        <Badge variant="outline" className="tabular-nums">
-                            {ceoNotes.length}
-                        </Badge>
-                    ) : (
-                        <span className="text-xs text-muted-foreground">
-                            {dashboardLabels.ceoNotesEmpty}
-                        </span>
-                    )}
-                </div>
-
-                {ceoNotes.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {ceoNotes.map((note) => (
-                            <CeoNoteCard key={note.id} note={note} />
-                        ))}
-                    </div>
-                )}
-            </section>
 
             {/* KPI strip */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -399,39 +353,6 @@ export default function DashboardClient({
 }
 
 // --- Subcomponents ---
-
-function CeoNoteCard({ note }: { note: DashboardCeoNote }) {
-    const critical = note.priority === 'CRITICAL';
-    return (
-        <Link href="/ceo-notes" className="group block min-h-[44px]">
-            <Card
-                className={cn(
-                    'h-full shadow-sm transition-all hover:shadow-md cursor-pointer',
-                    critical
-                        ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20'
-                        : 'border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/15',
-                )}
-            >
-                <CardContent className="p-3.5 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">
-                            {note.title}
-                        </p>
-                        <p className="text-xs text-primary font-semibold flex items-center gap-1 mt-1.5 group-hover:underline">
-                            {dashboardLabels.openItem}{' '}
-                            <ArrowRight className="h-3 w-3" />
-                        </p>
-                    </div>
-                    {note.occurrences > 1 && (
-                        <span className="text-2xl font-bold tabular-nums shrink-0 text-amber-600 dark:text-amber-400">
-                            {note.occurrences}x
-                        </span>
-                    )}
-                </CardContent>
-            </Card>
-        </Link>
-    );
-}
 
 function KPICard({
     title,

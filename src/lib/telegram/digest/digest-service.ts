@@ -30,9 +30,6 @@ import { isFeatureEnabled } from '@/lib/bot/feature-flags';
 import { syncFindings } from '@/lib/findings/finding-sync';
 import { notifyNewFindings } from '@/lib/findings/finding-notify';
 import { escalateOverdueFindings } from '@/lib/findings/finding-escalate';
-import { runCeoNotesForTenant } from '@/lib/ceo-notes/note-service';
-import { remindAndEscalateNotes } from '@/lib/ceo-notes/note-reminder';
-import { ExecutiveStatsService } from '@/services/dashboard/executive-stats-service';
 import { isInQuietHours } from '@/lib/telegram/quiet-hours';
 
 export type DigestResult = {
@@ -41,7 +38,6 @@ export type DigestResult = {
     sent: number;
     skipped: number;
     failed: number;
-    ceoNotes?: { created: number; updated: number; notificationsSent: number };
 };
 
 // Fase 1 rollout scope (docs/plan/2026-08-14-ai-manager-l2-finding-lifecycle.md
@@ -78,8 +74,7 @@ export async function runDigest(): Promise<DigestResult> {
 
     const digestEnabled = isFeatureEnabled('assistant.proactiveDigest');
     const lifecycleEnabled = isFeatureEnabled('assistant.findingLifecycle');
-    const ceoNotesEnabled = isFeatureEnabled('assistant.ceoNotes');
-    if (!digestEnabled && !lifecycleEnabled && !ceoNotesEnabled) {
+    if (!digestEnabled && !lifecycleEnabled) {
         return empty;
     }
 
@@ -215,24 +210,6 @@ export async function runDigest(): Promise<DigestResult> {
     }
 
     const findings: DigestFinding[] = toDigestFindings(detectionResults);
-
-    if (ceoNotesEnabled) {
-        try {
-            const stats = await ExecutiveStatsService.getExecutiveStats();
-            const ceo = await runCeoNotesForTenant(tenantDb, {
-                results: detectionResults,
-                stats,
-            });
-            await remindAndEscalateNotes(tenantDb);
-            empty.ceoNotes = {
-                created: ceo.created.length,
-                updated: ceo.updated.length,
-                notificationsSent: ceo.notificationsSent,
-            };
-        } catch (error) {
-            console.error('[DIGEST] ceo notes failed:', error);
-        }
-    }
 
     if (!digestEnabled || findings.length === 0) {
         return { ...empty, findings };

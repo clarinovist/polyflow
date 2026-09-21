@@ -57,7 +57,7 @@ describe.skipIf(!enabled)('finance dry-run real PostgreSQL boundary', () => {
         expect(result.recipients.candidates[0].eligible).toBe(true);
         expect(result.rollout.allowed).toBe(false);
         expect(fetchSpy).not.toHaveBeenCalled(); expect(httpSpy).not.toHaveBeenCalled(); expect(httpsSpy).not.toHaveBeenCalled();
-        for (const flag of ['assistant.proactiveDigest', 'assistant.findingLifecycle', 'assistant.ceoNotes'] as const) expect(isFeatureEnabled(flag)).toBe(false);
+        for (const flag of ['assistant.proactiveDigest', 'assistant.findingLifecycle'] as const) expect(isFeatureEnabled(flag)).toBe(false);
         if (process.env.DRY_RUN_EVIDENCE_PATH) writeFileSync(process.env.DRY_RUN_EVIDENCE_PATH, JSON.stringify({ result, proof: { before, after, observations, externalDeliveryAttempts: fetchSpy.mock.calls.length + httpSpy.mock.calls.length + httpsSpy.mock.calls.length } }, null, 2), { mode: 0o600 });
     });
     it('proves SQL observation catches a real fixture CTE mutation', async () => {

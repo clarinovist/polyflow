@@ -57,10 +57,8 @@ async function findOverdueFindings(
     });
 }
 
-// "Owner" = superadmin or ADMIN role (primary or secondary), matching the
-// existing isAdminOrSuperAdmin convention in src/lib/telegram/allowlist.ts —
-// no separate PIC/owner table, derived the same way finding-routing.ts
-// derives eligible staff.
+// "Owner" = superadmin or ADMIN role (primary or secondary).
+// No separate PIC/owner table; derive roles as finding-routing.ts does.
 async function findOwnerRecipients(
     tenantDb: PrismaClient,
 ): Promise<OwnerRecipient[]> {
