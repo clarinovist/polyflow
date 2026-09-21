@@ -90,6 +90,18 @@ describe('PurchaseInvoiceTable shared paged contract', () => {
         expect(table.closest('[data-sticky-table="true"]')).toBeTruthy();
     });
 
+    it('renders mobile invoice details, identical finance/purchasing links and delete confirmation', () => {
+        const { rerender } = render(<PurchaseInvoiceTable invoices={invoices} basePath="/finance/invoices/purchase" />);
+        const card = within(screen.getByRole('article', { name: 'Invoice BILL-0051' }));
+        expect(card.getByText('Supplier Finance')).toBeTruthy();
+        expect(card.getByRole('link', { name: 'BILL-0051' }).getAttribute('href')).toBe('/finance/invoices/purchase/inv-51');
+        fireEvent.click(card.getByRole('button', { name: 'Hapus/Batal BILL-0051' }));
+        expect(screen.getByRole('alertdialog')).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Batal' }));
+        rerender(<PurchaseInvoiceTable invoices={invoices} />);
+        expect(within(screen.getByRole('article')).getByRole('link', { name: 'BILL-0051' }).getAttribute('href')).toBe('/purchasing/orders/po-51');
+    });
+
     it('preserves date filters while updating URL-backed pagination, filters, and sorting', () => {
         render(
             <PurchaseInvoiceTable

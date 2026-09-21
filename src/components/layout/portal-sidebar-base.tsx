@@ -38,6 +38,8 @@ interface PortalSidebarBaseProps {
     portalName: string;
     accentColor?: 'primary' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose';
     children: ReactNode;
+    /** Opt-in slots; the authenticated root widget remains the single chat owner. */
+    assistantSlots?: boolean;
 }
 
 export function PortalSidebarBase({
@@ -45,6 +47,7 @@ export function PortalSidebarBase({
     portalName,
     accentColor = 'primary',
     children,
+    assistantSlots = false,
 }: PortalSidebarBaseProps) {
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -57,6 +60,13 @@ export function PortalSidebarBase({
     useEffect(() => {
         if (isSupportActive) setHelpOpen(true);
     }, [isSupportActive]);
+
+    useEffect(() => {
+        if (assistantSlots)
+            window.dispatchEvent(
+                new Event('polyflow-assistant-navigation-ready'),
+            );
+    }, [assistantSlots]);
 
     const cycleTheme = () => {
         if (theme === 'light') setTheme('dark');
@@ -95,6 +105,12 @@ export function PortalSidebarBase({
                     <Menu className="h-6 w-6" />
                 </button>
                 <PolyFlowLogo showText={true} size="sm" />
+                {assistantSlots && (
+                    <div
+                        id="finance-assistant-mobile"
+                        className="ml-auto shrink-0"
+                    />
+                )}
             </header>
 
             {/* Mobile Overlay */}
@@ -158,6 +174,13 @@ export function PortalSidebarBase({
                             )}
                         </button>
                     </div>
+
+                    {assistantSlots && (
+                        <div
+                            id="finance-assistant-desktop"
+                            className="hidden px-2 pt-2 lg:flex lg:justify-center"
+                        />
+                    )}
 
                     {/* Navigation */}
                     <nav

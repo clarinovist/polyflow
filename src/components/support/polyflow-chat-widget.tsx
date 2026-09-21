@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { MessageCircleHeart, Minus } from 'lucide-react';
@@ -61,6 +62,10 @@ function AuthenticatedWidget({
     const root = useRef<HTMLDivElement>(null);
     const trigger = useRef<HTMLButtonElement>(null);
     const dialog = useRef<HTMLDivElement>(null);
+    const [launcherSlot, setLauncherSlot] = useState<HTMLElement | null>(null);
+    const financeNavigation =
+        (pathname === '/finance' || pathname.startsWith('/finance/')) &&
+        !pathname.startsWith('/finance/mobile');
     const mobile =
         pathname === '/mobile' ||
         pathname.includes('/mobile/') ||
@@ -69,14 +74,51 @@ function AuthenticatedWidget({
         pathname.startsWith('/my');
 
     useEffect(() => {
+        if (!financeNavigation) return;
+        const media = window.matchMedia('(min-width: 1024px)');
+        const updateSlot = () =>
+            setLauncherSlot(
+                document.getElementById(
+                    media.matches
+                        ? 'finance-assistant-desktop'
+                        : 'finance-assistant-mobile',
+                ),
+            );
+        updateSlot();
+        media.addEventListener('change', updateSlot);
+        window.addEventListener(
+            'polyflow-assistant-navigation-ready',
+            updateSlot,
+        );
+        return () => {
+            media.removeEventListener('change', updateSlot);
+            window.removeEventListener(
+                'polyflow-assistant-navigation-ready',
+                updateSlot,
+            );
+        };
+    }, [financeNavigation]);
+
+    useEffect(() => {
         if (!open) return;
         dialog.current?.focus();
         window.dispatchEvent(new Event('polyflow-assistant-open'));
         function onPointer(event: PointerEvent) {
-            if (!root.current?.contains(event.target as Node)) setOpen(false);
+            if (
+                !root.current?.contains(event.target as Node) &&
+                !trigger.current?.contains(event.target as Node)
+            )
+                setOpen(false);
         }
         function onKey(event: KeyboardEvent) {
-            if (event.key === 'Escape') {
+            // A transaction modal owns Escape while it is open.
+            if (
+                event.key === 'Escape' &&
+                (!financeNavigation ||
+                    !document.querySelector(
+                        '[role="alertdialog"], [role="dialog"][data-state="open"]',
+                    ))
+            ) {
                 event.preventDefault();
                 setOpen(false);
                 trigger.current?.focus();
@@ -89,21 +131,65 @@ function AuthenticatedWidget({
             document.removeEventListener('pointerdown', onPointer);
             document.removeEventListener('keydown', onKey);
         };
-    }, [open]);
+    }, [open, financeNavigation]);
+
+    const launcher = (
+        <Button
+            ref={trigger}
+            size="lg"
+            aria-label={
+                open ? 'Minimize Asisten Polyflow' : 'Buka Asisten Polyflow'
+            }
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-controls={visited ? 'polyflow-assistant-dialog' : undefined}
+            onClick={() => {
+                setVisited(true);
+                setOpen(!open);
+            }}
+            className={
+                financeNavigation
+                    ? 'h-11 w-11 shrink-0 rounded-lg bg-purple-700 p-0 text-white hover:bg-purple-800'
+                    : 'group h-11 w-11 p-0 sm:h-14 sm:w-auto sm:px-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 text-white shadow-lg flex items-center justify-center'
+            }
+            title="Asisten Polyflow"
+        >
+            <MessageCircleHeart
+                className={
+                    financeNavigation
+                        ? 'h-5 w-5 shrink-0'
+                        : 'h-5 w-5 sm:mr-2 shrink-0'
+                }
+            />
+            <span
+                className={financeNavigation ? 'sr-only' : 'hidden sm:inline'}
+            >
+                Asisten Polyflow
+            </span>
+        </Button>
+    );
 
     return (
         <div
             ref={root}
             // globals.css uses these sentinels to reserve one bounded area at
             // the end of document flow. No page-wide measurement is needed.
-            data-polyflow-chat-fab=""
-            data-mobile-safe-area={mobile ? '' : undefined}
-            data-desktop-safe-area={mobile ? undefined : ''}
-            className={`fixed z-[60] print:hidden ${
-                mobile
-                    ? 'right-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:right-5'
-                    : 'right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:right-5 sm:bottom-5'
-            }`}
+            data-polyflow-chat-fab={financeNavigation ? undefined : ''}
+            data-mobile-safe-area={
+                !financeNavigation && mobile ? '' : undefined
+            }
+            data-desktop-safe-area={
+                !financeNavigation && !mobile ? '' : undefined
+            }
+            className={
+                financeNavigation
+                    ? 'print:hidden'
+                    : `fixed z-[60] print:hidden ${
+                          mobile
+                              ? 'right-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:right-5'
+                              : 'right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:right-5 sm:bottom-5'
+                      }`
+            }
         >
             {visited && (
                 <div
@@ -113,7 +199,11 @@ function AuthenticatedWidget({
                     aria-label="Asisten Polyflow"
                     tabIndex={-1}
                     hidden={!open}
-                    className="absolute right-0 bottom-full mb-3 max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-[calc(100vw-1.5rem)] max-w-[420px] outline-none sm:mb-4 sm:w-[400px] md:w-[420px]"
+                    className={
+                        financeNavigation
+                            ? 'fixed right-3 top-20 z-40 max-h-[calc(100dvh-6rem)] w-[calc(100vw-1.5rem)] max-w-[420px] outline-none'
+                            : 'absolute right-0 bottom-full mb-3 max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-[calc(100vw-1.5rem)] max-w-[420px] outline-none sm:mb-4 sm:w-[400px] md:w-[420px]'
+                    }
                 >
                     <Button
                         type="button"
@@ -134,26 +224,9 @@ function AuthenticatedWidget({
                     />
                 </div>
             )}
-            <Button
-                ref={trigger}
-                size="lg"
-                aria-label={
-                    open ? 'Minimize Asisten Polyflow' : 'Buka Asisten Polyflow'
-                }
-                aria-haspopup="dialog"
-                aria-expanded={open}
-                aria-controls={
-                    visited ? 'polyflow-assistant-dialog' : undefined
-                }
-                onClick={() => {
-                    setVisited(true);
-                    setOpen(!open);
-                }}
-                className="group h-11 w-11 p-0 sm:h-14 sm:w-auto sm:px-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 text-white shadow-lg flex items-center justify-center"
-            >
-                <MessageCircleHeart className="h-5 w-5 sm:mr-2 shrink-0" />
-                <span className="hidden sm:inline">Asisten Polyflow</span>
-            </Button>
+            {financeNavigation
+                ? launcherSlot && createPortal(launcher, launcherSlot)
+                : launcher}
         </div>
     );
 }

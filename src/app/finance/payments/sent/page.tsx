@@ -67,7 +67,7 @@ export default async function SentPaymentsPage({
             : [];
 
     return (
-        <div className="p-6">
+        <div className="min-w-0">
             <SentPaymentsClient
                 payments={payments.data}
                 unpaidInvoices={unpaidInvoices}

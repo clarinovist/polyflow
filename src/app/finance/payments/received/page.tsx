@@ -88,7 +88,11 @@ export default async function ReceivedPaymentsPage({
     const unpaidInvoices = (allInvoices as UnpaidSalesInvoice[]).filter(
         (inv) => {
             const hasOutstanding =
-                Number(inv.totalAmount) + Number(inv.priceAdjustmentAmount ?? 0) - Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0) > 0;
+                Number(inv.totalAmount) +
+                    Number(inv.priceAdjustmentAmount ?? 0) -
+                    Number(inv.paidAmount) -
+                    Number(inv.creditedAmount ?? 0) >
+                0;
             if (!hasOutstanding) return false;
             if (demand === 'customer') {
                 return inv.salesOrder?.customerId != null;
@@ -113,10 +117,10 @@ export default async function ReceivedPaymentsPage({
             : [];
 
     return (
-        <div className="p-6">
+        <div className="min-w-0">
             <div className="mb-6">
                 <Tabs defaultValue={demand} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 md:w-[420px]">
+                    <TabsList className="grid h-auto w-full grid-cols-2 [&_a]:min-h-11 [&_a]:whitespace-normal md:w-[420px]">
                         <TabsTrigger value="customer" asChild>
                             <Link href={buildDemandHref('customer')}>
                                 Customer Receipts
@@ -144,7 +148,16 @@ export default async function ReceivedPaymentsPage({
                     </Alert>
                 </div>
             )}
-            <form className="mb-4 flex gap-2" method="get">
+            <form
+                className="mb-5 flex min-w-0 flex-wrap gap-2 rounded-lg border p-3"
+                method="get"
+            >
+                <label
+                    htmlFor="unpaid-invoice-search"
+                    className="w-full text-sm font-medium"
+                >
+                    Pilihan invoice untuk catat pembayaran
+                </label>
                 <input type="hidden" name="demand" value={demand} />
                 {params.startDate && (
                     <input
@@ -161,13 +174,17 @@ export default async function ReceivedPaymentsPage({
                     />
                 )}
                 <input
-                    className="rounded border p-2"
+                    className="min-h-11 min-w-0 flex-1 rounded border bg-background p-2 text-sm"
+                    id="unpaid-invoice-search"
                     name="invoiceSearch"
                     aria-label="Cari invoice belum lunas"
                     placeholder="Invoice / customer belum lunas"
                     defaultValue={params.invoiceSearch}
                 />
-                <button className="rounded border p-2" type="submit">
+                <button
+                    className="min-h-11 rounded border px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring"
+                    type="submit"
+                >
                     Cari invoice
                 </button>
             </form>

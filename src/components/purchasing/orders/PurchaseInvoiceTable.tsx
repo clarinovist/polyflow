@@ -1,14 +1,13 @@
 'use client';
 
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { type ColumnDef } from '@tanstack/react-table';
+import {
+    flexRender,
+    getCoreRowModel,
+    useReactTable,
+    type ColumnDef,
+} from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ import {
     ArrowUp,
     ArrowUpDown,
     Calendar,
+    ChevronDown,
     Loader2,
     Search,
     Trash2,
@@ -110,7 +110,11 @@ function ServerSortHeader({
         tableHead.setAttribute('aria-label', children);
         tableHead.setAttribute(
             'aria-sort',
-            active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none',
+            active
+                ? direction === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                : 'none',
         );
         return () => {
             tableHead.removeAttribute('aria-label');
@@ -401,7 +405,7 @@ export function PurchaseInvoiceTable({
                         (Number(inv.totalAmount) || 0) -
                         (Number(inv.paidAmount) || 0);
                     return (
-                        <div className="text-right">
+                        <div className="text-right tabular-nums">
                             <div className="font-medium">
                                 {formatRupiah(inv.totalAmount)}
                             </div>
@@ -433,6 +437,7 @@ export function PurchaseInvoiceTable({
                                 size="sm"
                                 asChild
                                 title="Lihat Detail"
+                                aria-label={`Lihat Detail ${inv.invoiceNumber}`}
                             >
                                 <Link
                                     href={`${basePath}/${basePath.includes('finance') ? inv.id : inv.purchaseOrder.id}`}
@@ -448,6 +453,7 @@ export function PurchaseInvoiceTable({
                                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                         disabled={isDeleting === inv.id}
                                         title="Hapus/Batal"
+                                        aria-label={`Hapus/Batal ${inv.invoiceNumber}`}
                                     >
                                         {isDeleting === inv.id ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -491,11 +497,17 @@ export function PurchaseInvoiceTable({
         [basePath, isDeleting, pagination, sortHeader],
     );
 
+    const mobileTable = useReactTable({
+        data: filteredInvoices,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+    });
+
     return (
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
             <div
                 data-sticky-table="true"
-                className="max-h-[65vh] overflow-auto [&_.overflow-x-auto]:overflow-visible [&_[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background"
+                className="md:max-h-[65vh] md:overflow-auto [&_.overflow-x-auto]:overflow-visible [&_[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background"
             >
                 <DataTable
                     columns={columns}
@@ -503,9 +515,142 @@ export function PurchaseInvoiceTable({
                     caption="Daftar invoice pembelian"
                     emptyMessage={purchasingLabels.emptyInvoices}
                     minWidth={780}
+                    renderMobileView={() =>
+                        mobileTable.getRowModel().rows.length ? (
+                            mobileTable.getRowModel().rows.map((row) => (
+                                <article
+                                    key={row.id}
+                                    aria-label={`Invoice ${row.original.invoiceNumber}`}
+                                    className="space-y-2 rounded-lg border p-3 text-sm [overflow-wrap:anywhere] [&_button]:min-h-11 [&_button]:min-w-11"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <Link
+                                            className="inline-flex min-h-11 items-center font-mono font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                                            href={
+                                                basePath.startsWith('/finance')
+                                                    ? `${basePath}/${row.original.id}`
+                                                    : `/purchasing/orders/${row.original.purchaseOrder.id}`
+                                            }
+                                        >
+                                            {row.original.invoiceNumber}
+                                        </Link>
+                                        {getStatusBadge(row.original)}
+                                    </div>
+                                    <p className="font-medium">
+                                        {
+                                            row.original.purchaseOrder.supplier
+                                                .name
+                                        }
+                                    </p>
+                                    <div className="flex flex-wrap justify-between gap-1 border-t pt-2 font-semibold">
+                                        <span>Sisa tagihan</span>
+                                        <span className="ml-auto text-right tabular-nums">
+                                            {formatRupiah(
+                                                (Number(
+                                                    row.original.totalAmount,
+                                                ) || 0) -
+                                                    (Number(
+                                                        row.original.paidAmount,
+                                                    ) || 0),
+                                            )}
+                                        </span>
+                                    </div>
+                                    <details className="text-xs">
+                                        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-sm text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                                            <span className="flex items-center gap-1">
+                                                Rincian tagihan{' '}
+                                                <ChevronDown
+                                                    className="h-3 w-3 shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                            </span>
+                                            <span className="text-right tabular-nums">
+                                                Total:{' '}
+                                                {formatRupiah(
+                                                    row.original.totalAmount,
+                                                )}
+                                            </span>
+                                        </summary>
+                                        <p>
+                                            PO:{' '}
+                                            {
+                                                row.original.purchaseOrder
+                                                    .orderNumber
+                                            }
+                                        </p>
+                                        <p>
+                                            Tanggal invoice:{' '}
+                                            {format(
+                                                new Date(
+                                                    row.original.invoiceDate,
+                                                ),
+                                                'dd MMM yyyy',
+                                            )}
+                                        </p>
+                                        {row.original.paidAmount > 0 && (
+                                            <p className="tabular-nums">
+                                                Dibayar:{' '}
+                                                {formatRupiah(
+                                                    row.original.paidAmount,
+                                                )}
+                                            </p>
+                                        )}
+                                    </details>
+                                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                        <p
+                                            className={
+                                                isInvoiceOverdue(
+                                                    row.original.dueDate,
+                                                    row.original.status,
+                                                )
+                                                    ? 'text-red-700 dark:text-red-400'
+                                                    : 'text-muted-foreground'
+                                            }
+                                        >
+                                            Jt tempo:{' '}
+                                            {row.original.dueDate
+                                                ? format(
+                                                      new Date(
+                                                          row.original.dueDate,
+                                                      ),
+                                                      'dd MMM yyyy',
+                                                  )
+                                                : '-'}
+                                            {isInvoiceOverdue(
+                                                row.original.dueDate,
+                                                row.original.status,
+                                            )
+                                                ? ' · Terlambat'
+                                                : ''}
+                                        </p>
+                                        {row
+                                            .getVisibleCells()
+                                            .filter(
+                                                (cell) =>
+                                                    cell.column.id ===
+                                                    'actions',
+                                            )
+                                            .map((cell) => (
+                                                <div key={cell.id}>
+                                                    {flexRender(
+                                                        cell.column.columnDef
+                                                            .cell,
+                                                        cell.getContext(),
+                                                    )}
+                                                </div>
+                                            ))}
+                                    </div>
+                                </article>
+                            ))
+                        ) : (
+                            <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                                {purchasingLabels.emptyInvoices}
+                            </p>
+                        )
+                    }
                 >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <div className="relative max-w-sm flex-1 sm:w-80">
+                    <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                        <div className="relative w-full min-w-0 max-w-sm flex-1 sm:w-80">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 aria-label="Cari invoice pembelian"
@@ -527,12 +672,14 @@ export function PurchaseInvoiceTable({
                             >
                                 <SelectTrigger
                                     aria-label="Status invoice pembelian"
-                                    className="w-[180px]"
+                                    className="w-full min-w-0 sm:w-[180px]"
                                 >
                                     <SelectValue placeholder="Semua Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ALL">Semua Status</SelectItem>
+                                    <SelectItem value="ALL">
+                                        Semua Status
+                                    </SelectItem>
                                     <SelectItem value="DRAFT">Draft</SelectItem>
                                     <SelectItem value="UNPAID">
                                         Belum Dibayar
@@ -566,10 +713,10 @@ export function PurchaseInvoiceTable({
             {pagination && (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground" role="status">
-                        Menampilkan {invoices.length} dari {pagination.totalCount}{' '}
-                        invoice
+                        Menampilkan {invoices.length} dari{' '}
+                        {pagination.totalCount} invoice
                     </p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-3">
                         <label className="flex items-center gap-2 text-sm">
                             Baris
                             <select
@@ -592,7 +739,7 @@ export function PurchaseInvoiceTable({
                         </label>
                         <nav
                             aria-label="Paginasi invoice pembelian"
-                            className="flex items-center gap-2"
+                            className="flex flex-wrap items-center gap-2"
                         >
                             <span className="text-sm text-muted-foreground">
                                 Halaman {pagination.page} dari{' '}

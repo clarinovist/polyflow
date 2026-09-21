@@ -91,6 +91,17 @@ describe('FinanceDashboardPage', () => {
         ).not.toBeTruthy();
     });
 
+    it('places quick actions before work queues and period controls alongside the summary', async () => {
+        render(await FinanceDashboardPage({ searchParams: Promise.resolve({}) }));
+        const quick = screen.getByRole('navigation', { name: 'Aksi cepat finance' });
+        const queues = screen.getByText('Piutang jatuh tempo');
+        const filter = screen.getByText('Filter tanggal');
+        expect(quick.compareDocumentPosition(queues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(queues.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(screen.getByText('Jurnal draf').closest('[data-slot="card"]')?.textContent).not.toContain('Rp');
+        expect(screen.getByText('Rekonsiliasi terbuka').closest('[data-slot="card"]')?.textContent).not.toContain('Rp');
+    });
+
     it('shows pending drafts and does not claim all queues are clean', async () => {
         const data = dashboardData(0);
         Object.assign(data.queues, { apOverdueCount: 0, draftJournals: 0, openBankRecs: 0 });

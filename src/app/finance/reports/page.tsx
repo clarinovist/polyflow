@@ -109,12 +109,12 @@ const reports = [
 
 export default function ReportsPage() {
     return (
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6 [overflow-wrap:anywhere] [&_[data-slot=card]]:min-w-0 [&_[data-slot=badge]]:whitespace-normal">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">
+                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                     Laporan Keuangan
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                     Pusat laporan: neraca, laba rugi, arus kas, buku besar, HPP,
                     pajak, maklon, anggaran. Semua baca GL POSTED. Gunakan papan
                     keuangan untuk antrean kerja harian (piutang/hutang/jurnal).
@@ -122,9 +122,6 @@ export default function ReportsPage() {
                 <div className="flex flex-wrap gap-2 pt-1">
                     <Badge variant="outline" className="text-[11px]">
                         8 laporan + 1 anggaran
-                    </Badge>
-                    <Badge variant="outline" className="text-[11px]">
-                        Sidebar = 1 hub (target IA)
                     </Badge>
                     <Badge variant="outline" className="text-[11px]">
                         <Wallet className="h-3 w-3 mr-1 inline" /> GL = periode
@@ -137,7 +134,7 @@ export default function ReportsPage() {
                 {reports.map((report) => (
                     <Card
                         key={report.href}
-                        className="hover:shadow-md transition-shadow flex flex-col"
+                        className="flex min-w-0 flex-col gap-3 shadow-sm"
                     >
                         <CardHeader className="flex flex-row items-center gap-3 pb-2">
                             <div
@@ -148,18 +145,10 @@ export default function ReportsPage() {
                                 />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <CardTitle className="text-base truncate">
-                                        {report.title}
-                                    </CardTitle>
-                                    <Badge
-                                        variant="secondary"
-                                        className="text-[9px] h-4 px-1.5"
-                                    >
-                                        {report.badge}
-                                    </Badge>
-                                </div>
-                                <CardDescription className="text-[11px] line-clamp-1">
+                                <CardTitle className="text-base [overflow-wrap:anywhere]">
+                                    {report.title}
+                                </CardTitle>
+                                <CardDescription className="mt-1 text-xs">
                                     {report.title ===
                                     reportLabels.incomeStatement
                                         ? reportLabels.plStatement
@@ -168,21 +157,28 @@ export default function ReportsPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="flex flex-col flex-1">
-                            <p className="text-xs text-muted-foreground mb-4 line-clamp-2 flex-1">
+                            <p className="mb-3 flex-1 text-sm text-muted-foreground">
                                 {report.description}
                             </p>
-                            <Link href={report.href} className="mt-auto">
-                                <Button size="sm" className="w-full group">
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="mt-auto min-h-11 w-full"
+                            >
+                                <Link
+                                    href={report.href}
+                                    aria-label={`${reportLabels.viewReport}: ${report.title}`}
+                                >
                                     {reportLabels.viewReport}
-                                    <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
-                                </Button>
-                            </Link>
+                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                </Link>
+                            </Button>
                         </CardContent>
                     </Card>
                 ))}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 xl:grid-cols-3 [&_[data-slot=card-content]]:flex-wrap [&_a]:min-w-0 [&_button]:h-auto [&_button]:min-h-11 [&_button]:whitespace-normal">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm flex items-center gap-2">

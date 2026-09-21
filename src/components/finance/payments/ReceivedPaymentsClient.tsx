@@ -60,25 +60,25 @@ export function ReceivedPaymentsClient({
     const canRecordPayment = unpaidInvoices.length > 0;
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="min-w-0 space-y-5">
+            <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
+                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                         Pembayaran Pelanggan
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="mt-1 text-sm text-muted-foreground">
                         {demandType === 'customer'
                             ? 'Lacak dan kelola pembayaran yang diterima dari pelanggan.'
                             : 'Tinjau dan rekonsiliasi penerimaan internal lama yang masih tercatat di histori keuangan.'}
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 [&_button]:min-h-11">
                     <UrlTransactionDateFilter
                         defaultPreset="this_month"
                         align="end"
                     />
                     {canRecordPayment && (
-                        <Button onClick={() => setDialogOpen(true)}>
+                        <Button className="h-auto max-w-full whitespace-normal" onClick={() => setDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
                             Catat Pembayaran
                         </Button>
@@ -87,13 +87,16 @@ export function ReceivedPaymentsClient({
             </div>
 
             <Tabs defaultValue="transactions">
-                <TabsList>
-                    <TabsTrigger value="transactions">
+                <TabsList className="grid h-auto w-full grid-cols-2 md:w-fit">
+                    <TabsTrigger
+                        value="transactions"
+                        className="min-h-11 whitespace-normal text-center"
+                    >
                         Transaksi Masuk
                     </TabsTrigger>
                     <TabsTrigger
                         value="remittance"
-                        className="flex items-center gap-1.5"
+                        className="flex min-h-11 items-center gap-1.5 whitespace-normal text-center"
                     >
                         Setoran Menunggu Verifikasi
                         {pendingRemittances.length > 0 && (

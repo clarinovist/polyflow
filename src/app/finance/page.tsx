@@ -45,7 +45,7 @@ function QueueCard({
 }: {
     title: string;
     count: number;
-    amount: number;
+    amount?: number;
     subLabel: string;
     href: string;
     icon: React.ElementType;
@@ -53,14 +53,14 @@ function QueueCard({
 }) {
     const card = (
         <Card
-            className={`shadow-sm border-t-4 ${tone} h-full ${count > 0 ? 'hover:shadow-md transition-shadow' : ''}`}
+            className={`gap-2 py-4 shadow-sm border-t-4 ${tone} h-full ${count > 0 ? 'hover:shadow-md transition-shadow' : ''}`}
         >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-0">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
                 <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-                <div className="flex items-baseline gap-2">
+            <CardContent className="px-4">
+                <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-2xl font-bold tabular-nums">
                         {count}
                     </span>
@@ -68,9 +68,11 @@ function QueueCard({
                         {subLabel}
                     </span>
                 </div>
-                <div className="text-sm font-medium mt-1 truncate tabular-nums">
-                    {formatRupiah(amount)} sisa
-                </div>
+                {amount !== undefined && (
+                    <div className="mt-1 text-sm font-medium tabular-nums [overflow-wrap:anywhere]">
+                        {formatRupiah(amount)} sisa
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
@@ -102,7 +104,7 @@ export default async function FinanceDashboardPage({
         getFinanceShiftBoard({ startDate: checkStart, endDate: checkEnd }),
         getFinanceSalesReturnSummary(),
     ]);
-    const returnSummary = returnsRes.success ? returnsRes.data ?? null : null;
+    const returnSummary = returnsRes.success ? (returnsRes.data ?? null) : null;
     const board = boardRes.success && boardRes.data ? boardRes.data : null;
 
     // Fallback if board fails to load
@@ -131,21 +133,44 @@ export default async function FinanceDashboardPage({
         returnSummary.count > 0;
 
     return (
-        <div className="flex min-w-0 max-w-full flex-col gap-6">
+        <div className="flex min-w-0 max-w-full flex-col gap-4 [overflow-wrap:anywhere] [&_[data-slot=card]]:min-w-0 [&_[data-slot=badge]]:whitespace-normal [&_[data-slot=button]]:h-auto [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:whitespace-normal">
             <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <PageHeader
                     title="Papan Keuangan"
-                    description="Hari ini: tagih piutang jatuh tempo, bayar hutang, posting jurnal draf, dan rekonsiliasi. Ringkasan GL di bawah mengikuti filter periode, bukan antrean invoice."
+                    description="Antrean kas dan akuntansi serta ringkasan terkini."
                 />
-                <div className="flex items-center gap-2 self-start">
-                    <FinanceDateFilter />
-                </div>
             </div>
+
+            <nav
+                aria-label="Aksi cepat finance"
+                className="flex flex-wrap gap-2"
+            >
+                <Button asChild variant="outline" className="min-h-11 gap-1.5">
+                    <Link href="/finance/payments/received">
+                        <Wallet className="h-4 w-4" /> Terima bayar
+                    </Link>
+                </Button>
+                <Button asChild variant="outline" className="min-h-11 gap-1.5">
+                    <Link href="/finance/payments/sent">
+                        <Banknote className="h-4 w-4" /> Bayar supplier
+                    </Link>
+                </Button>
+                <Button asChild variant="outline" className="min-h-11 gap-1.5">
+                    <Link href="/finance/petty-cash">
+                        <Zap className="h-4 w-4" /> Petty cash
+                    </Link>
+                </Button>
+                <Button asChild variant="outline" className="min-h-11 gap-1.5">
+                    <Link href="/finance/journals">
+                        <FileText className="h-4 w-4" /> Jurnal baru
+                    </Link>
+                </Button>
+            </nav>
 
             {/* Period close strip */}
             {board.period && (
                 <Card
-                    className={`border-l-4 ${board.period.currentPeriod ? (board.period.daysToMonthEnd !== null && board.period.daysToMonthEnd <= 5 ? 'border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20' : 'border-l-emerald-500') : 'border-l-slate-300'}`}
+                    className={`gap-0 py-0 border-l-4 ${board.period.currentPeriod ? (board.period.daysToMonthEnd !== null && board.period.daysToMonthEnd <= 5 ? 'border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20' : 'border-l-emerald-500') : 'border-l-slate-300'}`}
                 >
                     <CardContent className="p-4 flex flex-wrap items-center gap-3 justify-between">
                         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
@@ -232,11 +257,16 @@ export default async function FinanceDashboardPage({
                         </span>
                     )}
                 </div>
-                <p className="text-[11px] text-muted-foreground mb-3">
-                    Piutang/hutang jatuh tempo = dieksekusi di sini (terima
-                    bayar / bayar supplier). Modul sales & purchasing membuat
-                    draft invoice; finance menyelesaikan pembayaran.
-                </p>
+                <details className="mb-3 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer py-2 focus-visible:outline-2 focus-visible:outline-ring">
+                        Tentang antrean kerja
+                    </summary>
+                    <p>
+                        Piutang/hutang jatuh tempo diselesaikan di finance.
+                        Modul sales & purchasing membuat draft invoice; finance
+                        menyelesaikan pembayaran.
+                    </p>
+                </details>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <QueueCard
                         title="Piutang jatuh tempo"
@@ -259,7 +289,6 @@ export default async function FinanceDashboardPage({
                     <QueueCard
                         title="Jurnal draf"
                         count={board.queues.draftJournals}
-                        amount={0}
                         subLabel="menunggu posting"
                         href="/finance/journals?status=DRAFT"
                         icon={FileClock}
@@ -268,7 +297,6 @@ export default async function FinanceDashboardPage({
                     <QueueCard
                         title="Rekonsiliasi terbuka"
                         count={board.queues.openBankRecs}
-                        amount={0}
                         subLabel="Draf / sedang diproses"
                         href="/finance/bank-reconciliation"
                         icon={Landmark}
@@ -463,38 +491,10 @@ export default async function FinanceDashboardPage({
                 </Card>
             </div>
 
-            {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
-            <div>
-                <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground mb-3">
-                    Cepat
-                </h2>
-                <div className="flex flex-wrap gap-2">
-                    <Link href="/finance/payments/received">
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                            <Wallet className="h-3.5 w-3.5" /> Terima bayar
-                        </Button>
-                    </Link>
-                    <Link href="/finance/payments/sent">
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                            <Banknote className="h-3.5 w-3.5" /> Bayar supplier
-                        </Button>
-                    </Link>
-                    <Link href="/finance/petty-cash">
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                            <Zap className="h-3.5 w-3.5" /> Petty cash
-                        </Button>
-                    </Link>
-                    <Link href="/finance/journals">
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                            <FileText className="h-3.5 w-3.5" /> Jurnal baru
-                        </Button>
-                    </Link>
-                </div>
-            </div>
-
             {/* Snapshot periode — honest GL metrics */}
             <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <FinanceDateFilter />
                     <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                         Ringkasan periode (filter bulan, hanya GL terposting)
                     </h2>

@@ -104,7 +104,9 @@ export function SharedPaymentTable({
     type,
 }: ComponentProps) {
     const isReceived = type === 'received';
-    const amountColor = isReceived ? 'text-emerald-600' : 'text-red-600';
+    const amountColor = isReceived
+        ? 'text-emerald-700 dark:text-emerald-400'
+        : 'text-red-700 dark:text-red-400';
     const amountPrefix = isReceived ? '+' : '-';
     const router = useRouter();
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -190,6 +192,52 @@ export function SharedPaymentTable({
         }
     }, []);
 
+    const renderActions = useCallback(
+        (payment: Payment) => (
+            <div className="flex justify-end gap-1 whitespace-nowrap">
+                {payment.settlementId && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 md:h-8 md:w-8"
+                        aria-label={`Detail ${payment.paymentNumber ?? payment.referenceNumber}`}
+                        disabled={detailLoading === payment.id}
+                        onClick={() => handleOpenDetail(payment)}
+                    >
+                        {detailLoading === payment.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Eye className="h-4 w-4" />
+                        )}
+                    </Button>
+                )}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 md:h-9 md:w-9"
+                    aria-label={`${payment.settlementId ? 'Batalkan' : 'Hapus'} ${payment.paymentNumber ?? payment.referenceNumber}`}
+                    disabled={
+                        isDeleting !== null || payment.status === 'VOIDED'
+                    }
+                    onClick={() => {
+                        setVoidReasons((previous) => ({
+                            ...previous,
+                            [payment.id]: '',
+                        }));
+                        setConfirmPayment(payment);
+                    }}
+                >
+                    {isDeleting === payment.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <Trash2 className="h-4 w-4" />
+                    )}
+                </Button>
+            </div>
+        ),
+        [detailLoading, handleOpenDetail, isDeleting],
+    );
+
     const columns: ColumnDef<Payment, unknown>[] = useMemo(
         () => [
             {
@@ -253,10 +301,10 @@ export function SharedPaymentTable({
                     return (
                         <div className="text-right">
                             <div
-                                className={`font-bold ${
+                                className={`font-bold tabular-nums ${
                                     p.barterLeg === 'AR_OFFSET' ||
                                     p.barterLeg === 'AP_OFFSET'
-                                        ? 'text-blue-600'
+                                        ? 'text-blue-700 dark:text-blue-400'
                                         : amountColor
                                 }`}
                             >
@@ -301,73 +349,22 @@ export function SharedPaymentTable({
                 header: () => <div className="text-right">Actions</div>,
                 size: 60,
                 enableSorting: false,
-                cell: ({ row }) => {
-                    const payment = row.original;
-                    return (
-                        <div className="flex justify-end gap-1 whitespace-nowrap">
-                            {payment.settlementId && (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    aria-label={`Detail ${payment.paymentNumber ?? payment.referenceNumber}`}
-                                    disabled={detailLoading === payment.id}
-                                    onClick={() => handleOpenDetail(payment)}
-                                >
-                                    {detailLoading === payment.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Eye className="h-4 w-4" />
-                                    )}
-                                </Button>
-                            )}
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`${payment.settlementId ? 'Batalkan' : 'Hapus'} ${payment.paymentNumber ?? payment.referenceNumber}`}
-                                disabled={
-                                    isDeleting !== null ||
-                                    payment.status === 'VOIDED'
-                                }
-                                onClick={() => {
-                                    setVoidReasons((previous) => ({
-                                        ...previous,
-                                        [payment.id]: '',
-                                    }));
-                                    setConfirmPayment(payment);
-                                }}
-                            >
-                                {isDeleting === payment.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                )}
-                            </Button>
-                        </div>
-                    );
-                },
+                cell: ({ row }) => renderActions(row.original),
             },
         ],
-        [
-            isReceived,
-            amountColor,
-            amountPrefix,
-            isDeleting,
-            detailLoading,
-            handleOpenDetail,
-        ],
+        [isReceived, amountColor, amountPrefix, renderActions],
     );
 
     return (
-        <Card>
-            <CardHeader>
+        <Card className="min-w-0 gap-4 py-4">
+            <CardHeader className="px-4 md:px-6">
                 <CardTitle className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-muted-foreground" />
                     {title}
                 </CardTitle>
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0 px-4 md:px-6">
                 {payments.length >= 200 && (
                     <p className="mb-3 text-sm text-amber-700">
                         Menampilkan maksimal 200 pembayaran terbaru. Persempit
@@ -380,10 +377,107 @@ export function SharedPaymentTable({
                     data={filteredPayments}
                     emptyMessage="Tidak ada catatan pembayaran."
                     minWidth={750}
+                    renderMobileView={(data) =>
+                        data.length === 0 ? (
+                            <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                                Tidak ada catatan pembayaran.
+                            </p>
+                        ) : (
+                            data.map((payment) => {
+                                const noncash =
+                                    payment.barterLeg === 'AR_OFFSET' ||
+                                    payment.barterLeg === 'AP_OFFSET';
+                                return (
+                                    <article
+                                        key={payment.id}
+                                        aria-label={`Pembayaran ${payment.paymentNumber ?? payment.referenceNumber}`}
+                                        className="space-y-2 rounded-lg border p-3 text-sm [overflow-wrap:anywhere]"
+                                    >
+                                        <div className="flex flex-wrap items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <h3 className="font-mono font-semibold">
+                                                    {payment.referenceNumber}
+                                                </h3>
+                                                {payment.paymentNumber &&
+                                                    payment.paymentNumber !==
+                                                        payment.referenceNumber && (
+                                                        <p className="font-mono text-xs text-muted-foreground">
+                                                            {
+                                                                payment.paymentNumber
+                                                            }
+                                                        </p>
+                                                    )}
+                                                <p className="text-xs text-muted-foreground">
+                                                    {format(
+                                                        new Date(payment.date),
+                                                        'dd MMM yyyy',
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <Badge
+                                                variant="outline"
+                                                className={
+                                                    payment.status === 'VOIDED'
+                                                        ? 'text-red-700 dark:text-red-400'
+                                                        : 'text-emerald-700 dark:text-emerald-400'
+                                                }
+                                            >
+                                                {payment.status || 'Lunas'}
+                                            </Badge>
+                                        </div>
+                                        <p className="font-medium">
+                                            <span className="sr-only">
+                                                {isReceived
+                                                    ? 'Received From: '
+                                                    : 'Paid To: '}
+                                            </span>
+                                            {payment.entityName}
+                                        </p>
+                                        <div className="border-t pt-2 text-right">
+                                            <p
+                                                className={cn(
+                                                    'font-bold tabular-nums',
+                                                    noncash
+                                                        ? 'text-blue-700 dark:text-blue-400'
+                                                        : amountColor,
+                                                )}
+                                            >
+                                                {noncash ? '' : amountPrefix}{' '}
+                                                {formatRupiah(payment.amount)}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {noncash
+                                                    ? 'Pelunasan nonkas — Barter'
+                                                    : payment.barterLeg ===
+                                                        'AP_CASH'
+                                                      ? `Uang keluar — ${getPaymentMethodLabel(payment.method)}`
+                                                      : getPaymentMethodLabel(
+                                                            payment.method,
+                                                        )}
+                                            </p>
+                                            {payment.instrumentNumber && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    No:{' '}
+                                                    {payment.instrumentNumber}
+                                                </p>
+                                            )}
+                                            {payment.destinationBank && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    {payment.destinationBank}
+                                                </p>
+                                            )}
+                                        </div>
+                                        {renderActions(payment)}
+                                    </article>
+                                );
+                            })
+                        )
+                    }
                 >
                     <div className="relative max-w-sm w-full">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-3 top-3.5 md:top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
+                            aria-label="Cari dalam transaksi yang dimuat"
                             placeholder={
                                 isReceived
                                     ? 'Cari referensi atau pelanggan...'
@@ -391,7 +485,7 @@ export function SharedPaymentTable({
                             }
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9"
+                            className="h-11 pl-9 md:h-9"
                         />
                     </div>
                 </DataTable>

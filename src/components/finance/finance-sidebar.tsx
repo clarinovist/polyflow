@@ -230,6 +230,7 @@ export function FinanceSidebar({ user, permissions }: FinanceSidebarProps) {
             user={user}
             portalName="Portal Keuangan"
             accentColor="purple"
+            assistantSlots
         >
             <div className="px-3 mb-2">
                 <AdminBackButton />

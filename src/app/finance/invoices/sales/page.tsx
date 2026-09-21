@@ -113,13 +113,13 @@ export default async function InvoicesPage({
     const invoicePage = serializeData(invoices.data);
 
     return (
-        <div className="min-w-0 max-w-full space-y-6 p-4 sm:p-6">
+        <div className="min-w-0 max-w-full space-y-6">
             <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">
+                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                         Invoice Sales
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         Kelola tagihan customer dan lacak pembayaran tertunggak.
                     </p>
                 </div>

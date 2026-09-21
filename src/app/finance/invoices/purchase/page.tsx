@@ -22,15 +22,15 @@ import { UrlTransactionDateFilter } from '@/components/common/url-transaction-da
 
 // Wrap with withTenant so prisma routes to the correct tenant DB
 const getInvoices = withTenant(
-    async (filters: Parameters<typeof PurchaseService.getPurchaseInvoicesPage>[0]) =>
-        PurchaseService.getPurchaseInvoicesPage(filters),
+    async (
+        filters: Parameters<typeof PurchaseService.getPurchaseInvoicesPage>[0],
+    ) => PurchaseService.getPurchaseInvoicesPage(filters),
 );
 
 function parseDateBounds(startDate?: string, endDate?: string) {
     const dateOnlyBounds = parsePurchasingDateBounds(startDate, endDate);
     return {
-        startDate:
-            dateOnlyBounds.startDate ?? parseIsoBoundary(startDate),
+        startDate: dateOnlyBounds.startDate ?? parseIsoBoundary(startDate),
         endDate: dateOnlyBounds.endDate ?? parseIsoBoundary(endDate),
     };
 }
@@ -84,13 +84,13 @@ export default async function PurchaseInvoicesPage({
     const serializedInvoices = serializeData(invoicesPage.items);
 
     return (
-        <div className="flex flex-col gap-6 p-6">
-            <div className="flex items-center justify-between">
+        <div className="flex min-w-0 flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">
+                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                         Invoice Purchase{overdueMode ? ' — Jatuh Tempo' : ''}
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         {overdueMode
                             ? 'Filter: hanya invoice lewat jatuh tempo (today > dueDate & belum lunas).'
                             : 'Kelola tagihan supplier dan pembayaran. Jatuh tempo = Invoice + Tempo (atau manual).'}

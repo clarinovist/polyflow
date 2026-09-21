@@ -152,9 +152,12 @@ export function PurchaseRemittanceVerificationQueue({
     return (
         <div className="space-y-3">
             {remittances.map((r) => (
-                <Card key={r.id}>
+                <Card
+                    key={r.id}
+                    className="min-w-0 [overflow-wrap:anywhere] [&_button]:min-h-11"
+                >
                     <CardHeader className="p-4 pb-2">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
                             <div>
                                 <CardTitle className="text-sm">
                                     {r.remittanceNumber}
@@ -164,7 +167,7 @@ export function PurchaseRemittanceVerificationQueue({
                                     {r.user?.name ?? r.user?.id ?? '-'}
                                 </p>
                             </div>
-                            <span className="text-sm font-semibold">
+                            <span className="ml-auto text-right text-sm font-semibold tabular-nums">
                                 {formatRupiah(num(r.totalAmount))}
                             </span>
                         </div>
@@ -174,7 +177,7 @@ export function PurchaseRemittanceVerificationQueue({
                             {r.items.map((it) => (
                                 <div
                                     key={it.id}
-                                    className="flex items-center gap-3 rounded-md border p-2 text-sm"
+                                    className="flex min-w-0 flex-wrap items-center gap-3 rounded-md border p-2 text-sm"
                                 >
                                     {it.proofUrl ? (
                                         isImage(it.proofMimeType) ? (
@@ -221,7 +224,7 @@ export function PurchaseRemittanceVerificationQueue({
                                                 : ''}
                                         </p>
                                     </div>
-                                    <span className="font-mono text-xs shrink-0">
+                                    <span className="ml-auto w-full text-right font-mono text-xs tabular-nums sm:w-auto">
                                         {formatRupiah(num(it.amount))}
                                     </span>
                                 </div>

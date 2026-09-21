@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { InvoiceStatus } from '@prisma/client';
 
@@ -47,6 +47,17 @@ describe('InvoiceTable finance server pagination', () => {
         rerender(<InvoiceTable invoices={[{ ...invoice, creditedAmount: 100000, status: InvoiceStatus.PAID }]} basePath="/finance/invoices/sales" />);
         expect(container.querySelector('[data-slot="card"]')?.textContent).toContain('Sisa tagihan');
         expect(screen.getByText(/Sisa:/).textContent).toMatch(/Rp\s*0/);
+    });
+    it('uses a keyboard-accessible mobile detail link and a disclosure for settlement context', () => {
+        const { container } = render(<InvoiceTable invoices={[{ ...invoice, paidAmount: 10000, creditedAmount: 5000, priceAdjustmentAmount: -20000 }]} basePath="/finance/invoices/sales" />);
+        const card = container.querySelector('[data-slot="card"]') as HTMLElement;
+        expect(within(card).getByRole('link', { name: 'INV-001' }).getAttribute('href')).toBe('/finance/invoices/sales/invoice-1');
+        const disclosure = card.querySelector('details');
+        expect(disclosure?.open).toBe(false);
+        expect(disclosure?.textContent).toContain('Pembayaran');
+        expect(disclosure?.textContent).toContain('Penyesuaian harga');
+        expect(disclosure?.textContent).toContain('Kredit retur');
+        expect(card.textContent).toContain('65.000');
     });
     it('shows signed price adjustment independently of return credit and original total', () => {
         render(<InvoiceTable invoices={[{ ...invoice, paidAmount: 10000, creditedAmount: 5000, priceAdjustmentAmount: -20000 }]} basePath="/finance/invoices/sales" />);

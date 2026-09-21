@@ -27,9 +27,9 @@ import {
     ArrowRight,
     Trash2,
     Loader2,
-    Receipt,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     ChevronsLeft,
     ChevronsRight,
     Search,
@@ -182,8 +182,10 @@ export function InvoiceTable({
             if (isOverdueMode) {
                 const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
                 const remaining =
-                    (Number(inv.totalAmount) || 0) + Number(inv.priceAdjustmentAmount ?? 0) -
-                    (Number(inv.paidAmount) || 0) - Number(inv.creditedAmount ?? 0);
+                    (Number(inv.totalAmount) || 0) +
+                    Number(inv.priceAdjustmentAmount ?? 0) -
+                    (Number(inv.paidAmount) || 0) -
+                    Number(inv.creditedAmount ?? 0);
                 const overdueStatuses: string[] = [
                     'UNPAID',
                     'PARTIAL',
@@ -382,8 +384,10 @@ export function InvoiceTable({
                 cell: ({ row }) => {
                     const inv = row.original;
                     const remaining =
-                        (Number(inv.totalAmount) || 0) + Number(inv.priceAdjustmentAmount ?? 0) -
-                        (Number(inv.paidAmount) || 0) - Number(inv.creditedAmount ?? 0);
+                        (Number(inv.totalAmount) || 0) +
+                        Number(inv.priceAdjustmentAmount ?? 0) -
+                        (Number(inv.paidAmount) || 0) -
+                        Number(inv.creditedAmount ?? 0);
                     return (
                         <div className="text-right">
                             <div className="font-medium">
@@ -395,9 +399,24 @@ export function InvoiceTable({
                                     {formatRupiah(Number(inv.paidAmount))}
                                 </div>
                             )}
-                            {Number(inv.priceAdjustmentAmount ?? 0) !== 0 && <div className="text-xs">Penyesuaian harga: {formatRupiah(Number(inv.priceAdjustmentAmount))}</div>}
-                            {Number(inv.creditedAmount ?? 0) > 0 && <div className="text-xs mt-0.5">Kredit retur: {formatRupiah(Number(inv.creditedAmount))}</div>}
-                            {(inv.paidAmount > 0 || Number(inv.creditedAmount ?? 0) > 0 || Number(inv.priceAdjustmentAmount ?? 0) !== 0) && (
+                            {Number(inv.priceAdjustmentAmount ?? 0) !== 0 && (
+                                <div className="text-xs">
+                                    Penyesuaian harga:{' '}
+                                    {formatRupiah(
+                                        Number(inv.priceAdjustmentAmount),
+                                    )}
+                                </div>
+                            )}
+                            {Number(inv.creditedAmount ?? 0) > 0 && (
+                                <div className="text-xs mt-0.5">
+                                    Kredit retur:{' '}
+                                    {formatRupiah(Number(inv.creditedAmount))}
+                                </div>
+                            )}
+                            {(inv.paidAmount > 0 ||
+                                Number(inv.creditedAmount ?? 0) > 0 ||
+                                Number(inv.priceAdjustmentAmount ?? 0) !==
+                                    0) && (
                                 <div className="text-xs text-amber-700 dark:text-amber-400 font-medium">
                                     Sisa: {formatRupiah(remaining)}
                                 </div>
@@ -500,11 +519,14 @@ export function InvoiceTable({
 
     const getStatusBadgeStyle = (status: InvoiceStatus) => {
         const styles: Record<string, string> = {
-            UNPAID: 'bg-slate-100 text-slate-800',
-            PAID: 'bg-emerald-100 text-emerald-800',
-            PARTIAL: 'bg-amber-100 text-amber-800',
-            OVERDUE: 'bg-red-100 text-red-800 border-red-200',
-            CANCELLED: 'bg-red-50 text-red-500',
+            UNPAID: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
+            PAID: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+            PARTIAL:
+                'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+            OVERDUE:
+                'bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900',
+            CANCELLED:
+                'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
         };
         return styles[status] || styles.UNPAID;
     };
@@ -530,18 +552,19 @@ export function InvoiceTable({
                     return (
                         <Card
                             key={invoice.id}
-                            className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-                            onClick={() => router.push(`${basePath}/${linkId}`)}
+                            className="gap-2 py-3 [overflow-wrap:anywhere]"
                         >
-                            <CardHeader className="p-4 pb-2">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-2">
-                                        <div className="bg-primary/10 p-1.5 rounded-full">
-                                            <Receipt className="h-4 w-4 text-primary" />
-                                        </div>
+                            <CardHeader className="px-3 py-0">
+                                <div className="flex flex-wrap justify-between items-start gap-2">
+                                    <div className="min-w-0">
                                         <div>
                                             <h3 className="font-semibold text-sm">
-                                                {invoice.invoiceNumber}
+                                                <Link
+                                                    href={`${basePath}/${linkId}`}
+                                                    className="inline-flex min-h-11 items-center rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                                                >
+                                                    {invoice.invoiceNumber}
+                                                </Link>
                                             </h3>
                                             <p className="text-xs text-muted-foreground">
                                                 {format(
@@ -564,35 +587,91 @@ export function InvoiceTable({
                                     </Badge>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-4 pt-1">
+                            <CardContent className="px-3 py-0">
                                 <div className="space-y-2">
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                        <div>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                                Entitas
-                                            </p>
-                                            <p className="font-medium truncate">
-                                                {getEntityName(invoice)}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                                {formLabels.total}
-                                            </p>
-                                            <p className="font-semibold text-primary">
+                                    <p className="text-sm font-medium">
+                                        {getEntityName(invoice)}
+                                    </p>
+                                    <div className="flex flex-wrap justify-between gap-1 border-t pt-2 text-sm font-semibold">
+                                        <span>Sisa tagihan</span>
+                                        <span className="ml-auto text-right tabular-nums">
+                                            {formatRupiah(
+                                                Number(invoice.totalAmount) +
+                                                    Number(
+                                                        invoice.priceAdjustmentAmount ??
+                                                            0,
+                                                    ) -
+                                                    Number(invoice.paidAmount) -
+                                                    Number(
+                                                        invoice.creditedAmount ??
+                                                            0,
+                                                    ),
+                                            )}
+                                        </span>
+                                    </div>
+                                    <details className="text-xs">
+                                        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-sm text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                                            <span className="flex items-center gap-1">
+                                                Rincian tagihan{' '}
+                                                <ChevronDown
+                                                    className="h-3 w-3 shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                            </span>
+                                            <span className="text-right tabular-nums">
+                                                {formLabels.total}:{' '}
                                                 {formatRupiah(
                                                     Number(invoice.totalAmount),
                                                 )}
-                                            </p>
+                                            </span>
+                                        </summary>
+                                        <div className="space-y-1 pb-2 [&>div]:flex [&>div]:flex-wrap [&>div]:justify-between [&>div]:gap-1 [&_span:last-child]:ml-auto [&_span:last-child]:text-right [&_span:last-child]:tabular-nums">
+                                            {Number(invoice.paidAmount) > 0 && (
+                                                <div>
+                                                    <span>Pembayaran</span>
+                                                    <span>
+                                                        {formatRupiah(
+                                                            Number(
+                                                                invoice.paidAmount,
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {Number(
+                                                invoice.priceAdjustmentAmount ??
+                                                    0,
+                                            ) !== 0 && (
+                                                <div>
+                                                    <span>
+                                                        Penyesuaian harga
+                                                    </span>
+                                                    <span>
+                                                        {formatRupiah(
+                                                            Number(
+                                                                invoice.priceAdjustmentAmount,
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {Number(
+                                                invoice.creditedAmount ?? 0,
+                                            ) > 0 && (
+                                                <div>
+                                                    <span>Kredit retur</span>
+                                                    <span>
+                                                        {formatRupiah(
+                                                            Number(
+                                                                invoice.creditedAmount,
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                    <div className="space-y-1 border-t pt-2 text-xs">
-                                        {Number(invoice.paidAmount) > 0 && <div className="flex justify-between"><span>Pembayaran</span><span>{formatRupiah(Number(invoice.paidAmount))}</span></div>}
-                                        {Number(invoice.priceAdjustmentAmount ?? 0) !== 0 && <div className="flex justify-between"><span>Penyesuaian harga</span><span>{formatRupiah(Number(invoice.priceAdjustmentAmount))}</span></div>}
-                                        {Number(invoice.creditedAmount ?? 0) > 0 && <div className="flex justify-between"><span>Kredit retur</span><span>{formatRupiah(Number(invoice.creditedAmount))}</span></div>}
-                                        <div className="flex justify-between font-semibold text-sm"><span>Sisa tagihan</span><span>{formatRupiah(Number(invoice.totalAmount) + Number(invoice.priceAdjustmentAmount ?? 0) - Number(invoice.paidAmount) - Number(invoice.creditedAmount ?? 0))}</span></div>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    </details>
+                                    <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
                                         <span>
                                             Jatuh tempo:{' '}
                                             {invoice.dueDate
@@ -602,10 +681,6 @@ export function InvoiceTable({
                                                   )
                                                 : '-'}
                                         </span>
-                                        <div className="flex items-center text-primary font-medium">
-                                            Lihat Detail{' '}
-                                            <ChevronRight className="h-3 w-3 ml-0.5" />
-                                        </div>
                                     </div>
                                 </div>
                             </CardContent>
