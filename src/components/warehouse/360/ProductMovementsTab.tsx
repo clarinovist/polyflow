@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileClock } from 'lucide-react';
 import { listRecentMovementsByProductVariant } from '@/actions/inventory/product-360';
 import { formatQuantity } from '@/lib/utils/utils';
+import { Button } from '@/components/ui/button';
 
 type Move = {
     id: string;
@@ -49,11 +50,23 @@ export function ProductMovementsTab({
 }) {
     const [rows, setRows] = useState<Move[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const load = useCallback(async () => {
         setLoading(true);
-        const res = await listRecentMovementsByProductVariant(productVariantId);
-        setRows(res.success ? ((res.data as unknown as Move[]) ?? []) : []);
-        setLoading(false);
+        setError(false);
+        try {
+            const res =
+                await listRecentMovementsByProductVariant(productVariantId);
+            if (!res.success) {
+                setError(true);
+                return;
+            }
+            setRows((res.data as unknown as Move[]) ?? []);
+        } catch {
+            setError(true);
+        } finally {
+            setLoading(false);
+        }
     }, [productVariantId]);
     useEffect(() => {
         load();
@@ -65,10 +78,11 @@ export function ProductMovementsTab({
                     <FileClock className="h-5 w-5 text-primary" />
                     <div>
                         <CardTitle className="text-base">
-                            Movement Terbaru (50)
+                            Mutasi Terbaru
                         </CardTitle>
                         <p className="text-xs text-muted-foreground">
-                            Transfer, in, out
+                            Maksimal 50 mutasi terbaru produk ini, tanpa saldo
+                            berjalan. Untuk saldo periode, gunakan Kartu Stok.
                         </p>
                     </div>
                 </div>
@@ -78,12 +92,24 @@ export function ProductMovementsTab({
                     <p className="text-xs text-center py-8 text-muted-foreground">
                         Memuat…
                     </p>
+                ) : error ? (
+                    <div role="alert" className="space-y-2">
+                        <p>Gagal memuat mutasi.</p>
+                        <Button variant="outline" onClick={load}>
+                            Coba lagi
+                        </Button>
+                    </div>
                 ) : rows.length === 0 ? (
                     <p className="text-xs text-center py-8 text-muted-foreground">
-                        Tidak ada movement.
+                        Tidak ada mutasi.
                     </p>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div
+                        className="overflow-x-auto"
+                        role="region"
+                        aria-label="Mutasi terbaru produk"
+                        tabIndex={0}
+                    >
                         <Table>
                             <TableHeader className="bg-muted/30">
                                 <TableRow>
@@ -118,7 +144,7 @@ export function ProductMovementsTab({
                                             {m.toLocation?.name ?? '-'}
                                         </TableCell>
                                         <TableCell className="text-xs font-mono">
-                                            {m.reference?.slice(0, 20) ?? '-'}
+                                            {m.reference ?? '-'}
                                         </TableCell>
                                     </TableRow>
                                 ))}

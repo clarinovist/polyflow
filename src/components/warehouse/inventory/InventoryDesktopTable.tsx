@@ -23,6 +23,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ThresholdDialog } from './ThresholdDialog';
+import { availableStock } from './inventory-display';
 import { cn, formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import { warehouseComponentLabels } from '@/lib/labels';
 import type {
@@ -69,6 +70,8 @@ interface InventoryDesktopTableProps {
     toggleSelectItem: (id: string) => void;
     handleSort: (field: SortField) => void;
     isGlobalLowStock: (item: InventoryItem) => boolean;
+    historical?: boolean;
+    allLocationsHref?: string;
     hasFilters?: boolean;
 }
 
@@ -90,19 +93,25 @@ export function InventoryDesktopTable({
     toggleSelectItem,
     handleSort,
     isGlobalLowStock,
+    historical = false,
+    allLocationsHref = '/warehouse/inventory',
     hasFilters = false,
 }: InventoryDesktopTableProps) {
     return (
         <div className="flex-1 overflow-hidden relative hidden md:block">
             <ResponsiveTable
                 minWidth={showPrices ? 900 : 780}
-                className="h-full"
+                className="h-full mx-0"
+                role="region"
+                aria-label="Tabel stok"
+                tabIndex={0}
             >
                 <Table>
                     <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
                         <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <TableHead className="w-[40px] pl-4 py-2">
                                 <Checkbox
+                                    disabled={historical}
                                     checked={isAllSelected}
                                     onCheckedChange={toggleSelectAll}
                                     aria-label="Select all"
@@ -222,6 +231,8 @@ export function InventoryDesktopTable({
                                 >
                                     <TableCell className="pl-4 py-1 align-middle">
                                         <Checkbox
+                                            disabled={historical}
+                                            aria-label={`Pilih ${item.productVariant.name}`}
                                             checked={isSelected}
                                             onCheckedChange={() =>
                                                 toggleSelectItem(item.id)
@@ -279,6 +290,14 @@ export function InventoryDesktopTable({
                                                             .skuCode
                                                     }
                                                 </Link>
+                                                {isLocationSpecific &&
+                                                    item.location
+                                                        .locationType ===
+                                                        'CUSTOMER_OWNED' && (
+                                                        <Badge variant="outline">
+                                                            Milik customer
+                                                        </Badge>
+                                                    )}
                                                 <span>•</span>
                                                 <span className="capitalize text-xs">
                                                     {item.productVariant.product.productType
@@ -345,7 +364,9 @@ export function InventoryDesktopTable({
                                     </TableCell>
                                     <TableCell className="text-center py-1 align-middle hidden sm:table-cell">
                                         <div className="flex flex-col items-center gap-1">
-                                            {item.reservedQuantity ? (
+                                            {historical ? (
+                                                <span>—</span>
+                                            ) : item.reservedQuantity ? (
                                                 <Badge
                                                     variant="outline"
                                                     className="text-amber-600 dark:text-amber-400 border-amber-500/20 bg-amber-500/10 tabular-nums"
@@ -364,7 +385,8 @@ export function InventoryDesktopTable({
                                                 </span>
                                             ) : null}
 
-                                            {item.waitingQuantity &&
+                                            {!historical &&
+                                            item.waitingQuantity &&
                                             item.waitingQuantity > 0 ? (
                                                 <Badge
                                                     variant="outline"
@@ -383,17 +405,14 @@ export function InventoryDesktopTable({
                                         <div
                                             className={cn(
                                                 'font-medium tabular-nums',
-                                                (item.availableQuantity || 0) <=
-                                                    0
+                                                availableStock(item) <= 0
                                                     ? 'text-red-500'
                                                     : 'text-green-500',
                                             )}
                                         >
-                                            {formatQuantity(
-                                                item.availableQuantity ??
-                                                    item.quantity,
-                                            )}{' '}
-                                            {item.productVariant.primaryUnit}
+                                            {historical
+                                                ? '—'
+                                                : `${formatQuantity(availableStock(item))} ${item.productVariant.primaryUnit}`}
                                         </div>
                                     </TableCell>
 
@@ -414,7 +433,11 @@ export function InventoryDesktopTable({
                                     )}
 
                                     <TableCell className="py-1 align-middle">
-                                        {isLowStock ? (
+                                        {historical ? (
+                                            <Badge variant="outline">
+                                                Historis
+                                            </Badge>
+                                        ) : isLowStock ? (
                                             <div className="space-y-1">
                                                 <Badge
                                                     variant="destructive"
@@ -434,21 +457,25 @@ export function InventoryDesktopTable({
                                                 variant="outline"
                                                 className="h-5 text-xs px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-normal"
                                             >
-                                                Tersedia
+                                                Di atas ambang minimum
                                             </Badge>
                                         )}
                                     </TableCell>
 
                                     <TableCell className="pr-4 py-1 text-right align-middle">
-                                        <ThresholdDialog
-                                            productVariantId={
-                                                item.productVariantId
-                                            }
-                                            productName={
-                                                item.productVariant.name
-                                            }
-                                            initialThreshold={thresholdValue}
-                                        />
+                                        {!historical && (
+                                            <ThresholdDialog
+                                                productVariantId={
+                                                    item.productVariantId
+                                                }
+                                                productName={
+                                                    item.productVariant.name
+                                                }
+                                                initialThreshold={
+                                                    thresholdValue
+                                                }
+                                            />
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             );
@@ -456,19 +483,27 @@ export function InventoryDesktopTable({
                         {processedInventoryCount === 0 && (
                             <TableRow>
                                 <TableCell
-                                    colSpan={isLocationSpecific ? 5 : 6}
+                                    colSpan={
+                                        (isLocationSpecific ? 7 : 8) +
+                                        (showPrices ? 2 : 0)
+                                    }
                                     className="text-center py-8"
                                 >
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
                                         <Search className="h-6 w-6" />
-                                        {isLocationSpecific ? (
+                                        {historical ? (
+                                            <p>
+                                                Tidak ada stok historis yang
+                                                cocok dengan filter.
+                                            </p>
+                                        ) : isLocationSpecific ? (
                                             <>
                                                 <p className="text-sm">
                                                     Tidak ada stok di lokasi
                                                     ini.
                                                 </p>
                                                 <Link
-                                                    href="/warehouse/inventory"
+                                                    href={allLocationsHref}
                                                     className="text-xs text-primary hover:underline"
                                                 >
                                                     Lihat semua lokasi

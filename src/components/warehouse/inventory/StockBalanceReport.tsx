@@ -30,10 +30,14 @@ const headers = [
 
 export function StockBalanceReport({ data }: { data: StockBalanceData }) {
     const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
     const query = search.trim().toLocaleLowerCase('id-ID');
     const rows = data.rows.filter((row) =>
         `${row.skuCode} ${row.name}`.toLocaleLowerCase('id-ID').includes(query),
     );
+    const pageCount = Math.max(1, Math.ceil(rows.length / 25));
+    const page = Math.min(currentPage, pageCount);
+    const pageRows = rows.slice((page - 1) * 25, page * 25);
     const locationName =
         data.locations.find((location) => location.id === data.locationId)
             ?.name ?? 'Semua lokasi';
@@ -84,7 +88,7 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
                         defaultValue={data.endDate}
                     />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0 w-full sm:w-auto">
                     <Label htmlFor="balance-location">Gudang / lokasi</Label>
                     <select
                         id="balance-location"
@@ -131,7 +135,10 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
                     <Input
                         id="balance-search"
                         value={search}
-                        onChange={(event) => setSearch(event.target.value)}
+                        onChange={(event) => {
+                            setSearch(event.target.value);
+                            setCurrentPage(1);
+                        }}
                         placeholder="Cari nama atau SKU..."
                     />
                 </div>
@@ -145,9 +152,14 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
             </div>
             <p className="text-sm text-muted-foreground">
                 {rows.length} dari {data.rows.length} barang · Ekspor mengikuti
-                hasil pencarian.
+                seluruh hasil pencarian, bukan hanya halaman ini.
             </p>
-            <div className="rounded-lg border">
+            <div
+                className="rounded-lg border overflow-x-auto"
+                role="region"
+                aria-label="Neraca stok"
+                tabIndex={0}
+            >
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -172,7 +184,7 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            rows.map((row) => (
+                            pageRows.map((row) => (
                                 <TableRow key={row.productVariantId}>
                                     <TableCell className="font-mono text-xs">
                                         {row.skuCode}
@@ -197,6 +209,31 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
                         )}
                     </TableBody>
                 </Table>
+            </div>
+            <div
+                className="flex flex-wrap items-center justify-between gap-3"
+                aria-label="Halaman neraca"
+            >
+                <span className="text-sm">
+                    Halaman {page} dari {pageCount} · maksimal 25 barang per
+                    halaman
+                </span>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        disabled={page <= 1}
+                        onClick={() => setCurrentPage(page - 1)}
+                    >
+                        Sebelumnya
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={page >= pageCount}
+                        onClick={() => setCurrentPage(page + 1)}
+                    >
+                        Berikutnya
+                    </Button>
+                </div>
             </div>
         </div>
     );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -22,9 +22,10 @@ import {
     FormControl,
     FormField,
     FormItem,
-    FormLabel,
+    FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -93,14 +94,23 @@ export function BulkAdjustDialog({
                 type: 'ADJUSTMENT_OUT',
                 reason: '',
                 quantity: 0,
-                unitCost: 0,
+                unitCost: undefined,
             })),
         },
     });
 
-    // Reset items when dialog opens
+    const initializedContext = useRef<string | null>(null);
+    const contextKey = JSON.stringify(
+        items.map((item) => [item.id, item.locationId, item.productVariantId]),
+    );
+    // Settings changes and equivalent prop arrays must not discard a draft.
     useEffect(() => {
-        if (open) {
+        if (!open) {
+            initializedContext.current = null;
+            return;
+        }
+        if (initializedContext.current !== contextKey) {
+            initializedContext.current = contextKey;
             form.reset({
                 locationId: locationId,
                 items: items.map((item) => ({
@@ -108,11 +118,11 @@ export function BulkAdjustDialog({
                     type: globalType,
                     reason: globalReason,
                     quantity: 0,
-                    unitCost: 0,
+                    unitCost: undefined,
                 })),
             });
         }
-    }, [open, items, locationId, form, globalType, globalReason]);
+    }, [open, items, locationId, form, globalType, globalReason, contextKey]);
 
     // Update form values when global controls change
     const applyGlobalSettings = () => {
@@ -161,7 +171,7 @@ export function BulkAdjustDialog({
                 toast.error(`Gagal: ${result.error}`);
             }
         } catch (_error) {
-            toast.error('Gagal menjalankan penyesuaian massal');
+            toast.error('Hasil penyesuaian belum dapat dipastikan. Periksa mutasi sebelum mencoba lagi; draft tetap disimpan.');
         } finally {
             setIsSubmitting(false);
         }
@@ -169,23 +179,32 @@ export function BulkAdjustDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] overflow-y-auto [&>*]:min-w-0">
                 <DialogHeader>
                     <DialogTitle>
                         {warehouseComponentLabels.bulkAdjustTitle}
                     </DialogTitle>
                     <DialogDescription>
-                        Adjust stock for items in{' '}
-                        <strong>{locationName}</strong>.
+                        Koreksi saldo di <strong>{locationName}</strong>. Arah
+                        global:{' '}
+                        {globalType === 'ADJUSTMENT_IN'
+                            ? 'penambahan (IN)'
+                            : 'pengurangan (OUT)'}
+                        . Periksa arah, jumlah dan alasan setiap baris sebelum
+                        konfirmasi.
                     </DialogDescription>
                 </DialogHeader>
 
                 {/* Global Controls */}
                 <div className="bg-muted p-4 rounded-md space-y-4 mb-4">
-                    <h4 className="font-semibold text-sm">Global Settings</h4>
+                    <h4 className="font-semibold text-sm">
+                        Pengaturan semua baris
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <FormLabel>Type</FormLabel>
+                            <Label htmlFor="adjust-global-type">
+                                Arah global
+                            </Label>
                             <Select
                                 value={globalType}
                                 onValueChange={(
@@ -194,23 +213,29 @@ export function BulkAdjustDialog({
                                     setGlobalType(val);
                                 }}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger
+                                    id="adjust-global-type"
+                                    className="w-full min-w-0 min-h-11"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ADJUSTMENT_IN">
-                                        IN (Stock Increase)
+                                        IN · Tambah stok
                                     </SelectItem>
                                     <SelectItem value="ADJUSTMENT_OUT">
-                                        OUT (Stock Decrease)
+                                        OUT · Kurangi stok
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="col-span-2 space-y-2">
-                            <FormLabel>Reason</FormLabel>
-                            <div className="flex gap-2">
+                        <div className="md:col-span-2 min-w-0 space-y-2">
+                            <Label htmlFor="adjust-global-reason">
+                                Alasan global
+                            </Label>
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <Input
+                                    id="adjust-global-reason"
                                     placeholder={
                                         warehouseComponentLabels.eGDamage
                                     }
@@ -224,7 +249,7 @@ export function BulkAdjustDialog({
                                     variant="secondary"
                                     onClick={applyGlobalSettings}
                                 >
-                                    Apply
+                                    Terapkan ke semua
                                 </Button>
                             </div>
                         </div>
@@ -234,187 +259,213 @@ export function BulkAdjustDialog({
                 <Form {...form}>
                     <form
                         onSubmit={form.handleSubmit(onSubmit)}
-                        className="space-y-6"
+                        className="space-y-6 min-w-0"
                     >
                         {/* Items Table */}
-                        <div className="border rounded-md">
-                            <div className="grid grid-cols-12 gap-2 p-3 bg-muted/50 text-sm font-medium border-b">
-                                <div className="col-span-4">Produk</div>
-                                <div className="col-span-2 text-right">
-                                    Stok Saat Ini
-                                </div>
-                                <div className="col-span-2">Tipe</div>
-                                <div className="col-span-1">Jumlah</div>
-                                {isRawMaterialLocation && (
-                                    <div className="col-span-2">
-                                        Biaya Per Unit
+                        <div
+                            className="border rounded-md overflow-x-auto"
+                            role="region"
+                            aria-label="Baris penyesuaian"
+                            tabIndex={0}
+                        >
+                            <div className="min-w-[760px]">
+                                <div className="grid grid-cols-12 gap-2 p-3 bg-muted/50 text-sm font-medium border-b">
+                                    <div className="col-span-4">Produk</div>
+                                    <div className="col-span-2 text-right">
+                                        Stok Saat Ini
                                     </div>
-                                )}
-                                <div
-                                    className={
-                                        isRawMaterialLocation
-                                            ? 'col-span-1'
-                                            : 'col-span-3'
-                                    }
-                                >
-                                    Alasan
-                                </div>
-                            </div>
-                            <div className="max-h-[300px] overflow-y-auto">
-                                {items.map((item, index) => (
-                                    <div
-                                        key={item.id}
-                                        className="grid grid-cols-12 gap-2 p-3 items-center border-b last:border-0 hover:bg-muted/20"
-                                    >
-                                        <div className="col-span-4">
-                                            <div className="font-medium text-sm">
-                                                {item.productVariant.name}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {item.productVariant.skuCode}
-                                            </div>
-                                        </div>
-                                        <div className="col-span-2 text-right text-sm">
-                                            {item.quantity}{' '}
-                                            <span className="text-xs text-muted-foreground">
-                                                {
-                                                    item.productVariant
-                                                        .primaryUnit
-                                                }
-                                            </span>
-                                        </div>
+                                    <div className="col-span-2">Tipe</div>
+                                    <div className="col-span-1">Jumlah</div>
+                                    {isRawMaterialLocation && (
                                         <div className="col-span-2">
-                                            <FormField
-                                                control={form.control}
-                                                name={`items.${index}.type`}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        onValueChange={
-                                                            field.onChange
-                                                        }
-                                                        value={field.value}
-                                                    >
-                                                        <FormControl>
-                                                            <SelectTrigger className="h-8">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                            <SelectItem value="ADJUSTMENT_IN">
-                                                                IN
-                                                            </SelectItem>
-                                                            <SelectItem value="ADJUSTMENT_OUT">
-                                                                OUT
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
+                                            Biaya Per Unit
                                         </div>
-                                        <div className="col-span-1">
-                                            <FormField
-                                                control={form.control}
-                                                name={`items.${index}.quantity`}
-                                                render={({ field }) => (
-                                                    <FormItem className="mb-0 space-y-0">
-                                                        <FormControl>
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                step="any"
-                                                                className="h-8 text-right"
-                                                                {...field}
-                                                                onChange={(e) =>
-                                                                    field.onChange(
-                                                                        parseFloat(
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        ) || 0,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </FormControl>
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        {isRawMaterialLocation && (
+                                    )}
+                                    <div
+                                        className={
+                                            isRawMaterialLocation
+                                                ? 'col-span-1'
+                                                : 'col-span-3'
+                                        }
+                                    >
+                                        Alasan
+                                    </div>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto">
+                                    {items.map((item, index) => (
+                                        <div
+                                            key={item.id}
+                                            className="grid grid-cols-12 gap-2 p-3 items-center border-b last:border-0 hover:bg-muted/20"
+                                        >
+                                            <div className="col-span-4">
+                                                <div className="font-medium text-sm">
+                                                    {item.productVariant.name}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {
+                                                        item.productVariant
+                                                            .skuCode
+                                                    }
+                                                </div>
+                                            </div>
+                                            <div className="col-span-2 text-right text-sm">
+                                                {item.quantity}{' '}
+                                                <span className="text-xs text-muted-foreground">
+                                                    {
+                                                        item.productVariant
+                                                            .primaryUnit
+                                                    }
+                                                </span>
+                                            </div>
                                             <div className="col-span-2">
                                                 <FormField
                                                     control={form.control}
-                                                    name={`items.${index}.unitCost`}
-                                                    render={({ field }) => {
-                                                        const type = form.watch(
-                                                            `items.${index}.type`,
-                                                        );
-                                                        const isOut =
-                                                            type ===
-                                                            'ADJUSTMENT_OUT';
-                                                        return (
-                                                            <FormItem className="mb-0 space-y-0">
-                                                                <FormControl>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        className="h-8 text-right"
-                                                                        placeholder={
-                                                                            isOut
-                                                                                ? '-'
-                                                                                : 'Auto'
-                                                                        }
-                                                                        disabled={
-                                                                            isOut
-                                                                        }
-                                                                        {...field}
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) =>
-                                                                            field.onChange(
-                                                                                parseFloat(
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                ) ||
-                                                                                    0,
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </FormControl>
-                                                            </FormItem>
-                                                        );
-                                                    }}
+                                                    name={`items.${index}.type`}
+                                                    render={({ field }) => (
+                                                        <Select
+                                                            onValueChange={
+                                                                field.onChange
+                                                            }
+                                                            value={field.value}
+                                                        >
+                                                            <FormControl>
+                                                                <SelectTrigger className="h-8">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="ADJUSTMENT_IN">
+                                                                    IN
+                                                                </SelectItem>
+                                                                <SelectItem value="ADJUSTMENT_OUT">
+                                                                    OUT
+                                                                </SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )}
                                                 />
                                             </div>
-                                        )}
-                                        <div
-                                            className={
-                                                isRawMaterialLocation
-                                                    ? 'col-span-1'
-                                                    : 'col-span-3'
-                                            }
-                                        >
-                                            <FormField
-                                                control={form.control}
-                                                name={`items.${index}.reason`}
-                                                render={({ field }) => (
-                                                    <FormItem className="mb-0 space-y-0">
-                                                        <FormControl>
-                                                            <Input
-                                                                className="h-8"
-                                                                placeholder="Reason"
-                                                                {...field}
-                                                            />
-                                                        </FormControl>
-                                                    </FormItem>
-                                                )}
-                                            />
+                                            <div className="col-span-1">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`items.${index}.quantity`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="mb-0 space-y-0">
+                                                            <FormControl>
+                                                                <Input
+                                                                    aria-label={`Jumlah ${item.productVariant.name}`}
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="any"
+                                                                    className="h-8 text-right"
+                                                                    {...field}
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) =>
+                                                                        field.onChange(
+                                                                            parseFloat(
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            ) ||
+                                                                                0,
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            {isRawMaterialLocation && (
+                                                <div className="col-span-2">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`items.${index}.unitCost`}
+                                                        render={({ field }) => {
+                                                            const type =
+                                                                form.watch(
+                                                                    `items.${index}.type`,
+                                                                );
+                                                            const isOut =
+                                                                type ===
+                                                                'ADJUSTMENT_OUT';
+                                                            return (
+                                                                <FormItem className="mb-0 space-y-0">
+                                                                    <FormControl>
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            className="h-8 text-right"
+                                                                            placeholder={
+                                                                                isOut
+                                                                                    ? '-'
+                                                                                    : 'Auto'
+                                                                            }
+                                                                            disabled={
+                                                                                isOut
+                                                                            }
+                                                                            {...field}
+                                                                            value={
+                                                                                field.value ??
+                                                                                ''
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                field.onChange(
+                                                                                    parseFloat(
+                                                                                        e
+                                                                                            .target
+                                                                                            .value,
+                                                                                    ) ||
+                                                                                        undefined,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </FormControl>
+                                                                </FormItem>
+                                                            );
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            <div
+                                                className={
+                                                    isRawMaterialLocation
+                                                        ? 'col-span-1'
+                                                        : 'col-span-3'
+                                                }
+                                            >
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`items.${index}.reason`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="mb-0 space-y-0">
+                                                            <FormControl>
+                                                                <Input
+                                                                    className="h-8"
+                                                                    aria-label={`Alasan ${item.productVariant.name}`}
+                                                                    placeholder="Alasan (min. 3 karakter)"
+                                                                    {...field}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
-
+                        <p className="text-sm text-muted-foreground">
+                            Konfirmasi akan mengubah saldo sesuai arah IN/OUT
+                            setiap baris. Jumlah memakai satuan utama barang;
+                            saldo dan izin diperiksa ulang oleh server.
+                        </p>
                         <DialogFooter>
                             <Button
                                 type="button"

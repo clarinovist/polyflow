@@ -12,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import type { getStockMovements } from '@/actions/inventory/inventory';
 import { warehouseComponentLabels } from '@/lib/labels';
+import Link from 'next/link';
 
 // Infer type from action return type
 type GetStockMovementsResult = Awaited<ReturnType<typeof getStockMovements>>;
@@ -22,9 +23,13 @@ export type StockMovement = Extract<
 
 interface RecentTransfersProps {
     movements: StockMovement[];
+    loadError?: boolean;
 }
 
-export function RecentTransfers({ movements }: RecentTransfersProps) {
+export function RecentTransfers({
+    movements,
+    loadError = false,
+}: RecentTransfersProps) {
     // Filter client-side to be safe, though server should handle it
     const transfers = movements
         .filter((m) => m.type === 'TRANSFER')
@@ -38,13 +43,22 @@ export function RecentTransfers({ movements }: RecentTransfersProps) {
                     {warehouseComponentLabels.recentTransfers}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                    Last 5 stock movements
+                    Maksimal 5 transfer dari 10 mutasi terbaru yang dimuat.
+                    Bukan seluruh histori transfer.
                 </CardDescription>
             </CardHeader>
             <CardContent className="px-0">
-                {transfers.length === 0 ? (
+                {loadError ? (
+                    <p
+                        role="alert"
+                        className="px-4 py-3 text-sm text-destructive"
+                    >
+                        Gagal memuat ringkasan transfer. Muat ulang halaman
+                        untuk mencoba lagi.
+                    </p>
+                ) : transfers.length === 0 ? (
                     <div className="text-center py-6 text-muted-foreground text-xs italic">
-                        {warehouseComponentLabels.noTransfers}
+                        Tidak ada transfer dalam mutasi yang dimuat.
                     </div>
                 ) : (
                     <div className="divide-y divide-border/40">
@@ -88,6 +102,12 @@ export function RecentTransfers({ movements }: RecentTransfersProps) {
                         ))}
                     </div>
                 )}
+                <Link
+                    href="/warehouse/inventory/history"
+                    className="block px-4 py-3 text-sm text-primary underline"
+                >
+                    Telusuri mutasi stok
+                </Link>
             </CardContent>
         </Card>
     );

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -88,13 +88,13 @@ export function Product360Tabs({
     overview,
     initialTab,
 }: Props) {
-    const [activeTab, setActiveTab] = useState<Tab>(
-        (initialTab as Tab) || 'overview',
-    );
+    const searchParams = useSearchParams();
+    const activeTab = (searchParams.get('tab') ||
+        initialTab ||
+        'overview') as Tab;
     const router = useRouter();
     const handleTabChange = useCallback(
         (v: string) => {
-            setActiveTab(v as Tab);
             const url = new URL(window.location.href);
             url.searchParams.set('tab', v);
             router.replace(url.pathname + url.search, { scroll: false });
@@ -115,10 +115,14 @@ export function Product360Tabs({
         )?.product;
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="min-w-0 space-y-4">
             <div className="flex items-center gap-4">
                 <Link href="/warehouse/inventory">
-                    <Button variant="outline" size="icon">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="Kembali ke stok"
+                    >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                 </Link>
@@ -133,9 +137,9 @@ export function Product360Tabs({
                                       .name
                             : productVariantId.slice(0, 8)}
                     </h1>
-                    <div className="flex gap-2 mt-1">
+                    <div className="flex flex-wrap gap-2 mt-1">
                         <Badge variant="outline" className="font-mono text-xs">
-                            {'skuCode' in (variant as object)
+                            {variant && 'skuCode' in variant
                                 ? (variant as { skuCode: string }).skuCode
                                 : productVariantId.slice(0, 8)}
                         </Badge>
@@ -150,7 +154,10 @@ export function Product360Tabs({
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange}>
-                <TabsList className="flex h-auto gap-1 overflow-x-auto scrollbar-none justify-start">
+                <TabsList
+                    className="flex h-auto w-full gap-1 overflow-x-auto justify-start"
+                    aria-label="Tampilan detail stok produk"
+                >
                     <TabsTrigger
                         value="overview"
                         className="text-xs gap-1 shrink-0"
@@ -167,7 +174,7 @@ export function Product360Tabs({
                         value="ledger"
                         className="text-xs gap-1 shrink-0"
                     >
-                        <History className="h-3 w-3" /> Ledger
+                        <History className="h-3 w-3" /> Kartu Stok
                     </TabsTrigger>
                     <TabsTrigger
                         value="batches"
@@ -182,7 +189,7 @@ export function Product360Tabs({
                         value="cost"
                         className="text-xs gap-1 shrink-0"
                     >
-                        <TrendingUp className="h-3 w-3" /> Cost
+                        <TrendingUp className="h-3 w-3" /> Biaya
                     </TabsTrigger>
                     <TabsTrigger
                         value="reservations"
@@ -194,7 +201,7 @@ export function Product360Tabs({
                         value="movements"
                         className="text-xs gap-1 shrink-0"
                     >
-                        <FileClock className="h-3 w-3" /> Movements
+                        <FileClock className="h-3 w-3" /> Mutasi Terbaru
                     </TabsTrigger>
                 </TabsList>
 
@@ -363,6 +370,7 @@ export function Product360Tabs({
                         <StockLedgerClient
                             ledgerData={ledgerData}
                             locations={locations}
+                            embedded
                         />
                     )}
                     {activeTab === 'batches' && (

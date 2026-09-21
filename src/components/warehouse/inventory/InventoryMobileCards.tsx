@@ -16,6 +16,7 @@ import {
 import { ArrowDown, ArrowUp, Search } from 'lucide-react';
 
 import { ThresholdDialog } from './ThresholdDialog';
+import { availableStock } from './inventory-display';
 import { cn, formatQuantity } from '@/lib/utils/utils';
 import { warehouseComponentLabels } from '@/lib/labels';
 import type {
@@ -30,6 +31,8 @@ interface InventoryMobileCardsProps {
     selectedItems: Set<string>;
     toggleSelectItem: (id: string) => void;
     isGlobalLowStock: (item: InventoryItem) => boolean;
+    historical?: boolean;
+    allLocationsHref?: string;
     isLocationSpecific?: boolean;
     hasFilters?: boolean;
     abcMap?: Record<string, string>;
@@ -44,6 +47,8 @@ export function InventoryMobileCards({
     selectedItems,
     toggleSelectItem,
     isGlobalLowStock,
+    historical = false,
+    allLocationsHref = '/warehouse/inventory',
     isLocationSpecific = false,
     hasFilters = false,
     abcMap,
@@ -52,7 +57,7 @@ export function InventoryMobileCards({
     handleSort,
 }: InventoryMobileCardsProps) {
     return (
-        <div className="flex-1 overflow-y-auto md:hidden p-4 space-y-3">
+        <div className="flex-1 md:hidden p-3 space-y-3">
             {/* Sort dropdown for mobile */}
             {handleSort && paginatedInventory.length > 0 && (
                 <div className="flex items-center gap-2 pb-2">
@@ -65,7 +70,7 @@ export function InventoryMobileCards({
                             handleSort(value as SortField)
                         }
                     >
-                        <SelectTrigger className="w-[140px] h-8 text-xs">
+                        <SelectTrigger className="w-[140px] h-11 text-sm">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -77,7 +82,7 @@ export function InventoryMobileCards({
                     </Select>
                     <button
                         onClick={() => handleSort(sortField)}
-                        className="h-8 w-8 flex items-center justify-center rounded border hover:bg-muted transition-colors"
+                        className="h-11 w-11 flex items-center justify-center rounded border hover:bg-muted transition-colors"
                         aria-label={
                             sortOrder === 'asc'
                                 ? 'Urutkan menurun'
@@ -96,11 +101,13 @@ export function InventoryMobileCards({
             {paginatedInventory.length === 0 ? (
                 <div className="text-center py-8 flex flex-col items-center justify-center text-muted-foreground">
                     <Search className="h-8 w-8 mb-2 opacity-50" />
-                    {isLocationSpecific ? (
+                    {historical ? (
+                        <p>Tidak ada stok historis yang cocok dengan filter.</p>
+                    ) : isLocationSpecific ? (
                         <>
                             <p>Tidak ada stok di lokasi ini.</p>
                             <Link
-                                href="/warehouse/inventory"
+                                href={allLocationsHref}
                                 className="text-xs text-primary hover:underline mt-1"
                             >
                                 Lihat semua lokasi
@@ -141,14 +148,16 @@ export function InventoryMobileCards({
                         <Card
                             key={item.id}
                             className={cn(
-                                'overflow-hidden',
+                                'overflow-hidden py-0 gap-0',
                                 isSelected && 'border-primary',
                             )}
                         >
                             <CardHeader className="p-3 pb-2 bg-muted/40">
-                                <div className="flex justify-between items-start gap-2">
+                                <div className="flex flex-wrap justify-between items-start gap-2">
                                     <div className="flex items-center gap-3">
                                         <Checkbox
+                                            disabled={historical}
+                                            aria-label={`Pilih ${item.productVariant.name}`}
                                             checked={isSelected}
                                             onCheckedChange={() =>
                                                 toggleSelectItem(item.id)
@@ -164,13 +173,13 @@ export function InventoryMobileCards({
                                                 </h3>
                                             </Link>
                                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                <code className="text-[10px] bg-background px-1 rounded border">
+                                                <code className="text-xs bg-background px-1 rounded border break-all">
                                                     {
                                                         item.productVariant
                                                             .skuCode
                                                     }
                                                 </code>
-                                                <span className="text-[10px] text-muted-foreground">
+                                                <span className="text-xs text-muted-foreground">
                                                     {item.location?.name}
                                                 </span>
                                                 {abcMap &&
@@ -206,7 +215,11 @@ export function InventoryMobileCards({
                                             </div>
                                         </div>
                                     </div>
-                                    {isLowStock ? (
+                                    {historical ? (
+                                        <Badge variant="outline">
+                                            Historis
+                                        </Badge>
+                                    ) : isLowStock ? (
                                         <Badge
                                             variant="destructive"
                                             className="text-[10px] h-5 px-1.5 whitespace-nowrap"
@@ -214,20 +227,19 @@ export function InventoryMobileCards({
                                             {warehouseComponentLabels.lowStock}{' '}
                                             ({totalStockValue}/{thresholdValue})
                                         </Badge>
-                                    ) : (
-                                        <Badge
-                                            variant="outline"
-                                            className="text-[10px] h-5 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                        >
-                                            Tersedia
-                                        </Badge>
-                                    )}
+                                    ) : null}
                                 </div>
                             </CardHeader>
                             <CardContent className="p-3 pt-3">
-                                <div className="grid grid-cols-3 gap-2 text-center">
+                                {item.location.locationType ===
+                                    'CUSTOMER_OWNED' && (
+                                    <p className="mb-2 text-xs text-amber-700 dark:text-amber-400">
+                                        Milik customer
+                                    </p>
+                                )}
+                                <div className="grid grid-cols-3 gap-2 text-center [&>div]:min-w-0 [&_p]:break-words">
                                     <div className="bg-background rounded p-2 border">
-                                        <p className="text-[10px] text-muted-foreground uppercase">
+                                        <p className="text-xs text-muted-foreground uppercase">
                                             Stok
                                         </p>
                                         <p className="font-semibold text-sm">
@@ -240,35 +252,60 @@ export function InventoryMobileCards({
                                             </span>
                                         </p>
                                     </div>
-                                    <div className="bg-amber-500/5 rounded p-2 border border-amber-500/10">
-                                        <p className="text-[10px] text-amber-600/80 uppercase">
+                                    <div className="bg-amber-500/5 rounded p-1.5 border border-amber-500/10">
+                                        <p className="text-xs text-amber-700 dark:text-amber-400 uppercase">
                                             Terpesan
                                         </p>
                                         <p className="font-semibold text-sm text-amber-700 dark:text-amber-500">
-                                            {formatQuantity(
-                                                item.reservedQuantity || 0,
-                                            )}
+                                            {historical
+                                                ? '—'
+                                                : formatQuantity(
+                                                      item.reservedQuantity ??
+                                                          0,
+                                                  )}
                                         </p>
                                     </div>
-                                    <div className="bg-emerald-500/5 rounded p-2 border border-emerald-500/10">
-                                        <p className="text-[10px] text-emerald-600/80 uppercase">
+                                    <div className="bg-muted/30 rounded p-1.5 border">
+                                        <p className="text-xs text-foreground uppercase">
                                             Tersedia
                                         </p>
-                                        <p className="font-semibold text-sm text-emerald-700 dark:text-emerald-500">
-                                            {formatQuantity(
-                                                item.availableQuantity ||
-                                                    item.quantity,
+                                        <p
+                                            className={cn(
+                                                'font-semibold text-sm',
+                                                !historical &&
+                                                    availableStock(item) <= 0
+                                                    ? 'text-destructive'
+                                                    : 'text-emerald-700 dark:text-emerald-400',
                                             )}
+                                        >
+                                            {historical
+                                                ? '—'
+                                                : formatQuantity(
+                                                      availableStock(item),
+                                                  )}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex justify-end mt-3">
-                                    <ThresholdDialog
-                                        productVariantId={item.productVariantId}
-                                        productName={item.productVariant.name}
-                                        initialThreshold={thresholdValue}
-                                    />
-                                </div>
+                                {!historical && !!item.waitingQuantity && (
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        {formatQuantity(item.waitingQuantity)}{' '}
+                                        {item.productVariant.primaryUnit}{' '}
+                                        menunggu reservasi (belum terpesan)
+                                    </p>
+                                )}
+                                {!historical && (
+                                    <div className="flex justify-end mt-3">
+                                        <ThresholdDialog
+                                            productVariantId={
+                                                item.productVariantId
+                                            }
+                                            productName={
+                                                item.productVariant.name
+                                            }
+                                            initialThreshold={thresholdValue}
+                                        />
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     );

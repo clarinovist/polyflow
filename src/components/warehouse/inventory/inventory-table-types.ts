@@ -50,4 +50,6 @@ export interface InventoryTableProps {
     totalValue?: number;
     customerOwnedValue?: number;
     topBadges?: React.ReactNode;
+    dataError?: string;
+    comparisonError?: string;
 }

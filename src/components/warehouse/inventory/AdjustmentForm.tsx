@@ -62,7 +62,12 @@ interface SerializedInventory {
 
 interface AdjustmentFormProps {
     locations: { id: string; name: string }[];
-    products: { id: string; name: string; skuCode: string }[];
+    products: {
+        id: string;
+        name: string;
+        skuCode: string;
+        primaryUnit?: string;
+    }[];
     inventory: SerializedInventory[];
 }
 
@@ -188,31 +193,37 @@ export function AdjustmentForm({
     };
 
     const onSubmit: SubmitHandler<BulkAdjustStockValues> = async (data) => {
-        const result = await adjustStockBulk(data);
-        if (result.success) {
-            toast.success('Stok berhasil disesuaikan');
-            form.reset({
-                locationId: '',
-                items: [],
-            });
-            setNewItem({
-                productVariantId: '',
-                type: 'ADJUSTMENT_IN',
-                quantity: '',
-                reason: '',
-                unitCost: '',
-            });
-            router.refresh();
-        } else {
-            toast.error(result.error || 'Gagal menyesuaikan stok');
+        try {
+            const result = await adjustStockBulk(data);
+            if (result.success) {
+                toast.success('Stok berhasil disesuaikan');
+                form.reset({
+                    locationId: '',
+                    items: [],
+                });
+                setNewItem({
+                    productVariantId: '',
+                    type: 'ADJUSTMENT_IN',
+                    quantity: '',
+                    reason: '',
+                    unitCost: '',
+                });
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Gagal menyesuaikan stok');
+            }
+        } catch {
+            toast.error(
+                'Hasil penyesuaian belum dapat dipastikan. Periksa mutasi sebelum mencoba lagi. Draft tetap disimpan.',
+            );
         }
     };
 
     const getProductDetails = (id: string) => {
         const p = products.find((prod) => prod.id === id);
         return p
-            ? { name: p.name, sku: p.skuCode }
-            : { name: 'Unknown', sku: '-' };
+            ? { name: p.name, sku: p.skuCode, unit: p.primaryUnit ?? '' }
+            : { name: 'Produk', sku: '-', unit: '' };
     };
 
     const currentSelectedProductMax = useMemo(() => {
@@ -226,395 +237,458 @@ export function AdjustmentForm({
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    {/* LEFT CARD: Input Section */}
-                    <Card className="border-border/50 shadow-sm overflow-hidden flex flex-col">
-                        <CardHeader className="px-6 py-3.5 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <Package className="h-4 w-4 text-primary shrink-0" />
-                                <div className="flex flex-col">
-                                    <CardTitle className="text-sm font-semibold leading-none">
-                                        {
-                                            warehouseComponentLabels.adjustmentTitle
-                                        }
-                                    </CardTitle>
-                                    <CardDescription className="text-[10px] text-muted-foreground/60 mt-0.5">
-                                        {
-                                            warehouseComponentLabels.adjustmentDesc
-                                        }
-                                    </CardDescription>
+                <fieldset
+                    disabled={form.formState.isSubmitting}
+                    className="min-w-0"
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        {/* LEFT CARD: Input Section */}
+                        <Card className="border-border/50 shadow-sm overflow-hidden flex flex-col">
+                            <CardHeader className="px-6 py-3.5 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <Package className="h-4 w-4 text-primary shrink-0" />
+                                    <div className="flex flex-col">
+                                        <CardTitle className="text-sm font-semibold leading-none">
+                                            {
+                                                warehouseComponentLabels.adjustmentTitle
+                                            }
+                                        </CardTitle>
+                                        <CardDescription className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                            {
+                                                warehouseComponentLabels.adjustmentDesc
+                                            }
+                                        </CardDescription>
+                                    </div>
                                 </div>
-                            </div>
-                        </CardHeader>
-                        <div className="h-px bg-border/50 mx-6" />
-                        <CardContent className="px-6 py-4 space-y-4 flex-1 overflow-auto">
-                            {/* Location Section */}
-                            <div className="space-y-3">
-                                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
-                                    <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                                        1
-                                    </span>
-                                    Location
-                                </h4>
-                                <FormField
-                                    control={form.control}
-                                    name="locationId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                value={field.value}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger className="h-11 bg-background">
-                                                        <SelectValue
-                                                            placeholder={
-                                                                warehouseComponentLabels.selectLocation
-                                                            }
-                                                        />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {locations.map((loc) => (
-                                                        <SelectItem
-                                                            key={loc.id}
-                                                            value={loc.id}
+                            </CardHeader>
+                            <div className="h-px bg-border/50 mx-6" />
+                            <CardContent className="px-6 py-4 space-y-4 flex-1 overflow-auto">
+                                {/* Location Section */}
+                                <div className="space-y-3">
+                                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
+                                        <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                                            1
+                                        </span>
+                                        Lokasi
+                                    </h4>
+                                    <FormField
+                                        control={form.control}
+                                        name="locationId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <Select
+                                                    onValueChange={(value) => {
+                                                        if (
+                                                            value !==
+                                                                field.value &&
+                                                            (fields.length >
+                                                                0 ||
+                                                                newItem.productVariantId ||
+                                                                newItem.quantity ||
+                                                                newItem.reason ||
+                                                                newItem.unitCost) &&
+                                                            !window.confirm(
+                                                                'Ganti lokasi dan hapus daftar penyesuaian yang belum disimpan?',
+                                                            )
+                                                        )
+                                                            return;
+                                                        field.onChange(value);
+                                                    }}
+                                                    value={field.value}
+                                                >
+                                                    <FormControl>
+                                                        <SelectTrigger
+                                                            aria-label="Lokasi penyesuaian"
+                                                            className="h-11 w-full min-w-0 bg-background"
                                                         >
-                                                            {loc.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-
-                            <div className="h-px bg-border" />
-
-                            {/* Item Inputs */}
-                            <div
-                                className={`space-y-4 transition-opacity ${!selectedLocationId ? 'opacity-50 pointer-events-none' : ''}`}
-                            >
-                                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
-                                    <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                                        2
-                                    </span>
-                                    Add Item
-                                </h4>
-
-                                <FormItem>
-                                    <FormLabel className="text-xs text-muted-foreground">
-                                        {warehouseComponentLabels.selectProduct}
-                                    </FormLabel>
-                                    <ProductCombobox
-                                        products={availableProducts}
-                                        value={newItem.productVariantId}
-                                        onValueChange={(val) =>
-                                            setNewItem((prev) => ({
-                                                ...prev,
-                                                productVariantId: val,
-                                            }))
-                                        }
-                                        disabled={!selectedLocationId}
-                                        placeholder="Cari produk berdasarkan nama atau SKU..."
-                                        emptyMessage="Tidak ada produk ditemukan di lokasi ini."
+                                                            <SelectValue
+                                                                placeholder={
+                                                                    warehouseComponentLabels.selectLocation
+                                                                }
+                                                            />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {locations.map(
+                                                            (loc) => (
+                                                                <SelectItem
+                                                                    key={loc.id}
+                                                                    value={
+                                                                        loc.id
+                                                                    }
+                                                                >
+                                                                    {loc.name}
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-                                </FormItem>
+                                </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="h-px bg-border" />
+
+                                {/* Item Inputs */}
+                                <div
+                                    className={`space-y-4 transition-opacity ${!selectedLocationId ? 'opacity-50 pointer-events-none' : ''}`}
+                                >
+                                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
+                                        <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                                            2
+                                        </span>
+                                        Tambah barang
+                                    </h4>
+
                                     <FormItem>
                                         <FormLabel className="text-xs text-muted-foreground">
                                             {
-                                                warehouseComponentLabels.adjustmentType
+                                                warehouseComponentLabels.selectProduct
                                             }
                                         </FormLabel>
-                                        <Select
-                                            value={newItem.type}
-                                            onValueChange={(
-                                                val:
-                                                    | 'ADJUSTMENT_IN'
-                                                    | 'ADJUSTMENT_OUT',
-                                            ) =>
+                                        <ProductCombobox
+                                            products={availableProducts}
+                                            value={newItem.productVariantId}
+                                            onValueChange={(val) =>
                                                 setNewItem((prev) => ({
                                                     ...prev,
-                                                    type: val,
+                                                    productVariantId: val,
                                                 }))
                                             }
-                                        >
-                                            <SelectTrigger className="h-11 bg-background">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="ADJUSTMENT_IN">
-                                                    <div className="flex items-center gap-2 text-emerald-600">
-                                                        <ArrowUpCircle className="h-4 w-4" />
-                                                        <span>
-                                                            {
-                                                                warehouseComponentLabels.addition
-                                                            }
-                                                        </span>
-                                                    </div>
-                                                </SelectItem>
-                                                <SelectItem value="ADJUSTMENT_OUT">
-                                                    <div className="flex items-center gap-2 text-amber-600">
-                                                        <ArrowDownCircle className="h-4 w-4" />
-                                                        <span>
-                                                            {
-                                                                warehouseComponentLabels.reduction
-                                                            }
-                                                        </span>
-                                                    </div>
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                            disabled={!selectedLocationId}
+                                            placeholder="Cari produk berdasarkan nama atau SKU..."
+                                            emptyMessage="Tidak ada produk ditemukan di lokasi ini."
+                                        />
                                     </FormItem>
 
-                                    <FormItem>
-                                        <div className="flex items-center justify-between">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <FormItem>
                                             <FormLabel className="text-xs text-muted-foreground">
                                                 {
-                                                    warehouseComponentLabels.quantity
+                                                    warehouseComponentLabels.adjustmentType
                                                 }
                                             </FormLabel>
-                                            {newItem.type ===
-                                                'ADJUSTMENT_OUT' &&
-                                                newItem.productVariantId && (
-                                                    <span className="text-[10px] text-muted-foreground">
-                                                        Max:{' '}
-                                                        {
-                                                            currentSelectedProductMax
-                                                        }
-                                                    </span>
-                                                )}
-                                        </div>
-                                        <Input
-                                            type="number"
-                                            step="any"
-                                            min="0"
-                                            value={newItem.quantity}
-                                            onChange={(e) =>
-                                                setNewItem((prev) => ({
-                                                    ...prev,
-                                                    quantity: e.target.value,
-                                                }))
-                                            }
-                                            className="h-11 bg-background"
-                                            max={
-                                                newItem.type ===
-                                                'ADJUSTMENT_OUT'
-                                                    ? currentSelectedProductMax
-                                                    : undefined
-                                            }
-                                        />
-                                    </FormItem>
-                                </div>
-                            </div>
-
-                            {/* Cost Input - Only for IN and Raw Material Location */}
-                            {newItem.type === 'ADJUSTMENT_IN' &&
-                                isRawMaterialLocation && (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Biaya Per Unit (Rp)
-                                        </FormLabel>
-                                        <Input
-                                            type="number"
-                                            step="any"
-                                            min="0"
-                                            placeholder="Opsional"
-                                            value={newItem.unitCost}
-                                            onChange={(e) =>
-                                                setNewItem((prev) => ({
-                                                    ...prev,
-                                                    unitCost: e.target.value,
-                                                }))
-                                            }
-                                            className="h-11 bg-background"
-                                        />
-                                        <p className="text-[10px] text-muted-foreground">
-                                            Leave blank to use default buy price
-                                        </p>
-                                    </FormItem>
-                                )}
-
-                            <FormItem>
-                                <FormLabel className="text-xs text-muted-foreground">
-                                    {warehouseComponentLabels.reason}
-                                </FormLabel>
-                                <Textarea
-                                    value={newItem.reason}
-                                    onChange={(e) =>
-                                        setNewItem((prev) => ({
-                                            ...prev,
-                                            reason: e.target.value,
-                                        }))
-                                    }
-                                    placeholder={
-                                        warehouseComponentLabels.reasonPlaceholder
-                                    }
-                                    className="resize-none h-20 bg-background text-sm"
-                                />
-                            </FormItem>
-
-                            <Button
-                                type="button"
-                                onClick={handleAddItem}
-                                disabled={
-                                    !selectedLocationId ||
-                                    !newItem.productVariantId ||
-                                    !newItem.quantity
-                                }
-                                className="w-full h-11 text-xs font-bold shadow-sm shadow-primary/10"
-                            >
-                                <Plus className="h-3.5 w-3.5 mr-2" />
-                                Add to Manifest
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    {/* RIGHT CARD: Manifest */}
-                    <Card className="border-border/50 shadow-sm flex flex-col sticky top-6 overflow-hidden max-h-full">
-                        <CardHeader className="px-6 py-3.5 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <ClipboardList className="h-4 w-4 text-primary shrink-0" />
-                                <div className="flex flex-col">
-                                    <div className="flex items-center gap-2">
-                                        <CardTitle className="text-sm font-semibold leading-none">
-                                            Adjustment Manifest
-                                        </CardTitle>
-                                        {fields.length > 0 && (
-                                            <Badge className="h-4 px-1 text-[9px] font-bold bg-primary text-primary-foreground leading-none">
-                                                {fields.length} item
-                                                {fields.length > 1 ? 's' : ''}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <CardDescription className="text-[10px] text-muted-foreground/60 mt-0.5">
-                                        Review items before confirming
-                                    </CardDescription>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <div className="h-px bg-border/50 mx-6" />
-
-                        <CardContent className="flex-1 flex flex-col px-0 pt-4 overflow-hidden">
-                            <div className="flex-1 overflow-y-auto px-6 pr-4 space-y-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
-                                {fields.length === 0 ? (
-                                    <div className="h-full min-h-[100px] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/20 p-3">
-                                        <AlertCircle className="h-8 w-8 mb-2 opacity-40" />
-                                        <p className="text-sm font-medium">
-                                            No items added
-                                        </p>
-                                        <p className="text-xs mt-1">
-                                            Add adjustment details from the left
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2 pb-2">
-                                        {fields.map((field, index) => {
-                                            const details = getProductDetails(
-                                                field.productVariantId,
-                                            );
-                                            return (
-                                                <div
-                                                    key={field.id}
-                                                    className="flex flex-col p-3 rounded-lg bg-muted/30 border border-border/50 group hover:bg-muted/50 transition-colors gap-2"
+                                            <Select
+                                                value={newItem.type}
+                                                onValueChange={(
+                                                    val:
+                                                        | 'ADJUSTMENT_IN'
+                                                        | 'ADJUSTMENT_OUT',
+                                                ) =>
+                                                    setNewItem((prev) => ({
+                                                        ...prev,
+                                                        type: val,
+                                                    }))
+                                                }
+                                            >
+                                                <SelectTrigger
+                                                    aria-label="Arah penyesuaian"
+                                                    className="h-11 w-full min-w-0 bg-background"
                                                 >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-md bg-background border flex items-center justify-center text-xs font-mono text-muted-foreground shrink-0">
-                                                                {index + 1}
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-sm font-medium text-foreground truncate">
-                                                                    {
-                                                                        details.name
-                                                                    }
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {
-                                                                        details.sku
-                                                                    }
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10"
-                                                            onClick={() =>
-                                                                remove(index)
-                                                            }
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2 pl-11 text-xs">
-                                                        <Badge
-                                                            variant={
-                                                                field.type ===
-                                                                'ADJUSTMENT_IN'
-                                                                    ? 'secondary'
-                                                                    : 'destructive'
-                                                            }
-                                                            className="text-[10px] h-5 px-1.5"
-                                                        >
-                                                            {field.type ===
-                                                            'ADJUSTMENT_IN'
-                                                                ? '+ IN'
-                                                                : '- OUT'}
-                                                        </Badge>
-                                                        <span className="font-semibold text-sm">
-                                                            {field.quantity}
-                                                        </span>
-                                                        {field.reason && (
-                                                            <span className="text-muted-foreground italic truncate max-w-[150px] border-l pl-2 border-border/50">
-                                                                &quot;
-                                                                {field.reason}
-                                                                &quot;
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="ADJUSTMENT_IN">
+                                                        <div className="flex items-center gap-2 text-emerald-600">
+                                                            <ArrowUpCircle className="h-4 w-4" />
+                                                            <span>
+                                                                {
+                                                                    warehouseComponentLabels.addition
+                                                                }
                                                             </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="ADJUSTMENT_OUT">
+                                                        <div className="flex items-center gap-2 text-amber-600">
+                                                            <ArrowDownCircle className="h-4 w-4" />
+                                                            <span>
+                                                                {
+                                                                    warehouseComponentLabels.reduction
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormItem>
 
-                            {/* Footer */}
-                            <div className="shrink-0 pt-3 px-6 pb-4 bg-card border-t border-border/40 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
-                                <Button
-                                    type="submit"
-                                    disabled={
-                                        form.formState.isSubmitting ||
-                                        fields.length === 0
-                                    }
-                                    className="w-full h-12 text-sm font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
-                                    size="lg"
-                                >
-                                    {form.formState.isSubmitting ? (
-                                        <span className="flex items-center gap-2">
-                                            <span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin" />{' '}
-                                            Memproses...
-                                        </span>
-                                    ) : (
-                                        `${warehouseComponentLabels.confirmAdjustment} (${fields.length} Item${fields.length !== 1 ? 's' : ''})`
+                                        <FormItem>
+                                            <div className="flex items-center justify-between">
+                                                <FormLabel className="text-xs text-muted-foreground">
+                                                    {
+                                                        warehouseComponentLabels.quantity
+                                                    }
+                                                </FormLabel>
+                                                {newItem.type ===
+                                                    'ADJUSTMENT_OUT' &&
+                                                    newItem.productVariantId && (
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            Max:{' '}
+                                                            {
+                                                                currentSelectedProductMax
+                                                            }
+                                                        </span>
+                                                    )}
+                                            </div>
+                                            <Input
+                                                aria-label="Jumlah penyesuaian"
+                                                type="number"
+                                                step="any"
+                                                min="0"
+                                                value={newItem.quantity}
+                                                onChange={(e) =>
+                                                    setNewItem((prev) => ({
+                                                        ...prev,
+                                                        quantity:
+                                                            e.target.value,
+                                                    }))
+                                                }
+                                                className="h-11 bg-background"
+                                                max={
+                                                    newItem.type ===
+                                                    'ADJUSTMENT_OUT'
+                                                        ? currentSelectedProductMax
+                                                        : undefined
+                                                }
+                                            />
+                                        </FormItem>
+                                    </div>
+                                </div>
+
+                                {/* Cost Input - Only for IN and Raw Material Location */}
+                                {newItem.type === 'ADJUSTMENT_IN' &&
+                                    isRawMaterialLocation && (
+                                        <FormItem>
+                                            <FormLabel className="text-xs text-muted-foreground">
+                                                Biaya Per Unit (Rp)
+                                            </FormLabel>
+                                            <Input
+                                                type="number"
+                                                step="any"
+                                                min="0"
+                                                placeholder="Opsional"
+                                                value={newItem.unitCost}
+                                                onChange={(e) =>
+                                                    setNewItem((prev) => ({
+                                                        ...prev,
+                                                        unitCost:
+                                                            e.target.value,
+                                                    }))
+                                                }
+                                                className="h-11 bg-background"
+                                            />
+                                            <p className="text-[10px] text-muted-foreground">
+                                                Kosongkan untuk memakai harga
+                                                beli bawaan.
+                                            </p>
+                                        </FormItem>
                                     )}
+
+                                <FormItem>
+                                    <FormLabel className="text-xs text-muted-foreground">
+                                        {warehouseComponentLabels.reason}
+                                    </FormLabel>
+                                    <Textarea
+                                        aria-label="Alasan penyesuaian"
+                                        value={newItem.reason}
+                                        onChange={(e) =>
+                                            setNewItem((prev) => ({
+                                                ...prev,
+                                                reason: e.target.value,
+                                            }))
+                                        }
+                                        placeholder={
+                                            warehouseComponentLabels.reasonPlaceholder
+                                        }
+                                        className="resize-none h-20 bg-background text-sm"
+                                    />
+                                </FormItem>
+
+                                <Button
+                                    type="button"
+                                    onClick={handleAddItem}
+                                    disabled={
+                                        !selectedLocationId ||
+                                        !newItem.productVariantId ||
+                                        !newItem.quantity
+                                    }
+                                    className="w-full h-11 text-xs font-bold shadow-sm shadow-primary/10"
+                                >
+                                    <Plus className="h-3.5 w-3.5 mr-2" />
+                                    Tambah ke Daftar
                                 </Button>
-                                {form.formState.errors.items && (
-                                    <p className="text-destructive text-[10px] mt-2 text-center font-bold tracking-tight">
-                                        {form.formState.errors.items.message}
-                                    </p>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* RIGHT CARD: Manifest */}
+                        <Card className="border-border/50 shadow-sm flex flex-col sticky top-6 overflow-hidden max-h-full">
+                            <CardHeader className="px-6 py-3.5 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <ClipboardList className="h-4 w-4 text-primary shrink-0" />
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                            <CardTitle className="text-sm font-semibold leading-none">
+                                                Daftar Penyesuaian
+                                            </CardTitle>
+                                            {fields.length > 0 && (
+                                                <Badge className="h-4 px-1 text-[9px] font-bold bg-primary text-primary-foreground leading-none">
+                                                    {fields.length} item
+                                                    {fields.length > 1
+                                                        ? 's'
+                                                        : ''}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <CardDescription className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                            Tinjau arah, jumlah, dan alasan
+                                            sebelum konfirmasi.
+                                        </CardDescription>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <div className="h-px bg-border/50 mx-6" />
+
+                            <CardContent className="flex-1 flex flex-col px-0 pt-4 overflow-hidden">
+                                <div className="flex-1 overflow-y-auto px-6 pr-4 space-y-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                                    {fields.length === 0 ? (
+                                        <div className="h-full min-h-[100px] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/20 p-3">
+                                            <AlertCircle className="h-8 w-8 mb-2 opacity-40" />
+                                            <p className="text-sm font-medium">
+                                                Belum ada barang
+                                            </p>
+                                            <p className="text-xs mt-1">
+                                                Tambahkan barang melalui
+                                                formulir.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 pb-2">
+                                            {fields.map((field, index) => {
+                                                const details =
+                                                    getProductDetails(
+                                                        field.productVariantId,
+                                                    );
+                                                return (
+                                                    <div
+                                                        key={field.id}
+                                                        className="flex flex-col p-3 rounded-lg bg-muted/30 border border-border/50 group hover:bg-muted/50 transition-colors gap-2"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="h-8 w-8 rounded-md bg-background border flex items-center justify-center text-xs font-mono text-muted-foreground shrink-0">
+                                                                    {index + 1}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-sm font-medium text-foreground truncate">
+                                                                        {
+                                                                            details.name
+                                                                        }
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {
+                                                                            details.sku
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                aria-label={`Hapus ${details.name}`}
+                                                                className="h-11 w-11 shrink-0 text-destructive hover:bg-destructive/10"
+                                                                onClick={() =>
+                                                                    remove(
+                                                                        index,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
+
+                                                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                                                            <Badge
+                                                                variant={
+                                                                    field.type ===
+                                                                    'ADJUSTMENT_IN'
+                                                                        ? 'secondary'
+                                                                        : 'destructive'
+                                                                }
+                                                                className="text-[10px] h-5 px-1.5"
+                                                            >
+                                                                {field.type ===
+                                                                'ADJUSTMENT_IN'
+                                                                    ? '+ IN'
+                                                                    : '- OUT'}
+                                                            </Badge>
+                                                            <span className="font-semibold text-sm">
+                                                                {field.quantity}{' '}
+                                                                {details.unit}
+                                                            </span>
+                                                            {field.reason && (
+                                                                <span className="text-muted-foreground italic break-words border-l pl-2 border-border/50">
+                                                                    &quot;
+                                                                    {
+                                                                        field.reason
+                                                                    }
+                                                                    &quot;
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <p className="px-4 py-3 text-sm text-muted-foreground">
+                                    Lokasi:{' '}
+                                    {locations.find(
+                                        (location) =>
+                                            location.id === selectedLocationId,
+                                    )?.name ?? 'belum dipilih'}
+                                    . IN menambah dan OUT mengurangi saldo;
+                                    server memeriksa ulang stok dan izin. Alasan
+                                    kosong pada formulir memakai “Penyesuaian
+                                    Stok”.
+                                </p>
+                                {/* Footer */}
+                                <div className="shrink-0 pt-3 px-6 pb-4 bg-card border-t border-border/40 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
+                                    <Button
+                                        type="submit"
+                                        disabled={
+                                            form.formState.isSubmitting ||
+                                            fields.length === 0
+                                        }
+                                        className="w-full h-12 text-sm font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+                                        size="lg"
+                                    >
+                                        {form.formState.isSubmitting ? (
+                                            <span className="flex items-center gap-2">
+                                                <span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin" />{' '}
+                                                Memproses...
+                                            </span>
+                                        ) : (
+                                            `${warehouseComponentLabels.confirmAdjustment} (${fields.length} Item${fields.length !== 1 ? 's' : ''})`
+                                        )}
+                                    </Button>
+                                    {form.formState.errors.items && (
+                                        <p className="text-destructive text-[10px] mt-2 text-center font-bold tracking-tight">
+                                            {
+                                                form.formState.errors.items
+                                                    .message
+                                            }
+                                        </p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </fieldset>
             </form>
         </Form>
     );

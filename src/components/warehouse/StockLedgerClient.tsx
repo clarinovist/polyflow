@@ -79,11 +79,13 @@ interface Location {
 interface StockLedgerClientProps {
     ledgerData: StockLedgerData;
     locations: Location[];
+    embedded?: boolean;
 }
 
 export function StockLedgerClient({
     ledgerData,
     locations,
+    embedded = false,
 }: StockLedgerClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -95,20 +97,22 @@ export function StockLedgerClient({
     const defaultStartDate = startOfMonth(now);
     const defaultEndDate = endOfMonth(now);
 
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    const dateRange: DateRange = {
         from: searchParams.get('startDate')
             ? new Date(searchParams.get('startDate')!)
             : defaultStartDate,
         to: searchParams.get('endDate')
             ? new Date(searchParams.get('endDate')!)
             : defaultEndDate,
-    });
-    const [locationId, setLocationId] = useState<string>(
-        searchParams.get('locationId') || 'all',
-    );
+    };
+    const locationId = searchParams.get('locationId') || 'all';
 
     const applyFilters = (newRange?: DateRange, newLocation?: string) => {
-        const params = new URLSearchParams();
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', 'ledger');
+        params.delete('startDate');
+        params.delete('endDate');
+        params.delete('locationId');
         const r = newRange || dateRange;
         const l = newLocation || locationId;
 
@@ -121,19 +125,23 @@ export function StockLedgerClient({
 
     // Handlers for immediate updates
     const handleDateChange = (range: DateRange | undefined) => {
-        setDateRange(range);
-        applyFilters(range, undefined);
+        applyFilters(
+            range ?? { from: defaultStartDate, to: defaultEndDate },
+            undefined,
+        );
     };
 
     const handleLocationChange = (loc: string) => {
-        setLocationId(loc);
         applyFilters(undefined, loc);
     };
 
     const clearFilters = () => {
-        setDateRange({ from: defaultStartDate, to: defaultEndDate });
-        setLocationId('all');
-        router.push(`/warehouse/inventory/${product.id}`);
+        const params = new URLSearchParams(searchParams.toString());
+        ['startDate', 'endDate', 'locationId'].forEach((key) =>
+            params.delete(key),
+        );
+        params.set('tab', 'ledger');
+        router.push(`/warehouse/inventory/${product.id}?${params}`);
     };
 
     const handleExport = () => {
@@ -180,23 +188,31 @@ export function StockLedgerClient({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap gap-3 items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.push('/warehouse/inventory')}
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
+                    {!embedded && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.push('/warehouse/inventory')}
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    )}
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            Stock Ledger
-                        </h1>
-                        <p className="text-muted-foreground">
-                            {product.skuCode} - {product.name} (
-                            {product.primaryUnit})
+                        <h2 className="text-xl font-bold tracking-tight">
+                            Kartu Stok
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            Transaksi pembentuk saldo produk per periode dan
+                            lokasi.
                         </p>
+                        {!embedded && (
+                            <p className="text-muted-foreground">
+                                {product.skuCode} - {product.name} (
+                                {product.primaryUnit})
+                            </p>
+                        )}
                     </div>
                 </div>
                 <Button
@@ -212,13 +228,15 @@ export function StockLedgerClient({
             <Card className="border-amber-100 bg-amber-50/10 py-3 gap-3 shadow-none">
                 <CardHeader className="px-4 pb-0">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        Ledger Filters
+                        Filter Kartu Stok
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4">
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">Period:</span>
+                            <span className="text-sm font-medium">
+                                Periode:
+                            </span>
                             <TransactionDateFilter
                                 date={dateRange}
                                 onDateChange={handleDateChange}
@@ -228,19 +246,20 @@ export function StockLedgerClient({
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                                Location:
-                            </span>
+                            <span className="text-sm font-medium">Lokasi:</span>
                             <Select
                                 value={locationId}
                                 onValueChange={handleLocationChange}
                             >
-                                <SelectTrigger className="w-[220px]">
-                                    <SelectValue placeholder="All Locations" />
+                                <SelectTrigger
+                                    aria-label="Lokasi kartu stok"
+                                    className="w-full max-w-[220px] min-w-0"
+                                >
+                                    <SelectValue placeholder="Semua lokasi" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">
-                                        All Locations (Consolidated)
+                                        Semua lokasi (gabungan)
                                     </SelectItem>
                                     {locations.map((loc) => (
                                         <SelectItem key={loc.id} value={loc.id}>
@@ -264,7 +283,7 @@ export function StockLedgerClient({
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                            Opening Stock
+                            Saldo Awal
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -279,7 +298,7 @@ export function StockLedgerClient({
                 <Card className="border-l-4 border-l-emerald-500">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider text-emerald-600">
-                            Total In
+                            Masuk
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -291,7 +310,7 @@ export function StockLedgerClient({
                 <Card className="border-l-4 border-l-rose-500">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider text-rose-600">
-                            Total Out
+                            Keluar
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -303,7 +322,7 @@ export function StockLedgerClient({
                 <Card className="bg-primary/5 border-primary">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-semibold uppercase text-primary tracking-wider">
-                            Closing Stock
+                            Saldo Akhir
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -319,13 +338,18 @@ export function StockLedgerClient({
 
             <Card className="shadow-sm">
                 <CardHeader>
-                    <CardTitle>Movement History</CardTitle>
+                    <CardTitle>Rincian Kartu Stok</CardTitle>
                     <CardDescription>
-                        Individual stock transactions for {product.name}
+                        Mutasi dan saldo berjalan untuk {product.name}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="rounded-md border-t">
+                    <div
+                        className="rounded-md border-t overflow-x-auto"
+                        role="region"
+                        aria-label="Transaksi kartu stok"
+                        tabIndex={0}
+                    >
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/30">
@@ -349,7 +373,7 @@ export function StockLedgerClient({
                             <TableBody>
                                 <TableRow className="bg-muted/20 font-medium">
                                     <TableCell colSpan={4}>
-                                        Opening Balance
+                                        Saldo Awal
                                     </TableCell>
                                     <TableCell className="text-right font-mono font-bold text-lg">
                                         {formatQuantity(summary.openingStock)}

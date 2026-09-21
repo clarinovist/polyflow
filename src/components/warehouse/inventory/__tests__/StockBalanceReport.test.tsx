@@ -93,6 +93,20 @@ describe('StockBalanceReport', () => {
         expect((screen.getByLabelText('Gudang / lokasi') as HTMLSelectElement).value).toBe('L1');
     });
 
+    it('paginates display but exports all filtered rows and resets page on search', () => {
+        const rows = Array.from({ length: 61 }, (_, index) => ({ ...data.rows[0], productVariantId: `p-${index}`, skuCode: `S-${index}`, name: `Barang ${index}` }));
+        render(<StockBalanceReport data={{ ...data, rows }} />);
+        expect(screen.getAllByRole('row')).toHaveLength(26);
+        fireEvent.click(screen.getByRole('button', { name: 'Berikutnya' }));
+        expect(screen.queryByText('Barang 0')).toBeNull();
+        expect(screen.getByText('Barang 25')).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: /Ekspor CSV/ }));
+        expect(vi.mocked(downloadCsv).mock.calls[0][2]).toHaveLength(61);
+        fireEvent.change(screen.getByLabelText('Cari barang / SKU'), { target: { value: 'Barang 60' } });
+        expect(screen.getByText('Barang 60')).toBeTruthy();
+        expect(screen.getByText(/Halaman 1 dari 1/)).toBeTruthy();
+    });
+
     it('is discoverable from inventory quick actions', () => {
         render(<InventoryQuickActions lowStockCount={2} />);
         expect(screen.getByRole('link', { name: 'Neraca Stok' }).getAttribute('href')).toBe('/warehouse/inventory/balance');

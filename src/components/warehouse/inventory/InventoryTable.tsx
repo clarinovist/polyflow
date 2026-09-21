@@ -36,6 +36,8 @@ import { warehouseLabels } from '@/lib/labels';
 import { BulkAdjustDialog } from './BulkAdjustDialog';
 import { InventoryDesktopTable } from './InventoryDesktopTable';
 import { InventoryMobileCards } from './InventoryMobileCards';
+import { stockTotalsByUnit } from './inventory-display';
+import { downloadCsv, reportFilename } from '@/lib/utils/csv-export';
 import type {
     InventoryItem,
     InventoryTableProps,
@@ -52,10 +54,12 @@ export function InventoryTable({
     initialCompareDate: _initialCompareDate,
     showPrices = false,
     abcMap,
-    totalStock,
+    totalStock: _totalStock,
     totalValue,
     customerOwnedValue,
     topBadges,
+    dataError,
+    comparisonError,
 }: InventoryTableProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -68,8 +72,12 @@ export function InventoryTable({
     const ITEMS_PER_PAGE = 20;
 
     // Check if we are filtering by a specific location
-    const locationIdFilter = searchParams.get('locationId');
-    const isLocationSpecific = !!locationIdFilter;
+    const isLocationSpecific =
+        new Set(searchParams.getAll('locationId')).size === 1;
+    const historical = !!initialDate;
+    const allLocationsParams = new URLSearchParams(searchParams.toString());
+    allLocationsParams.delete('locationId');
+    const allLocationsHref = `?${allLocationsParams}`;
 
     // Check if any filters are active
     const hasFilters = !!(
@@ -166,7 +174,7 @@ export function InventoryTable({
     // Reset pagination when filters change
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, productTypeFilter, sortField, sortOrder]);
+    }, [searchTerm, productTypeFilter, sortField, sortOrder, inventory]);
 
     // Reconcile/clear selection when filters or underlying inventory change
     React.useEffect(() => {
@@ -182,7 +190,9 @@ export function InventoryTable({
     }, [processedInventory]);
 
     const totalPages = Math.ceil(processedInventory.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const page = Math.min(currentPage, Math.max(totalPages, 1));
+    const totalsByUnit = stockTotalsByUnit(processedInventory);
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
     const paginatedInventory = processedInventory.slice(
         startIndex,
         startIndex + ITEMS_PER_PAGE,
@@ -217,6 +227,12 @@ export function InventoryTable({
     const [showBulkTransfer, setShowBulkTransfer] = useState(false);
     const [showBulkAdjust, setShowBulkAdjust] = useState(false);
 
+    React.useEffect(() => {
+        setSelectedItems(new Set());
+        setShowBulkTransfer(false);
+        setShowBulkAdjust(false);
+    }, [initialDate]);
+
     const selectedInventoryList = React.useMemo(
         () => processedInventory.filter((i) => selectedItems.has(i.id)),
         [processedInventory, selectedItems],
@@ -248,6 +264,7 @@ export function InventoryTable({
                 : processedInventory;
 
         const headers = [
+            'Konteks waktu',
             'Nama Produk',
             'SKU',
             'Tipe Produk',
@@ -263,6 +280,9 @@ export function InventoryTable({
             const threshold = item.productVariant.minStockAlert || 0;
 
             return [
+                initialDate
+                    ? `Mutasi sampai ${initialDate} 00:00 UTC; master terkini`
+                    : 'Stok saat ini',
                 item.productVariant.name,
                 item.productVariant.skuCode,
                 item.productVariant.product.productType,
@@ -270,40 +290,25 @@ export function InventoryTable({
                 item.quantity,
                 item.productVariant.primaryUnit,
                 threshold,
-                isLowStock
-                    ? `Stok Menipis (${totalStock}/${threshold})`
-                    : 'Tersedia',
+                historical
+                    ? 'Historis; ambang master terkini'
+                    : isLowStock
+                      ? `Stok Menipis (${totalStock}/${threshold})`
+                      : 'Di atas ambang minimum',
             ];
         });
 
-        // Create CSV content
-        const csvContent = [
-            headers.join(','),
-            ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-        ].join('\n');
-
-        // Download CSV
-        const blob = new Blob([csvContent], {
-            type: 'text/csv;charset=utf-8;',
-        });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        const timestamp = new Date()
-            .toISOString()
-            .replace(/[:.]/g, '-')
-            .slice(0, -5);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `inventory_export_${timestamp}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadCsv(
+            reportFilename('Stok', initialDate ?? 'live'),
+            headers,
+            rows,
+        );
     };
 
     return (
         <div className="h-full flex flex-col">
             {/* Filters Bar - Fixed at top */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 px-4 pb-2 border-b border-border bg-background pt-2">
+            <div className="flex flex-col items-stretch gap-3 shrink-0 p-3 border-b border-border bg-background">
                 {/* Top Row: Date, Badges on mobile maybe keep simple or stack */}
                 <div className="flex items-center gap-2 flex-wrap">
                     {topBadges && (
@@ -313,13 +318,14 @@ export function InventoryTable({
                         </>
                     )}
                     {/* Date Filter */}
-                    <div className="flex items-center gap-2 bg-muted/50 border rounded-md px-2 py-1">
+                    <div className="flex flex-wrap items-center gap-2 bg-muted/50 border rounded-md px-2 py-1 min-h-11">
                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">
                             Stok per tanggal
                         </span>
                         <input
                             type="date"
+                            aria-label="Stok per tanggal"
                             value={initialDate || ''}
                             onChange={(e) => {
                                 const params = new URLSearchParams(
@@ -336,8 +342,10 @@ export function InventoryTable({
                             className="bg-transparent border-none text-sm focus:ring-0 p-0 text-foreground w-[130px]"
                         />
                         {initialDate && (
-                            <X
-                                className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-red-500"
+                            <button
+                                type="button"
+                                aria-label="Kembali ke stok saat ini"
+                                className="min-h-11 min-w-11 inline-flex items-center justify-center"
                                 onClick={() => {
                                     const params = new URLSearchParams(
                                         searchParams.toString(),
@@ -346,7 +354,9 @@ export function InventoryTable({
                                     params.delete('compareWith');
                                     router.push(`?${params.toString()}`);
                                 }}
-                            />
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
                         )}
                     </div>
 
@@ -359,7 +369,7 @@ export function InventoryTable({
                     )}
 
                     {/* Bulk Actions Checkbox or Dropdown */}
-                    {selectedItems.size > 0 && (
+                    {!historical && !dataError && selectedItems.size > 0 && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -432,19 +442,24 @@ export function InventoryTable({
                     )}
 
                     {/* Search (Slim) */}
-                    <div className="relative flex-1 min-w-[150px]">
-                        <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground/40" />
+                    <div className="relative order-first w-full md:order-none md:flex-1 min-w-0">
+                        <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                         <Input
+                            aria-label="Cari produk / SKU"
                             placeholder="Cari produk / SKU..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-8 pr-8 h-8 text-[13px] bg-background border-border"
+                            className="pl-9 pr-11 h-11 text-sm bg-background border-border"
                         />
                         {searchTerm && (
-                            <X
-                                className="absolute right-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-foreground"
+                            <button
+                                type="button"
+                                aria-label="Hapus pencarian"
+                                className="absolute right-0 top-0 h-11 w-11 inline-flex items-center justify-center"
                                 onClick={() => setSearchTerm('')}
-                            />
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
                         )}
                     </div>
 
@@ -453,7 +468,10 @@ export function InventoryTable({
                         value={productTypeFilter}
                         onValueChange={setProductTypeFilter}
                     >
-                        <SelectTrigger className="w-full sm:w-[130px] h-8 text-[13px] border-border bg-background">
+                        <SelectTrigger
+                            aria-label="Tipe produk"
+                            className="w-auto flex-1 sm:flex-none sm:w-[180px] h-11 text-sm border-border bg-background"
+                        >
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -482,7 +500,10 @@ export function InventoryTable({
                         variant="outline"
                         size="sm"
                         onClick={handleExport}
-                        className="px-3"
+                        disabled={
+                            !!dataError || processedInventory.length === 0
+                        }
+                        className="px-3 min-h-11"
                         title="Export semua/dipilih"
                         aria-label="Export CSV"
                     >
@@ -490,135 +511,183 @@ export function InventoryTable({
                     </Button>
                 </div>
 
-                <div className="flex items-center gap-4 ml-auto text-sm px-2">
-                    {totalStock !== undefined && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
-                            <span className="font-bold text-foreground">
-                                {formatQuantity(totalStock)}
-                            </span>
-                            <span className="text-[11px] uppercase tracking-wider opacity-70">
-                                total stok
-                            </span>
-                        </div>
-                    )}
-                    {totalValue !== undefined && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap border-l border-border pl-4">
-                            <span className="font-bold text-foreground text-blue-600 dark:text-blue-400">
-                                {formatRupiah(totalValue)}
-                            </span>
-                            <span className="text-[11px] uppercase tracking-wider opacity-70">
-                                nilai internal
-                            </span>
-                        </div>
-                    )}
-                    {customerOwnedValue !== undefined &&
-                        customerOwnedValue > 0 && (
-                            <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-md px-2 py-1 text-xs">
-                                <span className="font-bold">
-                                    {formatRupiah(customerOwnedValue)}
-                                </span>
-                                <span className="opacity-70">
-                                    milik customer
-                                </span>
-                            </div>
+                {!dataError && (
+                    <div className="flex flex-wrap items-center gap-3 text-sm break-words">
+                        {Object.entries(totalsByUnit).map(
+                            ([unit, quantity]) => (
+                                <div
+                                    key={unit}
+                                    className="text-muted-foreground"
+                                >
+                                    Stok hasil filter:{' '}
+                                    <strong className="text-foreground">
+                                        {formatQuantity(quantity)} {unit}
+                                    </strong>
+                                </div>
+                            ),
                         )}
-                </div>
-            </div>
-
-            <InventoryDesktopTable
-                paginatedInventory={paginatedInventory}
-                processedInventoryCount={processedInventory.length}
-                isLocationSpecific={isLocationSpecific}
-                showPrices={showPrices}
-                showComparison={showComparison}
-                comparisonData={comparisonData}
-                abcMap={abcMap}
-                variantTotals={variantTotals}
-                selectedItems={selectedItems}
-                isAllSelected={isAllSelected}
-                isSomeSelected={isSomeSelected}
-                sortField={sortField}
-                sortOrder={sortOrder}
-                toggleSelectAll={toggleSelectAll}
-                toggleSelectItem={toggleSelectItem}
-                handleSort={handleSort}
-                isGlobalLowStock={isGlobalLowStock}
-                hasFilters={hasFilters}
-            />
-
-            <InventoryMobileCards
-                paginatedInventory={paginatedInventory}
-                variantTotals={variantTotals}
-                selectedItems={selectedItems}
-                toggleSelectItem={toggleSelectItem}
-                isGlobalLowStock={isGlobalLowStock}
-                isLocationSpecific={isLocationSpecific}
-                hasFilters={hasFilters}
-                abcMap={abcMap}
-                sortField={sortField}
-                sortOrder={sortOrder}
-                handleSort={handleSort}
-            />
-
-            {/* Pagination Footer */}
-            <div className="flex items-center justify-between px-2 shrink-0 py-2 border-t">
-                <div className="text-xs text-muted-foreground">
-                    {selectedItems.size > 0 && (
-                        <span className="mr-2 text-blue-600 dark:text-blue-400 font-medium">
-                            {selectedItems.size} dipilih ·{' '}
-                        </span>
-                    )}
-                    Menampilkan{' '}
-                    {processedInventory.length > 0 ? startIndex + 1 : 0} sampai{' '}
-                    {Math.min(
-                        startIndex + ITEMS_PER_PAGE,
-                        processedInventory.length,
-                    )}{' '}
-                    dari {processedInventory.length} item
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() =>
-                            setCurrentPage((prev) => Math.max(prev - 1, 1))
-                        }
-                        disabled={currentPage === 1}
-                        aria-label="Halaman sebelumnya"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <div className="text-xs font-medium min-w-[3rem] text-center">
-                        Halaman {currentPage} dari {Math.max(totalPages, 1)}
+                        {showPrices &&
+                            !historical &&
+                            totalValue !== undefined && (
+                                <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground">
+                                    <span className="font-bold text-foreground text-blue-600 dark:text-blue-400">
+                                        {formatRupiah(totalValue)}
+                                    </span>
+                                    <span className="text-[11px] uppercase tracking-wider opacity-70">
+                                        nilai internal
+                                    </span>
+                                </div>
+                            )}
+                        {showPrices &&
+                            !historical &&
+                            customerOwnedValue !== undefined &&
+                            customerOwnedValue > 0 && (
+                                <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-md px-2 py-1 text-xs">
+                                    <span className="font-bold">
+                                        {formatRupiah(customerOwnedValue)}
+                                    </span>
+                                    <span className="opacity-70">
+                                        milik customer
+                                    </span>
+                                </div>
+                            )}
                     </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() =>
-                            setCurrentPage((prev) =>
-                                Math.min(prev + 1, totalPages),
-                            )
-                        }
-                        disabled={
-                            currentPage === totalPages || totalPages === 0
-                        }
-                        aria-label="Halaman berikutnya"
-                    >
-                        <ChevronRight className="h-4 w-4" />
+                )}
+            </div>
+            {historical && (
+                <div
+                    role="note"
+                    className="p-3 text-sm text-muted-foreground border-b space-y-1"
+                >
+                    <p>
+                        Mode baca-saja · kuantitas dari mutasi tercatat sampai{' '}
+                        {initialDate} pukul 00.00 UTC (07.00 WIB), bukan saldo
+                        akhir hari.
+                    </p>
+                    <p>
+                        Reservasi, tersedia, biaya, dan ABC historis tidak
+                        tersedia (—). Nama, kepemilikan lokasi, dan ambang
+                        minimum memakai master terkini. Cakupan: pasangan
+                        produk/lokasi yang masih tercatat pada daftar stok saat
+                        ini.
+                    </p>
+                </div>
+            )}
+            {comparisonError && (
+                <p role="alert" className="p-3 text-destructive">
+                    {comparisonError}
+                </p>
+            )}
+            {dataError ? (
+                <div role="alert" className="p-4 space-y-3">
+                    <p>{dataError}</p>
+                    <Button variant="outline" onClick={() => router.refresh()}>
+                        Coba lagi
                     </Button>
                 </div>
-            </div>
+            ) : (
+                <>
+                    <InventoryDesktopTable
+                        paginatedInventory={paginatedInventory}
+                        processedInventoryCount={processedInventory.length}
+                        isLocationSpecific={isLocationSpecific}
+                        showPrices={showPrices && !historical}
+                        historical={historical}
+                        allLocationsHref={allLocationsHref}
+                        showComparison={showComparison}
+                        comparisonData={comparisonData}
+                        abcMap={historical ? undefined : abcMap}
+                        variantTotals={variantTotals}
+                        selectedItems={selectedItems}
+                        isAllSelected={isAllSelected}
+                        isSomeSelected={isSomeSelected}
+                        sortField={sortField}
+                        sortOrder={sortOrder}
+                        toggleSelectAll={toggleSelectAll}
+                        toggleSelectItem={toggleSelectItem}
+                        handleSort={handleSort}
+                        isGlobalLowStock={isGlobalLowStock}
+                        hasFilters={hasFilters}
+                    />
+
+                    <InventoryMobileCards
+                        historical={historical}
+                        allLocationsHref={allLocationsHref}
+                        paginatedInventory={paginatedInventory}
+                        variantTotals={variantTotals}
+                        selectedItems={selectedItems}
+                        toggleSelectItem={toggleSelectItem}
+                        isGlobalLowStock={isGlobalLowStock}
+                        isLocationSpecific={isLocationSpecific}
+                        hasFilters={hasFilters}
+                        abcMap={historical ? undefined : abcMap}
+                        sortField={sortField}
+                        sortOrder={sortOrder}
+                        handleSort={handleSort}
+                    />
+
+                    {/* Pagination Footer */}
+                    <div className="flex flex-wrap gap-3 items-center justify-between px-3 shrink-0 py-2 border-t">
+                        <div className="text-xs text-muted-foreground">
+                            {selectedItems.size > 0 && (
+                                <span className="mr-2 text-blue-600 dark:text-blue-400 font-medium">
+                                    {selectedItems.size} dipilih ·{' '}
+                                </span>
+                            )}
+                            Menampilkan{' '}
+                            {processedInventory.length > 0 ? startIndex + 1 : 0}{' '}
+                            sampai{' '}
+                            {Math.min(
+                                startIndex + ITEMS_PER_PAGE,
+                                processedInventory.length,
+                            )}{' '}
+                            dari {processedInventory.length} item
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-11 w-11 p-0"
+                                onClick={() =>
+                                    setCurrentPage(Math.max(page - 1, 1))
+                                }
+                                disabled={page === 1}
+                                aria-label="Halaman sebelumnya"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <div className="text-xs font-medium min-w-[3rem] text-center">
+                                Halaman {page} dari {Math.max(totalPages, 1)}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-11 w-11 p-0"
+                                onClick={() =>
+                                    setCurrentPage(
+                                        Math.min(page + 1, totalPages),
+                                    )
+                                }
+                                disabled={
+                                    page === totalPages || totalPages === 0
+                                }
+                                aria-label="Halaman berikutnya"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                </>
+            )}
             <BulkTransferDialog
-                open={showBulkTransfer}
+                open={!historical && !dataError && showBulkTransfer}
                 onOpenChange={setShowBulkTransfer}
                 items={selectedInventoryList}
                 // userId={user?.id}
             />
 
             <BulkAdjustDialog
-                open={showBulkAdjust}
+                open={!historical && !dataError && showBulkAdjust}
                 onOpenChange={setShowBulkAdjust}
                 items={selectedInventoryList}
                 // userId={user?.id}

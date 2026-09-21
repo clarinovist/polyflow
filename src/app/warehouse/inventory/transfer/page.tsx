@@ -4,6 +4,7 @@ import {
     getProductVariants,
     getStockMovements,
 } from '@/actions/inventory/inventory';
+import { InventoryLoadError } from '@/components/warehouse/inventory/InventoryLoadError';
 import { TransferForm } from '@/components/warehouse/inventory/TransferForm';
 import { QuickStockCheck } from '@/components/warehouse/inventory/QuickStockCheck';
 import {
@@ -17,7 +18,7 @@ import { Metadata } from 'next';
 import { serializeData } from '@/lib/utils/utils';
 
 export const metadata: Metadata = {
-    title: 'Stock Transfer | PolyFlow Warehouse',
+    title: 'Transfer Stok | PolyFlow Warehouse',
 };
 
 export default async function WarehouseTransferPage() {
@@ -53,6 +54,7 @@ export default async function WarehouseTransferPage() {
         id: p.id,
         name: p.name,
         skuCode: p.skuCode,
+        primaryUnit: p.primaryUnit,
     }));
     const liveInventorySimple = serializeData(liveInventory) as unknown as {
         locationId: string;
@@ -65,16 +67,25 @@ export default async function WarehouseTransferPage() {
         recentMovements,
     ) as unknown as StockMovement[];
 
+    if (
+        !liveInventoryRes.success ||
+        !locationsRes.success ||
+        !productsDataRes.success
+    ) {
+        return (
+            <InventoryLoadError message="Gagal memuat data transfer. Form belum dapat digunakan." />
+        );
+    }
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between mb-2">
+        <div className="flex-1 min-w-0 space-y-4">
+            <div className="flex flex-wrap gap-3 items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-primary/10 text-primary">
                         <ArrowLeftRight className="h-4 w-4" />
                     </div>
                     <div>
                         <h2 className="text-lg font-bold text-foreground tracking-tight">
-                            Stock Transfer
+                            Transfer Stok
                         </h2>
                         <p className="text-xs text-muted-foreground">
                             Pindahkan stok antar lokasi
@@ -96,7 +107,7 @@ export default async function WarehouseTransferPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Main Form Area - 2/3 Width */}
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 min-w-0">
                     <TransferForm
                         locations={formLocations}
                         products={formProducts}
@@ -111,7 +122,10 @@ export default async function WarehouseTransferPage() {
                         locations={formLocations}
                     />
 
-                    <RecentTransfers movements={recentMovementsSerialized} />
+                    <RecentTransfers
+                        movements={recentMovementsSerialized}
+                        loadError={!recentMovementsRes.success}
+                    />
                 </div>
             </div>
         </div>

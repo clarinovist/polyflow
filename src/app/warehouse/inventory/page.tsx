@@ -33,7 +33,7 @@ export default async function WarehouseInventoryPage({
     searchParams,
 }: {
     searchParams: Promise<{
-        locationId?: string;
+        locationId?: string | string[];
         type?: string;
         lowStock?: string;
         asOf?: string;
@@ -78,15 +78,30 @@ export default async function WarehouseInventoryPage({
             : [params.locationId]
         : [];
 
-    // Initialize table inventory with live data
+    let dataError =
+        !liveInventoryRes.success || !locationsRes.success
+            ? 'Gagal memuat stok atau lokasi. Coba muat ulang; saldo belum dapat ditampilkan.'
+            : undefined;
+    let comparisonError: string | undefined;
+    const validDate = (value?: string) =>
+        !value ||
+        (/^\d{4}-\d{2}-\d{2}$/.test(value) &&
+            !Number.isNaN(new Date(value).getTime()) &&
+            new Date(value).toISOString().slice(0, 10) === value);
+    if (!validDate(params.asOf))
+        dataError = 'Tanggal stok tidak valid. Pilih ulang tanggal.';
+
     let tableInventory: TableInventoryItem[] = liveInventory;
 
-    if (asOfDate) {
+    if (asOfDate && !dataError) {
         const historicalInventoryRes = await getInventoryAsOf(asOfDate);
         const historicalInventory =
             historicalInventoryRes.success && historicalInventoryRes.data
                 ? historicalInventoryRes.data
                 : [];
+        if (!historicalInventoryRes.success)
+            dataError =
+                'Gagal memuat stok historis. Coba lagi; saldo tidak dianggap nol.';
         tableInventory = liveInventory.map((item) => {
             const histItem = historicalInventory.find(
                 (h) =>
@@ -96,17 +111,26 @@ export default async function WarehouseInventoryPage({
             return {
                 ...item,
                 quantity: histItem ? histItem.quantity : 0,
+                reservedQuantity: undefined,
+                waitingQuantity: undefined,
+                availableQuantity: undefined,
+                averageCost: null,
             };
         });
     }
 
     const comparisonData: Record<string, number> = {};
-    if (compareDate) {
+    if (!validDate(params.compareWith))
+        comparisonError = 'Tanggal pembanding tidak valid.';
+    if (compareDate && !comparisonError) {
         const compInventoryRes = await getInventoryAsOf(compareDate);
         const compInventory =
             compInventoryRes.success && compInventoryRes.data
                 ? compInventoryRes.data
                 : [];
+        if (!compInventoryRes.success)
+            comparisonError =
+                'Gagal memuat pembanding. Selisih tidak ditampilkan.';
         compInventory.forEach((item) => {
             const key = `${item.productVariantId}-${item.locationId}`;
             comparisonData[key] = item.quantity;
@@ -122,14 +146,16 @@ export default async function WarehouseInventoryPage({
 
     let abcMap: Record<string, string> | undefined;
     try {
-        const abcResults = await getAbcData();
-        abcMap = abcResults.reduce(
-            (acc: Record<string, string>, item) => {
-                acc[item.productVariantId] = item.class;
-                return acc;
-            },
-            {} as Record<string, string>,
-        );
+        if (!asOfDate) {
+            const abcResults = await getAbcData();
+            abcMap = abcResults.reduce(
+                (acc: Record<string, string>, item) => {
+                    acc[item.productVariantId] = item.class;
+                    return acc;
+                },
+                {} as Record<string, string>,
+            );
+        }
     } catch (e) {
         console.error('Failed to calculate ABC:', e);
     }
@@ -214,20 +240,32 @@ export default async function WarehouseInventoryPage({
             : acc;
     }, 0);
 
+    const activeParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (Array.isArray(value))
+            value.forEach((entry) => activeParams.append(key, entry));
+        else if (value) activeParams.set(key, value);
+    });
+    activeParams.delete('asOf');
+    activeParams.delete('compareWith');
+    const liveHref = `/warehouse/inventory?${activeParams}`;
+    activeParams.set('lowStock', 'true');
+    const lowStockHref = `/warehouse/inventory?${activeParams}`;
+
     const serializedInventory = serializeData(
         displayInventory,
     ) as InventoryItem[];
 
     return (
-        <div className="h-full flex flex-col space-y-4 overflow-hidden">
-            <div className="flex items-end justify-between shrink-0">
+        <div className="min-w-0 flex flex-col space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-3 shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Stok</h1>
                     <p className="text-muted-foreground mt-1">
                         Pantau level stok dan status gudang
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap min-w-0 items-center gap-2">
                     <ContextualHelp
                         title="Panduan Stok"
                         prefillQuestion="Kenapa stok produk tidak cukup saat confirm SO?"
@@ -247,7 +285,14 @@ export default async function WarehouseInventoryPage({
                         ]}
                     />
                     <InventoryQuickActions
-                        lowStockCount={dashboardStats.lowStockCount}
+                        lowStockCount={
+                            asOfDate || !dashboardStatsRes.success
+                                ? undefined
+                                : dashboardStats.lowStockCount
+                        }
+                        historical={!!asOfDate}
+                        liveHref={liveHref}
+                        lowStockHref={lowStockHref}
                     />
                 </div>
             </div>
@@ -258,22 +303,33 @@ export default async function WarehouseInventoryPage({
                 totalSkus={liveInventory.length}
                 totalLowStock={dashboardStats.lowStockCount}
                 basePath="/warehouse/inventory"
+                historical={!!asOfDate || !!dataError}
             />
 
-            <Card className="flex-1 min-h-0 border shadow-sm bg-card">
+            <Card className="flex-1 min-h-0 border shadow-sm bg-card py-0 gap-0">
                 <CardContent suppressHydrationWarning className="p-0 h-full">
                     <InventoryTable
-                        inventory={serializedInventory}
+                        inventory={dataError ? [] : serializedInventory}
+                        dataError={dataError}
+                        comparisonError={comparisonError}
                         variantTotals={tableVariantTotals}
                         comparisonData={comparisonData}
-                        showComparison={!!compareDate}
+                        showComparison={!!compareDate && !comparisonError}
                         initialDate={params.asOf}
                         initialCompareDate={params.compareWith}
                         showPrices={showPrices}
                         abcMap={abcMap}
                         totalStock={displayedTotalStock}
-                        totalValue={internalDisplayValue}
-                        customerOwnedValue={customerOwnedDisplayValue}
+                        totalValue={
+                            showPrices && !asOfDate
+                                ? internalDisplayValue
+                                : undefined
+                        }
+                        customerOwnedValue={
+                            showPrices && !asOfDate
+                                ? customerOwnedDisplayValue
+                                : undefined
+                        }
                     />
                 </CardContent>
             </Card>
