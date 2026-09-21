@@ -16,18 +16,12 @@ export function retiredFeatureResponse(request: Request): Response | null {
         'X-Content-Type-Options': 'nosniff',
         'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
     });
-    const readOnly = request.method === 'GET' || request.method === 'HEAD';
-    if (isCeoNote && readOnly) {
-        headers.set('Location', '/dashboard');
-        return new Response(null, { status: 307, headers });
-    }
-
     // Acknowledge late Telegram deliveries without retry storms or side effects.
     // Other verbs (including old server-action POSTs) stay permanently retired.
     if (isWebhook && request.method === 'POST') {
         return Response.json({ ok: true, retired: true }, { headers });
     }
-    if (isMiniAppApi || isWebhook || isCeoNote) {
+    if (isMiniAppApi || isWebhook) {
         headers.set('Content-Type', 'application/json');
         return new Response(
             request.method === 'HEAD' ? null : JSON.stringify({ error: 'Feature retired' }),
@@ -35,9 +29,11 @@ export function retiredFeatureResponse(request: Request): Response | null {
         );
     }
 
+    const feature = isCeoNote ? 'Catatan CEO' : 'Telegram Mini App';
     headers.set('Content-Type', 'text/html; charset=utf-8');
     return new Response(
-        request.method === 'HEAD' ? null : '<!doctype html><html lang="id"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mini App dihentikan</title><h1>Telegram Mini App sudah dihentikan</h1><p>Silakan gunakan PolyFlow melalui browser.</p><a href="/dashboard" target="_top">Buka PolyFlow</a></html>',
+        request.method === 'HEAD' ? null : `<!doctype html><html lang="id"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${feature} dihentikan</title><h1>${feature} sudah dihentikan</h1><p>Silakan gunakan PolyFlow melalui browser.</p><a href="/dashboard" target="_top">Buka PolyFlow</a></html>`,
+
         { status: 410, headers },
     );
 }

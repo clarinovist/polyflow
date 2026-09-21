@@ -37,11 +37,20 @@ describe('retired feature boundary', () => {
         }
     });
 
-    it.each(['/ceo-notes', '/ceo-notes/old-id'])('redirects old note links but never forwards server-action POSTs: %s', (path) => {
-        const response = retiredFeatureResponse(request(path))!;
-        expect(response.status).toBe(307);
-        expect(response.headers.get('location')).toBe('/dashboard');
-        expect(retiredFeatureResponse(request(path, 'POST'))!.status).toBe(410);
+    it.each(['/ceo-notes', '/ceo-notes/old-id'])('retires old note links and server-action POSTs without a proxy redirect: %s', async (path) => {
+        for (const method of ['GET', 'POST', 'HEAD']) {
+            const response = retiredFeatureResponse(request(path, method))!;
+            expect(response.status).toBe(410);
+            // Next's proxy adapter parses Location as an absolute URL; a relative
+            // redirect passes Web Response tests but throws in the real runtime.
+            expect(response.headers.get('location')).toBeNull();
+            const body = await response.text();
+            if (method === 'HEAD') expect(body).toBe('');
+            else {
+                expect(body).toContain('Catatan CEO sudah dihentikan');
+                expect(body).toContain('href="/dashboard"');
+            }
+        }
     });
 
     it.each(['/telegram', '/telegram/home', '/telegram/account', '/telegram/data/stock'])('shows retirement notice without SDK or framing exception: %s', async (path) => {
