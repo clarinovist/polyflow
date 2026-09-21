@@ -1,7 +1,9 @@
 # PolyFlow Agent Guide
 
 > Map, not manual — this file routes you to the right context. Each module has its own AGENTS.md with deeper details.
-> Workflow and local verification gates follow the risk tiers in root `AGENTS.md` (Ringan / Normal / Kritis); this guide adds domain context, not universal build/coverage requirements.
+> Workflow, planning, and verification follow root `AGENTS.md` (Ringan / Normal / Kritis).
+> Small Normal tasks can plan in chat. Use existing local tooling; Kritis does not imply Docker.
+> This guide adds domain context, not extra workflow gates.
 
 ## Context Routing
 
@@ -56,9 +58,6 @@ Auth: NextAuth v5 (JWT) → proxy.ts → tenant resolution
 | Use `middleware.ts` for auth        | It's stale/unused             | Use `src/proxy.ts` (active middleware)                                     |
 | Parse subdomain manually            | Duplicates logic              | Use `extractSubdomain()` from `src/lib/core/tenant.ts`                     |
 | Block `/api/auth/*` unauthenticated | Breaks login entirely         | `authConfig.callbacks.authorized()` must return true for `/api/auth` paths |
-| Apply identical gates to every change | Wastes local verification time | Use root `AGENTS.md` risk tiers; run only applicable local gates          |
-| Treat scoped tests as a deploy gate | Misses global regressions     | CI full coverage/lint/image build must pass for the deployed commit SHA  |
-| New service ≥100 LOC without test   | Coverage drops below gate     | Add `__tests__/*.test.ts` for happy path + branches (see root AGENTS.md)    |
 
 ## Module Navigation
 
@@ -102,15 +101,3 @@ Also: `authConfig.callbacks.authorized()` in `src/auth.config.ts` must always
 (csrf, session, providers, callback) power the login form itself via
 client-side `signIn()`. Blocking them for unauthenticated users breaks login
 entirely (CSRF token fetch returns a redirect instead of JSON).
-
----
-
-## Verification Routing
-
-Use root `AGENTS.md` as the single source for risk classification, plan requirements,
-local checks, result reuse, commit/push approval, and deploy gates. Domain invariants
-in module guides still apply; even a one-line tenant/auth/financial logic change is Kritis.
-
-Report checks passed, failed, or not run with reasons. A failed or blocked required
-check must not be presented as passed. For coverage troubleshooting, worker dispatch,
-and hooks, read the relevant section of `docs/development/agent-workflow-reference.md`.

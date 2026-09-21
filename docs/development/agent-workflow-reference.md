@@ -2,7 +2,8 @@
 
 Kebijakan jalur dan gate ada di [`AGENTS.md`](../../AGENTS.md). Dokumen ini berisi
 prosedur pendukung; baca hanya bagian yang terkait task. Tidak menambah gate universal
-atau mengganti jalur Ringan/Normal/Kritis.
+atau mengganti jalur Ringan/Normal/Kritis. Ringan dan Normal kecil cukup rencana di chat;
+file plan untuk Kritis, delegasi, atau pekerjaan panjang/multitahap yang perlu handoff.
 
 ## Coverage: diagnosis tanpa menurunkan standar
 
@@ -15,7 +16,7 @@ atau mengganti jalur Ringan/Normal/Kritis.
   Kode lebih pendek tetap perlu regression test bila mengubah logika.
 - Kalau coverage gagal, jalankan `npm run test:coverage`, cari persentase terendah dan
   daftar uncovered lines/branches di tabel, lalu tambah test yang relevan.
-  Perbarui plan aktif; buat plan ringkas jika perbaikan ini menjadi task tersendiri.
+  Perbarui rencana aktif; kebutuhan file plan tetap mengikuti root, bukan otomatis wajib.
 - Jangan turunkan threshold atau exclude service produksi demi meloloskan CI. Exclusion
   hanya untuk declaration (`*.d.ts`), `src/lib/schemas/**`, `src/generated/**`, serta file
   test/`__tests__` sesuai konfigurasi yang sudah ada. Perubahan konfigurasi perlu review,
@@ -60,7 +61,7 @@ yang lebih longgar. Gunakan Pi untuk worker; jangan memakai OpenCode.
 6. Pantau log/progres. Sesi hidup atau exit `rc=0` bukan bukti ada perubahan yang benar.
 7. Orchestrator memeriksa `git status --short`, `git diff --stat`, dan `git diff` aktual.
    Jika worker stage file tanpa izin, periksa diff cached juga; jangan unstage seluruh index.
-8. Review acceptance criteria/gap dan jalankan gate jalur yang belum terbukti lolos.
+8. Review acceptance criteria, regresi/guardrail, dan jalankan gate jalur yang belum terbukti lolos.
    Hasil worker boleh dipakai jika command/output/exit status tersedia, input relevan masih
    identik, dan orchestrator memeriksanya. Jika ada perubahan atau bukti meragukan, ulangi.
 9. Setelah patch code final, orchestrator memastikan `graphify update .` sudah dilakukan.
@@ -103,22 +104,56 @@ git config core.hooksPath .githooks
   workflow harus direview juga terhadap `.agents/AGENTS.md` dan template plan agar tidak
   ada gate lama yang masih menduplikasi kebijakan root.
 
-## Node & verifikasi runtime
+## Environment lokal, Node & container
 
-`.nvmrc` dan base image `Dockerfile` harus sama. Workflow menggunakan
-`node-version-file: '.nvmrc'`. Setelah update keduanya:
+**Default: pakai environment lokal yang memadai, bukan membuat container baru.**
+Jalur Kritis menentukan kedalaman verifikasi, bukan kewajiban memakai Docker.
 
-```bash
-bash scripts/check-node-version.sh
-```
+| Kebutuhan | Pilihan environment |
+| --- | --- |
+| UI, lint, typecheck, unit test/mock | Lokal; tidak perlu stack baru |
+| Integration test PostgreSQL | DB test terisolasi yang tersedia dan aman; bukan DB produksi |
+| DB test belum tersedia, reproduksi khusus Linux/container, perubahan runtime/native dependency/Dockerfile | Container boleh bila kebutuhan konkret tidak terpenuhi lokal, setelah approval |
+| Build image rilis | CI sesuai gate root; tidak build di VPS |
 
-Perubahan Node/dependency/runtime masuk Kritis. Runtime berbeda dapat mengubah perilaku
-dan hasil coverage. Untuk menguji di image Node produksi tanpa mengganti Node host,
-gunakan salinan terisolasi ke direktori sementara lalu jalankan gate di container dengan
-versi yang sesuai. `git archive HEAD` hanya menguji commit HEAD, **bukan patch working tree**;
-pastikan salinan memuat patch yang hendak diverifikasi sebelum menganggap gate-nya sah.
-Jangan mount root repo langsung untuk `npm ci` container: itu bisa menimpa `node_modules`
-lokal dengan dependency yang dibangun untuk runtime/platform berbeda.
+Sebelum membuat container, menarik/build image lokal, atau provisioning stack baru:
+jelaskan kebutuhan verifikasi, alternatif lokal, resource yang akan dibuat, dan minta
+approval eksplisit. Jangan mengganti test DB nyata dengan mock demi cepat. Jika environment
+wajib belum tersedia/disetujui, laporkan blocker, bukan skip diam-diam.
+
+`.nvmrc` dan base image `Dockerfile` harus sama; CI memakai `node-version-file: '.nvmrc'`.
+Perubahan Node/dependency/runtime masuk Kritis. Setelah update versi, jalankan
+`bash scripts/check-node-version.sh`; runtime berbeda dapat mengubah perilaku/coverage.
+
+**Hanya jika container memang diperlukan dan disetujui:** gunakan resource bernama unik,
+DB test terisolasi tanpa data/credential produksi, dan salinan workspace yang memuat patch
+aktual. `git archive HEAD` saja tidak memuat patch working tree. Jangan mount root repo
+untuk `npm ci` container karena dapat menimpa `node_modules` host. Bersihkan hanya resource
+milik tugas yang tidak lagi dipakai; jangan Docker prune atau mengganggu container sesi lain.
+
+## Recovery & arsip khusus
+
+Aturan workspace/cleanup rutin cukup mengikuti root, tidak perlu checklist tambahan.
+Jika perubahan hilang, bandingkan diff/index/backup; jangan memakai marker insiden lain
+secara buta. Bila bukti test/rilis perlu diarsipkan, simpan privat di luar Git, verifikasi
+isi/hash sebelum menghapus sumber, lalu catat lokasi di catatan lokal tanpa data sensitif.
+Izin cleanup lokal bukan izin menghapus artefak produksi, restart layanan, atau mengubah
+retensi/backup; operasi tersebut tetap perlu approval eksplisit.
+
+## Audit status
+
+Saat menyentuh status/audit, baca `src/lib/AGENTS.md`. Audit otomatis memakai
+`withStatusAudit` di `src/lib/core/prisma-audit-extension.ts`; tambah model berstatus ke
+`AUDITABLE_MODELS`. Extension memakai outer client, bukan `tx`: cancel/confirm/ship dan
+operasi kritis tetap wajib manual `logActivity` di dalam transaction. Timeline UI memakai
+`src/components/shared/EntityStatusTimeline.tsx`.
+
+## Commit dengan index campuran
+
+Gate/approval commit dan rilis mengikuti root. Jika index berisi WIP sesi lain, gunakan
+pathspec scope sendiri, bukan `git commit -a`/seluruh index. Pathspec mengambil isi
+working tree: pisahkan kepemilikan file campuran dahulu. Pesan jelas, sebut plan bila ada
+(`plan: docs/plan/...`). Prosedur rilis ada di `docs/ops/vps.md` lokal, bukan referensi ini.
 
 ## Pelajaran insiden yang dipertahankan
 

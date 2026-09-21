@@ -7,11 +7,12 @@ Related Issue/Request: <link / deskripsi>
 Risk: Normal | Kritis
 Risk reason: <dampak, invariant, caller yang terpengaruh>
 
-> Ikuti matriks risiko di root `AGENTS.md`. Ringan cukup plan di chat.
-> Normal boleh ringkas: gabungkan konteks/root cause dan hapus bagian yang tidak relevan,
-> tetapi tetap cantumkan scope, acceptance criteria, residual gap, dan verifikasi.
-> Kritis gunakan plan lengkap termasuk failure path/rollback. Plan kerja ini lokal;
-> hanya `_TEMPLATE.md` yang ditujukan untuk di-commit. Jangan stage plan rutin.
+> Ikuti root `AGENTS.md`: Ringan dan Normal kecil cukup rencana di chat. File plan wajib
+> untuk Kritis, delegasi, atau pekerjaan panjang/multitahap yang perlu handoff.
+> Normal boleh ringkas: konteks/dugaan sebab, scope, acceptance criteria, dan verifikasi.
+> Kritis gunakan plan lengkap termasuk failure path/rollback; review cukup di rencana ini,
+> tanpa hitungan gap atau laporan terpisah. Plan kerja lokal; hanya `_TEMPLATE.md` yang
+> ditujukan untuk di-commit. Jangan stage plan rutin atau data tenant/credential.
 
 ## 1. Konteks & Root Cause
 
@@ -34,24 +35,19 @@ Risk reason: <dampak, invariant, caller yang terpengaruh>
 - Schema/migration/data patch (jika ada): tenant target, SQL, validasi, approval eksekusi.
 - Rollback/recovery (wajib untuk Kritis): ...
 
-## 4. Residual Gap
+## 4. Review
 
-> Gap 0 = acceptance criteria dan guardrail patch terpenuhi, bukan seluruh repo bersih.
-> Follow-up di luar scope tidak memblokir kecuali memengaruhi keamanan/kebenaran patch.
-
-- [ ] Acceptance criteria: ...
-- [ ] Regression risk / guardrail: ...
-
-**Residual Gap: N** → target 0 sebelum verify; update bila verifikasi menemukan gap.
-
-### Follow-up di luar scope
-
-- ...
+- Acceptance criteria, regression risk, dan guardrail: ...
+- Blocker terhadap keamanan/kebenaran patch yang harus diselesaikan: ...
+- Follow-up di luar scope (tidak otomatis ikut dikerjakan): ...
 
 ## 5. Verifikasi
 
 > Pilih gate berdasarkan jalur/trigger di root, jangan otomatis menjalankan semua.
 > Catat command, scope, hasil, dan alasan N/A. Test wajib di `src/**/__tests__/`.
+> Scoped suite yang tercakup full coverage tidak perlu dijalankan dua kali.
+> Default environment lokal; container/stack baru hanya bila diperlukan dan sudah mendapat
+> approval eksplisit. Jangan gunakan DB produksi atau ganti test DB nyata dengan mock demi cepat.
 
 | Pemeriksaan | Command / scope | Hasil / alasan N/A |
 | --- | --- | --- |
@@ -68,7 +64,7 @@ Risk reason: <dampak, invariant, caller yang terpengaruh>
 
 ## 6. Build & Deploy Notes
 
-- Build lokal bila wajib: terakhir setelah gap/gate lain lolos; cek konflik output,
+- Build lokal bila wajib: terakhir setelah review/gate lain lolos; cek konflik output,
   workspace dan resource, bukan sekadar keberadaan terminal aktif.
 - Deploy: approval eksplisit; push `main` memicu deploy otomatis. Artifact commit SHA
   harus lolos gate CI lint, full coverage, dan build image.
@@ -78,7 +74,7 @@ Risk reason: <dampak, invariant, caller yang terpengaruh>
 
 ## 7. Commit Plan
 
-- Setelah gap 0 + gate lokal jalur lolos. Tidak wajib build lokal untuk semua perubahan.
+- Setelah acceptance criteria/guardrail terpenuhi + gate lokal jalur lolos. Build lokal sesuai trigger.
 - Message: `fix(<scope>): <judul> (plan: docs/plan/YYYY-MM-DD-<slug>.md)`
 - Stage/commit scope sendiri saja, jangan sertakan perubahan sesi lain atau plan lokal.
 - Push: tunggu perintah user (push/ship/kirim); edit code bukan approval operasi produksi.
