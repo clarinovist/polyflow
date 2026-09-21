@@ -20,9 +20,9 @@ const report = (shard: string, name: string) => ({ ...expected, shard, candidate
 const reports = () => [report('1/2', 'a'), report('2/2', 'b')];
 
 describe('CI performance guardrails', () => {
-    it('keeps production parallel and gated on all original jobs', () => {
-        expect(production.jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push']);
-        for (const name of ['test', 'lint', 'build-and-push']) {
+    it('keeps production parallel and gated on original jobs plus the return transaction contract', () => {
+        expect(production.jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push', 'return-contract']);
+        for (const name of ['test', 'lint', 'build-and-push', 'return-contract']) {
             expect(production.jobs[name].needs).toBeUndefined();
             expect(production.jobs[name]['continue-on-error']).toBeUndefined();
         }
@@ -30,6 +30,16 @@ describe('CI performance guardrails', () => {
         expect(command).toContain('vitest run --coverage');
         expect(command).not.toMatch(/--shard|--maxWorkers|--exclude|--no-isolate/);
         expect(production.jobs.deploy.if).toBeUndefined(); // default success(), not always()
+        const contract = production.jobs['return-contract'];
+        expect(contract.services.postgres.image).toBe('postgres:15-alpine');
+        expect(contract.services.postgres.ports).toEqual(['55439:5432']);
+        for (const step of contract.steps) expect(step['continue-on-error']).toBeUndefined();
+        const commands = contract.steps.map((step: { run?: string }) => step.run ?? '').join('\n');
+        expect(commands).toContain('setup-return-test-db.mjs');
+        expect(commands).toContain('tsc --noEmit');
+        expect(commands).toContain('quick-sales-return-postgres.test.ts');
+        expect(commands).toContain('sales-return-receipt-postgres.test.ts');
+        expect(commands).toContain('manual-return-credit-postgres.test.ts');
     });
 
     it('preserves global coverage thresholds and discovery', () => {
