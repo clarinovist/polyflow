@@ -149,6 +149,8 @@ jobs:
       - run: npx prisma generate
       - run: node scripts/ci/setup-return-test-db.mjs
       - name: Generate route types and validate TypeScript
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npx next typegen && npx tsc --noEmit
       - name: Receipt, credit, proposal and atomic return contracts
         run: >-
