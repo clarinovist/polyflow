@@ -308,7 +308,9 @@ export async function postQuickSalesReturn(input: unknown, userId: string) {
             const returned = await tx.salesReturn.create({
                 data: {
                     id: data.requestId,
-                    returnNumber: `SR-${toBusinessDateString(now).replaceAll('-', '')}-${data.requestId}`,
+                    // Separate namespace: legacy SR-YYYYMMDD-NNNN numbering parses
+                    // numeric suffixes and must never encounter an idempotency UUID.
+                    returnNumber: `SRQ-${toBusinessDateString(now).replaceAll('-', '')}-${data.requestId}`,
                     salesOrderId: order.id,
                     customerId: order.customerId,
                     returnLocationId: lines[0].source.fromLocationId!,

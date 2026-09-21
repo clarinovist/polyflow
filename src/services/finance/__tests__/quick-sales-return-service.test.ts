@@ -45,7 +45,10 @@ describe('quick return orchestration (DB lock/rollback evidence is in PostgreSQL
     });
     it('passes same transaction into receipt, credit and critical audit in order', async () => {
         const input = await command();
-        await postQuickSalesReturn(input, 'actor');
+        const result = await postQuickSalesReturn(input, 'actor');
+        expect(result.returnNumber).toMatch(/^SRQ-\d{8}-/);
+        // The legacy SR date/sequence generator must never parse a UUID suffix.
+        expect(result.returnNumber.startsWith('SR-')).toBe(false);
         expect(mocks.receive).toHaveBeenCalledWith(tx, expect.objectContaining({ returnId: requestId, lines: [{ returnItemId: expect.any(String), sourceMovementId: 'movement' }] }), 'actor');
         expect(mocks.credit).toHaveBeenCalledWith(tx, expect.objectContaining({ returnId: requestId, invoiceId: 'invoice', totalAmount: '222.00', taxAmount: '22.00', expectedRemaining: '1110.00', confirmed: true }), 'actor');
         expect(mocks.receive.mock.invocationCallOrder[0]).toBeLessThan(mocks.credit.mock.invocationCallOrder[0]);
