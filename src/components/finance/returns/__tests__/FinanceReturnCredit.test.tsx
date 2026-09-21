@@ -41,11 +41,51 @@ describe('Finance credit posting and compensation UI',()=>{
   expect(screen.getByText(/Draft\/confirmed\/cancelled tidak mengurangi piutang/)).toBeTruthy();
   expect(mocks.post).not.toHaveBeenCalled();
  });
+ it.each([
+  {status:'PAID',remaining:'0.00',paidAmount:'1110.00',message:/tercatat lunas/i},
+  {status:'DRAFT',remaining:'1110.00',paidAmount:'0.00',message:/belum diakui/i},
+  {status:'PAID',remaining:'100.00',paidAmount:'1010.00',message:/tidak konsisten/i},
+ ])('replaces dead-end forms with invoice inspection for $status / $remaining',({status,remaining,paidAmount,message})=>{
+  render(<FinanceReturnCredit row={{...row,invoices:[{...row.invoices[0],status:status as FinanceReturnDetail['invoices'][number]['status'],remaining,paidAmount}]}}/>);
+  expect(screen.getByText(message)).toBeTruthy();
+  expect(screen.getByRole('link',{name:/Periksa invoice INV-TEST/}).getAttribute('href')).toBe('/finance/invoices/sales/invoice');
+  expect(screen.queryByText('Prepared proposal')).toBeNull();
+  expect(screen.queryByText('Opsi lanjutan: alokasi snapshot per item')).toBeNull();
+  expect(screen.queryByText('Periksa atau ubah nominal secara manual')).toBeNull();
+  expect(screen.queryByRole('textbox')).toBeNull();
+  expect(mocks.post).not.toHaveBeenCalled();
+ });
+ it('refreshes a blocked invoice and restores forms only when refreshed data has receivables',()=>{
+  const view=render(<FinanceReturnCredit row={{...row,invoices:[{...row.invoices[0],status:'PAID',paidAmount:'1110.00',remaining:'0.00'}]}}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Muat ulang saldo invoice'}));
+  expect(mocks.refresh).toHaveBeenCalledOnce();
+  expect(mocks.post).not.toHaveBeenCalled();
+  view.rerender(<FinanceReturnCredit row={row}/>);
+  expect(screen.getByText('Prepared proposal')).toBeTruthy();
+  expect(screen.queryByText(/Invoice tercatat lunas/)).toBeNull();
+ });
+ it('does not label a mix of draft and genuinely paid invoices as inconsistent',()=>{
+  render(<FinanceReturnCredit row={{...row,invoices:[{...row.invoices[0],status:'DRAFT'}, {...row.invoices[0],id:'paid',status:'PAID',remaining:'0.00',paidAmount:'1110.00'}]}}/>);
+  expect(screen.getByRole('status').textContent).toContain('Belum ada invoice dengan piutang');
+  expect(screen.queryByText('Prepared proposal')).toBeNull();
+ });
+ it('does not offer paid snapshot lines alongside an eligible invoice',()=>{
+  render(<FinanceReturnCredit row={{...row,invoices:[...row.invoices,{...row.invoices[0],id:'paid',status:'PAID',remaining:'0.00',paidAmount:'1110.00'}]}}/>);
+  fireEvent.click(screen.getByText('Opsi lanjutan: alokasi snapshot per item'));
+  expect(screen.getAllByRole('spinbutton')).toHaveLength(1);
+ });
+ it('keeps concise confirmation and manual fallback for unpaid historical invoice',()=>{
+  render(<FinanceReturnCredit row={{...row,invoices:[{...row.invoices[0],basis:[]}]}}/>);
+  expect(screen.getByText('Prepared proposal')).toBeTruthy();
+  fireEvent.click(screen.getByText('Periksa atau ubah nominal secara manual'));
+  expect(screen.getByRole('option',{name:/INV-TEST/})).toBeTruthy();
+ });
  it('keeps drafts non-mutating and missing snapshots honest',()=>{
   const view=render(<FinanceReturnCredit row={{...row,status:'DRAFT'}}/>);
   expect(screen.queryByRole('button')).toBeNull();view.unmount();
   render(<FinanceReturnCredit row={{...row,invoices:[]}}/>);
-  expect(screen.getByRole('status').textContent).toContain('Tidak ada sumber');
+  expect(screen.getByRole('status').textContent).toContain('Belum ada invoice');
+  expect(screen.queryByText('Periksa atau ubah nominal secara manual')).toBeNull();
  });
  it('uses WIB dates and requires a correction reason before compensation',async()=>{
   render(<FinanceReturnCredit row={{...row,credit:{mode:'SNAPSHOT',approvalReason:null,evidenceReference:null,approvedAt:null,approvedBy:null,manualRemainingBefore:null,taxAmount:'22.00',status:'POSTED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:null,reversalReason:null,reviewReason:null,allocations:[]}}}/>);

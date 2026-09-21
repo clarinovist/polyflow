@@ -46,10 +46,7 @@ import {
     type TenantPaymentBanks,
 } from '@/lib/finance/payment-methods';
 
-import {
-    invoiceSnapshotOrder,
-    LEGACY_INVOICE_NOTICE,
-} from '@/lib/finance/invoice-snapshot';
+import { invoiceSnapshotOrder } from '@/lib/finance/invoice-snapshot';
 
 type InvoiceLineItem = {
     id?: string;
@@ -111,6 +108,9 @@ export function FinancialInvoiceDetail({
     );
     const [isDueDateDialogOpen, setIsDueDateDialogOpen] = useState(false);
     const snapshotOrder = invoiceSnapshotOrder(invoice.commercialSnapshot);
+    const legacyReferenceItems = snapshotOrder
+        ? []
+        : (invoice.salesOrder?.items ?? []);
     const salesOrder = invoice.salesOrder
         ? {
               ...invoice.salesOrder,
@@ -497,23 +497,22 @@ export function FinancialInvoiceDetail({
             {/* Read-Only Items View */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Line Items (Financial View)</CardTitle>
+                    <CardTitle>Rincian Invoice</CardTitle>
                     {!snapshotOrder && (
-                        <p role="alert" className="text-sm text-amber-700">
-                            {LEGACY_INVOICE_NOTICE}
+                        <p role="note" className="text-sm text-muted-foreground">
+                            Nama barang dari SO; rincian harga invoice lama tidak
+                            tersedia.
                         </p>
                     )}
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border p-4 bg-muted/20">
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Operational details (quantity, delivery status) are
-                            hidden in this view.
-                        </p>
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm font-medium border-b pb-2">
-                                <span>Description</span>
-                                <span>DPP (excl. tax)</span>
+                                <span>Deskripsi</span>
+                                <span>
+                                    {snapshotOrder ? 'DPP (belum pajak)' : 'Nilai'}
+                                </span>
                             </div>
                             {salesOrder?.items?.length ? (
                                 salesOrder.items.map((item, index) => {
@@ -553,22 +552,33 @@ export function FinancialInvoiceDetail({
                                         </div>
                                     );
                                 })
+                            ) : legacyReferenceItems.length ? (
+                                legacyReferenceItems.map((item, index) => {
+                                    const productVariant =
+                                        item.productVariant || {};
+                                    return (
+                                        <div
+                                            key={item.id || index}
+                                            className="flex justify-between gap-4 border-b py-2 text-sm last:border-0"
+                                        >
+                                            <span className="font-medium">
+                                                {productVariant.name ||
+                                                    productVariant.product?.name ||
+                                                    'Barang penjualan'}
+                                            </span>
+                                            <span
+                                                className="text-muted-foreground"
+                                                aria-label="Nilai per item tidak tersedia"
+                                            >
+                                                —
+                                            </span>
+                                        </div>
+                                    );
+                                })
                             ) : (
-                                <div className="flex justify-between text-sm py-2">
-                                    <span>
-                                        {snapshotOrder
-                                            ? 'Nilai barang invoice'
-                                            : 'Total komersial tersimpan (rincian belum tersedia)'}
-                                    </span>
-                                    <span>
-                                        {formatRupiah(
-                                            Number(invoice.totalAmount) -
-                                                Number(
-                                                    invoice.roundingAmount ?? 0,
-                                                ) -
-                                                taxAmount,
-                                        )}
-                                    </span>
+                                <div className="flex justify-between py-2 text-sm text-muted-foreground">
+                                    <span>Rincian barang tidak tersedia</span>
+                                    <span>—</span>
                                 </div>
                             )}
                             {snapshotOrder && (

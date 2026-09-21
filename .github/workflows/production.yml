@@ -234,6 +234,7 @@ jobs:
           src/services/finance/__tests__/return-credit-proposal-postgres.test.ts
           src/services/finance/__tests__/sales-return-receipt-postgres.test.ts
           src/services/finance/__tests__/manual-return-credit-postgres.test.ts
+          src/services/finance/__tests__/invoice-status-settlement-postgres.test.ts
 
   # ─────────────────────────────────────────────
   # 3. Build & Push Docker Image

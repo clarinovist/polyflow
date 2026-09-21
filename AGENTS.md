@@ -2,6 +2,9 @@
 
 **Verifikasi mengikuti risiko, bukan jumlah file/baris. Kurangi administrasi, bukan perlindungan data.**
 File ini sumber kebijakan workflow; panduan modul hanya menambah invariant domain.
+
+**Izin tetap pengguna:** commit/push langsung ke `main`, CI/CD, deploy, dan SSH ke seluruh VPS milik pengguna (root/sudo bila perlu) diizinkan untuk scope tugas tanpa approval ulang. Verifikasi remote/target aktual, jaga WIP dan secret, serta hormati instruksi terbaru seperti “lokal saja”. Aturan ini menggantikan larangan izin ulang dalam referensi lama; bukan izin force-push, penghapusan data, atau operasi di luar scope.
+
 Navigasi kode: `.agents/AGENTS.md` → `AGENTS.md` area terkait. Baca bagian relevan dari
 `docs/development/agent-workflow-reference.md` hanya saat trigger-nya berlaku: diagnosis coverage,
 delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index campuran.
@@ -11,29 +14,27 @@ delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index cam
 1. **Pahami:** cek `git status --short`, lindungi WIP, lalu sebut jalur + alasan + acceptance criteria + verifikasi secara singkat sebelum edit. Investigasi bila dampak belum jelas.
 2. **Perbaiki:** kerjakan scope yang disepakati. Ringan dan Normal kecil cukup rencana di chat; file plan wajib sebelum fix untuk Kritis, delegasi, atau pekerjaan panjang/multitahap yang perlu handoff. Gunakan `docs/plan/YYYY-MM-DD-<slug>.md`; Kritis mengikuti `_TEMPLATE.md`, termasuk failure path/rollback. Plan rutin lokal/gitignored, jangan stage. Naikkan jalur dan perbarui rencana jika risiko bertambah.
 3. **Review & verifikasi:** periksa diff aktual terhadap acceptance criteria, regresi, dan guardrail; selesaikan blocker sebelum commit. Tidak perlu hitungan/checklist “Residual Gap” terpisah. Temuan di luar scope menjadi follow-up kecuali memengaruhi keamanan/kebenaran patch. Gate gagal → fix → review ulang dan ulangi pemeriksaan terdampak.
-4. **Laporkan:** ringkas perubahan, jalur, pemeriksaan lolos/gagal/tidak dijalankan beserta alasan, serta cleanup. Gate wajib yang terhalang environment adalah blocker, bukan dianggap lolos.
+4. **Laporkan:** ringkas perubahan, jalur, pemeriksaan lolos/gagal/tidak dijalankan beserta alasan, serta cleanup. Gate berat yang terhalang environment lokal dipindahkan ke CI/remote test terisolasi; boleh push untuk menjalankannya, tetapi belum boleh mengklaim lolos atau deploy sebelum gate rilis sukses.
 
-## Matriks verifikasi lokal sebelum commit
+## Matriks verifikasi — lokal ringan, gate berat di CI
 
 | Jalur | Kriteria | Verifikasi |
 | --- | --- | --- |
 | **Ringan** | Dokumentasi, typo, styling lokal tanpa perubahan perilaku, akses, data, atau kontrak | Review diff + pemeriksaan relevan. Docs: link/guard; UI: lint file berubah + visual. Test/typecheck bila terdampak; full coverage/build tidak wajib. |
-| **Normal** | Bug logika terbatas, komponen, API nonkritis dengan dampak dipahami | `npm run lint`, regression/scoped test, `npx tsc --noEmit`. Full coverage/build hanya sesuai trigger di bawah. |
-| **Kritis** | HPP, stok, jurnal, pembayaran/payroll, auth/permission, isolasi tenant, transaksi/audit kritis, schema/migration/data patch, dependency/runtime, konfigurasi build/deploy | Lint + test scope/branch kritis + full coverage + typecheck + build lokal; verifikasi domain/migration sesuai perubahan. |
+| **Normal** | Bug logika terbatas, komponen, API nonkritis dengan dampak dipahami | Lint/typecheck terjangkau + regression/scoped test lokal; full coverage/build di CI. |
+| **Kritis** | HPP, stok, jurnal, pembayaran/payroll, auth/permission, isolasi tenant, transaksi/audit kritis, schema/migration/data patch, dependency/runtime, konfigurasi build/deploy | Review + scoped test lokal yang terjangkau; lint, full coverage, typecheck, build, dan verifikasi domain/migration wajib sebelum rilis, utamakan CI/remote test terisolasi. |
 
 - Satu baris filter tenant tetap Kritis. Label keuangan murni tampilan bisa Ringan; perubahan rumus, satuan, atau makna operasional bukan typo. Interaksi/alur/akses UI minimal Normal. Refactor shared/cross-module minimal Normal: petakan caller, naikkan ke Kritis jika menyentuh invariant kritis.
 - Bug logika perlu regression test yang mengeksekusi perubahan. Test di `src/**/__tests__/` bernama `*.test.ts`, `*.test.tsx`, atau `*.spec.ts`; contoh: `npm run test -- <path-atau-filter>`. Service/action/lib baru ≥100 baris wajib happy path + branch utama.
-- **Full coverage lokal** (`npm run test:coverage`) wajib untuk Kritis; juga Normal yang menambah surface modul yang diuji, mengubah shared service berdampak luas, atau memperbaiki kegagalan coverage CI. Selain itu boleh mengandalkan coverage CI.
-- **Build lokal** (`npm run build`) wajib untuk Kritis; juga Normal yang memengaruhi routing, server/client boundary, static generation, atau integrasi Next.js. Jalankan terakhir setelah review dan gate lain lolos.
+- **Full coverage** (`npm run test:coverage`) dan **build produksi** (`npm run build`) diutamakan di CI, termasuk Kritis, perubahan shared/routing/runtime, dan diagnosis kegagalan CI. Gunakan log/artifact CI dan scoped test untuk iterasi; tidak wajib menjalankan ulang gate berat lokal sebelum commit/push.
 - Normal/Kritis: lint dan typecheck harus 0 error, termasuk test. Threshold coverage **71/63/75/72** (Stmts/Branch/Funcs/Lines), target 80%, tetap dijaga CI. Jangan turunkan threshold, exclude production service demi ratio, melewati guard, atau menurunkan jalur agar cepat/hijau.
 - Jangan ulang scoped suite yang sudah tercakup full coverage. Pemeriksaan independen boleh paralel jika resource aman. Gunakan ulang hasil terverifikasi hanya bila input relevan (source/dependency/config/environment) identik; patch lanjutan mengulang gate terdampak, lebih luas bila dampaknya tidak jelas.
 
-## Environment: lokal dulu, Docker bukan default
+## Environment: lokal ringan, CI/CD dulu untuk pekerjaan berat
 
-- Gunakan environment lokal yang tersedia dan sesuai kebutuhan test. **Kritis tidak otomatis berarti Docker.** UI, lint, typecheck, dan unit test tidak memerlukan stack baru bila lokal sudah memadai.
-- Jangan otomatis membuat container, menarik/build image lokal, atau menyiapkan stack baru. Jika verifikasi konkret tidak terpenuhi secara lokal, jelaskan kebutuhan, alternatif, dan resource yang akan dibuat; **minta approval eksplisit sebelum provisioning**. Approval edit code bukan approval container.
-- Container masuk akal untuk DB test terisolasi yang belum tersedia, perubahan runtime/native dependency/Dockerfile, atau reproduksi khusus Linux/container—bukan kewajiban untuk semua perubahan tersebut. Baca bagian runtime/container di referensi sebelum menjalankannya.
-- Jangan gunakan database produksi untuk test. Test yang membutuhkan DB nyata tidak boleh diganti mock hanya demi cepat. Jika environment wajib belum tersedia/disetujui, laporkan blocker; jangan diam-diam melemahkan test.
+- Gunakan tooling lokal yang tersedia untuk pemeriksaan ringan. **Kritis tidak otomatis berarti Docker.** Full suite/coverage, integration/E2E, build produksi, dan image build diutamakan di CI.
+- Jangan otomatis menyalakan Docker, membuat container/Compose stack, atau menarik/build image lokal. Jika DB/runtime khusus diperlukan, gunakan CI service container atau remote test terisolasi yang sudah tersedia. Docker lokal hanya untuk reproduksi yang benar-benar membutuhkan lokal dan resource memadai; jelaskan kebutuhan, batasi resource, lalu bersihkan resource tugas sendiri.
+- Jangan gunakan database produksi untuk test. Test yang membutuhkan DB nyata tidak boleh diganti mock hanya demi cepat. Environment lokal tidak tersedia bukan blocker push: jalankan verifikasi di CI/remote terisolasi, pertahankan gate sebelum deploy, dan laporkan hasil yang belum ada secara jujur.
 - Terminal lain aktif bukan otomatis blocker: cek konflik `.next`, workspace, lock, resource/RAM, dan proses DB. Bila konflik, tunggu/koordinasikan isolasi; jangan menghentikan proses sesi lain tanpa izin.
 
 ## Workspace & cleanup
@@ -50,16 +51,16 @@ delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index cam
 - Jangan commit secret, credential, data pelanggan, nama tenant/host, atau topologi; simpan privat di `docs/plan/` atau `docs/ops/` (gitignored). Jangan kirim data sensitif ke prompt/log worker; repo private bukan pengecualian.
 - Aktifkan hooks sekali per clone: `git config core.hooksPath .githooks`. Pertahankan guard AGENTS, data-file, dan tenant-name; baca referensi saat setup/guard terblokir (sidecar lokal wajib agar guard tenant-name aktif).
 - `.nvmrc` dan base Node `Dockerfile` harus sama; CI memakai `node-version-file: '.nvmrc'`. Perubahan runtime mengikuti referensi dan `bash scripts/check-node-version.sh`.
-- Commit hanya setelah acceptance criteria/guardrail terpenuhi dan gate lokal jalur lolos. Stage/commit scope sendiri, bukan seluruh index; file campuran harus dipisahkan dulu. Sebut plan pada pesan commit bila ada; detail pathspec ada di referensi.
-- **Jangan push tanpa perintah eksplisit user** (“push”, “ship”, “kirim”). Jelaskan bahwa push `main` memicu deploy otomatis. Operasi produksi manual, seeding/migration deploy, dan credential perlu approval eksplisit; edit code bukan izin operasi database.
+- Commit setelah review acceptance criteria/guardrail dan pemeriksaan lokal yang terjangkau; gate berat boleh berjalan melalui push CI, tetapi wajib lolos sebelum rilis. Stage/commit scope sendiri, bukan seluruh index; file campuran harus dipisahkan dulu. Sebut plan pada pesan commit bila ada; detail pathspec ada di referensi.
+- **Push langsung ke `main` diizinkan** untuk scope tugas; tidak perlu menunggu perintah “push/ship” lagi. Pantau pipeline karena push dapat memicu deploy otomatis. SSH, deploy/restart rutin, dan migration rilis diizinkan dengan target terverifikasi, backup, serta rollback. Seeding/data patch destruktif atau perubahan credential/akses di luar scope tetap perlu instruksi spesifik.
 - **CI tidak dikurangi:** artifact commit SHA yang dideploy wajib lolos `test` (full coverage), `lint`, dan `build-and-push` di `.github/workflows/production.yml`. Build produksi di CI → registry → VPS pull/restart; **jangan build di VPS**.
-- Sebelum deploy/operasi produksi, baca `docs/ops/vps.md` lokal; jika runbook tidak ada, berhenti dan minta detail, jangan menebak. Pascadeploy: health/log + smoke test; perubahan schema/data juga wajib verifikasi migration dan invariant/isi tabel tenant target. CI green bukan bukti data benar.
+- Sebelum deploy/operasi produksi, baca `docs/ops/vps.md` lokal; jika tidak ada, cari runbook/inventaris tepercaya atau konfigurasi SSH yang tersedia. Minta hanya detail target yang benar-benar belum terverifikasi, bukan izin SSH ulang; jangan menebak. Pascadeploy: health/log + smoke test; perubahan schema/data juga wajib verifikasi migration dan invariant/isi tabel tenant target. CI green bukan bukti data benar.
 
 ## Delegasi (opsional)
 
 - Edit kecil kerjakan langsung. Setiap dispatch perlu approval eksplisit, file plan, dan scope ownership terbatas; baca prosedur worker di referensi sebelum dispatch. Gunakan Pi, bukan OpenCode.
 - Default warisi model sesi. Worker code/migration/test minimum tier Sonnet; Haiku hanya task mekanis bounded. Jangan menurunkan tier demi biaya atau mengganti model tanpa alasan.
-- Orchestrator review diff aktual dan bukti verifikasi worker; gunakan hasil identik tanpa mengulang suite. Scope melenceng/overlap → hentikan dan review, jangan revert sesi lain. Operasi produksi, credential, commit/push/deploy hanya orchestrator dengan approval yang diperlukan, bukan worker.
+- Orchestrator review diff aktual dan bukti verifikasi worker; gunakan hasil identik tanpa mengulang suite. Scope melenceng/overlap → hentikan dan review, jangan revert sesi lain. Operasi produksi, credential, commit/push/deploy dikoordinasikan orchestrator memakai izin tetap di atas; worker tetap mengikuti scope delegasi.
 
 ## graphify
 

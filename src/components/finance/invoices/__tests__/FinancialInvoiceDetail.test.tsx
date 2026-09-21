@@ -2,6 +2,7 @@
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { snapshotFixture } from '@/lib/finance/__tests__/invoice-snapshot-fixture';
 
 vi.stubGlobal(
     'ResizeObserver',
@@ -151,6 +152,45 @@ describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
     it('keeps legacy invoice details without a rounding row', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ roundingAmount: null })} />);
         expect(screen.queryByText('Pembulatan')).toBeNull();
+    });
+
+    it('uses immutable snapshot items when the invoice has a snapshot', () => {
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({
+                    commercialSnapshot: snapshotFixture(),
+                    totalAmount: 900,
+                })}
+            />,
+        );
+
+        expect(screen.getByText('Original A')).toBeDefined();
+        expect(screen.queryByText('Variant A')).toBeNull();
+        expect(screen.getByText('DPP (belum pajak)')).toBeDefined();
+    });
+
+    it('shows legacy SO item names as references without presenting mutable prices', () => {
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({ commercialSnapshot: null })}
+            />,
+        );
+
+        expect(screen.getByText('Variant A')).toBeDefined();
+        expect(
+            screen.getByText(
+                'Nama barang dari SO; rincian harga invoice lama tidak tersedia.',
+            ),
+        ).toBeDefined();
+        expect(
+            screen.queryByText(/Total komersial tersimpan/i),
+        ).toBeNull();
+        expect(
+            screen.queryByText(/Operational details/i),
+        ).toBeNull();
+        expect(screen.getByText('Variant A').parentElement?.textContent).not.toContain(
+            '100.000',
+        );
     });
 
     it('shows Konfirmasi Invoice when status DRAFT', () => {
