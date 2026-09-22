@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'react';
+'use client';
+
+import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -12,16 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import {
-    Plus,
-    Users,
-    Package,
-    AlertTriangle,
-    Trash2,
-    Loader2,
-} from 'lucide-react';
-import { ExtendedProductionOrder } from './types';
-import {
+import { AlertTriangle, Loader2, Plus, Trash2 } from 'lucide-react';
+import type {
     Location,
     Employee,
     WorkShift,
@@ -29,14 +24,10 @@ import {
     ProductVariant,
 } from '@prisma/client';
 import { addProductionOutput } from '@/actions/production/production';
-import {
-    BrandCard,
-    BrandCardContent,
-    BrandCardHeader,
-} from '@/components/brand/BrandCard';
 import { productionLabels } from '@/lib/labels';
 import { formatWIB, toBusinessDateString } from '@/lib/utils/timezone';
 import { productionOutputDateSchema } from '@/lib/schemas/production-output-date';
+import type { ExtendedProductionOrder } from './types';
 
 interface OutputFormData {
     locations: Location[];
@@ -56,180 +47,181 @@ export function AddOutputDialog({
 }) {
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const submitting = useRef(false);
     const [productionDate, setProductionDate] = useState(() =>
         toBusinessDateString(new Date()),
     );
     const [showScrapWarning, setShowScrapWarning] = useState(false);
     const [rolls, setRolls] = useState<number[]>([]);
     const [currentRollWeight, setCurrentRollWeight] = useState('');
-
-    // New Scrap Inputs
     const [scrapProngkol, setScrapProngkol] = useState('');
     const [scrapDaun, setScrapDaun] = useState('');
-
     const [notes, setNotes] = useState('');
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
     function handleOpenChange(nextOpen: boolean) {
-        if (nextOpen) setProductionDate(toBusinessDateString(new Date()));
+        if (submitting.current) return;
+        if (nextOpen) {
+            setProductionDate(toBusinessDateString(new Date()));
+            setError(null);
+        }
         setOpen(nextOpen);
     }
 
-    // Auto-detect ProductionShift (order-scoped). WorkShift is template only — FK needs ProductionShift.id.
-    const { matchedShift, defaultShift, defaultOperator, shiftOptions } =
-        useMemo(() => {
-            const prodShifts = order.shifts || [];
-            const now = new Date();
-
-            const activeByTime = prodShifts.find((ps) => {
-                const start = new Date(ps.startTime).getTime();
-                const end = new Date(ps.endTime).getTime();
-                const t = now.getTime();
-                return t >= start && t <= end;
-            });
-
-            const matchedWorkShift = formData.workShifts.find((shift) => {
-                const currentHour = now.getHours();
-                const currentMinute = now.getMinutes();
-                const currentTimeVal = currentHour * 60 + currentMinute;
-                const [startH, startM] = shift.startTime.split(':').map(Number);
-                const [endH, endM] = shift.endTime.split(':').map(Number);
-                const startVal = startH * 60 + startM;
-                const endVal = endH * 60 + endM;
-                if (startVal <= endVal) {
-                    return (
-                        currentTimeVal >= startVal && currentTimeVal <= endVal
-                    );
-                }
-                return currentTimeVal >= startVal || currentTimeVal <= endVal;
-            });
-
-            const matchedByName = matchedWorkShift
+    // Keep ProductionShift IDs (not WorkShift template IDs) and existing defaults.
+    const { defaultShift, defaultOperator, shiftOptions } = useMemo(() => {
+        const prodShifts = order.shifts || [];
+        const now = new Date();
+        const activeByTime = prodShifts.find(
+            (shift) =>
+                now.getTime() >= new Date(shift.startTime).getTime() &&
+                now.getTime() <= new Date(shift.endTime).getTime(),
+        );
+        const matchedWorkShift = formData.workShifts.find((shift) => {
+            const time = now.getHours() * 60 + now.getMinutes();
+            const [startH, startM] = shift.startTime.split(':').map(Number);
+            const [endH, endM] = shift.endTime.split(':').map(Number);
+            const start = startH * 60 + startM;
+            const end = endH * 60 + endM;
+            return start <= end
+                ? time >= start && time <= end
+                : time >= start || time <= end;
+        });
+        const active =
+            activeByTime ||
+            (matchedWorkShift
                 ? prodShifts.find(
-                      (ps) => ps.shiftName === matchedWorkShift.name,
+                      (shift) => shift.shiftName === matchedWorkShift.name,
                   )
-                : null;
+                : null) ||
+            prodShifts[0];
+        return {
+            defaultShift: active?.id || '',
+            defaultOperator: active?.operatorId || formData.operators[0]?.id,
+            shiftOptions: prodShifts,
+        };
+    }, [order.shifts, formData.workShifts, formData.operators]);
 
-            const activeProdShift =
-                activeByTime || matchedByName || prodShifts[0] || null;
-
-            return {
-                matchedShift: matchedWorkShift,
-                defaultShift: activeProdShift?.id || '',
-                defaultOperator:
-                    activeProdShift?.operatorId || formData.operators[0]?.id,
-                shiftOptions: prodShifts,
-            };
-        }, [formData.workShifts, formData.operators, order.shifts]);
-
-    // Determine Logic based on UOM
     const variant = order.bom.productVariant;
     const primaryUnit = variant.primaryUnit || 'KG';
     const salesUnit = variant.salesUnit;
     const conversionFactor = Number(variant.conversionFactor || 1);
-    const useAlternateUnit = Boolean(
+    const alternate = Boolean(
         salesUnit && salesUnit !== primaryUnit && conversionFactor > 0,
     );
-    const displayUnit = useAlternateUnit ? salesUnit : primaryUnit;
-    const itemName =
-        primaryUnit === 'ROLL'
-            ? 'Roll'
-            : primaryUnit === 'ZAK'
-              ? 'Sack'
-              : 'Item';
+    const displayUnit = alternate ? salesUnit : primaryUnit;
+    const totalDisplayQty = rolls.reduce((sum, quantity) => sum + quantity, 0);
+    const totalBaseQty = alternate
+        ? totalDisplayQty * conversionFactor
+        : totalDisplayQty;
 
-    // Compute base quantity from entered PACK quantity
-    const totalBaseQty = useAlternateUnit
-        ? rolls.reduce((sum, w) => sum + w * conversionFactor, 0)
-        : rolls.reduce((sum, w) => sum + w, 0);
-    const totalDisplayQty = rolls.reduce((sum, w) => sum + w, 0);
-
-    const handleHelperChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedOptions = Array.from(
-            e.target.selectedOptions,
-            (option) => option.value,
-        );
-        setSelectedHelpers(selectedOptions);
-    };
-
-    const handleAddRoll = () => {
-        const weight = parseFloat(currentRollWeight);
-        if (!isNaN(weight) && weight > 0) {
-            setRolls([...rolls, weight]);
-            setCurrentRollWeight('');
+    function fail(message: string, target?: string) {
+        setError(message);
+        toast.error(message);
+        if (target) document.getElementById(target)?.focus();
+    }
+    function addEntry() {
+        const quantity = Number(currentRollWeight);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            fail('Jumlah hasil harus lebih dari 0.', 'wo-output-quantity');
+            return;
         }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleAddRoll();
+        setRolls((values) => [...values, quantity]);
+        setCurrentRollWeight('');
+        setError(null);
+    }
+    async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (submitting.current) return;
+        const fd = new FormData(event.currentTarget);
+        const dateResult = productionOutputDateSchema.safeParse(productionDate);
+        if (!dateResult.success) {
+            fail(
+                dateResult.error.issues[0].message,
+                'wo-output-production-date',
+            );
+            return;
         }
-    };
+        if (!fd.get('shiftId') || !fd.get('operatorId')) {
+            fail(
+                'Pilih shift SPK dan operator sebelum mencatat hasil.',
+                'wo-output-shift',
+            );
+            return;
+        }
+        if (currentRollWeight.trim()) {
+            fail(
+                'Tambahkan jumlah ke daftar hasil, atau kosongkan isian sebelum menyimpan.',
+                'wo-output-quantity',
+            );
+            return;
+        }
+        const prongkol = Number(scrapProngkol || 0);
+        const daun = Number(scrapDaun || 0);
+        if (
+            ![prongkol, daun].every(
+                (value) => Number.isFinite(value) && value >= 0,
+            )
+        ) {
+            fail('Jumlah scrap tidak boleh negatif.', 'wo-output-prongkol');
+            return;
+        }
+        if (totalBaseQty <= 0 && prongkol <= 0 && daun <= 0) {
+            fail(
+                'Isi hasil bagus atau scrap yang dihasilkan.',
+                'wo-output-quantity',
+            );
+            return;
+        }
+        if (prongkol === 0 && daun === 0 && !showScrapWarning) {
+            setShowScrapWarning(true);
+            return;
+        }
 
-    const removeRoll = (index: number) => {
-        setRolls(rolls.filter((_, i) => i !== index));
-    };
-
-    async function doSubmit(fd: FormData) {
+        submitting.current = true;
         setIsSubmitting(true);
-
+        setError(null);
         let finalNotes = notes || '';
-
-        // Append Helpers
-        if (selectedHelpers.length > 0) {
-            const helperNames = formData.helpers
-                .filter((h) => selectedHelpers.includes(h.id))
-                .map((h) => h.name)
-                .join(', ');
-            finalNotes += `\nHelpers: ${helperNames}`;
-        }
-
-        // Append Rolls
-        if (rolls.length > 0) {
+        if (selectedHelpers.length)
+            finalNotes += `\nHelpers: ${formData.helpers
+                .filter((helper) => selectedHelpers.includes(helper.id))
+                .map((helper) => helper.name)
+                .join(', ')}`;
+        if (rolls.length)
             finalNotes += `\n[Auto-Generated] Individual ${salesUnit || 'Rolls'}: ${rolls.join(', ')}`;
-        }
-
-        const nowIso = new Date().toISOString();
-        const enteredQty = totalDisplayQty;
-        const baseQty = useAlternateUnit
-            ? enteredQty * conversionFactor
-            : enteredQty;
-        const sendConversionPayload = useAlternateUnit && enteredQty > 0;
-
-        const data: Record<string, unknown> = {
-            productionOrderId: order.id,
-            machineId: order.machineId || undefined,
-            operatorId: fd.get('operatorId') as string,
-            helperIds: selectedHelpers,
-            shiftId: fd.get('shiftId') as string,
-            quantityProduced: baseQty,
-            scrapProngkolQty: Number(scrapProngkol || 0),
-            scrapDaunQty: Number(scrapDaun || 0),
-            scrapQuantity: 0,
-            cekGram: undefined,
-            startTime: new Date(nowIso),
-            endTime: new Date(nowIso),
-            productionDate,
-            notes: finalNotes,
-            // Konversi UOM hanya dikirim saat ada hasil bagus — payload dengan
-            // enteredQuantity 0 ditolak schema (.positive()), padahal entri
-            // affal-only (mesin trobel) sah dicatat dengan qty 0.
-            enteredQuantity: sendConversionPayload ? enteredQty : undefined,
-            enteredUnit: sendConversionPayload
-                ? (displayUnit as string)
-                : undefined,
-            baseQuantityProduced: sendConversionPayload ? baseQty : undefined,
-            conversionFactorSnapshot: sendConversionPayload
-                ? conversionFactor
-                : undefined,
-        };
-
-        const result = await addProductionOutput(
-            data as Parameters<typeof addProductionOutput>[0],
-        );
-        setIsSubmitting(false);
-        if (result.success) {
+        const now = new Date();
+        const sendConversion = alternate && totalDisplayQty > 0;
+        try {
+            const result = await addProductionOutput({
+                productionOrderId: order.id,
+                machineId: order.machineId || undefined,
+                operatorId: String(fd.get('operatorId')),
+                helperIds: selectedHelpers,
+                shiftId: String(fd.get('shiftId')),
+                quantityProduced: totalBaseQty,
+                scrapProngkolQty: prongkol,
+                scrapDaunQty: daun,
+                scrapQuantity: 0,
+                cekGram: undefined,
+                startTime: now,
+                endTime: now,
+                productionDate,
+                notes: finalNotes,
+                enteredQuantity: sendConversion ? totalDisplayQty : undefined,
+                enteredUnit: sendConversion ? displayUnit : undefined,
+                baseQuantityProduced: sendConversion ? totalBaseQty : undefined,
+                conversionFactorSnapshot: sendConversion
+                    ? conversionFactor
+                    : undefined,
+            } as Parameters<typeof addProductionOutput>[0]);
+            if (!result.success) {
+                fail(
+                    result.error ||
+                        'Gagal mencatat hasil. Periksa data dan coba lagi.',
+                );
+                return;
+            }
             toast.success('Hasil produksi berhasil dicatat');
             setOpen(false);
             setRolls([]);
@@ -240,538 +232,408 @@ export function AddOutputDialog({
             setCurrentRollWeight('');
             setSelectedHelpers([]);
             setShowScrapWarning(false);
-        } else {
-            toast.error(result.error);
+        } catch {
+            fail(
+                'Gagal menghubungi server. Periksa riwayat hasil sebelum mencoba lagi agar tidak mencatat dua kali.',
+            );
+        } finally {
+            submitting.current = false;
+            setIsSubmitting(false);
         }
-    }
-
-    function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        if (isSubmitting) return;
-        const fd = new FormData(e.currentTarget);
-        const dateResult = productionOutputDateSchema.safeParse(productionDate);
-        if (!dateResult.success) {
-            toast.error(dateResult.error.issues[0].message);
-            return;
-        }
-
-        const prongkolNum = Number(scrapProngkol || 0);
-        const daunNum = Number(scrapDaun || 0);
-
-        // Soft warning if both scrap fields are 0
-        if (prongkolNum === 0 && daunNum === 0 && !showScrapWarning) {
-            setShowScrapWarning(true);
-            return;
-        }
-
-        doSubmit(fd);
     }
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus className="w-4 h-4 mr-2" />{' '}
+                    <Plus className="h-4 w-4" />
                     {productionLabels.productionOutput}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[900px]">
-                <DialogHeader>
+            <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
+                <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
                     <DialogTitle>Catat Hasil Produksi</DialogTitle>
+                    <DialogDescription>
+                        {order.orderNumber} · {variant.name} · Hasil disimpan
+                        sesuai lokasi SPK.
+                    </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={onSubmit}>
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 py-6">
-                        {/* LEFT COLUMN: Metadata & Team */}
-                        <div className="lg:col-span-4 space-y-6 flex flex-col">
-                            <BrandCard
-                                variant="default"
-                                className="shadow-brand h-full"
+                <form
+                    onSubmit={onSubmit}
+                    className="flex min-h-0 flex-1 flex-col"
+                >
+                    <div className="min-h-0 overflow-y-auto p-5">
+                        {error && (
+                            <p
+                                role="alert"
+                                className="mb-4 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
                             >
-                                <BrandCardHeader className="pb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                            <Users className="w-4 h-4 text-primary" />
-                                        </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
-                                            Konteks & Tim
-                                        </h3>
-                                    </div>
-                                </BrandCardHeader>
-
-                                <BrandCardContent className="space-y-5">
-                                    <div className="space-y-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="wo-output-production-date">
-                                                Tanggal Produksi (WIB)
-                                            </Label>
-                                            <Input
-                                                id="wo-output-production-date"
-                                                name="productionDate"
-                                                type="date"
-                                                required
-                                                max={toBusinessDateString(
-                                                    new Date(),
-                                                )}
-                                                value={productionDate}
-                                                onChange={(e) =>
-                                                    setProductionDate(e.target.value)
-                                                }
-                                                disabled={isSubmitting}
-                                                aria-describedby="wo-output-date-help"
-                                            />
-                                            <p
-                                                id="wo-output-date-help"
-                                                className="text-xs text-muted-foreground"
-                                            >
-                                                Pilih tanggal hasil diproduksi,
-                                                lalu sesuaikan shift dan operator.
-                                                Laporan mengikuti tanggal ini;
-                                                stok dan jurnal dibukukan saat
-                                                disimpan.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1">
-                                                Waktu Input (WIB)
-                                            </span>
-                                            <p className="text-sm font-semibold text-foreground">
-                                                {formatWIB(
-                                                    new Date(),
-                                                    'dd MMM yyyy HH:mm',
-                                                )}
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                                                Shift
-                                            </Label>
-                                            <div className="relative">
-                                                <select
-                                                    name="shiftId"
-                                                    defaultValue={defaultShift}
-                                                    required
-                                                    disabled={
-                                                        shiftOptions.length ===
-                                                        0
-                                                    }
-                                                    className="flex h-10 w-full items-center justify-between rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
+                                {error}
+                            </p>
+                        )}
+                        <fieldset
+                            disabled={isSubmitting}
+                            className="grid min-w-0 gap-5 md:grid-cols-3"
+                        >
+                            <section className="space-y-4 rounded-xl border bg-muted/20 p-4">
+                                <h3 className="font-semibold">Tanggal & tim</h3>
+                                <div className="space-y-2">
+                                    <Label htmlFor="wo-output-production-date">
+                                        Tanggal Produksi (WIB)
+                                    </Label>
+                                    <Input
+                                        id="wo-output-production-date"
+                                        name="productionDate"
+                                        type="date"
+                                        className="min-h-11"
+                                        required
+                                        max={toBusinessDateString(new Date())}
+                                        value={productionDate}
+                                        onChange={(e) =>
+                                            setProductionDate(e.target.value)
+                                        }
+                                        disabled={isSubmitting}
+                                        aria-describedby="wo-output-date-help"
+                                    />
+                                    <p
+                                        id="wo-output-date-help"
+                                        className="text-xs text-muted-foreground"
+                                    >
+                                        Laporan mengikuti tanggal ini; stok dan
+                                        jurnal dibukukan saat disimpan.
+                                    </p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    <span className="block">
+                                        Waktu Input (WIB)
+                                    </span>
+                                    {formatWIB(new Date(), 'dd MMM yyyy HH:mm')}
+                                </p>
+                                <div className="space-y-2">
+                                    <Label htmlFor="wo-output-shift">
+                                        Shift SPK
+                                    </Label>
+                                    <select
+                                        id="wo-output-shift"
+                                        name="shiftId"
+                                        defaultValue={defaultShift}
+                                        required
+                                        disabled={
+                                            !shiftOptions.length || isSubmitting
+                                        }
+                                        className="min-h-11 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        {!shiftOptions.length ? (
+                                            <option value="">
+                                                Belum ada shift
+                                            </option>
+                                        ) : (
+                                            shiftOptions.map((shift) => (
+                                                <option
+                                                    key={shift.id}
+                                                    value={shift.id}
                                                 >
-                                                    {shiftOptions.length ===
-                                                    0 ? (
-                                                        <option value="">
-                                                            Belum ada shift di
-                                                            SPK — tambah dulu di
-                                                            tab Sumber Daya
-                                                        </option>
-                                                    ) : (
-                                                        shiftOptions.map(
-                                                            (s) => (
-                                                                <option
-                                                                    key={s.id}
-                                                                    value={s.id}
-                                                                >
-                                                                    {
-                                                                        s.shiftName
-                                                                    }
-                                                                    {s.operator
-                                                                        ?.name
-                                                                        ? ` — ${s.operator.name}`
-                                                                        : ''}
-                                                                </option>
+                                                    {shift.shiftName}
+                                                    {shift.operator?.name
+                                                        ? ` — ${shift.operator.name}`
+                                                        : ''}
+                                                </option>
+                                            ))
+                                        )}
+                                    </select>
+                                    {!shiftOptions.length && (
+                                        <p className="text-sm text-destructive">
+                                            Tambah shift di tab Bahan, tim &
+                                            kualitas terlebih dahulu.
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="wo-output-operator">
+                                        Operator utama
+                                    </Label>
+                                    <select
+                                        id="wo-output-operator"
+                                        name="operatorId"
+                                        defaultValue={defaultOperator}
+                                        required
+                                        className="min-h-11 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        {!formData.operators.length && (
+                                            <option value="">
+                                                Belum ada operator
+                                            </option>
+                                        )}
+                                        {formData.operators.map((operator) => (
+                                            <option
+                                                key={operator.id}
+                                                value={operator.id}
+                                            >
+                                                {operator.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <fieldset>
+                                    <legend className="text-sm font-medium">
+                                        Helper / asisten · opsional
+                                    </legend>
+                                    <div className="mt-2 max-h-40 overflow-auto rounded-md border bg-background p-2">
+                                        {formData.helpers.length ? (
+                                            formData.helpers.map((helper) => (
+                                                <label
+                                                    key={helper.id}
+                                                    className="flex min-h-11 items-center gap-2 text-sm"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedHelpers.includes(
+                                                            helper.id,
+                                                        )}
+                                                        onChange={(e) =>
+                                                            setSelectedHelpers(
+                                                                (values) =>
+                                                                    e.target
+                                                                        .checked
+                                                                        ? [
+                                                                              ...values,
+                                                                              helper.id,
+                                                                          ]
+                                                                        : values.filter(
+                                                                              (
+                                                                                  id,
+                                                                              ) =>
+                                                                                  id !==
+                                                                                  helper.id,
+                                                                          ),
+                                                            )
+                                                        }
+                                                    />
+                                                    {helper.name}
+                                                </label>
+                                            ))
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">
+                                                Belum ada helper.
+                                            </p>
+                                        )}
+                                    </div>
+                                </fieldset>
+                            </section>
+                            <div className="min-w-0 space-y-4 md:col-span-2">
+                                <section className="space-y-4 rounded-xl border p-4">
+                                    <div className="flex flex-wrap justify-between gap-3">
+                                        <h3 className="font-semibold">
+                                            Hasil bagus
+                                        </h3>
+                                        <p className="text-right font-semibold tabular-nums">
+                                            {totalDisplayQty.toLocaleString(
+                                                'id-ID',
+                                            )}{' '}
+                                            {displayUnit}
+                                            {alternate && (
+                                                <span className="block text-xs font-normal text-muted-foreground">
+                                                    ={' '}
+                                                    {totalBaseQty.toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    {primaryUnit}
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="wo-output-quantity">
+                                            Jumlah per entri ({displayUnit})
+                                        </Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="wo-output-quantity"
+                                                placeholder={`Jumlah (${displayUnit})`}
+                                                type="number"
+                                                step="0.01"
+                                                className="min-h-11 min-w-0 flex-1"
+                                                value={currentRollWeight}
+                                                onChange={(e) =>
+                                                    setCurrentRollWeight(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        addEntry();
+                                                    }
+                                                }}
+                                            />
+                                            <Button
+                                                type="button"
+                                                onClick={addEntry}
+                                                className="min-h-11"
+                                                disabled={!currentRollWeight}
+                                            >
+                                                Tambahkan
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <ul className="max-h-52 divide-y overflow-y-auto rounded-lg border">
+                                        {!rolls.length && (
+                                            <li className="p-5 text-sm text-muted-foreground">
+                                                Belum ada hasil bagus. Entri
+                                                scrap saja tetap dapat dicatat.
+                                            </li>
+                                        )}
+                                        {rolls.map((quantity, index) => (
+                                            <li
+                                                key={index}
+                                                className="flex items-center justify-between gap-3 px-3 py-1 text-sm"
+                                            >
+                                                <span>
+                                                    Entri {index + 1} ·{' '}
+                                                    <b>
+                                                        {quantity} {displayUnit}
+                                                    </b>
+                                                </span>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    aria-label={`Hapus entri ${index + 1}`}
+                                                    className="h-11 w-11 p-0"
+                                                    onClick={() =>
+                                                        setRolls((values) =>
+                                                            values.filter(
+                                                                (_, i) =>
+                                                                    i !== index,
                                                             ),
                                                         )
-                                                    )}
-                                                </select>
-                                                <div className="pointer-events-none absolute right-3 top-3 opacity-50">
-                                                    <svg
-                                                        width="10"
-                                                        height="6"
-                                                        viewBox="0 0 10 6"
-                                                        fill="none"
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                    >
-                                                        <path
-                                                            d="M1 1L5 5L9 1"
-                                                            stroke="currentColor"
-                                                            strokeWidth="1.5"
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                        />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                            {matchedShift &&
-                                                shiftOptions.length > 0 && (
-                                                    <p className="text-[10px] text-success font-bold uppercase tracking-tight">
-                                                        Active:{' '}
-                                                        {matchedShift.name} (
-                                                        {matchedShift.startTime}{' '}
-                                                        - {matchedShift.endTime}
-                                                        )
-                                                    </p>
-                                                )}
-                                            {shiftOptions.length === 0 && (
-                                                <p className="text-[10px] text-destructive font-bold uppercase tracking-tight">
-                                                    Tambah ProductionShift di
-                                                    detail SPK dulu
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                                                Operator (Ketua)
-                                            </Label>
-                                            <div className="relative">
-                                                <select
-                                                    name="operatorId"
-                                                    defaultValue={
-                                                        defaultOperator
                                                     }
-                                                    required
-                                                    className="flex h-10 w-full items-center justify-between rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
                                                 >
-                                                    {formData.operators.map(
-                                                        (op) => (
-                                                            <option
-                                                                key={op.id}
-                                                                value={op.id}
-                                                            >
-                                                                {op.name}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                                <div className="pointer-events-none absolute right-3 top-3 opacity-50">
-                                                    <svg
-                                                        width="10"
-                                                        height="6"
-                                                        viewBox="0 0 10 6"
-                                                        fill="none"
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                    >
-                                                        <path
-                                                            d="M1 1L5 5L9 1"
-                                                            stroke="currentColor"
-                                                            strokeWidth="1.5"
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                        />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        </div>
-
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                                <section className="space-y-4 rounded-xl border p-4">
+                                    <h3 className="font-semibold">
+                                        Affal / scrap
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                                                Helper/Asisten (Tahan Ctrl/Cmd
-                                                untuk pilih banyak)
+                                            <Label htmlFor="wo-output-prongkol">
+                                                Prongkol (KG)
                                             </Label>
-                                            <div className="relative">
-                                                <select
-                                                    multiple
-                                                    value={selectedHelpers}
-                                                    onChange={
-                                                        handleHelperChange
-                                                    }
-                                                    className="flex h-32 w-full rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    {formData.helpers.map(
-                                                        (h) => (
-                                                            <option
-                                                                key={h.id}
-                                                                value={h.id}
-                                                            >
-                                                                {h.name}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                                <p className="text-[10px] text-muted-foreground mt-1">
-                                                    {selectedHelpers.length > 0
-                                                        ? `${selectedHelpers.length} helper dipilih`
-                                                        : 'Belum ada helper dipilih'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </BrandCardContent>
-                            </BrandCard>
-                        </div>
-
-                        {/* RIGHT COLUMN: Production Data */}
-                        <div className="lg:col-span-8 space-y-6">
-                            <BrandCard
-                                variant="default"
-                                className="shadow-brand"
-                            >
-                                <BrandCardHeader className="justify-between pb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center">
-                                            <Package className="w-4 h-4 text-success" />
-                                        </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
-                                            {productionLabels.goodQuantity}
-                                        </h3>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block">
-                                            Total{' '}
-                                            {productionLabels.goodQuantity}
-                                            {useAlternateUnit && (
-                                                <span className="text-[9px] font-normal ml-1">
-                                                    (dicatat sebagai{' '}
-                                                    {primaryUnit})
-                                                </span>
-                                            )}
-                                        </span>
-                                        <span className="text-2xl font-black text-foreground drop-shadow-sm">
-                                            {totalDisplayQty.toFixed(2)}{' '}
-                                            <span className="text-xs font-normal text-muted-foreground">
-                                                {displayUnit}
-                                            </span>
-                                        </span>
-                                        {useAlternateUnit &&
-                                            totalDisplayQty > 0 && (
-                                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                    = {totalBaseQty.toFixed(2)}{' '}
-                                                    {primaryUnit}
-                                                </div>
-                                            )}
-                                    </div>
-                                </BrandCardHeader>
-
-                                <BrandCardContent className="space-y-5">
-                                    <div className="flex gap-3">
-                                        <Input
-                                            placeholder={`Enter ${itemName} Size/Qty (${displayUnit})...`}
-                                            type="number"
-                                            step="0.01"
-                                            className="flex-1 no-stepper bg-background/80 border-brand-border h-11 text-lg font-mono font-bold text-foreground"
-                                            value={currentRollWeight}
-                                            onChange={(e) =>
-                                                setCurrentRollWeight(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            onKeyDown={handleKeyDown}
-                                        />
-                                        <Button
-                                            type="button"
-                                            size="lg"
-                                            onClick={handleAddRoll}
-                                            disabled={!currentRollWeight}
-                                            className="h-11 px-8 font-bold italic uppercase tracking-tight shadow-md"
-                                        >
-                                            Add
-                                        </Button>
-                                    </div>
-
-                                    <div className="h-[250px] overflow-y-auto border border-brand-border/50 rounded-xl bg-muted/20 p-4 custom-scrollbar">
-                                        {rolls.length === 0 && (
-                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60 italic">
-                                                <Package className="w-10 h-10 opacity-10 mb-3" />
-                                                <span className="text-sm font-medium">
-                                                    No {itemName.toLowerCase()}s
-                                                    recorded for this run
-                                                </span>
-                                            </div>
-                                        )}
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {rolls.map((weight, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="group relative flex flex-col items-center justify-center bg-brand-glass backdrop-blur-md border border-brand-border p-4 rounded-xl shadow-sm transition-all hover:bg-brand-glass-heavy hover:border-brand-border-heavy hover:shadow-brand"
-                                                >
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1 opacity-70">
-                                                        {itemName} {idx + 1}
-                                                    </span>
-                                                    <span className="text-base font-mono font-bold text-foreground">
-                                                        {weight}{' '}
-                                                        <span className="text-[10px] font-normal opacity-70 uppercase">
-                                                            {displayUnit}
-                                                        </span>
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        className="absolute -top-1.5 -right-1.5 h-6 w-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg z-10"
-                                                        onClick={() =>
-                                                            removeRoll(idx)
-                                                        }
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </BrandCardContent>
-                            </BrandCard>
-
-                            <BrandCard
-                                variant="default"
-                                className="shadow-brand"
-                            >
-                                <BrandCardHeader className="pb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
-                                            <AlertTriangle className="w-4 h-4 text-warning" />
-                                        </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">
-                                            {productionLabels.scrap}
-                                        </h3>
-                                    </div>
-                                </BrandCardHeader>
-                                <BrandCardContent className="space-y-5">
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                                                Affal Prongkol (Lumps)
-                                            </Label>
-                                            <div className="flex items-center gap-3 relative">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="0.00"
-                                                    className="text-right no-stepper bg-background/80 border-brand-border h-10 font-mono font-bold pr-8 text-foreground"
-                                                    value={scrapProngkol}
-                                                    onChange={(e) =>
-                                                        setScrapProngkol(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <span className="absolute right-3 text-[10px] text-muted-foreground font-bold uppercase pointer-events-none">
-                                                    kg
-                                                </span>
-                                            </div>
+                                            <Input
+                                                id="wo-output-prongkol"
+                                                type="number"
+                                                min={0}
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="min-h-11"
+                                                value={scrapProngkol}
+                                                onChange={(e) =>
+                                                    setScrapProngkol(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                                                Affal Daun (Trim)
+                                            <Label htmlFor="wo-output-daun">
+                                                Daun (KG)
                                             </Label>
-                                            <div className="flex items-center gap-3 relative">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="0.00"
-                                                    className="text-right no-stepper bg-background/80 border-brand-border h-10 font-mono font-bold pr-8 text-foreground"
-                                                    value={scrapDaun}
-                                                    onChange={(e) =>
-                                                        setScrapDaun(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <span className="absolute right-3 text-[10px] text-muted-foreground font-bold uppercase pointer-events-none">
-                                                    kg
-                                                </span>
-                                            </div>
+                                            <Input
+                                                id="wo-output-daun"
+                                                type="number"
+                                                min={0}
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="min-h-11"
+                                                value={scrapDaun}
+                                                onChange={(e) =>
+                                                    setScrapDaun(e.target.value)
+                                                }
+                                            />
                                         </div>
                                     </div>
-
-                                    {/* Scrap Warning Banner */}
                                     {showScrapWarning && (
-                                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3 mt-4">
-                                            <div className="flex items-start gap-3">
-                                                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                                                <div>
-                                                    <p className="font-semibold text-amber-800">
-                                                        Scrap masih 0
-                                                    </p>
-                                                    <p className="text-sm text-amber-700 mt-1">
-                                                        Apakah Anda yakin tidak
-                                                        ada affal/scrap dari
-                                                        batch ini? Jika ada,
-                                                        silakan isi jumlah scrap
-                                                        terlebih dahulu.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2 justify-end">
+                                        <div
+                                            role="alert"
+                                            className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                                        >
+                                            <p className="flex items-center gap-2 font-medium">
+                                                <AlertTriangle className="h-4 w-4" />
+                                                Scrap masih 0
+                                            </p>
+                                            <p>
+                                                Pastikan tidak ada affal. Isi
+                                                scrap atau konfirmasi
+                                                penyimpanan tanpa scrap.
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
-                                                    size="sm"
-                                                    className="border-amber-400 text-amber-700 hover:bg-amber-100"
-                                                    onClick={() =>
+                                                    onClick={() => {
                                                         setShowScrapWarning(
                                                             false,
-                                                        )
-                                                    }
+                                                        );
+                                                        document
+                                                            .getElementById(
+                                                                'wo-output-prongkol',
+                                                            )
+                                                            ?.focus();
+                                                    }}
                                                 >
                                                     Isi Scrap
                                                 </Button>
-                                                <Button
-                                                    type="submit"
-                                                    size="sm"
-                                                    className="bg-amber-600 hover:bg-amber-700 text-white"
-                                                    disabled={isSubmitting}
-                                                >
-                                                    {isSubmitting ? (
-                                                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                                                    ) : null}
+                                                <Button type="submit">
                                                     Ya, Tidak Ada Scrap
                                                 </Button>
                                             </div>
                                         </div>
                                     )}
-                                </BrandCardContent>
-                            </BrandCard>
-
-                            <BrandCard
-                                variant="default"
-                                className="shadow-brand"
-                            >
-                                <BrandCardContent className="pt-8">
-                                    <div className="space-y-3">
-                                        <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                                            Catatan / Komentar
-                                        </Label>
-                                        <Textarea
-                                            className="h-[80px] bg-background/80 border-brand-border resize-none text-foreground placeholder:text-muted-foreground/50"
-                                            placeholder="Tambahkan observasi atau kendala selama produksi..."
-                                            name="notes"
-                                            value={notes}
-                                            onChange={(e) =>
-                                                setNotes(e.target.value)
-                                            }
-                                        />
-                                    </div>
-                                </BrandCardContent>
-                            </BrandCard>
-                        </div>
+                                </section>
+                                <div className="space-y-2">
+                                    <Label htmlFor="wo-output-notes">
+                                        Catatan · opsional
+                                    </Label>
+                                    <Textarea
+                                        id="wo-output-notes"
+                                        name="notes"
+                                        value={notes}
+                                        onChange={(e) =>
+                                            setNotes(e.target.value)
+                                        }
+                                        placeholder="Observasi atau kendala selama produksi…"
+                                    />
+                                </div>
+                            </div>
+                        </fieldset>
                     </div>
-
-                    <DialogFooter className="mt-8 border-t border-brand-border pt-6 pb-2">
+                    <DialogFooter className="shrink-0 border-t bg-background p-4">
                         <Button
                             type="button"
-                            variant="ghost"
-                            className="font-bold tracking-tight italic uppercase"
-                            onClick={() => setOpen(false)}
+                            variant="outline"
+                            className="min-h-11"
+                            onClick={() => handleOpenChange(false)}
+                            disabled={isSubmitting}
                         >
                             Batal
                         </Button>
                         <Button
                             type="submit"
-                            size="lg"
-                            className="px-10 font-bold tracking-tight italic uppercase shadow-brand"
                             disabled={
                                 isSubmitting ||
-                                (rolls.length === 0 &&
-                                    !scrapProngkol &&
-                                    !scrapDaun)
+                                (!rolls.length && !scrapProngkol && !scrapDaun)
                             }
+                            className="min-h-11"
+                            aria-busy={isSubmitting}
                         >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Mencatat...
-                                </>
-                            ) : (
-                                'Catat Hasil'
+                            {isSubmitting && (
+                                <Loader2 className="h-4 w-4 animate-spin" />
                             )}
+                            {isSubmitting ? 'Mencatat…' : 'Catat Hasil'}
                         </Button>
                     </DialogFooter>
                 </form>

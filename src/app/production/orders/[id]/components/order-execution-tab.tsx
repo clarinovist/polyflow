@@ -402,10 +402,11 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                     </div>
 
                     {order.materialIssues.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-semibold mb-3">
-                                Riwayat Pengeluaran
-                            </h4>
+                        <details className="rounded-lg border p-3">
+                            <summary className="min-h-11 cursor-pointer text-sm font-semibold">
+                                Riwayat pengeluaran ·{' '}
+                                {order.materialIssues.length} catatan
+                            </summary>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {order.materialIssues.map((issue) => (
                                     <div
@@ -444,7 +445,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                                     </div>
                                 ))}
                             </div>
-                        </div>
+                        </details>
                     )}
                 </CardContent>
             </Card>

@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
+import { ProductionOptionPicker } from '@/components/production/ProductionOptionPicker';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, AlertCircle, Plus, Trash2 } from 'lucide-react';
@@ -39,6 +41,7 @@ interface MaterialPreviewPanelProps {
     /** Set when the last material calculation request failed (see use-bom-material-preview) */
     error?: string | null;
     onAcceptSuggestedSource: () => void;
+    onRetry?: () => void;
     /** C1: Editable mode — enables qty editing and add/remove lines */
     editable?: boolean;
     compact?: boolean;
@@ -72,6 +75,7 @@ export function MaterialPreviewPanel({
     hasStockIssues,
     error,
     onAcceptSuggestedSource,
+    onRetry,
     editable = false,
     compact = false,
     consumptionMode = 'TRANSFER',
@@ -83,6 +87,7 @@ export function MaterialPreviewPanel({
     onAddItem,
     onRemoveItem,
 }: MaterialPreviewPanelProps) {
+    const addQtyId = useId();
     const [addVariantId, setAddVariantId] = useState('');
     const [addQty, setAddQty] = useState(0);
     const [addLocationId, setAddLocationId] = useState(defaultLocationId);
@@ -149,7 +154,7 @@ export function MaterialPreviewPanel({
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="h-7 px-2 text-xs"
+                                className="min-h-11 px-3 text-sm"
                                 onClick={onAcceptSuggestedSource}
                             >
                                 Pakai gudang ini
@@ -164,8 +169,21 @@ export function MaterialPreviewPanel({
                         <AlertTitle className="text-sm">
                             Gagal menghitung kebutuhan bahan
                         </AlertTitle>
-                        <AlertDescription className="text-xs">
-                            Coba lagi atau hubungi admin.
+                        <AlertDescription className="space-y-2 text-sm">
+                            <p>{error}</p>
+                            {onRetry ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="min-h-11"
+                                    disabled={isCalculating}
+                                    onClick={onRetry}
+                                >
+                                    Hitung ulang bahan
+                                </Button>
+                            ) : (
+                                <p>Coba lagi atau hubungi admin.</p>
+                            )}
                         </AlertDescription>
                     </Alert>
                 )}
@@ -255,13 +273,17 @@ export function MaterialPreviewPanel({
                                                 {info.unit}
                                             </p>
                                         )}
-                                    {shortage > 0 && !isCalculating && !error && (
-                                        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                                            Kurang{' '}
-                                            {shortage.toLocaleString('id-ID')}{' '}
-                                            {info?.unit}
-                                        </p>
-                                    )}
+                                    {shortage > 0 &&
+                                        !isCalculating &&
+                                        !error && (
+                                            <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                                                Kurang{' '}
+                                                {shortage.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                {info?.unit}
+                                            </p>
+                                        )}
                                 </li>
                             );
                         })}
@@ -458,7 +480,10 @@ export function MaterialPreviewPanel({
                                 value={addLocationId}
                                 onValueChange={setAddLocationId}
                             >
-                                <SelectTrigger className="h-8 text-xs">
+                                <SelectTrigger
+                                    aria-label="Gudang bahan tambahan"
+                                    className="min-h-11 w-full text-sm"
+                                >
                                     <SelectValue placeholder="Pilih gudang" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -470,48 +495,37 @@ export function MaterialPreviewPanel({
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex items-end gap-2">
-                            <div className="flex-1 space-y-1">
+                        <div className="flex flex-wrap items-end gap-2">
+                            <div className="min-w-0 flex-1 basis-48 space-y-1">
                                 <span className="text-[10px] text-muted-foreground">
                                     Tambah bahan
                                 </span>
-                                <Select
+                                <ProductionOptionPicker
+                                    label="Bahan tambahan"
                                     value={addVariantId}
-                                    onValueChange={setAddVariantId}
+                                    onChange={setAddVariantId}
                                     disabled={!addLocationId}
-                                >
-                                    <SelectTrigger className="h-8 text-xs">
-                                        <SelectValue placeholder="Pilih bahan" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {availableToAdd.map((rm) => (
-                                            <SelectItem
-                                                key={rm.id}
-                                                value={rm.id}
-                                            >
-                                                <div className="flex items-center justify-between gap-3 w-full">
-                                                    <span>{rm.name}</span>
-                                                    <span className="text-[10px] text-muted-foreground">
-                                                        Stok:{' '}
-                                                        {rawMaterialStock[
-                                                            rm.id
-                                                        ]?.[addLocationId] ?? 0}
-                                                    </span>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Pilih bahan"
+                                    options={availableToAdd.map((rm) => ({
+                                        id: rm.id,
+                                        name: rm.name,
+                                        description: `Stok: ${rawMaterialStock[rm.id]?.[addLocationId] ?? 0} ${rm.primaryUnit}`,
+                                    }))}
+                                />
                             </div>
                             <div className="w-24 space-y-1">
-                                <span className="text-[10px] text-muted-foreground">
-                                    Qty
-                                </span>
+                                <Label
+                                    htmlFor={addQtyId}
+                                    className="text-xs text-muted-foreground"
+                                >
+                                    Jumlah
+                                </Label>
                                 <Input
+                                    id={addQtyId}
                                     type="number"
                                     step="0.01"
                                     min={0}
-                                    className="h-8 text-xs"
+                                    className="min-h-11 text-sm"
                                     value={addQty || ''}
                                     onChange={(e) =>
                                         setAddQty(Number(e.target.value) || 0)
@@ -523,7 +537,7 @@ export function MaterialPreviewPanel({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-8 px-2"
+                                className="min-h-11 px-3"
                                 aria-label="Tambah bahan ke daftar"
                                 disabled={
                                     !addVariantId ||

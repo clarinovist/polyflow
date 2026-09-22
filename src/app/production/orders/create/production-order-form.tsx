@@ -19,6 +19,17 @@ import { OrderCustomerPicker } from '@/components/production/OrderCustomerPicker
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { formatLocalDate } from '@/lib/dates/parse-local-date';
 import { Loader2 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useUnsavedSpk } from './hooks/use-unsaved-spk';
 import { formatRupiah } from '@/lib/utils/utils';
 import { createProductionOrder } from '@/actions/production/production';
 import { useRouter } from 'next/navigation';
@@ -148,6 +159,15 @@ export function ProductionOrderForm({
     priorityHint,
 }: ProductionOrderFormProps) {
     const router = useRouter();
+    const unsaved = useUnsavedSpk();
+    const { markDirty, markSaved } = unsaved;
+    const [fieldProblem, setFieldProblem] = useState<{
+        target: string;
+        message: string;
+    } | null>(null);
+    const [focusRequest, setFocusRequest] = useState<{ target: string } | null>(
+        null,
+    );
     const [step, setStep] = useState<StepNumber>(1);
     const [consumptionChoice, setConsumptionChoice] = useState<
         'TRANSFER' | 'DIRECT'
@@ -224,6 +244,33 @@ export function ProductionOrderForm({
             priority: 'NORMAL',
         },
     });
+
+    useEffect(() => {
+        if (form.formState.isDirty) markDirty();
+    }, [form.formState.isDirty, markDirty]);
+
+    useEffect(() => {
+        const target = focusRequest?.target;
+        if (!target) return;
+        const element = document.getElementById(target);
+        element?.focus();
+        element?.scrollIntoView?.({ block: 'center', behavior: 'instant' });
+    }, [step, focusRequest]);
+
+    function goToStep(next: StepNumber, target: string) {
+        setStep(next);
+        setFieldProblem(null);
+        setFocusRequest({ target });
+    }
+    function showFieldProblem(
+        next: StepNumber,
+        target: string,
+        message: string,
+    ) {
+        setStep(next);
+        setFieldProblem({ target, message });
+        setFocusRequest({ target });
+    }
 
     // Lokasi Pemakaian Bahan state (separate from output locationId).
     const [consumptionOverrideId, setConsumptionOverrideId] = useState<
@@ -654,35 +701,44 @@ export function ProductionOrderForm({
 
     const handleOutputLocationChange = useCallback(
         (val: string) => {
+            markDirty();
             form.setValue('locationId', val);
             setOutputManuallyOverridden(val !== outputLocationId);
         },
-        [form, outputLocationId],
+        [form, outputLocationId, markDirty],
     );
 
-    const handleConsumptionLocationChange = useCallback((val: string) => {
-        setConsumptionOverrideId(val);
-    }, []);
+    const handleConsumptionLocationChange = useCallback(
+        (val: string) => {
+            markDirty();
+            setConsumptionOverrideId(val);
+        },
+        [markDirty],
+    );
 
     const handleResetConsumptionToDefault = useCallback(() => {
+        markDirty();
         setConsumptionOverrideId(null);
-    }, []);
+    }, [markDirty]);
 
     const handleResetToDefault = useCallback(() => {
+        markDirty();
         form.setValue('locationId', outputLocationId);
         setOutputManuallyOverridden(false);
-    }, [form, outputLocationId]);
+    }, [form, outputLocationId, markDirty]);
 
     const handleAcceptSuggestedSource = useCallback(() => {
         const id = materialPreview.acceptSuggestedSource();
         if (id) {
+            markDirty();
             setSourceOverrideId(id);
         }
-    }, [materialPreview]);
+    }, [materialPreview, markDirty]);
 
     // C1: Editable material handlers — all operate on form.items, mark dirty
     const handleItemQtyChange = useCallback(
         (productVariantId: string, newQty: number) => {
+            markDirty();
             const current = (form.getValues('items') || []) as {
                 productVariantId: string;
                 quantity: number;
@@ -695,11 +751,12 @@ export function ProductionOrderForm({
             form.setValue('items', updated);
             itemsDirtyRef.current = true;
         },
-        [form],
+        [form, markDirty],
     );
 
     const handleAddItem = useCallback(
         (productVariantId: string, qty: number, locationId: string) => {
+            markDirty();
             if (isDirect) directSources.setSource(productVariantId, locationId);
             const current = (form.getValues('items') || []) as {
                 productVariantId: string;
@@ -724,11 +781,19 @@ export function ProductionOrderForm({
                 },
             }));
         },
-        [form, locations, rawMaterialStockMap, isDirect, directSources],
+        [
+            form,
+            locations,
+            rawMaterialStockMap,
+            isDirect,
+            directSources,
+            markDirty,
+        ],
     );
 
     const handleRemoveItem = useCallback(
         (productVariantId: string) => {
+            markDirty();
             const current = (form.getValues('items') || []) as {
                 productVariantId: string;
                 quantity: number;
@@ -746,7 +811,7 @@ export function ProductionOrderForm({
                 return next;
             });
         },
-        [form],
+        [form, markDirty],
     );
 
     // ── Shared submit logic (P2: no closure issues) ─────────────────
@@ -871,6 +936,7 @@ export function ProductionOrderForm({
                             description: `Status: ${statusLabel} · Target ${response.data.plannedQuantity.toLocaleString('id-ID')} ${planning.unitMeta.primaryUnit}.`,
                         },
                     );
+                    markSaved();
                     router.push(`/production/orders/${response.data.id}`);
                 }
             } catch {
@@ -882,6 +948,7 @@ export function ProductionOrderForm({
         [
             materialPreview.isCalculating,
             materialPreview.error,
+            markSaved,
             directSources.ready,
             directSources.error,
             consumptionMode,
@@ -929,6 +996,10 @@ export function ProductionOrderForm({
             }
             hasStockIssues={hasStockIssues}
             error={materialPreview.error || directSources.error}
+            onRetry={() => {
+                materialPreview.retry();
+                if (isDirect) directSources.retry();
+            }}
             onAcceptSuggestedSource={handleAcceptSuggestedSource}
             editable={step === 3}
             compact={step !== 3}
@@ -971,6 +1042,12 @@ export function ProductionOrderForm({
     return (
         <Form {...form}>
             <form
+                onChangeCapture={(event) => {
+                    if ((event.target as Element).hasAttribute('cmdk-input'))
+                        return;
+                    unsaved.markDirty();
+                    setFieldProblem(null);
+                }}
                 onSubmit={(event) => {
                     if (step !== 3) {
                         event.preventDefault();
@@ -985,31 +1062,59 @@ export function ProductionOrderForm({
                         const field = Object.keys(
                             errors,
                         )[0] as keyof FormValues;
-                        toast.error(
+                        const locations = [
+                            'locationId',
+                            'maklonCustomerId',
+                            'estimatedConversionCost',
+                            'customerIds',
+                            'notes',
+                            'priority',
+                        ];
+                        const next = locations.includes(field)
+                            ? 2
+                            : field === 'items'
+                              ? 3
+                              : 1;
+                        const target =
+                            field === 'plannedQuantity'
+                                ? 'spk-target'
+                                : field === 'bomId'
+                                  ? 'spk-bom'
+                                  : next === 2
+                                    ? 'spk-locations'
+                                    : next === 3
+                                      ? 'spk-material-review'
+                                      : 'spk-product';
+                        showFieldProblem(
+                            next,
+                            target,
                             String(
                                 errors[field]?.message ||
                                     'Periksa kembali data SPK sebelum membuatnya.',
                             ),
-                        );
-                        setStep(
-                            [
-                                'locationId',
-                                'maklonCustomerId',
-                                'estimatedConversionCost',
-                                'customerIds',
-                                'notes',
-                                'priority',
-                            ].includes(field)
-                                ? 2
-                                : field === 'items'
-                                  ? 3
-                                  : 1,
                         );
                     })(event);
                 }}
                 className="min-w-0 max-w-full space-y-6"
             >
                 <CreateSpkStepper currentStep={step} />
+                {fieldProblem && (
+                    <div
+                        role="alert"
+                        className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+                    >
+                        <p>{fieldProblem.message}</p>
+                        <button
+                            type="button"
+                            className="min-h-11 underline"
+                            onClick={() =>
+                                setFocusRequest({ target: fieldProblem.target })
+                            }
+                        >
+                            Perbaiki isian
+                        </button>
+                    </div>
+                )}
 
                 {/* Step 1: Spesifikasi */}
                 {step === 1 && (
@@ -1024,25 +1129,59 @@ export function ProductionOrderForm({
                                 <CardContent className="space-y-6">
                                     <StageProductSection
                                         stage={stage}
-                                        onStageChange={handleStageChange}
+                                        errors={
+                                            fieldProblem
+                                                ? {
+                                                      [fieldProblem.target]:
+                                                          fieldProblem.message,
+                                                  }
+                                                : {}
+                                        }
+                                        onStageChange={(value) => {
+                                            if (value === stage) return;
+                                            unsaved.request(() => {
+                                                handleStageChange(value);
+                                                unsaved.markDirty();
+                                                setFieldProblem(null);
+                                            }, 'Mengganti tahap akan mengosongkan produk, resep, target, mesin, dan penyesuaian bahan. Lanjutkan?');
+                                        }}
                                         products={products}
                                         selectedProductId={
                                             selectedProductVariantId
                                         }
-                                        onProductChange={handleProductChange}
+                                        onProductChange={(value) => {
+                                            if (
+                                                value ===
+                                                selectedProductVariantId
+                                            )
+                                                return;
+                                            unsaved.request(() => {
+                                                handleProductChange(value);
+                                                unsaved.markDirty();
+                                                setFieldProblem(null);
+                                            }, 'Mengganti produk akan mengganti resep dan penyesuaian bahan. Lanjutkan?');
+                                        }}
                                         boms={availableBoms}
                                         selectedBomId={
                                             (watchBomId as string) || ''
                                         }
-                                        onBomChange={handleBomChange}
+                                        onBomChange={(value) => {
+                                            if (value === watchBomId) return;
+                                            unsaved.request(() => {
+                                                handleBomChange(value);
+                                                unsaved.markDirty();
+                                                setFieldProblem(null);
+                                            }, 'Mengganti resep akan mengganti daftar bahan, termasuk penyesuaian manual. Lanjutkan?');
+                                        }}
                                         selectedBom={selectedBom}
                                         machines={compatibleMachines}
                                         selectedMachineId={
                                             (watchMachineId as string) || ''
                                         }
-                                        onMachineChange={(id) =>
-                                            form.setValue('machineId', id)
-                                        }
+                                        onMachineChange={(id) => {
+                                            form.setValue('machineId', id);
+                                            unsaved.markDirty();
+                                        }}
                                         plannedStartDate={
                                             (watchStartDate as Date) ||
                                             new Date()
@@ -1060,10 +1199,18 @@ export function ProductionOrderForm({
                                         }
                                     >
                                         <PlanningQuantitySection
-                                            planningMode={planning.planningMode}
-                                            onPlanningModeChange={
-                                                planning.setPlanningMode
+                                            error={
+                                                fieldProblem?.target ===
+                                                'spk-target'
+                                                    ? fieldProblem.message
+                                                    : undefined
                                             }
+                                            planningMode={planning.planningMode}
+                                            onPlanningModeChange={(mode) => {
+                                                planning.setPlanningMode(mode);
+                                                unsaved.markDirty();
+                                                setFieldProblem(null);
+                                            }}
                                             batchCount={planning.batchCount}
                                             onBatchCountChange={
                                                 planning.setBatchCount
@@ -1124,6 +1271,17 @@ export function ProductionOrderForm({
                                     <CardTitle>Bahan & tujuan</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
+                                    <div
+                                        id="spk-locations"
+                                        tabIndex={-1}
+                                        className="scroll-mt-24"
+                                    />
+                                    {fieldProblem?.target ===
+                                        'spk-locations' && (
+                                        <p className="text-sm text-destructive">
+                                            {fieldProblem.message}
+                                        </p>
+                                    )}
                                     <MaklonSection
                                         form={
                                             form as unknown as Parameters<
@@ -1131,15 +1289,19 @@ export function ProductionOrderForm({
                                             >[0]['form']
                                         }
                                         isMaklon={!!watchIsMaklon}
-                                        onMaklonChange={handleMaklonChange}
+                                        onMaklonChange={(checked) => {
+                                            handleMaklonChange(checked);
+                                            unsaved.markDirty();
+                                        }}
                                         customers={customers}
                                     />
                                     <LocationFlowCard
                                         stage={stage}
                                         consumptionMode={consumptionMode}
-                                        onConsumptionModeChange={
-                                            setConsumptionChoice
-                                        }
+                                        onConsumptionModeChange={(mode) => {
+                                            setConsumptionChoice(mode);
+                                            unsaved.markDirty();
+                                        }}
                                         allowDirect={allowDirect}
                                         materials={displayItems.map((item) => ({
                                             ...item,
@@ -1166,9 +1328,7 @@ export function ProductionOrderForm({
                                                 ]?.currentStock,
                                         }))}
                                         sourceLocations={directSourceLocations}
-                                        onMaterialSourceChange={
-                                            directSources.setSource
-                                        }
+                                        onMaterialSourceChange={(id, location) => { directSources.setSource(id, location); markDirty(); }}
                                         checkingStock={directSources.pending}
                                         stockError={directSources.error}
                                         onRetryStock={directSources.retry}
@@ -1300,9 +1460,15 @@ export function ProductionOrderForm({
                                 priority={(watchPriority as string) || 'NORMAL'}
                                 isMaklon={!!watchIsMaklon}
                                 predictedStatus={
-                                    materialPreview.error || materialPreview.isCalculating || directSources.pending || directSources.error || displayItems.length === 0
+                                    materialPreview.error ||
+                                    materialPreview.isCalculating ||
+                                    directSources.pending ||
+                                    directSources.error ||
+                                    displayItems.length === 0
                                         ? 'UNKNOWN'
-                                        : hasStockIssues ? 'MENUNGGU_BAHAN' : 'DRAFT'
+                                        : hasStockIssues
+                                          ? 'MENUNGGU_BAHAN'
+                                          : 'DRAFT'
                                 }
                                 outputIsRisky={outputIsRisky}
                                 customerNames={customers
@@ -1328,11 +1494,18 @@ export function ProductionOrderForm({
                                 )}
                                 notes={watchNotes || ''}
                                 linkedSalesOrder={!!salesOrderId}
-                                onEdit={() => setStep(1)}
+                                onEdit={() => goToStep(1, 'spk-product')}
+                                onEditLocations={() =>
+                                    goToStep(2, 'spk-locations')
+                                }
                             />
                         </div>
 
-                        <div className="lg:col-span-2 lg:col-start-1 lg:row-start-1">
+                        <div
+                            id="spk-material-review"
+                            tabIndex={-1}
+                            className="scroll-mt-24 lg:col-span-2 lg:col-start-1 lg:row-start-1"
+                        >
                             <p className="mb-3 text-sm text-muted-foreground">
                                 Periksa kebutuhan bahan. Penyesuaian hanya
                                 berlaku untuk SPK ini, bukan resep utama.
@@ -1349,11 +1522,17 @@ export function ProductionOrderForm({
                 )}
 
                 {/* Navigation */}
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
+                <div className="sticky bottom-24 z-20 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm sm:bottom-0 sm:pr-52">
                     <Button
                         variant="outline"
                         type="button"
-                        onClick={() => router.back()}
+                        disabled={isSubmitting}
+                        onClick={() =>
+                            unsaved.request(() => {
+                                unsaved.markSaved();
+                                router.push('/production/orders');
+                            })
+                        }
                     >
                         Batal
                     </Button>
@@ -1367,8 +1546,14 @@ export function ProductionOrderForm({
                             <Button
                                 variant="outline"
                                 type="button"
+                                disabled={isSubmitting}
                                 onClick={() =>
-                                    setStep((s) => (s - 1) as StepNumber)
+                                    goToStep(
+                                        (step - 1) as StepNumber,
+                                        step === 3
+                                            ? 'spk-locations'
+                                            : 'spk-product',
+                                    )
                                 }
                             >
                                 Kembali
@@ -1379,24 +1564,41 @@ export function ProductionOrderForm({
                                 type="button"
                                 onClick={() => {
                                     if (step === 1 && !canAdvanceFromStep1) {
-                                        toast.warning(
-                                            'Pilih produk, resep, dan target > 0',
+                                        showFieldProblem(
+                                            1,
+                                            !selectedProductVariantId
+                                                ? 'spk-product'
+                                                : !watchBomId
+                                                  ? 'spk-bom'
+                                                  : 'spk-target',
+                                            !selectedProductVariantId
+                                                ? 'Pilih produk yang akan diproduksi.'
+                                                : !watchBomId
+                                                  ? 'Pilih resep untuk produk ini.'
+                                                  : 'Target produksi harus lebih dari 0.',
                                         );
                                         return;
                                     }
                                     if (step === 2 && !canAdvanceFromStep2) {
-                                        toast.warning(
+                                        showFieldProblem(
+                                            2,
+                                            'spk-locations',
                                             !watchLocationId
-                                                ? 'Pilih lokasi penyimpanan hasil'
+                                                ? 'Pilih lokasi penyimpanan hasil.'
                                                 : watchIsMaklon &&
                                                     !watchMaklonCustomerId
-                                                  ? 'Pilih customer pemilik bahan maklon'
+                                                  ? 'Pilih customer pemilik bahan maklon.'
                                                   : directSources.error ||
-                                                    'Lengkapi asal bahan dan tunggu pemeriksaan stok',
+                                                    'Lengkapi asal bahan dan tunggu pemeriksaan stok.',
                                         );
                                         return;
                                     }
-                                    setStep((s) => (s + 1) as StepNumber);
+                                    goToStep(
+                                        (step + 1) as StepNumber,
+                                        step === 1
+                                            ? 'spk-locations'
+                                            : 'spk-material-review',
+                                    );
                                 }}
                             >
                                 {step === 1
@@ -1430,6 +1632,29 @@ export function ProductionOrderForm({
                 <input type="hidden" {...form.register('salesOrderId')} />
             </form>
 
+            <AlertDialog
+                open={!!unsaved.prompt}
+                onOpenChange={(open) => {
+                    if (!open) unsaved.cancel();
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Perubahan belum disimpan
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {unsaved.prompt}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Tetap di formulir</AlertDialogCancel>
+                        <AlertDialogAction onClick={unsaved.confirm}>
+                            Lanjutkan perubahan
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             {/* C5: Risky output confirm dialog */}
             <RiskyOutputConfirmDialog
                 open={showRiskyDialog}

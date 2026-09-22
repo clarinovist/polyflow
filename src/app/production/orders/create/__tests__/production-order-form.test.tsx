@@ -318,6 +318,70 @@ describe('ProductionOrderForm — direct packing', () => {
 });
 
 describe('ProductionOrderForm — redesigned target and review', () => {
+    it('confirms destructive stage changes and preserves the target when cancelled', async () => {
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+            />,
+        );
+        fireEvent.change(screen.getByLabelText('Target produksi (KG)'), {
+            target: { value: '300' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Packing' }));
+        expect(screen.getByRole('alertdialog')).toBeTruthy();
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Tetap di formulir' }),
+        );
+        expect(
+            (screen.getByLabelText('Target produksi (KG)') as HTMLInputElement)
+                .value,
+        ).toBe('300');
+        fireEvent.click(screen.getByRole('button', { name: 'Packing' }));
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Lanjutkan perubahan' }),
+        );
+        expect(
+            screen
+                .getByRole('button', { name: 'Packing' })
+                .getAttribute('aria-pressed'),
+        ).toBe('true');
+    });
+    it('focuses an invalid target and offers a review shortcut directly to locations', async () => {
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+            />,
+        );
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut: Bahan/ }));
+        expect(
+            screen.getAllByText('Target produksi harus lebih dari 0.').length,
+        ).toBeGreaterThan(0);
+        expect(document.activeElement).toBe(
+            screen.getByLabelText('Target produksi (KG)'),
+        );
+        fireEvent.change(screen.getByLabelText('Target produksi (KG)'), {
+            target: { value: '300' },
+        });
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut: Bahan/ }));
+        fireEvent.click(
+            screen.getByRole('button', { name: /Lanjut: Periksa/ }),
+        );
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: 'Ubah lokasi, customer & instruksi',
+            }),
+        );
+        expect(document.activeElement?.id).toBe('spk-locations');
+        expect(screen.getByText('Order Maklon')).toBeTruthy();
+    });
+
     it('never creates an order from Enter/native form submit before the review step', async () => {
         vi.mocked(createProductionOrder).mockReset();
         render(
@@ -536,8 +600,9 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
         await act(async () => {
             fireEvent.click(screen.getByText('Campuran Test'));
         });
+        fireEvent.click(screen.getByRole('combobox', { name: 'Resep (BOM)' }));
         await act(async () => {
-            fireEvent.click(screen.getByText('Resep A'));
+            fireEvent.click(screen.getByRole('option', { name: /Resep A/ }));
         });
 
         const qtyInput = document.querySelector(
@@ -560,9 +625,13 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
         // Go back to Step 1 and pick the OTHER recipe — a genuine "start over".
         fireEvent.click(screen.getByText('Kembali'));
         fireEvent.click(screen.getByText('Kembali'));
+        fireEvent.click(screen.getByRole('combobox', { name: 'Resep (BOM)' }));
         await act(async () => {
-            fireEvent.click(screen.getByText('Resep B'));
+            fireEvent.click(screen.getByRole('option', { name: /Resep B/ }));
         });
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Lanjutkan perubahan' }),
+        );
         await act(async () => {
             vi.advanceTimersByTime(500);
         });
@@ -626,7 +695,10 @@ describe('ProductionOrderForm — Tambah bahan (manual add, gudang-first)', () =
             .getAllByText('Gudang Bahan Baku')
             .find((el) => el.closest('button'));
         fireEvent.click(gudangOption!.closest('button')!);
-        fireEvent.click(screen.getByText('Bahan Manual'));
+        fireEvent.click(
+            screen.getByRole('combobox', { name: 'Bahan tambahan' }),
+        );
+        fireEvent.click(screen.getByRole('option', { name: /Bahan Manual/ }));
 
         const numberInputs = document.querySelectorAll('input[type="number"]');
         const addQtyInput = numberInputs[

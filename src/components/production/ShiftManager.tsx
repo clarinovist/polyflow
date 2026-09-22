@@ -79,7 +79,7 @@ export function ShiftManager({
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Production Shifts</h3>
+                <h3 className="text-lg font-semibold">Shift produksi</h3>
                 {!readOnly && (
                     <AddShiftDialog
                         orderId={orderId}
@@ -149,21 +149,21 @@ export function ShiftManager({
                                         shift.operator.name
                                     ) : (
                                         <span className="text-slate-400">
-                                            Unassigned
+                                            Belum ditugaskan
                                         </span>
                                     )}
                                 </div>
                                 <div className="flex items-start gap-2 text-slate-700">
                                     <span className="ml-6 flex items-start gap-2">
                                         <span className="font-medium">
-                                            Helpers:
+                                            Helper:
                                         </span>
                                         <span className="text-slate-600">
                                             {shift.helpers.length > 0
                                                 ? shift.helpers
                                                       .map((h) => h.name)
                                                       .join(', ')
-                                                : 'None'}
+                                                : 'Tidak ada'}
                                         </span>
                                     </span>
                                 </div>
@@ -175,7 +175,7 @@ export function ShiftManager({
                     <div className="text-center py-6 border rounded-lg bg-slate-50 dark:bg-slate-900 text-muted-foreground text-sm">
                         Belum ada shift. Klik{' '}
                         <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            Add Shift
+                            Tambah shift
                         </span>{' '}
                         untuk jadwalkan tim produksi.
                     </div>
@@ -285,17 +285,17 @@ function AddShiftDialog({
             <DialogTrigger asChild>
                 <Button size="sm" className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Add Shift
+                    Tambah shift
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Add Production Shift</DialogTitle>
+                    <DialogTitle>Tambah shift produksi</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={onSubmit} className="space-y-4">
                     {/* Work Shift Selection */}
                     <div className="space-y-2">
-                        <Label>Standard Shift (Optional)</Label>
+                        <Label>Template shift · opsional</Label>
                         <Select onValueChange={handleWorkShiftSelect}>
                             <SelectTrigger>
                                 <SelectValue
@@ -318,7 +318,7 @@ function AddShiftDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="shiftName">Shift Name</Label>
+                        <Label htmlFor="shiftName">Nama shift</Label>
                         <Input
                             id="shiftName"
                             name="shiftName"
@@ -330,7 +330,7 @@ function AddShiftDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="date">Date</Label>
+                        <Label htmlFor="date">Tanggal</Label>
                         <Input
                             id="date"
                             name="date"
@@ -343,7 +343,7 @@ function AddShiftDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="machineId">Assigned Machine</Label>
+                        <Label htmlFor="machineId">Mesin yang ditugaskan</Label>
                         <Select name="machineId">
                             <SelectTrigger>
                                 <SelectValue
@@ -368,7 +368,7 @@ function AddShiftDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="startTime">Start Time</Label>
+                            <Label htmlFor="startTime">Jam mulai</Label>
                             <Input
                                 id="startTime"
                                 name="startTime"
@@ -379,7 +379,7 @@ function AddShiftDialog({
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="endTime">End Time</Label>
+                            <Label htmlFor="endTime">Jam selesai</Label>
                             <Input
                                 id="endTime"
                                 name="endTime"
@@ -392,7 +392,7 @@ function AddShiftDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="operatorId">Lead Operator</Label>
+                        <Label htmlFor="operatorId">Operator utama</Label>
                         <Select name="operatorId">
                             <SelectTrigger>
                                 <SelectValue
@@ -412,7 +412,7 @@ function AddShiftDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Helpers</Label>
+                        <Label>Helper</Label>
                         <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
                             {helpers.map((helper) => (
                                 <div
@@ -441,7 +441,7 @@ function AddShiftDialog({
 
                     <DialogFooter>
                         <Button type="submit" disabled={loading}>
-                            {loading ? 'Adding...' : 'Add Shift'}
+                            {loading ? 'Menambahkan…' : 'Tambah shift'}
                         </Button>
                     </DialogFooter>
                 </form>

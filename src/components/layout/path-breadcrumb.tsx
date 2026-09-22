@@ -129,7 +129,12 @@ function buildBreadcrumbs(pathname: string): BreadcrumbSegment[] {
 
     for (let i = 0; i < segments.length; i++) {
         const href = '/' + segments.slice(0, i + 1).join('/');
-        const label = getLabel(segments[i]);
+        const label =
+            href === '/production/orders'
+                ? 'SPK'
+                : href === '/production/orders/create'
+                  ? 'Buat SPK'
+                  : getLabel(segments[i]);
         crumbs.push({ label, href, isLast: i === segments.length - 1 });
     }
 
@@ -151,7 +156,7 @@ export function PathBreadCrumb({ className }: PathBreadCrumbProps) {
         <nav
             aria-label="Breadcrumb"
             className={cn(
-                'flex items-center gap-1 text-sm text-muted-foreground mb-4',
+                'flex flex-wrap items-center gap-1 text-sm text-muted-foreground mb-4',
                 className,
             )}
         >

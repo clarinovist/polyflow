@@ -108,7 +108,7 @@ describe('MaterialPreviewPanel', () => {
 
             fireEvent.click(itemPicker);
             expect(await screen.findByText('PP Karung')).toBeTruthy();
-            expect(screen.getByText('Stok: 925')).toBeTruthy();
+            expect(screen.getByText('Stok: 925 KG')).toBeTruthy();
         });
 
         it('calls onAddItem with the chosen gudang as the third argument', async () => {

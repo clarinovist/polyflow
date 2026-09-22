@@ -117,8 +117,7 @@ export function BatchIssueMaterialDialog({
         (order as unknown as { materialConsumptionLocationId?: string | null })
             .materialConsumptionLocationId || order.location.id;
     const consumptionLocation =
-        locations.find((l) => l.id === consumptionLocationId) ||
-        order.location;
+        locations.find((l) => l.id === consumptionLocationId) || order.location;
 
     /**
      * Warehouse a single line defaults to. Packaging supplies and WIP batches
@@ -592,7 +591,12 @@ export function BatchIssueMaterialDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog
+                open={open}
+                onOpenChange={(value) => {
+                    if (!loading) setOpen(value);
+                }}
+            >
                 <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
                         {isTransferMode ? (
@@ -605,8 +609,8 @@ export function BatchIssueMaterialDialog({
                             : productionComponentLabels.issueMaterial}
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
+                <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+                    <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
                         <DialogTitle>
                             {isTransferMode
                                 ? productionComponentLabels.transferMaterialsToStaging
@@ -614,7 +618,11 @@ export function BatchIssueMaterialDialog({
                         </DialogTitle>
                     </DialogHeader>
 
-                    <div className="space-y-6">
+                    <div className="min-h-0 space-y-5 overflow-y-auto p-5">
+                        <p className="text-sm text-muted-foreground">
+                            Periksa gudang asal, lokasi pemakaian, dan jumlah
+                            setiap bahan sebelum menyimpan.
+                        </p>
                         <div className="bg-muted/40 p-4 rounded-lg border space-y-3">
                             <div className="flex items-center justify-between gap-2">
                                 <p className="text-xs font-medium text-muted-foreground">
@@ -628,7 +636,7 @@ export function BatchIssueMaterialDialog({
                                     size="sm"
                                     onClick={checkStocks}
                                     disabled={checkingStock}
-                                    className="h-7 shrink-0 text-xs"
+                                    className="min-h-11 shrink-0 text-sm"
                                 >
                                     <RefreshCw
                                         className={cn(
@@ -722,7 +730,8 @@ export function BatchIssueMaterialDialog({
                                         </div>
                                     </div>
 
-                                    {selectedLocation === consumptionLocationId && (
+                                    {selectedLocation ===
+                                        consumptionLocationId && (
                                         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
                                             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                                             <span className="min-w-0 leading-relaxed">
@@ -995,8 +1004,7 @@ export function BatchIssueMaterialDialog({
                                                                 :{' '}
                                                                 <span className="font-medium text-foreground">
                                                                     {
-                                                                        consumptionLocation
-                                                                            .name
+                                                                        consumptionLocation.name
                                                                     }
                                                                 </span>
                                                             </span>
@@ -1284,9 +1292,11 @@ export function BatchIssueMaterialDialog({
                         </div>
                     </div>
 
-                    <DialogFooter className="mt-6">
+                    <DialogFooter className="shrink-0 border-t bg-background p-4">
                         <Button
                             variant="outline"
+                            disabled={loading}
+                            className="min-h-11"
                             onClick={() => setOpen(false)}
                         >
                             {productionComponentLabels.cancel}
@@ -1306,7 +1316,7 @@ export function BatchIssueMaterialDialog({
                                             !isSelfConsumptionWip(i),
                                     ))
                             }
-                            className="bg-primary hover:bg-primary/90"
+                            className="min-h-11 bg-primary hover:bg-primary/90"
                         >
                             {loading
                                 ? 'Memproses...'

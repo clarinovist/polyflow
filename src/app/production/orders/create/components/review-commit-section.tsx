@@ -26,6 +26,7 @@ interface ReviewCommitSectionProps {
     conversionCost?: string;
     notes?: string;
     onEdit?: () => void;
+    onEditLocations?: () => void;
 }
 
 export function ReviewCommitSection({
@@ -51,6 +52,7 @@ export function ReviewCommitSection({
     conversionCost,
     notes,
     onEdit,
+    onEditLocations,
 }: ReviewCommitSectionProps) {
     return (
         <Card>
@@ -60,7 +62,7 @@ export function ReviewCommitSection({
                     <button
                         type="button"
                         onClick={onEdit}
-                        className="min-h-11 px-2 text-sm underline underline-offset-4"
+                        className="min-h-11 scroll-mt-24 px-2 text-sm underline underline-offset-4"
                     >
                         Ubah rencana
                     </button>
@@ -198,6 +200,15 @@ export function ReviewCommitSection({
                     )}
                 </div>
 
+                {onEditLocations && (
+                    <button
+                        type="button"
+                        className="min-h-11 scroll-mt-24 text-sm underline underline-offset-4"
+                        onClick={onEditLocations}
+                    >
+                        Ubah lokasi, customer & instruksi
+                    </button>
+                )}
                 <div className="pt-3 border-t">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-muted-foreground">
@@ -213,7 +224,11 @@ export function ReviewCommitSection({
                                       : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
                             )}
                         >
-                            {predictedStatus === 'UNKNOWN' ? 'Belum terverifikasi' : predictedStatus === 'DRAFT' ? 'Draft' : 'Menunggu Bahan'}
+                            {predictedStatus === 'UNKNOWN'
+                                ? 'Belum terverifikasi'
+                                : predictedStatus === 'DRAFT'
+                                  ? 'Draft'
+                                  : 'Menunggu Bahan'}
                         </span>
                     </div>
                 </div>

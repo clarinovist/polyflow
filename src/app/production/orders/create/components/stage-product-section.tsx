@@ -19,6 +19,7 @@ import {
 } from '@/lib/locations/resolve-location';
 import { parseLocalDate, formatLocalDate } from '@/lib/dates/parse-local-date';
 import Link from 'next/link';
+import { ProductionOptionPicker } from '@/components/production/ProductionOptionPicker';
 
 interface BomOption {
     id: string;
@@ -43,6 +44,7 @@ interface ProductOption {
 
 interface StageProductSectionProps {
     children?: ReactNode;
+    errors?: Record<string, string>;
     stage: ProductionStage;
     onStageChange: (stage: ProductionStage) => void;
     products: ProductOption[];
@@ -63,6 +65,7 @@ interface StageProductSectionProps {
 
 export function StageProductSection({
     children,
+    errors = {},
     stage,
     onStageChange,
     products,
@@ -141,24 +144,28 @@ export function StageProductSection({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                     <Label htmlFor="spk-product">Produk</Label>
-                    <Select
+                    <ProductionOptionPicker
+                        id="spk-product"
+                        label="Produk"
+                        invalid={!!errors['spk-product']}
+                        describedBy={
+                            errors['spk-product']
+                                ? 'spk-product-error'
+                                : undefined
+                        }
                         value={selectedProductId}
-                        onValueChange={onProductChange}
-                    >
-                        <SelectTrigger
-                            id="spk-product"
-                            className="min-h-11 w-full"
+                        options={products}
+                        onChange={onProductChange}
+                        placeholder="Pilih produk"
+                    />
+                    {errors['spk-product'] && (
+                        <p
+                            id="spk-product-error"
+                            className="text-sm text-destructive"
                         >
-                            <SelectValue placeholder="Pilih produk" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {products.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                    {p.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                            {errors['spk-product']}
+                        </p>
+                    )}
                     {products.length === 0 &&
                         (stage === 'rework' ? (
                             // Rework needs a dedicated BOM category most tenants
@@ -198,28 +205,35 @@ export function StageProductSection({
 
                 <div className="space-y-2">
                     <Label htmlFor="spk-bom">Resep (BOM)</Label>
-                    <Select
+                    <ProductionOptionPicker
+                        id="spk-bom"
+                        label="Resep (BOM)"
+                        invalid={!!errors['spk-bom']}
+                        describedBy={
+                            errors['spk-bom'] ? 'spk-bom-error' : undefined
+                        }
                         value={selectedBomId}
-                        onValueChange={onBomChange}
+                        options={boms.map((bom) => ({
+                            id: bom.id,
+                            name: bom.name,
+                            description: `${bom.isDefault ? 'Resep utama · ' : ''}${bom.outputQuantity} ${bom.productVariant.primaryUnit || ''} / batch`,
+                        }))}
+                        onChange={onBomChange}
                         disabled={!selectedProductId}
-                    >
-                        <SelectTrigger id="spk-bom" className="min-h-11 w-full">
-                            <SelectValue
-                                placeholder={
-                                    !selectedProductId
-                                        ? 'Pilih produk dulu'
-                                        : 'Pilih resep'
-                                }
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {boms.map((b) => (
-                                <SelectItem key={b.id} value={b.id}>
-                                    {b.name} {b.isDefault ? '(Default)' : ''}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        placeholder={
+                            !selectedProductId
+                                ? 'Pilih produk dulu'
+                                : 'Pilih resep'
+                        }
+                    />
+                    {errors['spk-bom'] && (
+                        <p
+                            id="spk-bom-error"
+                            className="text-sm text-destructive"
+                        >
+                            {errors['spk-bom']}
+                        </p>
+                    )}
                     {selectedBom && (
                         <p className="text-xs text-muted-foreground">
                             Output: {selectedBom.outputQuantity}{' '}

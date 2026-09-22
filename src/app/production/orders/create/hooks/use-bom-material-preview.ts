@@ -49,6 +49,7 @@ interface UseBomMaterialPreviewReturn {
     suggestedSource: { id: string; name: string } | null;
     isCalculating: boolean;
     error: string | null;
+    retry: () => void;
     /** Call when user accepts the suggested source */
     acceptSuggestedSource: () => string | null;
 }
@@ -72,9 +73,16 @@ export function useBomMaterialPreview({
     const [isCalculating, setIsCalculating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const requestId = useRef(0);
+    const [revision, setRevision] = useState(0);
+    const [settledKey, setSettledKey] = useState('');
+    const key = JSON.stringify([bomId, sourceLocationId, plannedQty, revision]);
+    const enabled = !!bomId && plannedQty > 0 && !!sourceLocationId;
+    const retry = useCallback(() => setRevision((value) => value + 1), []);
 
     useEffect(() => {
+        const thisId = ++requestId.current;
         if (!bomId || plannedQty <= 0 || !sourceLocationId) {
+            setIsCalculating(false);
             setItems([]);
             setMaterialInfo({});
             setSuggestedSource(null);
@@ -82,11 +90,9 @@ export function useBomMaterialPreview({
             return;
         }
 
+        setIsCalculating(true);
+        setError(null);
         const timer = setTimeout(async () => {
-            setIsCalculating(true);
-            setError(null);
-            const thisId = ++requestId.current;
-
             try {
                 const result = (await getBomWithInventory(
                     bomId,
@@ -155,12 +161,16 @@ export function useBomMaterialPreview({
             } finally {
                 if (requestId.current === thisId) {
                     setIsCalculating(false);
+                    setSettledKey(key);
                 }
             }
         }, debounceMs);
 
-        return () => clearTimeout(timer);
-    }, [bomId, sourceLocationId, plannedQty, debounceMs]);
+        return () => {
+            clearTimeout(timer);
+            requestId.current = thisId + 1;
+        };
+    }, [bomId, sourceLocationId, plannedQty, debounceMs, key]);
 
     const acceptSuggestedSource = useCallback(() => {
         if (suggestedSource) {
@@ -175,8 +185,9 @@ export function useBomMaterialPreview({
         items,
         materialInfo,
         suggestedSource,
-        isCalculating,
-        error,
+        isCalculating: enabled && (isCalculating || settledKey !== key),
+        error: settledKey === key ? error : null,
+        retry,
         acceptSuggestedSource,
     };
 }

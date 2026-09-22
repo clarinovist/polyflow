@@ -1,26 +1,52 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+    cleanup,
+    fireEvent,
+    render,
+    screen,
+    waitFor,
+} from '@testing-library/react';
 import { AddOutputDialog } from '../AddOutputDialog';
 import { addProductionOutput } from '@/actions/production/production';
 import { toast } from 'sonner';
 
-vi.mock('@/actions/production/production', () => ({ addProductionOutput: vi.fn() }));
+vi.mock('@/actions/production/production', () => ({
+    addProductionOutput: vi.fn(),
+}));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 type Props = React.ComponentProps<typeof AddOutputDialog>;
 const props = {
     order: {
-        id: 'wo-date-test', machineId: 'machine-test',
-        bom: { productVariant: { primaryUnit: 'KG', salesUnit: 'ZAK', conversionFactor: 25 } },
-        shifts: [{ id: 'shift-test', shiftName: 'Malam', operatorId: 'operator-test',
-            startTime: '2026-09-01T22:00:00+07:00', endTime: '2026-09-02T06:00:00+07:00',
-            operator: { name: 'Operator Test' } }],
+        id: 'wo-date-test',
+        machineId: 'machine-test',
+        bom: {
+            productVariant: {
+                primaryUnit: 'KG',
+                salesUnit: 'ZAK',
+                conversionFactor: 25,
+            },
+        },
+        shifts: [
+            {
+                id: 'shift-test',
+                shiftName: 'Malam',
+                operatorId: 'operator-test',
+                startTime: '2026-09-01T22:00:00+07:00',
+                endTime: '2026-09-02T06:00:00+07:00',
+                operator: { name: 'Operator Test' },
+            },
+        ],
     },
     formData: {
         operators: [{ id: 'operator-test', name: 'Operator Test' }],
-        helpers: [], workShifts: [], locations: [], machines: [], rawMaterials: [],
+        helpers: [],
+        workShifts: [],
+        locations: [],
+        machines: [],
+        rawMaterials: [],
     },
 } as unknown as Props;
 
@@ -34,11 +60,15 @@ function openDialog() {
     fireEvent.click(screen.getByRole('button', { name: /Hasil Produksi/i }));
 }
 function addGoodOutput() {
-    fireEvent.change(screen.getByPlaceholderText(/Enter Item Size/), { target: { value: '2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.change(screen.getByLabelText('Jumlah per entri (ZAK)'), {
+        target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tambahkan' }));
 }
 function addScrap() {
-    fireEvent.change(screen.getAllByPlaceholderText('0.00')[0], { target: { value: '3' } });
+    fireEvent.change(screen.getAllByPlaceholderText('0.00')[0], {
+        target: { value: '3' },
+    });
 }
 
 describe('WO output production date', () => {
@@ -46,7 +76,10 @@ describe('WO output production date', () => {
         vi.clearAllMocks();
         vi.useFakeTimers({ toFake: ['Date'] });
         vi.setSystemTime(new Date('2026-09-01T17:05:00Z'));
-        vi.mocked(addProductionOutput).mockResolvedValue({ success: true, data: null });
+        vi.mocked(addProductionOutput).mockResolvedValue({
+            success: true,
+            data: null,
+        });
     });
     afterEach(() => {
         cleanup();
@@ -59,7 +92,9 @@ describe('WO output production date', () => {
         expect(dateInput().value).toBe('2026-09-02');
         expect(dateInput().required).toBe(true);
         expect(dateInput().max).toBe('2026-09-02');
-        expect(screen.getByText(/stok dan jurnal dibukukan saat disimpan/)).toBeTruthy();
+        expect(
+            screen.getByText(/stok dan jurnal dibukukan saat disimpan/),
+        ).toBeTruthy();
         expect(screen.getByText('Waktu Input (WIB)')).toBeTruthy();
     });
 
@@ -71,12 +106,19 @@ describe('WO output production date', () => {
         addScrap();
         fireEvent.submit(form());
         await waitFor(() => expect(toast.success).toHaveBeenCalled());
-        expect(addProductionOutput).toHaveBeenCalledWith(expect.objectContaining({
-            productionOrderId: 'wo-date-test', productionDate: '2026-08-20',
-            shiftId: 'shift-test', operatorId: 'operator-test',
-            quantityProduced: 50, enteredQuantity: 2, enteredUnit: 'ZAK',
-            conversionFactorSnapshot: 25, scrapProngkolQty: 3,
-        }));
+        expect(addProductionOutput).toHaveBeenCalledWith(
+            expect.objectContaining({
+                productionOrderId: 'wo-date-test',
+                productionDate: '2026-08-20',
+                shiftId: 'shift-test',
+                operatorId: 'operator-test',
+                quantityProduced: 50,
+                enteredQuantity: 2,
+                enteredUnit: 'ZAK',
+                conversionFactorSnapshot: 25,
+                scrapProngkolQty: 3,
+            }),
+        );
         openDialog();
         expect(dateInput().value).toBe('2026-09-02');
     });
@@ -87,34 +129,45 @@ describe('WO output production date', () => {
         addScrap();
         fireEvent.submit(form());
         await waitFor(() => expect(addProductionOutput).toHaveBeenCalled());
-        expect(addProductionOutput).toHaveBeenCalledWith(expect.objectContaining({
-            productionDate: '2026-09-02', quantityProduced: 0,
-            scrapProngkolQty: 3, enteredQuantity: undefined,
-        }));
+        expect(addProductionOutput).toHaveBeenCalledWith(
+            expect.objectContaining({
+                productionDate: '2026-09-02',
+                quantityProduced: 0,
+                scrapProngkolQty: 3,
+                enteredQuantity: undefined,
+            }),
+        );
     });
 
     it.each(['', '2026-09-03'])(
-        'rejects missing/future date %s before invoking the action', (value) => {
+        'rejects missing/future date %s before invoking the action',
+        (value) => {
             render(<AddOutputDialog {...props} />);
             openDialog();
             addScrap();
             fireEvent.change(dateInput(), { target: { value } });
             fireEvent.submit(form());
             expect(addProductionOutput).not.toHaveBeenCalled();
-            expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Tanggal produksi'));
+            expect(toast.error).toHaveBeenCalledWith(
+                expect.stringContaining('Tanggal produksi'),
+            );
         },
     );
 
     it('retains date after a server rejection and allows retry', async () => {
         vi.mocked(addProductionOutput).mockResolvedValueOnce({
-            success: false, error: 'Stok tidak cukup', code: 'BUSINESS_RULE',
+            success: false,
+            error: 'Stok tidak cukup',
+            code: 'BUSINESS_RULE',
         });
         render(<AddOutputDialog {...props} />);
         openDialog();
         fireEvent.change(dateInput(), { target: { value: '2026-09-01' } });
         addScrap();
         fireEvent.submit(form());
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Stok tidak cukup'));
+        await waitFor(() =>
+            expect(toast.error).toHaveBeenCalledWith('Stok tidak cukup'),
+        );
         expect(dateInput().value).toBe('2026-09-01');
         expect(dateInput().disabled).toBe(false);
         fireEvent.submit(form());
@@ -131,11 +184,70 @@ describe('WO output production date', () => {
         expect(addProductionOutput).not.toHaveBeenCalled();
         expect(screen.getByText('Scrap masih 0')).toBeTruthy();
         fireEvent.submit(form());
-        await waitFor(() => expect(addProductionOutput).toHaveBeenCalledWith(expect.objectContaining({
-            productionDate: '2026-09-01', scrapProngkolQty: 0, scrapDaunQty: 0,
-        })));
+        await waitFor(() =>
+            expect(addProductionOutput).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    productionDate: '2026-09-01',
+                    scrapProngkolQty: 0,
+                    scrapDaunQty: 0,
+                }),
+            ),
+        );
     });
 
+    it('recovers from a rejected network call without clearing input or retrying automatically', async () => {
+        vi.mocked(addProductionOutput).mockRejectedValueOnce(
+            new Error('Network'),
+        );
+        render(<AddOutputDialog {...props} />);
+        openDialog();
+        addScrap();
+        fireEvent.submit(form());
+        await waitFor(() =>
+            expect(screen.getByRole('alert').textContent).toContain(
+                'Periksa riwayat hasil',
+            ),
+        );
+        expect(dateInput().disabled).toBe(false);
+        expect(addProductionOutput).toHaveBeenCalledTimes(1);
+        expect(
+            (screen.getByLabelText('Prongkol (KG)') as HTMLInputElement).value,
+        ).toBe('3');
+    });
+    it('does not silently drop an unadded result entry', () => {
+        render(<AddOutputDialog {...props} />);
+        openDialog();
+        addScrap();
+        fireEvent.change(screen.getByLabelText('Jumlah per entri (ZAK)'), {
+            target: { value: '2' },
+        });
+        fireEvent.submit(form());
+        expect(addProductionOutput).not.toHaveBeenCalled();
+        expect(screen.getByRole('alert').textContent).toContain(
+            'Tambahkan jumlah ke daftar hasil',
+        );
+    });
+    it('shows removal buttons without hover and keeps the helper checkbox usable on touch', () => {
+        render(
+            <AddOutputDialog
+                {...props}
+                formData={{
+                    ...props.formData,
+                    helpers: [{ id: 'helper', name: 'Helper Test' }] as never,
+                }}
+            />,
+        );
+        openDialog();
+        addGoodOutput();
+        fireEvent.click(screen.getByLabelText('Helper Test'));
+        fireEvent.click(screen.getByRole('button', { name: 'Hapus entri 1' }));
+        expect(
+            screen.queryByRole('button', { name: 'Hapus entri 1' }),
+        ).toBeNull();
+        expect(
+            (screen.getByLabelText('Helper Test') as HTMLInputElement).checked,
+        ).toBe(true);
+    });
     it('refreshes the default when reopened on a new WIB day', () => {
         render(<AddOutputDialog {...props} />);
         openDialog();

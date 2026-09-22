@@ -7,6 +7,7 @@ import { formatProductionQuantity } from '@/lib/utils/production-units';
 import type { PlanningMode } from '../hooks/use-planning-intent';
 
 interface PlanningQuantitySectionProps {
+    error?: string;
     planningMode: PlanningMode;
     onPlanningModeChange: (mode: PlanningMode) => void;
     batchCount: number;
@@ -105,13 +106,26 @@ export function PlanningQuantitySection(props: PlanningQuantitySectionProps) {
                         onChange={(event) =>
                             onChange(Number(event.target.value) || 0)
                         }
-                        aria-describedby="spk-target-equivalent"
+                        aria-invalid={!!props.error}
+                        aria-describedby={
+                            props.error
+                                ? 'spk-target-error spk-target-equivalent'
+                                : 'spk-target-equivalent'
+                        }
                         className="h-14 pr-24 text-xl font-semibold tabular-nums"
                     />
                     <span className="pointer-events-none absolute right-4 top-4 text-sm font-medium text-muted-foreground">
                         {unit}
                     </span>
                 </div>
+                {props.error && (
+                    <p
+                        id="spk-target-error"
+                        className="text-sm text-destructive"
+                    >
+                        {props.error}
+                    </p>
+                )}
                 <p
                     id="spk-target-equivalent"
                     className="text-sm text-muted-foreground"

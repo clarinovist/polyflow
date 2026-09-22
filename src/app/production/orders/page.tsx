@@ -416,177 +416,295 @@ export default async function ProductionOrdersPage({
                         )}
                     </div>
                 </div>
-                <Table className="min-w-[900px]">
-                    <TableHeader>
-                        <TableRow className="bg-muted/40">
-                            <TableHead className="pl-5">No. SPK</TableHead>
-                            <TableHead>Produk & resep</TableHead>
-                            <TableHead>Jadwal & mesin</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Hasil / target</TableHead>
-                            <TableHead className="pr-5">
-                                <span className="sr-only">Detail</span>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {orders.length === 0 ? (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={6}
-                                    className="py-16 text-center"
+                {orders.length > 0 && (
+                    <div
+                        className="divide-y md:hidden"
+                        aria-label="Daftar SPK mobile"
+                    >
+                        {orders.map((order) => (
+                            <article key={order.id} className="space-y-3 p-4">
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                    <Link
+                                        href={`/production/orders/${order.id}`}
+                                        className="min-h-11 font-mono text-sm font-semibold underline underline-offset-4"
+                                    >
+                                        {order.orderNumber}
+                                    </Link>
+                                    <ProductionStatusBadge
+                                        status={order.status}
+                                    />
+                                </div>
+                                <div>
+                                    <h3 className="font-medium">
+                                        {order.bom.productVariant.name}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {order.bom.name}
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <ProductionPriorityBadge
+                                        priority={order.priority}
+                                    />
+                                    {order.isMaklon && (
+                                        <Badge variant="outline">Maklon</Badge>
+                                    )}
+                                </div>
+                                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+                                    <dt className="text-muted-foreground">
+                                        Mulai / mesin
+                                    </dt>
+                                    <dd>
+                                        {format(
+                                            new Date(order.plannedStartDate),
+                                            'd MMM yyyy',
+                                            { locale: idLocale },
+                                        )}{' '}
+                                        ·{' '}
+                                        {order.machine?.code ||
+                                            'Belum ditentukan'}
+                                    </dd>
+                                    <dt className="text-muted-foreground">
+                                        Sumber
+                                    </dt>
+                                    <dd>
+                                        {order.salesOrder?.customer?.name ||
+                                            order.salesOrder?.orderNumber ||
+                                            'Stok internal'}
+                                    </dd>
+                                    <dt className="text-muted-foreground">
+                                        Hasil
+                                    </dt>
+                                    <dd>
+                                        {Number(
+                                            order.actualQuantity || 0,
+                                        ).toLocaleString('id-ID')}{' '}
+                                        {order.bom.productVariant.primaryUnit}
+                                    </dd>
+                                    <dt className="text-muted-foreground">
+                                        Target
+                                    </dt>
+                                    <dd>
+                                        {getEnteredQuantityDisplay({
+                                            ...order.bom.productVariant,
+                                            quantity: order.plannedQuantity,
+                                            enteredQuantity:
+                                                order.plannedEnteredQuantity,
+                                            enteredUnit:
+                                                order.plannedEnteredUnit,
+                                            conversionFactorSnapshot:
+                                                order.plannedConversionFactorSnapshot,
+                                        })}
+                                    </dd>
+                                </dl>
+                                <Button
+                                    asChild
+                                    variant="outline"
+                                    className="min-h-11 w-full"
                                 >
-                                    <p className="font-medium">
-                                        {hasActiveFilters
-                                            ? 'Tidak ada SPK yang cocok'
-                                            : 'Belum ada SPK untuk ditampilkan'}
-                                    </p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {hasActiveFilters
-                                            ? 'Coba kata kunci lain atau hapus filter.'
-                                            : 'Buat SPK untuk mulai merencanakan produksi.'}
-                                    </p>
-                                    <div className="mt-4 flex justify-center gap-2">
-                                        {hasActiveFilters && (
-                                            <Button asChild variant="outline">
-                                                <Link href="/production/orders">
-                                                    Hapus filter
+                                    <Link
+                                        href={`/production/orders/${order.id}`}
+                                    >
+                                        Buka SPK
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            </article>
+                        ))}
+                    </div>
+                )}
+                <div className={orders.length ? 'hidden md:block' : ''}>
+                    <Table className="min-w-[900px]">
+                        <TableHeader>
+                            <TableRow className="bg-muted/40">
+                                <TableHead className="pl-5">No. SPK</TableHead>
+                                <TableHead>Produk & resep</TableHead>
+                                <TableHead>Jadwal & mesin</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Hasil / target</TableHead>
+                                <TableHead className="pr-5">
+                                    <span className="sr-only">Detail</span>
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {orders.length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={6}
+                                        className="py-16 text-center"
+                                    >
+                                        <p className="font-medium">
+                                            {hasActiveFilters
+                                                ? 'Tidak ada SPK yang cocok'
+                                                : 'Belum ada SPK untuk ditampilkan'}
+                                        </p>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {hasActiveFilters
+                                                ? 'Coba kata kunci lain atau hapus filter.'
+                                                : 'Buat SPK untuk mulai merencanakan produksi.'}
+                                        </p>
+                                        <div className="mt-4 flex justify-center gap-2">
+                                            {hasActiveFilters && (
+                                                <Button
+                                                    asChild
+                                                    variant="outline"
+                                                >
+                                                    <Link href="/production/orders">
+                                                        Hapus filter
+                                                    </Link>
+                                                </Button>
+                                            )}
+                                            <Button asChild>
+                                                <Link href="/production/orders/create">
+                                                    Buat SPK
                                                 </Link>
                                             </Button>
-                                        )}
-                                        <Button asChild>
-                                            <Link href="/production/orders/create">
-                                                Buat SPK
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            orders.map((order) => {
-                                const progress =
-                                    (Number(order.actualQuantity || 0) /
-                                        Number(order.plannedQuantity || 1)) *
-                                    100;
-                                const href = `/production/orders/${order.id}`;
-                                return (
-                                    <TableRow key={order.id} className="group">
-                                        <TableCell className="py-4 pl-5 align-top">
-                                            <Link
-                                                href={href}
-                                                className="font-mono text-sm font-medium underline-offset-4 hover:underline"
-                                            >
-                                                {order.orderNumber}
-                                            </Link>
-                                            <div className="mt-2 flex flex-wrap gap-1">
-                                                <ProductionPriorityBadge
-                                                    priority={order.priority}
-                                                />
-                                                {order.isMaklon && (
-                                                    <Badge variant="outline">
-                                                        Maklon
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="max-w-72 py-4 align-top">
-                                            <Link
-                                                href={href}
-                                                className="font-medium hover:underline"
-                                            >
-                                                {order.bom.productVariant.name}
-                                            </Link>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {order.bom.name}
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {order.salesOrder
-                                                    ? `Sumber: ${order.salesOrder.customer?.name || order.salesOrder.orderNumber}`
-                                                    : 'Stok internal'}
-                                            </p>
-                                        </TableCell>
-                                        <TableCell className="py-4 align-top">
-                                            <p className="text-sm">
-                                                {format(
-                                                    new Date(
-                                                        order.plannedStartDate,
-                                                    ),
-                                                    'd MMM yyyy',
-                                                    { locale: idLocale },
-                                                )}
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {order.machine?.code ||
-                                                    'Mesin belum ditentukan'}
-                                            </p>
-                                        </TableCell>
-                                        <TableCell className="py-4 align-top">
-                                            <ProductionStatusBadge
-                                                status={order.status}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="min-w-44 py-4 align-top">
-                                            <p className="text-sm tabular-nums">
-                                                {Number(
-                                                    order.actualQuantity || 0,
-                                                ).toLocaleString('id-ID')}{' '}
-                                                /{' '}
-                                                {Number(
-                                                    order.plannedQuantity,
-                                                ).toLocaleString('id-ID')}{' '}
-                                                {
-                                                    order.bom.productVariant
-                                                        .primaryUnit
-                                                }
-                                            </p>
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <Progress
-                                                    aria-label={`Progres ${order.orderNumber}`}
-                                                    value={Math.min(
-                                                        progress,
-                                                        100,
-                                                    )}
-                                                    className="h-1.5 w-20"
-                                                />
-                                                <span className="text-xs tabular-nums text-muted-foreground">
-                                                    {Math.round(progress)}%
-                                                </span>
-                                            </div>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                Target:{' '}
-                                                {getEnteredQuantityDisplay({
-                                                    ...order.bom.productVariant,
-                                                    quantity:
-                                                        order.plannedQuantity,
-                                                    enteredQuantity:
-                                                        order.plannedEnteredQuantity,
-                                                    enteredUnit:
-                                                        order.plannedEnteredUnit,
-                                                    conversionFactorSnapshot:
-                                                        order.plannedConversionFactorSnapshot,
-                                                })}
-                                            </p>
-                                        </TableCell>
-                                        <TableCell className="pr-5 align-top">
-                                            <Button
-                                                asChild
-                                                variant="ghost"
-                                                className="h-11 w-11 p-0"
-                                            >
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                orders.map((order) => {
+                                    const progress =
+                                        (Number(order.actualQuantity || 0) /
+                                            Number(
+                                                order.plannedQuantity || 1,
+                                            )) *
+                                        100;
+                                    const href = `/production/orders/${order.id}`;
+                                    return (
+                                        <TableRow
+                                            key={order.id}
+                                            className="group"
+                                        >
+                                            <TableCell className="py-4 pl-5 align-top">
                                                 <Link
                                                     href={href}
-                                                    aria-label={`Lihat detail ${order.orderNumber}`}
+                                                    className="font-mono text-sm font-medium underline-offset-4 hover:underline"
                                                 >
-                                                    <ChevronRight className="h-4 w-4" />
+                                                    {order.orderNumber}
                                                 </Link>
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })
-                        )}
-                    </TableBody>
-                </Table>
+                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                    <ProductionPriorityBadge
+                                                        priority={
+                                                            order.priority
+                                                        }
+                                                    />
+                                                    {order.isMaklon && (
+                                                        <Badge variant="outline">
+                                                            Maklon
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="max-w-72 py-4 align-top">
+                                                <Link
+                                                    href={href}
+                                                    className="font-medium hover:underline"
+                                                >
+                                                    {
+                                                        order.bom.productVariant
+                                                            .name
+                                                    }
+                                                </Link>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {order.bom.name}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {order.salesOrder
+                                                        ? `Sumber: ${order.salesOrder.customer?.name || order.salesOrder.orderNumber}`
+                                                        : 'Stok internal'}
+                                                </p>
+                                            </TableCell>
+                                            <TableCell className="py-4 align-top">
+                                                <p className="text-sm">
+                                                    {format(
+                                                        new Date(
+                                                            order.plannedStartDate,
+                                                        ),
+                                                        'd MMM yyyy',
+                                                        { locale: idLocale },
+                                                    )}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {order.machine?.code ||
+                                                        'Mesin belum ditentukan'}
+                                                </p>
+                                            </TableCell>
+                                            <TableCell className="py-4 align-top">
+                                                <ProductionStatusBadge
+                                                    status={order.status}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="min-w-44 py-4 align-top">
+                                                <p className="text-sm tabular-nums">
+                                                    {Number(
+                                                        order.actualQuantity ||
+                                                            0,
+                                                    ).toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    /{' '}
+                                                    {Number(
+                                                        order.plannedQuantity,
+                                                    ).toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    {
+                                                        order.bom.productVariant
+                                                            .primaryUnit
+                                                    }
+                                                </p>
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <Progress
+                                                        aria-label={`Progres ${order.orderNumber}`}
+                                                        value={Math.min(
+                                                            progress,
+                                                            100,
+                                                        )}
+                                                        className="h-1.5 w-20"
+                                                    />
+                                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                                        {Math.round(progress)}%
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    Target:{' '}
+                                                    {getEnteredQuantityDisplay({
+                                                        ...order.bom
+                                                            .productVariant,
+                                                        quantity:
+                                                            order.plannedQuantity,
+                                                        enteredQuantity:
+                                                            order.plannedEnteredQuantity,
+                                                        enteredUnit:
+                                                            order.plannedEnteredUnit,
+                                                        conversionFactorSnapshot:
+                                                            order.plannedConversionFactorSnapshot,
+                                                    })}
+                                                </p>
+                                            </TableCell>
+                                            <TableCell className="pr-5 align-top">
+                                                <Button
+                                                    asChild
+                                                    variant="ghost"
+                                                    className="h-11 w-11 p-0"
+                                                >
+                                                    <Link
+                                                        href={href}
+                                                        aria-label={`Lihat detail ${order.orderNumber}`}
+                                                    >
+                                                        <ChevronRight className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
                 {totalPages > 1 && (
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm">
                         <p className="text-muted-foreground">

@@ -24,6 +24,77 @@ afterEach(() => {
 });
 
 describe('useBomMaterialPreview', () => {
+    it('retries unchanged inputs after failure and marks the debounce window pending', async () => {
+        mockedGetBomWithInventory
+            .mockResolvedValueOnce({
+                success: false,
+                error: 'Offline',
+            } as never)
+            .mockResolvedValueOnce({
+                success: true,
+                data: { data: [], meta: {} },
+            } as never);
+        const { result } = renderHook(() =>
+            useBomMaterialPreview({
+                bomId: 'bom',
+                sourceLocationId: 'loc',
+                plannedQty: 10,
+            }),
+        );
+        expect(result.current.isCalculating).toBe(true);
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        expect(result.current.error).toBe('Offline');
+        act(() => result.current.retry());
+        expect(result.current.isCalculating).toBe(true);
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        expect(mockedGetBomWithInventory).toHaveBeenCalledTimes(2);
+        expect(result.current.error).toBeNull();
+        expect(result.current.isCalculating).toBe(false);
+    });
+    it('ignores an old response as soon as input changes, even before the next request starts', async () => {
+        let resolveOld!: (value: never) => void;
+        mockedGetBomWithInventory.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveOld = resolve;
+                }),
+        );
+        const { result, rerender } = renderHook(
+            ({ qty }) =>
+                useBomMaterialPreview({
+                    bomId: 'bom',
+                    sourceLocationId: 'loc',
+                    plannedQty: qty,
+                }),
+            { initialProps: { qty: 10 } },
+        );
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        rerender({ qty: 20 });
+        await act(async () => {
+            resolveOld({ success: false, error: 'Stale error' } as never);
+        });
+        expect(result.current.error).toBeNull();
+        expect(result.current.isCalculating).toBe(true);
+        rerender({ qty: 0 });
+        expect(result.current.items).toEqual([]);
+        expect(result.current.isCalculating).toBe(false);
+    });
+    it('invalidates pending responses when a complete form becomes incomplete', async () => {
+        let finish!: (value: never) => void;
+        mockedGetBomWithInventory.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const {result,rerender} = renderHook(({qty}) => useBomMaterialPreview({bomId:'bom',sourceLocationId:'loc',plannedQty:qty}), {initialProps:{qty:10}});
+        await act(async () => { vi.advanceTimersByTime(500); });
+        rerender({qty:0});
+        await act(async () => { finish({success:false,error:'Old failure'} as never); });
+        expect(result.current.error).toBeNull();expect(result.current.items).toEqual([]);expect(result.current.isCalculating).toBe(false);
+    });
+
     it('populates items from the nested safeAction data.data shape (regression: was reading flat result.data)', async () => {
         mockedGetBomWithInventory.mockResolvedValue({
             success: true,

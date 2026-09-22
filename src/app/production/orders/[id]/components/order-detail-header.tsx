@@ -29,6 +29,7 @@ import type { MachineStageMap } from '@/lib/production/machine-compatibility';
 
 interface Props {
     order: ExtendedProductionOrder;
+    showProgress?: boolean;
     formData: {
         locations: Location[];
         operators: Employee[];
@@ -40,7 +41,11 @@ interface Props {
     };
 }
 
-export function OrderDetailHeader({ order, formData }: Props) {
+export function OrderDetailHeader({
+    order,
+    formData,
+    showProgress = true,
+}: Props) {
     const isDirect = order.materialConsumptionMode === 'DIRECT';
     const plannedQty = Number(order.plannedQuantity);
     const actualQty = Number(order.actualQuantity || 0);
@@ -216,14 +221,19 @@ export function OrderDetailHeader({ order, formData }: Props) {
 
                 <div className="flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:items-center xl:flex-col xl:items-end">
                     <div className="flex flex-col items-end gap-2">
-                        <div className="flex items-center gap-2">
-                            <Progress value={progress} className="h-2 w-28" />
-                            <span className="text-xs font-medium text-muted-foreground">
-                                {actualQty} / {plannedQty}{' '}
-                                {order.bom.productVariant.primaryUnit} (
-                                {progress.toFixed(0)}%)
-                            </span>
-                        </div>
+                        {showProgress && (
+                            <div className="flex items-center gap-2">
+                                <Progress
+                                    value={progress}
+                                    className="h-2 w-28"
+                                />
+                                <span className="text-xs font-medium text-muted-foreground">
+                                    {actualQty} / {plannedQty}{' '}
+                                    {order.bom.productVariant.primaryUnit} (
+                                    {progress.toFixed(0)}%)
+                                </span>
+                            </div>
+                        )}
                         {totalMaterials > 0 && !isDirect && (
                             <div
                                 className="flex flex-wrap items-center gap-1.5"
