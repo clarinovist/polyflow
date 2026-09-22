@@ -1,5 +1,7 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
+
 import { Badge } from '@/components/ui/badge';
 import { Factory, Package } from 'lucide-react';
 import { ProductionStatusBadge } from '@/components/production/production-status-badge';
@@ -104,10 +106,16 @@ export function OrderDetailHeader({
         <div className="space-y-4">
             {hasRun && (
                 <div className="rounded border bg-blue-50/60 dark:bg-blue-950/30 p-3 text-sm">
-                    <div className="font-medium">
-                        Bagian dari {runStub?.runNumber ?? 'RUN'} ·{' '}
-                        {runStub?.route?.name ?? ''} v
-                        {runStub?.route?.version ?? ''}
+                    <div className="flex items-center justify-between gap-1 font-medium">
+                        <span>
+                            Bagian dari {runStub?.runNumber ?? 'RUN'} ·{' '}
+                            {runStub?.route?.name ?? ''} v
+                            {runStub?.route?.version ?? ''}
+                        </span>
+                        <InfoHint label="Info SPK dari routing">
+                            Kesiapan dan lokasi sumber SPK ini diambil dari tahap
+                            routing.
+                        </InfoHint>
                     </div>
                     {processLabel && (
                         <div>
@@ -115,10 +123,6 @@ export function OrderDetailHeader({
                             {processLabel}
                         </div>
                     )}
-                    <div className="text-xs text-muted-foreground">
-                        Routed SPK — readiness dan lokasi sumber diambil dari
-                        route step
-                    </div>
                 </div>
             )}
             <div className="flex flex-col justify-between gap-4 rounded-xl border bg-card p-4 xl:flex-row xl:items-start md:p-5">

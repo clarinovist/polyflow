@@ -38,6 +38,7 @@ import {
     Users,
 } from 'lucide-react';
 import Link from 'next/link';
+import { InfoHint } from '@/components/common/InfoHint';
 import { withTenantPage } from '@/lib/core/tenant';
 
 const getCostingData = withTenantPage(
@@ -259,12 +260,12 @@ export default async function CostingPage(props: {
                             <CardTitle className="flex items-center gap-2">
                                 <AlertTriangle className="h-5 w-5 text-amber-600" />
                                 Audit Batas Biaya
-                            </CardTitle>
-                            <CardDescription>
+                                <InfoHint label="Info audit biaya varian">
                                 Tinjau dasar biaya varian, selisih terhadap
                                 standar, dan indikasi anomali antar kelompok
                                 atau ukuran.
-                            </CardDescription>
+                                </InfoHint>
+                            </CardTitle>
                         </div>
                         <div className="text-sm text-muted-foreground">
                             Menampilkan {filteredAuditRows.length} dari{' '}

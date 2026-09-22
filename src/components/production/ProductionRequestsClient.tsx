@@ -1,5 +1,7 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
+
 import { useState, useMemo } from 'react';
 import {
     Table,
@@ -160,10 +162,13 @@ export function ProductionRequestsClient({
                         <ClipboardCheck className="h-5 w-5" />
                         Papan Permintaan FG
                     </CardTitle>
-                    <CardDescription>
-                        Item FG yang perlu diproduksi berdasarkan Sales Order
-                        aktif. Kurangi stok FG dan SPK yang sudah ada.
-                    </CardDescription>
+                    <div className="flex items-center gap-1">
+                        <CardDescription>Kebutuhan FG dari Sales Order aktif.</CardDescription>
+                        <InfoHint label="Info kebutuhan produksi">
+                            Kebutuhan produksi memperhitungkan stok FG dan SPK
+                            yang sudah ada terhadap permintaan Sales Order aktif.
+                        </InfoHint>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {/* Filters */}

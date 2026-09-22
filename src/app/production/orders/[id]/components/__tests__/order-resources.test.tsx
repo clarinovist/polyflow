@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { OrderExecutionTab } from '../order-execution-tab';
 import type { ExtendedProductionOrder } from '@/components/production/order-detail/types';
@@ -52,6 +52,14 @@ const order = {
     inspections: [],
 } as unknown as ExtendedProductionOrder;
 describe('resource layout', () => {
+    it('does not hide waiting-material instructions when direct-mode details move to help', async () => {
+        vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+        render(<OrderExecutionTab order={{ ...order, status: 'WAITING_MATERIAL', materialConsumptionMode: 'DIRECT' }} formData={formData} />);
+        expect(screen.getByText(/Lengkapi stok di gudang asal/)).toBeTruthy();
+        expect(screen.queryByText(/Tidak perlu transfer atau issue manual/)).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Info pemakaian langsung' }));
+        expect((await screen.findByRole('tooltip')).textContent).toContain('Tidak perlu transfer atau issue manual');
+    });
     it('passes the real location set to child-order stock resolution and preserves sections', () => {
         render(<OrderExecutionTab order={order} formData={formData} />);
         expect(child).toHaveBeenCalledWith(

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import ProductionOrdersPage from '../page';
 import {
@@ -19,6 +19,7 @@ vi.mock('@/components/support/contextual-help', () => ({
 }));
 
 beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     vi.mocked(getProductionOrdersList)
         .mockReset()
         .mockResolvedValue({ orders: [], total: 0, page: 1, pageSize: 25 });
@@ -77,9 +78,10 @@ describe('SPK list redesign', () => {
             screen.getByText('Draft + Siap Produksi + Menunggu Bahan'),
         ).toBeTruthy();
         expect(screen.queryByText('Siap Dirilis')).toBeNull();
-        expect(
-            screen.getByText(/SPK dibatalkan tetap ditampilkan/),
-        ).toBeTruthy();
+        expect(screen.getByText('Selesai disembunyikan')).toBeTruthy();
+        expect(screen.queryByText(/SPK dibatalkan tetap ditampilkan/)).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Info filter daftar SPK' }));
+        expect((await screen.findByRole('tooltip')).textContent).toContain('SPK dibatalkan tetap ditampilkan');
     });
     it('preserves late search and STANDARD extrusion mapping', async () => {
         render(

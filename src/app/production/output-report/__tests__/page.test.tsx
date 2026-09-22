@@ -14,7 +14,10 @@ vi.mock('../load-report', () => ({ loadOutputReport: load }));
 vi.mock('../ReportFilters', () => ({ ReportFilters: () => <div>Filter</div> }));
 vi.mock('next/link', () => ({ default: ({ children, prefetch: _prefetch, ...props }: React.ComponentProps<'a'> & { prefetch?: boolean }) => <a {...props}>{children}</a> }));
 afterEach(cleanup);
-beforeEach(() => { load.mockReset(); });
+beforeEach(() => {
+    load.mockReset();
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+});
 
 describe('output report page and view', () => {
     it('renders WIP recap, full period count, operators and filtered drilldown', async () => {
@@ -24,7 +27,9 @@ describe('output report page and view', () => {
         render(await Page({ searchParams: Promise.resolve({}) }));
         expect(screen.getByRole('heading', { name: 'Rekap Hasil Produksi' })).toBeTruthy();
         expect(screen.getByText('Setengah jadi (WIP)')).toBeTruthy();
-        expect(screen.getByText(/Seluruh 501 entri/)).toBeTruthy();
+        expect(screen.getByText(/501 entri sesuai filter/)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Info cakupan laporan hasil' }));
+        expect((await screen.findByRole('tooltip')).textContent).toContain('bukan hanya halaman tabel ini');
         const href = screen.getByRole('link', { name: 'Rincian Hitam' }).getAttribute('href')!;
         const params = new URL(href, 'http://localhost').searchParams;
         expect(params.get('productVariantId')).toBe('variant-test');

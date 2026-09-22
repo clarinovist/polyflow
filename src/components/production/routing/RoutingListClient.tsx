@@ -1,5 +1,7 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
+
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -233,10 +235,14 @@ export function RoutingListClient({
             {showCreate && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Buat Routing Baru</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Routing hanya untuk produk yang punya BoM aktif (bisa diproduksi). Pilih produk → sistem sarankan nama → simpan sebagai Draft.
-                        </p>
+                        <div className="flex items-center justify-between gap-1">
+                            <CardTitle className="text-base">Buat Routing Baru</CardTitle>
+                            <InfoHint label="Info membuat routing">
+                                Pilih produk dengan BoM aktif. Sistem menyarankan
+                                nama routing, lalu simpan sebagai Draft.
+                            </InfoHint>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Produk harus punya BoM aktif.</p>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
@@ -335,8 +341,11 @@ export function RoutingListClient({
                         <div className="space-y-1">
                             <div className="font-semibold">Belum ada routing</div>
                             <div className="text-sm text-muted-foreground max-w-lg mx-auto">
-                                Routing menjelaskan urutan proses (mis. Mix → Extrude → Rewind → Pack) untuk tiap varian produk jadi.
-                                Hanya varian yang <strong>punya BoM aktif</strong> yang bisa dibuat routing. Tanpa routing, BoM tetap bisa dipakai untuk SPK manual.
+                                Routing mengatur urutan proses untuk produk dengan BoM aktif.
+                                <details className="mt-2 text-left">
+                                    <summary className="min-h-11 content-center cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-ring">Cara kerja routing</summary>
+                                    <p>Contoh urutan: Mix → Extrude → Rewind → Pack. Tanpa routing, BoM tetap bisa dipakai untuk SPK manual.</p>
+                                </details>
                             </div>
                         </div>
                         {!showCreate && (

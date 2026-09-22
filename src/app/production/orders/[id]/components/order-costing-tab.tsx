@@ -2,7 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Calculator, Info, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { Calculator, Info } from 'lucide-react';
+import { InfoHint } from '@/components/common/InfoHint';
 import { formatRupiah } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { MaklonCostManager } from '@/components/maklon/MaklonCostManager';
@@ -159,13 +160,12 @@ export function OrderCostingTab({
                                     className="h-1.5 bg-amber-100 dark:bg-amber-900/30"
                                 />
                             </div>
-                            <div className="mt-4 p-3 bg-zinc-50 rounded-lg border text-xs text-muted-foreground dark:bg-zinc-800">
-                                <p className="flex items-center gap-1 font-medium text-zinc-900 mb-1 dark:text-zinc-100">
-                                    <TrendingUpIcon className="w-3 h-3 text-blue-500 dark:text-blue-400" />{' '}
-                                    Valuasi berbasis WAC
-                                </p>
-                                Biaya material dihitung menggunakan Weighted
-                                Average Cost saat pengeluaran.
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <span>Metode biaya: WAC</span>
+                                <InfoHint label="Info metode biaya WAC">
+                                    Biaya material dihitung menggunakan Weighted
+                                    Average Cost saat pengeluaran.
+                                </InfoHint>
                             </div>
                         </CardContent>
                     </Card>

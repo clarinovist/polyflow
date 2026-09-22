@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { LocationFlowCard } from '../location-flow-card';
 
@@ -60,7 +60,24 @@ const props = {
     onMaterialSourceChange: vi.fn(),
 };
 
+beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+});
 describe('material flow layout', () => {
+    it('opens help without changing consumption mode or submitting the surrounding form', async () => {
+        const submit = vi.fn((e) => e.preventDefault());
+        render(<form onSubmit={submit}><LocationFlowCard {...props} outputIsRisky /></form>);
+        expect(screen.getByText('Potong stok saat catat hasil.')).toBeTruthy();
+        expect(screen.getByRole('alert').textContent).toContain('bukan gudang bahan baku');
+        const button = screen.getByRole('button', { name: 'Info cara pemakaian bahan' });
+        expect(button.closest('label')).toBeNull();
+        fireEvent.click(button);
+        expect((await screen.findByRole('tooltip')).textContent).toContain('tanpa issue manual');
+        expect(submit).not.toHaveBeenCalled();
+        expect(props.onConsumptionModeChange).not.toHaveBeenCalled();
+        expect(screen.getByText('Lokasi Penyimpanan Hasil')).toBeTruthy();
+    });
     it('does not leave an exit-animation overlay blocking the form', async () => {
         Element.prototype.scrollIntoView = vi.fn();
         render(<LocationFlowCard {...props} />);

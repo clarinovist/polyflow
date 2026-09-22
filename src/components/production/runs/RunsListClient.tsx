@@ -253,7 +253,12 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
             <div className="space-y-1">
               <div className="font-semibold">Belum ada rangkaian produksi</div>
               <div className="text-sm text-muted-foreground max-w-lg mx-auto">
-                Rangkaian adalah pelaksanaan beberapa tahap dari routing — satu SPK per tahap, dengan resep dari BOM. Gunakan routing yang sudah <strong>Published</strong>. Untuk pekerjaan satu tahap, tetap bisa <Link href="/production/orders/create" className="underline">Buat SPK</Link> tanpa routing.
+                Gunakan routing <strong>Published</strong> untuk membuat rangkaian.
+                <details className="mt-2 text-left">
+                  <summary className="min-h-11 content-center cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-ring">Cara kerja rangkaian</summary>
+                  <p>Rangkaian menjalankan beberapa tahap routing: satu SPK per tahap, dengan resep dari BOM.</p>
+                </details>
+                <Link href="/production/orders/create" className="inline-flex min-h-11 items-center underline">Buat SPK satu tahap tanpa routing →</Link>
               </div>
             </div>
             {!showCreate && (

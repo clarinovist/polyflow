@@ -18,7 +18,7 @@ describe('rangkaian production entry', () => {
     it('fixes the request link, explains object relationships and navigates to the created run', async () => {
         render(<RunsListClient initialRuns={[]} />);
         expect(screen.getByRole('link', { name: 'Papan Permintaan' }).getAttribute('href')).toBe('/production/requests');
-        expect(screen.getByRole('link', { name: 'Buat SPK' }).getAttribute('href')).toBe('/production/orders/create');
+        expect(screen.getByRole('link', { name: 'Buat SPK satu tahap tanpa routing →' }).getAttribute('href')).toBe('/production/orders/create');
         fireEvent.click(screen.getAllByRole('button', { name: 'Buat Rangkaian Produksi' })[0]);
         fireEvent.click(await screen.findByRole('button', { name: /Test route/ }));
         fireEvent.change(screen.getByPlaceholderText('Contoh: 1000'), { target: { value: '100' } });

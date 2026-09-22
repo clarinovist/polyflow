@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { InfoHint } from '@/components/common/InfoHint';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +64,7 @@ export function ProcessListClient({ initialProcesses, initialCapabilities }: { i
         <CardHeader><CardTitle className="text-base">Buat Process Baru</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid md:grid-cols-3 gap-3">
-            <div><Label>Code (UPPER_SNAKE)</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="STERILIZATION" /></div>
+            <div><div className="flex items-center gap-1"><Label>Code (UPPER_SNAKE)</Label><InfoHint label="Info kode proses">Contoh: MIXING, EXTRUSION, INNER_PACKING, STERILIZATION, CARTON_PACKING, INJECTION, WINDING.</InfoHint></div><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="STERILIZATION" /></div>
             <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Sterilization" /></div>
             <div><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
           </div>
@@ -72,16 +73,14 @@ export function ProcessListClient({ initialProcesses, initialCapabilities }: { i
             <label className="text-sm flex gap-1 items-center"><input type="checkbox" checked={form.requiresQualityGate} onChange={(e) => setForm({ ...form, requiresQualityGate: e.target.checked })} /> QC Gate</label>
           </div>
           <div>
-            <Label>Execution Mode</Label>
+            <div className="flex items-center gap-1"><Label>Execution Mode</Label><InfoHint label="Info mode pencatatan proses">Hasil Individu: output melekat ke operator kiosk. Konversi Material: output dan preview konsumsi WIP dari BOM.</InfoHint></div>
             <select value={form.executionMode} onChange={(e) => setForm({ ...form, executionMode: e.target.value as 'GENERIC' | 'INDIVIDUAL_OUTPUT' | 'MATERIAL_CONVERSION' })} className="w-full md:w-72 h-9 rounded-md border border-input bg-transparent px-3 text-sm">
               <option value="GENERIC">Generic (kiosk normal)</option>
               <option value="INDIVIDUAL_OUTPUT">Hasil Individu (per operator)</option>
               <option value="MATERIAL_CONVERSION">Konversi Material (BOM preview)</option>
             </select>
-            <p className="text-xs text-muted-foreground">Hasil Individu: output melekat ke operator kiosk. Konversi Material: output + preview konsumsi WIP dari BOM.</p>
           </div>
           <Button onClick={handleCreate}>Buat Process</Button>
-          <p className="text-xs text-muted-foreground">Contoh: MIXING, EXTRUSION, INNER_PACKING, STERILIZATION, CARTON_PACKING, INJECTION, WINDING</p>
         </CardContent>
       </Card>
 

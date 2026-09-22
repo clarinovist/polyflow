@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { InfoHint } from '@/components/common/InfoHint';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -109,9 +110,13 @@ export function ReportView({
                     aria-label="Hasil per proses dan satuan"
                     className="rounded-xl border bg-card p-4"
                 >
-                    <h2 className="font-semibold text-sm mb-3">
-                        Hasil bersih sesuai filter
-                    </h2>
+                    <div className="mb-3 flex items-center gap-1">
+                        <h2 className="font-semibold text-sm">Hasil bersih sesuai filter</h2>
+                        <InfoHint label="Info hasil per proses dan satuan">
+                            Hasil tidak dijumlah antarproses atau satuan karena
+                            satu barang dapat melewati beberapa tahap produksi.
+                        </InfoHint>
+                    </div>
                     <div className="flex flex-wrap gap-x-8 gap-y-3">
                         {summary.totals.map((total) => (
                             <div key={`${total.process}:${total.unit}`}>
@@ -128,10 +133,6 @@ export function ReportView({
                             </div>
                         ))}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-3">
-                        Tidak dijumlah antarproses atau satuan; satu barang
-                        dapat melewati beberapa tahap produksi.
-                    </p>
                 </section>
             )}
             <section className="rounded-xl border bg-card min-w-0 overflow-hidden">
@@ -166,11 +167,13 @@ export function ReportView({
                             </Button>
                         ))}
                     </nav>
-                    <p className="text-xs text-muted-foreground">
-                        {filter.from} – {filter.to} WIB · Seluruh{' '}
-                        {fmt(summary.entries)} entri sesuai filter dihitung,
-                        bukan hanya halaman ini.
-                    </p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>{filter.from} – {filter.to} WIB · {fmt(summary.entries)} entri sesuai filter</span>
+                        <InfoHint label="Info cakupan laporan hasil">
+                            Ringkasan menghitung seluruh entri sesuai filter,
+                            bukan hanya halaman tabel ini.
+                        </InfoHint>
+                    </div>
                     <p className="text-xs text-muted-foreground lg:hidden">
                         Geser tabel ke samping untuk melihat semua kolom.
                     </p>
