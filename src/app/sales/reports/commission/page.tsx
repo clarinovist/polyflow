@@ -1,4 +1,4 @@
-import { PageHeader } from '@/components/ui/page-header';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import { CommissionReportClient } from './CommissionReportClient';
 
 function startOfMonthISO(d: Date): string {
@@ -29,10 +29,45 @@ export default async function CommissionReportPage({
 
     return (
         <div className="p-6 space-y-6">
-            <PageHeader
-                title="Laporan Komisi"
-                description="Hitung komisi berjenjang atas % pencapaian target (basis PAID_INVOICE = invoice terbayar). Tier berdasarkan minAchievementPercent, boundary exact inclusive. Sales tanpa target di periode ini: warning NO_TARGET_SET (komisi null, bukan 0). Tidak ada skema aktif: NO_ACTIVE_SCHEME."
-            />
+            <div>
+                <div className="flex items-center gap-1">
+                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+                        Laporan Komisi
+                    </h1>
+                    <SalesMetricInfo label="Info basis komisi">
+                        Basis komisi adalah invoice terbayar (PAID_INVOICE).
+                        Persentase pencapaian target menentukan tier komisi.
+                        Lihat Cara perhitungan untuk aturan lengkap.
+                    </SalesMetricInfo>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground md:text-base">
+                    Komisi berjenjang berdasarkan pencapaian target.
+                </p>
+            </div>
+            <details className="rounded-lg border bg-muted/30 px-4">
+                <summary className="min-h-11 cursor-pointer content-center rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+                    Cara perhitungan
+                </summary>
+                <ul className="list-disc space-y-2 pb-4 pl-5 text-sm text-muted-foreground">
+                    <li>
+                        Basis PAID_INVOICE menggunakan invoice terbayar, bukan
+                        seluruh nilai pesanan.
+                    </li>
+                    <li>
+                        Tier mengikuti batas minimum persentase pencapaian
+                        target (minAchievementPercent). Nilai tepat pada batas
+                        sudah masuk tier tersebut.
+                    </li>
+                    <li>
+                        Tanpa target pada periode ini (NO_TARGET_SET), komisi
+                        belum dapat dihitung: nilainya kosong, bukan nol.
+                    </li>
+                    <li>
+                        Tanpa skema aktif (NO_ACTIVE_SCHEME), peringatan tetap
+                        ditampilkan pada hasil perhitungan.
+                    </li>
+                </ul>
+            </details>
             <CommissionReportClient
                 initialFrom={initialFrom}
                 initialTo={initialTo}

@@ -13,8 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { formatRupiah, serializeData } from '@/lib/utils/utils';
 import { InvoiceTable } from '@/components/sales/InvoiceTable';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import {
-    BadgeDollarSign,
     AlertCircle,
     CheckCircle,
     Clock,
@@ -171,16 +171,19 @@ export function SalesInvoicesShell({
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Outstanding (all-time)
+                            Piutang Belum Lunas
                         </CardTitle>
-                        <BadgeDollarSign className="h-4 w-4 text-muted-foreground" />
+                        <SalesMetricInfo label="Info piutang seluruh periode">
+                            Total piutang belum lunas dari seluruh periode,
+                            bukan hanya invoice dalam filter tanggal daftar.
+                        </SalesMetricInfo>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
                             {formatRupiah(stats?.totalOutstanding ?? 0)}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Total piutang belum lunas (global)
+                            Seluruh periode
                         </p>
                     </CardContent>
                 </Card>
@@ -235,12 +238,17 @@ export function SalesInvoicesShell({
             </div>
 
             <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">
-                    Periode daftar:{' '}
-                    <span className="font-medium text-foreground">
-                        {periodLabel}
-                    </span>{' '}
-                    • invoiceDate
+                <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                    <span>
+                        Periode daftar:{' '}
+                        <span className="font-medium text-foreground">
+                            {periodLabel}
+                        </span>
+                    </span>
+                    <SalesMetricInfo label="Info periode daftar invoice">
+                        Filter daftar mengikuti tanggal invoice (invoiceDate).
+                        Piutang belum lunas di ringkasan memakai seluruh periode.
+                    </SalesMetricInfo>
                 </span>
                 {canAccessFinance && (
                     <Link

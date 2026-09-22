@@ -128,6 +128,7 @@ async function selectOption(dialog: HTMLElement, name: string) {
 const originalScroll = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
 beforeEach(() => {
     vi.resetAllMocks();
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(NOW);
     for (const command of [mocks.confirm, mocks.deliver, mocks.cancel, mocks.delete, mocks.ready,
@@ -148,6 +149,27 @@ afterEach(() => {
 });
 
 describe('SalesOrderDetailClient existing behavior (UI visibility is not authorization)', () => {
+    it('keeps shipping guidance and warehouse navigation visible while details live in info', async () => {
+        const view = renderOrder({ status: 'CONFIRMED' });
+        expect(screen.getByText('Siapkan Jadwal Kirim atau Surat Jalan.')).toBeTruthy();
+        expect(screen.getByRole('link', { name: 'Buka Portal Gudang →' }).getAttribute('href')).toBe('/warehouse/outgoing');
+        expect(screen.queryByText(/satu SO hot-load/)).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Info alur kirim' }));
+        expect((await screen.findByRole('tooltip')).textContent).toContain('rute harian multi-toko');
+        expect(mocks.confirm).not.toHaveBeenCalled();
+        view.rerender(<SalesOrderDetailClient order={order({ status: 'CONFIRMED' })} warehouseMode />);
+        expect(screen.queryByRole('button', { name: 'Info alur kirim' })).toBeNull();
+    });
+
+    it('retains the service-only maklon warning and explains material consumption in info', async () => {
+        renderOrder({ orderType: 'MAKLON_JASA', status: 'CONFIRMED' });
+        expect(screen.getByText('Menagihkan jasa, bukan pengiriman stok fisik dari SO.')).toBeTruthy();
+        expect(screen.queryByRole('button', { name: 'Info alur kirim' })).toBeNull();
+        expect(screen.queryByText(/lokasi customer-owned/)).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Info alur maklon jasa' }));
+        expect((await screen.findByRole('tooltip')).textContent).toContain('lokasi produksi lebih dulu');
+    });
+
     it('shows sales draft controls and totals but hides commercial controls in warehouse mode', () => {
         const view = renderOrder({ priceStatus: 'PENDING' });
         expect(screen.getByRole('link', { name: 'Edit' }).getAttribute('href')).toBe('/sales/orders/fixture-order/edit');

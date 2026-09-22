@@ -73,6 +73,7 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -499,12 +500,16 @@ export function SalesOrderDetailClient({
             {isMaklonOrder && (
                 <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20">
                     <AlertTriangle className="h-4 w-4 text-blue-700 dark:text-blue-400" />
-                    <AlertTitle>Alur Maklon Jasa</AlertTitle>
+                    <AlertTitle className="flex items-center justify-between gap-2">
+                        Alur Maklon Jasa
+                        <SalesMetricInfo label="Info alur maklon jasa">
+                            Bahan titipan customer dikonsumsi saat production
+                            execution, dari lokasi produksi lebih dulu lalu
+                            lokasi customer-owned bila diperlukan.
+                        </SalesMetricInfo>
+                    </AlertTitle>
                     <AlertDescription>
-                        Order ini menagihkan jasa, bukan mengirim stok fisik
-                        dari sales order. Bahan titipan customer dikonsumsi saat
-                        production execution dari lokasi produksi dulu, lalu
-                        fallback ke lokasi customer-owned bila diperlukan.
+                        Menagihkan jasa, bukan pengiriman stok fisik dari SO.
                     </AlertDescription>
                 </Alert>
             )}
@@ -518,13 +523,20 @@ export function SalesOrderDetailClient({
                 ) && (
                     <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-800/50 dark:bg-blue-900/20">
                         <Truck className="h-4 w-4 text-blue-700 dark:text-blue-400" />
-                        <AlertTitle>Alur Kirim</AlertTitle>
-                        <AlertDescription className="text-sm">
-                            Untuk rute harian multi-toko: pakai{' '}
-                            <strong>Jadwal Kirim</strong>. Untuk 1 SO hot-load:{' '}
-                            <strong>Buat Surat Jalan</strong>. Muat & tandai
-                            dikirim dikerjakan di <strong>Portal Gudang</strong>
-                            .
+                        <AlertTitle className="flex items-center justify-between gap-2">
+                            Alur Kirim
+                            <SalesMetricInfo label="Info alur kirim">
+                                Gunakan Jadwal Kirim untuk rute harian multi-toko,
+                                atau Buat Surat Jalan untuk satu SO hot-load.
+                                Muat, verifikasi, dan tandai dikirim dilakukan
+                                di Portal Gudang.
+                            </SalesMetricInfo>
+                        </AlertTitle>
+                        <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                            <span>Siapkan Jadwal Kirim atau Surat Jalan.</span>
+                            <Link href="/warehouse/outgoing" className="inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
+                                Buka Portal Gudang →
+                            </Link>
                         </AlertDescription>
                     </Alert>
                 )}

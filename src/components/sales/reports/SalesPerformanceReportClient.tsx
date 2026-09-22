@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
@@ -145,8 +146,7 @@ export function SalesPerformanceReportClient({
             ) : (
                 <>
                     <p className="text-xs text-muted-foreground">
-                        Scope: {periodLabel} • orderDate non-batal • Basis:
-                        nilai Sales Order
+                        Periode: {periodLabel} · Nilai Sales Order
                     </p>
                     <Tabs
                         value={activeTab}
@@ -391,15 +391,15 @@ export function SalesPerformanceReportClient({
 
                             <Card>
                                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
+                                    <div className="flex items-center gap-1">
                                         <CardTitle>
                                             Ranking Performa Sales
                                         </CardTitle>
-                                        <p className="text-[11px] text-muted-foreground mt-1">
-                                            Basis: nilai Sales Order — berbeda
-                                            dengan basis jurnal akuntansi (4xx)
-                                            di dashboard
-                                        </p>
+                                        <SalesMetricInfo label="Info basis ranking sales">
+                                            Ranking memakai nilai Sales Order,
+                                            berbeda dengan basis jurnal
+                                            akuntansi (4xx) di dashboard.
+                                        </SalesMetricInfo>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <label className="text-xs text-muted-foreground">
@@ -537,14 +537,14 @@ export function SalesPerformanceReportClient({
                     {/* Product Mix per Wilayah Tab */}
                     <TabsContent value="region">
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle className="text-sm">
                                     Product Mix per Wilayah
                                 </CardTitle>
-                                <p className="text-[11px] text-muted-foreground mt-1">
-                                    Dikelompokkan berdasarkan kota (fallback ke
-                                    provinsi jika kota kosong)
-                                </p>
+                                <SalesMetricInfo label="Info pengelompokan wilayah">
+                                    Dikelompokkan berdasarkan kota. Jika kota
+                                    kosong, pengelompokan memakai provinsi.
+                                </SalesMetricInfo>
                             </CardHeader>
                             <CardContent>
                                 <div className="rounded-lg border overflow-x-auto">

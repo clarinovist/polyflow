@@ -11,8 +11,8 @@ import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { CreateDeliveryOrderDialog } from '@/components/sales/CreateDeliveryOrderDialog';
 import { serializeData } from '@/lib/utils/utils';
 import { salesLabels } from '@/lib/labels';
-import { Package, Info } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Package } from 'lucide-react';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import Link from 'next/link';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
@@ -44,7 +44,7 @@ export default async function SalesDeliveriesPage({
 
     return (
         <div className="flex flex-col space-y-6 p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
                         {salesLabels.deliveryOrders}
@@ -59,32 +59,32 @@ export default async function SalesDeliveriesPage({
                 </div>
             </div>
 
-            <Alert className="bg-background border-blue-500/20 text-blue-600 dark:text-blue-400">
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-xs space-y-1">
-                    <p>
-                        Ini adalah dokumen{' '}
-                        <strong>Surat Jalan (Delivery Order)</strong> — bukti
-                        pengiriman ke customer. Status{' '}
-                        <strong>PENDING / LOADING</strong> = draft muat (stok
-                        belum dipotong); qty masih bisa diubah di detail SJ.
-                    </p>
-                    <p className="text-muted-foreground">
-                        {salesLabels.openSjPendingList} Filter tanggal di atas
-                        memakai tanggal pengiriman; SJ draft tetap ikut tampil.
-                    </p>
-                    <p className="text-muted-foreground">
-                        Muat, verifikasi, & tandai dikirim dikerjakan di{' '}
-                        <Link
-                            href="/warehouse/outgoing"
-                            className="underline hover:text-foreground"
-                        >
-                            Portal Gudang
-                        </Link>
-                        .
-                    </p>
-                </AlertDescription>
-            </Alert>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                <div className="flex items-center gap-1">
+                    <span>Surat Jalan & proses pengiriman</span>
+                    <SalesMetricInfo label="Info Surat Jalan">
+                        <p>
+                            Surat Jalan adalah dokumen pengiriman ke customer.
+                            PENDING / LOADING berarti draft muat: stok belum
+                            dipotong dan qty masih bisa diubah di detail SJ.
+                        </p>
+                        <p>
+                            {salesLabels.openSjPendingList} Filter memakai
+                            tanggal pengiriman; SJ draft tetap ikut tampil.
+                        </p>
+                        <p>
+                            Muat, verifikasi, dan tandai dikirim dilakukan di
+                            Portal Gudang.
+                        </p>
+                    </SalesMetricInfo>
+                </div>
+                <Link
+                    href="/warehouse/outgoing"
+                    className="inline-flex min-h-11 items-center text-sm underline underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                    Buka Portal Gudang →
+                </Link>
+            </div>
 
             <Card>
                 <CardHeader>

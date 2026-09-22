@@ -1,4 +1,5 @@
 import { getSalesPerformanceReport } from '@/actions/sales/sales-reports';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import { SalesPerformanceReportClient } from '@/components/sales/reports/SalesPerformanceReportClient';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -30,19 +31,21 @@ export default async function SalesPerformanceReportPage({
 
     return (
         <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Laporan Performa Penjualan
-                    </h1>
+                    <div className="flex items-center gap-1">
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Laporan Performa Penjualan
+                        </h1>
+                        <SalesMetricInfo label="Info omzet laporan penjualan">
+                            Omzet adalah total nilai SO non-batal berdasarkan
+                            tanggal pesanan (orderDate) dalam periode pilihan,
+                            bukan invoice yang sudah lunas.
+                        </SalesMetricInfo>
+                    </div>
                     <p className="text-muted-foreground">
                         Omzet per periode, top customer, top produk, dan detail
                         order. Periode: {periodLabel}.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Definisi omzet: sum totalAmount SO non-batal di
-                        orderDate scope ini. Bukan invoice lunas. Scope ikut
-                        filter tanggal.
                     </p>
                 </div>
                 <UrlTransactionDateFilter defaultPreset="this_month" />

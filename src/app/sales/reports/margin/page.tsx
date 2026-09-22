@@ -1,4 +1,5 @@
 import { getSalesMarginReport } from '@/actions/sales/margin-report';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import { MarginReportClient } from './MarginReportClient';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { ContextualHelp } from '@/components/support/contextual-help';
@@ -155,18 +156,25 @@ export default async function SalesMarginReportPage({
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Laporan Margin
-                    </h1>
+                    <div className="flex items-center gap-1">
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Laporan Margin
+                        </h1>
+                        <SalesMetricInfo label="Info perhitungan HPP dan margin">
+                            <p>
+                                HPP memakai rata-rata tertimbang per varian dari
+                                production order COMPLETED/IN_PROGRESS dalam
+                                periode ini.
+                            </p>
+                            <p>
+                                Badge kuning menandakan HPP tidak lengkap atau
+                                tidak tersedia, bukan margin 0% atau 100%.
+                            </p>
+                        </SalesMetricInfo>
+                    </div>
                     <p className="text-muted-foreground">
                         Pendapatan – HPP per SO, customer, produk, dan sales.
                         Periode: {periodLabel}.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        HPP = rata-rata tertimbang per varian dari production
-                        order COMPLETED/IN_PROGRESS dalam periode ini. Baris
-                        dengan badge kuning = HPP tidak lengkap/tidak tersedia
-                        (bukan margin 0/100%).
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
