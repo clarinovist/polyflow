@@ -58,7 +58,7 @@ function ExecutionScrapCell({
             </PopoverTrigger>
             <PopoverContent align="end" className="w-64 text-left">
                 <p className="text-xs font-medium text-muted-foreground mb-2">
-                    Rincian scrap tercatat (tab Sumber Daya)
+                    Rincian scrap tercatat (tab Bahan, tim & kualitas)
                 </p>
                 <ul className="space-y-1.5">
                     {relatedRecords.map((scrap) => (
@@ -127,113 +127,115 @@ export function OrderOverviewTab({
 
     return (
         <div className="space-y-6">
-            {/* Progress Section */}
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Progres Produksi
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-2xl font-bold">
-                            {formatProductionQuantity(
-                                actualQty,
-                                outputUnitConfig,
-                            )}
-                            <span className="mx-2 text-muted-foreground">
-                                /
+            <div className="grid items-start gap-4 xl:grid-cols-3">
+                {/* Progress Section */}
+                <Card className="xl:col-span-2">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Progres Produksi
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                            <span className="text-2xl font-bold">
+                                {formatProductionQuantity(
+                                    actualQty,
+                                    outputUnitConfig,
+                                )}
+                                <span className="mx-2 text-muted-foreground">
+                                    /
+                                </span>
+                                {getEnteredQuantityDisplay({
+                                    ...outputUnitConfig,
+                                    quantity: plannedQty,
+                                    enteredQuantity:
+                                        order.plannedEnteredQuantity,
+                                    enteredUnit: order.plannedEnteredUnit,
+                                    conversionFactorSnapshot:
+                                        order.plannedConversionFactorSnapshot,
+                                })}
                             </span>
-                            {getEnteredQuantityDisplay({
-                                ...outputUnitConfig,
-                                quantity: plannedQty,
-                                enteredQuantity: order.plannedEnteredQuantity,
-                                enteredUnit: order.plannedEnteredUnit,
-                                conversionFactorSnapshot:
-                                    order.plannedConversionFactorSnapshot,
-                            })}
-                        </span>
-                        <span className="text-sm font-medium text-muted-foreground">
-                            {progress.toFixed(1)}%
-                        </span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                    <div className="mt-3 flex items-center justify-between border-t pt-3">
-                        <span className="text-xs text-muted-foreground">
-                            Scrap
-                        </span>
-                        <span className="text-sm font-semibold text-destructive">
-                            {formatQuantity(totalScrapQty)} KG
-                        </span>
-                    </div>
-                </CardContent>
-            </Card>
+                            <span className="text-sm font-medium text-muted-foreground">
+                                {progress.toFixed(1)}%
+                            </span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                        <div className="mt-3 flex items-center justify-between border-t pt-3">
+                            <span className="text-xs text-muted-foreground">
+                                Scrap
+                            </span>
+                            <span className="text-sm font-semibold text-destructive">
+                                {formatQuantity(totalScrapQty)} KG
+                            </span>
+                        </div>
+                    </CardContent>
+                </Card>
 
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Sumber Permintaan
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    {order.salesOrder ? (
-                        <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800/50 dark:bg-blue-900/20">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <div className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-                                        Tertaut Sales Order
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Sumber Permintaan
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {order.salesOrder ? (
+                            <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800/50 dark:bg-blue-900/20">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <div className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+                                            Tertaut Sales Order
+                                        </div>
+                                        <div className="text-xs text-blue-700 dark:text-blue-400">
+                                            {order.salesOrder.customer?.name ||
+                                                'Customer tidak ditugaskan'}{' '}
+                                            •{' '}
+                                            {order.salesOrder.orderType.replace(
+                                                /_/g,
+                                                ' ',
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="text-xs text-blue-700 dark:text-blue-400">
-                                        {order.salesOrder.customer?.name ||
-                                            'Customer tidak ditugaskan'}{' '}
-                                        •{' '}
-                                        {order.salesOrder.orderType.replace(
-                                            /_/g,
-                                            ' ',
-                                        )}
-                                    </div>
+                                    <Badge
+                                        variant="outline"
+                                        className="border-blue-200 bg-white text-blue-700 dark:border-blue-800/50 dark:bg-zinc-900 dark:text-blue-400"
+                                    >
+                                        Permintaan Customer
+                                    </Badge>
                                 </div>
-                                <Badge
-                                    variant="outline"
-                                    className="border-blue-200 bg-white text-blue-700 dark:border-blue-800/50 dark:bg-zinc-900 dark:text-blue-400"
-                                >
-                                    Permintaan Customer
-                                </Badge>
+                                <div className="flex items-center justify-between gap-3 text-sm">
+                                    <span className="font-medium">
+                                        {order.salesOrder.orderNumber}
+                                    </span>
+                                    <Link
+                                        href={`/sales/orders/${order.salesOrder.id}`}
+                                        className="text-blue-700 hover:underline dark:text-blue-400"
+                                    >
+                                        Buka Sales Order
+                                    </Link>
+                                </div>
                             </div>
-                            <div className="flex items-center justify-between gap-3 text-sm">
-                                <span className="font-medium">
-                                    {order.salesOrder.orderNumber}
-                                </span>
-                                <Link
-                                    href={`/sales/orders/${order.salesOrder.id}`}
-                                    className="text-blue-700 hover:underline dark:text-blue-400"
-                                >
-                                    Buka Sales Order
-                                </Link>
+                        ) : (
+                            <div className="flex items-center justify-between rounded-lg border border-muted bg-muted/30 p-4">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <Badge
+                                        variant="secondary"
+                                        className="text-xs font-normal"
+                                    >
+                                        Stok Internal
+                                    </Badge>
+                                    <span className="text-sm text-muted-foreground">
+                                        Produksi direncanakan tanpa Sales Order
+                                        terkait
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-between rounded-lg border border-muted bg-muted/30 p-4">
-                            <div className="flex items-center gap-3">
-                                <Badge
-                                    variant="secondary"
-                                    className="text-xs font-normal"
-                                >
-                                    Stok Internal
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">
-                                    Produksi direncanakan tanpa Sales Order
-                                    terkait
-                                </span>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-                {/* Column 1: Order Details */}
-                <Card className="h-fit">
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                {/* Order metadata stays beside the full-width history. */}
+                <Card className="h-fit lg:col-start-3 lg:row-start-1">
                     <CardHeader>
                         <CardTitle className="text-base">
                             Informasi SPK
@@ -319,15 +321,24 @@ export function OrderOverviewTab({
                     </CardContent>
                 </Card>
 
-                {/* Column 2: Materials Readiness */}
-                <Card className="h-fit">
+                {/* Issued quantities are not an inventory availability check. */}
+                <Card className="h-fit lg:col-start-3 lg:row-start-2">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
-                            <Package className="w-4 h-4" /> Kesiapan Bahan
+                            <Package className="w-4 h-4" /> Pengeluaran bahan
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {(() => {
+                            if (order.materialConsumptionMode === 'DIRECT')
+                                return (
+                                    <p className="text-sm text-muted-foreground">
+                                        Langsung per bahan: tidak perlu
+                                        pengeluaran manual. Stok dipotong dari
+                                        gudang asal saat hasil dicatat. Lihat
+                                        rincian di tab Bahan, tim & kualitas.
+                                    </p>
+                                );
                             const total = order.plannedMaterials?.length || 0;
                             const ready = (order.plannedMaterials || []).filter(
                                 (m) => {
@@ -352,24 +363,28 @@ export function OrderOverviewTab({
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-sm text-muted-foreground">
-                                            Status Bahan
+                                            Pengeluaran tercatat
                                         </span>
                                         {allReady ? (
                                             <Badge
                                                 variant="outline"
                                                 className="text-xs border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400"
                                             >
-                                                Siap ({ready}/{total})
+                                                Lengkap ({ready}/{total})
                                             </Badge>
                                         ) : (
                                             <Badge
                                                 variant="outline"
                                                 className="text-xs border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-400"
                                             >
-                                                Menunggu ({ready}/{total})
+                                                Belum lengkap ({ready}/{total})
                                             </Badge>
                                         )}
                                     </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Berdasarkan pengeluaran non-void, bukan
+                                        stok gudang saat ini.
+                                    </p>
                                     {(order.plannedMaterials || [])
                                         .slice(0, 5)
                                         .map((m) => {
@@ -435,7 +450,8 @@ export function OrderOverviewTab({
                                             +
                                             {(order.plannedMaterials?.length ||
                                                 0) - 5}{' '}
-                                            bahan lainnya di tab Sumber Daya
+                                            bahan lainnya di tab Bahan, tim &
+                                            kualitas
                                         </p>
                                     )}
                                 </div>
@@ -445,7 +461,7 @@ export function OrderOverviewTab({
                 </Card>
 
                 {/* Column 3-4: Production History */}
-                <Card className="lg:col-span-2 h-full">
+                <Card className="h-fit min-w-0 lg:col-span-2 lg:col-start-1 lg:row-span-2 lg:row-start-1">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <History className="w-4 h-4" /> Riwayat Produksi

@@ -18,9 +18,7 @@ Element.prototype.hasPointerCapture = vi.fn();
 Element.prototype.releasePointerCapture = vi.fn();
 
 function renderPanel(
-    overrides: Partial<
-        React.ComponentProps<typeof MaterialPreviewPanel>
-    > = {},
+    overrides: Partial<React.ComponentProps<typeof MaterialPreviewPanel>> = {},
 ) {
     return render(
         <MaterialPreviewPanel
@@ -54,7 +52,7 @@ describe('MaterialPreviewPanel', () => {
         expect(screen.getByText('Pilih produk & target dulu')).toBeTruthy();
     });
 
-    it('does not render the error alert once items are present, even if a stale error lingers', () => {
+    it('keeps a failed recalculation visible even when previous material rows remain', () => {
         renderPanel({
             error: 'Recipe not found',
             items: [{ productVariantId: 'pv-1', quantity: 10 }],
@@ -73,7 +71,9 @@ describe('MaterialPreviewPanel', () => {
             },
         });
 
-        expect(screen.queryByRole('alert')).toBeNull();
+        expect(screen.getByRole('alert').textContent).toContain(
+            'Gagal menghitung kebutuhan bahan',
+        );
         expect(screen.getByText('PP Hijau D')).toBeTruthy();
     });
 

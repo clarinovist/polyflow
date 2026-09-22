@@ -1,67 +1,55 @@
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 
-const STEPS = [
-    { num: 1, label: 'Spesifikasi' },
-    { num: 2, label: 'Lokasi & meta' },
-    { num: 3, label: 'Review & buat' },
-] as const;
-
+const STEPS = ['Produk & target', 'Bahan & tujuan', 'Periksa & buat'];
 export type StepNumber = 1 | 2 | 3;
 
-interface CreateSpkStepperProps {
-    currentStep: StepNumber;
-}
-
-export function CreateSpkStepper({ currentStep }: CreateSpkStepperProps) {
+export function CreateSpkStepper({ currentStep }: { currentStep: StepNumber }) {
     return (
-        <nav aria-label="Progress" className="flex items-center gap-0 w-full">
-            {STEPS.map((step, i) => {
-                const isActive = step.num === currentStep;
-                const isCompleted = step.num < currentStep;
-                return (
-                    <div
-                        key={step.num}
-                        className="flex items-center flex-1 last:flex-none"
-                    >
-                        <div className="flex items-center gap-2">
-                            <div
-                                className={cn(
-                                    'flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors',
-                                    isActive &&
-                                        'bg-primary text-primary-foreground',
-                                    isCompleted && 'bg-primary/20 text-primary',
-                                    !isActive &&
-                                        !isCompleted &&
-                                        'bg-muted text-muted-foreground',
-                                )}
-                                aria-current={isActive ? 'step' : undefined}
-                            >
-                                {step.num}
-                            </div>
-                            <span
-                                className={cn(
-                                    'text-xs font-medium hidden sm:inline',
-                                    isActive && 'text-foreground',
-                                    isCompleted && 'text-primary',
-                                    !isActive &&
-                                        !isCompleted &&
-                                        'text-muted-foreground',
-                                )}
-                            >
-                                {step.label}
-                            </span>
-                        </div>
-                        {i < STEPS.length - 1 && (
-                            <div
-                                className={cn(
-                                    'flex-1 h-px mx-3',
-                                    isCompleted ? 'bg-primary/30' : 'bg-border',
-                                )}
-                            />
+        <nav
+            aria-label="Progress pembuatan SPK"
+            className="rounded-xl border bg-card px-4 py-3"
+        >
+            <p className="mb-3 text-sm font-medium sm:hidden">
+                Langkah {currentStep} dari 3 · {STEPS[currentStep - 1]}
+            </p>
+            <ol className="flex items-center gap-3">
+                {STEPS.map((label, index) => (
+                    <li
+                        key={label}
+                        aria-current={
+                            currentStep === index + 1 ? 'step' : undefined
+                        }
+                        className={cn(
+                            'flex min-w-0 flex-1 items-center gap-2 text-sm',
+                            currentStep !== index + 1 &&
+                                'text-muted-foreground',
                         )}
-                    </div>
-                );
-            })}
+                    >
+                        <span
+                            className={cn(
+                                'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
+                                currentStep === index + 1 &&
+                                    'border-emerald-700 bg-emerald-700 text-white',
+                                currentStep > index + 1 &&
+                                    'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+                            )}
+                        >
+                            {currentStep > index + 1 ? (
+                                <Check
+                                    className="h-4 w-4"
+                                    aria-label="Selesai"
+                                />
+                            ) : (
+                                index + 1
+                            )}
+                        </span>
+                        <span className="hidden font-medium sm:inline">
+                            {label}
+                        </span>
+                    </li>
+                ))}
+            </ol>
         </nav>
     );
 }

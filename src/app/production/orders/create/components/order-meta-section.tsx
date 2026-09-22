@@ -76,13 +76,9 @@ export function OrderMetaSection({
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                <SelectItem value="URGENT">
-                                    🔴 URGENT
-                                </SelectItem>
-                                <SelectItem value="NORMAL">
-                                    🟡 NORMAL
-                                </SelectItem>
-                                <SelectItem value="LOW">🟢 LOW</SelectItem>
+                                <SelectItem value="URGENT">Mendesak</SelectItem>
+                                <SelectItem value="NORMAL">Normal</SelectItem>
+                                <SelectItem value="LOW">Rendah</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormMessage />

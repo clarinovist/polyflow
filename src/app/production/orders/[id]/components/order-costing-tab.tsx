@@ -40,8 +40,8 @@ export function OrderCostingTab({
                     <p>Menghitung biaya batch…</p>
                 </div>
             ) : costingData ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="md:col-span-2">
+                <div className="space-y-4">
+                    <Card>
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <Calculator className="w-4 h-4" /> Rincian Biaya
@@ -69,7 +69,7 @@ export function OrderCostingTab({
                                 </div>
                             </div>
                             <div className="pt-4 border-t">
-                                <div className="flex justify-between items-end">
+                                <div className="flex flex-wrap items-end justify-between gap-4">
                                     <div>
                                         <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
                                             Total HPP (COGM)
@@ -113,19 +113,22 @@ export function OrderCostingTab({
                                         % Material
                                     </span>
                                     <span className="font-medium">
-                                        {(
-                                            (costingData.materialCost /
-                                                costingData.totalCost) *
-                                            100
+                                        {(costingData.totalCost > 0
+                                            ? (costingData.materialCost /
+                                                  costingData.totalCost) *
+                                              100
+                                            : 0
                                         ).toFixed(1)}
                                         %
                                     </span>
                                 </div>
                                 <Progress
                                     value={
-                                        (costingData.materialCost /
-                                            costingData.totalCost) *
-                                        100
+                                        costingData.totalCost > 0
+                                            ? (costingData.materialCost /
+                                                  costingData.totalCost) *
+                                              100
+                                            : 0
                                     }
                                     className="h-1.5"
                                 />
@@ -136,19 +139,22 @@ export function OrderCostingTab({
                                         % Konversi
                                     </span>
                                     <span className="font-medium">
-                                        {(
-                                            (costingData.conversionCost /
-                                                costingData.totalCost) *
-                                            100
+                                        {(costingData.totalCost > 0
+                                            ? (costingData.conversionCost /
+                                                  costingData.totalCost) *
+                                              100
+                                            : 0
                                         ).toFixed(1)}
                                         %
                                     </span>
                                 </div>
                                 <Progress
                                     value={
-                                        (costingData.conversionCost /
-                                            costingData.totalCost) *
-                                        100
+                                        costingData.totalCost > 0
+                                            ? (costingData.conversionCost /
+                                                  costingData.totalCost) *
+                                              100
+                                            : 0
                                     }
                                     className="h-1.5 bg-amber-100 dark:bg-amber-900/30"
                                 />

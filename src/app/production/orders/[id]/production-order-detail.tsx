@@ -43,7 +43,11 @@ interface PageProps {
     };
 }
 
-export function ProductionOrderDetail({ order, formData, canEditCustomers = false }: PageProps) {
+export function ProductionOrderDetail({
+    order,
+    formData,
+    canEditCustomers = false,
+}: PageProps) {
     const getDefaultTab = (status: string) => {
         switch (status) {
             case 'WAITING_MATERIAL':
@@ -75,22 +79,39 @@ export function ProductionOrderDetail({ order, formData, canEditCustomers = fals
         order.issues?.filter((i) => i.status === 'OPEN').length || 0;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <OrderDetailHeader order={order} formData={formData} />
 
-            <div className="rounded-lg border p-4 space-y-3">
-                <OrderContextSummary order={order} standards={order.bom.productVariant.qualityCheckParameters} />
-                {canEditCustomers && !['COMPLETED', 'CANCELLED'].includes(order.status) && (
-                    <OrderCustomersEditor orderId={order.id} customers={formData.customers ?? []} selected={(order.customerDestinations ?? []).map((row) => row.customer)} />
-                )}
+            <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+                <OrderContextSummary
+                    order={order}
+                    standards={order.bom.productVariant.qualityCheckParameters}
+                />
+                {canEditCustomers &&
+                    !['COMPLETED', 'CANCELLED'].includes(order.status) && (
+                        <OrderCustomersEditor
+                            orderId={order.id}
+                            customers={formData.customers ?? []}
+                            selected={(order.customerDestinations ?? []).map(
+                                (row) => row.customer,
+                            )}
+                        />
+                    )}
             </div>
 
             <OrderWorkflowStepper status={order.status} />
 
-            <EntityStatusTimeline
-                entityType="ProductionOrder"
-                entityId={order.id}
-            />
+            <details className="rounded-lg border bg-card">
+                <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-medium">
+                    Riwayat status SPK
+                </summary>
+                <div className="border-t p-3">
+                    <EntityStatusTimeline
+                        entityType="ProductionOrder"
+                        entityId={order.id}
+                    />
+                </div>
+            </details>
 
             <Tabs
                 value={activeTab}
@@ -98,16 +119,16 @@ export function ProductionOrderDetail({ order, formData, canEditCustomers = fals
                 className="w-full"
             >
                 <div className="overflow-x-auto pb-2 custom-scrollbar">
-                    <TabsList className="flex w-max min-w-full lg:grid lg:w-[500px] lg:grid-cols-3">
-                        <TabsTrigger value="overview" className="px-6 lg:px-4">
+                    <TabsList className="flex h-auto w-max min-w-full justify-start gap-1 bg-muted/50 p-1">
+                        <TabsTrigger value="overview" className="min-h-11 px-4">
                             Operasional
                         </TabsTrigger>
 
                         <TabsTrigger
                             value="execution"
-                            className="relative px-6 lg:px-4"
+                            className="relative min-h-11 px-4"
                         >
-                            Sumber Daya
+                            Bahan, tim & kualitas
                             {order.status === 'IN_PROGRESS' && (
                                 <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse dark:bg-amber-400" />
                             )}
@@ -115,7 +136,7 @@ export function ProductionOrderDetail({ order, formData, canEditCustomers = fals
 
                         <TabsTrigger
                             value="issues_costing"
-                            className="relative px-6 lg:px-4"
+                            className="relative min-h-11 px-4"
                         >
                             Biaya & Isu
                             {openIssueCount > 0 && (
@@ -136,13 +157,17 @@ export function ProductionOrderDetail({ order, formData, canEditCustomers = fals
                 </TabsContent>
 
                 <TabsContent value="issues_costing" className="mt-6">
-                    <div className="space-y-6">
-                        <OrderIssuesTab order={order} />
-                        <OrderCostingTab
-                            order={order}
-                            costingData={costingData}
-                            loadingCosting={loadingCosting}
-                        />
+                    <div className="grid items-start gap-6 xl:grid-cols-5">
+                        <div className="min-w-0 xl:col-span-3">
+                            <OrderCostingTab
+                                order={order}
+                                costingData={costingData}
+                                loadingCosting={loadingCosting}
+                            />
+                        </div>
+                        <div className="min-w-0 xl:col-span-2">
+                            <OrderIssuesTab order={order} />
+                        </div>
                     </div>
                 </TabsContent>
             </Tabs>

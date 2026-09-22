@@ -41,6 +41,8 @@ interface MaterialPreviewPanelProps {
     onAcceptSuggestedSource: () => void;
     /** C1: Editable mode — enables qty editing and add/remove lines */
     editable?: boolean;
+    compact?: boolean;
+    consumptionMode?: 'TRANSFER' | 'DIRECT';
     /** C1: Available raw materials for "add line" dropdown */
     rawMaterials?: RawMaterial[];
     /** C2: Warehouses the "Tambah bahan" gudang picker offers */
@@ -71,6 +73,8 @@ export function MaterialPreviewPanel({
     error,
     onAcceptSuggestedSource,
     editable = false,
+    compact = false,
+    consumptionMode = 'TRANSFER',
     rawMaterials = [],
     sourceLocations = [],
     defaultLocationId = '',
@@ -154,7 +158,7 @@ export function MaterialPreviewPanel({
                     </Alert>
                 )}
 
-                {error && items.length === 0 && (
+                {error && (
                     <Alert variant="destructive" className="py-2">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle className="text-sm">
@@ -166,7 +170,7 @@ export function MaterialPreviewPanel({
                     </Alert>
                 )}
 
-                {hasStockIssues && (
+                {hasStockIssues && !isCalculating && !error && (
                     <Alert
                         variant="default"
                         className="py-2 border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/20"
@@ -176,164 +180,269 @@ export function MaterialPreviewPanel({
                             Kekurangan bahan
                         </AlertTitle>
                         <AlertDescription className="text-xs text-amber-700 dark:text-amber-400">
-                            SPK akan berstatus <b>Menunggu Bahan</b>.
+                            Perkiraan status: <b>Menunggu Bahan</b>.
                         </AlertDescription>
                     </Alert>
                 )}
 
-                <div className="border rounded-md overflow-x-auto max-h-[75vh] overflow-y-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="h-8 text-xs">
-                                    Item
-                                </TableHead>
-                                <TableHead className="h-8 text-xs w-[100px] text-right">
-                                    Kebutuhan
-                                </TableHead>
-                                <TableHead className="h-8 text-xs w-[70px] text-right">
-                                    Stok
-                                </TableHead>
-                                <TableHead className="h-8 text-xs w-[110px]">
-                                    Asal
-                                </TableHead>
-                                {editable && (
-                                    <TableHead className="h-8 text-xs w-[40px]" />
-                                )}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {items.length === 0 && !isCalculating && (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={editable ? 5 : 4}
-                                        className="text-center text-slate-400 dark:text-slate-300 py-8 text-xs"
-                                    >
-                                        Pilih produk & target dulu
-                                    </TableCell>
-                                </TableRow>
-                            )}
-
-                            {isCalculating && (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={editable ? 5 : 4}
-                                        className="text-center py-8"
-                                    >
-                                        <Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-400 dark:text-slate-300" />
-                                    </TableCell>
-                                </TableRow>
-                            )}
-
-                            {items.map((item) => {
-                                const info =
-                                    materialInfo[item.productVariantId];
-                                // BOM lines always have stock data. Ad-hoc lines
-                                // do too once the user has picked a gudang in
-                                // "Tambah bahan" (stdQty is set as a sentinel
-                                // then — see mergedMaterialInfo in the parent).
-                                // Still-unresolved ad-hoc lines have stdQty=0.
-                                const hasStockData = info && info.stdQty > 0;
-                                // Short only when no warehouse covers it — this
-                                // must match the rule that sets WAITING_MATERIAL.
-                                const isLowStock =
-                                    hasStockData &&
-                                    info &&
-                                    item.quantity >
-                                        (info.totalStock ?? info.currentStock);
-
-                                return (
-                                    <TableRow key={item.productVariantId}>
-                                        <TableCell className="py-2">
-                                            <div className="font-medium text-xs">
-                                                {info?.name || 'Unknown'}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="py-2 text-right">
-                                            {editable && onItemQtyChange ? (
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min={0}
-                                                    className="h-7 text-xs text-right"
-                                                    value={item.quantity}
-                                                    onChange={(e) =>
-                                                        onItemQtyChange(
-                                                            item.productVariantId,
-                                                            Number(
-                                                                e.target.value,
-                                                            ) || 0,
-                                                        )
-                                                    }
-                                                    onWheel={(e) =>
-                                                        e.currentTarget.blur()
-                                                    }
-                                                />
-                                            ) : (
-                                                <div className="flex flex-col items-end gap-1">
-                                                    <span className="text-xs font-semibold">
-                                                        {Number(
-                                                            item.quantity,
-                                                        ).toFixed(2)}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400 dark:text-slate-300">
-                                                        {info?.unit}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="py-2 text-right">
-                                            <div className="flex flex-col items-end">
-                                                {hasStockData ? (
-                                                    <>
-                                                        <span
-                                                            className={`text-xs ${isLowStock ? 'text-red-600 dark:text-red-400 font-bold' : ''}`}
-                                                        >
-                                                            {info?.currentStock ??
-                                                                0}
-                                                        </span>
-                                                        {isLowStock && (
-                                                            <span className="text-[10px] text-red-500 dark:text-red-400 font-medium">
-                                                                Kurang
-                                                            </span>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <span className="text-xs text-slate-400 dark:text-slate-300">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="py-2">
-                                            <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">
-                                                {info?.sourceLocationName ||
-                                                    '—'}
-                                            </span>
-                                        </TableCell>
-                                        {editable && onRemoveItem && (
-                                            <TableCell className="py-2 text-right">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                                    onClick={() =>
-                                                        onRemoveItem(
-                                                            item.productVariantId,
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                            </TableCell>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                    {consumptionMode === 'DIRECT'
+                        ? 'Kecukupan berdasarkan gudang asal yang dipilih per bahan.'
+                        : 'Kecukupan bahan resep memperhitungkan total stok gudang yang memenuhi syarat.'}{' '}
+                    Estimasi, bukan reservasi stok.
+                </p>
+                {compact ? (
+                    <ul
+                        className="divide-y"
+                        aria-label="Ringkasan kebutuhan bahan"
+                    >
+                        {isCalculating && (
+                            <li
+                                role="status"
+                                className="py-3 text-sm text-muted-foreground"
+                            >
+                                Menghitung kebutuhan bahan…
+                            </li>
+                        )}
+                        {items.length === 0 && !isCalculating && (
+                            <li className="py-4 text-sm text-muted-foreground">
+                                Pilih produk & target dulu
+                            </li>
+                        )}
+                        {items.map((item) => {
+                            const info = materialInfo[item.productVariantId];
+                            const shortage =
+                                info?.stdQty > 0
+                                    ? Math.max(
+                                          0,
+                                          item.quantity -
+                                              (info.totalStock ??
+                                                  info.currentStock),
+                                      )
+                                    : 0;
+                            return (
+                                <li
+                                    key={item.productVariantId}
+                                    className="space-y-1 py-3"
+                                >
+                                    <div className="flex justify-between gap-3 text-sm">
+                                        <span className="min-w-0 break-words font-medium">
+                                            {info?.name || 'Bahan'}
+                                        </span>
+                                        <span className="shrink-0 tabular-nums">
+                                            {item.quantity.toLocaleString(
+                                                'id-ID',
+                                            )}{' '}
+                                            {info?.unit}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {info?.sourceLocationName ||
+                                            'Asal belum ditentukan'}{' '}
+                                        · Stok{' '}
+                                        {info?.stdQty > 0
+                                            ? `${info.currentStock.toLocaleString('id-ID')} ${info.unit}`
+                                            : 'belum tersedia'}
+                                    </p>
+                                    {info?.stdQty > 0 &&
+                                        info.totalStock !==
+                                            info.currentStock && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Total gudang:{' '}
+                                                {info.totalStock.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                {info.unit}
+                                            </p>
                                         )}
+                                    {shortage > 0 && !isCalculating && !error && (
+                                        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                                            Kurang{' '}
+                                            {shortage.toLocaleString('id-ID')}{' '}
+                                            {info?.unit}
+                                        </p>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                ) : (
+                    <div className="rounded-md border overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="h-8 text-xs">
+                                        Item
+                                    </TableHead>
+                                    <TableHead className="h-10 w-[140px] text-xs text-right">
+                                        Kebutuhan
+                                    </TableHead>
+                                    <TableHead className="h-8 text-xs w-[70px] text-right">
+                                        Stok di asal
+                                    </TableHead>
+                                    <TableHead className="h-8 text-xs w-[110px]">
+                                        Asal
+                                    </TableHead>
+                                    {editable && (
+                                        <TableHead className="h-8 text-xs w-[40px]" />
+                                    )}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {items.length === 0 && !isCalculating && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={editable ? 5 : 4}
+                                            className="text-center text-slate-400 dark:text-slate-300 py-8 text-xs"
+                                        >
+                                            Pilih produk & target dulu
+                                        </TableCell>
                                     </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </div>
+                                )}
+
+                                {isCalculating && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={editable ? 5 : 4}
+                                            className="text-center py-8"
+                                        >
+                                            <Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-400 dark:text-slate-300" />
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+
+                                {items.map((item) => {
+                                    const info =
+                                        materialInfo[item.productVariantId];
+                                    // BOM lines always have stock data. Ad-hoc lines
+                                    // do too once the user has picked a gudang in
+                                    // "Tambah bahan" (stdQty is set as a sentinel
+                                    // then — see mergedMaterialInfo in the parent).
+                                    // Still-unresolved ad-hoc lines have stdQty=0.
+                                    const hasStockData =
+                                        info && info.stdQty > 0;
+                                    // Short only when no warehouse covers it — this
+                                    // must match the rule that sets WAITING_MATERIAL.
+                                    const isLowStock =
+                                        hasStockData &&
+                                        info &&
+                                        item.quantity >
+                                            (info.totalStock ??
+                                                info.currentStock);
+
+                                    return (
+                                        <TableRow key={item.productVariantId}>
+                                            <TableCell className="py-2">
+                                                <div className="font-medium text-xs">
+                                                    {info?.name || 'Unknown'}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-2 text-right">
+                                                {editable && onItemQtyChange ? (
+                                                    <div className="space-y-1">
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min={0}
+                                                            className="min-h-11 min-w-24 text-sm text-right"
+                                                            aria-label={`Kebutuhan ${info?.name || 'bahan'} (${info?.unit || ''})`}
+                                                            value={
+                                                                item.quantity
+                                                            }
+                                                            onChange={(e) =>
+                                                                onItemQtyChange(
+                                                                    item.productVariantId,
+                                                                    Number(
+                                                                        e.target
+                                                                            .value,
+                                                                    ) || 0,
+                                                                )
+                                                            }
+                                                            onWheel={(e) =>
+                                                                e.currentTarget.blur()
+                                                            }
+                                                        />
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {info?.unit}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <span className="text-xs font-semibold">
+                                                            {Number(
+                                                                item.quantity,
+                                                            ).toFixed(2)}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 dark:text-slate-300">
+                                                            {info?.unit}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="py-2 text-right">
+                                                <div className="flex flex-col items-end">
+                                                    {hasStockData ? (
+                                                        <>
+                                                            <span
+                                                                className={`text-xs ${isLowStock ? 'text-red-600 dark:text-red-400 font-bold' : ''}`}
+                                                            >
+                                                                {info?.currentStock ??
+                                                                    0}
+                                                            </span>
+                                                            {info.totalStock !==
+                                                                info.currentStock && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    Total:{' '}
+                                                                    {
+                                                                        info.totalStock
+                                                                    }{' '}
+                                                                    {info.unit}
+                                                                </span>
+                                                            )}
+                                                            {isLowStock && (
+                                                                <span className="text-[10px] text-red-500 dark:text-red-400 font-medium">
+                                                                    Kurang
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 dark:text-slate-300">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-2">
+                                                <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">
+                                                    {info?.sourceLocationName ||
+                                                        '—'}
+                                                </span>
+                                            </TableCell>
+                                            {editable && onRemoveItem && (
+                                                <TableCell className="py-2 text-right">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-11 w-11 p-0 text-muted-foreground hover:text-destructive"
+                                                        aria-label={`Hapus ${info?.name || 'bahan'}`}
+                                                        onClick={() =>
+                                                            onRemoveItem(
+                                                                item.productVariantId,
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
 
                 {/* C2: Add material line — gudang first, then item (annotated
                     with stock at that gudang), then qty. Item picker stays

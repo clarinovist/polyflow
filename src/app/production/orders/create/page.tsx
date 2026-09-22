@@ -57,25 +57,25 @@ export default async function CreateProductionOrderPage({
         | undefined;
 
     return (
-        <div className="p-6 md:p-8 max-w-7xl mx-auto">
+        <div className="mx-auto max-w-[1440px] py-2">
             <Link
                 href="/production/orders"
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-6"
             >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="text-sm font-medium">
-                    Kembali ke Daftar Order
+                    Kembali ke daftar SPK
                 </span>
             </Link>
 
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">
-                        Buat SPK (Work Order)
+                        Buat SPK
                     </h1>
-                    <p className="text-muted-foreground mt-2">
-                        Rencanakan pekerjaan produksi: resep, target, mesin, dan
-                        alur material.
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Satu SPK untuk satu tahap produksi. Tentukan produk,
+                        target, dan alur bahan.
                     </p>
                 </div>
                 <div>

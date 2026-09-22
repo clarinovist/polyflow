@@ -1,6 +1,30 @@
+import Link from 'next/link';
+import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+import { BomCategory } from '@prisma/client';
+import {
+    Activity,
+    AlertCircle,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    Layers,
+    Plus,
+    Search,
+    X,
+} from 'lucide-react';
+import {
+    getProductionOrdersList,
+    getProductionOrderStats,
+} from '@/actions/production/production-orders';
+import { PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE as PAGE_SIZE } from '@/lib/constants/production';
+import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
+import { getStatusLabel } from '@/lib/labels/helpers';
+import { cn } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
-import { planningLabels } from '@/lib/labels';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import {
     Table,
     TableBody,
@@ -9,39 +33,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import {
-    Plus,
-    Search,
-    ChevronRight,
-    ChevronLeft,
-    Activity,
-    Clock,
-    AlertCircle,
-    Layers,
-    X,
-} from 'lucide-react';
-import Link from 'next/link';
-import {
-    getProductionOrdersList,
-    getProductionOrderStats,
-} from '@/actions/production/production-orders';
-import { PRODUCTION_ORDERS_LIST_DEFAULT_PAGE_SIZE as PRODUCTION_ORDERS_LIST_PAGE_SIZE } from '@/lib/constants/production';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { format } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BomCategory } from '@prisma/client';
-import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
-import { ProductionStatusBadge } from '@/components/production/production-status-badge';
-import { ProductionPriorityBadge } from '@/components/production/production-priority-badge';
-import { getStatusLabel } from '@/lib/labels/helpers';
-import { cn } from '@/lib/utils/utils';
 import { ContextualHelp } from '@/components/support/contextual-help';
 import { ProductionOrderViews } from '@/components/production/ProductionOrderViews';
+import { ProductionPriorityBadge } from '@/components/production/production-priority-badge';
+import { ProductionStatusBadge } from '@/components/production/production-status-badge';
 
-const ALL_STATUSES = [
+const STATUSES = [
     'DRAFT',
     'WAITING_MATERIAL',
     'RELEASED',
@@ -49,69 +46,47 @@ const ALL_STATUSES = [
     'COMPLETED',
     'CANCELLED',
 ] as const;
-
-const ALL_CATEGORIES = [
-    { value: 'all', label: 'Semua' },
+const CATEGORIES = [
+    { value: 'all', label: 'Semua tahap' },
     { value: 'mixing', label: 'Mixing' },
     { value: 'extrusion', label: 'Extrusion' },
     { value: 'packing', label: 'Packing' },
     { value: 'rework', label: 'Rework' },
-] as const;
+];
+
+type Filters = {
+    category?: string;
+    status?: string;
+    q?: string;
+    late?: string;
+    page?: string;
+};
 
 export default async function ProductionOrdersPage({
     searchParams,
 }: {
-    searchParams: Promise<{
-        category?: string;
-        status?: string;
-        q?: string;
-        late?: string;
-        page?: string;
-    }>;
+    searchParams: Promise<Filters>;
 }) {
     const { category, status, q, late, page: pageParam } = await searchParams;
-
-    let bomCategories: BomCategory[] | undefined;
-
-    if (category === 'mixing') {
-        bomCategories = ['MIXING'];
-    } else if (category === 'extrusion') {
-        // Extrusion tab includes STANDARD BOMs that are extruded downstream
-        bomCategories = ['EXTRUSION', 'STANDARD'] as BomCategory[];
-    } else if (category === 'packing') {
-        bomCategories = ['PACKING'];
-    } else if (category === 'rework') {
-        bomCategories = ['REWORK'];
-    }
-
-    const validStatuses = [
-        'DRAFT',
-        'RELEASED',
-        'IN_PROGRESS',
-        'COMPLETED',
-        'CANCELLED',
-        'WAITING_MATERIAL',
-    ] as const;
-    // "ALL" is a sentinel, not a real ProductionStatus — it's how "Semua
-    // status" / "Total SPK" ask for literally everything, distinct from the
-    // bare/no-param state which defaults to hiding COMPLETED (see below).
+    const bomCategories: BomCategory[] | undefined =
+        category === 'mixing'
+            ? ['MIXING']
+            : category === 'extrusion'
+              ? ['EXTRUSION', 'STANDARD']
+              : category === 'packing'
+                ? ['PACKING']
+                : category === 'rework'
+                  ? ['REWORK']
+                  : undefined;
+    const statusFilter = STATUSES.find((value) => value === status);
     const isAllFilter = status === 'ALL';
-    const statusFilter =
-        status &&
-        !isAllFilter &&
-        (validStatuses as readonly string[]).includes(status)
-            ? (status as (typeof validStatuses)[number])
-            : undefined;
-
     const isLateFilter = late === '1';
     const searchQuery = typeof q === 'string' ? q.trim() : '';
     const excludeCompletedDefault =
         !statusFilter && !isLateFilter && !isAllFilter;
-    const currentPage = (() => {
-        const parsed = Number.parseInt(pageParam ?? '1', 10);
-        return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-    })();
-
+    const parsedPage = Number.parseInt(pageParam || '1', 10);
+    const currentPage =
+        Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
     const [{ orders, total }, stats] = await Promise.all([
         getProductionOrdersList({
             bomCategories,
@@ -123,54 +98,31 @@ export default async function ProductionOrdersPage({
         }),
         getProductionOrderStats(),
     ]);
-
-    const totalPages = Math.max(
-        1,
-        Math.ceil(total / PRODUCTION_ORDERS_LIST_PAGE_SIZE),
-    );
-
-    const buildHref = (overrides: {
-        category?: string | null;
-        status?: string | null;
-        q?: string | null;
-        late?: string | null;
-        page?: string | null;
-    }) => {
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const buildHref = (
+        overrides: Partial<Record<keyof Filters, string | null>>,
+    ) => {
+        const next = {
+            category,
+            status,
+            q: searchQuery,
+            late,
+            page: pageParam,
+            ...overrides,
+        };
+        if (Object.keys(overrides).some((key) => key !== 'page'))
+            next.page = overrides.page ?? null;
         const params = new URLSearchParams();
-        // Category
-        const nextCat =
-            overrides.category !== undefined ? overrides.category : category;
-        if (nextCat && nextCat !== 'all') params.set('category', nextCat);
-        // Status
-        const nextStatus =
-            overrides.status !== undefined ? overrides.status : status;
-        if (nextStatus) params.set('status', nextStatus);
-        // Search
-        const nextQ = overrides.q !== undefined ? overrides.q : q;
-        if (nextQ) params.set('q', nextQ);
-        // Late
-        const nextLate = overrides.late !== undefined ? overrides.late : late;
-        if (nextLate) params.set('late', nextLate);
-        // Page — any explicit override wins; otherwise reset to page 1
-        // whenever another filter changes, since the old page number is
-        // unlikely to be valid against the new result set.
-        const isOtherFilterOverridden =
-            overrides.category !== undefined ||
-            overrides.status !== undefined ||
-            overrides.q !== undefined ||
-            overrides.late !== undefined;
-        const nextPage =
-            overrides.page !== undefined
-                ? overrides.page
-                : isOtherFilterOverridden
-                  ? null
-                  : pageParam;
-        if (nextPage && nextPage !== '1') params.set('page', nextPage);
-
-        const qs = params.toString();
-        return qs ? `/production/orders?${qs}` : '/production/orders';
+        for (const [key, value] of Object.entries(next)) {
+            if (
+                value &&
+                !(key === 'category' && value === 'all') &&
+                !(key === 'page' && value === '1')
+            )
+                params.set(key, value);
+        }
+        return `/production/orders${params.size ? `?${params}` : ''}`;
     };
-
     const hasActiveFilters = !!(
         statusFilter ||
         isLateFilter ||
@@ -178,54 +130,63 @@ export default async function ProductionOrdersPage({
         searchQuery ||
         (category && category !== 'all')
     );
-
-    const activeCat = category || 'all';
+    const filterLabel = isLateFilter
+        ? 'Terlambat'
+        : isAllFilter
+          ? 'Semua status'
+          : statusFilter
+            ? getStatusLabel(statusFilter, 'production')
+            : 'Selain Selesai';
+    const metrics = [
+        {
+            label: 'Total SPK',
+            value: stats.totalOrders,
+            icon: Layers,
+            href: buildHref({ status: 'ALL', late: null }),
+            selected: isAllFilter && !isLateFilter,
+            description: 'Seluruh status',
+        },
+        {
+            label: 'Sedang diproduksi',
+            value: stats.activeCount,
+            icon: Activity,
+            href: buildHref({ status: 'IN_PROGRESS', late: null }),
+            selected: statusFilter === 'IN_PROGRESS' && !isLateFilter,
+            description: 'Pekerjaan berjalan',
+        },
+        {
+            label: 'Belum dimulai',
+            value: stats.draftCount,
+            icon: Clock,
+            href: undefined,
+            selected: false,
+            description: 'Draft + Siap Produksi + Menunggu Bahan',
+        },
+        {
+            label: 'Terlambat',
+            value: stats.lateCount,
+            icon: AlertCircle,
+            href: buildHref({ status: null, late: '1' }),
+            selected: isLateFilter,
+            description: 'Melewati rencana selesai',
+        },
+    ];
 
     return (
-        <div className="p-4 md:p-8 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mx-auto max-w-[1600px] space-y-6 py-2">
+            <header className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">
-                        SPK
-                    </h1>
-                    <p className="text-muted-foreground mt-2">
-                        {planningLabels.listSpkDesc}
-                        {(statusFilter || isLateFilter || isAllFilter) && (
-                            <span className="ml-1 font-medium text-foreground">
-                                {isLateFilter
-                                    ? `• ${planningLabels.lateOverdue}`
-                                    : isAllFilter
-                                      ? `• ${planningLabels.allOrders}`
-                                      : `• ${getStatusLabel(statusFilter!, 'production')}`}
-                            </span>
-                        )}
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Produksi / SPK
                     </p>
-                    {hasActiveFilters ? (
-                        <Link
-                            href={buildHref({
-                                category: null,
-                                status: null,
-                                q: null,
-                                late: null,
-                            })}
-                            className="inline-flex mt-2 text-xs font-semibold text-primary hover:underline"
-                        >
-                            Hapus semua filter
-                        </Link>
-                    ) : (
-                        <p className="mt-2 text-xs text-muted-foreground">
-                            {planningLabels.defaultHidesCompleted}{' '}
-                            <Link
-                                href={buildHref({ status: 'ALL' })}
-                                className="font-semibold text-primary hover:underline"
-                            >
-                                {planningLabels.showAllStatuses}
-                            </Link>
-                        </p>
-                    )}
+                    <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
+                        Surat Perintah Kerja
+                    </h1>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Pantau pekerjaan produksi dari rencana hingga selesai.
+                    </p>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
                     <ContextualHelp
                         title="Panduan SPK"
                         prefillQuestion="Cara buat SPK batch harian di Polyflow?"
@@ -244,548 +205,431 @@ export default async function ProductionOrdersPage({
                             },
                         ]}
                     />
-                    <Link
-                        href="/production/orders/create"
-                        className="w-full sm:w-auto"
-                    >
-                        <Button className="w-full sm:w-auto gap-2">
+                    <Button asChild className="min-h-11 gap-2">
+                        <Link href="/production/orders/create">
                             <Plus className="h-4 w-4" />
-                            {planningLabels.createWorkOrder}
-                        </Button>
-                    </Link>
+                            Buat SPK
+                        </Link>
+                    </Button>
                 </div>
-            </div>
+            </header>
 
-            <ProductionOrderViews current="list" />
-
-            {/* Stats Cards - clickable */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <Link
-                    href={buildHref({ status: 'ALL', late: null })}
-                    className={cn(
-                        'rounded-lg',
-                        isAllFilter && !isLateFilter && 'ring-2 ring-primary',
-                    )}
-                >
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                {planningLabels.totalOrders}
-                            </CardTitle>
-                            <Layers className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {stats.totalOrders}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-                <Link
-                    href={buildHref({ status: 'IN_PROGRESS', late: null })}
-                    className={cn(
-                        'rounded-lg',
-                        statusFilter === 'IN_PROGRESS' &&
-                            !isLateFilter &&
-                            'ring-2 ring-primary',
-                    )}
-                >
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                {planningLabels.inProgress}
-                            </CardTitle>
-                            <Activity className="h-4 w-4 text-emerald-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {stats.activeCount}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-                <Card
-                    className="h-full"
-                    title="Terdiri dari Draft, Siap Produksi, dan Menunggu Bahan"
-                >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            {planningLabels.readyToRelease}
-                        </CardTitle>
-                        <Clock className="h-4 w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {stats.draftCount}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-1">
-                            Draft + Siap + Tunggu Bahan
-                        </p>
-                    </CardContent>
-                </Card>
-                <Link
-                    href={buildHref({ status: null, late: '1' })}
-                    className={cn(
-                        'rounded-lg',
-                        isLateFilter && 'ring-2 ring-red-500',
-                    )}
-                >
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                {planningLabels.lateOverdue}
-                            </CardTitle>
-                            <AlertCircle className="h-4 w-4 text-red-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-600">
-                                {stats.lateCount}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-            </div>
-
-            <div className="flex flex-col gap-4">
-                {/* Category tabs */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <Tabs value={activeCat} className="w-auto">
-                        <TabsList className="w-auto inline-flex h-auto p-1 flex-wrap">
-                            {ALL_CATEGORIES.map((c) => (
-                                <TabsTrigger
-                                    key={c.value}
-                                    value={c.value}
-                                    asChild
-                                    className="text-xs sm:text-sm"
+            <section aria-label="Ringkasan seluruh SPK" className="space-y-2">
+                <h2 className="text-xs font-medium text-muted-foreground">
+                    Ringkasan seluruh SPK · tidak mengikuti filter daftar
+                </h2>
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                    {metrics.map(
+                        ({
+                            label,
+                            value,
+                            icon: Icon,
+                            href,
+                            selected,
+                            description,
+                        }) => {
+                            const content = (
+                                <>
+                                    <div className="flex items-start justify-between gap-2 text-sm">
+                                        <span className="font-medium">
+                                            {label}
+                                        </span>
+                                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                    </div>
+                                    <p className="mt-2 text-2xl font-semibold tabular-nums">
+                                        {value}
+                                    </p>
+                                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                        {description}
+                                    </p>
+                                </>
+                            );
+                            const className = cn(
+                                'rounded-xl border bg-card p-4',
+                                selected &&
+                                    'border-emerald-600 ring-1 ring-emerald-600',
+                                href &&
+                                    'transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring',
+                            );
+                            return href ? (
+                                <Link
+                                    key={label}
+                                    href={href}
+                                    aria-current={selected ? 'true' : undefined}
+                                    className={className}
                                 >
-                                    <Link
-                                        href={buildHref({ category: c.value })}
-                                    >
-                                        {c.label}
-                                    </Link>
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
+                                    {content}
+                                </Link>
+                            ) : (
+                                <div key={label} className={className}>
+                                    {content}
+                                </div>
+                            );
+                        },
+                    )}
                 </div>
+            </section>
 
-                {/* Status chips */}
-                <div className="flex flex-wrap gap-1.5">
-                    <Link
-                        href={buildHref({ status: 'ALL', late: null })}
-                        className={cn(
-                            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors hover:bg-accent',
-                            isAllFilter && !isLateFilter
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background',
-                        )}
+            <section
+                aria-label="Daftar SPK"
+                className="overflow-hidden rounded-xl border bg-card shadow-sm"
+            >
+                <div className="space-y-4 border-b p-4 md:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <ProductionOrderViews current="list" />
+                        <p className="text-sm text-muted-foreground">
+                            {total} hasil · {filterLabel}
+                        </p>
+                    </div>
+                    <nav
+                        aria-label="Filter tahap produksi"
+                        className="flex flex-wrap gap-1 border-b"
                     >
-                        Semua status
-                    </Link>
-                    {ALL_STATUSES.map((s) => (
-                        <Link
-                            key={s}
-                            href={buildHref({ status: s, late: null })}
+                        {CATEGORIES.map((item) => (
+                            <Link
+                                key={item.value}
+                                href={buildHref({ category: item.value })}
+                                aria-current={
+                                    (category || 'all') === item.value
+                                        ? 'page'
+                                        : undefined
+                                }
+                                className={cn(
+                                    'inline-flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground hover:text-foreground',
+                                    (category || 'all') === item.value &&
+                                        'border-emerald-600 text-emerald-700 dark:text-emerald-400',
+                                )}
+                            >
+                                {item.label}
+                            </Link>
+                        ))}
+                    </nav>
+                    <form
+                        action="/production/orders"
+                        method="GET"
+                        className="flex flex-wrap items-end gap-3"
+                    >
+                        {category && category !== 'all' && (
+                            <input
+                                type="hidden"
+                                name="category"
+                                value={category}
+                            />
+                        )}
+                        {isLateFilter && (
+                            <input type="hidden" name="late" value="1" />
+                        )}
+                        <div className="min-w-0 flex-1 basis-64 space-y-1.5">
+                            <label
+                                htmlFor="spk-search"
+                                className="text-xs font-medium"
+                            >
+                                Cari SPK
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    id="spk-search"
+                                    name="q"
+                                    defaultValue={searchQuery}
+                                    placeholder="No. SPK, produk, resep, mesin…"
+                                    className="min-h-11 pl-9 pr-10"
+                                />
+                                {searchQuery && (
+                                    <Link
+                                        href={buildHref({ q: null })}
+                                        aria-label="Hapus pencarian"
+                                        className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Link>
+                                )}
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label
+                                htmlFor="spk-status"
+                                className="block text-xs font-medium"
+                            >
+                                Status
+                            </label>
+                            <select
+                                id="spk-status"
+                                name="status"
+                                defaultValue={
+                                    isAllFilter ? 'ALL' : statusFilter || ''
+                                }
+                                className="min-h-11 max-w-full rounded-md border border-input bg-background px-3 text-sm"
+                            >
+                                <option value="">Selain Selesai</option>
+                                <option value="ALL">Semua status</option>
+                                {STATUSES.map((value) => (
+                                    <option key={value} value={value}>
+                                        {getStatusLabel(value, 'production')}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            className="min-h-11"
+                        >
+                            Cari
+                        </Button>
+                        <Button
+                            asChild
+                            variant="outline"
                             className={cn(
-                                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors hover:bg-accent',
-                                statusFilter === s && !isLateFilter
-                                    ? 'bg-primary text-primary-foreground border-primary'
-                                    : 'bg-background',
+                                'min-h-11',
+                                isLateFilter &&
+                                    'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
                             )}
                         >
-                            {getStatusLabel(s, 'production')}
-                        </Link>
-                    ))}
-                    <Link
-                        href={buildHref({ status: null, late: '1' })}
-                        className={cn(
-                            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors hover:bg-accent',
-                            isLateFilter
-                                ? 'bg-red-600 text-white border-red-600'
-                                : 'bg-background border-red-200 text-red-600',
-                        )}
-                    >
-                        Terlambat
-                    </Link>
-                </div>
-
-                {/* Search form GET */}
-                <form
-                    action="/production/orders"
-                    method="GET"
-                    className="flex gap-2 w-full"
-                >
-                    {category && category !== 'all' && (
-                        <input type="hidden" name="category" value={category} />
-                    )}
-                    {statusFilter && (
-                        <input
-                            type="hidden"
-                            name="status"
-                            value={statusFilter}
-                        />
-                    )}
-                    {isLateFilter && (
-                        <input type="hidden" name="late" value="1" />
-                    )}
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            name="q"
-                            defaultValue={searchQuery}
-                            placeholder={planningLabels.searchSpkPlaceholder}
-                            className="pl-9 w-full"
-                            aria-label="Cari SPK"
-                        />
-                        {searchQuery && (
                             <Link
-                                href={buildHref({ q: null })}
-                                className="absolute right-2 top-2 h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-muted"
-                                aria-label="Hapus pencarian"
+                                href={buildHref({
+                                    status: null,
+                                    late: isLateFilter ? null : '1',
+                                })}
+                                aria-current={isLateFilter ? 'true' : undefined}
                             >
-                                <X className="h-3.5 w-3.5 text-muted-foreground" />
+                                <Clock className="h-4 w-4" />
+                                Terlambat
+                            </Link>
+                        </Button>
+                    </form>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <p>
+                            {isLateFilter
+                                ? 'Terlambat: Siap Produksi / Sedang Diproduksi melewati rencana selesai.'
+                                : excludeCompletedDefault
+                                  ? 'Hanya status Selesai yang disembunyikan; SPK dibatalkan tetap ditampilkan.'
+                                  : 'Daftar mengikuti tahap, status, dan pencarian yang dipilih.'}
+                        </p>
+                        {hasActiveFilters && (
+                            <Link
+                                href="/production/orders"
+                                className="inline-flex min-h-9 items-center font-medium text-foreground underline underline-offset-4"
+                            >
+                                Hapus semua filter
                             </Link>
                         )}
                     </div>
-                    <Button
-                        type="submit"
-                        variant="secondary"
-                        size="sm"
-                        className="shrink-0"
-                    >
-                        Cari
-                    </Button>
-                </form>
-
-                <Card className="border shadow-sm">
-                    <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">
-                                {planningLabels.allOrders}
-                                {searchQuery && (
-                                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                                        untuk &quot;{searchQuery}&quot;
-                                    </span>
-                                )}
-                            </CardTitle>
-                            <span className="text-xs text-muted-foreground">
-                                {total} SPK
-                            </span>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="rounded-md border overflow-x-auto custom-scrollbar">
-                            <Table className="min-w-[720px]">
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>
-                                            {planningLabels.orderNumber}
-                                        </TableHead>
-                                        <TableHead>
-                                            {planningLabels.product}
-                                        </TableHead>
-                                        <TableHead>
-                                            {planningLabels.status}
-                                        </TableHead>
-                                        <TableHead>
-                                            {planningLabels.progress}
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            {planningLabels.actions}
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {orders.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={5}
-                                                className="text-center h-32 text-muted-foreground"
+                </div>
+                <Table className="min-w-[900px]">
+                    <TableHeader>
+                        <TableRow className="bg-muted/40">
+                            <TableHead className="pl-5">No. SPK</TableHead>
+                            <TableHead>Produk & resep</TableHead>
+                            <TableHead>Jadwal & mesin</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Hasil / target</TableHead>
+                            <TableHead className="pr-5">
+                                <span className="sr-only">Detail</span>
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {orders.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={6}
+                                    className="py-16 text-center"
+                                >
+                                    <p className="font-medium">
+                                        {hasActiveFilters
+                                            ? 'Tidak ada SPK yang cocok'
+                                            : 'Belum ada SPK untuk ditampilkan'}
+                                    </p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        {hasActiveFilters
+                                            ? 'Coba kata kunci lain atau hapus filter.'
+                                            : 'Buat SPK untuk mulai merencanakan produksi.'}
+                                    </p>
+                                    <div className="mt-4 flex justify-center gap-2">
+                                        {hasActiveFilters && (
+                                            <Button asChild variant="outline">
+                                                <Link href="/production/orders">
+                                                    Hapus filter
+                                                </Link>
+                                            </Button>
+                                        )}
+                                        <Button asChild>
+                                            <Link href="/production/orders/create">
+                                                Buat SPK
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            orders.map((order) => {
+                                const progress =
+                                    (Number(order.actualQuantity || 0) /
+                                        Number(order.plannedQuantity || 1)) *
+                                    100;
+                                const href = `/production/orders/${order.id}`;
+                                return (
+                                    <TableRow key={order.id} className="group">
+                                        <TableCell className="py-4 pl-5 align-top">
+                                            <Link
+                                                href={href}
+                                                className="font-mono text-sm font-medium underline-offset-4 hover:underline"
                                             >
-                                                <div className="flex flex-col items-center gap-3 py-2">
-                                                    <p>
-                                                        {
-                                                            planningLabels.noSpkFound
-                                                        }
-                                                    </p>
-                                                    <div className="flex gap-2">
-                                                        {hasActiveFilters && (
-                                                            <Link
-                                                                href="/production/orders"
-                                                                className="inline-flex"
-                                                            >
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                >
-                                                                    {
-                                                                        planningLabels.clearFilters
-                                                                    }
-                                                                </Button>
-                                                            </Link>
-                                                        )}
-                                                        <Link href="/production/orders/create">
-                                                            <Button
-                                                                size="sm"
-                                                                className="gap-1"
-                                                            >
-                                                                <Plus className="h-3.5 w-3.5" />
-                                                                {
-                                                                    planningLabels.createWorkOrder
-                                                                }
-                                                            </Button>
-                                                        </Link>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        orders.map((order) => {
-                                            const progress =
-                                                (Number(
+                                                {order.orderNumber}
+                                            </Link>
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                <ProductionPriorityBadge
+                                                    priority={order.priority}
+                                                />
+                                                {order.isMaklon && (
+                                                    <Badge variant="outline">
+                                                        Maklon
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="max-w-72 py-4 align-top">
+                                            <Link
+                                                href={href}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {order.bom.productVariant.name}
+                                            </Link>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                {order.bom.name}
+                                            </p>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                {order.salesOrder
+                                                    ? `Sumber: ${order.salesOrder.customer?.name || order.salesOrder.orderNumber}`
+                                                    : 'Stok internal'}
+                                            </p>
+                                        </TableCell>
+                                        <TableCell className="py-4 align-top">
+                                            <p className="text-sm">
+                                                {format(
+                                                    new Date(
+                                                        order.plannedStartDate,
+                                                    ),
+                                                    'd MMM yyyy',
+                                                    { locale: idLocale },
+                                                )}
+                                            </p>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                {order.machine?.code ||
+                                                    'Mesin belum ditentukan'}
+                                            </p>
+                                        </TableCell>
+                                        <TableCell className="py-4 align-top">
+                                            <ProductionStatusBadge
+                                                status={order.status}
+                                            />
+                                        </TableCell>
+                                        <TableCell className="min-w-44 py-4 align-top">
+                                            <p className="text-sm tabular-nums">
+                                                {Number(
                                                     order.actualQuantity || 0,
-                                                ) /
-                                                    Number(
-                                                        order.plannedQuantity ||
-                                                            1,
-                                                    )) *
-                                                100;
-
-                                            return (
-                                                <TableRow
-                                                    key={order.id}
-                                                    className="hover:bg-muted/50 group"
+                                                ).toLocaleString('id-ID')}{' '}
+                                                /{' '}
+                                                {Number(
+                                                    order.plannedQuantity,
+                                                ).toLocaleString('id-ID')}{' '}
+                                                {
+                                                    order.bom.productVariant
+                                                        .primaryUnit
+                                                }
+                                            </p>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <Progress
+                                                    aria-label={`Progres ${order.orderNumber}`}
+                                                    value={Math.min(
+                                                        progress,
+                                                        100,
+                                                    )}
+                                                    className="h-1.5 w-20"
+                                                />
+                                                <span className="text-xs tabular-nums text-muted-foreground">
+                                                    {Math.round(progress)}%
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                Target:{' '}
+                                                {getEnteredQuantityDisplay({
+                                                    ...order.bom.productVariant,
+                                                    quantity:
+                                                        order.plannedQuantity,
+                                                    enteredQuantity:
+                                                        order.plannedEnteredQuantity,
+                                                    enteredUnit:
+                                                        order.plannedEnteredUnit,
+                                                    conversionFactorSnapshot:
+                                                        order.plannedConversionFactorSnapshot,
+                                                })}
+                                            </p>
+                                        </TableCell>
+                                        <TableCell className="pr-5 align-top">
+                                            <Button
+                                                asChild
+                                                variant="ghost"
+                                                className="h-11 w-11 p-0"
+                                            >
+                                                <Link
+                                                    href={href}
+                                                    aria-label={`Lihat detail ${order.orderNumber}`}
                                                 >
-                                                    <TableCell className="font-medium align-top py-3">
-                                                        <Link
-                                                            href={`/production/orders/${order.id}`}
-                                                            className="hover:underline text-foreground block"
-                                                        >
-                                                            <span className="font-mono">
-                                                                {
-                                                                    order.orderNumber
-                                                                }
-                                                            </span>
-                                                            <div className="text-xs text-muted-foreground mt-0.5">
-                                                                {format(
-                                                                    new Date(
-                                                                        order.plannedStartDate,
-                                                                    ),
-                                                                    'd MMM yyyy',
-                                                                    {
-                                                                        locale: idLocale,
-                                                                    },
-                                                                )}
-                                                            </div>
-                                                        </Link>
-                                                    </TableCell>
-                                                    <TableCell className="align-top py-3">
-                                                        <Link
-                                                            href={`/production/orders/${order.id}`}
-                                                            className="block"
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="font-medium text-foreground">
-                                                                    {
-                                                                        order
-                                                                            .bom
-                                                                            .productVariant
-                                                                            .name
-                                                                    }
-                                                                </div>
-                                                                <ProductionPriorityBadge
-                                                                    priority={
-                                                                        order.priority
-                                                                    }
-                                                                />
-                                                                {order.isMaklon && (
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="text-[10px] py-0 h-4 border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                                                                    >
-                                                                        Maklon
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground mt-0.5">
-                                                                {order.bom.name}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5">
-                                                                {order.salesOrder ? (
-                                                                    <span>
-                                                                        Sumber:{' '}
-                                                                        {order
-                                                                            .salesOrder
-                                                                            .customer
-                                                                            ?.name ||
-                                                                            order
-                                                                                .salesOrder
-                                                                                .orderNumber}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="italic">
-                                                                        {
-                                                                            planningLabels.internalStockBuildLabel
-                                                                        }
-                                                                    </span>
-                                                                )}
-                                                                {order.machine && (
-                                                                    <>
-                                                                        <span>
-                                                                            •
-                                                                        </span>
-                                                                        <span>
-                                                                            Mesin:{' '}
-                                                                            {
-                                                                                order
-                                                                                    .machine
-                                                                                    .code
-                                                                            }
-                                                                        </span>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </Link>
-                                                    </TableCell>
-                                                    <TableCell className="align-top py-3">
-                                                        <Link
-                                                            href={`/production/orders/${order.id}`}
-                                                            className="block"
-                                                        >
-                                                            <ProductionStatusBadge
-                                                                status={
-                                                                    order.status
-                                                                }
-                                                            />
-                                                        </Link>
-                                                    </TableCell>
-                                                    <TableCell className="w-[160px] align-top py-3">
-                                                        <Link
-                                                            href={`/production/orders/${order.id}`}
-                                                            className="block"
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <Progress
-                                                                    value={Math.min(
-                                                                        progress,
-                                                                        100,
-                                                                    )}
-                                                                    className="h-2 w-16"
-                                                                />
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {Math.round(
-                                                                        progress,
-                                                                    )}
-                                                                    %
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground mt-1">
-                                                                Target:{' '}
-                                                                {getEnteredQuantityDisplay(
-                                                                    {
-                                                                        ...order
-                                                                            .bom
-                                                                            .productVariant,
-                                                                        quantity:
-                                                                            order.plannedQuantity,
-                                                                        enteredQuantity:
-                                                                            order.plannedEnteredQuantity,
-                                                                        enteredUnit:
-                                                                            order.plannedEnteredUnit,
-                                                                        conversionFactorSnapshot:
-                                                                            order.plannedConversionFactorSnapshot,
-                                                                    },
-                                                                )}
-                                                            </div>
-                                                        </Link>
-                                                    </TableCell>
-                                                    <TableCell className="text-right align-top py-3">
-                                                        <Link
-                                                            href={`/production/orders/${order.id}`}
-                                                        >
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 w-8 p-0"
-                                                            >
-                                                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                                                            </Button>
-                                                        </Link>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between mt-4">
-                                <span className="text-xs text-muted-foreground">
-                                    Halaman {currentPage} dari {totalPages}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                    <Link
-                                        href={buildHref({
-                                            page: String(
-                                                Math.max(1, currentPage - 1),
-                                            ),
-                                        })}
-                                        aria-disabled={currentPage <= 1}
-                                        tabIndex={
-                                            currentPage <= 1 ? -1 : undefined
-                                        }
-                                        className={cn(
-                                            currentPage <= 1 &&
-                                                'pointer-events-none opacity-50',
-                                        )}
-                                    >
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="gap-1"
-                                        >
-                                            <ChevronLeft className="h-3.5 w-3.5" />
-                                            Sebelumnya
-                                        </Button>
-                                    </Link>
-                                    <Link
-                                        href={buildHref({
-                                            page: String(
-                                                Math.min(
-                                                    totalPages,
-                                                    currentPage + 1,
-                                                ),
-                                            ),
-                                        })}
-                                        aria-disabled={
-                                            currentPage >= totalPages
-                                        }
-                                        tabIndex={
-                                            currentPage >= totalPages
-                                                ? -1
-                                                : undefined
-                                        }
-                                        className={cn(
-                                            currentPage >= totalPages &&
-                                                'pointer-events-none opacity-50',
-                                        )}
-                                    >
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="gap-1"
-                                        >
-                                            Berikutnya
-                                            <ChevronRight className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </div>
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
                         )}
-                    </CardContent>
-                </Card>
-            </div>
+                    </TableBody>
+                </Table>
+                {totalPages > 1 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm">
+                        <p className="text-muted-foreground">
+                            Halaman {currentPage} dari {totalPages} ·{' '}
+                            {PAGE_SIZE} per halaman
+                        </p>
+                        <div className="flex gap-2">
+                            {currentPage <= 1 ? (
+                                <Button variant="outline" disabled>
+                                    Sebelumnya
+                                </Button>
+                            ) : (
+                                <Button asChild variant="outline">
+                                    <Link
+                                        href={buildHref({
+                                            page: String(currentPage - 1),
+                                        })}
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                        Sebelumnya
+                                    </Link>
+                                </Button>
+                            )}
+                            {currentPage >= totalPages ? (
+                                <Button variant="outline" disabled>
+                                    Berikutnya
+                                </Button>
+                            ) : (
+                                <Button asChild variant="outline">
+                                    <Link
+                                        href={buildHref({
+                                            page: String(currentPage + 1),
+                                        })}
+                                    >
+                                        Berikutnya
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </section>
         </div>
     );
 }

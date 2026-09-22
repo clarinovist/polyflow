@@ -46,17 +46,18 @@ export default async function ProductionDetailPage(props: PageProps) {
         rawMaterials,
         machineStageMap,
         customers,
-    } = formDataRes.success && formDataRes.data
-        ? formDataRes.data
-        : {
-              locations: [],
-              operators: [],
-              helpers: [],
-              machines: [],
-              rawMaterials: [],
-              machineStageMap: {},
-              customers: [],
-          };
+    } =
+        formDataRes.success && formDataRes.data
+            ? formDataRes.data
+            : {
+                  locations: [],
+                  operators: [],
+                  helpers: [],
+                  machines: [],
+                  rawMaterials: [],
+                  machineStageMap: {},
+                  customers: [],
+              };
     const workShiftsResult = await getWorkShifts();
     const workShifts =
         workShiftsResult.success && workShiftsResult.data
@@ -71,10 +72,10 @@ export default async function ProductionDetailPage(props: PageProps) {
         navResult.success && navResult.data ? navResult.data : [];
 
     return (
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="mx-auto max-w-[1600px] py-2">
             <Link
                 href="/production/orders"
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-6"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-4 min-h-11"
             >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="text-sm font-medium">
@@ -89,7 +90,10 @@ export default async function ProductionDetailPage(props: PageProps) {
 
             <ProductionOrderDetail
                 order={order as unknown as ExtendedProductionOrder}
-                canEditCustomers={!!session?.user && hasAnyRole(session.user, ['ADMIN', 'PLANNING'])}
+                canEditCustomers={
+                    !!session?.user &&
+                    hasAnyRole(session.user, ['ADMIN', 'PLANNING'])
+                }
                 formData={{
                     customers: customers ?? [],
                     locations: locations as unknown as Location[],

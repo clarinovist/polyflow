@@ -1,83 +1,49 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-/**
- * Page-specific loading skeleton for the Daftar SPK page.
- * Mirrors the real layout shape (title, 4 stats cards, status chips,
- * search bar, table) so the swap from skeleton to content is calm.
- */
+/** Mirrors the list's compact toolbar and table while server data loads. */
 export default function ProductionOrdersLoading() {
     return (
-        <div className="p-4 md:p-8 space-y-6 animate-pulse">
-            {/* Header row: title + action button */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="space-y-2">
-                    <div className="h-9 w-44 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                    <div className="h-4 w-80 max-w-full bg-zinc-100 dark:bg-zinc-900 rounded" />
-                </div>
-                <div className="h-10 w-40 bg-zinc-200 dark:bg-zinc-800 rounded" />
+        <div
+            className="mx-auto max-w-[1600px] space-y-6 py-2"
+            role="status"
+            aria-label="Memuat daftar SPK"
+        >
+            <span className="sr-only">Memuat daftar SPK…</span>
+            <div
+                className="space-y-3 motion-safe:animate-pulse"
+                aria-hidden="true"
+            >
+                <div className="h-8 w-64 max-w-full rounded bg-muted" />
+                <div className="h-4 w-80 max-w-full rounded bg-muted" />
             </div>
-
-            {/* Stats cards */}
-            <div className="grid gap-4 md:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <Card
-                        key={i}
-                        className="border-zinc-200 dark:border-zinc-800"
+            <div
+                className="grid grid-cols-2 gap-3 xl:grid-cols-4"
+                aria-hidden="true"
+            >
+                {Array.from({ length: 4 }, (_, index) => (
+                    <div
+                        key={index}
+                        className="h-28 rounded-xl border bg-card p-4 motion-safe:animate-pulse"
                     >
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                <span className="block h-4 w-24 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                            </CardTitle>
-                            <span className="block h-4 w-4 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="h-7 w-16 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Category tabs + status chips */}
-            <div className="flex gap-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                        key={i}
-                        className="h-8 w-20 rounded-md bg-zinc-200 dark:bg-zinc-800"
-                    />
-                ))}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-                {Array.from({ length: 8 }).map((_, i) => (
-                    <div
-                        key={i}
-                        className="h-6 w-16 rounded-full bg-zinc-200 dark:bg-zinc-800"
-                    />
-                ))}
-            </div>
-
-            {/* Search bar */}
-            <div className="flex gap-2">
-                <div className="h-10 flex-1 max-w-md rounded-md bg-zinc-200 dark:bg-zinc-800" />
-                <div className="h-10 w-20 rounded-md bg-zinc-200 dark:bg-zinc-800" />
-            </div>
-
-            {/* Table */}
-            <Card className="border border-zinc-200 dark:border-zinc-800">
-                <CardHeader className="pb-3">
-                    <div className="h-5 w-40 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                        <div className="h-10 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800" />
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <div
-                                key={i}
-                                className="h-12 border-b border-zinc-100 dark:border-zinc-900 last:border-0"
-                            />
-                        ))}
+                        <div className="h-4 w-24 rounded bg-muted" />
+                        <div className="mt-3 h-7 w-16 rounded bg-muted" />
                     </div>
-                </CardContent>
-            </Card>
+                ))}
+            </div>
+            <div
+                className="overflow-hidden rounded-xl border bg-card"
+                aria-hidden="true"
+            >
+                <div className="space-y-3 border-b p-5">
+                    <div className="h-11 w-64 max-w-full rounded bg-muted" />
+                    <div className="h-11 rounded bg-muted" />
+                    <div className="h-11 rounded bg-muted" />
+                </div>
+                {Array.from({ length: 6 }, (_, index) => (
+                    <div
+                        key={index}
+                        className="h-24 border-b bg-muted/20 last:border-0 motion-safe:animate-pulse"
+                    />
+                ))}
+            </div>
         </div>
     );
 }

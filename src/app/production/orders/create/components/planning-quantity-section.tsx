@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { FormLabel } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { formatProductionQuantity } from '@/lib/utils/production-units';
 import type { PlanningMode } from '../hooks/use-planning-intent';
@@ -13,7 +13,6 @@ interface PlanningQuantitySectionProps {
     onBatchCountChange: (n: number) => void;
     enteredTargetQty: number;
     onEnteredTargetQtyChange: (n: number) => void;
-    /** Base-unit input for weight mode */
     basePlannedQty: number;
     onBasePlannedQtyChange: (n: number) => void;
     bomOutputQty: number;
@@ -24,131 +23,109 @@ interface PlanningQuantitySectionProps {
     conversionFactor: number;
 }
 
-export function PlanningQuantitySection({
-    planningMode,
-    onPlanningModeChange,
-    batchCount,
-    onBatchCountChange,
-    enteredTargetQty,
-    onEnteredTargetQtyChange,
-    basePlannedQty,
-    onBasePlannedQtyChange,
-    bomOutputQty,
-    bomPrimaryUnit,
-    bomProductVariant,
-    hasAlternateUnit,
-    salesUnit,
-    conversionFactor,
-}: PlanningQuantitySectionProps) {
+export function PlanningQuantitySection(props: PlanningQuantitySectionProps) {
+    const {
+        planningMode,
+        bomPrimaryUnit,
+        salesUnit,
+        hasAlternateUnit,
+        bomOutputQty,
+    } = props;
+    const isBatch = planningMode === 'batch';
+    const isSales = planningMode === 'sales' && hasAlternateUnit;
+    const unit = isBatch
+        ? 'batch'
+        : isSales
+          ? salesUnit
+          : bomPrimaryUnit || 'satuan dasar';
+    const value = isBatch
+        ? props.batchCount
+        : isSales
+          ? props.enteredTargetQty
+          : props.basePlannedQty;
+    const onChange = isBatch
+        ? props.onBatchCountChange
+        : isSales
+          ? props.onEnteredTargetQtyChange
+          : props.onBasePlannedQtyChange;
+    const baseQty = isBatch
+        ? props.batchCount * bomOutputQty
+        : isSales
+          ? props.enteredTargetQty * props.conversionFactor
+          : props.basePlannedQty;
+    const modes: { value: PlanningMode; label: string }[] = [
+        {
+            value: 'weight',
+            label: `Satuan dasar (${bomPrimaryUnit || 'Base'})`,
+        },
+        ...(hasAlternateUnit
+            ? [{ value: 'sales' as const, label: `Satuan jual (${salesUnit})` }]
+            : []),
+        { value: 'batch', label: 'Batch' },
+    ];
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Planning Mode */}
-            <div className="space-y-3">
-                <FormLabel>Metode target</FormLabel>
-                <div
-                    className="flex rounded-md shadow-sm"
-                    role="group"
-                    aria-label="Metode target"
-                >
+        <section
+            className="space-y-4 rounded-xl border bg-muted/30 p-4"
+            aria-labelledby="spk-target-heading"
+        >
+            <h3 id="spk-target-heading" className="font-semibold">
+                Berapa targetnya?
+            </h3>
+            <div
+                role="group"
+                aria-label="Metode target"
+                className="flex flex-wrap gap-1 rounded-lg bg-muted p-1"
+            >
+                {modes.map((mode) => (
                     <Button
+                        key={mode.value}
                         type="button"
                         variant={
-                            planningMode === 'weight' ? 'default' : 'outline'
+                            planningMode === mode.value ? 'default' : 'ghost'
                         }
-                        className="rounded-r-none h-9 flex-1 text-xs"
-                        onClick={() => onPlanningModeChange('weight')}
-                        aria-pressed={planningMode === 'weight'}
+                        className="min-h-11 flex-1 text-xs sm:text-sm"
+                        aria-pressed={planningMode === mode.value}
+                        onClick={() => props.onPlanningModeChange(mode.value)}
                     >
-                        By {bomPrimaryUnit || 'Base'}
+                        {mode.label}
                     </Button>
-                    {hasAlternateUnit && (
-                        <Button
-                            type="button"
-                            variant={
-                                planningMode === 'sales' ? 'default' : 'outline'
-                            }
-                            className="rounded-none h-9 flex-1 text-xs border-l-0"
-                            onClick={() => onPlanningModeChange('sales')}
-                            aria-pressed={planningMode === 'sales'}
-                        >
-                            By {salesUnit}
-                        </Button>
-                    )}
-                    <Button
-                        type="button"
-                        variant={
-                            planningMode === 'batch' ? 'default' : 'outline'
+                ))}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="spk-target">
+                    {isBatch ? 'Total batch' : 'Target produksi'} ({unit})
+                </Label>
+                <div className="relative">
+                    <Input
+                        id="spk-target"
+                        type="number"
+                        step={isBatch ? undefined : '0.01'}
+                        min={isBatch ? 1 : undefined}
+                        value={value || ''}
+                        onChange={(event) =>
+                            onChange(Number(event.target.value) || 0)
                         }
-                        className="rounded-l-none h-9 flex-1 text-xs border-l-0"
-                        onClick={() => onPlanningModeChange('batch')}
-                        aria-pressed={planningMode === 'batch'}
-                    >
-                        By Batch
-                    </Button>
+                        aria-describedby="spk-target-equivalent"
+                        className="h-14 pr-24 text-xl font-semibold tabular-nums"
+                    />
+                    <span className="pointer-events-none absolute right-4 top-4 text-sm font-medium text-muted-foreground">
+                        {unit}
+                    </span>
                 </div>
+                <p
+                    id="spk-target-equivalent"
+                    className="text-sm text-muted-foreground"
+                    aria-live="polite"
+                >
+                    {bomOutputQty <= 0
+                        ? 'Pilih resep untuk menghitung kebutuhan bahan.'
+                        : isBatch
+                          ? `${props.batchCount} batch × ${bomOutputQty} ${bomPrimaryUnit} = ${formatProductionQuantity(baseQty, props.bomProductVariant)}`
+                          : isSales
+                            ? `${props.enteredTargetQty} ${salesUnit} × ${props.conversionFactor} ${bomPrimaryUnit}/${salesUnit} = ${baseQty.toLocaleString('id-ID')} ${bomPrimaryUnit}`
+                            : `Output resep: ${bomOutputQty.toLocaleString('id-ID')} ${bomPrimaryUnit} / batch`}
+                </p>
             </div>
-
-            {/* Target Input */}
-            <div className="flex flex-col justify-end">
-                {planningMode === 'batch' ? (
-                    <div className="space-y-2">
-                        <FormLabel>Total Batch</FormLabel>
-                        <Input
-                            type="number"
-                            value={batchCount.toString()}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                onBatchCountChange(
-                                    val === '' ? 0 : Number(val),
-                                );
-                            }}
-                            min={1}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            {bomOutputQty > 0
-                                ? `${batchCount} × ${bomOutputQty} = ${formatProductionQuantity(bomOutputQty * batchCount, bomProductVariant)}`
-                                : 'Pilih resep dulu'}
-                        </p>
-                    </div>
-                ) : planningMode === 'sales' && hasAlternateUnit ? (
-                    <div className="space-y-2">
-                        <FormLabel>Target Output ({salesUnit})</FormLabel>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={enteredTargetQty.toString()}
-                            onChange={(e) => {
-                                const next =
-                                    e.target.value === ''
-                                        ? 0
-                                        : Number(e.target.value);
-                                onEnteredTargetQtyChange(next);
-                            }}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            {enteredTargetQty > 0
-                                ? `=${formatProductionQuantity(enteredTargetQty * conversionFactor, bomProductVariant)} (dasar)`
-                                : `1 ${salesUnit} = ${conversionFactor} ${bomPrimaryUnit}`}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        <FormLabel>
-                            Target Output ({bomPrimaryUnit || 'Base Unit'})
-                        </FormLabel>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={basePlannedQty || ''}
-                            onChange={(e) =>
-                                onBasePlannedQtyChange(
-                                    Number(e.target.value) || 0,
-                                )
-                            }
-                        />
-                    </div>
-                )}
-            </div>
-        </div>
+        </section>
     );
 }

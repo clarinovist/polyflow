@@ -58,15 +58,35 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
 
     return (
         <div className="space-y-6">
+            <nav
+                aria-label="Bagian sumber daya"
+                className="flex flex-wrap gap-2"
+            >
+                {[
+                    ['spk-materials', 'Bahan'],
+                    ['spk-team', 'Tim & shift'],
+                    ['spk-quality', 'Scrap & QC'],
+                ].map(([id, label]) => (
+                    <a
+                        key={id}
+                        href={`#${id}`}
+                        className="inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-medium hover:bg-muted"
+                    >
+                        {label}
+                    </a>
+                ))}
+            </nav>
             {/* Materials Section */}
-            <Card>
+            <Card id="spk-materials" className="scroll-mt-24">
                 <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Package className="w-4 h-4" /> Kebutuhan Bahan
                         </CardTitle>
-                        <div className="flex items-center gap-2">
-                            {!isDirect && <ManualProcurementDialog order={order} />}
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            {!isDirect && (
+                                <ManualProcurementDialog order={order} />
+                            )}
                             {isActive && isFloorPath && !isDirect && (
                                 <BatchIssueMaterialDialog
                                     order={order}
@@ -78,13 +98,58 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <ChildOrderList order={order} />
-                    {isDirect && <section aria-label="Pemakaian langsung" className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/30 space-y-2">
-                        <h3 className="text-sm font-semibold">Langsung per bahan</h3>
-                        <p className="text-sm text-muted-foreground">Tidak perlu transfer atau issue manual. Saat hasil dicatat, stok dipotong dari gudang asal setiap bahan.</p>
-                        {isWaitingMaterial && <p className="text-sm">Stok belum cukup saat SPK dibuat. Lengkapi stok di gudang asal sebelum mencatat hasil.</p>}
-                        <ul className="space-y-2 text-sm">{order.plannedMaterials.map((item) => <li key={item.id} className="grid gap-1 sm:grid-cols-2"><span className="font-medium break-words">{item.productVariant.name}</span><span className="break-words">{formData.locations.find((l) => l.id === item.sourceLocationId)?.name || 'Lokasi asal belum ditentukan'}</span></li>)}</ul>
-                    </section>}
+                    <details className="rounded-lg border">
+                        <summary className="min-h-11 cursor-pointer p-3 text-sm font-medium">
+                            SPK pendukung
+                        </summary>
+                        <div className="p-3 pt-0">
+                            <ChildOrderList
+                                order={order}
+                                locations={formData.locations}
+                            />
+                        </div>
+                    </details>
+                    {isDirect && (
+                        <section
+                            aria-label="Pemakaian langsung"
+                            className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/30 space-y-2"
+                        >
+                            <h3 className="text-sm font-semibold">
+                                Langsung per bahan
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                                Tidak perlu transfer atau issue manual. Saat
+                                hasil dicatat, stok dipotong dari gudang asal
+                                setiap bahan.
+                            </p>
+                            {isWaitingMaterial && (
+                                <p className="text-sm">
+                                    Stok belum cukup saat SPK dibuat. Lengkapi
+                                    stok di gudang asal sebelum mencatat hasil.
+                                </p>
+                            )}
+                            <ul className="space-y-2 text-sm">
+                                {order.plannedMaterials.map((item) => (
+                                    <li
+                                        key={item.id}
+                                        className="grid gap-1 sm:grid-cols-2"
+                                    >
+                                        <span className="font-medium break-words">
+                                            {item.productVariant.name}
+                                        </span>
+                                        <span className="break-words">
+                                            {formData.locations.find(
+                                                (l) =>
+                                                    l.id ===
+                                                    item.sourceLocationId,
+                                            )?.name ||
+                                                'Lokasi asal belum ditentukan'}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
 
                     {isWaitingMaterial && !isDirect && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-3 dark:border-amber-800/50 dark:bg-amber-900/20">
@@ -162,6 +227,12 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                         </div>
                     )}
 
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                        Keluar dihitung dari pengeluaran non-void. Bila belum
+                        ada pengeluaran eksplisit, angka mengikuti estimasi
+                        pemakaian dari hasil produksi. Bukan stok gudang saat
+                        ini; selisih membandingkan keluar dengan rencana.
+                    </p>
                     <div className="rounded-md border overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-muted/50 text-muted-foreground">
@@ -379,7 +450,7 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
             </Card>
 
             {/* Shift Management Section */}
-            <div className="space-y-3">
+            <div id="spk-team" className="scroll-mt-24 space-y-3">
                 <div className="flex justify-between items-center">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <Play className="w-4 h-4 text-blue-500 dark:text-blue-400" />{' '}
@@ -400,7 +471,10 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div
+                id="spk-quality"
+                className="grid scroll-mt-24 grid-cols-1 gap-6 lg:grid-cols-2"
+            >
                 {/* Logs and Quality Section */}
                 <div className="space-y-6">
                     <div className="flex justify-between items-center">

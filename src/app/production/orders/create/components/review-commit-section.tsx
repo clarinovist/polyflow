@@ -1,7 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils/utils';
 
@@ -20,11 +18,14 @@ interface ReviewCommitSectionProps {
     priority: string;
     isMaklon: boolean;
     salesOrderNumber?: string;
-    predictedStatus: 'DRAFT' | 'MENUNGGU_BAHAN';
+    linkedSalesOrder?: boolean;
+    predictedStatus: 'DRAFT' | 'MENUNGGU_BAHAN' | 'UNKNOWN';
     outputIsRisky: boolean;
-    isSubmitting: boolean;
-    isCalculating: boolean;
-    isFormValid: boolean;
+    customerNames?: string[];
+    maklonCustomerName?: string;
+    conversionCost?: string;
+    notes?: string;
+    onEdit?: () => void;
 }
 
 export function ReviewCommitSection({
@@ -42,22 +43,32 @@ export function ReviewCommitSection({
     priority,
     isMaklon,
     salesOrderNumber,
+    linkedSalesOrder,
     predictedStatus,
     outputIsRisky,
-    isSubmitting,
-    isCalculating,
-    isFormValid,
+    customerNames = [],
+    maklonCustomerName,
+    conversionCost,
+    notes,
+    onEdit,
 }: ReviewCommitSectionProps) {
-    const canSubmit = isFormValid && !isCalculating;
-
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Ringkasan SPK</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+                <CardTitle className="text-base">Ringkasan SPK</CardTitle>
+                {onEdit && (
+                    <button
+                        type="button"
+                        onClick={onEdit}
+                        className="min-h-11 px-2 text-sm underline underline-offset-4"
+                    >
+                        Ubah rencana
+                    </button>
+                )}
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
                 <div className="grid grid-cols-2 gap-2">
-                    <span className="text-muted-foreground">Stage</span>
+                    <span className="text-muted-foreground">Tahap</span>
                     <span className="font-medium">{stage}</span>
 
                     <span className="text-muted-foreground">Produk</span>
@@ -86,22 +97,95 @@ export function ReviewCommitSection({
                         </>
                     )}
 
-                    <span className="text-muted-foreground">Pemakaian bahan</span>
-                    <span className="font-medium break-words">{consumptionMode === 'DIRECT' ? 'Langsung per bahan' : 'Transfer ke satu lokasi'}</span>
+                    <span className="text-muted-foreground">
+                        Pemakaian bahan
+                    </span>
+                    <span className="font-medium break-words">
+                        {consumptionMode === 'DIRECT'
+                            ? 'Langsung per bahan'
+                            : 'Transfer ke satu lokasi'}
+                    </span>
                     <span className="text-muted-foreground">Gudang asal</span>
-                    <span className="font-medium break-words">{sourceName}</span>
-                    {consumptionMode === 'TRANSFER' && <><span className="text-muted-foreground">Tujuan transfer</span><span className="font-medium break-words">{consumptionName || outputName}</span></>}
-                    <span className="text-muted-foreground">Penyimpanan hasil</span>
-                    <span className="font-medium break-words">{outputName}</span>
+                    <span className="font-medium break-words">
+                        {sourceName}
+                    </span>
+                    {consumptionMode === 'TRANSFER' && (
+                        <>
+                            <span className="text-muted-foreground">
+                                Tujuan transfer
+                            </span>
+                            <span className="font-medium break-words">
+                                {consumptionName || outputName}
+                            </span>
+                        </>
+                    )}
+                    <span className="text-muted-foreground">
+                        Penyimpanan hasil
+                    </span>
+                    <span className="font-medium break-words">
+                        {outputName}
+                    </span>
 
                     <span className="text-muted-foreground">Prioritas</span>
-                    <span className="font-medium">{priority}</span>
+                    <span className="font-medium">
+                        {{
+                            URGENT: 'Mendesak',
+                            NORMAL: 'Normal',
+                            LOW: 'Rendah',
+                        }[priority] || priority}
+                    </span>
 
                     <span className="text-muted-foreground">Maklon</span>
                     <span className="font-medium">
                         {isMaklon ? 'Ya' : 'Tidak'}
                     </span>
 
+                    {isMaklon && (
+                        <>
+                            <span className="text-muted-foreground">
+                                Pemilik bahan
+                            </span>
+                            <span className="break-words font-medium">
+                                {maklonCustomerName || '—'}
+                            </span>
+                            <span className="text-muted-foreground">
+                                Estimasi jasa
+                            </span>
+                            <span className="font-medium">
+                                {conversionCost || '—'}
+                            </span>
+                        </>
+                    )}
+                    <span className="text-muted-foreground">
+                        Customer tujuan
+                    </span>
+                    <span className="break-words font-medium">
+                        {customerNames.join(', ') ||
+                            (linkedSalesOrder
+                                ? 'Customer dari Sales Order'
+                                : 'Belum ditentukan')}
+                    </span>
+                    {notes && (
+                        <>
+                            <span className="text-muted-foreground">
+                                Catatan
+                            </span>
+                            <span className="break-words whitespace-pre-wrap">
+                                {notes}
+                            </span>
+                        </>
+                    )}
+                    {linkedSalesOrder && !salesOrderNumber && (
+                        <>
+                            <span className="text-muted-foreground">
+                                Sumber permintaan
+                            </span>
+                            <span>
+                                Tertaut Sales Order · customer SO otomatis
+                                disertakan
+                            </span>
+                        </>
+                    )}
                     {salesOrderNumber && (
                         <>
                             <span className="text-muted-foreground">
@@ -115,21 +199,21 @@ export function ReviewCommitSection({
                 </div>
 
                 <div className="pt-3 border-t">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <span className="text-muted-foreground">
-                            Status prediksi:
+                            Perkiraan status:
                         </span>
                         <span
                             className={cn(
                                 'font-semibold text-sm px-2 py-0.5 rounded',
-                                predictedStatus === 'DRAFT'
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+                                predictedStatus === 'UNKNOWN'
+                                    ? 'bg-muted text-muted-foreground'
+                                    : predictedStatus === 'DRAFT'
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
                             )}
                         >
-                            {predictedStatus === 'DRAFT'
-                                ? 'DRAFT'
-                                : 'Menunggu Bahan'}
+                            {predictedStatus === 'UNKNOWN' ? 'Belum terverifikasi' : predictedStatus === 'DRAFT' ? 'Draft' : 'Menunggu Bahan'}
                         </span>
                     </div>
                 </div>
@@ -143,26 +227,10 @@ export function ReviewCommitSection({
                     </div>
                 )}
 
-                {/* Submit CTA */}
-                <div className="pt-3 border-t flex flex-col gap-2">
-                    <p className="text-sm font-medium">Akan membuat 1 SPK untuk satu tahap produksi.</p>
-                    <Button
-                        type="submit"
-                        size="lg"
-                        disabled={!canSubmit || isSubmitting}
-                        className="w-full"
-                    >
-                        {isSubmitting && (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
-                        Buat SPK
-                    </Button>
-                    {isCalculating && (
-                        <p className="text-xs text-muted-foreground text-center">
-                            Menghitung kebutuhan bahan...
-                        </p>
-                    )}
-                </div>
+                <p className="border-t pt-3 text-xs leading-relaxed text-muted-foreground">
+                    Membuat 1 SPK untuk satu tahap, belum memulai produksi. Stok
+                    bukan reservasi; status akhir ditentukan saat SPK dibuat.
+                </p>
             </CardContent>
         </Card>
     );

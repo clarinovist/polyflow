@@ -179,154 +179,165 @@ export function LocationFlowCard(props: LocationFlowCardProps) {
                     onChange={props.onConsumptionModeChange}
                 />
             )}
-            <section className="min-w-0 space-y-3 rounded-lg border p-4">
-                <div>
-                    <h4 className="text-sm font-semibold">1. Asal bahan</h4>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        {direct
-                            ? 'Tentukan gudang yang stoknya akan dipotong untuk setiap bahan.'
-                            : 'Bahan boleh berasal dari beberapa gudang. Asal transfer dapat diubah di detail SPK.'}
-                    </p>
-                </div>
-                {materials.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        {props.sourceLocationName ||
-                            'Pilih resep dan target produksi terlebih dahulu.'}
-                    </p>
-                ) : (
-                    <ul className="divide-y">
-                        {materials.map((item) => (
-                            <li
-                                key={item.productVariantId}
-                                className="grid min-w-0 gap-2 py-3 first:pt-0 last:pb-0 xl:grid-cols-2 xl:items-start"
-                            >
-                                <div className="min-w-0">
-                                    <p className="break-words text-sm font-medium">
-                                        {item.name}
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        Kebutuhan{' '}
-                                        {item.quantity.toLocaleString('id-ID', {
-                                            maximumFractionDigits: 4,
-                                        })}{' '}
-                                        {item.unit}
-                                    </p>
-                                </div>
-                                <div className="min-w-0 space-y-1">
-                                    {direct && props.onMaterialSourceChange ? (
-                                        <WarehouseSelect
-                                            label={`Gudang asal ${item.name}`}
-                                            value={item.sourceLocationId}
-                                            locations={sourceLocations}
-                                            onChange={(id) =>
-                                                props.onMaterialSourceChange?.(
-                                                    item.productVariantId,
-                                                    id,
-                                                )
-                                            }
-                                        />
-                                    ) : (
-                                        <p className="break-words text-sm">
-                                            {item.sourceLocationName ||
-                                                'Belum ditentukan'}
-                                        </p>
-                                    )}
-                                    {direct && (
-                                        <p className="text-xs text-muted-foreground">
-                                            {props.checkingStock
-                                                ? 'Memeriksa stok…'
-                                                : item.currentStock ===
-                                                    undefined
-                                                  ? 'Stok belum tersedia'
-                                                  : `Stok: ${item.currentStock.toLocaleString('id-ID')} ${item.unit}`}
-                                        </p>
-                                    )}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                {props.stockError && (
-                    <div role="alert" className="text-sm text-destructive">
-                        <p>{props.stockError}</p>
-                        <button
-                            type="button"
-                            onClick={props.onRetryStock}
-                            className="min-h-11 underline"
-                        >
-                            Periksa stok lagi
-                        </button>
-                    </div>
-                )}
-            </section>
-            {!direct && (
-                <section className="space-y-3 rounded-lg border p-4">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
+                <section className="min-w-0 space-y-3 rounded-lg border p-4 md:col-span-2">
                     <div>
-                        <h4 className="text-sm font-semibold">
-                            2. Tujuan transfer
-                        </h4>
+                        <h4 className="text-sm font-semibold">1. Asal bahan</h4>
                         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                            Bahan dikumpulkan di sini sebelum dipakai. Stok
-                            dipotong saat hasil dicatat.
+                            {direct
+                                ? 'Tentukan gudang yang stoknya akan dipotong untuk setiap bahan.'
+                                : 'Bahan boleh berasal dari beberapa gudang. Asal transfer dapat diubah di detail SPK.'}
                         </p>
                     </div>
-                    <Label>Lokasi Pemakaian Bahan</Label>
-                    <WarehouseSelect
-                        label="Lokasi Pemakaian Bahan"
-                        value={props.consumptionLocationId}
-                        locations={consumptionEligible}
-                        onChange={props.onConsumptionLocationChange}
-                    />
-                    {props.consumptionManuallyOverridden && (
-                        <button
-                            type="button"
-                            className="text-xs text-primary underline min-h-9"
-                            onClick={props.onResetConsumptionToDefault}
-                        >
-                            Gunakan lokasi pemakaian yang disarankan
-                        </button>
+                    {materials.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                            {props.sourceLocationName ||
+                                'Pilih resep dan target produksi terlebih dahulu.'}
+                        </p>
+                    ) : (
+                        <ul className="divide-y">
+                            {materials.map((item) => (
+                                <li
+                                    key={item.productVariantId}
+                                    className="grid min-w-0 gap-2 py-3 first:pt-0 last:pb-0 xl:grid-cols-2 xl:items-start"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="break-words text-sm font-medium">
+                                            {item.name}
+                                        </p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Kebutuhan{' '}
+                                            {item.quantity.toLocaleString(
+                                                'id-ID',
+                                                {
+                                                    maximumFractionDigits: 4,
+                                                },
+                                            )}{' '}
+                                            {item.unit}
+                                        </p>
+                                    </div>
+                                    <div className="min-w-0 space-y-1">
+                                        {direct &&
+                                        props.onMaterialSourceChange ? (
+                                            <WarehouseSelect
+                                                label={`Gudang asal ${item.name}`}
+                                                value={item.sourceLocationId}
+                                                locations={sourceLocations}
+                                                onChange={(id) =>
+                                                    props.onMaterialSourceChange?.(
+                                                        item.productVariantId,
+                                                        id,
+                                                    )
+                                                }
+                                            />
+                                        ) : (
+                                            <p className="break-words text-sm">
+                                                {item.sourceLocationName ||
+                                                    'Belum ditentukan'}
+                                            </p>
+                                        )}
+                                        {direct && (
+                                            <p className="text-xs text-muted-foreground">
+                                                {props.checkingStock
+                                                    ? 'Memeriksa stok…'
+                                                    : item.currentStock ===
+                                                        undefined
+                                                      ? 'Stok belum tersedia'
+                                                      : `Stok: ${item.currentStock.toLocaleString('id-ID')} ${item.unit}`}
+                                            </p>
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
                     )}
-                </section>
-            )}
-            <section className="space-y-3 rounded-lg border bg-muted/30 p-4">
-                <div>
-                    <h4 className="text-sm font-semibold">
-                        {direct ? '2' : '3'}. Penyimpanan hasil
-                    </h4>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Terpisah dari asal bahan. Hasil produksi menambah stok
-                        di gudang ini.
-                    </p>
-                </div>
-                <Label>Lokasi Penyimpanan Hasil</Label>
-                <WarehouseSelect
-                    label="Lokasi Penyimpanan Hasil"
-                    value={props.outputLocationId}
-                    locations={outputEligible}
-                    onChange={props.onOutputLocationChange}
-                />
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="break-words">
-                        Disarankan: {props.recommendedOutputName}
-                    </span>
-                    {!props.outputIsRecommended &&
-                        props.recommendedOutputId && (
+                    {props.stockError && (
+                        <div role="alert" className="text-sm text-destructive">
+                            <p>{props.stockError}</p>
                             <button
                                 type="button"
-                                className="text-primary underline min-h-9"
-                                onClick={props.onResetToDefault}
+                                onClick={props.onRetryStock}
+                                className="min-h-11 underline"
                             >
-                                Gunakan saran
+                                Periksa stok lagi
+                            </button>
+                        </div>
+                    )}
+                </section>
+                {!direct && (
+                    <section className="space-y-3 rounded-lg border p-4">
+                        <div>
+                            <h4 className="text-sm font-semibold">
+                                2. Tujuan transfer
+                            </h4>
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                Bahan dikumpulkan di sini sebelum dipakai. Stok
+                                dipotong saat hasil dicatat.
+                            </p>
+                        </div>
+                        <Label>Lokasi Pemakaian Bahan</Label>
+                        <WarehouseSelect
+                            label="Lokasi Pemakaian Bahan"
+                            value={props.consumptionLocationId}
+                            locations={consumptionEligible}
+                            onChange={props.onConsumptionLocationChange}
+                        />
+                        {props.consumptionManuallyOverridden && (
+                            <button
+                                type="button"
+                                className="text-xs text-primary underline min-h-9"
+                                onClick={props.onResetConsumptionToDefault}
+                            >
+                                Gunakan lokasi pemakaian yang disarankan
                             </button>
                         )}
-                </div>
-                {props.outputIsRisky && (
-                    <p role="alert" className="text-sm text-destructive">
-                        Pilih gudang hasil atau area proses yang aktif, bukan
-                        gudang bahan baku atau supplies.
-                    </p>
+                    </section>
                 )}
-            </section>
+                <section
+                    className={cn(
+                        'min-w-0 space-y-3 rounded-lg border bg-muted/30 p-4',
+                        direct && 'md:col-span-2',
+                    )}
+                >
+                    <div>
+                        <h4 className="text-sm font-semibold">
+                            {direct ? '2' : '3'}. Penyimpanan hasil
+                        </h4>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                            Terpisah dari asal bahan. Hasil produksi menambah
+                            stok di gudang ini.
+                        </p>
+                    </div>
+                    <Label>Lokasi Penyimpanan Hasil</Label>
+                    <WarehouseSelect
+                        label="Lokasi Penyimpanan Hasil"
+                        value={props.outputLocationId}
+                        locations={outputEligible}
+                        onChange={props.onOutputLocationChange}
+                    />
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="break-words">
+                            Disarankan: {props.recommendedOutputName}
+                        </span>
+                        {!props.outputIsRecommended &&
+                            props.recommendedOutputId && (
+                                <button
+                                    type="button"
+                                    className="text-primary underline min-h-9"
+                                    onClick={props.onResetToDefault}
+                                >
+                                    Gunakan saran
+                                </button>
+                            )}
+                    </div>
+                    {props.outputIsRisky && (
+                        <p role="alert" className="text-sm text-destructive">
+                            Pilih gudang hasil atau area proses yang aktif,
+                            bukan gudang bahan baku atau supplies.
+                        </p>
+                    )}
+                </section>
+            </div>
         </section>
     );
 }

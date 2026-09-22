@@ -3,7 +3,10 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { ProductionOrderForm } from '../production-order-form';
-import { getBomWithInventory, createProductionOrder } from '@/actions/production/production';
+import {
+    getBomWithInventory,
+    createProductionOrder,
+} from '@/actions/production/production';
 import { getRealtimeStock } from '@/actions/inventory/inventory';
 
 vi.mock('@/actions/inventory/inventory', () => ({ getRealtimeStock: vi.fn() }));
@@ -168,8 +171,8 @@ async function reachStep3() {
         vi.advanceTimersByTime(500);
     });
 
-    fireEvent.click(screen.getByText('Lanjut →'));
-    fireEvent.click(screen.getByText('Lanjut →'));
+    fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
 }
 
 beforeEach(() => {
@@ -191,41 +194,272 @@ function removeRow(name: string) {
 }
 
 describe('ProductionOrderForm — direct packing', () => {
-    it.each([false, true])('submits per-material sources; switching back to transfer=%s', async (switchBack) => {
+    it.each([false, true])(
+        'submits per-material sources; switching back to transfer=%s',
+        async (switchBack) => {
+            vi.mocked(createProductionOrder).mockReset();
+            vi.mocked(createProductionOrder).mockResolvedValue({
+                success: true,
+                data: { id: 'po' },
+            } as never);
+            vi.mocked(getRealtimeStock).mockResolvedValue({
+                success: true,
+                data: 100,
+            });
+            mockedGetBom.mockResolvedValue({
+                success: true,
+                data: {
+                    data: ['a', 'b'].map((id, index) => ({
+                        productVariantId: id,
+                        name: `Bahan ${id.toUpperCase()}`,
+                        unit: 'KG',
+                        stdQty: 10,
+                        bomOutput: 1000,
+                        requiredQty: index === 0 ? 3 : 6,
+                        currentStock: 100,
+                        totalStock: 100,
+                        sourceLocationId: index === 0 ? 'loc-fg' : 'loc-rm',
+                        sourceLocationName:
+                            index === 0 ? 'Gudang Hasil' : 'Gudang Pengemas',
+                    })),
+                    meta: {},
+                },
+            } as never);
+            const packingLocations = [
+                {
+                    id: 'loc-rm',
+                    name: 'Gudang Pengemas',
+                    slug: 'gudang-packaging',
+                    locationPurpose: 'PACKING',
+                },
+                {
+                    id: 'loc-fg',
+                    name: 'Gudang Hasil',
+                    slug: 'fg_warehouse',
+                    locationPurpose: 'FINISHED_GOOD',
+                },
+            ];
+            const bom = {
+                ...makeBom('packing-bom', 'Resep Packing'),
+                category: 'PACKING' as const,
+                productVariant: {
+                    ...productVariant,
+                    name: 'Produk Packing',
+                    product: { productType: 'FINISHED_GOOD' },
+                },
+            };
+            render(
+                <ProductionOrderForm
+                    locations={packingLocations}
+                    machines={[]}
+                    boms={[bom]}
+                    rawMaterials={[]}
+                    customers={[
+                        { id: 'ca', name: 'Synthetic Customer A' },
+                        { id: 'cb', name: 'Synthetic Customer B' },
+                    ]}
+                />,
+            );
+            fireEvent.click(screen.getByRole('button', { name: 'Packing' }));
+            fireEvent.change(document.querySelector('input[type="number"]')!, {
+                target: { value: '300' },
+            });
+            await act(async () => {
+                vi.advanceTimersByTime(500);
+            });
+            fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
+            fireEvent.click(screen.getByLabelText('Synthetic Customer A'));
+            fireEvent.click(screen.getByLabelText('Synthetic Customer B'));
+            fireEvent.click(
+                screen.getByRole('radio', { name: /Langsung per bahan/i }),
+            );
+            await act(async () => {
+                await Promise.resolve();
+            });
+            if (switchBack)
+                fireEvent.click(
+                    screen.getByRole('radio', {
+                        name: /Transfer ke satu lokasi/i,
+                    }),
+                );
+            fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
+            await act(async () => {
+                fireEvent.click(
+                    screen.getByRole('button', { name: 'Buat SPK' }),
+                );
+            });
+            expect(createProductionOrder).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    customerIds: ['ca', 'cb'],
+                    materialConsumptionMode: switchBack ? 'TRANSFER' : 'DIRECT',
+                    materialConsumptionLocationId: switchBack
+                        ? 'loc-fg'
+                        : undefined,
+                    items: [
+                        {
+                            productVariantId: 'a',
+                            quantity: 3,
+                            ...(switchBack
+                                ? {}
+                                : { sourceLocationId: 'loc-fg' }),
+                        },
+                        {
+                            productVariantId: 'b',
+                            quantity: 6,
+                            ...(switchBack
+                                ? {}
+                                : { sourceLocationId: 'loc-rm' }),
+                        },
+                    ],
+                }),
+            );
+        },
+    );
+});
+
+describe('ProductionOrderForm — redesigned target and review', () => {
+    it('never creates an order from Enter/native form submit before the review step', async () => {
         vi.mocked(createProductionOrder).mockReset();
-        vi.mocked(createProductionOrder).mockResolvedValue({ success: true, data: { id: 'po' } } as never);
-        vi.mocked(getRealtimeStock).mockResolvedValue({ success: true, data: 100 });
-        mockedGetBom.mockResolvedValue({ success: true, data: { data: ['a', 'b'].map((id, index) => ({
-            productVariantId: id, name: `Bahan ${id.toUpperCase()}`, unit: 'KG', stdQty: 10, bomOutput: 1000,
-            requiredQty: index === 0 ? 3 : 6, currentStock: 100, totalStock: 100,
-            sourceLocationId: index === 0 ? 'loc-fg' : 'loc-rm', sourceLocationName: index === 0 ? 'Gudang Hasil' : 'Gudang Pengemas',
-        })), meta: {} } } as never);
-        const packingLocations = [
-            { id: 'loc-rm', name: 'Gudang Pengemas', slug: 'gudang-packaging', locationPurpose: 'PACKING' },
-            { id: 'loc-fg', name: 'Gudang Hasil', slug: 'fg_warehouse', locationPurpose: 'FINISHED_GOOD' },
-        ];
-        const bom = { ...makeBom('packing-bom', 'Resep Packing'), category: 'PACKING' as const, productVariant: { ...productVariant, name: 'Produk Packing', product: { productType: 'FINISHED_GOOD' } } };
-        render(<ProductionOrderForm locations={packingLocations} machines={[]} boms={[bom]} rawMaterials={[]} customers={[{ id: 'ca', name: 'Synthetic Customer A' }, { id: 'cb', name: 'Synthetic Customer B' }]} />);
-        fireEvent.click(screen.getByRole('button', { name: 'Packing' }));
-        fireEvent.change(document.querySelector('input[type="number"]')!, { target: { value: '300' } });
-        await act(async () => { vi.advanceTimersByTime(500); });
-        fireEvent.click(screen.getByText('Lanjut →'));
-        fireEvent.click(screen.getByLabelText('Synthetic Customer A'));
-        fireEvent.click(screen.getByLabelText('Synthetic Customer B'));
-        fireEvent.click(screen.getByRole('radio', { name: /Langsung per bahan/i }));
-        await act(async () => { await Promise.resolve(); });
-        if (switchBack) fireEvent.click(screen.getByRole('radio', { name: /Transfer ke satu lokasi/i }));
-        fireEvent.click(screen.getByText('Lanjut →'));
-        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Buat SPK' })); });
-        expect(createProductionOrder).toHaveBeenCalledWith(expect.objectContaining({
-            customerIds: ['ca', 'cb'],
-            materialConsumptionMode: switchBack ? 'TRANSFER' : 'DIRECT',
-            materialConsumptionLocationId: switchBack ? 'loc-fg' : undefined,
-            items: [
-                { productVariantId: 'a', quantity: 3, ...(switchBack ? {} : { sourceLocationId: 'loc-fg' }) },
-                { productVariantId: 'b', quantity: 6, ...(switchBack ? {} : { sourceLocationId: 'loc-rm' }) },
-            ],
-        }));
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+            />,
+        );
+        fireEvent.change(screen.getByLabelText('Target produksi (KG)'), {
+            target: { value: '300' },
+        });
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        await act(async () => {
+            fireEvent.submit(
+                screen.getByLabelText('Target produksi (KG)').closest('form')!,
+            );
+        });
+        expect(createProductionOrder).not.toHaveBeenCalled();
+    });
+
+    it('blocks creation after a failed material calculation and keeps the error visible', async () => {
+        vi.mocked(createProductionOrder).mockReset();
+        mockedGetBom.mockResolvedValue({
+            success: false,
+            error: 'Synthetic preview failure',
+        } as never);
+        await reachStep3();
+        expect(
+            screen.getByText('Gagal menghitung kebutuhan bahan'),
+        ).toBeTruthy();
+        expect(screen.getByText('Belum terverifikasi')).toBeTruthy();
+        expect(
+            (
+                screen.getByRole('button', {
+                    name: 'Buat SPK',
+                }) as HTMLButtonElement
+            ).disabled,
+        ).toBe(true);
+        expect(createProductionOrder).not.toHaveBeenCalled();
+    });
+
+    it.each(['batch', 'sales'] as const)(
+        'validates and submits the effective base quantity for %s mode',
+        async (mode) => {
+            vi.mocked(createProductionOrder).mockReset();
+            vi.mocked(createProductionOrder).mockResolvedValue({
+                success: true,
+                data: {
+                    id: 'po',
+                    orderNumber: 'WO-TEST',
+                    plannedQuantity: 2000,
+                },
+            } as never);
+            const bom = {
+                ...makeBom('bom-1', 'Resep A'),
+                productVariant: {
+                    ...productVariant,
+                    salesUnit: 'BAL',
+                    conversionFactor: 25,
+                },
+            };
+            render(
+                <ProductionOrderForm
+                    locations={locations}
+                    machines={[]}
+                    boms={[bom]}
+                    customers={[{ id: 'customer', name: 'Customer sintetis' }]}
+                />,
+            );
+            fireEvent.click(
+                screen.getByRole('button', {
+                    name: mode === 'batch' ? 'Batch' : 'Satuan jual (BAL)',
+                }),
+            );
+            fireEvent.change(
+                screen.getByLabelText(
+                    mode === 'batch'
+                        ? 'Total batch (batch)'
+                        : 'Target produksi (BAL)',
+                ),
+                { target: { value: mode === 'batch' ? '2' : '80' } },
+            );
+            await act(async () => {
+                vi.advanceTimersByTime(500);
+            });
+            fireEvent.click(
+                screen.getByRole('button', { name: /Lanjut: Bahan/ }),
+            );
+            fireEvent.click(screen.getByLabelText('Customer sintetis'));
+            fireEvent.change(
+                screen.getByPlaceholderText('Tambahkan instruksi khusus...'),
+                { target: { value: 'Instruksi sintetis' } },
+            );
+            fireEvent.click(
+                screen.getByRole('button', { name: /Lanjut: Periksa/ }),
+            );
+            expect(screen.getByText('Customer sintetis')).toBeTruthy();
+            expect(screen.getByText('Instruksi sintetis')).toBeTruthy();
+            expect(
+                screen.getAllByRole('button', { name: 'Buat SPK' }),
+            ).toHaveLength(1);
+            await act(async () => {
+                fireEvent.click(
+                    screen.getByRole('button', { name: 'Buat SPK' }),
+                );
+            });
+            expect(createProductionOrder).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    plannedQuantity: 2000,
+                    plannedEnteredQuantity: mode === 'sales' ? 80 : undefined,
+                    plannedEnteredUnit: mode === 'sales' ? 'BAL' : undefined,
+                    plannedConversionFactorSnapshot:
+                        mode === 'sales' ? 25 : undefined,
+                    notes: 'Instruksi sintetis',
+                    customerIds: ['customer'],
+                }),
+            );
+        },
+    );
+
+    it('places the target before scheduling and labels all three steps', () => {
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+            />,
+        );
+        const target = screen.getByLabelText('Target produksi (KG)');
+        const start = screen.getByLabelText('Tanggal mulai');
+        expect(
+            target.compareDocumentPosition(start) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(screen.getAllByText('Produk & target').length).toBeGreaterThan(
+            0,
+        );
+        expect(screen.getByText('Bahan & tujuan')).toBeTruthy();
+        expect(screen.getByText('Periksa & buat')).toBeTruthy();
     });
 });
 
@@ -276,8 +510,8 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
             vi.advanceTimersByTime(500);
         });
 
-        fireEvent.click(screen.getByText('Lanjut →'));
-        fireEvent.click(screen.getByText('Lanjut →'));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
         await act(async () => {
             vi.advanceTimersByTime(500);
         });
@@ -291,7 +525,10 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
             <ProductionOrderForm
                 locations={locations}
                 machines={[]}
-                boms={[makeBom('bom-1', 'Resep A'), makeBom('bom-2', 'Resep B')]}
+                boms={[
+                    makeBom('bom-1', 'Resep A'),
+                    makeBom('bom-2', 'Resep B'),
+                ]}
                 rawMaterials={[]}
             />,
         );
@@ -311,8 +548,8 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
             vi.advanceTimersByTime(500);
         });
 
-        fireEvent.click(screen.getByText('Lanjut →'));
-        fireEvent.click(screen.getByText('Lanjut →'));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
         await act(async () => {
             vi.advanceTimersByTime(500);
         });
@@ -330,8 +567,8 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
             vi.advanceTimersByTime(500);
         });
 
-        fireEvent.click(screen.getByText('Lanjut →'));
-        fireEvent.click(screen.getByText('Lanjut →'));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
         await act(async () => {
             vi.advanceTimersByTime(500);
         });
@@ -350,7 +587,11 @@ describe('ProductionOrderForm — Tambah bahan (manual add, gudang-first)', () =
                 machines={[]}
                 boms={[makeBom('bom-1', 'Resep A')]}
                 rawMaterials={[
-                    { id: 'rm-manual', name: 'Bahan Manual', primaryUnit: 'KG' },
+                    {
+                        id: 'rm-manual',
+                        name: 'Bahan Manual',
+                        primaryUnit: 'KG',
+                    },
                 ]}
                 rawMaterialStock={[
                     {
@@ -370,8 +611,8 @@ describe('ProductionOrderForm — Tambah bahan (manual add, gudang-first)', () =
         await act(async () => {
             vi.advanceTimersByTime(500);
         });
-        fireEvent.click(screen.getByText('Lanjut →'));
-        fireEvent.click(screen.getByText('Lanjut →'));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut:/ }));
         await act(async () => {
             vi.advanceTimersByTime(500);
         });
@@ -387,9 +628,7 @@ describe('ProductionOrderForm — Tambah bahan (manual add, gudang-first)', () =
         fireEvent.click(gudangOption!.closest('button')!);
         fireEvent.click(screen.getByText('Bahan Manual'));
 
-        const numberInputs = document.querySelectorAll(
-            'input[type="number"]',
-        );
+        const numberInputs = document.querySelectorAll('input[type="number"]');
         const addQtyInput = numberInputs[
             numberInputs.length - 1
         ] as HTMLInputElement;

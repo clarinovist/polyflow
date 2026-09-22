@@ -69,10 +69,20 @@ export function OrderDetailHeader({ order, formData }: Props) {
         totalMaterials > 0 && readyMaterials === totalMaterials;
 
     // Flexible routing banner
-    const hasRun = !!(order as unknown as { productionRunId?: string }).productionRunId;
-    const processLabel = (order as unknown as { processNameSnapshot?: string }).processNameSnapshot;
-    const seqSnap = (order as unknown as { routeSequenceSnapshot?: number }).routeSequenceSnapshot;
-    const runStub = (order as unknown as { productionRun?: { runNumber?: string; route?: { name?: string; version?: number } } | null }).productionRun;
+    const hasRun = !!(order as unknown as { productionRunId?: string })
+        .productionRunId;
+    const processLabel = (order as unknown as { processNameSnapshot?: string })
+        .processNameSnapshot;
+    const seqSnap = (order as unknown as { routeSequenceSnapshot?: number })
+        .routeSequenceSnapshot;
+    const runStub = (
+        order as unknown as {
+            productionRun?: {
+                runNumber?: string;
+                route?: { name?: string; version?: number };
+            } | null;
+        }
+    ).productionRun;
 
     // Lokasi Pemakaian Bahan: explicit consumption location with legacy
     // fallback to the output location for SPKs created before the split.
@@ -80,8 +90,7 @@ export function OrderDetailHeader({ order, formData }: Props) {
         materialConsumptionLocationId?: string | null;
     };
     const consumptionLocationId =
-        orderWithConsumption.materialConsumptionLocationId ||
-        order.locationId;
+        orderWithConsumption.materialConsumptionLocationId || order.locationId;
     const consumptionLocationName =
         formData.locations.find((l) => l.id === consumptionLocationId)?.name ||
         order.location.name;
@@ -91,13 +100,23 @@ export function OrderDetailHeader({ order, formData }: Props) {
             {hasRun && (
                 <div className="rounded border bg-blue-50/60 dark:bg-blue-950/30 p-3 text-sm">
                     <div className="font-medium">
-                        Bagian dari {runStub?.runNumber ?? 'RUN'} · {runStub?.route?.name ?? ''} v{runStub?.route?.version ?? ''}
+                        Bagian dari {runStub?.runNumber ?? 'RUN'} ·{' '}
+                        {runStub?.route?.name ?? ''} v
+                        {runStub?.route?.version ?? ''}
                     </div>
-                    {processLabel && <div>Tahap {seqSnap != null ? seqSnap + 1 : '?'} · {processLabel}</div>}
-                    <div className="text-xs text-muted-foreground">Routed SPK — readiness dan lokasi sumber diambil dari route step</div>
+                    {processLabel && (
+                        <div>
+                            Tahap {seqSnap != null ? seqSnap + 1 : '?'} ·{' '}
+                            {processLabel}
+                        </div>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                        Routed SPK — readiness dan lokasi sumber diambil dari
+                        route step
+                    </div>
                 </div>
             )}
-            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+            <div className="flex flex-col justify-between gap-4 rounded-xl border bg-card p-4 xl:flex-row xl:items-start md:p-5">
                 <div className="space-y-2 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                         <h1 className="text-2xl font-bold tracking-tight">
@@ -122,7 +141,7 @@ export function OrderDetailHeader({ order, formData }: Props) {
                         <span>·</span>
                         <span>Resep: {bomName}</span>
                         <span>·</span>
-                        <span>Stage: {stageLabel}</span>
+                        <span>Tahap: {stageLabel}</span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -146,16 +165,22 @@ export function OrderDetailHeader({ order, formData }: Props) {
                         <span className="flex items-center gap-1">
                             Pemakaian Bahan:{' '}
                             <span className="font-medium text-foreground">
-                                {isDirect ? 'Langsung per bahan' : consumptionLocationName}
+                                {isDirect
+                                    ? 'Langsung per bahan'
+                                    : consumptionLocationName}
                             </span>
-                            {!isDirect && <ReassignConsumptionLocationButton
-                                orderId={order.id}
-                                orderNumber={order.orderNumber}
-                                orderStatus={order.status}
-                                currentLocationId={consumptionLocationId}
-                                currentLocationName={consumptionLocationName}
-                                locations={formData.locations}
-                            />}
+                            {!isDirect && (
+                                <ReassignConsumptionLocationButton
+                                    orderId={order.id}
+                                    orderNumber={order.orderNumber}
+                                    orderStatus={order.status}
+                                    currentLocationId={consumptionLocationId}
+                                    currentLocationName={
+                                        consumptionLocationName
+                                    }
+                                    locations={formData.locations}
+                                />
+                            )}
                         </span>
                         <span>·</span>
                         <span className="flex items-center gap-1">
@@ -189,7 +214,7 @@ export function OrderDetailHeader({ order, formData }: Props) {
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-end gap-4 shrink-0">
+                <div className="flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:items-center xl:flex-col xl:items-end">
                     <div className="flex flex-col items-end gap-2">
                         <div className="flex items-center gap-2">
                             <Progress value={progress} className="h-2 w-28" />
@@ -200,24 +225,28 @@ export function OrderDetailHeader({ order, formData }: Props) {
                             </span>
                         </div>
                         {totalMaterials > 0 && !isDirect && (
-                            <div className="flex items-center gap-1.5">
+                            <div
+                                className="flex flex-wrap items-center gap-1.5"
+                                title="Berdasarkan pengeluaran non-void, bukan stok gudang saat ini"
+                            >
                                 <Package className="w-3 h-3 text-muted-foreground" />
                                 <span className="text-xs text-muted-foreground">
-                                    Bahan Baku:
+                                    Pengeluaran tercatat:
                                 </span>
                                 {allMaterialsReady ? (
                                     <Badge
                                         variant="outline"
                                         className="text-[10px] font-medium border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400"
                                     >
-                                        Siap ({readyMaterials}/{totalMaterials})
+                                        Lengkap ({readyMaterials}/
+                                        {totalMaterials})
                                     </Badge>
                                 ) : (
                                     <Badge
                                         variant="outline"
                                         className="text-[10px] font-medium border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-400"
                                     >
-                                        Menunggu ({readyMaterials}/
+                                        Belum lengkap ({readyMaterials}/
                                         {totalMaterials})
                                     </Badge>
                                 )}

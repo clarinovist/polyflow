@@ -1,7 +1,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { FormLabel } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils/utils';
 import {
     Select,
     SelectContent,
@@ -40,6 +42,7 @@ interface ProductOption {
 }
 
 interface StageProductSectionProps {
+    children?: ReactNode;
     stage: ProductionStage;
     onStageChange: (stage: ProductionStage) => void;
     products: ProductOption[];
@@ -59,6 +62,7 @@ interface StageProductSectionProps {
 }
 
 export function StageProductSection({
+    children,
     stage,
     onStageChange,
     products,
@@ -80,9 +84,9 @@ export function StageProductSection({
         <div className="space-y-6">
             {/* Stage selector */}
             <div className="space-y-3">
-                <FormLabel>Stage Produksi</FormLabel>
+                <Label>Tahap produksi</Label>
                 <div
-                    className="flex rounded-md shadow-sm"
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-4"
                     role="group"
                     aria-label="Stage produksi"
                 >
@@ -93,38 +97,58 @@ export function StageProductSection({
                             'packing',
                             'rework',
                         ] as ProductionStage[]
-                    ).map((s, i) => (
+                    ).map((s) => (
                         <Button
                             key={s}
                             type="button"
                             variant={stage === s ? 'default' : 'outline'}
-                            className={`${i === 0 ? 'rounded-r-none' : i === 3 ? 'rounded-l-none' : 'rounded-none'} h-9 flex-1 text-xs ${i > 0 ? 'border-l-0' : ''}`}
+                            className={cn(
+                                'h-auto min-h-16 flex-col items-start gap-1 whitespace-normal rounded-lg px-3 py-3 text-left',
+                                stage === s &&
+                                    'border-emerald-600 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-200',
+                            )}
+                            aria-label={s.charAt(0).toUpperCase() + s.slice(1)}
                             onClick={() => onStageChange(s)}
                             aria-pressed={stage === s}
                         >
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                            <span className="font-semibold">
+                                {s.charAt(0).toUpperCase() + s.slice(1)}
+                            </span>
+                            <span className="text-xs font-normal">
+                                {
+                                    {
+                                        mixing: 'Campur bahan',
+                                        extrusion: 'Bentuk produk',
+                                        packing: 'Kemas hasil',
+                                        rework: 'Olah ulang',
+                                    }[s]
+                                }
+                            </span>
                         </Button>
                     ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                    Stage:{' '}
+                    Tahap:{' '}
                     <span className="font-medium text-foreground">
                         {stageLabelId(stage)}
                     </span>
                     {' · '}
-                    Default output: {recommendedOutputHint(stage)}
+                    Saran hasil: {recommendedOutputHint(stage)}
                 </p>
             </div>
 
             {/* Product + BOM */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <FormLabel>Produk</FormLabel>
+                    <Label htmlFor="spk-product">Produk</Label>
                     <Select
                         value={selectedProductId}
                         onValueChange={onProductChange}
                     >
-                        <SelectTrigger>
+                        <SelectTrigger
+                            id="spk-product"
+                            className="min-h-11 w-full"
+                        >
                             <SelectValue placeholder="Pilih produk" />
                         </SelectTrigger>
                         <SelectContent>
@@ -173,13 +197,13 @@ export function StageProductSection({
                 </div>
 
                 <div className="space-y-2">
-                    <FormLabel>Resep / BOM</FormLabel>
+                    <Label htmlFor="spk-bom">Resep (BOM)</Label>
                     <Select
                         value={selectedBomId}
                         onValueChange={onBomChange}
                         disabled={!selectedProductId}
                     >
-                        <SelectTrigger>
+                        <SelectTrigger id="spk-bom" className="min-h-11 w-full">
                             <SelectValue
                                 placeholder={
                                     !selectedProductId
@@ -211,16 +235,23 @@ export function StageProductSection({
                 </div>
             </div>
 
-            {/* Machine + Date */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {children}
+
+            <h3 className="border-t pt-5 text-base font-semibold">
+                Jadwal & mesin
+            </h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="space-y-2">
-                    <FormLabel>Mesin / Work Center</FormLabel>
+                    <Label htmlFor="spk-machine">Mesin · opsional</Label>
                     <Select
                         value={selectedMachineId}
                         onValueChange={onMachineChange}
                     >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Pilih mesin" />
+                        <SelectTrigger
+                            id="spk-machine"
+                            className="min-h-11 w-full"
+                        >
+                            <SelectValue placeholder="Tentukan kemudian" />
                         </SelectTrigger>
                         <SelectContent>
                             {machines.map((m) => (
@@ -238,8 +269,10 @@ export function StageProductSection({
                 </div>
 
                 <div className="space-y-2">
-                    <FormLabel>Tanggal Mulai</FormLabel>
+                    <Label htmlFor="spk-start">Tanggal mulai</Label>
                     <Input
+                        id="spk-start"
+                        className="min-h-11"
                         type="date"
                         value={formatLocalDate(plannedStartDate)}
                         onChange={(e) =>
@@ -250,8 +283,10 @@ export function StageProductSection({
 
                 {onEndDateChange && (
                     <div className="space-y-2">
-                        <FormLabel>Tanggal Selesai (opsional)</FormLabel>
+                        <Label htmlFor="spk-end">Selesai · opsional</Label>
                         <Input
+                            id="spk-end"
+                            className="min-h-11"
                             type="date"
                             value={
                                 plannedEndDate

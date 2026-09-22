@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ActiveOrderNavItem } from '@/actions/production/active-order-nav';
 
 interface ActiveOrderStripProps {
@@ -8,73 +9,75 @@ interface ActiveOrderStripProps {
     currentOrderId: string;
 }
 
-/**
- * Horizontal strip of active SPK shown on the work-order detail page.
- *
- * Removes the need to return to /production/daily just to reach the next SPK.
- * Carries the progress percentage so the other reason for going back (checking
- * overall status) is covered here too.
- */
+/** Compact navigation keeps all active orders reachable without hiding the detail tabs. */
 export function ActiveOrderStrip({
     orders,
     currentOrderId,
 }: ActiveOrderStripProps) {
-    // One active SPK means there is nowhere to navigate — the strip would only
-    // repeat the header.
     if (orders.length <= 1) return null;
-
-    const currentIndex = orders.findIndex((o) => o.id === currentOrderId);
-
+    const currentIndex = orders.findIndex(
+        (order) => order.id === currentOrderId,
+    );
+    const previous = currentIndex > 0 ? orders[currentIndex - 1] : undefined;
+    const next = currentIndex >= 0 ? orders[currentIndex + 1] : undefined;
     return (
-        <div className="mb-6 rounded-xl border border-border bg-card p-3">
-            <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-semibold text-muted-foreground">
-                    SPK Aktif
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                    {currentIndex >= 0
-                        ? `${currentIndex + 1} dari ${orders.length}`
-                        : `${orders.length} SPK`}
-                </span>
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto pb-1">
-                {orders.map((order) => {
-                    const isCurrent = order.id === currentOrderId;
-                    return (
+        <nav aria-label="SPK aktif" className="mb-4 flex items-start gap-2">
+            <details className="group min-w-0 flex-1 rounded-lg border bg-card">
+                <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-2 px-3 py-2 text-sm [&::-webkit-details-marker]:hidden">
+                    <span className="font-medium">SPK Aktif</span>
+                    <span className="text-xs text-muted-foreground">
+                        {currentIndex >= 0
+                            ? `${currentIndex + 1} dari ${orders.length}`
+                            : `${orders.length} SPK`}
+                    </span>
+                    <span className="ml-auto hidden truncate text-xs text-muted-foreground sm:inline">
+                        {orders[currentIndex]?.orderNumber || 'Pilih SPK'}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="grid max-h-72 grid-cols-1 gap-2 overflow-auto border-t p-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {orders.map((order) => (
                         <Link
                             key={order.id}
                             href={`/production/orders/${order.id}`}
-                            aria-current={isCurrent ? 'page' : undefined}
-                            className={`shrink-0 w-44 rounded-lg border p-2.5 transition-colors ${
-                                isCurrent
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-border hover:bg-muted/50'
-                            }`}
+                            aria-current={
+                                order.id === currentOrderId ? 'page' : undefined
+                            }
+                            className={`min-w-0 rounded-lg border p-3 hover:bg-muted/50 ${order.id === currentOrderId ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : ''}`}
                         >
-                            <div className="font-mono text-[10px] text-muted-foreground truncate">
+                            <p className="font-mono text-xs text-muted-foreground">
                                 {order.orderNumber}
-                            </div>
-                            <div className="text-xs font-semibold text-foreground truncate mt-0.5">
+                            </p>
+                            <p className="mt-1 break-words text-sm font-medium">
                                 {order.productName}
-                            </div>
-                            <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                                <div
-                                    className="h-full rounded-full bg-primary"
-                                    style={{
-                                        width: `${order.progressPercent}%`,
-                                    }}
-                                />
-                            </div>
-                            <div className="mt-1 text-[10px] text-muted-foreground">
+                            </p>
+                            <p className="mt-2 text-xs tabular-nums text-muted-foreground">
                                 {order.progressPercent}% ·{' '}
                                 {order.actualQuantity.toLocaleString('id-ID')}/
                                 {order.plannedQuantity.toLocaleString('id-ID')}
-                            </div>
+                            </p>
                         </Link>
-                    );
-                })}
-            </div>
-        </div>
+                    ))}
+                </div>
+            </details>
+            {previous && (
+                <Link
+                    href={`/production/orders/${previous.id}`}
+                    aria-label={`SPK sebelumnya: ${previous.orderNumber}`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border hover:bg-muted"
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                </Link>
+            )}
+            {next && (
+                <Link
+                    href={`/production/orders/${next.id}`}
+                    aria-label={`SPK berikutnya: ${next.orderNumber}`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border hover:bg-muted"
+                >
+                    <ChevronRight className="h-4 w-4" />
+                </Link>
+            )}
+        </nav>
     );
 }

@@ -18,6 +18,8 @@ import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { OrderCustomerPicker } from '@/components/production/OrderCustomerPicker';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { formatLocalDate } from '@/lib/dates/parse-local-date';
+import { Loader2 } from 'lucide-react';
+import { formatRupiah } from '@/lib/utils/utils';
 import { createProductionOrder } from '@/actions/production/production';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -147,7 +149,9 @@ export function ProductionOrderForm({
 }: ProductionOrderFormProps) {
     const router = useRouter();
     const [step, setStep] = useState<StepNumber>(1);
-    const [consumptionChoice, setConsumptionChoice] = useState<'TRANSFER' | 'DIRECT'>('TRANSFER');
+    const [consumptionChoice, setConsumptionChoice] = useState<
+        'TRANSFER' | 'DIRECT'
+    >('TRANSFER');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [stage, setStage] = useState<ProductionStage>('mixing');
     const [selectedProductVariantId, setSelectedProductVariantId] =
@@ -258,6 +262,15 @@ export function ProductionOrderForm({
         name: 'plannedEndDate',
     });
     const watchItems = useWatch({ control: form.control, name: 'items' });
+    const watchCustomerIds = useWatch({
+        control: form.control,
+        name: 'customerIds',
+    });
+    const watchNotes = useWatch({ control: form.control, name: 'notes' });
+    const watchConversionCost = useWatch({
+        control: form.control,
+        name: 'estimatedConversionCost',
+    });
 
     // Location defaults hook
     const {
@@ -459,12 +472,17 @@ export function ProductionOrderForm({
         materialPreview.materialInfo,
     ]);
 
-    const directSourceLocations = locations.filter((l) =>
-        (!l.locationType || l.locationType === 'INTERNAL') && isEligibleMaterialSourceLocation(l),
+    const directSourceLocations = locations.filter(
+        (l) =>
+            (!l.locationType || l.locationType === 'INTERNAL') &&
+            isEligibleMaterialSourceLocation(l),
     );
     const directSources = useDirectMaterialSources({
-        enabled: isDirect, bomId: (watchBomId as string) || '', items: displayItems,
-        materialInfo: mergedMaterialInfo, locations: directSourceLocations,
+        enabled: isDirect,
+        bomId: (watchBomId as string) || '',
+        items: displayItems,
+        materialInfo: mergedMaterialInfo,
+        locations: directSourceLocations,
     });
     const effectiveMaterialInfo = directSources.materialInfo;
 
@@ -758,7 +776,16 @@ export function ProductionOrderForm({
             }
 
             if (!directSources.ready) {
-                toast.error(directSources.error || 'Lengkapi gudang asal bahan dan tunggu pemeriksaan stok.');
+                toast.error(
+                    directSources.error ||
+                        'Lengkapi gudang asal bahan dan tunggu pemeriksaan stok.',
+                );
+                return;
+            }
+            if (materialPreview.error) {
+                toast.error(
+                    'Perhitungan bahan gagal. Ubah resep atau target untuk menghitung ulang.',
+                );
                 return;
             }
             if (materialPreview.isCalculating) {
@@ -783,8 +810,9 @@ export function ProductionOrderForm({
                     locationId: form.getValues('locationId'),
                     materialSourceLocationId: effectiveSourceId || undefined,
                     materialConsumptionMode: consumptionMode,
-                    materialConsumptionLocationId:
-                        isDirect ? undefined : effectiveConsumptionId || undefined,
+                    materialConsumptionLocationId: isDirect
+                        ? undefined
+                        : effectiveConsumptionId || undefined,
                     plannedQuantity: effectiveQty,
                     plannedEnteredQuantity:
                         planning.planningMode === 'sales' &&
@@ -803,8 +831,16 @@ export function ProductionOrderForm({
                             : undefined,
                     // P0: Always use form items (edited truth)
                     items: formItems.map((item) => ({
-                        productVariantId: item.productVariantId, quantity: item.quantity,
-                        ...(isDirect ? { sourceLocationId: effectiveMaterialInfo[item.productVariantId]?.sourceLocationId } : {}),
+                        productVariantId: item.productVariantId,
+                        quantity: item.quantity,
+                        ...(isDirect
+                            ? {
+                                  sourceLocationId:
+                                      effectiveMaterialInfo[
+                                          item.productVariantId
+                                      ]?.sourceLocationId,
+                              }
+                            : {}),
                     })),
                     createPath: salesOrderId
                         ? 'sales_order'
@@ -830,9 +866,9 @@ export function ProductionOrderForm({
                             ? 'Menunggu Bahan'
                             : 'DRAFT';
                     toast.success(
-                        `SPK ${response.data.orderNumber} berhasil dibuat. Siap dijadwalkan & dijalankan di lantai produksi.`,
+                        `SPK ${response.data.orderNumber} berhasil dibuat. Periksa kesiapan bahan sebelum produksi.`,
                         {
-                            description: `Status: ${statusLabel} · Target ${response.data.plannedQuantity.toLocaleString('id-ID')} unit.`,
+                            description: `Status: ${statusLabel} · Target ${response.data.plannedQuantity.toLocaleString('id-ID')} ${planning.unitMeta.primaryUnit}.`,
                         },
                     );
                     router.push(`/production/orders/${response.data.id}`);
@@ -845,7 +881,12 @@ export function ProductionOrderForm({
         },
         [
             materialPreview.isCalculating,
-            directSources.ready, directSources.error, consumptionMode, isDirect, effectiveMaterialInfo,
+            materialPreview.error,
+            directSources.ready,
+            directSources.error,
+            consumptionMode,
+            isDirect,
+            effectiveMaterialInfo,
             outputIsRisky,
             effectiveSourceId,
             effectiveConsumptionId,
@@ -865,7 +906,9 @@ export function ProductionOrderForm({
     // Step validation
     const canAdvanceFromStep1 = !!watchBomId && getEffectiveQty() > 0;
     const canAdvanceFromStep2 =
-        !!watchLocationId && (!watchIsMaklon || !!watchMaklonCustomerId) && directSources.ready;
+        !!watchLocationId &&
+        (!watchIsMaklon || !!watchMaklonCustomerId) &&
+        directSources.ready;
 
     // P2: Risky dialog confirm — no setTimeout, direct call
     const handleRiskyConfirm = useCallback(() => {
@@ -881,11 +924,15 @@ export function ProductionOrderForm({
             items={displayItems}
             materialInfo={effectiveMaterialInfo}
             suggestedSource={isDirect ? null : materialPreview.suggestedSource}
-            isCalculating={materialPreview.isCalculating || directSources.pending}
+            isCalculating={
+                materialPreview.isCalculating || directSources.pending
+            }
             hasStockIssues={hasStockIssues}
-            error={materialPreview.error}
+            error={materialPreview.error || directSources.error}
             onAcceptSuggestedSource={handleAcceptSuggestedSource}
             editable={step === 3}
+            compact={step !== 3}
+            consumptionMode={consumptionMode}
             rawMaterials={rawMaterials}
             sourceLocations={eligibleSourceLocations}
             defaultLocationId={effectiveSourceId}
@@ -896,10 +943,70 @@ export function ProductionOrderForm({
         />
     );
 
+    const planningPanel = (
+        <aside
+            className="space-y-3 lg:sticky lg:top-24"
+            aria-label="Ringkasan rencana"
+        >
+            <div className="rounded-xl border bg-card p-4">
+                <p className="text-xs font-medium text-muted-foreground">
+                    Ringkasan rencana · {stageLabelId(stage)}
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums">
+                    {getEffectiveQty().toLocaleString('id-ID')}{' '}
+                    {planning.unitMeta.primaryUnit}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    {planning.planningMode === 'sales'
+                        ? `${planning.enteredTargetQty} ${planning.unitMeta.salesUnit}`
+                        : planning.planningMode === 'batch'
+                          ? `${planning.batchCount} batch`
+                          : 'Target produksi'}
+                </p>
+            </div>
+            {materialPanel}
+        </aside>
+    );
+
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={(event) => {
+                    if (step !== 3) {
+                        event.preventDefault();
+                        toast.warning(
+                            'Lanjutkan ke Periksa & buat sebelum membuat SPK.',
+                        );
+                        return;
+                    }
+                    // Validate the same base quantity that will be sent for all target modes.
+                    form.setValue('plannedQuantity', getEffectiveQty());
+                    return form.handleSubmit(onSubmit, (errors) => {
+                        const field = Object.keys(
+                            errors,
+                        )[0] as keyof FormValues;
+                        toast.error(
+                            String(
+                                errors[field]?.message ||
+                                    'Periksa kembali data SPK sebelum membuatnya.',
+                            ),
+                        );
+                        setStep(
+                            [
+                                'locationId',
+                                'maklonCustomerId',
+                                'estimatedConversionCost',
+                                'customerIds',
+                                'notes',
+                                'priority',
+                            ].includes(field)
+                                ? 2
+                                : field === 'items'
+                                  ? 3
+                                  : 1,
+                        );
+                    })(event);
+                }}
                 className="min-w-0 max-w-full space-y-6"
             >
                 <CreateSpkStepper currentStep={step} />
@@ -910,7 +1017,9 @@ export function ProductionOrderForm({
                         <div className="lg:col-span-2 space-y-6">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Spesifikasi Produksi</CardTitle>
+                                    <CardTitle>
+                                        Apa yang akan diproduksi?
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <StageProductSection
@@ -949,54 +1058,60 @@ export function ProductionOrderForm({
                                         onEndDateChange={(d) =>
                                             form.setValue('plannedEndDate', d)
                                         }
-                                    />
-
-                                    <PlanningQuantitySection
-                                        planningMode={planning.planningMode}
-                                        onPlanningModeChange={
-                                            planning.setPlanningMode
-                                        }
-                                        batchCount={planning.batchCount}
-                                        onBatchCountChange={
-                                            planning.setBatchCount
-                                        }
-                                        enteredTargetQty={
-                                            planning.enteredTargetQty
-                                        }
-                                        onEnteredTargetQtyChange={
-                                            planning.setEnteredTargetQty
-                                        }
-                                        basePlannedQty={
-                                            (watchPlannedQty as number) || 0
-                                        }
-                                        onBasePlannedQtyChange={(n) =>
-                                            form.setValue('plannedQuantity', n)
-                                        }
-                                        bomOutputQty={bomOutputQty}
-                                        bomPrimaryUnit={
-                                            (selectedBom?.productVariant
-                                                ?.primaryUnit as string) || ''
-                                        }
-                                        bomProductVariant={
-                                            selectedBom?.productVariant || {}
-                                        }
-                                        hasAlternateUnit={
-                                            planning.unitMeta.hasAlternateUnit
-                                        }
-                                        salesUnit={
-                                            planning.unitMeta.salesUnit || ''
-                                        }
-                                        conversionFactor={
-                                            planning.unitMeta.conversionFactor
-                                        }
-                                    />
+                                    >
+                                        <PlanningQuantitySection
+                                            planningMode={planning.planningMode}
+                                            onPlanningModeChange={
+                                                planning.setPlanningMode
+                                            }
+                                            batchCount={planning.batchCount}
+                                            onBatchCountChange={
+                                                planning.setBatchCount
+                                            }
+                                            enteredTargetQty={
+                                                planning.enteredTargetQty
+                                            }
+                                            onEnteredTargetQtyChange={
+                                                planning.setEnteredTargetQty
+                                            }
+                                            basePlannedQty={
+                                                (watchPlannedQty as number) || 0
+                                            }
+                                            onBasePlannedQtyChange={(n) =>
+                                                form.setValue(
+                                                    'plannedQuantity',
+                                                    n,
+                                                )
+                                            }
+                                            bomOutputQty={bomOutputQty}
+                                            bomPrimaryUnit={
+                                                (selectedBom?.productVariant
+                                                    ?.primaryUnit as string) ||
+                                                ''
+                                            }
+                                            bomProductVariant={
+                                                selectedBom?.productVariant ||
+                                                {}
+                                            }
+                                            hasAlternateUnit={
+                                                planning.unitMeta
+                                                    .hasAlternateUnit
+                                            }
+                                            salesUnit={
+                                                planning.unitMeta.salesUnit ||
+                                                ''
+                                            }
+                                            conversionFactor={
+                                                planning.unitMeta
+                                                    .conversionFactor
+                                            }
+                                        />
+                                    </StageProductSection>
                                 </CardContent>
                             </Card>
                         </div>
 
-                        <div className="lg:col-span-1">
-                            <div className="sticky top-6">{materialPanel}</div>
-                        </div>
+                        <div className="lg:col-span-1">{planningPanel}</div>
                     </div>
                 )}
 
@@ -1006,23 +1121,54 @@ export function ProductionOrderForm({
                         <div className="lg:col-span-2 space-y-6">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Lokasi & Meta</CardTitle>
+                                    <CardTitle>Bahan & tujuan</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
+                                    <MaklonSection
+                                        form={
+                                            form as unknown as Parameters<
+                                                typeof MaklonSection
+                                            >[0]['form']
+                                        }
+                                        isMaklon={!!watchIsMaklon}
+                                        onMaklonChange={handleMaklonChange}
+                                        customers={customers}
+                                    />
                                     <LocationFlowCard
                                         stage={stage}
                                         consumptionMode={consumptionMode}
-                                        onConsumptionModeChange={setConsumptionChoice}
+                                        onConsumptionModeChange={
+                                            setConsumptionChoice
+                                        }
                                         allowDirect={allowDirect}
                                         materials={displayItems.map((item) => ({
-                                            ...item, name: effectiveMaterialInfo[item.productVariantId]?.name || item.productVariantId,
-                                            unit: effectiveMaterialInfo[item.productVariantId]?.unit || '',
-                                            sourceLocationId: effectiveMaterialInfo[item.productVariantId]?.sourceLocationId || '',
-                                            sourceLocationName: effectiveMaterialInfo[item.productVariantId]?.sourceLocationName || '',
-                                            currentStock: effectiveMaterialInfo[item.productVariantId]?.currentStock,
+                                            ...item,
+                                            name:
+                                                effectiveMaterialInfo[
+                                                    item.productVariantId
+                                                ]?.name ||
+                                                item.productVariantId,
+                                            unit:
+                                                effectiveMaterialInfo[
+                                                    item.productVariantId
+                                                ]?.unit || '',
+                                            sourceLocationId:
+                                                effectiveMaterialInfo[
+                                                    item.productVariantId
+                                                ]?.sourceLocationId || '',
+                                            sourceLocationName:
+                                                effectiveMaterialInfo[
+                                                    item.productVariantId
+                                                ]?.sourceLocationName || '',
+                                            currentStock:
+                                                effectiveMaterialInfo[
+                                                    item.productVariantId
+                                                ]?.currentStock,
                                         }))}
                                         sourceLocations={directSourceLocations}
-                                        onMaterialSourceChange={directSources.setSource}
+                                        onMaterialSourceChange={
+                                            directSources.setSource
+                                        }
                                         checkingStock={directSources.pending}
                                         stockError={directSources.error}
                                         onRetryStock={directSources.retry}
@@ -1066,23 +1212,23 @@ export function ProductionOrderForm({
                                         }
                                     />
 
-                                    <MaklonSection
-                                        form={
-                                            form as unknown as Parameters<
-                                                typeof MaklonSection
-                                            >[0]['form']
-                                        }
-                                        isMaklon={!!watchIsMaklon}
-                                        onMaklonChange={handleMaklonChange}
-                                        customers={customers}
+                                    <h3 className="border-t pt-5 font-semibold">
+                                        Tujuan & instruksi
+                                    </h3>
+                                    <FormField
+                                        control={form.control}
+                                        name="customerIds"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <OrderCustomerPicker
+                                                    customers={customers}
+                                                    value={field.value ?? []}
+                                                    onChange={field.onChange}
+                                                />
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
-
-                                    <FormField control={form.control} name="customerIds" render={({ field }) => (
-                                        <FormItem>
-                                            <OrderCustomerPicker customers={customers} value={field.value ?? []} onChange={field.onChange} />
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
 
                                     <OrderMetaSection
                                         form={
@@ -1096,16 +1242,14 @@ export function ProductionOrderForm({
                             </Card>
                         </div>
 
-                        <div className="lg:col-span-1">
-                            <div className="sticky top-6">{materialPanel}</div>
-                        </div>
+                        <div className="lg:col-span-1">{planningPanel}</div>
                     </div>
                 )}
 
                 {/* Step 3: Review & buat */}
                 {step === 3 && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-1">
+                        <div className="lg:col-span-1 lg:col-start-3 lg:row-start-1">
                             <ReviewCommitSection
                                 stage={stageLabelId(stage)}
                                 productName={
@@ -1114,11 +1258,11 @@ export function ProductionOrderForm({
                                 bomName={selectedBom?.name || ''}
                                 targetSummary={
                                     planning.planningMode === 'batch'
-                                        ? `${planning.batchCount} batch × ${bomOutputQty} = ${getEffectiveQty()}`
+                                        ? `${planning.batchCount} batch × ${bomOutputQty} ${planning.unitMeta.primaryUnit} = ${getEffectiveQty()} ${planning.unitMeta.primaryUnit}`
                                         : planning.planningMode === 'sales' &&
                                             planning.unitMeta.hasAlternateUnit
-                                          ? `${planning.enteredTargetQty} ${planning.unitMeta.salesUnit} × ${planning.unitMeta.conversionFactor} = ${getEffectiveQty()}`
-                                          : `${getEffectiveQty()}`
+                                          ? `${planning.enteredTargetQty} ${planning.unitMeta.salesUnit} = ${getEffectiveQty()} ${planning.unitMeta.primaryUnit}`
+                                          : `${getEffectiveQty()} ${planning.unitMeta.primaryUnit}`
                                 }
                                 machineName={
                                     machines.find(
@@ -1136,9 +1280,16 @@ export function ProductionOrderForm({
                                           )
                                         : undefined
                                 }
-                                sourceName={materialSourceNames.join(' · ') || sourceLocationName}
+                                sourceName={
+                                    materialSourceNames.join(' · ') ||
+                                    sourceLocationName
+                                }
                                 consumptionMode={consumptionMode}
-                                consumptionName={locations.find((l) => l.id === effectiveConsumptionId)?.name || '—'}
+                                consumptionName={
+                                    locations.find(
+                                        (l) => l.id === effectiveConsumptionId,
+                                    )?.name || '—'
+                                }
                                 outputName={
                                     locations.find(
                                         (l) =>
@@ -1149,25 +1300,56 @@ export function ProductionOrderForm({
                                 priority={(watchPriority as string) || 'NORMAL'}
                                 isMaklon={!!watchIsMaklon}
                                 predictedStatus={
-                                    hasStockIssues ? 'MENUNGGU_BAHAN' : 'DRAFT'
+                                    materialPreview.error || materialPreview.isCalculating || directSources.pending || directSources.error || displayItems.length === 0
+                                        ? 'UNKNOWN'
+                                        : hasStockIssues ? 'MENUNGGU_BAHAN' : 'DRAFT'
                                 }
                                 outputIsRisky={outputIsRisky}
-                                isSubmitting={isSubmitting}
-                                isCalculating={materialPreview.isCalculating || directSources.pending}
-                                isFormValid={
-                                    canAdvanceFromStep1 && canAdvanceFromStep2
+                                customerNames={customers
+                                    .filter(
+                                        (customer) =>
+                                            (watchCustomerIds || []).includes(
+                                                customer.id,
+                                            ) ||
+                                            (!!watchIsMaklon &&
+                                                customer.id ===
+                                                    watchMaklonCustomerId),
+                                    )
+                                    .map((customer) => customer.name)}
+                                maklonCustomerName={
+                                    customers.find(
+                                        (customer) =>
+                                            customer.id ===
+                                            watchMaklonCustomerId,
+                                    )?.name
                                 }
+                                conversionCost={formatRupiah(
+                                    Number(watchConversionCost || 0),
+                                )}
+                                notes={watchNotes || ''}
+                                linkedSalesOrder={!!salesOrderId}
+                                onEdit={() => setStep(1)}
                             />
                         </div>
 
-                        <div className="lg:col-span-2">
-                            <div className="sticky top-6">{materialPanel}</div>
+                        <div className="lg:col-span-2 lg:col-start-1 lg:row-start-1">
+                            <p className="mb-3 text-sm text-muted-foreground">
+                                Periksa kebutuhan bahan. Penyesuaian hanya
+                                berlaku untuk SPK ini, bukan resep utama.
+                            </p>
+                            {itemsDirtyRef.current && (
+                                <p className="mb-3 rounded-lg border bg-muted p-3 text-sm">
+                                    Bahan disesuaikan manual. Periksa kembali
+                                    jumlahnya jika target berubah.
+                                </p>
+                            )}
+                            {materialPanel}
                         </div>
                     </div>
                 )}
 
                 {/* Navigation */}
-                <div className="flex min-w-0 flex-wrap justify-between gap-4 border-t pt-4">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
                     <Button
                         variant="outline"
                         type="button"
@@ -1175,6 +1357,11 @@ export function ProductionOrderForm({
                     >
                         Batal
                     </Button>
+                    <p className="text-xs text-muted-foreground">
+                        Langkah {step} dari 3
+                        {step === 3 &&
+                            ' · Membuat 1 SPK, belum memulai produksi'}
+                    </p>
                     <div className="flex min-w-0 flex-wrap justify-end gap-2">
                         {step > 1 && (
                             <Button
@@ -1198,13 +1385,43 @@ export function ProductionOrderForm({
                                         return;
                                     }
                                     if (step === 2 && !canAdvanceFromStep2) {
-                                        toast.warning('Lengkapi lokasi output');
+                                        toast.warning(
+                                            !watchLocationId
+                                                ? 'Pilih lokasi penyimpanan hasil'
+                                                : watchIsMaklon &&
+                                                    !watchMaklonCustomerId
+                                                  ? 'Pilih customer pemilik bahan maklon'
+                                                  : directSources.error ||
+                                                    'Lengkapi asal bahan dan tunggu pemeriksaan stok',
+                                        );
                                         return;
                                     }
                                     setStep((s) => (s + 1) as StepNumber);
                                 }}
                             >
-                                Lanjut →
+                                {step === 1
+                                    ? 'Lanjut: Bahan & tujuan →'
+                                    : 'Lanjut: Periksa & buat →'}
+                            </Button>
+                        )}
+                        {step === 3 && (
+                            <Button
+                                type="submit"
+                                className="min-h-11"
+                                disabled={
+                                    isSubmitting ||
+                                    materialPreview.isCalculating ||
+                                    !!materialPreview.error ||
+                                    directSources.pending ||
+                                    !canAdvanceFromStep1 ||
+                                    !canAdvanceFromStep2
+                                }
+                                aria-busy={isSubmitting}
+                            >
+                                {isSubmitting && (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                )}
+                                {isSubmitting ? 'Membuat SPK…' : 'Buat SPK'}
                             </Button>
                         )}
                     </div>
