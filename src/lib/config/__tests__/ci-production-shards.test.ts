@@ -34,7 +34,8 @@ describe('production two-shard release gate', () => {
     it('uses two independent runners, unchanged default workers and full discovery', () => {
         const shards = jobs['test-shards'];
         expect(shards).toBeDefined();
-        expect(shards.needs).toBeUndefined();
+        expect(shards.needs).toBe('agents-consistency');
+        expect(shards.if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
         expect(shards.strategy).toEqual({
             'fail-fast': false,
             matrix: { include: [{ shard: '1/2', artifact: 'shard-1' }, { shard: '2/2', artifact: 'shard-2' }] },
@@ -55,8 +56,8 @@ describe('production two-shard release gate', () => {
 
     it('keeps the stable test job as a mandatory merged global coverage gate', () => {
         expect(jobs.test.name).toBe('Test & Validate');
-        expect(jobs.test.needs).toBe('test-shards');
-        expect(jobs.test.if).toBe('${{ always() }}');
+        expect(jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
+        expect(jobs.test.if).toBe("${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}");
         expect(step(jobs.test, 'Run Tests with Coverage').run).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
         expect(jobs.test.steps.map(item => item.name)).toContain('Validate Nginx configuration');
         const download = jobs.test.steps.find(item => item.uses?.startsWith('actions/download-artifact'));
@@ -88,7 +89,7 @@ describe('production two-shard release gate', () => {
 
     it('preserves every release gate and includes shard occupancy in timing', () => {
         expect(jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push', 'return-contract']);
-        expect(jobs.deploy.if).toBeUndefined();
+        expect(jobs.deploy.if).toBe("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
         expect(jobs.timing.needs).toContain('test-shards');
         for (const name of ['test-shards', 'test', 'lint', 'build-and-push', 'return-contract']) {
             expect(jobs[name]['continue-on-error']).toBeUndefined();

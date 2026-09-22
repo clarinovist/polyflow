@@ -45,15 +45,17 @@ const reports = () => [report('1/2', 'a'), report('2/2', 'b')];
 describe('CI performance guardrails', () => {
     it('keeps production parallel and gated on original jobs plus the return transaction contract', () => {
         expect(production.jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push', 'return-contract']);
-        expect(production.jobs.test.needs).toBe('test-shards');
+        expect(production.jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
         for (const name of ['test-shards', 'lint', 'build-and-push', 'return-contract']) {
-            expect(production.jobs[name].needs).toBeUndefined();
+            expect(production.jobs[name].needs).toBe('agents-consistency');
+            expect(production.jobs[name].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
             expect(production.jobs[name]['continue-on-error']).toBeUndefined();
         }
         const command = production.jobs.test.steps.find(step => step.name === 'Run Tests with Coverage')!.run;
         expect(command).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
         expect(command).not.toMatch(/--shard|--maxWorkers|--exclude|--no-isolate/);
-        expect(production.jobs.deploy.if).toBeUndefined(); // default success(), not always()
+        // Kondisi event tetap memakai implicit success(), bukan always().
+        expect(production.jobs.deploy.if).toBe("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
         const contract = production.jobs['return-contract'];
         expect(contract.services.postgres.image).toBe('postgres:15-alpine');
         expect(contract.services.postgres.ports).toEqual(['55439:5432']);

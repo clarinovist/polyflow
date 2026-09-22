@@ -3,7 +3,10 @@
 Production splits the complete suite across two independent runners, retaining default
 workers and the original global thresholds **71/63/75/72**. The stable `test` gate merges
 coverage and validates the full suite before release. Lint, shards, image build and the
-PostgreSQL/typecheck contract run in parallel; all four gates remain required by deploy.
+PostgreSQL/typecheck contract run in parallel after the initial consistency/change
+classification gate; all four gates remain required by deploy. Only pushes limited to
+an explicit safe-document allow-list skip those heavy jobs. Manual production dispatch
+runs full verification without release PR/deployment; see [selective CI](ci-selective.md).
 Performance claims require paired hosted evidence, not individual shard durations.
 
 ## 1. Baseline and instrumentation
@@ -31,7 +34,9 @@ Timing definitions (seconds):
   cache import/export vertex durations; lazy layer downloads may occur during build,
   so import-manifest duration is not all cache transfer time. Missing data stays missing.
 
-The summary job is observational and is not a deploy gate. It reports wall time through
+The timing summary job is observational, runs only on the full path, and is not a deploy
+gate. The separate **Status CI** check validates expected success/skip on both full and
+documentation paths. Timing reports wall time through
 completed jobs (including deployment), excluding its own job/post steps. Sum of job
 occupancy is runner-minutes, **not wall time, billed rounded minutes or a price**.
 For exact end-to-end workflow duration after completion, use GitHub's run

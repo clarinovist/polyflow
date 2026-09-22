@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  # Manual selalu lengkap, tetapi tidak membuat release PR atau deploy.
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -20,6 +22,8 @@ jobs:
   # ─────────────────────────────────────────────
   release-please:
     name: Release Please
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v5
@@ -29,17 +33,32 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # ─────────────────────────────────────────────
-  # 1b. AGENTS.md docs consistency (parallel, non-blocking)
-  #     Fails the run (red X) if module AGENTS.md drift, but does
-  #     NOT gate deploy — nothing `needs` this job.
+  # 1b. Palang ringan selalu aktif, tanpa npm ci atau service database.
+  #     Klasifikasi fail-safe: hanya allow-list dokumen yang boleh skip job berat.
   # ─────────────────────────────────────────────
   agents-consistency:
     name: AGENTS.md Consistency
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      full: ${{ steps.changes.outputs.full }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Run AGENTS.md consistency check
         run: bash scripts/check-agents-consistency.sh
+      - name: Check Node version consistency
+        run: bash scripts/check-node-version.sh
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+      - name: Pilih jalur dan periksa dokumen aman
+        id: changes
+        run: node scripts/ci/changes.mjs
 
   # ─────────────────────────────────────────────
   # 2a. Lint
@@ -51,6 +70,8 @@ jobs:
   # ─────────────────────────────────────────────
   lint:
     name: Lint
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -76,6 +97,8 @@ jobs:
   # ─────────────────────────────────────────────
   test-shards:
     name: Test shard ${{ matrix.shard }}
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -121,8 +144,8 @@ jobs:
   # Stable required gate: both shards, global thresholds, then Nginx validation.
   test:
     name: Test & Validate
-    needs: test-shards
-    if: ${{ always() }}
+    needs: [agents-consistency, test-shards]
+    if: ${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -199,6 +222,8 @@ jobs:
   # Real transaction gate for the one-step receipt + receivable workflow.
   return-contract:
     name: Return PostgreSQL Contract
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -248,6 +273,8 @@ jobs:
   # ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Image
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       digest: ${{ steps.image.outputs.digest }}
@@ -284,6 +311,7 @@ jobs:
   deploy:
     name: Deploy to VPS
     needs: [test, lint, build-and-push, return-contract]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     concurrency:
       group: production-deploy
@@ -351,10 +379,31 @@ jobs:
           DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}
           REGISTRY_USER: ${{ github.actor }}
 
+  # Status lintas jalur: merah bila gate gagal/cancelled/skip di luar rencana.
+  status:
+    name: Status CI
+    if: ${{ always() }}
+    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, deploy, release-please]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+      - name: Validasi hasil jalur CI
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci/changes.mjs status
+
   # Observability only, never a replacement for deploy's required gates.
   timing:
     name: Pipeline timing
-    if: ${{ always() }}
+    if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
     needs: [test-shards, test, lint, build-and-push, return-contract, deploy, agents-consistency, release-please]
     runs-on: ubuntu-latest
     permissions:
