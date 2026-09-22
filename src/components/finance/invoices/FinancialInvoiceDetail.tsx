@@ -500,20 +500,21 @@ export function FinancialInvoiceDetail({
                     <CardTitle>Rincian Invoice</CardTitle>
                     {!snapshotOrder && (
                         <p role="note" className="text-sm text-muted-foreground">
-                            Nama barang dari SO; rincian harga invoice lama tidak
-                            tersedia.
+                            Rincian harga historis invoice ini tidak tersedia.
+                            Total di bawah tetap mengikuti invoice tersimpan,
+                            bukan nilai SO saat ini.
                         </p>
                     )}
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border p-4 bg-muted/20">
                         <div className="space-y-2">
-                            <div className="flex justify-between text-sm font-medium border-b pb-2">
-                                <span>Deskripsi</span>
-                                <span>
-                                    {snapshotOrder ? 'DPP (belum pajak)' : 'Nilai'}
-                                </span>
-                            </div>
+                            {snapshotOrder && (
+                                <div className="flex justify-between text-sm font-medium border-b pb-2">
+                                    <span>Deskripsi</span>
+                                    <span>DPP (belum pajak)</span>
+                                </div>
+                            )}
                             {salesOrder?.items?.length ? (
                                 salesOrder.items.map((item, index) => {
                                     const productVariant =
@@ -552,35 +553,12 @@ export function FinancialInvoiceDetail({
                                         </div>
                                     );
                                 })
-                            ) : legacyReferenceItems.length ? (
-                                legacyReferenceItems.map((item, index) => {
-                                    const productVariant =
-                                        item.productVariant || {};
-                                    return (
-                                        <div
-                                            key={item.id || index}
-                                            className="flex justify-between gap-4 border-b py-2 text-sm last:border-0"
-                                        >
-                                            <span className="font-medium">
-                                                {productVariant.name ||
-                                                    productVariant.product?.name ||
-                                                    'Barang penjualan'}
-                                            </span>
-                                            <span
-                                                className="text-muted-foreground"
-                                                aria-label="Nilai per item tidak tersedia"
-                                            >
-                                                —
-                                            </span>
-                                        </div>
-                                    );
-                                })
-                            ) : (
+                            ) : !legacyReferenceItems.length ? (
                                 <div className="flex justify-between py-2 text-sm text-muted-foreground">
                                     <span>Rincian barang tidak tersedia</span>
                                     <span>—</span>
                                 </div>
-                            )}
+                            ) : null}
                             {snapshotOrder && (
                                 <>
                                     <div className="flex justify-between text-sm py-2">
@@ -609,7 +587,9 @@ export function FinancialInvoiceDetail({
                             )}
                             <Separator className="my-2" />
                             <div className="flex justify-between font-bold">
-                                <span>Total</span>
+                                <span>
+                                    {snapshotOrder ? 'Total' : 'Total invoice tersimpan'}
+                                </span>
                                 <span>
                                     {formatRupiah(Number(invoice.totalAmount))}
                                 </span>
@@ -618,6 +598,59 @@ export function FinancialInvoiceDetail({
                     </div>
                 </CardContent>
             </Card>
+
+            {legacyReferenceItems.length > 0 && (
+                <Card role="region" aria-label="Referensi SO saat ini">
+                    <CardHeader>
+                        <CardTitle>Referensi SO saat ini</CardTitle>
+                        <p className="text-sm font-medium">
+                            {invoice.salesOrder?.orderNumber}
+                        </p>
+                        <p role="note" className="text-sm text-muted-foreground">
+                            Nilai berikut berasal dari SO saat ini, bukan rincian
+                            historis invoice. SO dapat berubah dan berbeda dari
+                            tagihan. Nilai per barang sudah setelah diskon dan
+                            termasuk pajak; bukan pengganti total invoice tersimpan.
+                        </p>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border bg-muted/20 p-4">
+                            <div className="flex justify-between gap-4 border-b pb-2 text-sm font-medium">
+                                <span>Barang</span>
+                                <span className="text-right">
+                                    Nilai SO (termasuk pajak)
+                                </span>
+                            </div>
+                            {legacyReferenceItems.map((item, index) => {
+                                // Display the persisted SO subtotal only as a reference;
+                                // never allocate it to the invoice or recompute its price.
+                                const subtotal = item.subtotal == null
+                                    ? null
+                                    : Number(item.subtotal);
+                                const hasSubtotal = subtotal !== null && Number.isFinite(subtotal);
+                                return (
+                                    <div
+                                        key={item.id || index}
+                                        className="flex justify-between gap-4 border-b py-2 text-sm last:border-0"
+                                    >
+                                        <span className="min-w-0 break-words font-medium">
+                                            {item.productVariant?.name ||
+                                                item.productVariant?.product?.name ||
+                                                'Barang penjualan'}
+                                        </span>
+                                        <span
+                                            className="shrink-0 text-right tabular-nums"
+                                            aria-label={hasSubtotal ? undefined : 'Nilai SO tidak tersedia'}
+                                        >
+                                            {hasSubtotal ? formatRupiah(subtotal) : '—'}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <EntityStatusTimeline entityType="Invoice" entityId={invoice.id} />
 

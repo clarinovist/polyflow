@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { snapshotFixture } from '@/lib/finance/__tests__/invoice-snapshot-fixture';
 
@@ -167,30 +167,125 @@ describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
         expect(screen.getByText('Original A')).toBeDefined();
         expect(screen.queryByText('Variant A')).toBeNull();
         expect(screen.getByText('DPP (belum pajak)')).toBeDefined();
+        expect(screen.queryByRole('region', { name: 'Referensi SO saat ini' })).toBeNull();
     });
 
-    it('shows legacy SO item names as references without presenting mutable prices', () => {
+    it('shows current SO subtotals in a separate, explicitly nonhistorical reference', () => {
         render(
             <FinancialInvoiceDetail
                 invoice={makeInvoice({ commercialSnapshot: null })}
             />,
         );
 
-        expect(screen.getByText('Variant A')).toBeDefined();
-        expect(
-            screen.getByText(
-                'Nama barang dari SO; rincian harga invoice lama tidak tersedia.',
-            ),
-        ).toBeDefined();
-        expect(
-            screen.queryByText(/Total komersial tersimpan/i),
-        ).toBeNull();
-        expect(
-            screen.queryByText(/Operational details/i),
-        ).toBeNull();
-        expect(screen.getByText('Variant A').parentElement?.textContent).not.toContain(
-            '100.000',
+        const reference = screen.getByRole('region', { name: 'Referensi SO saat ini' });
+        expect(within(reference).getByText('SO-0001')).toBeDefined();
+        expect(within(reference).getByRole('note').textContent).toContain(
+            'bukan rincian historis invoice',
         );
+        expect(within(reference).getByRole('note').textContent).toContain(
+            'dapat berubah dan berbeda dari tagihan',
+        );
+        expect(within(reference).getByText('Nilai SO (termasuk pajak)')).toBeDefined();
+        expect(within(reference).getByText('Variant A').parentElement?.textContent).toContain('1.000.000');
+        expect(within(reference).queryByText('Total invoice tersimpan')).toBeNull();
+        expect(screen.getByText('Total invoice tersimpan').parentElement?.textContent).toContain('1.000.000');
+    });
+
+    it('never replaces invoice totals, rounding or payment balance with changed SO values', () => {
+        const original = makeInvoice();
+        const changedOrder = {
+            ...original.salesOrder!,
+            items: [{ ...original.salesOrder!.items[0], subtotal: 234567 }],
+        };
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({
+                    status: 'UNPAID',
+                    commercialSnapshot: null,
+                    totalAmount: 1000500,
+                    roundingAmount: 500,
+                    paidAmount: 200000,
+                    creditedAmount: 100000,
+                    priceAdjustmentAmount: -100000,
+                    salesOrder: changedOrder,
+                })}
+            />,
+        );
+
+        const reference = screen.getByRole('region', { name: 'Referensi SO saat ini' });
+        expect(within(reference).getByText('Variant A').parentElement?.textContent).toContain('234.567');
+        expect(screen.getByText('Total invoice tersimpan').parentElement?.textContent).toContain('1.000.500');
+        expect(screen.getByText('Pembulatan').parentElement?.textContent).toContain('500');
+        expect(screen.getByText('Remaining Balance').parentElement?.textContent).toContain('600.500');
+        fireEvent.click(screen.getByRole('button', { name: 'Catat Pembayaran' }));
+        expect(screen.getByLabelText('Jumlah')).toHaveProperty('value', '600500');
+    });
+
+    it('uses the saved tax-inclusive SO subtotal rather than recomputing quantity times price', () => {
+        const original = makeInvoice();
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({
+                    commercialSnapshot: null,
+                    salesOrder: {
+                        ...original.salesOrder,
+                        items: [{
+                            ...original.salesOrder!.items[0],
+                            quantity: 10,
+                            unitPrice: 100000,
+                            // Discounted net 900000 + tax 99000, serialized by the action.
+                            subtotal: '999000.00',
+                            taxAmount: '99000.00',
+                        }],
+                    },
+                })}
+            />,
+        );
+        const reference = screen.getByRole('region', { name: 'Referensi SO saat ini' });
+        const row = within(reference).getByText('Variant A').parentElement;
+        expect(row?.textContent).toContain('999.000');
+        expect(row?.textContent).not.toContain('900.000');
+        expect(row?.textContent).not.toContain('1.000.000');
+    });
+
+    it.each([null, undefined, 'invalid'])('does not invent a zero for unavailable SO subtotal %s', (subtotal) => {
+        const original = makeInvoice();
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({
+                    salesOrder: {
+                        ...original.salesOrder,
+                        items: [{ ...original.salesOrder!.items[0], subtotal }],
+                    },
+                })}
+            />,
+        );
+        const reference = screen.getByRole('region', { name: 'Referensi SO saat ini' });
+        expect(within(reference).getByLabelText('Nilai SO tidak tersedia').textContent).toBe('—');
+    });
+
+    it('shows a genuine zero SO subtotal as zero', () => {
+        const original = makeInvoice();
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({
+                    salesOrder: {
+                        ...original.salesOrder,
+                        items: [{ ...original.salesOrder!.items[0], subtotal: 0 }],
+                    },
+                })}
+            />,
+        );
+        const reference = screen.getByRole('region', { name: 'Referensi SO saat ini' });
+        expect(within(reference).getByText(/Rp\s*0/)).toBeDefined();
+        expect(within(reference).queryByLabelText('Nilai SO tidak tersedia')).toBeNull();
+    });
+
+    it.each([null, { ...makeInvoice().salesOrder, items: [] }])('keeps the empty state when the legacy SO has no items', (salesOrder) => {
+        render(<FinancialInvoiceDetail invoice={makeInvoice({ commercialSnapshot: null, salesOrder })} />);
+        expect(screen.queryByRole('region', { name: 'Referensi SO saat ini' })).toBeNull();
+        expect(screen.getByText('Rincian barang tidak tersedia')).toBeDefined();
+        expect(screen.getByText('Total invoice tersimpan').parentElement?.textContent).toContain('1.000.000');
     });
 
     it('shows Konfirmasi Invoice when status DRAFT', () => {
