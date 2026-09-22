@@ -10,13 +10,12 @@ import {
     XCircle,
     Archive,
     ArrowLeft,
-    Banknote,
-    Package as PackageIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { SalesOrderFilters } from '@/components/sales/SalesOrderFilters';
 import { ShippedWeightCard } from '@/components/sales/ShippedWeightCard';
+import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
 import { serializeData, formatRupiah } from '@/lib/utils/utils';
 import { SalesOrderType, SalesOrderStatus } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
@@ -352,11 +351,18 @@ export default async function SalesPage({
 
             {/* P0 fix: period hint + pipeline omzet — original request "kalau semua terkonversi" */}
             {params.customer && !hasExplicitDateRange ? (
-                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                    Menampilkan seluruh riwayat order{' '}
-                    <span className="font-medium text-foreground">
-                        {selectedCustomer?.name || 'customer terpilih'}
+                <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                    <span>
+                        Menampilkan seluruh riwayat order{' '}
+                        <span className="font-medium text-foreground">
+                            {selectedCustomer?.name || 'customer terpilih'}
+                        </span>
                     </span>
+                    <SalesMetricInfo label="Info periode ringkasan">
+                        Ringkasan mencakup seluruh riwayat customer terpilih.
+                        Filter status, pembayaran, dan tab tabel tidak mengubah
+                        ringkasan.
+                    </SalesMetricInfo>
                 </div>
             ) : (
                 <OrderPeriodHint
@@ -366,20 +372,18 @@ export default async function SalesPage({
                 />
             )}
 
-            <p className="text-xs text-muted-foreground">
-                Ringkasan mengikuti tanggal pesanan dan customer, bukan filter
-                tabel. Berat terkirim dihitung kumulatif sampai saat ini, bukan
-                berdasarkan tanggal pengiriman.
-            </p>
-
             {/* Omzet dan volume pengiriman */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Card className="md:col-span-2 border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Potensi Omzet (kalau semua terkirim)
+                            Potensi Omzet
                         </CardTitle>
-                        <Banknote className="h-4 w-4 text-amber-600" />
+                        <SalesMetricInfo label="Info potensi omzet">
+                            Nilai order aktif non-batal dalam periode dan
+                            customer terpilih jika semuanya terkirim. Bukan
+                            pembayaran yang sudah diterima.
+                        </SalesMetricInfo>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
@@ -392,8 +396,7 @@ export default async function SalesPage({
                             )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Order aktif non-batal dalam periode •{' '}
-                            {stats.activeCount} order
+                            {stats.activeCount} order aktif
                         </p>
                     </CardContent>
                 </Card>
@@ -402,7 +405,11 @@ export default async function SalesPage({
                         <CardTitle className="text-sm font-medium">
                             Realisasi Omzet
                         </CardTitle>
-                        <PackageIcon className="h-4 w-4 text-emerald-600" />
+                        <SalesMetricInfo label="Info realisasi omzet">
+                            Nilai order berstatus terkirim atau diterima
+                            (Shipped/Delivered), bukan berarti pembayaran sudah
+                            lunas.
+                        </SalesMetricInfo>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
@@ -412,7 +419,7 @@ export default async function SalesPage({
                             )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            {stats.completedCount} order terkirim / diterima
+                            {stats.completedCount} order
                         </p>
                     </CardContent>
                 </Card>

@@ -80,14 +80,18 @@ afterEach(() => {
 });
 
 describe('Sales Orders page hydration inputs', () => {
-    it('replaces Total Periode with shipment kg and explains the order-date scope', async () => {
+    it('keeps concise metric cards with info buttons instead of long explanations', async () => {
         const page = await SalesPage({ searchParams: Promise.resolve({}) });
         const html = renderToStaticMarkup(page);
         expect(html).toContain('Total Berat Terkirim');
         expect(html).toContain('400 kg');
         expect(html).toContain('Realisasi Omzet');
         expect(html).not.toContain('Total Periode');
-        expect(html).toContain('bukan berdasarkan tanggal pengiriman');
+        expect(html).toContain('Info total berat terkirim');
+        expect(html).toContain('Info potensi omzet');
+        expect(html).toContain('Info realisasi omzet');
+        expect(html).not.toContain('bukan berdasarkan tanggal pengiriman');
+        expect(html).not.toContain('kalau semua terkirim');
     });
 
     it('keeps customer history all-time and table-only filters out of stats', async () => {
@@ -97,7 +101,8 @@ describe('Sales Orders page hydration inputs', () => {
         const html = renderToStaticMarkup(page);
         expect(getSalesOrderStats).toHaveBeenCalledWith(undefined, 'customer-1');
         expect(html).toContain('Menampilkan seluruh riwayat order');
-        expect(html).toContain('bukan filter tabel');
+        expect(html).toContain('Info periode ringkasan');
+        expect(html).not.toContain('Filter status, pembayaran');
     });
 
     it('renders unavailable weight when the stats action fails', async () => {

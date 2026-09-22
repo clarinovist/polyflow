@@ -3,7 +3,7 @@ import { act, type ComponentProps } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { hydrateRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
-import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { OrderPeriodHint } from '../OrderPeriodHint';
 import { SalesOrderTable } from '../SalesOrderTable';
@@ -37,8 +37,12 @@ function quotationOrder(): SalesOrderRow {
     } as unknown as SalesOrderRow;
 }
 
+beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+});
 afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
     routerPush.mockClear();
     window.history.replaceState(null, '', '/');
@@ -64,6 +68,20 @@ describe('Sales Orders hydration safety', () => {
         );
 
         expect(html).toContain('September 2026 (1–30 Sep 2026)');
+        expect(html).toContain('Info periode ringkasan');
+        expect(html).not.toContain('orderDate');
+    });
+
+    it('explains period scope through the info button', async () => {
+        render(<OrderPeriodHint
+            start={new Date('2026-08-31T17:00:00.000Z')}
+            end={new Date('2026-09-30T16:59:59.999Z')}
+            displayedCount={3}
+        />);
+        fireEvent.click(screen.getByRole('button', { name: 'Info periode ringkasan' }));
+        const tooltip = await screen.findByRole('tooltip');
+        expect(tooltip.textContent).toContain('tanggal pesanan (orderDate)');
+        expect(tooltip.textContent).toContain('tab tabel tidak mengubah ringkasan');
     });
 
     it('formats order and follow-up dates from a stable WIB business day', () => {
