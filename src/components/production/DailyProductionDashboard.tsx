@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { QuickProduceDialog } from './QuickProduceDialog';
 import { cn } from '@/lib/utils/utils';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
+import { OrderContextSummary } from './OrderContextSummary';
+import type { CustomerDestination, QualityStandardDisplay } from '@/lib/production/order-context';
 
 export type Order = {
     id: string;
@@ -18,6 +20,9 @@ export type Order = {
     actualQuantity: number | null;
     plannedStartDate: string;
     notes: string | null;
+    customerDestinations?: { customer: CustomerDestination }[];
+    salesOrder?: { customer: CustomerDestination | null } | null;
+    maklonCustomer?: CustomerDestination | null;
     bom: {
         id: string;
         name: string;
@@ -26,6 +31,7 @@ export type Order = {
             id: string;
             name: string;
             primaryUnit: string | null;
+            qualityCheckParameters?: QualityStandardDisplay[];
         };
     };
     machine: {
@@ -416,6 +422,8 @@ function OrderCard({
                         {order.bom.name}
                     </p>
                 </div>
+
+                <OrderContextSummary order={order} standards={order.bom.productVariant.qualityCheckParameters} />
 
                 {/* Machine chip */}
                 {order.machine ? (

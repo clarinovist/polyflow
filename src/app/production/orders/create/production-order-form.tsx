@@ -14,7 +14,8 @@ import {
     type ProductionStage,
 } from '@/lib/locations/resolve-location';
 import { Button } from '@/components/ui/button';
-import { Form } from '@/components/ui/form';
+import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { OrderCustomerPicker } from '@/components/production/OrderCustomerPicker';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { formatLocalDate } from '@/lib/dates/parse-local-date';
 import { createProductionOrder } from '@/actions/production/production';
@@ -1075,6 +1076,13 @@ export function ProductionOrderForm({
                                         onMaklonChange={handleMaklonChange}
                                         customers={customers}
                                     />
+
+                                    <FormField control={form.control} name="customerIds" render={({ field }) => (
+                                        <FormItem>
+                                            <OrderCustomerPicker customers={customers} value={field.value ?? []} onChange={field.onChange} />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
 
                                     <OrderMetaSection
                                         form={

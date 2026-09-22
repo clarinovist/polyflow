@@ -10,7 +10,7 @@ vi.mock('@/lib/core/prisma', () => {
             delete: vi.fn(),
         },
     };
-    return { prisma: mockPrisma };
+    return { prisma: { ...mockPrisma, $transaction: vi.fn((fn) => fn({ ...mockPrisma, $queryRaw: vi.fn() })) } };
 });
 
 import { prisma } from '@/lib/core/prisma';
@@ -31,6 +31,31 @@ describe('QualityStandardService', () => {
             where: { productVariantId: 'variant-1' },
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         });
+    });
+
+    it('filters display-only standards out of kiosk reads', async () => {
+        await QualityStandardService.listByVariant('variant-1', true);
+        expect(prisma.qualityCheckParameter.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: { productVariantId: 'variant-1', requireMeasurement: true },
+        }));
+    });
+
+    it.each([
+        { minValue: 12, maxValue: 11 },
+        { minValue: 11, targetValue: 10 },
+        { maxValue: 12, targetValue: 13 },
+        { minValue: Infinity },
+    ])('rejects invalid range %j', async (range) => {
+        await expect(QualityStandardService.create({ productVariantId: 'v', name: 'Weight', unit: 'g/m', sortOrder: 0, ...range })).rejects.toThrow('Rentang');
+        expect(prisma.qualityCheckParameter.create).not.toHaveBeenCalled();
+    });
+
+    it('validates partial updates against the existing bounds and permits explicit clearing', async () => {
+        vi.mocked(prisma.qualityCheckParameter.findUnique).mockResolvedValue({ id: 'p', minValue: 11, maxValue: 12, targetValue: null } as never);
+        await expect(QualityStandardService.update({ id: 'p', minValue: 13 })).rejects.toThrow('Rentang');
+        expect(prisma.qualityCheckParameter.update).not.toHaveBeenCalled();
+        await QualityStandardService.update({ id: 'p', minValue: 13, maxValue: null });
+        expect(prisma.qualityCheckParameter.update).toHaveBeenCalledWith({ where: { id: 'p' }, data: { minValue: 13, maxValue: null } });
     });
 
     it('create passes data straight through to prisma', async () => {

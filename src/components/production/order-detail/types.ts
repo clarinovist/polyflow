@@ -22,11 +22,14 @@ import {
     MaklonCostType,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import type { CustomerDestination, QualityStandardDisplay } from '@/lib/production/order-context';
 
 export type ExtendedProductionOrder = ProductionOrder & {
+    customerDestinations?: { customer: CustomerDestination }[];
     bom: Bom & {
         productVariant: ProductVariant & {
             product: { name: string };
+            qualityCheckParameters?: QualityStandardDisplay[];
             primaryUnit: Unit;
             salesUnit: Unit | null;
             conversionFactor: Decimal;
@@ -72,7 +75,7 @@ export type ExtendedProductionOrder = ProductionOrder & {
         reportedBy: { id: string; name: string | null } | null;
     })[];
     isMaklon?: boolean;
-    maklonCustomer?: Customer | null;
+    maklonCustomer?: CustomerDestination | null;
     estimatedConversionCost?: number;
     maklonCostItems?: {
         id: string;

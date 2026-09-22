@@ -48,6 +48,7 @@ const addedObjects = [
     'SalesReturnCreditMode',
     'InvoicePriceAdjustment',
     'InvoicePriceAdjustmentStatus',
+    'ProductionOrderCustomer',
 ];
 const schema = generated
     .split(';')
@@ -57,7 +58,7 @@ const schema = generated
     )
     .join(';')
     .replace(
-        /^\s*"(?:creditedAmount|priceAdjustmentAmount|remainingAmount|commercialSnapshot)" [^\n]+\n/gm,
+        /^\s*"(?:creditedAmount|priceAdjustmentAmount|remainingAmount|commercialSnapshot|requireMeasurement)" [^\n]+\n/gm,
         '',
     );
 const guards = [
@@ -65,6 +66,7 @@ const guards = [
     '20260919_invoice_commercial_snapshot',
     '20260919_invoice_price_adjustment',
     '20260919_manual_return_credit',
+    '20260922_spk_customers_quality',
 ]
     .map(migration)
     .join('\n');

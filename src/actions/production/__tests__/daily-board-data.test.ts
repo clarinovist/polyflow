@@ -67,6 +67,7 @@ describe('getDailyBoardData', () => {
                 isMaklon: false,
                 priority: 'NORMAL',
                 machineId: 'm1',
+                customerDestinations: [{ customer: { id: 'c1', name: 'Synthetic customer' } }],
                 bom: {
                     id: 'b1',
                     name: 'BOM A',
@@ -77,6 +78,7 @@ describe('getDailyBoardData', () => {
                         primaryUnit: 'KG',
                         salesUnit: 'BAL',
                         conversionFactor: decimal(20),
+                        qualityCheckParameters: [{ id: 'p', name: 'Weight', unit: 'g/m', minValue: decimal(11.5), maxValue: decimal(12), targetValue: null }],
                         product: { id: 'p1', name: 'Product A' },
                     },
                 },
@@ -110,6 +112,8 @@ describe('getDailyBoardData', () => {
         expect(result.success).toBe(true);
         if (!result.success) return;
         const order = result.data.orders[0];
+        expect(order.customerDestinations).toEqual([{ customer: { id: 'c1', name: 'Synthetic customer' } }]);
+        expect(order.bom.productVariant.qualityCheckParameters).toEqual([{ id: 'p', name: 'Weight', unit: 'g/m', minValue: 11.5, maxValue: 12, targetValue: null }]);
         expect(order.plannedQuantity).toBe(100);
         expect(order.actualQuantity).toBe(45.5);
         expect(order.executions).toHaveLength(1);

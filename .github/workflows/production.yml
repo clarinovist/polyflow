@@ -227,7 +227,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: npx next typegen && npx tsc --noEmit
-      - name: Receipt, credit, proposal and atomic return contracts
+      - name: Receipt, credit, proposal and SPK metadata contracts
         run: >-
           npx vitest run --maxWorkers=1 --no-file-parallelism
           src/services/finance/__tests__/quick-sales-return-postgres.test.ts
@@ -235,6 +235,7 @@ jobs:
           src/services/finance/__tests__/sales-return-receipt-postgres.test.ts
           src/services/finance/__tests__/manual-return-credit-postgres.test.ts
           src/services/finance/__tests__/invoice-status-settlement-postgres.test.ts
+          src/services/production/__tests__/order-context-postgres.test.ts
 
   # ─────────────────────────────────────────────
   # 3. Build & Push Docker Image

@@ -30,7 +30,7 @@ import {
 import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-    getQualityCheckParametersForVariant,
+    getQualityStandardsForVariant,
     createQualityCheckParameter,
     updateQualityCheckParameter,
     deleteQualityCheckParameter,
@@ -43,6 +43,7 @@ interface QcParameter {
     targetValue: unknown;
     minValue: unknown;
     maxValue: unknown;
+    requireMeasurement: boolean;
 }
 
 interface VariantForQc {
@@ -77,13 +78,14 @@ function ParameterFormDialog({
             unit: formData.get('unit') as string,
             targetValue: formData.get('targetValue')
                 ? Number(formData.get('targetValue'))
-                : undefined,
+                : null,
             minValue: formData.get('minValue')
                 ? Number(formData.get('minValue'))
-                : undefined,
+                : null,
             maxValue: formData.get('maxValue')
                 ? Number(formData.get('maxValue'))
-                : undefined,
+                : null,
+            requireMeasurement: formData.get('requireMeasurement') === 'on',
             sortOrder: 0,
         };
 
@@ -201,6 +203,11 @@ function ParameterFormDialog({
                             />
                         </div>
                     </div>
+                    <label className="flex min-h-11 items-center gap-3 text-sm">
+                        <input type="checkbox" name="requireMeasurement" defaultChecked={parameter ? parameter.requireMeasurement !== false : false} disabled={isPending} />
+                        Wajib catat hasil ukur di kiosk
+                    </label>
+                    <p className="text-xs text-muted-foreground">Jika tidak dicentang, parameter hanya menjadi acuan tampilan di SPK.</p>
                     <Button
                         type="submit"
                         className="w-full"
@@ -223,7 +230,7 @@ function VariantQualityCard({ variant }: { variant: VariantForQc }) {
 
     const reload = async () => {
         setLoading(true);
-        const res = await getQualityCheckParametersForVariant(variant.id);
+        const res = await getQualityStandardsForVariant(variant.id);
         if (res.success) {
             setParameters(res.data as unknown as QcParameter[]);
         }
@@ -271,8 +278,7 @@ function VariantQualityCard({ variant }: { variant: VariantForQc }) {
                     </div>
                 ) : parameters.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic py-4">
-                        Belum ada standar kualitas untuk varian ini — step QC di
-                        kiosk tidak akan muncul sampai parameter ditambahkan.
+                        Belum ada standar kualitas untuk varian ini. Tambahkan parameter untuk menampilkan acuan di SPK.
                     </p>
                 ) : (
                     <Table>
@@ -300,7 +306,10 @@ function VariantQualityCard({ variant }: { variant: VariantForQc }) {
                                     <TableCell className="font-medium">
                                         {param.name}
                                     </TableCell>
-                                    <TableCell>{param.unit}</TableCell>
+                                    <TableCell>
+                                        {param.unit}
+                                        <span className="block text-xs text-muted-foreground">{param.requireMeasurement !== false ? 'Wajib ukur di kiosk' : 'Acuan tampilan'}</span>
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         {numOrEmpty(param.targetValue) || '-'}
                                     </TableCell>
@@ -347,10 +356,10 @@ export function QualityStandardsTab({
         <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
                 Standar kualitas terukur per varian (mis. panjang, berat,
-                ketipisan). Begitu satu varian punya minimal 1 parameter di
-                sini, step QC otomatis muncul di kiosk saat operator log hasil
-                produksi untuk varian tersebut — wajib diisi, tapi nilai di luar
-                target/toleransi hanya jadi warning, tidak memblokir pengiriman.
+                ketipisan). Standar otomatis tampil di SPK untuk varian ini.
+                Aktifkan “Wajib catat hasil ukur di kiosk” hanya jika operator perlu
+                mengisi hasil ukur. Nilai di luar toleransi tetap berupa peringatan,
+                bukan pemblokiran. Mengubah standar memperbarui acuan tampilan SPK.
             </p>
             {variants.map((variant) => (
                 <VariantQualityCard key={variant.id} variant={variant} />

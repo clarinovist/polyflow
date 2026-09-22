@@ -58,6 +58,7 @@ const db = vi.hoisted(() => {
                 findFirst: vi.fn<(args: Prisma.ProductionOrderFindFirstArgs) => Promise<Pick<OrderRow, 'orderNumber'> | null>>(),
                 findMany: vi.fn<(args: Prisma.ProductionOrderFindManyArgs) => Promise<Pick<OrderRow, 'plannedQuantity'>[]>>(),
             },
+            customer: { count: vi.fn<(args: Prisma.CustomerCountArgs) => Promise<number>>() },
             productionMaterial: {
                 createMany: vi.fn<(args: Prisma.ProductionMaterialCreateManyArgs) => Promise<Prisma.BatchPayload>>(),
             },
@@ -317,6 +318,25 @@ describe('Production order facade and transaction boundaries', () => {
         expect(db.tx.productionMaterial.createMany).not.toHaveBeenCalled();
         expect(db.transaction).not.toHaveBeenCalled();
         expectNoOuterModelCalls();
+    });
+
+    it('creates deduplicated customer destinations in the same transaction', async () => {
+        db.tx.customer.count.mockResolvedValue(2);
+        await ProductionOrderService.createOrder(orderInput({ customerIds: ['a', 'b', 'a'] }));
+        expect(db.tx.customer.count).toHaveBeenCalledWith({ where: { id: { in: ['a', 'b'] } } });
+        expect(db.tx.productionOrder.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+            customerDestinations: { create: [
+                { customer: { connect: { id: 'a' } } },
+                { customer: { connect: { id: 'b' } } },
+            ] },
+        }) }));
+        expect(db.outer.customer.count).not.toHaveBeenCalled();
+    });
+
+    it('rejects nonlocal customer destinations before creating the order', async () => {
+        db.tx.customer.count.mockResolvedValue(0);
+        await expect(ProductionOrderService.createOrder(orderInput({ customerIds: ['foreign'] }))).rejects.toThrow('tenant');
+        expect(db.tx.productionOrder.create).not.toHaveBeenCalled();
     });
 
     it('keeps facade this.createOrder wiring when creating from a sales shortage', async () => {

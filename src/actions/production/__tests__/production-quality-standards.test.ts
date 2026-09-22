@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     getQualityCheckParametersForVariant,
+    getQualityStandardsForVariant,
     createQualityCheckParameter,
     updateQualityCheckParameter,
     deleteQualityCheckParameter,
 } from '../production-quality-standards';
 import { QualityStandardService } from '@/services/production/quality-standard-service';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireAuth, requireProductionLeaderRole } from '@/lib/tools/auth-checks';
 import { revalidatePath } from 'next/cache';
 
 vi.mock('@/lib/core/tenant', () => ({
@@ -15,6 +16,7 @@ vi.mock('@/lib/core/tenant', () => ({
 
 vi.mock('@/lib/tools/auth-checks', () => ({
     requireAuth: vi.fn(),
+    requireProductionLeaderRole: vi.fn(),
 }));
 
 vi.mock('@/services/production/quality-standard-service', () => ({
@@ -34,6 +36,7 @@ describe('production quality standard actions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(requireAuth).mockResolvedValue(SESSION as never);
+        vi.mocked(requireProductionLeaderRole).mockResolvedValue(SESSION as never);
     });
 
     describe('getQualityCheckParametersForVariant', () => {
@@ -46,6 +49,7 @@ describe('production quality standard actions', () => {
 
             expect(res.success).toBe(true);
             expect(requireAuth).not.toHaveBeenCalled();
+            expect(QualityStandardService.listByVariant).toHaveBeenCalledWith('variant-1', true);
             if (res.success) expect(res.data).toHaveLength(1);
         });
 
@@ -58,6 +62,19 @@ describe('production quality standard actions', () => {
 
             expect(res.success).toBe(false);
         });
+    });
+
+    it('reads all standards for authenticated product settings', async () => {
+        vi.mocked(QualityStandardService.listByVariant).mockResolvedValue([]);
+        expect((await getQualityStandardsForVariant('variant-1')).success).toBe(true);
+        expect(requireAuth).toHaveBeenCalled();
+        expect(QualityStandardService.listByVariant).toHaveBeenCalledWith('variant-1');
+    });
+
+    it('rejects unauthorized mutation without changing a standard', async () => {
+        vi.mocked(requireProductionLeaderRole).mockRejectedValueOnce(new Error('Forbidden'));
+        expect((await deleteQualityCheckParameter('param-1')).success).toBe(false);
+        expect(QualityStandardService.delete).not.toHaveBeenCalled();
     });
 
     describe('createQualityCheckParameter', () => {

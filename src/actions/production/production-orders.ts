@@ -10,6 +10,7 @@ import {
     isNextControlFlowError,
 } from '@/lib/errors/errors';
 import {
+    requireAuth,
     requirePlanningRole,
     requireProductionLeaderRole,
 } from '@/lib/tools/auth-checks';
@@ -644,13 +645,20 @@ export const getProductionOrder = withTenant(async function getProductionOrder(
     id: string,
 ) {
     if (!id) return null;
+    await requireAuth();
     const order = await prisma.productionOrder.findUnique({
         where: { id },
         include: {
+            customerDestinations: { select: { customer: { select: { id: true, name: true } } } },
+            maklonCustomer: { select: { id: true, name: true } },
             bom: {
                 include: {
                     productVariant: {
                         include: {
+                            qualityCheckParameters: {
+                                orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+                                select: { id: true, name: true, unit: true, minValue: true, maxValue: true, targetValue: true },
+                            },
                             product: {
                                 select: {
                                     id: true,

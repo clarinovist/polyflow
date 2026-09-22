@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 
 import { ProductionOrderQueryService } from './order-query-service';
+import { validateOrderCustomers } from './order-customer-service';
 import { resolveMaterialSources } from './material-source-resolver';
 import { validateDirectMaterialOrder, assertTransferMaterialOrder } from './direct-material-service';
 import { logActivity } from '@/lib/tools/audit';
@@ -434,8 +435,15 @@ export class ProductionOrderService {
                 }
             }
 
+            const customerIds = await validateOrderCustomers(transaction, data.customerIds ?? []);
+
             // 4. Create Order
             const orderData = {
+                ...(customerIds.length ? {
+                    customerDestinations: {
+                        create: customerIds.map((customerId) => ({ customer: { connect: { id: customerId } } })),
+                    },
+                } : {}),
                 bom: { connect: { id: bomId } },
                 plannedQuantity,
                 plannedStartDate,

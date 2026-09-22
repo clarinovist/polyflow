@@ -24,9 +24,13 @@ import {
 import { OrderDetailHeader } from './components/order-detail-header';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import type { MachineStageMap } from '@/lib/production/machine-compatibility';
+import { OrderContextSummary } from '@/components/production/OrderContextSummary';
+import { OrderCustomersEditor } from '@/components/production/order-detail/OrderCustomersEditor';
+import type { CustomerDestination } from '@/lib/production/order-context';
 
 interface PageProps {
     order: ExtendedProductionOrder;
+    canEditCustomers?: boolean;
     formData: {
         locations: Location[];
         operators: Employee[];
@@ -35,10 +39,11 @@ interface PageProps {
         machines: Machine[];
         rawMaterials: ProductVariant[];
         machineStageMap?: MachineStageMap | null;
+        customers?: CustomerDestination[];
     };
 }
 
-export function ProductionOrderDetail({ order, formData }: PageProps) {
+export function ProductionOrderDetail({ order, formData, canEditCustomers = false }: PageProps) {
     const getDefaultTab = (status: string) => {
         switch (status) {
             case 'WAITING_MATERIAL':
@@ -72,6 +77,13 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
     return (
         <div className="space-y-6">
             <OrderDetailHeader order={order} formData={formData} />
+
+            <div className="rounded-lg border p-4 space-y-3">
+                <OrderContextSummary order={order} standards={order.bom.productVariant.qualityCheckParameters} />
+                {canEditCustomers && !['COMPLETED', 'CANCELLED'].includes(order.status) && (
+                    <OrderCustomersEditor orderId={order.id} customers={formData.customers ?? []} selected={(order.customerDestinations ?? []).map((row) => row.customer)} />
+                )}
+            </div>
 
             <OrderWorkflowStepper status={order.status} />
 

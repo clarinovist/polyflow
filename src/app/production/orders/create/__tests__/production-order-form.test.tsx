@@ -205,17 +205,20 @@ describe('ProductionOrderForm — direct packing', () => {
             { id: 'loc-fg', name: 'Gudang Hasil', slug: 'fg_warehouse', locationPurpose: 'FINISHED_GOOD' },
         ];
         const bom = { ...makeBom('packing-bom', 'Resep Packing'), category: 'PACKING' as const, productVariant: { ...productVariant, name: 'Produk Packing', product: { productType: 'FINISHED_GOOD' } } };
-        render(<ProductionOrderForm locations={packingLocations} machines={[]} boms={[bom]} rawMaterials={[]} />);
+        render(<ProductionOrderForm locations={packingLocations} machines={[]} boms={[bom]} rawMaterials={[]} customers={[{ id: 'ca', name: 'Synthetic Customer A' }, { id: 'cb', name: 'Synthetic Customer B' }]} />);
         fireEvent.click(screen.getByRole('button', { name: 'Packing' }));
         fireEvent.change(document.querySelector('input[type="number"]')!, { target: { value: '300' } });
         await act(async () => { vi.advanceTimersByTime(500); });
         fireEvent.click(screen.getByText('Lanjut →'));
+        fireEvent.click(screen.getByLabelText('Synthetic Customer A'));
+        fireEvent.click(screen.getByLabelText('Synthetic Customer B'));
         fireEvent.click(screen.getByRole('radio', { name: /Langsung per bahan/i }));
         await act(async () => { await Promise.resolve(); });
         if (switchBack) fireEvent.click(screen.getByRole('radio', { name: /Transfer ke satu lokasi/i }));
         fireEvent.click(screen.getByText('Lanjut →'));
         await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Buat SPK' })); });
         expect(createProductionOrder).toHaveBeenCalledWith(expect.objectContaining({
+            customerIds: ['ca', 'cb'],
             materialConsumptionMode: switchBack ? 'TRANSFER' : 'DIRECT',
             materialConsumptionLocationId: switchBack ? 'loc-fg' : undefined,
             items: [

@@ -1,3 +1,5 @@
+import { auth } from '@/auth';
+import { hasAnyRole } from '@/lib/auth/roles';
 import {
     getProductionOrder,
     getProductionFormData,
@@ -27,6 +29,7 @@ interface PageProps {
 
 export default async function ProductionDetailPage(props: PageProps) {
     const params = await props.params;
+    const session = await auth();
     const rawOrder = await getProductionOrder(params.id);
     const order = serializeData(rawOrder);
 
@@ -42,6 +45,7 @@ export default async function ProductionDetailPage(props: PageProps) {
         machines,
         rawMaterials,
         machineStageMap,
+        customers,
     } = formDataRes.success && formDataRes.data
         ? formDataRes.data
         : {
@@ -51,6 +55,7 @@ export default async function ProductionDetailPage(props: PageProps) {
               machines: [],
               rawMaterials: [],
               machineStageMap: {},
+              customers: [],
           };
     const workShiftsResult = await getWorkShifts();
     const workShifts =
@@ -84,7 +89,9 @@ export default async function ProductionDetailPage(props: PageProps) {
 
             <ProductionOrderDetail
                 order={order as unknown as ExtendedProductionOrder}
+                canEditCustomers={!!session?.user && hasAnyRole(session.user, ['ADMIN', 'PLANNING'])}
                 formData={{
+                    customers: customers ?? [],
                     locations: locations as unknown as Location[],
                     operators: operators as unknown as Employee[],
                     helpers: helpers as unknown as Employee[],

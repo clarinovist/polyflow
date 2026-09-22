@@ -53,6 +53,9 @@ export const getDailyBoardData = withTenant(
                         isMaklon: true,
                         priority: true,
                         machineId: true,
+                        customerDestinations: { select: { customer: { select: { id: true, name: true } } } },
+                        salesOrder: { select: { customer: { select: { id: true, name: true } } } },
+                        maklonCustomer: { select: { id: true, name: true } },
                         bom: {
                             select: {
                                 id: true,
@@ -65,6 +68,10 @@ export const getDailyBoardData = withTenant(
                                         primaryUnit: true,
                                         salesUnit: true,
                                         conversionFactor: true,
+                                        qualityCheckParameters: {
+                                            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+                                            select: { id: true, name: true, unit: true, targetValue: true, minValue: true, maxValue: true },
+                                        },
                                         product: {
                                             select: { id: true, name: true },
                                         },
@@ -137,6 +144,18 @@ export const getDailyBoardData = withTenant(
             return {
                 orders: orders.map((order) => ({
                     ...order,
+                    bom: {
+                        ...order.bom,
+                        productVariant: {
+                            ...order.bom.productVariant,
+                            qualityCheckParameters: (order.bom.productVariant.qualityCheckParameters ?? []).map((p) => ({
+                                ...p,
+                                targetValue: p.targetValue?.toNumber() ?? null,
+                                minValue: p.minValue?.toNumber() ?? null,
+                                maxValue: p.maxValue?.toNumber() ?? null,
+                            })),
+                        },
+                    },
                     plannedQuantity: order.plannedQuantity.toNumber(),
                     plannedEnteredQuantity:
                         order.plannedEnteredQuantity?.toNumber() ?? null,

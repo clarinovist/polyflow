@@ -6,7 +6,7 @@ import {
     BusinessRuleError,
     isNextControlFlowError,
 } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireAuth, requireProductionLeaderRole } from '@/lib/tools/auth-checks';
 import {
     qualityCheckParameterSchema,
     updateQualityCheckParameterSchema,
@@ -15,6 +15,7 @@ import {
 } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { QualityStandardService } from '@/services/production/quality-standard-service';
+import { serializeData } from '@/lib/utils/utils';
 
 // Read tanpa requireAuth — dipanggil dari kiosk (tanpa sesi) untuk cek apakah
 // varian yang sedang diproduksi punya step QC yang perlu ditampilkan.
@@ -24,8 +25,8 @@ export const getQualityCheckParametersForVariant = withTenant(
     ) {
         try {
             const parameters =
-                await QualityStandardService.listByVariant(productVariantId);
-            return { success: true, data: parameters };
+                await QualityStandardService.listByVariant(productVariantId, true);
+            return { success: true, data: serializeData(parameters) };
         } catch {
             return {
                 success: false,
@@ -34,6 +35,19 @@ export const getQualityCheckParametersForVariant = withTenant(
         }
     },
 );
+
+function revalidateStandards() {
+    revalidatePath('/dashboard/products');
+    revalidatePath('/production/daily');
+    revalidatePath('/production/orders/[id]', 'page');
+}
+
+export const getQualityStandardsForVariant = withTenant(async function getQualityStandardsForVariant(productVariantId: string) {
+    return safeAction(async () => {
+        await requireAuth();
+        return serializeData(await QualityStandardService.listByVariant(productVariantId));
+    });
+});
 
 export const createQualityCheckParameter = withTenant(
     async function createQualityCheckParameter(
@@ -44,14 +58,14 @@ export const createQualityCheckParameter = withTenant(
             if (!result.success) {
                 throw new BusinessRuleError(result.error.issues[0].message);
             }
-            await requireAuth();
+            await requireProductionLeaderRole();
 
             try {
                 const parameter = await QualityStandardService.create(
                     result.data,
                 );
-                revalidatePath('/dashboard/products');
-                return parameter;
+                revalidateStandards();
+                return serializeData(parameter);
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
@@ -74,14 +88,14 @@ export const updateQualityCheckParameter = withTenant(
             if (!result.success) {
                 throw new BusinessRuleError(result.error.issues[0].message);
             }
-            await requireAuth();
+            await requireProductionLeaderRole();
 
             try {
                 const parameter = await QualityStandardService.update(
                     result.data,
                 );
-                revalidatePath('/dashboard/products');
-                return parameter;
+                revalidateStandards();
+                return serializeData(parameter);
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;
                 if (error instanceof BusinessRuleError) throw error;
@@ -98,11 +112,11 @@ export const updateQualityCheckParameter = withTenant(
 export const deleteQualityCheckParameter = withTenant(
     async function deleteQualityCheckParameter(id: string) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireProductionLeaderRole();
 
             try {
                 await QualityStandardService.delete(id);
-                revalidatePath('/dashboard/products');
+                revalidateStandards();
                 return null;
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;

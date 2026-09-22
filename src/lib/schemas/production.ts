@@ -25,6 +25,7 @@ export const createProductionOrderSchema = z
         locationId: z.string().min(1, 'Output location is required'),
         notes: z.string().optional().transform(sanitizeHtml),
         salesOrderId: z.string().optional(),
+        customerIds: z.array(z.string().trim().min(1)).max(100).optional(),
         priority: z.enum(['URGENT', 'NORMAL', 'LOW']).optional(),
         machineId: z.string().optional(),
         /** Source location for material stock check (shortage). Defaults to BOM-category resolver if omitted. */
@@ -128,9 +129,10 @@ export const qualityCheckParameterSchema = z.object({
     productVariantId: z.string().min(1, 'Varian produk wajib diisi'),
     name: z.string().min(1, 'Nama parameter wajib diisi').max(120),
     unit: z.string().min(1, 'Satuan wajib diisi').max(30),
-    targetValue: z.coerce.number().optional(),
-    minValue: z.coerce.number().optional(),
-    maxValue: z.coerce.number().optional(),
+    targetValue: z.coerce.number().finite().nullable().optional(),
+    minValue: z.coerce.number().finite().nullable().optional(),
+    maxValue: z.coerce.number().finite().nullable().optional(),
+    requireMeasurement: z.boolean().optional(),
     sortOrder: z.coerce.number().int().optional().default(0),
 });
 

@@ -44,6 +44,7 @@ vi.mock('@/lib/core/prisma', () => ({
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
 
 vi.mock('@/lib/tools/auth-checks', () => ({
+    requireAuth: vi.fn().mockResolvedValue({ user: { id: 'user-1' } }),
     requirePlanningRole: vi.fn(),
     requireProductionLeaderRole: vi.fn(),
 }));
