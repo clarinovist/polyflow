@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 
@@ -50,5 +50,6 @@ export async function updateOrderCustomersInTransaction(
 }
 
 export async function updateOrderCustomers(input: z.infer<typeof orderCustomersSchema>, userId: string) {
-    return prisma.$transaction((tx) => updateOrderCustomersInTransaction(tx, input, userId));
+    const db = getTenantDbFromContext() ?? prisma;
+    return db.$transaction((tx) => updateOrderCustomersInTransaction(tx, input, userId));
 }

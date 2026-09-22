@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import {
     QualityCheckParameterValues,
     UpdateQualityCheckParameterValues,
@@ -31,7 +31,8 @@ export class QualityStandardService {
 
     static async update(data: UpdateQualityCheckParameterValues) {
         const { id, ...rest } = data;
-        return prisma.$transaction(async (tx) => {
+        const db = getTenantDbFromContext() ?? prisma;
+        return db.$transaction(async (tx) => {
             // Serialize partial range edits: simultaneous min/max changes must
             // validate against the latest committed bounds, not stale values.
             await tx.$queryRaw`SELECT "id" FROM "QualityCheckParameter" WHERE "id" = ${id} FOR UPDATE`;

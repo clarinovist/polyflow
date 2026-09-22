@@ -10,10 +10,10 @@ vi.mock('@/lib/core/prisma', () => {
             delete: vi.fn(),
         },
     };
-    return { prisma: { ...mockPrisma, $transaction: vi.fn((fn) => fn({ ...mockPrisma, $queryRaw: vi.fn() })) } };
+    return { getTenantDbFromContext: vi.fn(), prisma: { ...mockPrisma, $transaction: vi.fn((fn) => fn({ ...mockPrisma, $queryRaw: vi.fn() })) } };
 });
 
-import { prisma } from '@/lib/core/prisma';
+import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { QualityStandardService } from '../quality-standard-service';
 import { NotFoundError } from '@/lib/errors/errors';
 
@@ -31,6 +31,14 @@ describe('QualityStandardService', () => {
             where: { productVariantId: 'variant-1' },
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         });
+    });
+
+    it('uses the concrete tenant client for the transaction receiver', async () => {
+        const tenant = { $transaction: vi.fn().mockResolvedValue({ id: 'p' }) };
+        vi.mocked(getTenantDbFromContext).mockReturnValueOnce(tenant as never);
+        await QualityStandardService.update({ id: 'p', name: 'Weight' });
+        expect(tenant.$transaction).toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('filters display-only standards out of kiosk reads', async () => {

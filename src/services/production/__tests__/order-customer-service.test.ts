@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
 const mocks = vi.hoisted(() => ({ audit: vi.fn(), transaction: vi.fn() }));
-vi.mock('@/lib/core/prisma', () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: vi.fn(), prisma: { $transaction: mocks.transaction } }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: mocks.audit }));
 import { orderCustomersSchema, updateOrderCustomers, updateOrderCustomersInTransaction, validateOrderCustomers } from '../order-customer-service';
 

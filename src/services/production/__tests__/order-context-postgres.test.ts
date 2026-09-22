@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { returnTestClient, verifyReturnTestDatabase } from '../../finance/__tests__/return-credit-postgres-fixture';
-import { updateOrderCustomersInTransaction } from '../order-customer-service';
+import { updateOrderCustomers, updateOrderCustomersInTransaction } from '../order-customer-service';
 import { ProductionOrderService } from '../order-service';
 import { QualityStandardService } from '../quality-standard-service';
 import { tenantContext } from '@/lib/core/prisma';
@@ -89,7 +89,8 @@ describe.skipIf(!db)('SPK context PostgreSQL contracts', () => {
         expect(all).toHaveLength(2);
         expect(kiosk.map((p) => p.id)).toEqual([required.id]);
         expect(foreign).toEqual([]);
-        await save(['a']);
+        await tenantContext.run(db!, () => updateOrderCustomers({ orderId: 'wo', customerIds: ['a'] }, 'spk-actor'));
+        expect(await db!.productionOrderCustomer.count()).toBe(1);
         expect(await other!.productionOrderCustomer.count()).toBe(0);
     });
     it('serializes partial quality-range edits against fresh bounds', async () => {
@@ -98,7 +99,8 @@ describe.skipIf(!db)('SPK context PostgreSQL contracts', () => {
             QualityStandardService.update({ id: parameter.id, minValue: 8 }),
             QualityStandardService.update({ id: parameter.id, maxValue: 5 }),
         ]));
-        expect(outcomes.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+        const reasons = outcomes.filter((r) => r.status === 'rejected').map((r) => r.reason instanceof Error ? r.reason.message : String(r.reason));
+        expect(outcomes.filter((r) => r.status === 'fulfilled'), reasons.join('\n')).toHaveLength(1);
         const stored = await db!.qualityCheckParameter.findUniqueOrThrow({ where: { id: parameter.id } });
         expect(Number(stored.minValue)).toBeLessThanOrEqual(Number(stored.maxValue));
     });
