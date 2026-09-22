@@ -109,6 +109,14 @@ and the distinction between shared source, historical documents, and local artif
 | `npm run test`  | Run tests                                        |
 | `npm run lint`  | Run linter                                       |
 
+## GitHub Actions sesuai perubahan
+
+Push yang seluruh perubahannya berupa dokumen dalam daftar aman hanya menjalankan
+pemeriksaan ringan. Kode, konfigurasi, kontrak, berkas belum dikenali, dan campuran
+tetap menjalankan seluruh gate sebelum deploy. **Run workflow** manual menjalankan
+verifikasi lengkap tanpa deploy. Pantau check **Status CI** untuk kedua jalur.
+Lihat [daftar aman dan panduan CI selektif](docs/development/ci-selective.md).
+
 ## Documentation
 
 - [Documentation index](docs/README.md)

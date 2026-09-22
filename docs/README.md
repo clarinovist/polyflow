@@ -38,6 +38,7 @@ pengganti validasi permission, tenant, stok, atau jurnal.
   mulai dari overview root untuk orientasi.
 - [PolyFlow v2](polyflow-v2/README.md) — roadmap dan desain target, bukan pernyataan
   bahwa seluruh aplikasi sudah berpindah ke `src/modules/`.
+- [CI selektif](development/ci-selective.md) — dokumen aman, gate lengkap, manual tanpa deploy, dan Status CI.
 - [CI performance](development/ci-performance.md)
 - [Assistant persona](development/assistant-persona.md)
 - [Assistant evaluation](assistant-evaluation/golden-questions.md)
