@@ -1,18 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+    admin: vi.fn(), issue: vi.fn(), apply: vi.fn(), walletReverse: vi.fn(), noteReverse: vi.fn(), link: vi.fn(), revokeLink: vi.fn(),
     finance: vi.fn(), user: vi.fn(), permissions: vi.fn(), entitled: vi.fn(), quickPost: vi.fn(), quickPreview: vi.fn(), quickOrders: vi.fn(), quickItems: vi.fn(),
     summary: vi.fn(), page: vi.fn(), detail: vi.fn(), tenant: vi.fn(), approver: vi.fn(), db: vi.fn(), post: vi.fn(), proposed: vi.fn(), proposal: vi.fn(), transaction: vi.fn(), manual: vi.fn(), reverse: vi.fn(), revalidate: vi.fn(),
 }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => { mocks.tenant(); return fn(...args); } }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { user: { findUnique: mocks.user }, rolePermission: { findMany: mocks.permissions } }, getTenantDbFromContext: mocks.db }));
-vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: mocks.finance, requireFinanceApprover: mocks.approver }));
+vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: mocks.finance, requireFinanceApprover: mocks.approver, requireFinanceAdmin: mocks.admin }));
 vi.mock('@/services/finance/sales-return-credit-service', () => ({ postReturnCredit: mocks.post }));
 vi.mock('@/services/finance/quick-sales-return-service', () => ({ postQuickSalesReturn: mocks.quickPost, previewQuickSalesReturn: mocks.quickPreview, getQuickReturnOrders: mocks.quickOrders, getQuickReturnOrderItems: mocks.quickItems }));
 vi.mock('@/services/finance/manual-return-credit-service', () => ({ postManualReturnCredit: mocks.manual }));
 vi.mock('@/services/finance/return-credit-proposal-service', () => ({ postProposedReturnCredit: mocks.proposed, prepareReturnCreditProposal: mocks.proposal }));
 vi.mock('@/services/finance/sales-return-credit-reversal-service', () => ({ reverseReturnCredit: mocks.reverse }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }));
+vi.mock('@/services/finance/customer-credit-issue-service',()=>({issueCustomerCredit:mocks.issue}));
+vi.mock('@/services/finance/customer-credit-application-service',()=>({applyCustomerCredit:mocks.apply,reverseCustomerCreditApplication:mocks.walletReverse,reverseCustomerCreditNote:mocks.noteReverse}));
+vi.mock('@/services/finance/customer-credit-link-service',()=>({approveCustomerCreditLink:mocks.link,revokeCustomerCreditLink:mocks.revokeLink}));
+import { issueFinanceCustomerCredit, applyFinanceCustomerCredit, reverseFinanceCustomerCreditApplication, reverseFinanceCustomerCreditNote, approveFinanceCustomerCreditLink, revokeFinanceCustomerCreditLink } from '../sales-returns';
 vi.mock('@/lib/auth/access-policy', async (original) => ({ ...await original<object>(), hasWorkspaceEntitlement: mocks.entitled }));
 vi.mock('@/services/finance/sales-return-query-service', () => ({ getFinanceReturnSummary: mocks.summary, getFinanceReturnPage: mocks.page, getFinanceReturnDetail: mocks.detail }));
 import { getFinanceQuickReturnOrders, getFinanceQuickReturnItems, previewFinanceQuickReturn, postFinanceQuickReturn, getFinanceSalesReturnSummary, getFinanceSalesReturnPage, getFinanceSalesReturnDetail, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit, getFinanceReturnCreditProposal } from '../sales-returns';
@@ -25,6 +30,9 @@ describe('Finance return action authorization', () => {
         mocks.finance.mockResolvedValue({ user: { id: 'finance-1', role: 'FINANCE', roles: ['FINANCE'] } });
         mocks.approver.mockResolvedValue({ user: { id: 'finance-1', role: 'FINANCE', roles: ['FINANCE'] } });
         mocks.db.mockReturnValue({ $transaction: mocks.transaction });
+        mocks.admin.mockResolvedValue({user:{id:'finance-1',role:'ADMIN'}});
+        for(const fn of [mocks.issue,mocks.apply,mocks.walletReverse,mocks.noteReverse])fn.mockResolvedValue({id:'note',returnId:'return-1'});
+        mocks.link.mockResolvedValue({id:'link'});mocks.revokeLink.mockResolvedValue({id:'link'});
         mocks.transaction.mockImplementation((callback: (tx: object) => unknown) => callback({}));
         mocks.proposal.mockResolvedValue({ ready: false, reason: 'Requires review' });
         mocks.post.mockResolvedValue({ salesReturnId: 'return-1', status: 'POSTED' });
@@ -58,7 +66,7 @@ describe('Finance return action authorization', () => {
         expect((await postFinanceQuickReturn({})).success).toBe(false);
         expect(mocks.revalidate).not.toHaveBeenCalled();
     });
-    it.each([postFinanceQuickReturn, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit])('requires approver, resource, active user, entitlement and tenant for direct mutations', async action => {
+    it.each([postFinanceQuickReturn, postFinanceSalesReturnCredit, reverseFinanceSalesReturnCredit, postFinanceManualSalesReturnCredit, postFinanceProposedReturnCredit, issueFinanceCustomerCredit, applyFinanceCustomerCredit, reverseFinanceCustomerCreditApplication, reverseFinanceCustomerCreditNote])('requires approver, resource, active user, entitlement and tenant for direct mutations', async action => {
         expect((await action({ returnId: 'return-1' })).success).toBe(true);
         expect(mocks.revalidate).toHaveBeenCalledWith('/finance/returns/return-1');
         expect(mocks.revalidate).toHaveBeenCalledWith('/finance/invoices/sales/[id]', 'page');
@@ -74,6 +82,13 @@ describe('Finance return action authorization', () => {
         mocks.permissions.mockResolvedValue([{resource:'/finance/returns'}]); mocks.approver.mockRejectedValue(new Error('Unauthorized'));
         expect((await action({})).success).toBe(false);
         expect(mocks.post).not.toHaveBeenCalled(); expect(mocks.reverse).not.toHaveBeenCalled(); expect(mocks.manual).not.toHaveBeenCalled(); expect(mocks.proposed).not.toHaveBeenCalled(); expect(mocks.revalidate).not.toHaveBeenCalled();
+    });
+    it.each([approveFinanceCustomerCreditLink,revokeFinanceCustomerCreditLink])('requires fresh ADMIN identity permission, not merely a stale ADMIN session',async action=>{
+        expect((await action({})).success).toBe(false);
+        expect(mocks.link).not.toHaveBeenCalled();expect(mocks.revokeLink).not.toHaveBeenCalled();
+        mocks.user.mockResolvedValue({isActive:true,role:'ADMIN',roles:[]});
+        expect((await action({})).success).toBe(true);
+        expect(mocks.admin).toHaveBeenCalled();
     });
     it('rejects stale Finance JWT roles revoked in the tenant database', async () => {
         mocks.user.mockResolvedValue({isActive:true,role:'SALES',roles:[]});

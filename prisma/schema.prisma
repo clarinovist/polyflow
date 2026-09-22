@@ -59,6 +59,12 @@ model User {
   returnCredits                  SalesReturnCredit[]
   reversedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditReversedBy")
   returnReceipts                 SalesReturnReceiptLine[]
+  issuedCustomerCredits          CustomerCreditNote[] @relation("CustomerCreditIssuer")
+  reversedCustomerCredits        CustomerCreditNote[] @relation("CustomerCreditReverser")
+  customerCreditApplications     CustomerCreditApplication[] @relation("CustomerCreditApplicationActor")
+  reversedCreditApplications     CustomerCreditApplication[] @relation("CustomerCreditApplicationReverser")
+  approvedCustomerCreditLinks    CustomerCreditLink[] @relation("CustomerCreditLinkActor")
+  revokedCustomerCreditLinks     CustomerCreditLink[] @relation("CustomerCreditLinkRevoker")
   purchaseReturns                PurchaseReturn[]                 @relation("PurchaseReturnCreator")
   notifications                  Notification[]
   claimedFindings                Finding[]                        @relation("FindingClaimedBy")
@@ -402,6 +408,9 @@ model Customer {
   vehicleTariffs     VehicleTariff[]
   barterPartner      BarterPartner?
   barterSettlements  BarterSettlement[]
+  creditNotes        CustomerCreditNote[]
+  creditLinksFrom    CustomerCreditLink[] @relation("CreditLinkFrom")
+  creditLinksTo      CustomerCreditLink[] @relation("CreditLinkTo")
 }
 
 model ApiKey {
@@ -1426,6 +1435,8 @@ model Invoice {
   remainingAmount      Decimal               @default(dbgenerated("(((\"totalAmount\" + \"priceAdjustmentAmount\") - \"paidAmount\") - \"creditedAmount\")")) @db.Decimal(15, 2)
   returnBasisLines     InvoiceReturnBasisLine[]
   returnAllocations    SalesReturnCreditAllocation[]
+  customerCreditNotes CustomerCreditNote[]
+  customerCreditApplications CustomerCreditApplication[]
   notes                String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -1817,6 +1828,7 @@ model Account {
   fixedAssets           FixedAsset[]           @relation("AssetAccount")
   depreciationExpense   FixedAsset[]           @relation("DeprExpenseAccount")
   journalLines          JournalLine[]
+  customerCreditNotes   CustomerCreditNote[]
   pettyCashTransactions PettyCashTransaction[]
   bankReconciliations   BankReconciliation[]
 
@@ -1854,6 +1866,12 @@ model JournalEntry {
   returnCredit              SalesReturnCredit?
   returnReceipt             SalesReturnReceiptLine?
   returnCreditReversal      SalesReturnCredit? @relation("ReturnCreditReversalJournal")
+  customerCreditSources     CustomerCreditNote[] @relation("CustomerCreditSourceJournal")
+  customerCreditNote        CustomerCreditNote? @relation("CustomerCreditJournal")
+  customerCreditReversal    CustomerCreditNote? @relation("CustomerCreditReversalJournal")
+  customerCreditApplication CustomerCreditApplication? @relation("CustomerCreditApplicationJournal")
+  customerApplicationReversal CustomerCreditApplication? @relation("CustomerCreditApplicationReversalJournal")
+  customerApplicationSources CustomerCreditApplication[] @relation("CustomerCreditApplicationSourceJournal")
 
   @@index([entryDate])
   @@index([referenceType, referenceId])
@@ -2729,6 +2747,7 @@ model SalesReturn {
   updatedAt        DateTime          @updatedAt
 
   credit         SalesReturnCredit?
+  customerCredit CustomerCreditNote?
   items          SalesReturnItem[]
   salesOrder     SalesOrder        @relation(fields: [salesOrderId], references: [id])
   deliveryOrder  DeliveryOrder?    @relation(fields: [deliveryOrderId], references: [id])
@@ -2865,6 +2884,94 @@ model SalesReturnCreditAllocation {
   @@index([invoiceId])
   @@index([basisLineId])
   @@index([manualSourceJournalId], map: "ReturnAllocation_manual_source_idx")
+}
+
+// Non-cash credit from a fully paid invoice. Never edits historical payment amounts.
+model CustomerCreditNote {
+  id String @id @default(uuid())
+  salesReturnId String @unique
+  sourceInvoiceId String
+  customerId String
+  sourceJournalId String
+  liabilityAccountId String
+  netAmount Decimal @db.Decimal(15, 2)
+  taxAmount Decimal @db.Decimal(15, 2)
+  totalAmount Decimal @db.Decimal(15, 2)
+  status SalesReturnCreditStatus @default(POSTED)
+  postingDate DateTime
+  reason String
+  evidence String
+  requestSignature String
+  journalId String @unique
+  createdById String
+  createdAt DateTime @default(now())
+  reversedAt DateTime?
+  reversedById String?
+  reversalReason String?
+  reversalJournalId String? @unique
+  salesReturn SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Restrict)
+  sourceInvoice Invoice @relation(fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sourceJournal JournalEntry @relation("CustomerCreditSourceJournal", fields: [sourceJournalId], references: [id], onDelete: Restrict)
+  journal JournalEntry @relation("CustomerCreditJournal", fields: [journalId], references: [id], onDelete: Restrict)
+  reversalJournal JournalEntry? @relation("CustomerCreditReversalJournal", fields: [reversalJournalId], references: [id], onDelete: Restrict)
+  liabilityAccount Account @relation(fields: [liabilityAccountId], references: [id], onDelete: Restrict)
+  createdBy User @relation("CustomerCreditIssuer", fields: [createdById], references: [id], onDelete: Restrict)
+  reversedBy User? @relation("CustomerCreditReverser", fields: [reversedById], references: [id], onDelete: Restrict)
+  applications CustomerCreditApplication[]
+  @@index([customerId, postingDate])
+  @@index([sourceInvoiceId])
+}
+
+// One explicit, revocable identity approval. No transitive credit sharing or master merge.
+model CustomerCreditLink {
+  id String @id @default(uuid())
+  fromCustomerId String
+  toCustomerId String
+  reason String
+  evidence String
+  createdById String
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  revokedById String?
+  revokeReason String?
+  fromCustomer Customer @relation("CreditLinkFrom", fields: [fromCustomerId], references: [id], onDelete: Restrict)
+  toCustomer Customer @relation("CreditLinkTo", fields: [toCustomerId], references: [id], onDelete: Restrict)
+  applications CustomerCreditApplication[]
+  createdBy User @relation("CustomerCreditLinkActor", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy User? @relation("CustomerCreditLinkRevoker", fields: [revokedById], references: [id], onDelete: Restrict)
+  @@index([fromCustomerId, toCustomerId])
+}
+
+model CustomerCreditApplication {
+  id String @id @default(uuid())
+  noteId String
+  invoiceId String
+  sourceJournalId String
+  customerLinkId String?
+  totalAmount Decimal @db.Decimal(15, 2)
+  status SalesReturnCreditStatus @default(POSTED)
+  postingDate DateTime
+  reason String
+  idempotencyKey String @unique
+  requestSignature String
+  journalId String @unique
+  createdById String
+  createdAt DateTime @default(now())
+  reversedAt DateTime?
+  reversedById String?
+  reversalReason String?
+  reversalJournalId String? @unique
+  note CustomerCreditNote @relation(fields: [noteId], references: [id], onDelete: Restrict)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  customerLink CustomerCreditLink? @relation(fields: [customerLinkId], references: [id], onDelete: Restrict)
+  sourceJournal JournalEntry @relation("CustomerCreditApplicationSourceJournal", fields: [sourceJournalId], references: [id], onDelete: Restrict)
+  journal JournalEntry @relation("CustomerCreditApplicationJournal", fields: [journalId], references: [id], onDelete: Restrict)
+  reversalJournal JournalEntry? @relation("CustomerCreditApplicationReversalJournal", fields: [reversalJournalId], references: [id], onDelete: Restrict)
+  createdBy User @relation("CustomerCreditApplicationActor", fields: [createdById], references: [id], onDelete: Restrict)
+  reversedBy User? @relation("CustomerCreditApplicationReverser", fields: [reversedById], references: [id], onDelete: Restrict)
+  @@index([noteId, postingDate])
+  @@index([invoiceId])
 }
 
 model PurchaseReturn {

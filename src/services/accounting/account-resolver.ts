@@ -20,6 +20,7 @@ export type AccountRole =
     | 'sales-revenue'
     | 'sales-rounding-income'
     | 'sales-return'
+    | 'customer-credit'
     | 'cogs'
     | 'inventory'
     | 'wip'
@@ -139,6 +140,11 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
         { nameContains: 'Rounding Income' },
         { nameContains: 'Pendapatan Lain-lain' },
         { nameContains: 'Other Income' },
+    ],
+    // Dedicated liability only; never reuse AR, cash or a generic payable silently.
+    'customer-credit': [
+        { nameContains: 'Saldo Kredit Pelanggan' },
+        { nameContains: 'Customer Credit Liability' },
     ],
     'sales-return': [
         { code: '4-302' },
@@ -499,6 +505,7 @@ async function isMelindoTenantDb(db: PatternDb): Promise<boolean> {
 
 function isRoleCompatibleAccount(role: AccountRole, account: Account): boolean {
     const normalizedName = account.name.toLowerCase();
+    if (role === 'customer-credit') return account.type === 'LIABILITY';
 
     if (role === 'intermediate') {
         return (

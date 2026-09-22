@@ -45,7 +45,18 @@ export default async function FinanceReturnsPage({
                 title="Retur Penjualan"
                 description="Buat retur barang baik dan potong tagihan dalam satu langkah. Draft dan retur lama belum otomatis mengurangi piutang."
             />
-            <Button asChild><Link href="/finance/returns/create">Retur & potong tagihan</Link></Button>
+            <div className="flex flex-wrap gap-2">
+                <Button asChild>
+                    <Link href="/finance/returns/create">
+                        Retur & potong tagihan
+                    </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                    <Link href="/finance/returns/credits">
+                        Saldo kredit pelanggan
+                    </Link>
+                </Button>
+            </div>
             <form
                 action="/finance/returns"
                 className="flex flex-wrap items-end gap-3"
@@ -161,16 +172,19 @@ export default async function FinanceReturnsPage({
                                                 {formatRupiah(row.totalAmount)}
                                             </TableCell>
                                             <TableCell className="min-w-60 max-w-sm whitespace-normal text-xs">
-                                                {row.credit?.status === 'POSTED'
-                                                    ? `Kredit terposting ${formatRupiah(row.credit.totalAmount)} (bukan pembayaran).`
+                                                {row.customerCredit
+                                                    ? 'Saldo kredit pelanggan'
                                                     : row.credit?.status ===
-                                                        'REVERSED'
-                                                      ? 'Kredit dibalik; piutang dipulihkan. Perlu pemeriksaan Finance.'
-                                                      : row.credit
-                                                            ?.reviewReason ||
-                                                        financeReturnGuidance(
-                                                            row.status,
-                                                        )}
+                                                        'POSTED'
+                                                      ? `Kredit terposting ${formatRupiah(row.credit.totalAmount)} (bukan pembayaran).`
+                                                      : row.credit?.status ===
+                                                          'REVERSED'
+                                                        ? 'Kredit dibalik; piutang dipulihkan. Perlu pemeriksaan Finance.'
+                                                        : row.credit
+                                                              ?.reviewReason ||
+                                                          financeReturnGuidance(
+                                                              row.status,
+                                                          )}
                                             </TableCell>
                                         </TableRow>
                                     ))

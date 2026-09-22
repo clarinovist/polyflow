@@ -22,7 +22,7 @@ describe('finance return queries (read only)', () => {
         ]);
         expect(await getFinanceReturnSummary()).toEqual({ draftCount: 2, confirmedCount: 1, receivedCount: 1, count: 4, documentAmount: 350 });
         expect(mocks.groupBy).toHaveBeenCalledWith(expect.objectContaining({
-            where: { OR: [ { status: { in: ['DRAFT', 'CONFIRMED'] } }, { status: { in: ['RECEIVED', 'COMPLETED'] }, OR: [{ credit: { is: null } }, { credit: { status: { not: 'POSTED' } } }] } ] },
+            where: { OR: [ { status: { in: ['DRAFT', 'CONFIRMED'] } }, { status: { in: ['RECEIVED', 'COMPLETED'] }, OR: [{ credit: { is: null }, customerCredit: { is: null } }, { credit: { status: { not: 'POSTED' } }, customerCredit: { is: null } }] } ] },
         }));
     });
 

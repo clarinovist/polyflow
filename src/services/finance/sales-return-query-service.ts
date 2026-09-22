@@ -22,6 +22,7 @@ const returnSelect = {
     customer: { select: { name: true } },
     salesOrder: { select: { orderNumber: true } },
     credit: { select: { status: true, totalAmount: true, reviewReason: true } },
+    customerCredit: { select: { id: true, status: true } },
 } satisfies Prisma.SalesReturnSelect;
 
 /** Snapshot of operational work, never an amount of posted financial credit. */
@@ -34,8 +35,8 @@ export async function getFinanceReturnSummary() {
                 {
                     status: { in: ['RECEIVED', 'COMPLETED'] },
                     OR: [
-                        { credit: { is: null } },
-                        { credit: { status: { not: 'POSTED' } } },
+                        { credit: { is: null }, customerCredit: { is: null } },
+                        { credit: { status: { not: 'POSTED' } }, customerCredit: { is: null } },
                     ],
                 },
             ],

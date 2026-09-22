@@ -16,6 +16,7 @@ import { ManualReturnCreditForm } from './ManualReturnCreditForm';
 import { ReturnCreditConfirmation } from './ReturnCreditConfirmation';
 import Link from 'next/link';
 import { formatRupiah } from '@/lib/utils/utils';
+import { IssueCustomerCreditForm } from './IssueCustomerCreditForm';
 
 /** Explicit quantities per invoice basis. No inferred first-invoice/FIFO allocation. */
 export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
@@ -28,7 +29,9 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
     const credit = row.credit;
     const eligible = ['RECEIVED', 'COMPLETED'].includes(row.status);
     const awaitingCredit =
-        eligible && (!credit || credit.status === 'REVIEW_REQUIRED');
+        eligible &&
+        !row.customerCredit &&
+        (!credit || credit.status === 'REVIEW_REQUIRED');
     const receivableInvoices = row.invoices.filter(
         (invoice) =>
             ['UNPAID', 'PARTIAL', 'OVERDUE'].includes(invoice.status) &&
@@ -104,13 +107,24 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                 <p>
                     Status keuangan:{' '}
                     <strong>
-                        {credit?.status === 'POSTED'
-                            ? 'Terposting'
-                            : credit?.status === 'REVERSED'
-                              ? 'Dibalik — perlu pemeriksaan'
-                              : 'Belum mengurangi piutang'}
+                        {row.customerCredit
+                            ? 'Saldo kredit pelanggan diterbitkan — lihat rinciannya'
+                            : credit?.status === 'POSTED'
+                              ? 'Terposting'
+                              : credit?.status === 'REVERSED'
+                                ? 'Dibalik — perlu pemeriksaan'
+                                : 'Belum mengurangi piutang'}
                     </strong>
                 </p>
+                {row.customerCredit && (
+                    <Link
+                        className="inline-flex min-h-11 items-center font-medium underline"
+                        href={`/finance/returns/credits/${row.customerCredit.id}`}
+                    >
+                        Lihat saldo dan pemakaian kredit pelanggan
+                    </Link>
+                )}
+                {eligible && <IssueCustomerCreditForm row={row} />}
                 {canPrepareCredit && (
                     <ReturnCreditConfirmation key={row.id} returnId={row.id} />
                 )}
@@ -122,26 +136,54 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                         <p role="status" className="font-medium">
                             {!row.invoices.length
                                 ? 'Belum ada invoice tujuan. Periksa penerbitan invoice di Finance.'
-                                : row.invoices.every((invoice) => invoice.status === 'PAID' && Number(invoice.remaining) === 0)
-                                  ? 'Invoice tercatat lunas di sistem. Kredit retur belum bisa mengurangi piutang.'
-                                  : row.invoices.every((invoice) => invoice.status === 'DRAFT')
+                                : row.invoices.every(
+                                        (invoice) =>
+                                            invoice.status === 'PAID' &&
+                                            Number(invoice.remaining) === 0,
+                                    )
+                                  ? 'Invoice tercatat lunas di sistem. Gunakan saldo kredit pelanggan untuk tagihan lain; jangan mengubah pembayaran lama.'
+                                  : row.invoices.every(
+                                          (invoice) =>
+                                              invoice.status === 'DRAFT',
+                                      )
                                     ? 'Invoice belum diakui. Periksa dan konfirmasi invoice di Finance terlebih dahulu.'
-                                    : row.invoices.every((invoice) => invoice.status === 'DRAFT' || (invoice.status === 'PAID' && Number(invoice.remaining) === 0))
+                                    : row.invoices.every(
+                                            (invoice) =>
+                                                invoice.status === 'DRAFT' ||
+                                                (invoice.status === 'PAID' &&
+                                                    Number(
+                                                        invoice.remaining,
+                                                    ) === 0),
+                                        )
                                       ? 'Belum ada invoice dengan piutang yang dapat dikreditkan. Periksa invoice tujuan di Finance.'
                                       : 'Status dan sisa tagihan invoice tidak konsisten. Perlu pemeriksaan Finance sebelum kredit retur.'}
                         </p>
                         {row.invoices.map((invoice) => (
-                            <div key={invoice.id} className="space-y-1 break-words">
-                                <Link className="inline-flex min-h-11 items-center font-medium underline" href={`/finance/invoices/sales/${invoice.id}`}>
+                            <div
+                                key={invoice.id}
+                                className="space-y-1 break-words"
+                            >
+                                <Link
+                                    className="inline-flex min-h-11 items-center font-medium underline"
+                                    href={`/finance/invoices/sales/${invoice.id}`}
+                                >
                                     Periksa invoice {invoice.invoiceNumber}
                                 </Link>
-                                <p>Pembayaran tercatat: {formatRupiah(Number(invoice.paidAmount))} · Sisa tagihan: {formatRupiah(Number(invoice.remaining))}</p>
+                                <p>
+                                    Pembayaran tercatat:{' '}
+                                    {formatRupiah(Number(invoice.paidAmount))} ·
+                                    Sisa tagihan:{' '}
+                                    {formatRupiah(Number(invoice.remaining))}
+                                </p>
                             </div>
                         ))}
                         <p className="text-muted-foreground">
-                            Jika sebenarnya belum lunas, cocokkan rincian pembayaran dan jurnal dengan bukti transaksi terlebih dahulu.
-                            Mengisi retur ulang atau formulir manual tidak memperbaiki saldo pembayaran.
-                            Tidak ada perubahan pembayaran, refund, atau pemotongan otomatis.
+                            Jika sebenarnya belum lunas, cocokkan rincian
+                            pembayaran dan jurnal dengan bukti transaksi
+                            terlebih dahulu. Mengisi retur ulang atau formulir
+                            manual tidak memperbaiki saldo pembayaran. Tidak ada
+                            perubahan pembayaran, refund, atau pemotongan
+                            otomatis.
                         </p>
                         <Button
                             variant="outline"
@@ -209,7 +251,8 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                 <p className="text-muted-foreground">
                     Penerimaan fisik terpisah dari kredit. Alokasi otomatis
                     memakai snapshot invoice asal, bukan harga formulir retur.
-                    {canPrepareCredit && ' Jika snapshot tidak tersedia, Finance dapat memeriksa bukti dan menyetujui nominal melalui formulir manual di bawah.'}{' '}
+                    {canPrepareCredit &&
+                        ' Jika snapshot tidak tersedia, Finance dapat memeriksa bukti dan menyetujui nominal melalui formulir manual di bawah.'}{' '}
                     Invoice lunas, nilai berlebih, atau jurnal tidak valid tetap
                     memerlukan pemeriksaan; tidak ada refund otomatis.
                 </p>
@@ -237,8 +280,12 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             </Link>
                             <p>
                                 Total invoice asli{' '}
-                                {formatRupiah(Number(invoice.totalAmount))} + penyesuaian harga {formatRupiah(Number(invoice.priceAdjustmentAmount ?? 0))} −
-                                pembayaran{' '}
+                                {formatRupiah(Number(invoice.totalAmount))} +
+                                penyesuaian harga{' '}
+                                {formatRupiah(
+                                    Number(invoice.priceAdjustmentAmount ?? 0),
+                                )}{' '}
+                                − pembayaran{' '}
                                 {formatRupiah(Number(invoice.paidAmount))} −
                                 kredit retur{' '}
                                 {formatRupiah(Number(invoice.creditedAmount))}
@@ -254,110 +301,106 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                         </div>
                     ))}
                 {canPrepareCredit && (
-                        <details>
-                            <summary className="min-h-11 cursor-pointer py-3 font-medium">
-                                Opsi lanjutan: alokasi snapshot per item
-                            </summary>
-                            {row.invoices.map((invoice) => (
-                                <div
-                                    key={invoice.id}
-                                    className="rounded border p-3"
-                                >
-                                    <p className="font-medium">
-                                        {invoice.invoiceNumber} ·{' '}
-                                        {invoice.status}
-                                    </p>
-                                    <p>
-                                        Total Rp {invoice.totalAmount} + penyesuaian harga Rp {invoice.priceAdjustmentAmount ?? '0.00'} −
-                                        pembayaran Rp {invoice.paidAmount} −
-                                        kredit Rp {invoice.creditedAmount} =
-                                        sisa Rp {invoice.remaining}
-                                    </p>
-                                    {!invoice.basis.length && (
-                                        <p role="status">
-                                            Tidak ada snapshot historis. Tidak
-                                            dapat dialokasikan otomatis.
-                                        </p>
-                                    )}
-                                </div>
-                            ))}
-                            {!candidates.length && (
-                                <p role="status">
-                                    Tidak ada sumber invoice terverifikasi yang
-                                    dapat dipilih. Pemeriksaan Finance
-                                    diperlukan.
-                                </p>
-                            )}
-                            {candidates.map(({ item, invoice, basis, key }) => (
-                                <div
-                                    key={key}
-                                    className="space-y-2 rounded border p-3"
-                                >
-                                    <Label htmlFor={key}>
-                                        {item.productVariant.name} (
-                                        {item.condition}) →{' '}
-                                        {invoice.invoiceNumber} · sumber{' '}
-                                        {basis.sourceItemId}
-                                    </Label>
-                                    <p>
-                                        Qty asal {basis.quantity}, sisa alokasi{' '}
-                                        {basis.availableQuantity}; netto Rp{' '}
-                                        {basis.netAmount}, pajak Rp{' '}
-                                        {basis.taxAmount}, diskon asal Rp{' '}
-                                        {basis.discountAmount}
-                                    </p>
-                                    <Input
-                                        id={key}
-                                        type="number"
-                                        min="0"
-                                        step="0.0001"
-                                        max={basis.availableQuantity}
-                                        value={quantities[key] ?? ''}
-                                        disabled={
-                                            pending ||
-                                            invoice.status === 'DRAFT'
-                                        }
-                                        onChange={(event) =>
-                                            setQuantities({
-                                                ...quantities,
-                                                [key]: event.target.value,
-                                            })
-                                        }
-                                        placeholder="Qty yang dialokasikan (pilih eksplisit)"
-                                    />
-                                </div>
-                            ))}
-                            <Label htmlFor="credit-posting-date">
-                                Tanggal posting
-                            </Label>
-                            <Input
-                                id="credit-posting-date"
-                                type="date"
-                                value={date}
-                                onChange={(event) =>
-                                    setDate(event.target.value)
-                                }
-                                disabled={pending}
-                            />
-                            <Button
-                                disabled={pending || !lines.length || !date}
-                                onClick={() => submit(false)}
+                    <details>
+                        <summary className="min-h-11 cursor-pointer py-3 font-medium">
+                            Opsi lanjutan: alokasi snapshot per item
+                        </summary>
+                        {row.invoices.map((invoice) => (
+                            <div
+                                key={invoice.id}
+                                className="rounded border p-3"
                             >
-                                Posting kredit retur
-                            </Button>
-                        </details>
-                    )}
+                                <p className="font-medium">
+                                    {invoice.invoiceNumber} · {invoice.status}
+                                </p>
+                                <p>
+                                    Total Rp {invoice.totalAmount} + penyesuaian
+                                    harga Rp{' '}
+                                    {invoice.priceAdjustmentAmount ?? '0.00'} −
+                                    pembayaran Rp {invoice.paidAmount} − kredit
+                                    Rp {invoice.creditedAmount} = sisa Rp{' '}
+                                    {invoice.remaining}
+                                </p>
+                                {!invoice.basis.length && (
+                                    <p role="status">
+                                        Tidak ada snapshot historis. Tidak dapat
+                                        dialokasikan otomatis.
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                        {!candidates.length && (
+                            <p role="status">
+                                Tidak ada sumber invoice terverifikasi yang
+                                dapat dipilih. Pemeriksaan Finance diperlukan.
+                            </p>
+                        )}
+                        {candidates.map(({ item, invoice, basis, key }) => (
+                            <div
+                                key={key}
+                                className="space-y-2 rounded border p-3"
+                            >
+                                <Label htmlFor={key}>
+                                    {item.productVariant.name} ({item.condition}
+                                    ) → {invoice.invoiceNumber} · sumber{' '}
+                                    {basis.sourceItemId}
+                                </Label>
+                                <p>
+                                    Qty asal {basis.quantity}, sisa alokasi{' '}
+                                    {basis.availableQuantity}; netto Rp{' '}
+                                    {basis.netAmount}, pajak Rp{' '}
+                                    {basis.taxAmount}, diskon asal Rp{' '}
+                                    {basis.discountAmount}
+                                </p>
+                                <Input
+                                    id={key}
+                                    type="number"
+                                    min="0"
+                                    step="0.0001"
+                                    max={basis.availableQuantity}
+                                    value={quantities[key] ?? ''}
+                                    disabled={
+                                        pending || invoice.status === 'DRAFT'
+                                    }
+                                    onChange={(event) =>
+                                        setQuantities({
+                                            ...quantities,
+                                            [key]: event.target.value,
+                                        })
+                                    }
+                                    placeholder="Qty yang dialokasikan (pilih eksplisit)"
+                                />
+                            </div>
+                        ))}
+                        <Label htmlFor="credit-posting-date">
+                            Tanggal posting
+                        </Label>
+                        <Input
+                            id="credit-posting-date"
+                            type="date"
+                            value={date}
+                            onChange={(event) => setDate(event.target.value)}
+                            disabled={pending}
+                        />
+                        <Button
+                            disabled={pending || !lines.length || !date}
+                            onClick={() => submit(false)}
+                        >
+                            Posting kredit retur
+                        </Button>
+                    </details>
+                )}
                 {canPrepareCredit && (
-                        <details>
-                            <summary className="min-h-11 cursor-pointer py-3 font-medium">
-                                Periksa atau ubah nominal secara manual
-                            </summary>
-                            <ManualReturnCreditForm
-                                key={`${row.id}:${row.credit?.status ?? 'new'}`}
-                                row={row}
-                            />
-                        </details>
-                    )}
+                    <details>
+                        <summary className="min-h-11 cursor-pointer py-3 font-medium">
+                            Periksa atau ubah nominal secara manual
+                        </summary>
+                        <ManualReturnCreditForm
+                            key={`${row.id}:${row.credit?.status ?? 'new'}`}
+                            row={row}
+                        />
+                    </details>
+                )}
                 {!eligible && (
                     <p>
                         Menunggu penerimaan barang oleh Penjualan.

@@ -178,7 +178,7 @@ export class RekapDagangService {
         const periodStart = getWibDayBounds(from).startOfDay;
         const periodEnd = getWibDayBounds(to).endOfDay;
 
-        const [invoices, payments, priceAdjustments, returnCredits] = await Promise.all([
+        const [invoices, payments, priceAdjustments, returnCredits, customerCredits] = await Promise.all([
             prisma.invoice.findMany({
                 where: {
                     status: { notIn: ['CANCELLED', 'DRAFT'] },
@@ -215,6 +215,7 @@ export class RekapDagangService {
                 where: { credit: { status: { in: ['POSTED', 'REVERSED'] }, postedAt: { lte: periodEnd } } },
                 select: { totalAmount: true, credit: { select: { postedAt: true, reversedAt: true } }, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } },
             }),
+            prisma.customerCreditApplication.findMany({ where: { postingDate: { lte: periodEnd } }, select: { totalAmount: true, postingDate: true, reversedAt: true, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } } }),
         ]);
 
         const bucket: Bucket = new Map();
@@ -253,6 +254,17 @@ export class RekapDagangService {
                 if (adjustment.reversedAt < periodStart) entry.opening -= amount;
                 else if (amount >= 0) entry.outPeriod += amount;
                 else entry.inPeriod -= amount;
+            }
+        }
+        // Issuing a customer credit creates a liability, not AR. Only applications reduce target AR.
+        for (const application of customerCredits) {
+            const customer = application.invoice.salesOrder.customer;
+            const entry = ensure(customer?.id ?? 'no-customer', customer?.name ?? '');
+            if (application.postingDate < periodStart) entry.opening -= Number(application.totalAmount);
+            else entry.outPeriod += Number(application.totalAmount);
+            if (application.reversedAt && application.reversedAt <= periodEnd) {
+                if (application.reversedAt < periodStart) entry.opening += Number(application.totalAmount);
+                else entry.inPeriod += Number(application.totalAmount);
             }
         }
         for (const credit of returnCredits) {

@@ -11,6 +11,7 @@ vi.mock('@/lib/core/prisma', () => ({
         payment: { findMany: vi.fn() },
         salesReturnCreditAllocation: { findMany: vi.fn().mockResolvedValue([]) },
         invoicePriceAdjustment: { findMany: vi.fn().mockResolvedValue([]) },
+        customerCreditApplication: { findMany: vi.fn().mockResolvedValue([]) },
         employeeLoan: { findMany: vi.fn() },
         employeeLoanPayment: { findMany: vi.fn() },
     },

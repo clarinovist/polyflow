@@ -49,6 +49,9 @@ const addedObjects = [
     'InvoicePriceAdjustment',
     'InvoicePriceAdjustmentStatus',
     'ProductionOrderCustomer',
+    'CustomerCreditNote',
+    'CustomerCreditApplication',
+    'CustomerCreditLink',
 ];
 const schema = generated
     .split(';')
@@ -67,6 +70,7 @@ const guards = [
     '20260919_invoice_price_adjustment',
     '20260919_manual_return_credit',
     '20260922_spk_customers_quality',
+    '20260922_customer_credit',
 ]
     .map(migration)
     .join('\n');

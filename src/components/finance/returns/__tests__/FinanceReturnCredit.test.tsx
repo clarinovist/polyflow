@@ -52,7 +52,8 @@ describe('Finance credit posting and compensation UI',()=>{
   expect(screen.queryByText('Prepared proposal')).toBeNull();
   expect(screen.queryByText('Opsi lanjutan: alokasi snapshot per item')).toBeNull();
   expect(screen.queryByText('Periksa atau ubah nominal secara manual')).toBeNull();
-  expect(screen.queryByRole('textbox')).toBeNull();
+  if(status==='PAID' && remaining==='0.00') expect(screen.getByRole('button',{name:'Terbitkan saldo kredit'})).toBeTruthy();
+  else expect(screen.queryAllByRole('textbox')).toHaveLength(0);
   expect(mocks.post).not.toHaveBeenCalled();
  });
  it('refreshes a blocked invoice and restores forms only when refreshed data has receivables',()=>{

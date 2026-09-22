@@ -39,7 +39,7 @@ async function invoiceSources(tx: Prisma.TransactionClient, start: Date, end: Da
     // Invoice-date cohort, NOT journal-date revenue. This value must never be added to profit.
     return tx.$queryRaw<InvoiceSource[]>(Prisma.sql`
         WITH source AS (
-            SELECT i.id, i."invoiceNumber", i."invoiceDate", i.status, i."totalAmount", i."paidAmount", i."creditedAmount", i."priceAdjustmentAmount", COALESCE(pa.total,0) AS "allocatedAdjustment", COALESCE(rc.total, 0) AS "allocatedCredit", c.name AS customer,
+            SELECT i.id, i."invoiceNumber", i."invoiceDate", i.status, i."totalAmount", i."paidAmount", i."creditedAmount", i."priceAdjustmentAmount", COALESCE(pa.total,0) AS "allocatedAdjustment", (COALESCE(rc.total, 0) + COALESCE(cc.total,0)) AS "allocatedCredit", c.name AS customer,
                 COALESCE(p.total, 0) AS "paymentTotal", j.active AS "activeJournals", j.posted AS "postedJournals", j.draft AS "draftJournals"
             FROM "Invoice" i JOIN "SalesOrder" so ON so.id = i."salesOrderId"
             LEFT JOIN "Customer" c ON c.id = so."customerId"
@@ -49,6 +49,7 @@ async function invoiceSources(tx: Prisma.TransactionClient, start: Date, end: Da
                 JOIN "SalesReturnCredit" c ON c.id = a."creditId"
                 WHERE a."invoiceId" = i.id AND c.status = 'POSTED'
             ) rc ON TRUE
+            LEFT JOIN LATERAL (SELECT SUM(a."totalAmount") total FROM "CustomerCreditApplication" a WHERE a."invoiceId"=i.id AND a.status='POSTED') cc ON TRUE
             LEFT JOIN LATERAL (SELECT SUM(a."totalAmount") total FROM "InvoicePriceAdjustment" a WHERE a."invoiceId"=i.id AND a.status='POSTED') pa ON TRUE
             CROSS JOIN LATERAL (
                 SELECT COUNT(*) FILTER (WHERE status <> 'VOIDED') active,
