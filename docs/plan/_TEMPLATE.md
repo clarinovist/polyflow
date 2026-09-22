@@ -10,9 +10,11 @@ Risk reason: <dampak, invariant, caller yang terpengaruh>
 > Ikuti root `AGENTS.md`: Ringan dan Normal kecil cukup rencana di chat. File plan wajib
 > untuk Kritis, delegasi, atau pekerjaan panjang/multitahap yang perlu handoff.
 > Normal boleh ringkas: konteks/dugaan sebab, scope, acceptance criteria, dan verifikasi.
-> Kritis gunakan plan lengkap termasuk failure path/rollback; review cukup di rencana ini,
-> tanpa hitungan gap atau laporan terpisah. Plan kerja lokal; hanya `_TEMPLATE.md` yang
-> ditujukan untuk di-commit. Jangan stage plan rutin atau data tenant/credential.
+> Kritis kecil cukup satu catatan sesuai root: scope/target, bukti awal → hasil yang diharapkan,
+> langkah, invariant, verifikasi, dan failure path/rollback. Koreksi data juga memuat backup dan
+> pencegahan eksekusi ganda. Gunakan bagian relevan di bawah, bukan wajib menyalin semua bagian;
+> review di catatan yang sama, tanpa laporan pendamping. Plan kerja lokal; hanya `_TEMPLATE.md`
+> yang ditujukan untuk di-commit. Jangan stage plan rutin atau data tenant/credential.
 
 ## 1. Konteks & Root Cause
 
@@ -46,6 +48,9 @@ Risk reason: <dampak, invariant, caller yang terpengaruh>
 > Pilih gate berdasarkan jalur/trigger di root, jangan otomatis menjalankan semua.
 > Catat command, scope, hasil, dan alasan N/A. Test wajib di `src/**/__tests__/`.
 > Scoped suite yang tercakup full coverage tidak perlu dijalankan dua kali.
+> Operasi data lewat alur rilis yang tidak berubah mengikuti bukti gate artifact yang sama dan
+> verifikasi operasi di root; bukan otomatis full coverage/build ulang. Skrip baru tetap perlu
+> review dan uji jalur eksekusinya di lingkungan terisolasi, bukan hanya bukti uji service lama.
 > Lokal untuk pemeriksaan ringan; full coverage, build, dan integration/E2E utamakan CI/remote
 > terisolasi. Jangan otomatis membuat container lokal. Jangan gunakan DB produksi atau ganti
 > test DB nyata dengan mock demi cepat.
