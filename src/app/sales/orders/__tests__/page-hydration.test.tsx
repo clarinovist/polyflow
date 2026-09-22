@@ -21,6 +21,12 @@ vi.mock('@/actions/sales/sales', () => ({
             completedAmount: 0,
             pipelineAmount: 0,
             cancelledAmount: 0,
+            shippedWeight: {
+                shippedWeightKg: 400,
+                shippedOrderCount: 1,
+                unconvertedItemCount: 0,
+                incompleteOrderCount: 0,
+            },
         },
     }),
 }));
@@ -63,15 +69,44 @@ vi.mock('next/navigation', () => ({
 }));
 
 import SalesPage from '../page';
+import { getSalesOrderStats } from '@/actions/sales/sales';
 
 afterEach(() => {
     vi.useRealTimers();
     captures.dateFilter.mockClear();
     captures.period.mockClear();
     captures.table.mockClear();
+    vi.mocked(getSalesOrderStats).mockClear();
 });
 
 describe('Sales Orders page hydration inputs', () => {
+    it('replaces Total Periode with shipment kg and explains the order-date scope', async () => {
+        const page = await SalesPage({ searchParams: Promise.resolve({}) });
+        const html = renderToStaticMarkup(page);
+        expect(html).toContain('Total Berat Terkirim');
+        expect(html).toContain('400 kg');
+        expect(html).toContain('Realisasi Omzet');
+        expect(html).not.toContain('Total Periode');
+        expect(html).toContain('bukan berdasarkan tanggal pengiriman');
+    });
+
+    it('keeps customer history all-time and table-only filters out of stats', async () => {
+        const page = await SalesPage({ searchParams: Promise.resolve({
+            customer: 'customer-1', status: 'SHIPPED', fulfill: 'stock', payment: 'paid',
+        }) });
+        const html = renderToStaticMarkup(page);
+        expect(getSalesOrderStats).toHaveBeenCalledWith(undefined, 'customer-1');
+        expect(html).toContain('Menampilkan seluruh riwayat order');
+        expect(html).toContain('bukan filter tabel');
+    });
+
+    it('renders unavailable weight when the stats action fails', async () => {
+        vi.mocked(getSalesOrderStats).mockResolvedValueOnce({ success: false, error: 'unavailable', code: 'INTERNAL_ERROR' });
+        const html = renderToStaticMarkup(await SalesPage({ searchParams: Promise.resolve({}) }));
+        expect(html).toContain('Data berat belum tersedia');
+        expect(html).not.toContain('0 kg');
+    });
+
     it('passes one deterministic Jakarta snapshot to date-sensitive clients', async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-08-31T18:00:00.000Z'));

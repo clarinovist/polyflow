@@ -16,6 +16,7 @@ import {
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { SalesOrderFilters } from '@/components/sales/SalesOrderFilters';
+import { ShippedWeightCard } from '@/components/sales/ShippedWeightCard';
 import { serializeData, formatRupiah } from '@/lib/utils/utils';
 import { SalesOrderType, SalesOrderStatus } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
@@ -25,10 +26,7 @@ import { getCustomers } from '@/actions/sales/customer';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO } from 'date-fns';
-import {
-    getWibMonthBounds,
-    toBusinessDateString,
-} from '@/lib/utils/timezone';
+import { getWibMonthBounds, toBusinessDateString } from '@/lib/utils/timezone';
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 
@@ -221,6 +219,10 @@ export default async function SalesPage({
                   cancelledAmount: number;
               });
 
+    const shippedWeight =
+        statsRes.success && statsRes.data
+            ? (statsRes.data.shippedWeight ?? null)
+            : null;
     const serializedOrders = serializeData(orders);
     const displayedCount = Array.isArray(orders) ? orders.length : 0;
     const emptyMessage = isArchive
@@ -364,7 +366,13 @@ export default async function SalesPage({
                 />
             )}
 
-            {/* Omzet — money context */}
+            <p className="text-xs text-muted-foreground">
+                Ringkasan mengikuti tanggal pesanan dan customer, bukan filter
+                tabel. Berat terkirim dihitung kumulatif sampai saat ini, bukan
+                berdasarkan tanggal pengiriman.
+            </p>
+
+            {/* Omzet dan volume pengiriman */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Card className="md:col-span-2 border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -392,7 +400,7 @@ export default async function SalesPage({
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Realisasi (Shipped/Delivered)
+                            Realisasi Omzet
                         </CardTitle>
                         <PackageIcon className="h-4 w-4 text-emerald-600" />
                     </CardHeader>
@@ -404,47 +412,11 @@ export default async function SalesPage({
                             )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            {stats.completedCount} order
+                            {stats.completedCount} order terkirim / diterima
                         </p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Total Periode (gross, exc. batal)
-                        </CardTitle>
-                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {formatRupiah(
-                                (
-                                    stats as {
-                                        totalAmount?: number;
-                                        cancelledAmount?: number;
-                                    }
-                                ).totalAmount != null &&
-                                    (stats as { cancelledAmount?: number })
-                                        .cancelledAmount != null
-                                    ? (stats as { totalAmount: number })
-                                          .totalAmount -
-                                          (stats as { cancelledAmount: number })
-                                              .cancelledAmount
-                                    : ((stats as { activeAmount?: number })
-                                          .activeAmount ?? 0) +
-                                          ((
-                                              stats as {
-                                                  completedAmount?: number;
-                                              }
-                                          ).completedAmount ?? 0),
-                            )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {stats.totalOrders} order (incl. batal{' '}
-                            {stats.cancelledCount})
-                        </p>
-                    </CardContent>
-                </Card>
+                <ShippedWeightCard stats={shippedWeight} />
             </div>
 
             {/* Counts */}

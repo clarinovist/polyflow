@@ -10,6 +10,7 @@ import {
     UpdateSalesOrderValues,
 } from '@/lib/schemas/sales';
 import { SalesService } from '@/services/sales/sales-service';
+import { getShippedWeightStats } from '@/services/sales/shipped-weight-service';
 import {
     sendQuotation,
     acceptQuotation,
@@ -17,7 +18,7 @@ import {
     reopenQuotation,
     updateFollowUpDate,
 } from '@/services/sales/quotation-service';
-import { SalesLostReason, SalesOrderStatus } from '@prisma/client';
+import { Prisma, SalesLostReason, SalesOrderStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import {
@@ -337,7 +338,7 @@ export const getSalesOrderStats = withTenant(async function getSalesOrderStats(
 
         // Scope: ORDERED customer's orderDate — align with list page's filtered view
         // demandType is NOT a DB column — translate to customerId filter like getOrders() does
-        const where: Record<string, unknown> = {
+        const where: Prisma.SalesOrderWhereInput = {
             customerId: customerId || { not: null },
         };
         if (dateRange?.startDate && dateRange?.endDate) {
@@ -347,12 +348,16 @@ export const getSalesOrderStats = withTenant(async function getSalesOrderStats(
             };
         }
 
-        const stats = await prisma.salesOrder.groupBy({
-            where,
-            by: ['status'],
-            _count: { status: true },
-            _sum: { totalAmount: true },
-        });
+        const [stats, shippedWeightResult] = await Promise.all([
+            prisma.salesOrder.groupBy({
+                where,
+                by: ['status'],
+                _count: { status: true },
+                _sum: { totalAmount: true },
+            }),
+            // A weight-query failure must not erase the existing money/count metrics.
+            safeAction(() => getShippedWeightStats(where)),
+        ]);
 
         const sum = (rows: typeof stats) =>
             rows.reduce((acc, r) => acc + Number(r._sum.totalAmount || 0), 0);
@@ -393,6 +398,9 @@ export const getSalesOrderStats = withTenant(async function getSalesOrderStats(
             pipelineAmount: sum(pipelineRows),
             cancelledAmount: sum(cancelledRows),
             openQuotationAmount: sum(quotationRows),
+            shippedWeight: shippedWeightResult.success
+                ? shippedWeightResult.data
+                : null,
         };
     });
 });

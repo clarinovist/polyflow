@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     getSalesOrders,
+    getSalesOrderStats,
     checkSalesOrderFulfillment,
     getSalesOrdersByCustomerId,
     getSalesOrderById,
@@ -17,6 +18,7 @@ import {
     reopenQuotationOrder,
 } from '../sales';
 import { SalesService } from '@/services/sales/sales-service';
+import { getShippedWeightStats } from '@/services/sales/shipped-weight-service';
 import {
     sendQuotation,
     acceptQuotation,
@@ -79,6 +81,10 @@ vi.mock('@/services/sales/sales-service', () => ({
         cancelOrder: vi.fn(),
         deleteOrder: vi.fn(),
     },
+}));
+
+vi.mock('@/services/sales/shipped-weight-service', () => ({
+    getShippedWeightStats: vi.fn(),
 }));
 
 vi.mock('@/services/sales/quotation-service', () => ({
@@ -201,6 +207,66 @@ describe('sales order actions', () => {
 
             // Assert
             expect(dataOf(res)).toMatchObject({ orderNumber: 'SO-1' });
+        });
+    });
+
+    describe('order statistics', () => {
+        const weight = {
+            shippedWeightKg: 400,
+            shippedOrderCount: 1,
+            unconvertedItemCount: 0,
+            incompleteOrderCount: 0,
+        };
+        beforeEach(() => {
+            vi.mocked(getShippedWeightStats).mockResolvedValue(weight);
+            vi.mocked(prisma.salesOrder.groupBy).mockResolvedValue([
+                { status: 'QUOTATION', _count: { status: 1 }, _sum: { totalAmount: 50 } },
+                { status: 'READY_TO_SHIP', _count: { status: 2 }, _sum: { totalAmount: 200 } },
+                { status: 'SHIPPED', _count: { status: 3 }, _sum: { totalAmount: 300 } },
+                { status: 'DELIVERED', _count: { status: 1 }, _sum: { totalAmount: 100 } },
+                { status: 'CANCELLED', _count: { status: 1 }, _sum: { totalAmount: 70 } },
+            ] as never);
+        });
+
+        it('adds shipped weight without changing any existing money/status totals', async () => {
+            const data = dataOf(await getSalesOrderStats());
+            expect(data).toEqual({
+                totalOrders: 8, activeCount: 3, completedCount: 4, cancelledCount: 1,
+                openQuotationCount: 1, totalAmount: 720, activeAmount: 250,
+                completedAmount: 400, pipelineAmount: 250, cancelledAmount: 70,
+                openQuotationAmount: 50, shippedWeight: weight,
+            });
+            expect(getShippedWeightStats).toHaveBeenCalledWith({ customerId: { not: null } });
+        });
+
+        it('passes identical WIB period/customer scope to money and weight queries', async () => {
+            const dates = {
+                startDate: new Date('2026-08-31T17:00:00.000Z'),
+                endDate: new Date('2026-09-30T16:59:59.999Z'),
+            };
+            await getSalesOrderStats(dates, 'customer-1');
+            const scope = { customerId: 'customer-1', orderDate: { gte: dates.startDate, lte: dates.endDate } };
+            expect(getShippedWeightStats).toHaveBeenCalledWith(scope);
+            expect(prisma.salesOrder.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: scope }));
+        });
+
+        it('preserves all-time scope for a customer without a date range', async () => {
+            await getSalesOrderStats(undefined, 'customer-1');
+            expect(getShippedWeightStats).toHaveBeenCalledWith({ customerId: 'customer-1' });
+        });
+
+        it('keeps money/count metrics when weight is unavailable instead of returning a fake zero', async () => {
+            vi.mocked(getShippedWeightStats).mockRejectedValueOnce(new Error('weight unavailable'));
+            expect(dataOf(await getSalesOrderStats())).toMatchObject({
+                completedAmount: 400, totalOrders: 8, shippedWeight: null,
+            });
+        });
+
+        it('does not run either query when access is denied', async () => {
+            vi.mocked(requireSalesAccess).mockRejectedValueOnce(new Error('access denied'));
+            expect((await getSalesOrderStats()).success).toBe(false);
+            expect(prisma.salesOrder.groupBy).not.toHaveBeenCalled();
+            expect(getShippedWeightStats).not.toHaveBeenCalled();
         });
     });
 
