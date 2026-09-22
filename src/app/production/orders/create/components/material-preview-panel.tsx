@@ -1,5 +1,7 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
+
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,8 +126,13 @@ export function MaterialPreviewPanel({
 
     return (
         <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="flex flex-row items-center justify-between gap-1 pb-3">
                 <CardTitle className="text-base">Kebutuhan Bahan</CardTitle>
+                <InfoHint label="Info kecukupan bahan">
+                    {consumptionMode === 'DIRECT'
+                        ? 'Kecukupan berdasarkan gudang asal yang dipilih per bahan.'
+                        : 'Kecukupan bahan resep memperhitungkan total stok gudang yang memenuhi syarat.'}
+                </InfoHint>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -186,9 +193,6 @@ export function MaterialPreviewPanel({
                 )}
 
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                    {consumptionMode === 'DIRECT'
-                        ? 'Kecukupan berdasarkan gudang asal yang dipilih per bahan.'
-                        : 'Kecukupan bahan resep memperhitungkan total stok gudang yang memenuhi syarat.'}{' '}
                     Estimasi, bukan reservasi stok.
                 </p>
                 {compact ? (

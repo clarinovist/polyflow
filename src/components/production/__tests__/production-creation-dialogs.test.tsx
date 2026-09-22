@@ -45,6 +45,15 @@ async function submitDemand(name: string) {
 }
 
 describe('demand creation outcome', () => {
+    it('opens routed preview help without creating an order and retains the required fallback location', async () => {
+        mocks.preview.mockResolvedValue({ success: true, data: { kind: 'run', routeName: 'Test route', orderCount: 3 } });
+        render(<CreateSpkFromDemandDialog {...props} />);
+        await screen.findByText('Akan membuat rangkaian dengan 3 SPK.');
+        expect(screen.getByText('Lokasi cadangan wajib diisi.')).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Info rencana SPK dari permintaan' }));
+        expect((await screen.findByRole('tooltip')).textContent).toContain('hasil akhir mengikuti konfigurasi saat disimpan');
+        expect(mocks.create).not.toHaveBeenCalled();
+    });
     it('previews one SPK and opens the created order', async () => {
         render(<CreateSpkFromDemandDialog {...props} />);
         await submitDemand('Buat SPK');

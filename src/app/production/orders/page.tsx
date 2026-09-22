@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { InfoHint } from '@/components/common/InfoHint';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { BomCategory } from '@prisma/client';
@@ -399,13 +400,18 @@ export default async function ProductionOrdersPage({
                         </Button>
                     </form>
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <p>
-                            {isLateFilter
-                                ? 'Terlambat: Siap Produksi / Sedang Diproduksi melewati rencana selesai.'
-                                : excludeCompletedDefault
-                                  ? 'Hanya status Selesai yang disembunyikan; SPK dibatalkan tetap ditampilkan.'
-                                  : 'Daftar mengikuti tahap, status, dan pencarian yang dipilih.'}
-                        </p>
+                        <div className="flex items-center gap-1">
+                            <span>
+                                {isLateFilter ? 'Filter terlambat' : excludeCompletedDefault ? 'Selesai disembunyikan' : 'Sesuai filter pilihan'}
+                            </span>
+                            <InfoHint label="Info filter daftar SPK">
+                                {isLateFilter
+                                    ? 'Terlambat: Siap Produksi / Sedang Diproduksi melewati rencana selesai.'
+                                    : excludeCompletedDefault
+                                      ? 'Hanya status Selesai yang disembunyikan; SPK dibatalkan tetap ditampilkan.'
+                                      : 'Daftar mengikuti tahap, status, dan pencarian yang dipilih.'}
+                            </InfoHint>
+                        </div>
                         {hasActiveFilters && (
                             <Link
                                 href="/production/orders"

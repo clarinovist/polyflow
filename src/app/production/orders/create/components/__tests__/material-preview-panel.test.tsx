@@ -35,6 +35,14 @@ function renderPanel(
 }
 
 describe('MaterialPreviewPanel', () => {
+    it.each(['DIRECT', 'TRANSFER'] as const)('keeps shortage/estimate visible and explains %s calculation only in help', async (consumptionMode) => {
+        renderPanel({ consumptionMode, hasStockIssues: true });
+        expect(screen.getByText('Estimasi, bukan reservasi stok.')).toBeTruthy();
+        expect(screen.getByText('Kekurangan bahan')).toBeTruthy();
+        expect(screen.queryByText(/Kecukupan berdasarkan|Kecukupan bahan resep/)).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Info kecukupan bahan' }));
+        expect((await screen.findByRole('tooltip')).textContent).toContain(consumptionMode === 'DIRECT' ? 'dipilih per bahan' : 'total stok gudang');
+    });
     it('shows the "belum diisi" placeholder when there is no error and no items', () => {
         renderPanel();
 

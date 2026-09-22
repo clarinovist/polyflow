@@ -1,5 +1,7 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
+
 import {
     Machine,
     Location,
@@ -114,13 +116,16 @@ export function OrderExecutionTab({ order, formData }: OrderExecutionTabProps) {
                             aria-label="Pemakaian langsung"
                             className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/30 space-y-2"
                         >
-                            <h3 className="text-sm font-semibold">
-                                Langsung per bahan
-                            </h3>
+                            <div className="flex items-center justify-between gap-1">
+                                <h3 className="text-sm font-semibold">Langsung per bahan</h3>
+                                <InfoHint label="Info pemakaian langsung">
+                                    Tidak perlu transfer atau issue manual. Saat
+                                    hasil dicatat, stok dipotong dari gudang asal
+                                    setiap bahan.
+                                </InfoHint>
+                            </div>
                             <p className="text-sm text-muted-foreground">
-                                Tidak perlu transfer atau issue manual. Saat
-                                hasil dicatat, stok dipotong dari gudang asal
-                                setiap bahan.
+                                Potong stok saat catat hasil.
                             </p>
                             {isWaitingMaterial && (
                                 <p className="text-sm">

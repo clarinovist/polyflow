@@ -1,5 +1,7 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
+
 import { Location, Machine } from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -326,6 +328,11 @@ export function OrderOverviewTab({
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Package className="w-4 h-4" /> Pengeluaran bahan
+                            <InfoHint label="Info pengeluaran bahan">
+                                {order.materialConsumptionMode === 'DIRECT'
+                                    ? 'Tidak perlu pengeluaran manual. Stok dipotong dari gudang asal saat hasil dicatat. Rincian ada di tab Bahan, tim & kualitas.'
+                                    : 'Kelengkapan dihitung dari pengeluaran non-void, bukan stok gudang saat ini.'}
+                            </InfoHint>
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -333,10 +340,8 @@ export function OrderOverviewTab({
                             if (order.materialConsumptionMode === 'DIRECT')
                                 return (
                                     <p className="text-sm text-muted-foreground">
-                                        Langsung per bahan: tidak perlu
-                                        pengeluaran manual. Stok dipotong dari
-                                        gudang asal saat hasil dicatat. Lihat
-                                        rincian di tab Bahan, tim & kualitas.
+                                        Langsung per bahan · potong stok saat
+                                        catat hasil.
                                     </p>
                                 );
                             const total = order.plannedMaterials?.length || 0;
@@ -381,10 +386,6 @@ export function OrderOverviewTab({
                                             </Badge>
                                         )}
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Berdasarkan pengeluaran non-void, bukan
-                                        stok gudang saat ini.
-                                    </p>
                                     {(order.plannedMaterials || [])
                                         .slice(0, 5)
                                         .map((m) => {

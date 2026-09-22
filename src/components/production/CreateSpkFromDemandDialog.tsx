@@ -1,5 +1,7 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
     Dialog,
@@ -221,13 +223,16 @@ export function CreateSpkFromDemandDialog({
                                         ? `Akan membuat rangkaian dengan ${currentPreview.orderCount} SPK.`
                                         : 'Akan membuat 1 SPK.'}
                                 </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {currentPreview.kind === 'run'
-                                        ? `Routing: ${currentPreview.routeName}. Satu SPK per tahap; mesin dan lokasi mengikuti routing.`
-                                        : 'Menggunakan BOM default aktif untuk satu tahap.'}{' '}
-                                    Berdasarkan konfigurasi saat ini; hasil
-                                    akhir mengikuti konfigurasi saat disimpan.
-                                </p>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <span>{currentPreview.kind === 'run' ? `Routing: ${currentPreview.routeName}` : 'BOM default aktif'}</span>
+                                    <InfoHint label="Info rencana SPK dari permintaan">
+                                        {currentPreview.kind === 'run'
+                                            ? 'Satu SPK per tahap; mesin dan lokasi mengikuti routing.'
+                                            : 'Menggunakan BOM default aktif untuk satu tahap.'}{' '}
+                                        Preview mengikuti konfigurasi saat ini;
+                                        hasil akhir mengikuti konfigurasi saat disimpan.
+                                    </InfoHint>
+                                </div>
                             </>
                         ) : previewError ? (
                             <>
@@ -317,12 +322,14 @@ export function CreateSpkFromDemandDialog({
                                 : 'Lokasi Output'}
                         </Label>
                         {currentPreview?.kind === 'run' && (
-                            <p className="text-xs text-muted-foreground">
-                                Tetap diperlukan jika routing tidak lagi
-                                tersedia saat disimpan dan sistem membuat satu
-                                SPK. Untuk rangkaian, lokasi tiap tahap
-                                mengikuti routing.
-                            </p>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <span>Lokasi cadangan wajib diisi.</span>
+                                <InfoHint label="Info lokasi cadangan SPK">
+                                    Dipakai jika routing tidak lagi tersedia saat
+                                    disimpan dan sistem membuat satu SPK. Untuk
+                                    rangkaian, lokasi tiap tahap mengikuti routing.
+                                </InfoHint>
+                            </div>
                         )}
                         <Select
                             value={selectedLocationId}

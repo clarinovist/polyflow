@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { CustomerCombobox } from '@/components/customers/CustomerCombobox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { InfoHint } from '@/components/common/InfoHint';
 import { Factory } from 'lucide-react';
 import { UseFormReturn, FieldValues } from 'react-hook-form';
 
@@ -47,10 +48,11 @@ export function MaklonSection({
                         >
                             Order Maklon
                         </Label>
-                        <p className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mt-1">
-                            Gunakan jika pelanggan menyuplai bahan dan
-                            perusahaan mengenakan biaya jasa konversi.
-                        </p>
+                        <InfoHint label="Info order maklon">
+                            Gunakan jika pelanggan menyuplai bahan dan perusahaan
+                            mengenakan biaya jasa konversi. Konsumsi material
+                            dicatat dari lokasi maklon stage.
+                        </InfoHint>
                     </div>
                 </div>
                 <Switch
@@ -76,9 +78,7 @@ export function MaklonSection({
                                     />
                                 </FormControl>
                                 <FormDescription>
-                                    Pilih customer yang memiliki bahan. Konsumsi
-                                    material akan dicatat dari lokasi maklon
-                                    stage.
+                                    Pemilik bahan yang dipakai.
                                 </FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -105,10 +105,6 @@ export function MaklonSection({
                                         />
                                     </div>
                                 </FormControl>
-                                <FormDescription>
-                                    Estimasi biaya jasa konversi untuk order
-                                    maklon.
-                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}

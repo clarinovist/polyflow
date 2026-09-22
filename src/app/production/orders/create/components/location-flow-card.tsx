@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoHint } from '@/components/common/InfoHint';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
@@ -104,7 +105,14 @@ function ConsumptionModePicker({
     return (
         <fieldset className="space-y-2">
             <legend className="text-sm font-medium">
-                Cara pemakaian bahan
+                <span className="inline-flex items-center gap-1">
+                    Cara pemakaian bahan
+                    <InfoHint label="Info cara pemakaian bahan">
+                        Mode Langsung memotong stok dari gudang asal tiap bahan
+                        saat hasil dicatat, tanpa issue manual. Mode Transfer
+                        mengumpulkan bahan dahulu di satu lokasi pemakaian.
+                    </InfoHint>
+                </span>
             </legend>
             <div className="grid gap-2 xl:grid-cols-2">
                 {(
@@ -112,12 +120,12 @@ function ConsumptionModePicker({
                         [
                             'DIRECT',
                             'Langsung per bahan',
-                            'Stok dipotong dari gudang asal masing-masing saat hasil dicatat.',
+                            'Potong stok saat catat hasil.',
                         ],
                         [
                             'TRANSFER',
                             'Transfer ke satu lokasi',
-                            'Pindahkan bahan dahulu, lalu catat hasil di lokasi pemakaian.',
+                            'Pindahkan bahan dahulu.',
                         ],
                     ] as const
                 ).map(([value, title, description]) => (
@@ -182,12 +190,14 @@ export function LocationFlowCard(props: LocationFlowCardProps) {
             <div className="grid min-w-0 gap-4 md:grid-cols-2">
                 <section className="min-w-0 space-y-3 rounded-lg border p-4 md:col-span-2">
                     <div>
-                        <h4 className="text-sm font-semibold">1. Asal bahan</h4>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                            {direct
-                                ? 'Tentukan gudang yang stoknya akan dipotong untuk setiap bahan.'
-                                : 'Bahan boleh berasal dari beberapa gudang. Asal transfer dapat diubah di detail SPK.'}
-                        </p>
+                        <div className="flex items-center justify-between gap-1">
+                            <h4 className="text-sm font-semibold">1. Asal bahan</h4>
+                            <InfoHint label="Info asal bahan">
+                                {direct
+                                    ? 'Tentukan gudang yang stoknya akan dipotong untuk setiap bahan.'
+                                    : 'Bahan boleh berasal dari beberapa gudang. Asal transfer dapat diubah di detail SPK.'}
+                            </InfoHint>
+                        </div>
                     </div>
                     {materials.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
@@ -267,13 +277,13 @@ export function LocationFlowCard(props: LocationFlowCardProps) {
                 {!direct && (
                     <section className="space-y-3 rounded-lg border p-4">
                         <div>
-                            <h4 className="text-sm font-semibold">
-                                2. Tujuan transfer
-                            </h4>
-                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                Bahan dikumpulkan di sini sebelum dipakai. Stok
-                                dipotong saat hasil dicatat.
-                            </p>
+                            <div className="flex items-center justify-between gap-1">
+                                <h4 className="text-sm font-semibold">2. Tujuan transfer</h4>
+                                <InfoHint label="Info tujuan transfer">
+                                    Bahan dikumpulkan di sini sebelum dipakai.
+                                    Stok dipotong saat hasil dicatat.
+                                </InfoHint>
+                            </div>
                         </div>
                         <Label>Lokasi Pemakaian Bahan</Label>
                         <WarehouseSelect
@@ -300,13 +310,15 @@ export function LocationFlowCard(props: LocationFlowCardProps) {
                     )}
                 >
                     <div>
-                        <h4 className="text-sm font-semibold">
-                            {direct ? '2' : '3'}. Penyimpanan hasil
-                        </h4>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                            Terpisah dari asal bahan. Hasil produksi menambah
-                            stok di gudang ini.
-                        </p>
+                        <div className="flex items-center justify-between gap-1">
+                            <h4 className="text-sm font-semibold">
+                                {direct ? '2' : '3'}. Penyimpanan hasil
+                            </h4>
+                            <InfoHint label="Info penyimpanan hasil">
+                                Terpisah dari asal bahan. Hasil produksi menambah
+                                stok di gudang ini.
+                            </InfoHint>
+                        </div>
                     </div>
                     <Label>Lokasi Penyimpanan Hasil</Label>
                     <WarehouseSelect
