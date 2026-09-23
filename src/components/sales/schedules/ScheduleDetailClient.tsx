@@ -6,7 +6,22 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Trash2, CheckCircle, Plus, Truck, Package } from 'lucide-react';
+import {
+    ArrowLeft,
+    Trash2,
+    CheckCircle,
+    Plus,
+    Truck,
+    Package,
+    MoreHorizontal,
+} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import type { ScheduleStatus, TripStatus } from '@prisma/client';
 import {
@@ -34,6 +49,7 @@ import {
     STATUS_LABELS,
     TRIP_STATUS_LABELS,
     formatDate,
+    formatDateWithDay,
 } from './schedule-detail/presentation';
 import { ScheduleSummary } from './schedule-detail/ScheduleSummary';
 import { TripChoiceOptions } from './schedule-detail/TripChoiceOptions';
@@ -59,6 +75,18 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     const [assignTripStopId, setAssignTripStopId] = useState('');
     const [assignTripId, setAssignTripId] = useState('');
     const router = useRouter();
+    const [activeTab, setActiveTab] = useState('plan');
+    const [focusedTripId, setFocusedTripId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (activeTab !== 'trips' || !focusedTripId) return;
+        // Radix mounts the newly selected panel after the tab update.
+        const frame = requestAnimationFrame(() => {
+            document.getElementById(`schedule-trip-${focusedTripId}`)?.focus();
+            setFocusedTripId(null);
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [activeTab, focusedTripId]);
 
     const loadData = useCallback(async () => {
         const [vehiclesRes, soRes] = await Promise.all([
@@ -356,47 +384,54 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     const canDelete = allStops.length === unlinkedCount;
 
     const availableVehicles = vehicles;
+    // Presentation only: retain original trip order for assignment and matching.
+    const tripDays = new Map<string, typeof trips>();
+    [...trips]
+        .sort((a, b) =>
+            (a.departureDate || '9999').localeCompare(
+                b.departureDate || '9999',
+            ),
+        )
+        .forEach((trip) => {
+            const day = trip.departureDate
+                ? formatDateWithDay(trip.departureDate)
+                : 'Tanggal belum diatur';
+            tripDays.set(day, [...(tripDays.get(day) || []), trip]);
+        });
 
     // ============================================
     // Render
     // ============================================
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="mx-auto w-full max-w-screen-2xl space-y-5 p-4 md:p-6">
             {/* Header */}
-            <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" asChild className="-ml-3">
                 <Link href="/sales/delivery-schedules">
-                    <Button variant="ghost" size="sm">
-                        <ArrowLeft className="h-4 w-4 mr-1" /> Kembali
-                    </Button>
+                    <ArrowLeft className="mr-1 h-4 w-4" />
+                    Kembali
                 </Link>
-                <div className="flex-1">
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                        {schedule.scheduleNumber}
+            </Button>
+            <div className="flex flex-wrap items-start gap-3">
+                <div className="min-w-0 flex-1 basis-64">
+                    <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
+                        Jadwal Kirim
                         <Badge className={STATUS_STYLES[schedule.status] || ''}>
                             {STATUS_LABELS[schedule.status]}
                         </Badge>
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {schedule.scheduleNumber} ·{' '}
                         {formatDate(schedule.weekStart)} —{' '}
                         {formatDate(schedule.weekEnd)}
                     </p>
                 </div>
-                {canDelete && (
-                    <Button
-                        variant="destructive"
-                        onClick={handleDeleteSchedule}
-                        disabled={isActionLoading}
-                    >
-                        <Trash2 className="h-4 w-4 mr-2" /> Hapus Jadwal
-                    </Button>
-                )}
                 {isDRAFT && (
                     <Button
                         onClick={() => handleStatusChange('ACTIVE')}
                         disabled={isActionLoading}
                     >
-                        <CheckCircle className="h-4 w-4 mr-2" /> Aktifkan
+                        <CheckCircle className="h-4 w-4 mr-2" /> Aktifkan Jadwal
                     </Button>
                 )}
                 {isEditable && !isDRAFT && (
@@ -415,6 +450,30 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                         <CheckCircle className="h-4 w-4 mr-2" /> Buka Kembali
                     </Button>
                 )}
+                {canDelete && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                aria-label="Opsi jadwal"
+                                disabled={isActionLoading}
+                            >
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                onSelect={handleDeleteSchedule}
+                                disabled={isActionLoading}
+                                className="text-destructive"
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Hapus Jadwal
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </div>
 
             {/* Summary Cards */}
@@ -425,74 +484,93 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 trips={trips}
             />
 
-            {/* ============================================ */}
-            {/* SECTION 1: RENCANA KIRIM — SO yang mau dikirim */}
-            {/* ============================================ */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                        <Package className="h-4 w-4" /> Rencana Kirim Minggu Ini
-                    </CardTitle>
-                    {isEditable && (
-                        <Button
-                            size="sm"
-                            onClick={() => setShowAddSO(!showAddSO)}
-                        >
-                            <Plus className="h-3 w-3 mr-1" /> Tambah SO
-                        </Button>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    {/* Add SO form */}
-                    {showAddSO && (
-                        <AddSalesOrderForm
-                            schedule={schedule}
-                            schedulableSOs={schedulableSOs}
-                            availableVehicles={availableVehicles}
-                            selectedSOId={selectedSOId}
-                            setSelectedSOId={setSelectedSOId}
-                            selectedVehicleId={selectedVehicleId}
-                            setSelectedVehicleId={setSelectedVehicleId}
-                            selectedDate={selectedDate}
-                            setSelectedDate={setSelectedDate}
-                            plannedWeight={plannedWeight}
-                            setPlannedWeight={setPlannedWeight}
-                            isActionLoading={isActionLoading}
-                            handleAddSO={handleAddSO}
-                            resetAddSO={resetAddSO}
-                            smartTripSelector={selectedVehicleId &&
-                                selectedDate &&
-                                (() => {
-                                    const matchingTrips = trips.filter(
-                                        (t) =>
-                                            t.vehicleId === selectedVehicleId &&
-                                            t.departureDate != null &&
-                                            new Date(t.departureDate)
-                                                .toISOString()
-                                                .startsWith(selectedDate) &&
-                                            (t.status === 'PLANNED' ||
-                                                t.status === 'CONFIRMED'),
-                                    );
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList
+                    aria-label="Tampilan jadwal kirim"
+                    className="h-auto w-full justify-start gap-1 overflow-x-auto sm:w-auto"
+                >
+                    <TabsTrigger value="plan">Rencana Kirim</TabsTrigger>
+                    <TabsTrigger value="trips">Trip & Armada</TabsTrigger>
+                    <TabsTrigger value="history">Riwayat</TabsTrigger>
+                </TabsList>
+                <TabsContent value="plan" className="mt-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <Package className="h-4 w-4" /> Rencana Kirim
+                            </CardTitle>
+                            {isEditable && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => setShowAddSO(!showAddSO)}
+                                >
+                                    <Plus className="h-3 w-3 mr-1" /> Tambah SO
+                                </Button>
+                            )}
+                        </CardHeader>
+                        <CardContent>
+                            {/* Add SO form */}
+                            {showAddSO && (
+                                <AddSalesOrderForm
+                                    schedule={schedule}
+                                    schedulableSOs={schedulableSOs}
+                                    availableVehicles={availableVehicles}
+                                    selectedSOId={selectedSOId}
+                                    setSelectedSOId={setSelectedSOId}
+                                    selectedVehicleId={selectedVehicleId}
+                                    setSelectedVehicleId={setSelectedVehicleId}
+                                    selectedDate={selectedDate}
+                                    setSelectedDate={setSelectedDate}
+                                    plannedWeight={plannedWeight}
+                                    setPlannedWeight={setPlannedWeight}
+                                    isActionLoading={isActionLoading}
+                                    handleAddSO={handleAddSO}
+                                    resetAddSO={resetAddSO}
+                                    smartTripSelector={
+                                        selectedVehicleId &&
+                                        selectedDate &&
+                                        (() => {
+                                            const matchingTrips = trips.filter(
+                                                (t) =>
+                                                    t.vehicleId ===
+                                                        selectedVehicleId &&
+                                                    t.departureDate != null &&
+                                                    new Date(t.departureDate)
+                                                        .toISOString()
+                                                        .startsWith(
+                                                            selectedDate,
+                                                        ) &&
+                                                    (t.status === 'PLANNED' ||
+                                                        t.status ===
+                                                            'CONFIRMED'),
+                                            );
 
-                                    if (matchingTrips.length === 0) {
-                                        return (
-                                            <div className="p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 text-xs text-green-700 dark:text-green-400">
-                                                ✨ Belum ada trip untuk armada
-                                                ini di hari tersebut. Trip baru
-                                                akan dibuat otomatis.
-                                            </div>
-                                        );
+                                            if (matchingTrips.length === 0) {
+                                                return (
+                                                    <div className="p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 text-xs text-green-700 dark:text-green-400">
+                                                        ✨ Belum ada trip untuk
+                                                        armada ini di hari
+                                                        tersebut. Trip baru akan
+                                                        dibuat otomatis.
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <TripChoiceOptions
+                                                    matchingTrips={
+                                                        matchingTrips
+                                                    }
+                                                    tripChoice={tripChoice}
+                                                    setTripChoice={
+                                                        setTripChoice
+                                                    }
+                                                />
+                                            );
+                                        })()
                                     }
-
-                                    return (
-                                        <TripChoiceOptions
-                                            matchingTrips={matchingTrips}
-                                            tripChoice={tripChoice}
-                                            setTripChoice={setTripChoice}
-                                        />
-                                    );
-                                })()}
-                            weightHint={selectedSOId &&
+                                    weightHint={
+                                        selectedSOId &&
                                         (() => {
                                             const so = schedulableSOs.find(
                                                 (s) => s.id === selectedSOId,
@@ -526,98 +604,150 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                                     di SO. Bisa diubah.
                                                 </p>
                                             );
-                                        })()}
-                            orderDetails={selectedSOId &&
-                                (() => {
-                                    const so = schedulableSOs.find(
-                                        (s) => s.id === selectedSOId,
-                                    );
-                                    if (!so) return null;
-                                    return (
-                                        <SalesOrderDetails so={so} />
-                                    );
-                                })()}
-                        />
-                    )}
+                                        })()
+                                    }
+                                    orderDetails={
+                                        selectedSOId &&
+                                        (() => {
+                                            const so = schedulableSOs.find(
+                                                (s) => s.id === selectedSOId,
+                                            );
+                                            if (!so) return null;
+                                            return (
+                                                <SalesOrderDetails so={so} />
+                                            );
+                                        })()
+                                    }
+                                />
+                            )}
 
-                    {/* Stops table */}
-                    <ScheduleStopsTable
-                        allStops={allStops}
-                        trips={trips}
-                        isEditable={isEditable}
-                        isActionLoading={isActionLoading}
-                        assignTripStopId={assignTripStopId}
-                        assignTripId={assignTripId}
-                        setAssignTripStopId={setAssignTripStopId}
-                        setAssignTripId={setAssignTripId}
-                        handleAssignToTrip={handleAssignToTrip}
-                        handleRemoveStop={handleRemoveStop}
+                            {/* Stops table */}
+                            <ScheduleStopsTable
+                                allStops={allStops}
+                                trips={trips}
+                                isEditable={isEditable}
+                                isActionLoading={isActionLoading}
+                                assignTripStopId={assignTripStopId}
+                                assignTripId={assignTripId}
+                                setAssignTripStopId={setAssignTripStopId}
+                                setAssignTripId={setAssignTripId}
+                                handleAssignToTrip={handleAssignToTrip}
+                                handleRemoveStop={handleRemoveStop}
+                                onViewTrip={(tripId) => {
+                                    setFocusedTripId(tripId);
+                                    setActiveTab('trips');
+                                }}
+                            />
+
+                            <p className="text-xs text-muted-foreground mt-3">
+                                Estimasi plan &mdash; tagihan ongkir dari Surat
+                                Jalan, bukan dari rencana ini.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="trips" className="mt-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <Truck className="h-4 w-4" /> Trip & Armada
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {trips.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    Belum ada trip. Buat trip untuk menentukan
+                                    armada & tanggal kirim.
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {Array.from(tripDays, ([day, dayTrips]) => (
+                                        <section
+                                            key={day}
+                                            className="space-y-3"
+                                            aria-label={day}
+                                        >
+                                            <h2 className="text-sm font-semibold">
+                                                {day}
+                                            </h2>
+                                            <div className="grid gap-3 xl:grid-cols-2">
+                                                {dayTrips.map((trip) => {
+                                                    const plannedKg =
+                                                        trip.orders.reduce(
+                                                            (s, o) =>
+                                                                s +
+                                                                (o.plannedWeightKg ||
+                                                                    0),
+                                                            0,
+                                                        );
+                                                    const capacityKg = trip
+                                                        .vehicle?.capacityKg
+                                                        ? Number(
+                                                              trip.vehicle
+                                                                  .capacityKg,
+                                                          )
+                                                        : null;
+                                                    const utilizationPct =
+                                                        capacityKg
+                                                            ? Math.round(
+                                                                  (plannedKg /
+                                                                      capacityKg) *
+                                                                      100,
+                                                              )
+                                                            : 0;
+                                                    const unlinkedInTrip =
+                                                        trip.orders.filter(
+                                                            (o) =>
+                                                                !o.deliveryOrder,
+                                                        ).length;
+
+                                                    return (
+                                                        <ScheduleTripCard
+                                                            key={trip.id}
+                                                            trip={trip}
+                                                            plannedKg={
+                                                                plannedKg
+                                                            }
+                                                            capacityKg={
+                                                                capacityKg
+                                                            }
+                                                            utilizationPct={
+                                                                utilizationPct
+                                                            }
+                                                            unlinkedInTrip={
+                                                                unlinkedInTrip
+                                                            }
+                                                            isDRAFT={isDRAFT}
+                                                            isActionLoading={
+                                                                isActionLoading
+                                                            }
+                                                            handleTripStatus={
+                                                                handleTripStatus
+                                                            }
+                                                            handleRemoveTrip={
+                                                                handleRemoveTrip
+                                                            }
+                                                            handleGenerateDO={
+                                                                handleGenerateDO
+                                                            }
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        </section>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="history" className="mt-4">
+                    <EntityStatusTimeline
+                        entityType="DeliverySchedule"
+                        entityId={schedule.id}
                     />
-
-                    <p className="text-xs text-muted-foreground mt-3">
-                        Estimasi plan &mdash; tagihan ongkir dari Surat Jalan,
-                        bukan dari rencana ini.
-                    </p>
-                </CardContent>
-            </Card>
-
-            {/* ============================================ */}
-            {/* SECTION 2: TRIP — Armada + Jadwal Kirim */}
-            {/* ============================================ */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                        <Truck className="h-4 w-4" /> Trip / Armada
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {trips.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                            Belum ada trip. Buat trip untuk menentukan armada &
-                            tanggal kirim.
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {trips.map((trip) => {
-                                const plannedKg = trip.orders.reduce(
-                                    (s, o) => s + (o.plannedWeightKg || 0),
-                                    0,
-                                );
-                                const capacityKg = trip.vehicle?.capacityKg
-                                    ? Number(trip.vehicle.capacityKg)
-                                    : null;
-                                const utilizationPct = capacityKg
-                                    ? Math.round((plannedKg / capacityKg) * 100)
-                                    : 0;
-                                const unlinkedInTrip = trip.orders.filter(
-                                    (o) => !o.deliveryOrder,
-                                ).length;
-
-                                return (
-                                    <ScheduleTripCard
-                                        key={trip.id}
-                                        trip={trip}
-                                        plannedKg={plannedKg}
-                                        capacityKg={capacityKg}
-                                        utilizationPct={utilizationPct}
-                                        unlinkedInTrip={unlinkedInTrip}
-                                        isDRAFT={isDRAFT}
-                                        isActionLoading={isActionLoading}
-                                        handleTripStatus={handleTripStatus}
-                                        handleRemoveTrip={handleRemoveTrip}
-                                        handleGenerateDO={handleGenerateDO}
-                                    />
-                                );
-                            })}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            <EntityStatusTimeline
-                entityType="DeliverySchedule"
-                entityId={schedule.id}
-            />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

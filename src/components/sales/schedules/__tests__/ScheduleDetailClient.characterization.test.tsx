@@ -109,10 +109,9 @@ afterEach(() => {
 });
 async function mount(value = schedule()) {
     const view = render(<ScheduleDetailClient schedule={value} />);
-    await screen.findByText('Belum ada perubahan status tercatat.');
+    await waitFor(() => expect(mocks.orders).toHaveBeenCalled());
     expect(mocks.vehicles).toHaveBeenCalledWith({ status: 'ACTIVE' });
     expect(mocks.orders).toHaveBeenCalledWith({ scheduleId: value.id });
-    expect(mocks.timeline).toHaveBeenCalledWith('DeliverySchedule', value.id);
     return view;
 }
 async function choose(trigger: HTMLElement, name: RegExp) {
@@ -131,11 +130,17 @@ async function openAdd(orderNumber = order.orderNumber, date = DAY) {
     await choose(screen.getAllByRole('combobox')[1], /SYNTHETIC-01/);
 }
 function submit() { fireEvent.click(screen.getByRole('button', { name: 'Tambah ke Rencana' })); }
-function stopRow() { return within(screen.getByRole('table')).getAllByRole('row')[1]; }
+function tab(name: string) {
+    fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0, ctrlKey: false });
+}
+function stopRow() { tab('Rencana Kirim'); return within(screen.getByRole('table')).getAllByRole('row')[1]; }
 function tripCard() {
-    const card = screen.getByText('Synthetic route', { exact: false }).closest('.border.rounded-lg');
-    if (!(card instanceof HTMLElement)) throw new Error('Trip card missing');
-    return within(card);
+    tab('Trip & Armada');
+    return within(screen.getByRole('article'));
+}
+async function deleteSchedule() {
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Opsi jadwal' }), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Hapus Jadwal' }));
 }
 function deferred<T>() {
     let resolve!: (value: T) => void;
@@ -144,6 +149,38 @@ function deferred<T>() {
 }
 
 describe('ScheduleDetailClient characterization', () => {
+    it('starts with compact plans, links to the correct trip, and loads history only when selected', async () => {
+        await mount();
+        expect(screen.getByRole('tab', { name: 'Rencana Kirim' }).getAttribute('aria-selected')).toBe('true');
+        expect(screen.queryByRole('article')).toBeNull();
+        expect(mocks.timeline).not.toHaveBeenCalled();
+        const details = screen.getByText('4 item · Lihat detail').closest('details');
+        expect(details?.open).toBe(false);
+        fireEvent.click(screen.getByText('4 item · Lihat detail'));
+        expect(details?.open).toBe(true);
+        fireEvent.click(screen.getByRole('button', { name: 'Lihat trip SYNTHETIC-01' }));
+        expect(screen.getByRole('tab', { name: 'Trip & Armada' }).getAttribute('aria-selected')).toBe('true');
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('article')));
+        tab('Riwayat');
+        await screen.findByText('Belum ada perubahan status tercatat.');
+        expect(mocks.timeline).toHaveBeenCalledWith('DeliverySchedule', 'fixture-schedule');
+        expect(mocks.tripStatus).not.toHaveBeenCalled();
+        expect(mocks.generate).not.toHaveBeenCalled();
+    });
+
+    it('orders trip presentation by day without mutating assignment data and distinguishes unknown from zero weight', async () => {
+        const original = [trip({ id: 'later', departureDate: '2026-09-17T08:00:00Z', orders: [stop({ id: 'unknown', plannedWeightKg: null })] }), trip({ id: 'earlier', orders: [stop({ id: 'zero', plannedWeightKg: 0 })] })];
+        await mount(schedule({ vehicles: original }));
+        tab('Trip & Armada');
+        const cards = screen.getAllByRole('article');
+        expect(cards.map((card) => card.id)).toEqual(['schedule-trip-earlier', 'schedule-trip-later']);
+        expect(original.map((entry) => entry.id)).toEqual(['later', 'earlier']);
+        expect(within(cards[0]).getByRole('meter').getAttribute('aria-valuenow')).toBe('0');
+        expect(within(cards[0]).getByRole('meter').firstElementChild?.getAttribute('style')).toBe('width: 0%;');
+        expect(within(cards[1]).queryByRole('meter')).toBeNull();
+        expect(within(cards[1]).getByText(/Belum diisi · kapasitas/)).toBeTruthy();
+    });
+
     it('auto-selects the single matching trip and submits KG-only positive residual rounded weight with real IDs/date', async () => {
         await mount();
         await openAdd();
@@ -241,12 +278,12 @@ describe('ScheduleDetailClient characterization', () => {
     it('removes stops/trips by their IDs only after confirmation and preserves refresh semantics', async () => {
         await mount();
         vi.mocked(window.confirm).mockReturnValueOnce(false);
-        fireEvent.click(within(stopRow()).getByRole('button'));
+        fireEvent.click(within(stopRow()).getByRole('button', { name: /Hapus rencana/ }));
         expect(mocks.removeStop).not.toHaveBeenCalled();
-        fireEvent.click(within(stopRow()).getByRole('button'));
+        fireEvent.click(within(stopRow()).getByRole('button', { name: /Hapus rencana/ }));
         await waitFor(() => expect(mocks.removeStop).toHaveBeenCalledWith('fixture-stop'));
         await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
-        fireEvent.click(tripCard().getByRole('button', { name: '' }));
+        fireEvent.click(tripCard().getByRole('button', { name: /Hapus trip/ }));
         await waitFor(() => expect(mocks.removeTrip).toHaveBeenCalledWith('fixture-trip'));
         expect(window.confirm).toHaveBeenLastCalledWith('Yakin hapus trip "SYNTHETIC-01"? Stop akan dikembalikan ke "Belum diatur".');
         await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(2));
@@ -257,7 +294,8 @@ describe('ScheduleDetailClient characterization', () => {
             .mockResolvedValueOnce({ success: false, error: 'Synthetic generation rejected' })
             .mockRejectedValueOnce(new Error('Synthetic failure'));
         await mount();
-        const generate = () => fireEvent.click(screen.getByRole('button', { name: 'Buat Semua SJ (1)' }));
+        tripCard();
+        const generate = () => fireEvent.click(screen.getByRole('button', { name: 'Buat SJ · 1 rencana' }));
         generate();
         await waitFor(() => expect(mocks.warning).toHaveBeenCalledWith('1 SJ dibuat, 1 gagal.'));
         expect(mocks.generate).toHaveBeenLastCalledWith('fixture-trip');
@@ -267,24 +305,27 @@ describe('ScheduleDetailClient characterization', () => {
         generate();
         await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Gagal generate SJ.'));
         expect(mocks.refresh).toHaveBeenCalledOnce();
-        expect((screen.getByRole('button', { name: 'Buat Semua SJ (1)' }) as HTMLButtonElement).disabled).toBe(false);
+        expect((screen.getByRole('button', { name: 'Buat SJ · 1 rencana' }) as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('keeps trip lifecycle gates, capacity overflow, successful generation and delivery links', async () => {
         const view = await mount();
+        tripCard();
         expect(screen.getByText('108%')).toBeTruthy();
         expect(document.querySelector('.bg-red-500')?.getAttribute('style')).toBe('width: 100%;');
-        fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi Trip' }));
         await waitFor(() => expect(mocks.tripStatus).toHaveBeenCalledWith('fixture-trip', 'CONFIRMED'));
-        fireEvent.click(screen.getByRole('button', { name: 'Buat Semua SJ (1)' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Buat SJ · 1 rencana' }));
         await waitFor(() => expect(mocks.success).toHaveBeenCalledWith('1 Surat Jalan berhasil dibuat.'));
         view.rerender(<ScheduleDetailClient schedule={schedule({ vehicles: [trip({ status: 'CONFIRMED' })] })} />);
         expect(screen.queryByRole('button', { name: 'Berangkat' })).toBeNull();
-        fireEvent.click(screen.getByRole('button', { name: 'Batal' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Batalkan Konfirmasi' }));
         await waitFor(() => expect(mocks.tripStatus).toHaveBeenCalledWith('fixture-trip', 'PLANNED'));
         view.rerender(<ScheduleDetailClient schedule={schedule({ vehicles: [trip({ status: 'CONFIRMED', orders: [stop({ deliveryOrder: delivery() })] })] })} />);
+        tab('Rencana Kirim');
         expect(screen.getByRole('link', { name: 'DO-SYNTHETIC' }).getAttribute('href')).toBe('/sales/deliveries');
-        expect(screen.queryByRole('button', { name: /Buat Semua SJ/ })).toBeNull();
+        tripCard();
+        expect(screen.queryByRole('button', { name: /Buat SJ/ })).toBeNull();
         fireEvent.click(screen.getByRole('button', { name: 'Berangkat' }));
         await waitFor(() => expect(mocks.tripStatus).toHaveBeenCalledWith('fixture-trip', 'DEPARTED'));
         view.rerender(<ScheduleDetailClient schedule={schedule({ vehicles: [trip({ status: 'DEPARTED' })] })} />);
@@ -294,31 +335,31 @@ describe('ScheduleDetailClient characterization', () => {
 
     it('preserves draft/active/closed visibility and delete gating by linked DO rather than schedule status', async () => {
         const view = await mount();
-        expect(screen.getByRole('button', { name: 'Aktifkan' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Aktifkan Jadwal' })).toBeTruthy();
         expect(screen.getByRole('button', { name: 'Tambah SO' })).toBeTruthy();
-        expect(screen.getByRole('button', { name: 'Hapus Jadwal' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Opsi jadwal' })).toBeTruthy();
         view.rerender(<ScheduleDetailClient schedule={schedule({ status: 'ACTIVE' })} />);
-        expect(screen.queryByRole('button', { name: 'Aktifkan' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Aktifkan Jadwal' })).toBeNull();
         expect(screen.getByRole('button', { name: 'Tutup Minggu' })).toBeTruthy();
-        expect(tripCard().queryByRole('button', { name: '' })).toBeNull();
+        expect(tripCard().queryByRole('button', { name: /Hapus trip/ })).toBeNull();
         view.rerender(<ScheduleDetailClient schedule={schedule({ status: 'CLOSED' })} />);
         expect(screen.getByRole('button', { name: 'Buka Kembali' })).toBeTruthy();
         expect(screen.queryByRole('button', { name: 'Tambah SO' })).toBeNull();
-        expect(within(stopRow()).queryByRole('button')).toBeNull();
-        expect(screen.getByRole('button', { name: 'Hapus Jadwal' })).toBeTruthy();
+        expect(within(stopRow()).queryByRole('button', { name: /Hapus rencana/ })).toBeNull();
+        expect(screen.getByRole('button', { name: 'Opsi jadwal' })).toBeTruthy();
         // Existing trip actions are NOT gated by isEditable; preserve, don't fix.
-        expect(screen.getByRole('button', { name: 'Konfirmasi' })).toBeTruthy();
+        expect(tripCard().getByRole('button', { name: 'Konfirmasi Trip' })).toBeTruthy();
         view.rerender(<ScheduleDetailClient schedule={schedule({ status: 'CLOSED', vehicles: [trip({ orders: [stop({ deliveryOrder: delivery() })] })] })} />);
-        expect(screen.queryByRole('button', { name: 'Hapus Jadwal' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Opsi jadwal' })).toBeNull();
     });
 
     it('sends schedule transitions, holds pending gates and refreshes only a successful status update', async () => {
         const pending = deferred<Result>();
         mocks.status.mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ success: true });
         const view = await mount();
-        fireEvent.click(screen.getByRole('button', { name: 'Aktifkan' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Aktifkan Jadwal' }));
         expect(mocks.status).toHaveBeenCalledWith('fixture-schedule', { status: 'ACTIVE' });
-        expect((screen.getByRole('button', { name: 'Hapus Jadwal' }) as HTMLButtonElement).disabled).toBe(true);
+        expect((screen.getByRole('button', { name: 'Opsi jadwal' }) as HTMLButtonElement).disabled).toBe(true);
         await act(async () => pending.resolve({ success: false, error: 'Synthetic status rejected' }));
         expect(mocks.error).toHaveBeenCalledWith('Synthetic status rejected');
         expect(mocks.refresh).not.toHaveBeenCalled();
@@ -333,16 +374,17 @@ describe('ScheduleDetailClient characterization', () => {
         mocks.removeSchedule.mockResolvedValueOnce({ success: false, error: 'Synthetic delete rejected' }).mockResolvedValueOnce({ success: true });
         await mount(schedule({ vehicles: [] }));
         expect(screen.getByText(/Belum ada SO yang dijadwalkan/)).toBeTruthy();
+        tab('Trip & Armada');
         expect(screen.getByText(/Belum ada trip. Buat trip/)).toBeTruthy();
         expect(screen.getByRole('link', { name: 'Kembali' }).getAttribute('href')).toBe('/sales/delivery-schedules');
         expect(screen.getByText('0 kg')).toBeTruthy();
         vi.mocked(window.confirm).mockReturnValueOnce(false);
-        fireEvent.click(screen.getByRole('button', { name: 'Hapus Jadwal' }));
+        await deleteSchedule();
         expect(mocks.removeSchedule).not.toHaveBeenCalled();
-        fireEvent.click(screen.getByRole('button', { name: 'Hapus Jadwal' }));
+        await deleteSchedule();
         await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Synthetic delete rejected'));
         expect(mocks.push).not.toHaveBeenCalled();
-        fireEvent.click(screen.getByRole('button', { name: 'Hapus Jadwal' }));
+        await deleteSchedule();
         await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/sales/delivery-schedules'));
         expect(mocks.removeSchedule).toHaveBeenLastCalledWith('fixture-schedule');
         expect(mocks.refresh).not.toHaveBeenCalled();

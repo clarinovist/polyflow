@@ -16,6 +16,7 @@ import {
 import { createSalesOrder, updateSalesOrder } from '@/actions/sales/sales';
 import { isBillableDeliveryStatus } from '@/lib/sales/delivery-status';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
     Form,
@@ -877,13 +878,12 @@ export function SalesOrderForm({
                     </Alert>
                 )}
 
-                <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                    <AlertTitle>Sales Order untuk pesanan customer</AlertTitle>
-                    <AlertDescription>
-                        Untuk build stock internal, gunakan Production Order di
-                        menu Planning.
-                    </AlertDescription>
-                </Alert>
+                <p className="rounded-lg bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                    Untuk pesanan pelanggan. Produksi stok internal dibuat
+                    melalui Production Order di menu Planning.
+                </p>
+
+                <h2 className="text-base font-semibold">Informasi Pesanan</h2>
 
                 {/* Header Information */}
                 <OrderHeaderFields
@@ -953,9 +953,9 @@ export function SalesOrderForm({
                     )}
 
                     {/* Desktop Table View */}
-                    <div className="hidden md:block rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 overflow-x-auto">
-                        <Table className="min-w-[900px]">
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-900">
+                    <div className="hidden rounded-lg border bg-card md:block">
+                        <Table className="min-w-[900px] [&_tbody_td]:align-top">
+                            <TableHeader className="bg-muted/40">
                                 <TableRow>
                                     <TableHead className="w-[50px] text-center">
                                         #
@@ -1019,16 +1019,32 @@ export function SalesOrderForm({
                                                 index={index}
                                                 openProduct={openProduct}
                                                 setOpenProduct={setOpenProduct}
-                                                CUSTOM_ITEM_PREFIX={CUSTOM_ITEM_PREFIX}
+                                                CUSTOM_ITEM_PREFIX={
+                                                    CUSTOM_ITEM_PREFIX
+                                                }
                                                 customItems={customItems}
-                                                filteredProducts={filteredProducts}
-                                                productEmptyMessage={productEmptyMessage}
+                                                filteredProducts={
+                                                    filteredProducts
+                                                }
+                                                productEmptyMessage={
+                                                    productEmptyMessage
+                                                }
                                                 selectProduct={selectProduct}
-                                                toDisplayUnitPrice={toDisplayUnitPrice}
-                                                getCustomerBasePrice={getCustomerBasePrice}
-                                                getPriceSourceLabel={getPriceSourceLabel}
-                                                setCustomItemIndex={setCustomItemIndex}
-                                                setQuickAddIndex={setQuickAddIndex}
+                                                toDisplayUnitPrice={
+                                                    toDisplayUnitPrice
+                                                }
+                                                getCustomerBasePrice={
+                                                    getCustomerBasePrice
+                                                }
+                                                getPriceSourceLabel={
+                                                    getPriceSourceLabel
+                                                }
+                                                setCustomItemIndex={
+                                                    setCustomItemIndex
+                                                }
+                                                setQuickAddIndex={
+                                                    setQuickAddIndex
+                                                }
                                                 variant={variant}
                                             />
 
@@ -1037,7 +1053,9 @@ export function SalesOrderForm({
                                                 form={form}
                                                 index={index}
                                                 rawQtyInputs={rawQtyInputs}
-                                                setRawQtyInputs={setRawQtyInputs}
+                                                setRawQtyInputs={
+                                                    setRawQtyInputs
+                                                }
                                                 unitMeta={unitMeta}
                                             />
 
@@ -1046,9 +1064,13 @@ export function SalesOrderForm({
                                                 form={form}
                                                 index={index}
                                                 rawPriceInputs={rawPriceInputs}
-                                                setRawPriceInputs={setRawPriceInputs}
+                                                setRawPriceInputs={
+                                                    setRawPriceInputs
+                                                }
                                                 variant={variant}
-                                                getPriceSourceLabel={getPriceSourceLabel}
+                                                getPriceSourceLabel={
+                                                    getPriceSourceLabel
+                                                }
                                             />
 
                                             {/* Diskon */}
@@ -1120,16 +1142,34 @@ export function SalesOrderForm({
                                                         return (
                                                             <DesktopDiscountField
                                                                 index={index}
-                                                                displayValue={displayValue}
-                                                                handleDiscountChange={handleDiscountChange}
-                                                                rawDiscountInputs={rawDiscountInputs}
-                                                                discType={discType}
-                                                                setRawDiscountInputs={setRawDiscountInputs}
-                                                                toggleDiscountType={toggleDiscountType}
-                                                                afterDisc={afterDisc}
+                                                                displayValue={
+                                                                    displayValue
+                                                                }
+                                                                handleDiscountChange={
+                                                                    handleDiscountChange
+                                                                }
+                                                                rawDiscountInputs={
+                                                                    rawDiscountInputs
+                                                                }
+                                                                discType={
+                                                                    discType
+                                                                }
+                                                                setRawDiscountInputs={
+                                                                    setRawDiscountInputs
+                                                                }
+                                                                toggleDiscountType={
+                                                                    toggleDiscountType
+                                                                }
+                                                                afterDisc={
+                                                                    afterDisc
+                                                                }
                                                                 sub={sub}
-                                                                selectedCustomerCeiling={selectedCustomerCeiling}
-                                                                discField={discField}
+                                                                selectedCustomerCeiling={
+                                                                    selectedCustomerCeiling
+                                                                }
+                                                                discField={
+                                                                    discField
+                                                                }
                                                             />
                                                         );
                                                     }}
@@ -1141,7 +1181,9 @@ export function SalesOrderForm({
                                                 form={form}
                                                 index={index}
                                                 taxableItems={taxableItems}
-                                                setTaxableItems={setTaxableItems}
+                                                setTaxableItems={
+                                                    setTaxableItems
+                                                }
                                                 afterDisc={afterDisc}
                                                 tax={tax}
                                             />
@@ -1160,7 +1202,8 @@ export function SalesOrderForm({
                                                     onClick={() =>
                                                         handleRemoveItem(index)
                                                     }
-                                                    className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                                                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                                    aria-label={`Hapus item ${index + 1}`}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -1182,16 +1225,6 @@ export function SalesOrderForm({
                             </TableBody>
                         </Table>
                     </div>
-
-                    {/* Desktop Summary Totals */}
-                    {fields.length > 0 && (
-                        <DesktopOrderTotals
-                            form={form}
-                            totals={totals}
-                            isShippingFromFleet={isShippingFromFleet}
-                            watchShippingCost={watchShippingCost}
-                        />
-                    )}
 
                     {/* Mobile: Card view */}
                     <div className="md:hidden space-y-3">
@@ -1226,7 +1259,9 @@ export function SalesOrderForm({
                                     <MobileProductHeader
                                         form={form}
                                         index={index}
-                                        setMobileProductSearch={setMobileProductSearch}
+                                        setMobileProductSearch={
+                                            setMobileProductSearch
+                                        }
                                         CUSTOM_ITEM_PREFIX={CUSTOM_ITEM_PREFIX}
                                         customItems={customItems}
                                         filteredProducts={filteredProducts}
@@ -1243,7 +1278,9 @@ export function SalesOrderForm({
                                         rawQtyInputs={rawQtyInputs}
                                         setRawQtyInputs={setRawQtyInputs}
                                         variant={variant}
-                                        getPriceSourceLabel={getPriceSourceLabel}
+                                        getPriceSourceLabel={
+                                            getPriceSourceLabel
+                                        }
                                     />
 
                                     {/* Discount & Tax */}
@@ -1304,15 +1341,27 @@ export function SalesOrderForm({
                                                 return (
                                                     <MobileDiscountField
                                                         index={index}
-                                                        displayValue={displayValue}
-                                                        handleDiscountChange={handleDiscountChange}
-                                                        rawDiscountInputs={rawDiscountInputs}
+                                                        displayValue={
+                                                            displayValue
+                                                        }
+                                                        handleDiscountChange={
+                                                            handleDiscountChange
+                                                        }
+                                                        rawDiscountInputs={
+                                                            rawDiscountInputs
+                                                        }
                                                         discType={discType}
-                                                        setRawDiscountInputs={setRawDiscountInputs}
-                                                        toggleDiscountType={toggleDiscountType}
+                                                        setRawDiscountInputs={
+                                                            setRawDiscountInputs
+                                                        }
+                                                        toggleDiscountType={
+                                                            toggleDiscountType
+                                                        }
                                                         afterDisc={afterDisc}
                                                         sub={sub}
-                                                        selectedCustomerCeiling={selectedCustomerCeiling}
+                                                        selectedCustomerCeiling={
+                                                            selectedCustomerCeiling
+                                                        }
                                                         discField={discField}
                                                     />
                                                 );
@@ -1362,20 +1411,49 @@ export function SalesOrderForm({
                                 untuk menambahkan produk.
                             </div>
                         )}
+                    </div>
+                </div>
 
-                        {/* Mobile totals */}
-                        {fields.length > 0 && (
-                            <MobileOrderTotals
+                <div className="grid items-start gap-6 md:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="notes"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Catatan</FormLabel>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder="Catatan pesanan (opsional)"
+                                        className="min-h-28 resize-y"
+                                        {...field}
+                                        value={field.value || ''}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {fields.length > 0 && (
+                        <div className="min-w-0">
+                            <DesktopOrderTotals
                                 form={form}
                                 totals={totals}
                                 isShippingFromFleet={isShippingFromFleet}
                                 watchShippingCost={watchShippingCost}
                             />
-                        )}
-                    </div>
+                            <div className="md:hidden">
+                                <MobileOrderTotals
+                                    form={form}
+                                    totals={totals}
+                                    isShippingFromFleet={isShippingFromFleet}
+                                    watchShippingCost={watchShippingCost}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div className="flex justify-end gap-4">
+                <div className="flex justify-end gap-3 border-t pt-5">
                     <Button
                         variant="outline"
                         type="button"

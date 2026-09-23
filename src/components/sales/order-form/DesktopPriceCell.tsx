@@ -82,7 +82,7 @@ export function DesktopPriceCell({
                                 {getPriceSourceLabel(variant)}
                             </span>
                         )}
-                        <div className="flex items-center justify-end gap-1.5 mt-1">
+                        <div className="mt-2 flex items-center justify-end gap-1.5">
                             <Checkbox
                                 id={`isFreeItem-${index}`}
                                 checked={Boolean(
@@ -113,7 +113,7 @@ export function DesktopPriceCell({
                             />
                             <label
                                 htmlFor={`isFreeItem-${index}`}
-                                className="text-[10px] text-muted-foreground cursor-pointer font-medium select-none whitespace-nowrap"
+                                className="cursor-pointer select-none whitespace-nowrap text-xs font-medium text-muted-foreground"
                             >
                                 Sampel / Gratis
                             </label>

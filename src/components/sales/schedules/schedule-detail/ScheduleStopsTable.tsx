@@ -41,6 +41,7 @@ interface ScheduleStopsTableProps {
     setAssignTripId: (value: string) => void;
     handleAssignToTrip: (stopId: string, tripId: string) => Promise<void>;
     handleRemoveStop: (stopId: string) => Promise<void>;
+    onViewTrip: (tripId: string) => void;
 }
 
 export function ScheduleStopsTable({
@@ -54,260 +55,227 @@ export function ScheduleStopsTable({
     setAssignTripId,
     handleAssignToTrip,
     handleRemoveStop,
+    onViewTrip,
 }: ScheduleStopsTableProps) {
-    return (
-        allStops.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-                Belum ada SO yang dijadwalkan. Klik Tambah SO untuk
-                memulai.
+    if (allStops.length === 0) {
+        return (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+                Belum ada SO yang dijadwalkan. Klik Tambah SO untuk memulai.
             </div>
-        ) : (
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead>No. SO</TableHead>
-                        <TableHead>Aktivitas</TableHead>
-                        <TableHead>Customer</TableHead>
+        );
+    }
+    return (
+        <Table className="[&_tbody_td]:align-top">
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Pesanan / Pelanggan</TableHead>
+                    <TableHead>Trip / Tanggal</TableHead>
+                    <TableHead className="text-right">Berat Rencana</TableHead>
+                    <TableHead>Surat Jalan / Status</TableHead>
+                    {isEditable && (
                         <TableHead className="text-right">
-                            Berat Rencana
+                            <span className="sr-only">Aksi</span>
                         </TableHead>
-                        <TableHead>Surat Jalan</TableHead>
-                        <TableHead>Trip</TableHead>
-                        <TableHead>Status</TableHead>
-                        {isEditable && (
-                            <TableHead className="text-right">
-                                Aksi
-                            </TableHead>
-                        )}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {allStops.map((stop, idx) => (
+                    )}
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {allStops.map((stop) => {
+                    const order =
+                        stop.salesOrder || stop.deliveryOrder?.salesOrder;
+                    const reference =
+                        stop.salesOrder?.orderNumber ||
+                        stop.deliveryOrder?.orderNumber ||
+                        stop.activityLabel ||
+                        'Aktivitas';
+                    const customer =
+                        order?.customer?.name ||
+                        stop.activityCustomer ||
+                        stop.activityLabel ||
+                        '—';
+                    const items = order?.items || [];
+                    return (
                         <TableRow key={stop.id}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell className="font-medium">
-                                <div>
-                                    {stop.salesOrder?.orderNumber ||
-                                        stop.deliveryOrder
-                                            ?.orderNumber ||
-                                        '-'}
+                            <TableCell className="min-w-48 max-w-80 whitespace-normal py-4">
+                                <div className="font-medium">{reference}</div>
+                                <div className="mt-1 text-sm text-muted-foreground">
+                                    {customer}
                                 </div>
-                                {(() => {
-                                    const items =
-                                        stop.salesOrder?.items ||
-                                        stop.deliveryOrder
-                                            ?.salesOrder?.items;
-                                    if (
-                                        !items ||
-                                        items.length === 0
-                                    )
-                                        return null;
-                                    return (
-                                        <div className="text-[10px] text-muted-foreground font-normal mt-1 leading-tight space-y-0.5 max-w-[200px]">
-                                            {items.map((item) => {
-                                                const rem =
-                                                    Number(
-                                                        item.quantity,
-                                                    ) -
-                                                    Number(
-                                                        item.deliveredQty,
-                                                    );
-                                                return (
-                                                    <div
-                                                        key={
-                                                            item.id
-                                                        }
-                                                        className="truncate"
-                                                        title={`${item.productVariant.name} (${rem.toLocaleString('id-ID')} ${item.productVariant.primaryUnit} sisa)`}
-                                                    >
-                                                        •{' '}
-                                                        {
-                                                            item
-                                                                .productVariant
-                                                                .name
-                                                        }{' '}
-                                                        (
-                                                        {rem.toLocaleString(
-                                                            'id-ID',
-                                                        )}{' '}
-                                                        {
-                                                            item
-                                                                .productVariant
-                                                                .primaryUnit
-                                                        }{' '}
-                                                        sisa)
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    );
-                                })()}
-                            </TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-1">
-                                    <Badge className={ACTIVITY_TYPE_STYLES[stop.activityType] || ''}>
-                                        {ACTIVITY_TYPE_LABELS[stop.activityType] || stop.activityType}
-                                    </Badge>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                {stop.salesOrder?.customer?.name ||
-                                    stop.deliveryOrder?.salesOrder
-                                        ?.customer?.name ||
-                                    stop.activityCustomer ||
-                                    stop.activityLabel ||
-                                    '-'}
-                            </TableCell>
-                            <TableCell className="text-right">
-                                {stop.plannedWeightKg
-                                    ? `${stop.plannedWeightKg.toLocaleString('id-ID')} kg`
-                                    : '-'}
-                            </TableCell>
-                            <TableCell>
-                                {stop.deliveryOrder ? (
-                                    <Link
-                                        href="/sales/deliveries"
-                                        className="text-blue-600 hover:underline text-sm"
+                                {stop.activityType !== 'DELIVERY' && (
+                                    <Badge
+                                        className={`mt-2 ${ACTIVITY_TYPE_STYLES[stop.activityType] || ''}`}
                                     >
-                                        {
-                                            stop.deliveryOrder
-                                                .orderNumber
-                                        }
-                                    </Link>
+                                        {ACTIVITY_TYPE_LABELS[
+                                            stop.activityType
+                                        ] || stop.activityType}
+                                    </Badge>
+                                )}
+                                {items.length > 0 && (
+                                    <details className="mt-2 text-xs">
+                                        <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring">
+                                            {items.length} item · Lihat detail
+                                        </summary>
+                                        <ul className="mt-2 space-y-2 border-l pl-3 text-muted-foreground">
+                                            {items.map((item) => (
+                                                <li key={item.id}>
+                                                    <span className="block text-foreground">
+                                                        {
+                                                            item.productVariant
+                                                                .name
+                                                        }
+                                                    </span>
+                                                    Sisa SO:{' '}
+                                                    {(
+                                                        Number(item.quantity) -
+                                                        Number(
+                                                            item.deliveredQty,
+                                                        )
+                                                    ).toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    {
+                                                        item.productVariant
+                                                            .primaryUnit
+                                                    }
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </details>
+                                )}
+                            </TableCell>
+                            <TableCell className="py-4">
+                                {stop.tripId ? (
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                onViewTrip(stop.tripId!)
+                                            }
+                                            className="rounded-sm text-sm font-medium underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+                                            aria-label={`Lihat trip ${stop.tripPlate}`}
+                                        >
+                                            {stop.tripPlate}
+                                        </button>
+                                        <div className="text-xs text-muted-foreground">
+                                            {stop.tripDate
+                                                ? formatDateWithDay(
+                                                      stop.tripDate,
+                                                  )
+                                                : 'Tanggal belum diatur'}
+                                        </div>
+                                    </div>
                                 ) : (
-                                    <span className="text-muted-foreground text-sm">
-                                        —
+                                    <div className="space-y-2">
+                                        <span className="text-sm text-muted-foreground">
+                                            Belum diatur
+                                        </span>
+                                        {isEditable && trips.length > 0 && (
+                                            <Select
+                                                value={
+                                                    assignTripStopId === stop.id
+                                                        ? assignTripId
+                                                        : ''
+                                                }
+                                                onValueChange={(value) => {
+                                                    setAssignTripStopId(
+                                                        stop.id,
+                                                    );
+                                                    setAssignTripId(value);
+                                                    handleAssignToTrip(
+                                                        stop.id,
+                                                        value,
+                                                    );
+                                                }}
+                                            >
+                                                <SelectTrigger
+                                                    className="h-9 w-36 text-xs"
+                                                    aria-label={`Atur trip ${reference}`}
+                                                >
+                                                    <SelectValue placeholder="Atur Trip..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {trips
+                                                        .filter(
+                                                            (trip) =>
+                                                                trip.status ===
+                                                                    'PLANNED' ||
+                                                                trip.status ===
+                                                                    'CONFIRMED',
+                                                        )
+                                                        .map((trip) => (
+                                                            <SelectItem
+                                                                key={trip.id}
+                                                                value={trip.id}
+                                                            >
+                                                                {trip.vehicle
+                                                                    ?.plateNumber ||
+                                                                    trip.externalPlate ||
+                                                                    'Trip'}{' '}
+                                                                (
+                                                                {formatDateWithDay(
+                                                                    trip.departureDate,
+                                                                )}
+                                                                )
+                                                            </SelectItem>
+                                                        ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                )}
+                            </TableCell>
+                            <TableCell className="py-4 text-right tabular-nums">
+                                {stop.plannedWeightKg != null ? (
+                                    `${stop.plannedWeightKg.toLocaleString('id-ID')} kg`
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                        Belum diisi
                                     </span>
                                 )}
                             </TableCell>
-                            <TableCell>
-                                {stop.tripId ? (
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="flex items-center gap-1">
-                                            <Badge
-                                                variant="outline"
-                                                className="text-xs"
-                                            >
-                                                {stop.tripPlate}
-                                            </Badge>
+                            <TableCell className="py-4">
+                                <div className="space-y-2">
+                                    {stop.deliveryOrder ? (
+                                        <Link
+                                            href="/sales/deliveries"
+                                            className="text-sm underline underline-offset-4"
+                                        >
+                                            {stop.deliveryOrder.orderNumber}
+                                        </Link>
+                                    ) : (
+                                        <div className="text-xs text-muted-foreground">
+                                            Belum ada SJ
                                         </div>
-                                        {stop.tripDate && (
-                                            <span className="text-[10px] text-muted-foreground">
-                                                {formatDateWithDay(
-                                                    stop.tripDate,
-                                                )}
-                                            </span>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-xs text-orange-600 italic">
-                                            Belum diatur
-                                        </span>
-                                        {isEditable &&
-                                            trips.length > 0 && (
-                                                <Select
-                                                    value={
-                                                        assignTripStopId ===
-                                                        stop.id
-                                                            ? assignTripId
-                                                            : ''
-                                                    }
-                                                    onValueChange={(
-                                                        v,
-                                                    ) => {
-                                                        setAssignTripStopId(
-                                                            stop.id,
-                                                        );
-                                                        setAssignTripId(
-                                                            v,
-                                                        );
-                                                        handleAssignToTrip(
-                                                            stop.id,
-                                                            v,
-                                                        );
-                                                    }}
-                                                >
-                                                    <SelectTrigger className="h-7 w-[130px] text-xs">
-                                                        <SelectValue placeholder="Atur Trip..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {trips
-                                                            .filter(
-                                                                (
-                                                                    t,
-                                                                ) =>
-                                                                    t.status ===
-                                                                        'PLANNED' ||
-                                                                    t.status ===
-                                                                        'CONFIRMED',
-                                                            )
-                                                            .map(
-                                                                (
-                                                                    t,
-                                                                ) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            t.id
-                                                                        }
-                                                                        value={
-                                                                            t.id
-                                                                        }
-                                                                    >
-                                                                        {t
-                                                                            .vehicle
-                                                                            ?.plateNumber || t.externalPlate || 'Trip'}{' '}
-                                                                        (
-                                                                        {formatDateWithDay(
-                                                                            t.departureDate,
-                                                                        )}
-
-                                                                        )
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                    </div>
-                                )}
-                            </TableCell>
-                            <TableCell>
-                                <Badge
-                                    className={
-                                        STOP_STATUS_STYLES[
-                                            stop.status
-                                        ]
-                                    }
-                                >
-                                    {
-                                        STOP_STATUS_LABELS[
-                                            stop.status
-                                        ]
-                                    }
-                                </Badge>
+                                    )}
+                                    <Badge
+                                        className={
+                                            STOP_STATUS_STYLES[stop.status]
+                                        }
+                                    >
+                                        {STOP_STATUS_LABELS[stop.status] ||
+                                            stop.status}
+                                    </Badge>
+                                </div>
                             </TableCell>
                             {isEditable && (
-                                <TableCell className="text-right">
+                                <TableCell className="py-3 text-right">
                                     <Button
                                         variant="ghost"
-                                        size="sm"
+                                        size="icon"
+                                        aria-label={`Hapus rencana ${reference}`}
                                         onClick={() =>
-                                            handleRemoveStop(
-                                                stop.id,
-                                            )
+                                            handleRemoveStop(stop.id)
                                         }
                                         disabled={isActionLoading}
                                     >
-                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                        <Trash2 className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                 </TableCell>
                             )}
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        )
+                    );
+                })}
+            </TableBody>
+        </Table>
     );
 }

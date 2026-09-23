@@ -347,7 +347,7 @@ describe('PolyflowChatPanel article references', () => {
 
 describe('PolyflowChatWidget collision protection and minimize', () => {
     it('reserves a bounded desktop safe area without inspecting page actions', () => {
-        pathname = '/sales'; // Finance uses the opt-in navigation slots instead.
+        pathname = '/warehouse'; // Finance and Sales use navigation slots instead.
         const globalCss = readFileSync('src/app/globals.css', 'utf8');
         expect(globalCss).toMatch(
             /@media \(min-width: 64rem\) \{[\s\S]*?body:has\(\[data-desktop-safe-area\]\) main::after/,
@@ -472,7 +472,7 @@ describe('PolyflowChatWidget collision protection and minimize', () => {
     });
 
     it('retains conversation and draft, preserves events, and restores focus on Escape', async () => {
-        pathname = '/sales';
+        pathname = '/warehouse';
         historyHandler = async () => json({ conversation: conversation() });
         const dispatchEvent = vi.spyOn(window, 'dispatchEvent');
         render(<PolyflowChatWidget contextualProfilesEnabled />);
@@ -499,7 +499,7 @@ describe('PolyflowChatWidget collision protection and minimize', () => {
     });
 
     it('finishes a pending reply while minimized and outside click closes without reset', async () => {
-        pathname = '/sales';
+        pathname = '/warehouse';
         let resolve!: (value: Response) => void;
         chatHandler = async (url) => url.endsWith('/stream') ? json({}, 500) : new Promise((r) => { resolve = r; });
         render(<PolyflowChatWidget contextualProfilesEnabled />);

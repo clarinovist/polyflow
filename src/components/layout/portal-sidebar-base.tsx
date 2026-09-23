@@ -40,6 +40,7 @@ interface PortalSidebarBaseProps {
     children: ReactNode;
     /** Opt-in slots; the authenticated root widget remains the single chat owner. */
     assistantSlots?: boolean;
+    assistantSlotPrefix?: 'finance' | 'sales';
 }
 
 export function PortalSidebarBase({
@@ -48,6 +49,7 @@ export function PortalSidebarBase({
     accentColor = 'primary',
     children,
     assistantSlots = false,
+    assistantSlotPrefix = 'finance',
 }: PortalSidebarBaseProps) {
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -66,7 +68,7 @@ export function PortalSidebarBase({
             window.dispatchEvent(
                 new Event('polyflow-assistant-navigation-ready'),
             );
-    }, [assistantSlots]);
+    }, [assistantSlots, assistantSlotPrefix]);
 
     const cycleTheme = () => {
         if (theme === 'light') setTheme('dark');
@@ -107,7 +109,7 @@ export function PortalSidebarBase({
                 <PolyFlowLogo showText={true} size="sm" />
                 {assistantSlots && (
                     <div
-                        id="finance-assistant-mobile"
+                        id={`${assistantSlotPrefix}-assistant-mobile`}
                         className="ml-auto shrink-0"
                     />
                 )}
@@ -177,7 +179,7 @@ export function PortalSidebarBase({
 
                     {assistantSlots && (
                         <div
-                            id="finance-assistant-desktop"
+                            id={`${assistantSlotPrefix}-assistant-desktop`}
                             className="hidden px-2 pt-2 lg:flex lg:justify-center"
                         />
                     )}
@@ -186,7 +188,7 @@ export function PortalSidebarBase({
                     <nav
                         aria-label={`Navigasi ${portalName}`}
                         className={cn(
-                            'flex-1 overflow-y-auto space-y-6 mt-2 custom-scrollbar',
+                            'min-h-0 flex-1 overflow-y-auto space-y-6 mt-2 custom-scrollbar',
                             effectiveCollapsed ? 'px-2 py-4' : 'p-4',
                         )}
                     >

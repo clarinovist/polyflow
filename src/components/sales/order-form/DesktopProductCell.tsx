@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/popover';
 import { TableCell } from '@/components/ui/table';
 import { cn, formatRupiah } from '@/lib/utils/utils';
-import { Plus, Check } from 'lucide-react';
+import { Plus, Check, ChevronDown } from 'lucide-react';
 import {
     Command,
     CommandEmpty,
@@ -121,7 +121,7 @@ export function DesktopProductCell({
                                                       })()
                                                 : 'Pilih Produk'}
                                         </div>
-                                        <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
                                 </FormControl>
                             </PopoverTrigger>

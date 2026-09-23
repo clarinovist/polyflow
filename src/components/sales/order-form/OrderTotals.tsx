@@ -19,7 +19,8 @@ export function DesktopOrderTotals({
     watchShippingCost,
 }: DesktopOrderTotalsProps) {
     return (
-        <div className="hidden md:block w-full max-w-sm ml-auto border rounded-lg p-4 bg-muted/30 space-y-2">
+        <div className="hidden w-full space-y-3 rounded-lg border bg-muted/30 p-4 md:block">
+            <h3 className="text-sm font-semibold">Ringkasan Pesanan</h3>
             <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
                     {formLabels.subtotal}
@@ -59,6 +60,7 @@ export function DesktopOrderTotals({
                             valueAsNumber: true,
                         })}
                         className="w-32 text-right h-9"
+                        aria-label="Ongkos Kirim (Rp)"
                         placeholder="0"
                     />
                 )}
@@ -123,6 +125,7 @@ export function MobileOrderTotals({
                             valueAsNumber: true,
                         })}
                         className="w-28 text-right h-11"
+                        aria-label="Ongkos Kirim (Rp)"
                         placeholder="0"
                     />
                 )}

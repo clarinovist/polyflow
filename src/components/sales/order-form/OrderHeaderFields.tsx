@@ -1,4 +1,3 @@
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
     FormControl,
@@ -32,7 +31,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { salesLabels, formLabels } from '@/lib/labels';
+import { salesLabels } from '@/lib/labels';
 import type { SalesOrderFormProps } from '../sales-order-types';
 import { SalesOrderCustomerPicker } from '../SalesOrderCustomerPicker';
 import type { Dispatch, SetStateAction } from 'react';
@@ -83,31 +82,8 @@ export function OrderHeaderFields({
     salesTeam,
 }: OrderHeaderFieldsProps) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-                control={form.control}
-                name="customerId"
-                render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                        <FormLabel>{salesLabels.customer}</FormLabel>
-                        <FormControl>
-                            <SalesOrderCustomerPicker
-                                customers={customers}
-                                value={field.value}
-                                onChange={field.onChange}
-                                onAddCustomer={() => setOpenNewCustomer(true)}
-                                isOverLimit={isOverLimit}
-                            />
-                        </FormControl>
-                        <FormDescription>
-                            Wajib diisi untuk Sales Order customer.
-                        </FormDescription>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-
-            {/* Credit Exposure Banner */}
+        <div className="grid grid-cols-1 items-start gap-x-6 gap-y-5 md:grid-cols-2">
+            {/* Keep credit feedback on its own row so field pairs do not shift. */}
             {watchCustomerId && loadingExposure && (
                 <div className="col-span-full flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -188,6 +164,29 @@ export function OrderHeaderFields({
                     </Alert>
                 </div>
             )}
+
+            <FormField
+                control={form.control}
+                name="customerId"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>{salesLabels.customer}</FormLabel>
+                        <FormControl>
+                            <SalesOrderCustomerPicker
+                                customers={customers}
+                                value={field.value}
+                                onChange={field.onChange}
+                                onAddCustomer={() => setOpenNewCustomer(true)}
+                                isOverLimit={isOverLimit}
+                            />
+                        </FormControl>
+                        <FormDescription>
+                            Wajib diisi untuk Sales Order customer.
+                        </FormDescription>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
 
             {/* Source Location */}
             <FormField
@@ -273,37 +272,44 @@ export function OrderHeaderFields({
                                 </Tooltip>
                             )}
                         </FormLabel>
-                        <Select
-                            onValueChange={field.onChange}
-                            defaultValue={
-                                field.value ||
-                                lockedOrderType ||
-                                'MAKE_TO_STOCK'
-                            }
-                            disabled={!!lockedOrderType}
-                        >
+                        {lockedOrderType ? (
                             <FormControl>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Pilih tipe order" />
-                                </SelectTrigger>
+                                <output className="flex min-h-9 items-center rounded-md border border-dashed bg-muted/30 px-3 text-sm font-medium">
+                                    {lockedOrderType === 'MAKE_TO_STOCK'
+                                        ? salesLabels.fulfillFromStock
+                                        : lockedOrderType === 'MAKE_TO_ORDER'
+                                          ? salesLabels.fulfillProduce
+                                          : salesLabels.fulfillMaklon}
+                                </output>
                             </FormControl>
-                            <SelectContent>
-                                <SelectItem value="MAKE_TO_STOCK">
-                                    {salesLabels.fulfillFromStock}
-                                </SelectItem>
-                                <SelectItem value="MAKE_TO_ORDER">
-                                    {salesLabels.fulfillProduce}
-                                </SelectItem>
-                                <SelectItem value="MAKLON_JASA">
-                                    {salesLabels.fulfillMaklon}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                        ) : (
+                            <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value || 'MAKE_TO_STOCK'}
+                            >
+                                <FormControl>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Pilih tipe order" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="MAKE_TO_STOCK">
+                                        {salesLabels.fulfillFromStock}
+                                    </SelectItem>
+                                    <SelectItem value="MAKE_TO_ORDER">
+                                        {salesLabels.fulfillProduce}
+                                    </SelectItem>
+                                    <SelectItem value="MAKLON_JASA">
+                                        {salesLabels.fulfillMaklon}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
                         <FormDescription>
                             {mode === 'edit'
                                 ? salesLabels.orderTypeHelpLockedOnEdit
                                 : lockedOrderType
-                                  ? salesLabels.orderTypeHelpFromIntent
+                                  ? 'Sesuai pilihan saat membuat pesanan.'
                                   : salesLabels.orderTypeHelpPick}
                         </FormDescription>
                         <FormMessage />
@@ -421,25 +427,6 @@ export function OrderHeaderFields({
                 />
             )}
 
-            {/* Notes */}
-            <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>{formLabels.notes}</FormLabel>
-                        <FormControl>
-                            <Input
-                                placeholder="Catatan opsional..."
-                                {...field}
-                                value={field.value || ''}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-
             {documentIntent === 'quotation' && (
                 <FormField
                     control={form.control}
@@ -505,7 +492,7 @@ export function OrderHeaderFields({
                 name="salesRepId"
                 render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Sales</FormLabel>
+                        <FormLabel>Penanggung Jawab Sales</FormLabel>
                         <Select
                             onValueChange={(value) =>
                                 field.onChange(

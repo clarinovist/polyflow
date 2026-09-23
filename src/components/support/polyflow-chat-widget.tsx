@@ -63,9 +63,13 @@ function AuthenticatedWidget({
     const trigger = useRef<HTMLButtonElement>(null);
     const dialog = useRef<HTMLDivElement>(null);
     const [launcherSlot, setLauncherSlot] = useState<HTMLElement | null>(null);
-    const financeNavigation =
-        (pathname === '/finance' || pathname.startsWith('/finance/')) &&
-        !pathname.startsWith('/finance/mobile');
+    const navigationPortal = ['/finance', '/sales']
+        .find(
+            (prefix) =>
+                (pathname === prefix || pathname.startsWith(`${prefix}/`)) &&
+                !pathname.startsWith(`${prefix}/mobile`),
+        )
+        ?.slice(1);
     const mobile =
         pathname === '/mobile' ||
         pathname.includes('/mobile/') ||
@@ -74,14 +78,14 @@ function AuthenticatedWidget({
         pathname.startsWith('/my');
 
     useEffect(() => {
-        if (!financeNavigation) return;
+        if (!navigationPortal) return;
         const media = window.matchMedia('(min-width: 1024px)');
         const updateSlot = () =>
             setLauncherSlot(
                 document.getElementById(
                     media.matches
-                        ? 'finance-assistant-desktop'
-                        : 'finance-assistant-mobile',
+                        ? `${navigationPortal}-assistant-desktop`
+                        : `${navigationPortal}-assistant-mobile`,
                 ),
             );
         updateSlot();
@@ -97,7 +101,7 @@ function AuthenticatedWidget({
                 updateSlot,
             );
         };
-    }, [financeNavigation]);
+    }, [navigationPortal]);
 
     useEffect(() => {
         if (!open) return;
@@ -114,7 +118,7 @@ function AuthenticatedWidget({
             // A transaction modal owns Escape while it is open.
             if (
                 event.key === 'Escape' &&
-                (!financeNavigation ||
+                (!navigationPortal ||
                     !document.querySelector(
                         '[role="alertdialog"], [role="dialog"][data-state="open"]',
                     ))
@@ -131,7 +135,7 @@ function AuthenticatedWidget({
             document.removeEventListener('pointerdown', onPointer);
             document.removeEventListener('keydown', onKey);
         };
-    }, [open, financeNavigation]);
+    }, [open, navigationPortal]);
 
     const launcher = (
         <Button
@@ -148,7 +152,7 @@ function AuthenticatedWidget({
                 setOpen(!open);
             }}
             className={
-                financeNavigation
+                navigationPortal
                     ? 'h-11 w-11 shrink-0 rounded-lg bg-purple-700 p-0 text-white hover:bg-purple-800'
                     : 'group h-11 w-11 p-0 sm:h-14 sm:w-auto sm:px-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 text-white shadow-lg flex items-center justify-center'
             }
@@ -156,14 +160,12 @@ function AuthenticatedWidget({
         >
             <MessageCircleHeart
                 className={
-                    financeNavigation
+                    navigationPortal
                         ? 'h-5 w-5 shrink-0'
                         : 'h-5 w-5 sm:mr-2 shrink-0'
                 }
             />
-            <span
-                className={financeNavigation ? 'sr-only' : 'hidden sm:inline'}
-            >
+            <span className={navigationPortal ? 'sr-only' : 'hidden sm:inline'}>
                 Asisten Polyflow
             </span>
         </Button>
@@ -174,15 +176,13 @@ function AuthenticatedWidget({
             ref={root}
             // globals.css uses these sentinels to reserve one bounded area at
             // the end of document flow. No page-wide measurement is needed.
-            data-polyflow-chat-fab={financeNavigation ? undefined : ''}
-            data-mobile-safe-area={
-                !financeNavigation && mobile ? '' : undefined
-            }
+            data-polyflow-chat-fab={navigationPortal ? undefined : ''}
+            data-mobile-safe-area={!navigationPortal && mobile ? '' : undefined}
             data-desktop-safe-area={
-                !financeNavigation && !mobile ? '' : undefined
+                !navigationPortal && !mobile ? '' : undefined
             }
             className={
-                financeNavigation
+                navigationPortal
                     ? 'print:hidden'
                     : `fixed z-[60] print:hidden ${
                           mobile
@@ -200,7 +200,7 @@ function AuthenticatedWidget({
                     tabIndex={-1}
                     hidden={!open}
                     className={
-                        financeNavigation
+                        navigationPortal
                             ? 'fixed right-3 top-20 z-40 max-h-[calc(100dvh-6rem)] w-[calc(100vw-1.5rem)] max-w-[420px] outline-none'
                             : 'absolute right-0 bottom-full mb-3 max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-[calc(100vw-1.5rem)] max-w-[420px] outline-none sm:mb-4 sm:w-[400px] md:w-[420px]'
                     }
@@ -224,7 +224,7 @@ function AuthenticatedWidget({
                     />
                 </div>
             )}
-            {financeNavigation
+            {navigationPortal
                 ? launcherSlot && createPortal(launcher, launcherSlot)
                 : launcher}
         </div>

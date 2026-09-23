@@ -116,10 +116,10 @@ export default async function CreateSalesOrderPage({
     };
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="mx-auto w-full max-w-screen-2xl p-4 md:p-6">
             <Card>
                 <CardHeader>
-                    <h1 className="text-lg font-semibold leading-none">
+                    <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
                         {reorderData
                             ? 'Pesan Ulang dari Pesanan Sebelumnya'
                             : `Pesanan Baru — ${intent ? intentLabels[intent] || intent : 'Pesanan Baru'}`}

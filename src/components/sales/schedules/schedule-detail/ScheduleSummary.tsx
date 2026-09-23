@@ -14,12 +14,16 @@ export function ScheduleSummary({
     unlinkedCount,
     trips,
 }: ScheduleSummaryProps) {
+    const missingWeightCount = allStops.filter(
+        (stop) => stop.plannedWeightKg == null,
+    ).length;
+    const hasWeight = allStops.some((stop) => stop.plannedWeightKg != null);
     return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
                 <CardContent className="pt-6">
                     <p className="text-sm text-muted-foreground">
-                        SO Dijadwalkan
+                        Rencana Terjadwal
                     </p>
                     <p className="text-2xl font-bold">{allStops.length}</p>
                 </CardContent>
@@ -30,14 +34,21 @@ export function ScheduleSummary({
                         Total Berat Rencana
                     </p>
                     <p className="text-2xl font-bold">
-                        {totalPlannedKg.toLocaleString('id-ID')} kg
+                        {allStops.length > 0 && !hasWeight
+                            ? 'Belum diisi'
+                            : `${totalPlannedKg.toLocaleString('id-ID')} kg`}
                     </p>
+                    {missingWeightCount > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {missingWeightCount} rencana belum memiliki berat
+                        </p>
+                    )}
                 </CardContent>
             </Card>
             <Card>
                 <CardContent className="pt-6">
                     <p className="text-sm text-muted-foreground">
-                        Belum ada SJ
+                        Rencana Tanpa SJ
                     </p>
                     <p
                         className={`text-2xl font-bold ${unlinkedCount > 0 ? 'text-orange-600' : ''}`}

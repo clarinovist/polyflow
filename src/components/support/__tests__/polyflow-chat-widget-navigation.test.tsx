@@ -43,10 +43,31 @@ describe('finance navigation assistant', () => {
         expect(screen.getByRole('dialog')).toBeTruthy(); modal.remove();
     });
     it('keeps other portals and the dedicated mobile portal floating', () => {
-        state.path = '/sales'; const { rerender } = render(<PolyflowChatWidget />);
+        state.path = '/warehouse'; const { rerender } = render(<PolyflowChatWidget />);
         expect(document.querySelector('[data-desktop-safe-area]')).toBeTruthy();
         state.path = '/finance/mobile'; rerender(<PolyflowChatWidget />);
         expect(document.querySelector('[data-mobile-safe-area]')).toBeTruthy();
+    });
+    it('docks sales navigation without creating a second chat owner or losing drafts on resize', () => {
+        state.path = '/sales/orders/create';
+        render(<><div id="sales-assistant-desktop" /><div id="sales-assistant-mobile" /><PolyflowChatWidget /></>);
+        const trigger = screen.getByRole('button', { name: 'Buka Asisten Polyflow' });
+        expect(trigger.parentElement?.id).toBe('sales-assistant-desktop');
+        expect(document.querySelector('[data-polyflow-chat-fab]')).toBeNull();
+        fireEvent.click(trigger);
+        fireEvent.change(screen.getByLabelText('Draft message'), { target: { value: 'Synthetic draft' } });
+        act(() => { desktop = false; resize(); });
+        expect(screen.getByRole('button', { name: 'Minimize Asisten Polyflow' }).parentElement?.id).toBe('sales-assistant-mobile');
+        expect((screen.getByLabelText('Draft message') as HTMLInputElement).value).toBe('Synthetic draft');
+        expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    });
+    it.each(['/sales/mobile', '/finance/mobile'])('keeps %s on the mobile launcher', (path) => {
+        state.path = path; render(<PolyflowChatWidget />);
+        expect(document.querySelector('[data-mobile-safe-area]')).toBeTruthy();
+    });
+    it('preserves the disabled widget on the dedicated field portal', () => {
+        state.path = '/field/sales'; render(<PolyflowChatWidget />);
+        expect(screen.queryByRole('button')).toBeNull();
     });
     it('does not render a launcher for unauthenticated users', () => {
         state.authenticated = false; renderWidget(); expect(screen.queryByRole('button')).toBeNull();

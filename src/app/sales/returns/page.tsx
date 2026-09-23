@@ -94,10 +94,6 @@ export default async function SalesReturnsPage({
                     <p className="text-muted-foreground">
                         {salesLabels.salesReturnsDesc} • Periode: {periodLabel}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Scope: returnDate ikut filter. Total retur di bawah =
-                        periode ini saja.
-                    </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" />

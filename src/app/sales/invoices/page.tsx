@@ -37,10 +37,6 @@ export default async function SalesInvoicesPage({
                         {salesLabels.salesInvoicesDesc} • Periode invoice:{' '}
                         {periodLabel}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Outstanding/piutang = global all-time (belum lunas semua
-                        periode), bukan hanya periode ini.
-                    </p>
                 </div>
                 <UrlTransactionDateFilter
                     defaultPreset={dateFilterDefaultPreset}

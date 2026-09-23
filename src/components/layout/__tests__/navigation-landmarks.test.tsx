@@ -40,6 +40,20 @@ vi.mock('@/lib/modules/module-registry', () => ({
 }));
 
 describe('sidebar navigation landmarks', () => {
+    it.each(['finance', 'sales'] as const)('reserves %s assistant slots outside the scrollable navigation', (portal) => {
+        const { container } = render(
+            <PortalSidebarBase user={{ name: 'Synthetic user' }} portalName={portal} assistantSlots assistantSlotPrefix={portal}>
+                <a href={`/${portal}`}>Beranda</a>
+            </PortalSidebarBase>,
+        );
+        const desktop = container.querySelector(`#${portal}-assistant-desktop`);
+        const mobile = container.querySelector(`#${portal}-assistant-mobile`);
+        expect(desktop).toBeTruthy();
+        expect(mobile).toBeTruthy();
+        expect(desktop?.closest('nav')).toBeNull();
+        expect(mobile?.closest('header')).toBeTruthy();
+    });
+
     it('names the dashboard navigation landmark', () => {
         render(
             <SidebarNav

@@ -202,6 +202,18 @@ afterEach(() => {
 });
 
 describe('SalesOrderForm payload characterization', () => {
+    it('keeps locked order context out of selectable fields and saves notes from the summary section', async () => {
+        renderForm();
+        expect(screen.queryByRole('combobox', { name: /Tipe Pesanan/ })).toBeNull();
+        const notes = screen.getByRole('textbox', { name: 'Catatan' });
+        expect(notes.tagName).toBe('TEXTAREA');
+        enter(notes, 'Synthetic delivery note');
+        await selectCustomer(0);
+        await selectProduct(baseProduct);
+        submit('create');
+        expect((await createdPayload()).notes).toBe('Synthetic delivery note');
+    });
+
     it('creates from empty defaults with a picked customer/product and optional warehouse', async () => {
         renderForm();
         await selectCustomer(0);

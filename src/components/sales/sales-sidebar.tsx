@@ -12,7 +12,6 @@ import {
     CalendarDays,
     Car,
     BarChart3,
-    FileSignature,
     Route,
     MapPinned,
     UserSearch,
@@ -48,20 +47,13 @@ export const salesLinks = [
                 href: '/sales',
                 icon: LayoutDashboard,
                 label: salesSidebarLabels.salesDashboard,
+                exact: true,
             },
         ],
     },
     {
         heading: 'Transaksi',
         items: [
-            // Penawaran menyatu ke lifecycle Sales Order (QUOTATION/QUOTATION_SENT),
-            // tapi tetap punya entry nav tersendiri yang redirect ke /sales/orders
-            // dengan filter status terisi — /sales/quotations.
-            {
-                href: '/sales/quotations',
-                icon: FileSignature,
-                label: salesSidebarLabels.quotations,
-            },
             {
                 href: '/sales/orders',
                 icon: ShoppingCart,
@@ -203,6 +195,8 @@ export function SalesSidebar({ user, permissions }: SalesSidebarProps) {
             user={user}
             portalName="Portal Sales"
             accentColor="blue"
+            assistantSlots
+            assistantSlotPrefix="sales"
         >
             <div className="px-3 mb-2">
                 <AdminBackButton />
