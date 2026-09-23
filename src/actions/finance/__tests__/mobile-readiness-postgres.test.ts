@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { returnTestClient, resetReturnFixture, actor, date as postingDate } from '@/services/finance/__tests__/return-credit-postgres-fixture';
 import { tenantContext } from '@/lib/core/prisma';
 import { getFinanceMobileOverview } from '../mobile-dashboard';
@@ -26,7 +27,7 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
         await db!.invoice.update({ where: { id: 'invoice' }, data: { dueDate: past, paidAmount: 200, status: 'PARTIAL' } });
         // Populate the adjustment through the real ledger service, never edit protected caches.
         const source = await db!.$transaction(tx => getPriceAdjustmentSource(tx, 'invoice'));
-        await run(() => postInvoicePriceAdjustment({ invoiceId: 'invoice', sourceItemId: 'source-item', quantity: '2', newNetUnitPrice: '90', sourceFingerprint: source.fingerprint, expectedRemaining: source.invoice.remainingAmount.toString(), postingDate, reason: 'Synthetic agreed price change', idempotencyKey: 'mobile-price-fixture', confirmed: true }, actor));
+        await run(() => postInvoicePriceAdjustment({ invoiceId: 'invoice', sourceItemId: 'source-item', quantity: '2', newNetUnitPrice: '90', sourceFingerprint: source.fingerprint, expectedRemaining: source.invoice.remainingAmount.toString(), postingDate, reason: 'Synthetic agreed price change', idempotencyKey: randomUUID(), confirmed: true }, actor));
         for (let i = 0; i < 12; i++) {
             const order = await db!.salesOrder.create({ data: { orderNumber: `MOBILE-SO-${i}`, customerId: 'customer' } });
             await db!.invoice.create({ data: { invoiceNumber: `MOBILE-AR-${i}`, salesOrderId: order.id, dueDate: past, totalAmount: 100, status: 'UNPAID' } });
