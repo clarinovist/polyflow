@@ -20,7 +20,7 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
     afterAll(async () => { await db?.$disconnect(); });
     it('totals all net overdue invoices with generated AR balance and AP field comparison', async () => {
         const past = new Date('2026-01-01');
-        await db!.invoice.update({ where: { id: 'invoice' }, data: { dueDate: past, totalAmount: 1000, priceAdjustmentAmount: 100, creditedAmount: 50, paidAmount: 200, status: 'PARTIAL' } });
+        await db!.invoice.update({ where: { id: 'invoice' }, data: { dueDate: past, priceAdjustmentAmount: 100, creditedAmount: 50, paidAmount: 200, status: 'PARTIAL' } });
         for (let i = 0; i < 12; i++) {
             const order = await db!.salesOrder.create({ data: { orderNumber: `MOBILE-SO-${i}`, customerId: 'customer' } });
             await db!.invoice.create({ data: { invoiceNumber: `MOBILE-AR-${i}`, salesOrderId: order.id, dueDate: past, totalAmount: 100, status: 'UNPAID' } });
@@ -35,7 +35,7 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
             { invoiceNumber: 'MOBILE-AP-FUTURE', purchaseOrderId: 'mobile-po', totalAmount: 500, status: 'UNPAID', dueDate: new Date('2099-01-01') },
         ] });
         const result = await run(getFinanceMobileOverview);
-        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 13, overdueArAmount: 2050, overdueApCount: 2, overdueApAmount: 800 } } });
+        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 13, overdueArAmount: 2160, overdueApCount: 2, overdueApAmount: 800 } } });
         if (!result.success) throw new Error(result.error);
         expect(result.data.recentInvoices.filter(i => i.type === 'AR')).toHaveLength(10);
         expect(result.data.recentInvoices.filter(i => i.type === 'AP')).toHaveLength(2);
