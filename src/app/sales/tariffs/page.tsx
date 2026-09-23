@@ -2,6 +2,7 @@ import { getAllVehicleTariffs } from '@/actions/sales/vehicle-tariffs';
 import { getCustomers } from '@/actions/sales/customer';
 import { getVehicles } from '@/actions/sales/vehicles';
 import { TariffListClient } from '@/components/sales/TariffListClient';
+import { RouteDistanceManager } from '@/components/sales/RouteDistanceManager';
 import { salesLabels } from '@/lib/labels';
 import { serializeData } from '@/lib/utils/utils';
 import { Receipt } from 'lucide-react';
@@ -51,6 +52,8 @@ export default async function TariffsPage() {
                     Daftar semua tarif pengiriman lintas armada dan customer.
                 </p>
             </div>
+
+            <RouteDistanceManager />
 
             <TariffListClient
                 tariffs={tariffs}

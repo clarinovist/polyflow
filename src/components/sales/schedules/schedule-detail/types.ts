@@ -78,11 +78,15 @@ export interface Trip {
     externalPlate: string | null;
     externalDriver: string | null;
     cancelReason: string | null;
+    plannedDistanceKm?: number | null;
+    distanceLegs?: unknown;
+    mileage?: { driverName: string; odometerStart: number; odometerEnd: number | null } | null;
     vehicle: {
         id: string;
         plateNumber: string;
         name: string;
         driverName: string | null;
+        ownershipType?: string;
         capacityKg?: number | null;
     } | null;
     orders: Stop[];

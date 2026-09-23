@@ -2,6 +2,7 @@ import { getDeliverySchedule } from '@/actions/sales/delivery-schedules';
 import { ScheduleDetailClient } from '@/components/sales/schedules/ScheduleDetailClient';
 import { redirect } from 'next/navigation';
 import type { ComponentProps } from 'react';
+import { serializeData } from '@/lib/serialization/server-to-client';
 
 type Schedule = NonNullable<
     Extract<
@@ -50,6 +51,13 @@ export default async function ScheduleDetailPage({
             externalPlate: sv.externalPlate,
             externalDriver: sv.externalDriver,
             cancelReason: sv.cancelReason,
+            plannedDistanceKm: sv.plannedDistanceKm == null ? null : Number(sv.plannedDistanceKm),
+            distanceLegs: sv.distanceLegs,
+            mileage: sv.mileage ? {
+                driverName: sv.mileage.driverName,
+                odometerStart: Number(sv.mileage.odometerStart),
+                odometerEnd: sv.mileage.odometerEnd == null ? null : Number(sv.mileage.odometerEnd),
+            } : null,
             createdAt: sv.createdAt.toISOString(),
             vehicle: sv.vehicle,
             orders: sv.orders.map((so: OrderStop) => ({
@@ -152,7 +160,7 @@ export default async function ScheduleDetailPage({
     return (
         <ScheduleDetailClient
             schedule={
-                schedule as unknown as ComponentProps<
+                serializeData(schedule) as unknown as ComponentProps<
                     typeof ScheduleDetailClient
                 >['schedule']
             }

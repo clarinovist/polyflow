@@ -115,6 +115,7 @@ export const getDeliverySchedule = withTenant(
                     trips: {
                         include: {
                             vehicle: true,
+                            mileage: true,
                             orders: {
                                 include: {
                                     salesOrder: {
