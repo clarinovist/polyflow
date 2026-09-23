@@ -1,6 +1,7 @@
 import { getVehicle } from '@/actions/sales/vehicles';
 import { VehicleDetailClient } from '@/components/sales/vehicles/VehicleDetailClient';
 import { redirect } from 'next/navigation';
+import { VehicleDistanceHistory } from '@/components/sales/vehicles/VehicleDistanceHistory';
 
 export default async function VehicleDetailPage({
     params,
@@ -50,5 +51,8 @@ export default async function VehicleDetailPage({
         _count: result.data._count,
     };
 
-    return <VehicleDetailClient vehicle={vehicle} />;
+    return <>
+        <VehicleDetailClient vehicle={vehicle} />
+        <div className="px-6 pb-6"><VehicleDistanceHistory vehicleId={id} /></div>
+    </>;
 }

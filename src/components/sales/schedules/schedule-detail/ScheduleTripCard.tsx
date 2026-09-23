@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Car, FileText, Trash2, UserRound, MapPin } from 'lucide-react';
 import type { Trip } from './types';
+import { TripDistancePanel } from './TripDistancePanel';
 import {
     TRANSPORT_MODE_LABELS,
     TRIP_STATUS_STYLES,
@@ -196,6 +197,8 @@ export function ScheduleTripCard({
                     Trip kosong — tambahkan SO melalui tab Rencana Kirim.
                 </p>
             )}
+
+            <TripDistancePanel key={`${trip.id}-${trip.mileage?.odometerStart ?? ''}-${trip.mileage?.odometerEnd ?? ''}`} trip={trip} />
 
             <div className="mt-auto flex flex-wrap gap-2 pt-4">
                 {trip.status === 'PLANNED' && (

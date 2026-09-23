@@ -2056,6 +2056,7 @@ model Vehicle {
   deliveryOrders   DeliveryOrder[]
   schedules        DeliveryScheduleVehicle[]
   customerDefaults Customer[]                @relation("CustomerDefaultVehicle")
+  tripMileages     VehicleTripMileage[]
 }
 
 model VehicleTariff {
@@ -2112,6 +2113,9 @@ model DeliveryScheduleVehicle {
   externalDriver   String? // external driver name
   // Cancel/reschedule
   cancelReason     String?
+  plannedDistanceKm Decimal?     @db.Decimal(10, 2)
+  distanceLegs      Json? // ordered address + road-distance snapshots; never per DO
+  mileage           VehicleTripMileage?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -2124,6 +2128,36 @@ model DeliveryScheduleVehicle {
   @@index([status])
   @@index([transportMode])
   @@index([departureDate])
+}
+
+// Manual one-way road distances. Return legs are explicit (not automatically doubled).
+model DeliveryRouteDistance {
+  id                 String   @id @default(uuid())
+  originAddress      String
+  destinationAddress String
+  distanceKm         Decimal  @db.Decimal(10, 2)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([originAddress, destinationAddress])
+}
+
+// One odometer record per rit. Totals are derived, never incremented on Vehicle.
+model VehicleTripMileage {
+  id            String    @id @default(uuid())
+  tripId        String    @unique
+  vehicleId     String
+  driverName    String
+  odometerStart Decimal   @db.Decimal(12, 2)
+  odometerEnd   Decimal?  @db.Decimal(12, 2)
+  startedAt     DateTime  @default(now())
+  returnedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  trip          DeliveryScheduleVehicle @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  vehicle       Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([vehicleId, startedAt])
 }
 
 model DeliveryScheduleOrder {

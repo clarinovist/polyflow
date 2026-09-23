@@ -52,6 +52,8 @@ const addedObjects = [
     'CustomerCreditNote',
     'CustomerCreditApplication',
     'CustomerCreditLink',
+    'DeliveryRouteDistance',
+    'VehicleTripMileage',
 ];
 const schema = generated
     .split(';')
@@ -61,7 +63,7 @@ const schema = generated
     )
     .join(';')
     .replace(
-        /^\s*"(?:creditedAmount|priceAdjustmentAmount|remainingAmount|commercialSnapshot|requireMeasurement)" [^\n]+\n/gm,
+        /^\s*"(?:creditedAmount|priceAdjustmentAmount|remainingAmount|commercialSnapshot|requireMeasurement|plannedDistanceKm|distanceLegs)" [^\n]+\n/gm,
         '',
     );
 const guards = [
@@ -71,6 +73,7 @@ const guards = [
     '20260919_manual_return_credit',
     '20260922_spk_customers_quality',
     '20260922_customer_credit',
+    '20260923_factory_trip_distance',
 ]
     .map(migration)
     .join('\n');
