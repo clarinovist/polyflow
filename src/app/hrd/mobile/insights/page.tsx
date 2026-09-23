@@ -1,17 +1,12 @@
 import React from 'react';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getHrdMobileOverview } from '@/actions/hrd/mobile-dashboard';
 import { MobileSectionHeader, MobileInsightCard } from '@/components/mobile';
 
 export default async function HrdInsightsPage() {
     const response = await getHrdMobileOverview();
-    const overview = response.success ? response.data : null;
-    const highlights = overview?.highlights ?? {
-        presentTodayCount: 0,
-        pendingLeaveCount: 0,
-        attendanceAlertsCount: 0,
-        absentYesterdayCount: 0,
-        openPayrollPeriodName: undefined,
-    };
+    if (!response.success) return <MobileReadError title="Insight HRD belum tersedia" />;
+    const { highlights } = response.data;
 
     return (
         <div className="space-y-6">

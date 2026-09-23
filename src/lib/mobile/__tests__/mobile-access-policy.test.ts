@@ -225,14 +225,28 @@ describe('mobile-access-policy', () => {
     });
   });
 
+  describe('verified server discovery', () => {
+    it('requires both active module and path permission without adding roles', () => {
+      const user = { roles: ['FINANCE', 'HRD'] };
+      expect(getAvailableMobilePortals(user, { permissions: ['/finance'], activeModules: ['FINANCE', 'HRD'] }).map(p => p.id)).toEqual(['finance']);
+      expect(getAvailableMobilePortals(user, { permissions: 'ALL', activeModules: [] })).toEqual([]);
+      expect(getAvailableMobilePortals({ role: 'WAREHOUSE' }, { permissions: ['/finance'], activeModules: ['FINANCE'] })).toEqual([]);
+      expect(getAvailableMobilePortals(user, { permissions: ['/finance/invoices'], activeModules: ['FINANCE'] })).toEqual([]);
+    });
+    it('keeps legacy field aliases and hides unimplemented portals', () => {
+      expect(getAvailableMobilePortals({ role: 'SALES' }, { permissions: ['/sales/mobile'], activeModules: ['SALES'] }).map(p => p.id)).toEqual(['sales-field']);
+      expect(getAvailableMobilePortals({ roles: ['ADMIN', 'WAREHOUSE'] }, { permissions: 'ALL', activeModules: ['INVENTORY', 'MAKLON'] }).map(p => p.id)).toEqual(['warehouse']);
+    });
+  });
+
   // ── getMobileHomeForUser ───────────────────────────────────────────
   describe('getMobileHomeForUser', () => {
     it('SALES → /field/sales', () => {
-      expect(getMobileHomeForUser({ role: 'SALES' })).toBe('/field/sales');
+      expect(getMobileHomeForUser({ role: 'SALES' })).toBe('/mobile');
     });
 
     it('FINANCE → /finance/mobile', () => {
-      expect(getMobileHomeForUser({ role: 'FINANCE' })).toBe('/finance/mobile');
+      expect(getMobileHomeForUser({ role: 'FINANCE' })).toBe('/mobile');
     });
 
     it('ADMIN (no specific home) → null', () => {
@@ -240,7 +254,7 @@ describe('mobile-access-policy', () => {
     });
 
     it('WAREHOUSE → /warehouse/mobile', () => {
-      expect(getMobileHomeForUser({ role: 'WAREHOUSE' })).toBe('/warehouse/mobile');
+      expect(getMobileHomeForUser({ role: 'WAREHOUSE' })).toBe('/mobile');
     });
 
     it('SALES+PRODUCTION → /mobile (multi-role selector)', () => {

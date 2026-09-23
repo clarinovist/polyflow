@@ -1,4 +1,5 @@
 import React from 'react';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import Link from 'next/link';
 import { getMobileSupervisorSpkList } from '@/actions/production/mobile-supervisor';
 import { MobileSectionHeader } from '@/components/mobile';
@@ -39,8 +40,8 @@ export default async function ProductionTasksPage({
         status: sp.status || 'ALL',
         q: sp.q?.trim() || undefined,
     });
-    const data = response.success ? response.data : null;
-    const items = data?.items ?? [];
+    if (!response.success) return <MobileReadError title="Daftar SPK belum tersedia" />;
+    const { items } = response.data;
 
     return (
         <div className="space-y-4">

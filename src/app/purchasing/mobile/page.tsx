@@ -1,18 +1,13 @@
 import React from 'react';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getPurchasingMobileOverview } from '@/actions/purchasing/mobile-dashboard';
 import { MobileInsightCard, MobileSectionHeader } from '@/components/mobile';
 
 export default async function PurchasingMobilePage() {
     const response = await getPurchasingMobileOverview();
-    const overview = response.success ? response.data : null;
-
-    const highlights = overview?.highlights ?? {
-        pendingPrCount: 0,
-        draftPoCount: 0,
-        waitingReceiptCount: 0,
-        overdueApCount: 0,
-        overdueApAmount: 0,
-    };
+    if (!response.success) return <MobileReadError title="Ringkasan purchasing belum tersedia" />;
+    const overview = response.data;
+    const { highlights } = overview;
 
     return (
         <div className="space-y-6">
@@ -46,7 +41,7 @@ export default async function PurchasingMobilePage() {
                 <MobileInsightCard
                     insight={{
                         key: 'active-orders',
-                        label: 'PO Aktif',
+                        label: 'PO Terbaru (maks. 10)',
                         value: overview?.recentOrders.length ?? 0,
                         severity: 'INFO',
                     }}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getProductionSupervisorOverview } from '@/actions/production/mobile-supervisor';
 import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
 import {
@@ -13,21 +14,13 @@ export default async function ProductionInsightsPage() {
         getProductionSupervisorOverview(),
         getProductionAlertThresholdsForPage(),
     ]);
-    const overview = overviewRes.success ? overviewRes.data : null;
+    if (!overviewRes.success) return <MobileReadError title="Insight produksi belum tersedia" />;
+    const overview = overviewRes.data;
     const thresholds = thresholdsRes.success
         ? thresholdsRes.data
         : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
 
-    const highlights = overview?.highlights ?? {
-        activeOrdersCount: 0,
-        outputToday: 0,
-        targetToday: null,
-        targetUnitMode: 'NONE' as const,
-        targetUnit: null,
-        downtimeMinutesToday: 0,
-        scrapToday: 0,
-        qcPendingCount: 0,
-    };
+    const { highlights } = overview;
 
     const target = highlights.targetToday;
     const efficiencyAvailable =

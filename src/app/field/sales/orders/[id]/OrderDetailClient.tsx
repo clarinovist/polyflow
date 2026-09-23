@@ -11,7 +11,6 @@ import {
     Package,
     XCircle,
     ClipboardList,
-    FileText,
     Pencil,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -409,12 +408,9 @@ export function OrderDetailClient({
                                 className="p-3 bg-card border rounded-xl space-y-2.5 text-xs shadow-xs"
                             >
                                 <div className="flex justify-between items-center gap-2">
-                                    <Link
-                                        href={`/sales/deliveries/${doItem.id}`}
-                                        className="font-bold text-primary underline-offset-2 hover:underline"
-                                    >
+                                    <span className="font-bold text-primary">
                                         {doItem.orderNumber}
-                                    </Link>
+                                    </span>
                                     <Badge
                                         variant="outline"
                                         className="text-[10px] px-2 py-0.5 rounded-full capitalize font-semibold border-primary/20 text-primary bg-primary/5"
@@ -425,13 +421,7 @@ export function OrderDetailClient({
                                 {(doItem.status === 'PENDING' ||
                                     doItem.status === 'LOADING') && (
                                     <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                                        {salesLabels.sjPendingHint}.{' '}
-                                        <Link
-                                            href={`/sales/deliveries/${doItem.id}`}
-                                            className="font-semibold underline"
-                                        >
-                                            {salesLabels.tandaiDikirim}
-                                        </Link>
+                                        {salesLabels.sjPendingHint}. Konfirmasi pengiriman melalui petugas gudang yang berwenang.
                                     </p>
                                 )}
                                 {(doItem.carrier || doItem.trackingNumber) && (
@@ -638,19 +628,10 @@ export function OrderDetailClient({
                             />
                         )}
 
-                        {/* Open SJ exists → go to DO detail for Tandai Dikirim (stock commit + confirm) */}
                         {primaryOpenDo && (
-                            <Button
-                                className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl h-11 text-sm font-semibold"
-                                asChild
-                            >
-                                <Link
-                                    href={`/sales/deliveries/${primaryOpenDo.id}`}
-                                >
-                                    <FileText className="h-4.5 w-4.5 mr-1.5" />
-                                    {salesLabels.tandaiDikirim}
-                                </Link>
-                            </Button>
+                            <p className="w-full rounded-xl border p-3 text-sm">
+                                Surat jalan {primaryOpenDo.orderNumber} masih terbuka. Informasi pengiriman tersedia di atas; konfirmasi kirim melalui petugas gudang yang berwenang.
+                            </p>
                         )}
                         {openDeliveryOrders.length > 1 && (
                             <p className="w-full text-center text-[11px] text-amber-700 dark:text-amber-400">

@@ -361,10 +361,10 @@ describe('auth.config', () => {
                     },
                 } as any);
 
-                // Assert — /dashboard soft-lands to /field/sales for SALES
+                // Resolve current permissions and modules at the server selector.
                 expect(mockRedirect).toHaveBeenCalled();
                 const redirectUrl = mockRedirect.mock.calls[0][0];
-                expect(redirectUrl.pathname).toBe('/field/sales');
+                expect(redirectUrl.pathname).toBe('/mobile');
             } finally {
                 Response.redirect = originalRedirect;
             }
@@ -397,10 +397,10 @@ describe('auth.config', () => {
                     },
                 } as any);
 
-                // Assert — SALES bypass cookie doesn't help for /dashboard, soft-lands
+                // Non-admin bypass cannot skip verified server discovery.
                 expect(mockRedirect).toHaveBeenCalled();
                 const redirectUrl = mockRedirect.mock.calls[0][0];
-                expect(redirectUrl.pathname).toBe('/field/sales');
+                expect(redirectUrl.pathname).toBe('/mobile');
             } finally {
                 Response.redirect = originalRedirect;
             }

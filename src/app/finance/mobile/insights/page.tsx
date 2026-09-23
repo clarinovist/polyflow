@@ -1,18 +1,12 @@
 import React from 'react';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getFinanceMobileOverview } from '@/actions/finance/mobile-dashboard';
 import { MobileSectionHeader, MobileInsightCard } from '@/components/mobile';
 
 export default async function FinanceInsightsPage() {
     const response = await getFinanceMobileOverview();
-    const overview = response.success ? response.data : null;
-    const highlights = overview?.highlights ?? {
-        overdueArCount: 0,
-        overdueArAmount: 0,
-        overdueApCount: 0,
-        overdueApAmount: 0,
-        draftJournalCount: 0,
-        openReconCount: 0,
-    };
+    if (!response.success) return <MobileReadError title="Insight finance belum tersedia" />;
+    const { highlights } = response.data;
 
     return (
         <div className="space-y-6">

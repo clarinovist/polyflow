@@ -1,17 +1,12 @@
 import React from 'react';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getPurchasingMobileOverview } from '@/actions/purchasing/mobile-dashboard';
 import { MobileSectionHeader, MobileInsightCard } from '@/components/mobile';
 
 export default async function PurchasingInsightsPage() {
     const response = await getPurchasingMobileOverview();
-    const overview = response.success ? response.data : null;
-    const highlights = overview?.highlights ?? {
-        pendingPrCount: 0,
-        draftPoCount: 0,
-        waitingReceiptCount: 0,
-        overdueApCount: 0,
-        overdueApAmount: 0,
-    };
+    if (!response.success) return <MobileReadError title="Insight purchasing belum tersedia" />;
+    const { highlights } = response.data;
 
     return (
         <div className="space-y-6">

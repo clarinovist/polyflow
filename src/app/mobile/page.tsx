@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import { getAvailableMobilePortals } from '@/lib/mobile/mobile-access-policy';
+import { getMyMobilePortals } from '@/actions/settings/mobile-portals';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { MobileAccountMenu } from '@/components/layout/mobile-account-menu';
 import Link from 'next/link';
 import { Layers, ChevronRight } from 'lucide-react';
@@ -29,11 +30,9 @@ export default async function MobileSelectorPage() {
             .isSuperAdmin,
     };
 
-    const portals = getAvailableMobilePortals(user);
-
-    if (portals.length === 0) {
-        redirect('/device/desktop-required');
-    }
+    const result = await getMyMobilePortals();
+    if (!result.success) return <MobileReadError title="Pilihan portal belum tersedia" />;
+    const portals = result.data;
 
     if (portals.length === 1) {
         redirect(portals[0].path);
@@ -68,6 +67,11 @@ export default async function MobileSelectorPage() {
                 </div>
 
                 <div className="space-y-3.5">
+                    {portals.length === 0 && (
+                        <p role="status" className="rounded-xl border border-slate-700 p-4 text-sm">
+                            Belum ada portal mobile yang sesuai dengan izin dan modul aktif Anda. Gunakan desktop atau hubungi admin untuk memeriksa akses.
+                        </p>
+                    )}
                     {portals.map((portal) => {
                         const IconComponent =
                             (LucideIcons[

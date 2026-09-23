@@ -1,18 +1,12 @@
 import React from 'react';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getHrdMobileOverview } from '@/actions/hrd/mobile-dashboard';
 import { MobileInsightCard, MobileSectionHeader } from '@/components/mobile';
 
 export default async function HrdMobilePage() {
     const response = await getHrdMobileOverview();
-    const overview = response.success ? response.data : null;
-
-    const highlights = overview?.highlights ?? {
-        presentTodayCount: 0,
-        pendingLeaveCount: 0,
-        attendanceAlertsCount: 0,
-        absentYesterdayCount: 0,
-        openPayrollPeriodName: undefined,
-    };
+    if (!response.success) return <MobileReadError title="Ringkasan HRD belum tersedia" />;
+    const { highlights } = response.data;
 
     return (
         <div className="space-y-6">
@@ -35,14 +29,6 @@ export default async function HrdMobilePage() {
                         value: highlights.pendingLeaveCount,
                         unit: 'pengajuan',
                         severity: highlights.pendingLeaveCount > 0 ? 'WARNING' : 'INFO',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'attendance-alerts',
-                        label: 'Alert Absensi',
-                        value: highlights.attendanceAlertsCount,
-                        severity: 'INFO',
                     }}
                 />
                 <MobileInsightCard

@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { safeAction, AuthorizationError } from '@/lib/errors/errors';
+import { safeAction, AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import {
@@ -72,7 +72,7 @@ interface MobileSupervisorSpkList {
 export interface MobileTeamAttendanceFilters {
     date: string; // YYYY-MM-DD
     workShiftId?: string;
-    status?: 'PRESENT' | 'ABSENT' | 'ON_LEAVE' | 'ALL';
+    status?: 'PRESENT' | 'ABSENT' | 'ON_LEAVE' | 'NO_RECORD' | 'ALL';
     q?: string;
     role?: string; // OPERATOR / HELPER / PACKER / etc or ALL
 }
@@ -148,114 +148,32 @@ export const getProductionSupervisorOverview = withTenant(
             const session = await requireAuth();
             assertSupervisorAccess(session.user as never);
 
-            const todayStr = toBusinessDateString(new Date());
+            const now = new Date();
+            const todayStr = toBusinessDateString(now);
             const { startOfDay, endOfDay } = getWibDayBounds(todayStr);
 
-            const [orders, executions, downtimes, qcPending, targetOrders] =
-                await Promise.all([
-                    prisma.productionOrder
-                        ? prisma.productionOrder
-                              .findMany({
-                                  where: {
-                                      status: {
-                                          in: [
-                                              'IN_PROGRESS',
-                                              'RELEASED',
-                                              'DRAFT',
-                                          ],
-                                      },
-                                  },
-                                  take: 10,
-                                  orderBy: { updatedAt: 'desc' },
-                                  include: {
-                                      bom: { select: { name: true } },
-                                  },
-                              })
-                              .catch(() => [])
-                        : Promise.resolve([]),
-                    prisma.productionExecution
-                        ? prisma.productionExecution
-                              .aggregate({
-                                  // Bucket konsisten dgn Laporan Harian (startTime,
-                                  // shift-aware backdate 644c569d): entri backdated
-                                  // dini hari masuk tanggal shift, bukan tanggal input.
-                                  where: { startTime: { gte: startOfDay } },
-                                  _sum: {
-                                      quantityProduced: true,
-                                      scrapQuantity: true,
-                                      scrapProngkolQty: true,
-                                      scrapDaunQty: true,
-                                  },
-                              })
-                              .catch(() => ({
-                                  _sum: {
-                                      quantityProduced: null,
-                                      scrapQuantity: null,
-                                      scrapProngkolQty: null,
-                                      scrapDaunQty: null,
-                                  },
-                              }))
-                        : Promise.resolve({
-                              _sum: {
-                                  quantityProduced: null,
-                                  scrapQuantity: null,
-                                  scrapProngkolQty: null,
-                                  scrapDaunQty: null,
-                              },
-                          }),
-                    prisma.machineDowntime
-                        ? prisma.machineDowntime
-                              .findMany({
-                                  // createdAt sengaja: ini feed AKTIVITAS downtime
-                                  // (waktu kejadian riil), bukan atribusi hasil per tanggal shift.
-                                  where: { createdAt: { gte: startOfDay } },
-                                  take: 5,
-                                  orderBy: { createdAt: 'desc' },
-                                  include: {
-                                      machine: { select: { name: true } },
-                                  },
-                              })
-                              .catch(() => [])
-                        : Promise.resolve([]),
-                    prisma.qualityInspection
-                        ? prisma.qualityInspection
-                              .count({
-                                  where: { result: 'QUARANTINE' },
-                              })
-                              .catch(() => 0)
-                        : Promise.resolve(0),
-                    // Daily target aggregate — separate from the recent-order
-                    // list so take:10 never truncates the planned-day total.
-                    prisma.productionOrder
-                        ? prisma.productionOrder
-                              .findMany({
-                                  where: {
-                                      status: { not: 'CANCELLED' },
-                                      plannedStartDate: {
-                                          gte: startOfDay,
-                                          lte: endOfDay,
-                                      },
-                                  },
-                                  select: {
-                                      plannedQuantity: true,
-                                      bom: {
-                                          select: {
-                                              productVariant: {
-                                                  select: {
-                                                      primaryUnit: true,
-                                                  },
-                                              },
-                                          },
-                                      },
-                                  },
-                              })
-                              .catch(() => null)
-                        : Promise.resolve([]),
-                ]);
-
-            const activeOrdersCount = orders.filter(
-                (o) => o.status === 'IN_PROGRESS',
-            ).length;
+            const [orders, executions, downtimes, qcPending, targetOrders, activeOrdersCount] = await Promise.all([
+                prisma.productionOrder.findMany({
+                    where: { status: { in: ['IN_PROGRESS', 'RELEASED', 'DRAFT'] } },
+                    take: 10, orderBy: { updatedAt: 'desc' }, include: { bom: { select: { name: true } } },
+                }),
+                prisma.productionExecution.aggregate({
+                    // Shift-attributed output; never include a future business day.
+                    where: { startTime: { gte: startOfDay, lte: endOfDay } },
+                    _sum: { quantityProduced: true, scrapQuantity: true, scrapProngkolQty: true, scrapDaunQty: true },
+                }),
+                prisma.machineDowntime.findMany({
+                    // Include every interval overlapping today, not just the latest five.
+                    where: { startTime: { lte: now }, OR: [{ endTime: null }, { endTime: { gt: startOfDay } }] },
+                    orderBy: { createdAt: 'desc' }, include: { machine: { select: { name: true } } },
+                }),
+                prisma.qualityInspection.count({ where: { result: 'QUARANTINE' } }),
+                prisma.productionOrder.findMany({
+                    where: { status: { not: 'CANCELLED' }, plannedStartDate: { gte: startOfDay, lte: endOfDay } },
+                    select: { plannedQuantity: true, bom: { select: { productVariant: { select: { primaryUnit: true } } } } },
+                }),
+                prisma.productionOrder.count({ where: { status: 'IN_PROGRESS' } }),
+            ]);
             const outputToday = Number(executions._sum?.quantityProduced ?? 0);
             // Kiosk rows duplicate affal into scrapQuantity; AddOutputDialog
             // rows leave it 0 — max(generic, prongkol+daun) avoids double count.
@@ -291,15 +209,9 @@ export const getProductionSupervisorOverview = withTenant(
                 startTime: Date;
                 endTime: Date | null;
             }) => {
-                if (!d.endTime) return 15;
-                return Math.max(
-                    1,
-                    Math.round(
-                        (new Date(d.endTime).getTime() -
-                            new Date(d.startTime).getTime()) /
-                            60000,
-                    ),
-                );
+                const start = Math.max(startOfDay.getTime(), new Date(d.startTime).getTime());
+                const end = Math.min(now.getTime(), d.endTime ? new Date(d.endTime).getTime() : now.getTime());
+                return Math.max(0, Math.round((end - start) / 60000));
             };
 
             const totalDowntimeMinutes = downtimes.reduce(
@@ -323,7 +235,7 @@ export const getProductionSupervisorOverview = withTenant(
                 };
             });
 
-            const downtimeAlerts = downtimes.map((d) => ({
+            const downtimeAlerts = downtimes.slice(0, 5).map((d) => ({
                 id: d.id,
                 machineName: d.machine?.name ?? 'Mesin',
                 reason: d.reason || 'Downtime',
@@ -569,6 +481,12 @@ export const getMobileTeamAttendance = withTenant(
             const session = await requireAuth();
             assertSupervisorAccess(session.user as never);
 
+            if (filters?.status && !['ALL', 'PRESENT', 'ABSENT', 'ON_LEAVE', 'NO_RECORD'].includes(filters.status)) {
+                throw new BusinessRuleError('Filter status absensi tidak valid.');
+            }
+            if (filters?.role && !['ALL', 'OPERATOR', 'HELPER', 'PACKER'].includes(filters.role)) {
+                throw new BusinessRuleError('Filter peran produksi tidak valid.');
+            }
             const rawDate =
                 filters?.date?.trim() || toBusinessDateString(new Date());
             const businessDate = parseBusinessDate(rawDate);
@@ -615,9 +533,7 @@ export const getMobileTeamAttendance = withTenant(
                                   role: true,
                               },
                               orderBy: { name: 'asc' },
-                              take: 200,
                           })
-                          .catch(() => [] as any[])
                     : Promise.resolve([] as any[]),
                 prisma.attendanceRecord
                     ? prisma.attendanceRecord
@@ -627,10 +543,6 @@ export const getMobileTeamAttendance = withTenant(
                                   employee: employeeWhere,
                                   ...(filters?.workShiftId
                                       ? { workShiftId: filters.workShiftId }
-                                      : {}),
-                                  ...(filters?.status &&
-                                  filters.status !== 'ALL'
-                                      ? { status: filters.status as any }
                                       : {}),
                               },
                               include: {
@@ -650,9 +562,8 @@ export const getMobileTeamAttendance = withTenant(
                                       },
                                   },
                               },
-                              orderBy: { clockInAt: 'asc' },
+                              orderBy: { clockInAt: 'desc' },
                           })
-                          .catch(() => [] as any[])
                     : Promise.resolve([] as any[]),
                 prisma.workShift
                     ? prisma.workShift
@@ -661,7 +572,6 @@ export const getMobileTeamAttendance = withTenant(
                               select: { id: true, name: true },
                               orderBy: { startTime: 'asc' },
                           })
-                          .catch(() => [] as any[])
                     : Promise.resolve([] as any[]),
             ]);
 
@@ -679,7 +589,7 @@ export const getMobileTeamAttendance = withTenant(
                         rec.status === 'PRESENT'
                     ) {
                         recordByEmployee.set(rec.employeeId, rec);
-                    } else if (rec.clockInAt && existing.clockInAt) {
+                    } else if (rec.status === existing.status && rec.clockInAt && existing.clockInAt) {
                         if (
                             new Date(rec.clockInAt) >
                             new Date(existing.clockInAt)

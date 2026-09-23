@@ -1,8 +1,8 @@
 import React from 'react';
+import { LiveMobileConnectivity } from '@/components/mobile/LiveMobileConnectivity';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import {
-    MobileConnectivityBanner,
     MobilePortalBottomNav,
 } from '@/components/mobile';
 
@@ -28,7 +28,7 @@ export default function HrdMobileLayout({
                 </Link>
             </header>
 
-            <MobileConnectivityBanner isOnline={true} />
+            <LiveMobileConnectivity />
 
             <main id="hrd-mobile-content" className="px-4 py-4 pb-16">
                 {children}

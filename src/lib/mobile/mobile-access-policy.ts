@@ -1,4 +1,6 @@
 import { hasRole, getUserRoles } from '@/lib/auth/roles';
+import { isPathAllowedByResources } from '@/lib/auth/access-policy';
+import { canSeeNavHref } from '@/lib/auth/permission-match';
 import {
     MOBILE_PORTAL_REGISTRY,
     MOBILE_ROUTE_ALIASES,
@@ -138,14 +140,14 @@ export interface MobilePortalInfo {
     description: string;
     path: string;
     icon: string;
-    requiredFeature?: string;
     status: string;
 }
 
 /**
  * Resolve which portals a user can access.
- * Combines role check with portal status (ACTIVE only for general users;
- * ADMIN can preview BETA/PLANNED portals).
+ * Without access context this returns role candidates only (middleware hint).
+ * Server discovery supplies current permissions and tenant modules before navigation.
+ * PLANNED portals are never navigable; ACTIVE/BETA status is the rollout control.
  */
 export function getAvailableMobilePortals(
     user:
@@ -156,6 +158,7 @@ export function getAvailableMobilePortals(
           }
         | null
         | undefined,
+    access?: { permissions: string[] | 'ALL'; activeModules: readonly string[] },
 ): MobilePortalInfo[] {
     if (!user) return [];
     const roles = getUserRoles(user);
@@ -164,7 +167,7 @@ export function getAvailableMobilePortals(
     const portals: MobilePortalInfo[] = [];
 
     for (const portal of MOBILE_PORTAL_REGISTRY) {
-        if (portal.status === 'PLANNED' && !isAdmin) continue;
+        if (portal.status === 'PLANNED') continue;
         if (portal.status === 'BETA' && !isAdmin) continue;
 
         if (
@@ -176,6 +179,14 @@ export function getAvailableMobilePortals(
 
         const hasMatchingRole = portal.roles.some((r) => roles.includes(r));
         if (!hasMatchingRole) continue;
+        if (access) {
+            if (!access.activeModules.includes(portal.moduleKey)) continue;
+            const permitted = portal.id === 'production-kiosk' ||
+                (portal.id === 'sales-field'
+                    ? canSeeNavHref(portal.path, access.permissions, '/sales')
+                    : isPathAllowedByResources(portal.path, access.permissions));
+            if (!permitted) continue;
+        }
 
         portals.push({
             id: portal.id,
@@ -183,7 +194,6 @@ export function getAvailableMobilePortals(
             description: portal.description,
             path: portal.path,
             icon: portal.icon,
-            requiredFeature: portal.requiredFeature,
             status: portal.status,
         });
     }
@@ -202,7 +212,8 @@ export function getMobileHomeForUser(
 ): string | null {
     const portals = getAvailableMobilePortals(user);
     if (portals.length === 0) return null;
-    if (portals.length === 1) return portals[0].path;
+    // Permissions and entitlements are resolved server-side at the selector,
+    // never inferred from the role-only JWT candidate list.
     return '/mobile';
 }
 
