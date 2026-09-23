@@ -37,7 +37,7 @@ describe('permission-catalog-sync / sales sidebar', () => {
         ).toEqual([]);
     });
 
-    it('catalog order reflects sidebar order: quotations before orders, team after customers', () => {
+    it('catalog retains legacy quotation permission and places team after customers', () => {
         const keys = flattenCatalog().map((n) => n.key);
         const quotationsIdx = keys.indexOf('/sales/quotations');
         const ordersIdx = keys.indexOf('/sales/orders');
@@ -49,7 +49,7 @@ describe('permission-catalog-sync / sales sidebar', () => {
         expect(customersIdx).toBeGreaterThanOrEqual(0);
         expect(teamIdx).toBeGreaterThanOrEqual(0);
 
-        // plan req: quotations tepat sebelum orders; team setelah customers
+        // Removing a redundant sidebar entry must not remove legacy permission keys.
         expect(quotationsIdx).toBeLessThan(ordersIdx);
         expect(customersIdx).toBeLessThan(teamIdx);
     });
@@ -81,7 +81,9 @@ describe('permission-catalog-sync / sales sidebar', () => {
         const hrefsWith = filteredWith.flatMap((g: { items: { href: string }[] }) =>
             g.items.map((i) => i.href),
         );
-        expect(hrefsWith).toContain('/sales/quotations');
+        // Quotation remains an SO phase, not a separate navigation entry.
+        expect(hrefsWith).not.toContain('/sales/quotations');
+        expect(hrefsWith).toContain('/sales/orders');
         expect(hrefsWith).toContain('/sales/routes');
         expect(hrefsWith).toContain('/sales/team');
         expect(hrefsWith).toContain('/sales/targets');
