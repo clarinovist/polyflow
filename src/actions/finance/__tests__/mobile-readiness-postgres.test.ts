@@ -1,11 +1,14 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { returnTestClient, resetReturnFixture } from '@/services/finance/__tests__/return-credit-postgres-fixture';
+import { returnTestClient, resetReturnFixture, actor, date as postingDate } from '@/services/finance/__tests__/return-credit-postgres-fixture';
 import { tenantContext } from '@/lib/core/prisma';
 import { getFinanceMobileOverview } from '../mobile-dashboard';
 import { getHrdMobileOverview, getHrdMobileTeamAttendance } from '@/actions/hrd/mobile-dashboard';
 import { getProductionSupervisorOverview } from '@/actions/production/mobile-supervisor';
 import { getPurchasingMobileOverview } from '@/actions/purchasing/mobile-dashboard';
 import { toBusinessDateString, getWibDayBounds } from '@/lib/utils/timezone';
+import { getPriceAdjustmentSource } from '@/services/finance/invoice-price-source';
+import { postInvoicePriceAdjustment } from '@/services/finance/invoice-price-adjustment-service';
+vi.mock('@/services/accounting/account-resolver', () => ({ resolveAccount: async (role: string) => ({ id: role === 'accounts-receivable' ? 'ar' : role === 'vat-output' ? 'vat' : role === 'sales-revenue' ? 'revenue' : 'return' }) }));
 
 // Auth is tested separately; these contracts use real Prisma/SQL in the existing disposable CI DB.
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
@@ -16,11 +19,14 @@ const db = process.env.RETURN_CREDIT_TEST_DATABASE_URL ? returnTestClient(proces
 const run = <T>(fn: () => Promise<T>) => tenantContext.run(db!, fn);
 
 describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
-    beforeEach(async () => { await resetReturnFixture(db!); });
+    beforeEach(async () => { await resetReturnFixture(db!, false); });
     afterAll(async () => { await db?.$disconnect(); });
     it('totals all net overdue invoices with generated AR balance and AP field comparison', async () => {
         const past = new Date('2026-01-01');
-        await db!.invoice.update({ where: { id: 'invoice' }, data: { dueDate: past, priceAdjustmentAmount: 100, creditedAmount: 50, paidAmount: 200, status: 'PARTIAL' } });
+        await db!.invoice.update({ where: { id: 'invoice' }, data: { dueDate: past, paidAmount: 200, status: 'PARTIAL' } });
+        // Populate the adjustment through the real ledger service, never edit protected caches.
+        const source = await db!.$transaction(tx => getPriceAdjustmentSource(tx, 'invoice'));
+        await run(() => postInvoicePriceAdjustment({ invoiceId: 'invoice', sourceItemId: 'source-item', quantity: '2', newNetUnitPrice: '90', sourceFingerprint: source.fingerprint, expectedRemaining: source.invoice.remainingAmount.toString(), postingDate, reason: 'Synthetic agreed price change', idempotencyKey: 'mobile-price-fixture', confirmed: true }, actor));
         for (let i = 0; i < 12; i++) {
             const order = await db!.salesOrder.create({ data: { orderNumber: `MOBILE-SO-${i}`, customerId: 'customer' } });
             await db!.invoice.create({ data: { invoiceNumber: `MOBILE-AR-${i}`, salesOrderId: order.id, dueDate: past, totalAmount: 100, status: 'UNPAID' } });
@@ -35,7 +41,7 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
             { invoiceNumber: 'MOBILE-AP-FUTURE', purchaseOrderId: 'mobile-po', totalAmount: 500, status: 'UNPAID', dueDate: new Date('2099-01-01') },
         ] });
         const result = await run(getFinanceMobileOverview);
-        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 13, overdueArAmount: 2160, overdueApCount: 2, overdueApAmount: 800 } } });
+        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 13, overdueArAmount: 2087.8, overdueApCount: 2, overdueApAmount: 800 } } });
         if (!result.success) throw new Error(result.error);
         expect(result.data.recentInvoices.filter(i => i.type === 'AR')).toHaveLength(10);
         expect(result.data.recentInvoices.filter(i => i.type === 'AP')).toHaveLength(2);
