@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { saveRouteDistance, saveTripDistancePlan, startTripMileage, finishTripMileage } from '../trip-distance-service';
+import { saveRouteDistance, saveTripDistancePlan, startTripMileage, finishTripMileage, tripDistanceDb } from '../trip-distance-service';
 const mocks = vi.hoisted(() => {
     const tx = {
         $queryRaw: vi.fn(),
@@ -7,19 +7,26 @@ const mocks = vi.hoisted(() => {
         deliveryRouteDistance: { findMany: vi.fn(), upsert: vi.fn() },
         vehicleTripMileage: { create: vi.fn(), update: vi.fn(), findFirst: vi.fn(), aggregate: vi.fn() },
     };
-    return { tx, audit: vi.fn(), transaction: vi.fn() };
+    return { tx, audit: vi.fn(), transaction: vi.fn(), context: vi.fn() };
 });
-vi.mock('@/lib/core/prisma', () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: mocks.context }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: mocks.audit }));
 const baseTrip = () => ({ id: 't', scheduleId: 's', status: 'DEPARTED', vehicleId: 'v', transportMode: 'INTERNAL_FLEET', vehicle: { ownershipType: 'FACTORY' }, mileage: null });
 const mileage = (end: number | null = null) => ({ id: 'm', vehicleId: 'v', odometerStart: 100, odometerEnd: end, driverName: 'D' });
 beforeEach(() => {
     vi.resetAllMocks();
     mocks.transaction.mockImplementation((fn) => fn(mocks.tx));
+    mocks.context.mockReturnValue({ $transaction: mocks.transaction });
     mocks.tx.deliveryScheduleVehicle.findUnique.mockResolvedValue(baseTrip());
     mocks.tx.vehicleTripMileage.aggregate.mockResolvedValue({ _max: { odometerEnd: null } });
 });
 describe('trip distance service', () => {
+    it('fails closed without tenant context instead of using main database', async () => {
+        mocks.context.mockReturnValue(undefined);
+        expect(() => tripDistanceDb()).toThrow('Konteks tenant');
+        await expect(startTripMileage({ tripId: 't', driverName: 'D', odometerStart: 100 }, 'u')).rejects.toThrow('Konteks tenant');
+        expect(mocks.transaction).not.toHaveBeenCalled();
+    });
     it('upserts explicit address pairs and audits in same tx', async () => {
         mocks.tx.deliveryRouteDistance.upsert.mockResolvedValue({ id: 'r' });
         await expect(saveRouteDistance({ originAddress: ' F ', destinationAddress: 'A', distanceKm: 40 }, 'u')).resolves.toEqual({ id: 'r' });

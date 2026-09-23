@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
 import { requireDeliveryAccess, requireSalesAccess } from '@/lib/auth/sales-access';
 import { BusinessRuleError, safeAction } from '@/lib/errors/errors';
 import * as service from '@/services/sales/trip-distance-service';
@@ -11,7 +10,7 @@ import { actualTripDistance, readDistanceLegs } from '@/lib/sales/trip-distance'
 export const listRouteDistances = withTenant(async function listRouteDistances() {
     return safeAction(async () => {
         await requireDeliveryAccess();
-        const routes = await prisma.deliveryRouteDistance.findMany({ orderBy: [{ originAddress: 'asc' }, { destinationAddress: 'asc' }] });
+        const routes = await service.tripDistanceDb().deliveryRouteDistance.findMany({ orderBy: [{ originAddress: 'asc' }, { destinationAddress: 'asc' }] });
         return routes.map((r) => ({ id: r.id, originAddress: r.originAddress, destinationAddress: r.destinationAddress, distanceKm: Number(r.distanceKm) }));
     });
 });
@@ -59,7 +58,7 @@ export const getVehicleDistanceHistory = withTenant(async function getVehicleDis
         const from = new Date(`${month}-01T00:00:00+07:00`);
         const [year, m] = month.split('-').map(Number);
         const until = new Date(Date.UTC(year, m, 1) - 7 * 60 * 60 * 1000);
-        const trips = await prisma.deliveryScheduleVehicle.findMany({
+        const trips = await service.tripDistanceDb().deliveryScheduleVehicle.findMany({
             where: { OR: [{ vehicleId }, { mileage: { vehicleId } }], departureDate: { gte: from, lt: until } },
             include: { mileage: true, schedule: { select: { scheduleNumber: true } } },
             orderBy: [{ departureDate: 'desc' }, { sequence: 'asc' }],

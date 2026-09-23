@@ -25,6 +25,10 @@ const finish = (tripId = 't1', odometerEnd = 184) => run(() => finishTripMileage
 describe.skipIf(!db)('factory mileage PostgreSQL contracts', () => {
     beforeEach(async () => seed(db!));
     afterAll(async () => { await Promise.all([db?.$disconnect(), other?.$disconnect()]); });
+    it('rejects calls without tenant context without falling back to main database', async () => {
+        await expect(startTripMileage({ tripId: 't1', odometerStart: 100, driverName: 'D' }, 'km-user')).rejects.toThrow('Konteks tenant');
+        expect(await db!.vehicleTripMileage.count()).toBe(0);
+    });
     it('serializes duplicate start/finish and records km once with atomic audit', async () => {
         const stockBefore = await db!.stockMovement.count();
         await Promise.all([start(), start()]);

@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/core/prisma';
+import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 import {
@@ -8,6 +8,14 @@ import {
 } from '@/lib/sales/trip-distance';
 
 type Tx = Prisma.TransactionClient;
+
+// Call the actual client, not the global Proxy: Prisma transactions use internal
+// properties on `this`, which the Proxy intentionally routes to the main client.
+export function tripDistanceDb() {
+    const db = getTenantDbFromContext();
+    if (!db) throw new BusinessRuleError('Konteks tenant wajib untuk pencatatan kilometer.');
+    return db;
+}
 async function lockedTrip(tx: Tx, tripId: string) {
     // Serializes planning/odometer writes with ordinary trip UPDATEs as well.
     await tx.$queryRaw`SELECT id FROM "DeliveryScheduleVehicle" WHERE id = ${tripId} FOR UPDATE`;
@@ -23,7 +31,7 @@ async function audit(tx: Tx, userId: string, entityId: string, action: string, c
 }
 export async function saveRouteDistance(raw: unknown, userId: string) {
     const input = parseDistanceInput(routeDistanceSchema, raw);
-    return prisma.$transaction(async (tx) => {
+    return tripDistanceDb().$transaction(async (tx) => {
         // Upsert is intentionally by the explicit address pair; existing trip snapshots never change.
         const route = await tx.deliveryRouteDistance.upsert({
             where: { originAddress_destinationAddress: { originAddress: input.originAddress, destinationAddress: input.destinationAddress } },
@@ -35,7 +43,7 @@ export async function saveRouteDistance(raw: unknown, userId: string) {
 }
 export async function saveTripDistancePlan(raw: unknown, userId: string) {
     const input = parseDistanceInput(tripDistancePlanSchema, raw);
-    return prisma.$transaction(async (tx) => {
+    return tripDistanceDb().$transaction(async (tx) => {
         const trip = await lockedTrip(tx, input.tripId);
         if (!['PLANNED', 'CONFIRMED'].includes(trip.status) || trip.mileage) {
             throw new BusinessRuleError('Rencana jarak hanya dapat diubah sebelum trip berangkat.');
@@ -54,7 +62,7 @@ export async function saveTripDistancePlan(raw: unknown, userId: string) {
 }
 export async function startTripMileage(raw: unknown, userId: string) {
     const input = parseDistanceInput(startMileageSchema, raw);
-    return prisma.$transaction(async (tx) => {
+    return tripDistanceDb().$transaction(async (tx) => {
         const trip = await lockedTrip(tx, input.tripId);
         if (!['DEPARTED', 'COMPLETED'].includes(trip.status)) {
             throw new BusinessRuleError('Catat odometer setelah trip berangkat.');
@@ -79,7 +87,7 @@ export async function startTripMileage(raw: unknown, userId: string) {
 }
 export async function finishTripMileage(raw: unknown, userId: string) {
     const input = parseDistanceInput(finishMileageSchema, raw);
-    return prisma.$transaction(async (tx) => {
+    return tripDistanceDb().$transaction(async (tx) => {
         // Use the recorded vehicle, not a mutable master ownership/driver value.
         await tx.$queryRaw`SELECT id FROM "DeliveryScheduleVehicle" WHERE id = ${input.tripId} FOR UPDATE`;
         const trip = await tx.deliveryScheduleVehicle.findUnique({ where: { id: input.tripId }, include: { mileage: true } });

@@ -9,7 +9,7 @@ vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { deliveryRouteDistance: { findMany: mocks.routes }, deliveryScheduleVehicle: { findMany: mocks.trips } } }));
 vi.mock('@/lib/auth/sales-access', () => ({ requireSalesAccess: mocks.sales, requireDeliveryAccess: mocks.delivery }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }));
-vi.mock('@/services/sales/trip-distance-service', () => ({ saveRouteDistance: mocks.saveRoute, saveTripDistancePlan: mocks.plan, startTripMileage: mocks.start, finishTripMileage: mocks.finish }));
+vi.mock('@/services/sales/trip-distance-service', () => ({ tripDistanceDb: () => ({ deliveryRouteDistance: { findMany: mocks.routes }, deliveryScheduleVehicle: { findMany: mocks.trips } }), saveRouteDistance: mocks.saveRoute, saveTripDistancePlan: mocks.plan, startTripMileage: mocks.start, finishTripMileage: mocks.finish }));
 beforeEach(() => {
     vi.resetAllMocks();
     mocks.sales.mockResolvedValue({ user: { id: 'u' } });
