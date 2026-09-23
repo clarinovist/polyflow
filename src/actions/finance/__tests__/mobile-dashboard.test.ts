@@ -1,112 +1,69 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { Prisma } from '@prisma/client';
 import { getFinanceMobileOverview } from '../mobile-dashboard';
-import { prisma } from '@/lib/core/prisma';
-import { auth } from '@/auth';
 
-vi.mock('@/auth', () => ({
-    auth: vi.fn(),
+const mocks = vi.hoisted(() => ({
+    guard: vi.fn(), transaction: vi.fn(), tenantDb: vi.fn(),
+    arAggregate: vi.fn(), apAggregate: vi.fn(), arList: vi.fn(), apList: vi.fn(),
+    journals: vi.fn(), reconciliations: vi.fn(),
 }));
-
-vi.mock('@/lib/core/prisma', () => ({
-    prisma: {
-        user: {
-            findUnique: vi.fn(),
-        },
-        invoice: {
-            findMany: vi.fn(),
-        },
-        purchaseInvoice: {
-            findMany: vi.fn(),
-        },
-        journalEntry: {
-            count: vi.fn(),
-        },
-        bankReconciliation: {
-            count: vi.fn(),
-        },
-    },
-}));
-
-vi.mock('@/lib/core/tenant', () => ({
-    withTenant: (fn: any) => fn,
-    getTenantContext: () => ({ tenantId: 'test-tenant' }),
-}));
-
+vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: mocks.guard }));
+vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
+vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: mocks.tenantDb }));
+const d = (n: number) => new Prisma.Decimal(n);
+const tx = {
+    invoice: { aggregate: mocks.arAggregate, findMany: mocks.arList },
+    purchaseInvoice: { aggregate: mocks.apAggregate, findMany: mocks.apList, fields: { paidAmount: 'paidAmount-field' } },
+    journalEntry: { count: mocks.journals }, bankReconciliation: { count: mocks.reconciliations },
+};
 describe('getFinanceMobileOverview', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({
-            id: 'u1',
-            role: 'FINANCE',
-            isActive: true,
-        } as any);
+        vi.resetAllMocks();
+        mocks.guard.mockResolvedValue({ user: { role: 'FINANCE' } });
+        mocks.tenantDb.mockReturnValue({ $transaction: mocks.transaction });
+        mocks.transaction.mockImplementation((fn) => fn(tx));
+        mocks.arAggregate.mockResolvedValue({ _count: 0, _sum: { remainingAmount: null } });
+        mocks.apAggregate.mockResolvedValue({ _count: 0, _sum: { totalAmount: null, paidAmount: null } });
+        mocks.arList.mockResolvedValue([]); mocks.apList.mockResolvedValue([]);
+        mocks.journals.mockResolvedValue(0); mocks.reconciliations.mockResolvedValue(0);
     });
-
-    it('returns empty finance overview when authenticated', async () => {
-        vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role: 'FINANCE' },
-        } as any);
-
-        vi.mocked(prisma.invoice.findMany).mockResolvedValue([]);
-        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
-        vi.mocked(prisma.journalEntry.count).mockResolvedValue(0);
-        vi.mocked(prisma.bankReconciliation.count).mockResolvedValue(0);
-
+    it('returns a genuine empty overview in one repeatable read snapshot', async () => {
+        const result = await getFinanceMobileOverview();
+        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 0, overdueApAmount: 0 }, recentInvoices: [] } });
+        expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'RepeatableRead' });
+    });
+    it('uses full aggregates and net amounts, independent of the limited list', async () => {
+        mocks.arAggregate.mockResolvedValue({ _count: 35, _sum: { remainingAmount: d(3500) } });
+        mocks.apAggregate.mockResolvedValue({ _count: 22, _sum: { totalAmount: d(22000), paidAmount: d(4000) } });
+        mocks.apList.mockResolvedValue([{ id: 'ap', invoiceNumber: 'AP', dueDate: new Date('2026-01-01'), totalAmount: d(1000), paidAmount: d(400), status: 'PARTIAL', purchaseOrder: null }]);
+        const result = await getFinanceMobileOverview();
+        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 35, overdueArAmount: 3500, overdueApCount: 22, overdueApAmount: 18000 }, recentInvoices: [{ amount: 600, type: 'AP' }] } });
+        expect(mocks.apAggregate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, totalAmount: { gt: 'paidAmount-field' } }) }));
+        expect(mocks.arAggregate.mock.calls[0][0].where.remainingAmount).toEqual({ gt: 0 });
+        expect(mocks.arAggregate.mock.calls[0][0]).not.toHaveProperty('take');
+    });
+    it('keeps both AR and AP and orders by due date rather than concatenation', async () => {
+        mocks.arList.mockResolvedValue(Array.from({ length: 10 }, (_, i) => ({ id: `ar-${i}`, invoiceNumber: null, dueDate: new Date('2026-02-01'), remainingAmount: d(80), status: 'PARTIAL', salesOrder: null })));
+        mocks.apList.mockResolvedValue([{ id: 'ap', invoiceNumber: 'AP', dueDate: new Date('2026-01-01'), totalAmount: d(1000), paidAmount: d(400), status: 'PARTIAL', purchaseOrder: { supplier: { name: 'Synthetic supplier' } } }]);
         const result = await getFinanceMobileOverview();
         expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.overdueArCount).toBe(0);
-            expect(result.data.highlights.draftJournalCount).toBe(0);
-        }
+        if (!result.success) return;
+        expect(result.data.recentInvoices).toHaveLength(11);
+        expect(result.data.recentInvoices[0]).toMatchObject({ type: 'AP', amount: 600 });
+        expect(result.data.recentInvoices[1]).toMatchObject({ type: 'AR', amount: 80 });
     });
-
-    it('returns AR/AP overdue summary and draft journals count', async () => {
-        vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role: 'FINANCE' },
-        } as any);
-
-        vi.mocked(prisma.invoice.findMany).mockResolvedValue([
-            {
-                id: 'inv-1',
-                invoiceNumber: 'INV-001',
-                totalAmount: 10000000,
-                status: 'OVERDUE',
-                dueDate: new Date(),
-                salesOrder: { customer: { name: 'Toko Makmur' } },
-            } as any,
-        ]);
-        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
-        vi.mocked(prisma.journalEntry.count).mockResolvedValue(4);
-        vi.mocked(prisma.bankReconciliation.count).mockResolvedValue(1);
-
-        const result = await getFinanceMobileOverview();
-        expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.overdueArCount).toBe(1);
-            expect(result.data.highlights.overdueArAmount).toBe(10000000);
-            expect(result.data.highlights.draftJournalCount).toBe(4);
-            expect(result.data.highlights.openReconCount).toBe(1);
-            expect(result.data.recentInvoices[0].invoiceNumber).toBe('INV-001');
-        }
+    it('does not turn a failed query into a zero-success dashboard', async () => {
+        mocks.arAggregate.mockRejectedValue(new Error('Synthetic read failure'));
+        expect(await getFinanceMobileOverview()).toMatchObject({ success: false });
     });
-
-    it('handles database errors gracefully and returns default values', async () => {
-        vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role: 'FINANCE' },
-        } as any);
-
-        vi.mocked(prisma.invoice.findMany).mockRejectedValue(new Error('DB Error'));
-        vi.mocked(prisma.purchaseInvoice.findMany).mockRejectedValue(new Error('DB Error'));
-        vi.mocked(prisma.journalEntry.count).mockRejectedValue(new Error('DB Error'));
-        vi.mocked(prisma.bankReconciliation.count).mockRejectedValue(new Error('DB Error'));
-
-        const result = await getFinanceMobileOverview();
-        expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.overdueArCount).toBe(0);
-            expect(result.data.highlights.overdueApCount).toBe(0);
-            expect(result.data.highlights.draftJournalCount).toBe(0);
-            expect(result.data.highlights.openReconCount).toBe(0);
-        }
+    it('fails closed without an explicit tenant DB', async () => {
+        mocks.tenantDb.mockReturnValue(undefined);
+        expect(await getFinanceMobileOverview()).toMatchObject({ success: false });
+        expect(mocks.transaction).not.toHaveBeenCalled();
+    });
+    it('checks access before starting any query', async () => {
+        mocks.guard.mockRejectedValue(new Error('Denied'));
+        expect(await getFinanceMobileOverview()).toMatchObject({ success: false });
+        expect(mocks.transaction).not.toHaveBeenCalled();
     });
 });

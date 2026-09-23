@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { MobileTeamAttendanceResult } from '@/actions/production/mobile-supervisor';
 import { formatWIB } from '@/lib/utils/timezone';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 
 function fmtTime(iso: string | null): string {
     if (!iso) return '-';
@@ -38,7 +39,6 @@ const ROLE_OPTIONS = [
     { value: 'OPERATOR', label: 'Operator' },
     { value: 'HELPER', label: 'Helper' },
     { value: 'PACKER', label: 'Packer' },
-    { value: 'PRODUCTION', label: 'Production' },
 ];
 
 export function AttendanceClient({ initialData, initialFilters }: Props) {
@@ -75,11 +75,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
     }, [data]);
 
     if (!data) {
-        return (
-            <div className="rounded-lg border bg-white p-4 text-sm text-slate-500 dark:bg-slate-800 dark:border-slate-700">
-                Gagal memuat data absensi. Coba refresh.
-            </div>
-        );
+        return <MobileReadError title="Rekap absensi produksi belum tersedia" />;
     }
 
     return (
@@ -106,7 +102,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                             Tidak Hadir
                         </div>
                         <div className="text-lg font-bold text-red-700 dark:text-red-300">
-                            {summary.absent + summary.noRecord}
+                            {summary.absent}
                         </div>
                     </div>
                     <div className="rounded-lg bg-amber-50 p-3 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
@@ -120,8 +116,10 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                 </div>
             )}
 
+            <p className="text-sm text-muted-foreground">Belum tercatat: {data.noRecordCount}. Ini tidak berarti tidak hadir; shift mungkin belum dimulai. Ringkasan mengikuti filter.</p>
+
             {/* Filters */}
-            <div className="rounded-lg bg-white p-3 border space-y-3 dark:bg-slate-800 dark:border-slate-700">
+            <div className="rounded-lg bg-white p-3 border space-y-3 dark:bg-slate-800 dark:border-slate-700 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
                 <div className="grid grid-cols-2 gap-2">
                     <div>
                         <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
@@ -129,6 +127,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                         </label>
                         <input
                             type="date"
+                            aria-label="Tanggal absensi"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
                             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
@@ -139,6 +138,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                             Shift
                         </label>
                         <select
+                            aria-label="Shift"
                             value={shift}
                             onChange={(e) => setShift(e.target.value)}
                             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
@@ -159,6 +159,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                             Status
                         </label>
                         <select
+                            aria-label="Status absensi"
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
                             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
@@ -175,6 +176,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                             Role
                         </label>
                         <select
+                            aria-label="Peran karyawan"
                             value={role}
                             onChange={(e) => setRole(e.target.value)}
                             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"

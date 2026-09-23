@@ -1,10 +1,11 @@
 import { getMyFieldReceivables } from '@/actions/sales/field-actions';
 import { ReceivablesListClient } from './ReceivablesListClient';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 
 export default async function SalesMobileReceivablesPage() {
     const invoicesRes = await getMyFieldReceivables();
-    const invoices =
-        invoicesRes.success && invoicesRes.data ? invoicesRes.data : [];
+    if (!invoicesRes.success) return <MobileReadError title="Daftar piutang belum tersedia" />;
+    const invoices = invoicesRes.data;
 
     const serialized = invoices.map((inv) => ({
         id: inv.id,

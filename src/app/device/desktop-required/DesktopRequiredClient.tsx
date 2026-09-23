@@ -6,8 +6,6 @@ import { Monitor } from 'lucide-react';
 import { desktopRequiredLabels as L } from '@/lib/labels/mobile';
 import {
     isMobileBypassAllowed,
-    getMobileHomeForUser,
-    getMobileHomeCtaKey,
 } from '@/lib/mobile/mobile-access-policy';
 import { useSession } from 'next-auth/react';
 
@@ -21,18 +19,8 @@ export function DesktopRequiredClient() {
         | undefined;
     const bypassAllowed = isMobileBypassAllowed(user);
 
-    const homePath = getMobileHomeForUser(user || {});
-    const ctaKey = getMobileHomeCtaKey(user);
-    const homeLabel =
-        ctaKey === 'sales'
-            ? L.cta.sales
-            : ctaKey === 'warehouse'
-              ? L.cta.warehouse
-              : ctaKey === 'production'
-                ? L.cta.production
-                : ctaKey === 'selector'
-                  ? 'Pilih Portal Mobile'
-                  : L.cta.login;
+    const homePath = session?.user ? '/mobile' : null;
+    const homeLabel = 'Periksa Portal Mobile';
 
     const handleBypass = () => {
         if (typeof document !== 'undefined') {

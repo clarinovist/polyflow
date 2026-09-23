@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { getHrdMobileTeamAttendance } from '@/actions/hrd/mobile-dashboard';
+import { getHrdMobileTeamAttendance, type HrdMobileTeamAttendanceFilters } from '@/actions/hrd/mobile-dashboard';
 import { MobileSectionHeader } from '@/components/mobile';
 import { HrdAttendanceClient } from './attendance-client';
 
@@ -20,11 +19,11 @@ export default async function HrdAttendancePage({
     const filters = {
         date: sp.date?.trim() || undefined,
         workShiftId: sp.shift?.trim() || undefined,
-        status: (sp.status?.trim() as any) || 'ALL',
+        status: (sp.status?.trim() || 'ALL') as HrdMobileTeamAttendanceFilters['status'],
         q: sp.q?.trim() || undefined,
     };
 
-    const res = await getHrdMobileTeamAttendance(filters as any);
+    const res = await getHrdMobileTeamAttendance(filters);
     const data = res.success ? res.data : null;
 
     return (

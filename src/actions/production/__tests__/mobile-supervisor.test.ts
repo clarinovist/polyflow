@@ -21,6 +21,7 @@ vi.mock('@/lib/core/prisma', () => ({
         productionOrder: {
             findMany: vi.fn(),
             findFirst: vi.fn(),
+            count: vi.fn().mockResolvedValue(0),
         },
         productionExecution: {
             aggregate: vi.fn(),
@@ -104,6 +105,7 @@ describe('getProductionSupervisorOverview', () => {
     });
 
     it('returns overview with production orders and downtimes', async () => {
+        vi.mocked(prisma.productionOrder.count).mockResolvedValueOnce(1);
         vi.mocked(prisma.productionOrder.findMany)
             .mockResolvedValueOnce([
                 {
@@ -136,7 +138,8 @@ describe('getProductionSupervisorOverview', () => {
                 id: 'dt-1',
                 reason: 'Mati Listrik',
                 durationMinutes: 15,
-                startTime: new Date(),
+                startTime: new Date(Date.now() - 15 * 60000),
+                endTime: new Date(),
                 createdAt: new Date(),
                 machine: { name: 'Extruder 1' },
             } as any,
@@ -246,11 +249,7 @@ describe('getProductionSupervisorOverview', () => {
         vi.mocked(prisma.qualityInspection.count).mockResolvedValue(0);
 
         const result = await getProductionSupervisorOverview();
-        expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.targetToday).toBeNull();
-            expect(result.data.highlights.targetUnitMode).toBe('NONE');
-        }
+        expect(result.success).toBe(false);
     });
 
     it('sets MIXED unit mode when planned SPKs use different output units', async () => {
@@ -275,7 +274,7 @@ describe('getProductionSupervisorOverview', () => {
         }
     });
 
-    it('handles DB errors gracefully and returns default values', async () => {
+    it('returns failure instead of fabricated zero on DB errors', async () => {
         vi.mocked(prisma.productionOrder.findMany)
             .mockRejectedValue(new Error('DB Error'))
             .mockRejectedValueOnce(new Error('DB Error'));
@@ -290,12 +289,7 @@ describe('getProductionSupervisorOverview', () => {
         );
 
         const result = await getProductionSupervisorOverview();
-        expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.activeOrdersCount).toBe(0);
-            expect(result.data.highlights.outputToday).toBe(0);
-            expect(result.data.highlights.targetToday).toBeNull();
-        }
+        expect(result.success).toBe(false);
     });
 });
 

@@ -64,7 +64,7 @@ export function StockCheckClient({
             <div>
                 <h1 className="text-xl font-bold">Cek Stok</h1>
                 <p className="text-sm text-muted-foreground">
-                    {products.length} produk tersedia
+                    {products.length} produk • stok fisik perusahaan, tidak termasuk stok milik customer
                 </p>
             </div>
 
@@ -187,7 +187,7 @@ export function StockCheckClient({
                                 {/* Total */}
                                 <div className="flex justify-between items-center mt-2 pt-2 border-t text-sm">
                                     <span className="text-muted-foreground">
-                                        Total Stok
+                                        Total Stok Fisik
                                     </span>
                                     <span className="font-bold">
                                         {totalStock.toLocaleString('id-ID')}{' '}

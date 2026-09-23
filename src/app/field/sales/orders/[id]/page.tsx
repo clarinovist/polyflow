@@ -2,6 +2,7 @@ import { getFieldSalesOrderById } from '@/actions/sales/field-actions';
 import { getLocations } from '@/actions/inventory/locations';
 import { notFound } from 'next/navigation';
 import { OrderDetailClient } from './OrderDetailClient';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 
 type DBOrderWithDeliveries = {
     deliveryOrders?: {
@@ -34,9 +35,12 @@ export default async function SalesMobileOrderDetailPage(props: {
         getLocations(),
     ]);
 
-    if (!response?.success || !response.data) {
-        notFound();
+    if (!response.success) {
+        if (response.code === 'NOT_FOUND') notFound();
+        return <MobileReadError title="Detail pesanan belum tersedia" />;
     }
+    if (!response.data) notFound();
+    if (!locationsResponse.success) return <MobileReadError title="Data lokasi belum tersedia" />;
 
     const order = response.data;
     const locations =

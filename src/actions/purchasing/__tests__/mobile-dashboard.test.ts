@@ -1,118 +1,32 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { Prisma } from '@prisma/client';
 import { getPurchasingMobileOverview } from '../mobile-dashboard';
-import { prisma } from '@/lib/core/prisma';
-import { auth } from '@/auth';
-
-vi.mock('@/auth', () => ({
-    auth: vi.fn(),
-}));
-
-vi.mock('@/lib/auth/purchasing-access', () => ({
-    requirePurchasingAccess: vi.fn().mockResolvedValue({
-        user: { id: 'u1', role: 'PROCUREMENT', roles: ['PROCUREMENT'] },
-    }),
-    requirePurchasingApprover: vi.fn(),
-    requirePurchasingFinance: vi.fn(),
-    requirePurchasingCreator: vi.fn(),
-    requirePurchasingAnalyticsRead: vi.fn(),
-}));
-
-vi.mock('@/lib/core/prisma', () => ({
-    prisma: {
-        user: {
-            findUnique: vi.fn(),
-        },
-        purchaseOrder: {
-            count: vi.fn(),
-            findMany: vi.fn(),
-        },
-        purchaseInvoice: {
-            findMany: vi.fn(),
-        },
-    },
-}));
-
-vi.mock('@/lib/core/tenant', () => ({
-    withTenant: (fn: any) => fn,
-    getTenantContext: () => ({ tenantId: 'test-tenant' }),
-}));
-
-describe('getPurchasingMobileOverview', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({
-            id: 'u1',
-            role: 'PROCUREMENT',
-            isActive: true,
-        } as any);
+const m = vi.hoisted(() => ({ guard: vi.fn(), count: vi.fn(), orders: vi.fn(), ap: vi.fn() }));
+vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
+vi.mock('@/lib/auth/purchasing-access', () => ({ requirePurchasingAccess: m.guard }));
+vi.mock('@/lib/core/prisma', () => ({ prisma: {
+    purchaseOrder: { count: m.count, findMany: m.orders },
+    purchaseInvoice: { aggregate: m.ap, fields: { paidAmount: 'paid-field' } },
+} }));
+beforeEach(() => {
+    vi.resetAllMocks(); m.guard.mockResolvedValue({}); m.count.mockResolvedValue(0); m.orders.mockResolvedValue([]);
+    m.ap.mockResolvedValue({ _count: 0, _sum: { totalAmount: null, paidAmount: null } });
+});
+describe('purchasing mobile overview', () => {
+    it('returns genuine empty data', async () => {
+        expect(await getPurchasingMobileOverview()).toMatchObject({ success: true, data: { highlights: { overdueApAmount: 0 }, recentOrders: [] } });
     });
-
-    it('returns empty overview when authenticated', async () => {
-        vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role: 'PROCUREMENT' },
-        } as any);
-
-        vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(0);
-        vi.mocked(prisma.purchaseOrder.findMany).mockResolvedValue([]);
-        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
-
-        const result = await getPurchasingMobileOverview();
-        expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.draftPoCount).toBe(0);
-            expect(result.data.recentOrders).toEqual([]);
-        }
+    it('uses full net AP aggregate including OVERDUE and does not pretend recent list is active total', async () => {
+        m.ap.mockResolvedValue({ _count: 25, _sum: { totalAmount: new Prisma.Decimal(1000), paidAmount: new Prisma.Decimal(400) } });
+        m.orders.mockResolvedValue([{ id: 'po', orderNumber: 'PO', supplier: { name: 'Synthetic' }, status: 'COMPLETED', totalAmount: null }]);
+        expect(await getPurchasingMobileOverview()).toMatchObject({ success: true, data: { highlights: { overdueApCount: 25, overdueApAmount: 600 }, recentOrders: [{ totalAmount: null }] } });
+        expect(m.ap.mock.calls[0][0].where.status.in).toContain('OVERDUE');
+        expect(m.ap.mock.calls[0][0].where.totalAmount).toEqual({ gt: 'paid-field' });
     });
-
-    it('returns overview with PO and AP details', async () => {
-        vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role: 'PROCUREMENT' },
-        } as any);
-
-        vi.mocked(prisma.purchaseOrder.count)
-            .mockResolvedValueOnce(3)
-            .mockResolvedValueOnce(5);
-
-        vi.mocked(prisma.purchaseOrder.findMany).mockResolvedValue([
-            {
-                id: 'po-1',
-                orderNumber: 'PO-001',
-                status: 'SENT',
-                totalAmount: 15000000,
-                supplier: { name: 'PT Biji Plastik Utama' },
-            } as any,
-        ]);
-
-        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([
-            { totalAmount: 5000000 } as any,
-        ]);
-
-        const result = await getPurchasingMobileOverview();
-        expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.draftPoCount).toBe(3);
-            expect(result.data.highlights.waitingReceiptCount).toBe(5);
-            expect(result.data.highlights.overdueApCount).toBe(1);
-            expect(result.data.highlights.overdueApAmount).toBe(5000000);
-            expect(result.data.recentOrders[0].poNumber).toBe('PO-001');
-        }
+    it('returns failure for unavailable data', async () => {
+        m.ap.mockRejectedValue(new Error('Synthetic unavailable')); expect(await getPurchasingMobileOverview()).toMatchObject({ success: false });
     });
-
-    it('handles DB errors and returns fallback 0 values', async () => {
-        vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role: 'PROCUREMENT' },
-        } as any);
-
-        vi.mocked(prisma.purchaseOrder.count).mockRejectedValue(new Error('DB Error'));
-        vi.mocked(prisma.purchaseOrder.findMany).mockRejectedValue(new Error('DB Error'));
-        vi.mocked(prisma.purchaseInvoice.findMany).mockRejectedValue(new Error('DB Error'));
-
-        const result = await getPurchasingMobileOverview();
-        expect(result.success).toBe(true);
-        if (result.success) {
-            expect(result.data.highlights.draftPoCount).toBe(0);
-            expect(result.data.highlights.waitingReceiptCount).toBe(0);
-            expect(result.data.highlights.overdueApCount).toBe(0);
-        }
+    it('denies before reads', async () => {
+        m.guard.mockRejectedValue(new Error('Denied')); expect(await getPurchasingMobileOverview()).toMatchObject({ success: false }); expect(m.count).not.toHaveBeenCalled();
     });
 });

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { HrdMobileTeamAttendanceResult } from '@/actions/hrd/mobile-dashboard';
 import { formatWIB } from '@/lib/utils/timezone';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 
 function fmtTime(iso: string | null): string {
     if (!iso) return '-';
@@ -28,7 +29,7 @@ export function HrdAttendanceClient({
     const [q, setQ] = useState(initialFilters.q || '');
 
     if (!initialData) {
-        return <div className="rounded-lg border bg-white p-4 text-sm text-slate-500 dark:bg-slate-800">Gagal memuat data.</div>;
+        return <MobileReadError title="Rekap absensi belum tersedia" />;
     }
 
     const data = initialData;
@@ -44,30 +45,36 @@ export function HrdAttendanceClient({
 
     return (
         <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
                     <div className="text-[10px] text-slate-500">Hadir</div>
                     <div className="font-bold text-emerald-600">{data.presentCount}</div>
                 </div>
                 <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
                     <div className="text-[10px] text-slate-500">Absen</div>
-                    <div className="font-bold text-red-600">{data.absentCount + data.noRecordCount}</div>
+                    <div className="font-bold text-red-600">{data.absentCount}</div>
                 </div>
                 <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
                     <div className="text-[10px] text-slate-500">Cuti</div>
                     <div className="font-bold text-amber-600">{data.onLeaveCount}</div>
                 </div>
+                <div className="rounded-lg border bg-card p-2">
+                    <div className="text-xs text-muted-foreground">Belum tercatat</div>
+                    <div className="font-bold">{data.noRecordCount}</div>
+                </div>
             </div>
 
-            <div className="rounded-lg border bg-white p-3 space-y-2 dark:bg-slate-800 dark:border-slate-700">
+            <div className="rounded-lg border bg-white p-3 space-y-2 dark:bg-slate-800 dark:border-slate-700 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
                 <div className="grid grid-cols-2 gap-2">
                     <input
                         type="date"
+                        aria-label="Tanggal absensi"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
                         className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
                     />
                     <select
+                        aria-label="Shift"
                         value={shift}
                         onChange={(e) => setShift(e.target.value)}
                         className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
@@ -82,6 +89,7 @@ export function HrdAttendanceClient({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     <select
+                        aria-label="Status absensi"
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
                         className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
@@ -94,6 +102,7 @@ export function HrdAttendanceClient({
                     </select>
                     <input
                         type="text"
+                        aria-label="Cari nama atau kode karyawan"
                         placeholder="Cari nama/kode..."
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
@@ -105,7 +114,9 @@ export function HrdAttendanceClient({
                 </button>
             </div>
 
+            <p className="text-xs text-muted-foreground">Ringkasan mengikuti filter. Belum tercatat bukan berarti tidak hadir; shift mungkin belum dimulai.</p>
             <div className="space-y-2">
+                {!data.records.length && <p className="text-sm">Tidak ada karyawan untuk filter ini.</p>}
                 {data.records.map((r) => (
                     <div key={r.employeeId} className="rounded-lg border bg-white p-3 dark:bg-slate-800 dark:border-slate-700">
                         <div className="flex justify-between gap-2">

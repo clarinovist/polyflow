@@ -2,8 +2,8 @@
  * Mobile Portal Registry — source of truth for mobile portal definitions.
  *
  * Each portal represents a role-based operational surface on mobile.
- * Resolver combines: session validity, module entitlement, role/permission,
- * feature rollout flag, and mobile allowlist.
+ * Server discovery combines session, module entitlement, role/permission and
+ * portal status. Route/action guards remain authoritative; this registry grants no access.
  *
  * Portal status:
  * - ACTIVE: live in production
@@ -40,8 +40,6 @@ export interface MobilePortalDefinition {
     roles: string[];
     /** Permission resource root for this portal */
     permissionRoot: string;
-    /** Optional feature flag required for portal visibility */
-    requiredFeature?: string;
     /** Icon name from lucide-react */
     icon: string;
 }
@@ -96,7 +94,6 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         status: 'ACTIVE',
         roles: ['PRODUCTION', 'PLANNING'],
         permissionRoot: '/production',
-        requiredFeature: 'feature:mobile-production-supervisor',
         icon: 'ClipboardCheck',
     },
     {
@@ -109,7 +106,6 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         status: 'ACTIVE',
         roles: ['PROCUREMENT', 'PLANNING'],
         permissionRoot: '/purchasing',
-        requiredFeature: 'feature:mobile-purchasing',
         icon: 'ShoppingCart',
     },
     {
@@ -122,7 +118,6 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         status: 'ACTIVE',
         roles: ['FINANCE'],
         permissionRoot: '/finance',
-        requiredFeature: 'feature:mobile-finance',
         icon: 'Wallet',
     },
     {
@@ -135,7 +130,6 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         status: 'ACTIVE',
         roles: ['HRD'],
         permissionRoot: '/hrd',
-        requiredFeature: 'feature:mobile-hrd-supervisor',
         icon: 'Users',
     },
     {
@@ -148,7 +142,6 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         status: 'PLANNED',
         roles: ['WAREHOUSE'],
         permissionRoot: '/maklon',
-        requiredFeature: 'feature:mobile-maklon',
         icon: 'Boxes',
     },
 ];

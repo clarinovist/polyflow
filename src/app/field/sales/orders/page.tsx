@@ -1,9 +1,11 @@
 import { getMyFieldSalesOrders } from '@/actions/sales/field-actions';
 import { OrderListClient } from './OrderListClient';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 
 export default async function SalesMobileOrdersPage() {
     const ordersRes = await getMyFieldSalesOrders();
-    const orders = ordersRes?.success && ordersRes.data ? ordersRes.data : [];
+    if (!ordersRes.success) return <MobileReadError title="Daftar pesanan belum tersedia" />;
+    const orders = ordersRes.data;
 
     const serialized = orders.map((o) => ({
         id: o.id,

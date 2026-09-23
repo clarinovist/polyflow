@@ -1,8 +1,8 @@
 import React from 'react';
+import { LiveMobileConnectivity } from '@/components/mobile/LiveMobileConnectivity';
 import Link from 'next/link';
 import { Wallet } from 'lucide-react';
 import {
-    MobileConnectivityBanner,
     MobilePortalBottomNav,
 } from '@/components/mobile';
 
@@ -28,7 +28,7 @@ export default function FinanceMobileLayout({
                 </Link>
             </header>
 
-            <MobileConnectivityBanner isOnline={true} />
+            <LiveMobileConnectivity />
 
             <main
                 id="finance-mobile-content"

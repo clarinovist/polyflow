@@ -1,6 +1,7 @@
 import { getProductVariants } from '@/actions/inventory/inventory';
 import { getLocations } from '@/actions/inventory/inventory';
 import { StockCheckClient } from './StockCheckClient';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 
 export default async function SalesMobileStockPage() {
     const [productsRes, locationsRes] = await Promise.all([
@@ -8,10 +9,13 @@ export default async function SalesMobileStockPage() {
         getLocations(),
     ]);
 
-    const products =
-        productsRes.success && productsRes.data ? productsRes.data : [];
-    const locations =
-        locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    if (!productsRes.success || !locationsRes.success) return <MobileReadError title="Data stok belum tersedia" />;
+    const products = productsRes.data;
+    const locations = locationsRes.data;
+    const visibleLocationIds = new Set(locations.filter((location) =>
+        location.locationType !== 'CUSTOMER_OWNED' &&
+        ['FINISHED_GOOD', 'PACKING', 'GENERAL_PURPOSE', 'RAW_MATERIAL', 'SCRAP'].includes(location.locationPurpose),
+    ).map((location) => location.id));
 
     const serializedProducts = products
         .filter(
@@ -27,24 +31,14 @@ export default async function SalesMobileStockPage() {
             primaryUnit: p.primaryUnit,
             sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
             inventories:
-                p.inventories?.map((inv) => ({
+                p.inventories?.filter((inv) => visibleLocationIds.has(inv.locationId)).map((inv) => ({
                     locationId: inv.locationId,
                     quantity: Number(inv.quantity),
                 })) || [],
         }));
 
     const stockLocations = locations
-        .filter(
-            (l) =>
-                l.locationType !== 'CUSTOMER_OWNED' &&
-                [
-                    'FINISHED_GOOD',
-                    'PACKING',
-                    'GENERAL_PURPOSE',
-                    'RAW_MATERIAL',
-                    'SCRAP',
-                ].includes(l.locationPurpose),
-        )
+        .filter((l) => visibleLocationIds.has(l.id))
         .map((l) => ({ id: l.id, name: l.name }));
 
     return (

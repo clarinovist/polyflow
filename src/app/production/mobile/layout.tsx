@@ -1,11 +1,11 @@
 import React from 'react';
+import { LiveMobileConnectivity } from '@/components/mobile/LiveMobileConnectivity';
 import Link from 'next/link';
 import {
     ClipboardCheck,
     Plus,
 } from 'lucide-react';
 import {
-    MobileConnectivityBanner,
     MobilePortalBottomNav,
 } from '@/components/mobile';
 
@@ -40,7 +40,7 @@ export default function ProductionMobileLayout({
                 </div>
             </header>
 
-            <MobileConnectivityBanner isOnline={true} />
+            <LiveMobileConnectivity />
 
             <main
                 id="production-mobile-content"
