@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { readFileSync } from 'node:fs';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { PolyflowChatPanel } from '../polyflow-chat-panel';
 import type { CitedArticle } from '../cited-article-cards';
@@ -384,11 +384,15 @@ describe('PolyflowChatWidget collision protection and minimize', () => {
                         </button>
                     ))}
                 </main>
-                <PolyflowChatWidget />
+                <div data-testid="chat-widget">
+                    <PolyflowChatWidget />
+                </div>
             </>,
         );
 
-        const trigger = screen.getByRole('button', {
+        // Keep the 2,000-button stress fixture, but avoid computing every page
+        // button's accessible name just to locate the widget's own launcher.
+        const trigger = within(screen.getByTestId('chat-widget')).getByRole('button', {
             name: 'Buka Asisten Polyflow',
         });
         const root = trigger.parentElement;
