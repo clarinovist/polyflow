@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 import { deleteVehicle } from '@/actions/sales/vehicles';
 import { VehicleDialog } from './VehicleDialog';
 import { salesLabels } from '@/lib/labels';
+import type { FleetSummary } from '@/services/sales/fleet-summary-service';
+import { FleetMileageSummary, KirBadge } from './FleetReading';
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
     MOBIL_BOX: 'Mobil Box',
@@ -42,36 +44,12 @@ const OWNERSHIP_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-    ACTIVE: 'bg-green-100 text-green-800',
-    INACTIVE: 'bg-gray-100 text-gray-800',
-    MAINTENANCE: 'bg-yellow-100 text-yellow-800',
+    ACTIVE: 'bg-muted text-foreground',
+    INACTIVE: 'bg-muted text-muted-foreground',
+    MAINTENANCE: 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
 };
 
-function getKirAlert(kirExpireDateStr: string | null) {
-    if (!kirExpireDateStr) return null;
-    const expireDate = new Date(kirExpireDateStr);
-    const now = new Date();
-    expireDate.setHours(0, 0, 0, 0);
-    now.setHours(0, 0, 0, 0);
-
-    const diffTime = expireDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-        return {
-            label: 'KIR Expired',
-            style: 'bg-red-100 text-red-800 border-red-200',
-        };
-    } else if (diffDays <= 30) {
-        return {
-            label: 'KIR Expiring',
-            style: 'bg-yellow-100 text-yellow-800 border-yellow-200 animate-pulse',
-        };
-    }
-    return null;
-}
-
-interface VehicleRow {
+export interface VehicleRow {
     id: string;
     plateNumber: string;
     name: string;
@@ -90,9 +68,11 @@ interface VehicleRow {
 
 interface VehicleTableProps {
     vehicles: VehicleRow[];
+    summaries?: FleetSummary[];
 }
 
-export function VehicleTable({ vehicles }: VehicleTableProps) {
+export function VehicleTable({ vehicles, summaries = [] }: VehicleTableProps) {
+    const summaryByVehicle = new Map(summaries.map((summary) => [summary.vehicleId, summary]));
     const [filterOwnership, setFilterOwnership] = useState<string>('ALL');
     const [editVehicle, setEditVehicle] = useState<VehicleRow | null>(null);
     const [editOpen, setEditOpen] = useState(false);
@@ -170,6 +150,7 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                                         Kapasitas
                                     </TableHead>
                                     <TableHead>Status</TableHead>
+                                    <TableHead>Odometer & KM periode</TableHead>
                                     <TableHead className="text-right">
                                         Aksi
                                     </TableHead>
@@ -182,23 +163,11 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                                             <div className="flex flex-col gap-1">
                                                 <Link
                                                     href={`/sales/vehicles/${v.id}`}
-                                                    className="font-medium text-blue-600 hover:underline"
+                                                    className="font-medium underline underline-offset-4"
                                                 >
                                                     {v.plateNumber}
                                                 </Link>
-                                                {getKirAlert(
-                                                    v.kirExpireDate,
-                                                ) && (
-                                                    <span
-                                                        className={`text-[10px] px-1.5 py-0.5 rounded-full border w-max font-medium ${getKirAlert(v.kirExpireDate)!.style}`}
-                                                    >
-                                                        {
-                                                            getKirAlert(
-                                                                v.kirExpireDate,
-                                                            )!.label
-                                                        }
-                                                    </span>
-                                                )}
+                                                <KirBadge expiry={v.kirExpireDate} />
                                             </div>
                                         </TableCell>
                                         <TableCell>{v.name}</TableCell>
@@ -239,11 +208,13 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                                                 {v.status}
                                             </Badge>
                                         </TableCell>
+                                        <TableCell><FleetMileageSummary summary={summaryByVehicle.get(v.id)} /></TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
+                                                    aria-label={`Edit kendaraan ${v.plateNumber}`}
                                                     onClick={() => {
                                                         setEditVehicle(v);
                                                         setEditOpen(true);
@@ -254,6 +225,7 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
+                                                    aria-label={`Nonaktifkan kendaraan ${v.plateNumber}`}
                                                     onClick={() =>
                                                         handleDelete(
                                                             v.id,
@@ -307,24 +279,14 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                         <Card key={v.id} className="p-4">
                             <div className="flex items-start justify-between">
                                 <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <Link
                                             href={`/sales/vehicles/${v.id}`}
-                                            className="font-bold text-blue-600 hover:underline"
+                                            className="font-bold underline underline-offset-4"
                                         >
                                             {v.plateNumber}
                                         </Link>
-                                        {getKirAlert(v.kirExpireDate) && (
-                                            <span
-                                                className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${getKirAlert(v.kirExpireDate)!.style}`}
-                                            >
-                                                {
-                                                    getKirAlert(
-                                                        v.kirExpireDate,
-                                                    )!.label
-                                                }
-                                            </span>
-                                        )}
+                                        <KirBadge expiry={v.kirExpireDate} />
                                     </div>
                                     <p className="text-sm text-muted-foreground">
                                         {v.name}
@@ -367,6 +329,7 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                                     </div>
                                 )}
                             </div>
+                            <div className="mt-3 border-t pt-3"><FleetMileageSummary summary={summaryByVehicle.get(v.id)} /></div>
                             <div className="mt-3 flex gap-2">
                                 <Button
                                     variant="outline"
@@ -387,7 +350,7 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                                         handleDelete(v.id, v.plateNumber)
                                     }
                                 >
-                                    <Trash2 className="h-4 w-4 mr-1" /> Hapus
+                                    <Trash2 className="h-4 w-4 mr-1" /> Nonaktifkan
                                 </Button>
                             </div>
                         </Card>

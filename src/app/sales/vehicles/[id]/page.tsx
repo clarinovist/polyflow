@@ -51,8 +51,7 @@ export default async function VehicleDetailPage({
         _count: result.data._count,
     };
 
-    return <>
-        <VehicleDetailClient vehicle={vehicle} />
-        <div className="px-6 pb-6"><VehicleDistanceHistory vehicleId={id} /></div>
-    </>;
+    return <VehicleDetailClient vehicle={vehicle}>
+        <VehicleDistanceHistory vehicleId={id} />
+    </VehicleDetailClient>;
 }
