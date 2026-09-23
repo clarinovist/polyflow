@@ -6,6 +6,7 @@ import pg from 'pg';
 import { tenantContext } from '@/lib/core/prisma';
 import { returnTestClient, verifyReturnTestDatabase } from '../../finance/__tests__/return-credit-postgres-fixture';
 import { finishTripMileage, saveRouteDistance, saveTripDistancePlan, startTripMileage } from '../trip-distance-service';
+import { getFleetDistanceHistory, getFleetSummaries } from '../fleet-summary-service';
 const connection = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
 const db = connection ? returnTestClient(connection) : null;
 const otherUrl = connection ? new URL(connection) : null;
@@ -78,6 +79,20 @@ describe.skipIf(!db)('factory mileage PostgreSQL contracts', () => {
         await tenantContext.run(other!, () => startTripMileage({ tripId: 't1', driverName: 'Other', odometerStart: 500 }, 'km-user'));
         expect(Number((await db!.vehicleTripMileage.findFirstOrThrow()).odometerStart)).toBe(100);
         expect(Number((await other!.vehicleTripMileage.findFirstOrThrow()).odometerStart)).toBe(500);
+    });
+    it('reads fleet summaries and history from only the active tenant with exact month/legacy coverage', async () => {
+        await seed(other!);
+        await start();
+        await finish();
+        await db!.deliveryScheduleVehicle.create({ data: { id: 'legacy', scheduleId: 's', vehicleId: 'v', status: 'COMPLETED', departureDate: null } });
+        await db!.deliveryScheduleVehicle.create({ data: { id: 'outside', scheduleId: 's', vehicleId: 'v', status: 'COMPLETED', departureDate: new Date('2026-08-31T16:59:59Z') } });
+        const [summary] = await run(() => getFleetSummaries(['v'], '2026-09'));
+        expect(summary).toMatchObject({ actualKm: 84, recordedTrips: 1, pendingTrips: 1, undatedTrips: 1, latestReading: { km: 184, source: 'TRIP_RETURN' } });
+        const history = await run(() => getFleetDistanceHistory('v', '2026-09'));
+        expect(history.rows.map((row) => row.id).sort()).toEqual(['legacy', 't1', 't2']);
+        expect(history.actualKm).toBe(summary.actualKm);
+        const [otherSummary] = await tenantContext.run(other!, () => getFleetSummaries(['v'], '2026-09'));
+        expect(otherSummary).toMatchObject({ actualKm: null, recordedTrips: 0, pendingTrips: 2, latestReading: null });
     });
     it.each([false, true])('replays additive migration with populated=%s; old km remain unknown', async (populated) => {
         const schema = `km_migration_${randomUUID().replaceAll('-', '')}`;

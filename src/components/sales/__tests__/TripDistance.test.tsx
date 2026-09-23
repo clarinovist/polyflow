@@ -16,7 +16,7 @@ beforeEach(() => {
     vi.resetAllMocks();
     mocks.routes.mockResolvedValue({ success: true, data: [{ id: 'a', originAddress: 'F', destinationAddress: 'A', distanceKm: 40 }, { id: 'b', originAddress: 'A', destinationAddress: 'F', distanceKm: 44 }] });
     for (const fn of [mocks.save, mocks.plan, mocks.start, mocks.finish]) fn.mockResolvedValue({ success: true });
-    mocks.history.mockResolvedValue({ success: true, data: { rows: [], actualKm: 0, recordedTrips: 0, pendingTrips: 0 } });
+    mocks.history.mockResolvedValue({ success: true, data: { rows: [], actualKm: null, recordedTrips: 0, pendingTrips: 0, undatedTrips: 0, latestReading: null } });
 });
 afterEach(cleanup);
 describe('distance UI', () => {

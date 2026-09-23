@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { deleteVehicleTariff } from '@/actions/sales/vehicle-tariffs';
 import { VehicleDialog } from './VehicleDialog';
 import { VehicleTariffDialog } from './VehicleTariffDialog';
 import { salesLabels } from '@/lib/labels';
+import { KirBadge } from './FleetReading';
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
     MOBIL_BOX: 'Mobil Box',
@@ -36,9 +37,9 @@ const OWNERSHIP_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-    ACTIVE: 'bg-green-100 text-green-800',
-    INACTIVE: 'bg-gray-100 text-gray-800',
-    MAINTENANCE: 'bg-yellow-100 text-yellow-800',
+    ACTIVE: 'bg-muted text-foreground',
+    INACTIVE: 'bg-muted text-muted-foreground',
+    MAINTENANCE: 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
 };
 
 const RATE_TYPE_LABELS: Record<string, string> = {
@@ -80,6 +81,7 @@ interface Vehicle {
 
 interface VehicleDetailClientProps {
     vehicle: Vehicle;
+    children?: ReactNode;
 }
 
 function formatRupiah(amount: number): string {
@@ -98,36 +100,7 @@ function formatDate(dateStr: string): string {
     });
 }
 
-function getKirStatus(kirExpireDateStr: string | null) {
-    if (!kirExpireDateStr)
-        return { label: 'Belum diisi', color: 'bg-gray-100 text-gray-800' };
-    const expireDate = new Date(kirExpireDateStr);
-    const now = new Date();
-    expireDate.setHours(0, 0, 0, 0);
-    now.setHours(0, 0, 0, 0);
-
-    const diffTime = expireDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-        return {
-            label: `KADALUWARSA (${Math.abs(diffDays)} hari yang lalu)`,
-            color: 'bg-red-100 text-red-800 border-red-300',
-        };
-    } else if (diffDays <= 30) {
-        return {
-            label: `SEGERA HABIS (${diffDays} hari sisa)`,
-            color: 'bg-yellow-100 text-yellow-800 border-yellow-300 animate-pulse',
-        };
-    } else {
-        return {
-            label: `Aktif (sisa ${diffDays} hari)`,
-            color: 'bg-green-100 text-green-800 border-green-300',
-        };
-    }
-}
-
-export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
+export function VehicleDetailClient({ vehicle, children }: VehicleDetailClientProps) {
     const [editOpen, setEditOpen] = useState(false);
     const [editTariff, setEditTariff] = useState<Tariff | null>(null);
     const [tariffDialogOpen, setTariffDialogOpen] = useState(false);
@@ -145,16 +118,14 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
     };
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-4 md:p-6 space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Link href="/sales/vehicles">
-                    <Button variant="ghost" size="sm">
-                        <ArrowLeft className="h-4 w-4 mr-1" /> Kembali
-                    </Button>
-                </Link>
-                <div className="flex-1">
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-4">
+                <Button variant="ghost" size="sm" asChild>
+                    <Link href="/sales/vehicles"><ArrowLeft className="h-4 w-4 mr-1" /> Kembali</Link>
+                </Button>
+                <div className="order-last w-full md:order-none md:w-auto md:flex-1 min-w-0">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex flex-wrap items-center gap-3 break-words">
                         {vehicle.plateNumber}
                         <Badge className={STATUS_STYLES[vehicle.status] || ''}>
                             {vehicle.status}
@@ -162,13 +133,20 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                     </h1>
                     <p className="text-muted-foreground">{vehicle.name}</p>
                 </div>
-                <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Button className="ml-auto" variant="outline" onClick={() => setEditOpen(true)}>
                     <Pencil className="h-4 w-4 mr-2" /> Edit
                 </Button>
             </div>
 
+            <nav aria-label="Bagian detail armada" className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
+                <a className="underline underline-offset-4" href="#vehicle-summary">Ringkasan</a>
+                <a className="underline underline-offset-4" href="#vehicle-trips">Perjalanan & pengiriman</a>
+                <a className="underline underline-offset-4" href="#vehicle-kir">Dokumen & KIR</a>
+                <a className="underline underline-offset-4" href="#vehicle-tariffs">Tarif</a>
+            </nav>
+            <p className="text-sm text-muted-foreground">Status aktif bukan jaminan kendaraan tersedia. Jadwal dan riwayat servis belum tersedia; KM pengiriman bukan seluruh pemakaian kendaraan.</p>
             {/* Info Card */}
-            <Card>
+            <Card id="vehicle-summary">
                 <CardHeader>
                     <CardTitle>Informasi Kendaraan</CardTitle>
                 </CardHeader>
@@ -227,7 +205,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                             </div>
                             <div>
                                 <span className="text-muted-foreground block">
-                                    Total Pengiriman
+                                    SJ tertaut (semua status)
                                 </span>
                                 <span className="font-medium">
                                     {vehicle._count.deliveryOrders}
@@ -243,41 +221,15 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                                     {vehicle.kirNumber || '-'}
                                 </span>
                             </div>
-                            <div className="col-span-2">
+                            <div className="col-span-2" id="vehicle-kir">
                                 <span className="text-muted-foreground block">
                                     Status & Masa Berlaku KIR
                                 </span>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                    {vehicle.kirExpireDate ? (
-                                        <>
-                                            <span className="font-medium">
-                                                {formatDate(
-                                                    vehicle.kirExpireDate,
-                                                )}
-                                            </span>
-                                            <Badge
-                                                className={
-                                                    getKirStatus(
-                                                        vehicle.kirExpireDate,
-                                                    ).color
-                                                }
-                                            >
-                                                {
-                                                    getKirStatus(
-                                                        vehicle.kirExpireDate,
-                                                    ).label
-                                                }
-                                            </Badge>
-                                        </>
-                                    ) : (
-                                        <Badge
-                                            variant="outline"
-                                            className="text-gray-400"
-                                        >
-                                            Belum diatur
-                                        </Badge>
-                                    )}
+                                <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                    {vehicle.kirExpireDate && <span className="font-medium">{new Date(vehicle.kirExpireDate).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium' })}</span>}
+                                    <KirBadge expiry={vehicle.kirExpireDate} />
                                 </div>
+                                <p className="mt-1 text-xs text-muted-foreground">Berdasarkan tanggal dokumen, bukan KM. Riwayat pembaruan dan rencana pemeriksaan belum dicatat.</p>
                             </div>
 
                             {vehicle.notes && (
@@ -323,9 +275,10 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                 </CardContent>
             </Card>
 
+            <div id="vehicle-trips">{children}</div>
             {/* Tariffs */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+            <Card id="vehicle-tariffs">
+                <CardHeader className="flex flex-row flex-wrap gap-3 items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         {salesLabels.tariffs}
                         <Badge variant="secondary">
@@ -416,6 +369,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
+                                                        aria-label="Edit tarif"
                                                         onClick={() => {
                                                             setEditTariff(t);
                                                             setTariffDialogOpen(
@@ -428,6 +382,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps) {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
+                                                        aria-label="Hapus tarif"
                                                         onClick={() =>
                                                             handleDeleteTariff(
                                                                 t.id,

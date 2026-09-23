@@ -3,12 +3,13 @@ import { finishTripMileage, getVehicleDistanceHistory, listRouteDistances, saveR
 import { BusinessRuleError } from '@/lib/errors/errors';
 const mocks = vi.hoisted(() => ({
     sales: vi.fn(), delivery: vi.fn(), revalidate: vi.fn(),
-    routes: vi.fn(), trips: vi.fn(), saveRoute: vi.fn(), plan: vi.fn(), start: vi.fn(), finish: vi.fn(),
+    routes: vi.fn(), trips: vi.fn(), history: vi.fn(), saveRoute: vi.fn(), plan: vi.fn(), start: vi.fn(), finish: vi.fn(),
 }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { deliveryRouteDistance: { findMany: mocks.routes }, deliveryScheduleVehicle: { findMany: mocks.trips } } }));
 vi.mock('@/lib/auth/sales-access', () => ({ requireSalesAccess: mocks.sales, requireDeliveryAccess: mocks.delivery }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }));
+vi.mock('@/services/sales/fleet-summary-service', () => ({ getFleetDistanceHistory: mocks.history }));
 vi.mock('@/services/sales/trip-distance-service', () => ({ tripDistanceDb: () => ({ deliveryRouteDistance: { findMany: mocks.routes }, deliveryScheduleVehicle: { findMany: mocks.trips } }), saveRouteDistance: mocks.saveRoute, saveTripDistancePlan: mocks.plan, startTripMileage: mocks.start, finishTripMileage: mocks.finish }));
 beforeEach(() => {
     vi.resetAllMocks();
@@ -36,22 +37,22 @@ describe('trip distance actions', () => {
         }
         expect(mocks.start).toHaveBeenCalledWith({ tripId: 't' }, 'u');
         expect(mocks.revalidate).toHaveBeenCalledWith('/sales/vehicles/v');
+        expect(mocks.revalidate).toHaveBeenCalledWith('/sales/vehicles');
         expect(mocks.revalidate).toHaveBeenCalledWith('/sales/delivery-schedules/s');
         mocks.saveRoute.mockResolvedValue({ id: 'r' });
         await saveRouteDistance({ distanceKm: 1 });
         expect(mocks.revalidate).toHaveBeenCalledWith('/sales/tariffs');
     });
-    it('aggregates once per rit, preserves zero and excludes cancelled plans', async () => {
-        const row = { id: 't', scheduleId: 's', schedule: { scheduleNumber: 'SCH' }, departureDate: new Date('2026-09-23'), status: 'COMPLETED', plannedDistanceKm: 80, mileage: { driverName: 'D', odometerStart: 100, odometerEnd: 184 } };
-        mocks.trips.mockResolvedValue([row, { ...row, id: 'zero', mileage: { ...row.mileage, odometerEnd: 100 } }, { ...row, id: 'pending', mileage: null }, { ...row, id: 'cancel', status: 'CANCELLED' }]);
-        const result = await getVehicleDistanceHistory('v', '2026-09');
-        expect(result).toMatchObject({ success: true, data: { actualKm: 84, recordedTrips: 2, pendingTrips: 1 } });
-        expect(mocks.trips).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ departureDate: { gte: new Date('2026-08-31T17:00:00Z'), lt: new Date('2026-09-30T17:00:00Z') } }) }));
-    });
-    it('rejects invalid month and unauthorized history before querying', async () => {
+    it('delegates history to the shared fleet read model', async () => {
+        mocks.history.mockResolvedValue({ actualKm: 84, recordedTrips: 2, pendingTrips: 1 });
+        expect(await getVehicleDistanceHistory('v', '2026-09')).toMatchObject({ success: true, data: { actualKm: 84 } });
+        expect(mocks.history).toHaveBeenCalledWith('v', '2026-09');
+        mocks.history.mockRejectedValue(new BusinessRuleError('Bulan tidak valid.'));
         expect(await getVehicleDistanceHistory('v', '2026-13')).toMatchObject({ success: false });
+    });
+    it('rejects unauthorized history before querying', async () => {
         mocks.sales.mockRejectedValue(new BusinessRuleError('Unauthorized'));
         expect(await getVehicleDistanceHistory('v', '2026-09')).toMatchObject({ success: false });
-        expect(mocks.trips).not.toHaveBeenCalled();
+        expect(mocks.history).not.toHaveBeenCalled();
     });
 });
