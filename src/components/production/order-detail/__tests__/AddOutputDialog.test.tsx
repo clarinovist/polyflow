@@ -139,6 +139,112 @@ describe('WO output production date', () => {
         );
     });
 
+    it.each(['0', '0.00'])(
+        'submits scrap-only output with an explicit good quantity of %s',
+        async (value) => {
+            render(<AddOutputDialog {...props} />);
+            openDialog();
+            fireEvent.change(screen.getByLabelText('Jumlah per entri (ZAK)'), {
+                target: { value },
+            });
+            fireEvent.change(screen.getByLabelText('Prongkol (KG)'), {
+                target: { value: '19.9' },
+            });
+            fireEvent.change(screen.getByLabelText('Daun (KG)'), {
+                target: { value: '3.3' },
+            });
+            fireEvent.click(screen.getByRole('button', { name: 'Catat Hasil' }));
+            await waitFor(() => expect(toast.success).toHaveBeenCalled());
+            expect(addProductionOutput).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({
+                    quantityProduced: 0,
+                    scrapProngkolQty: 19.9,
+                    scrapDaunQty: 3.3,
+                    scrapQuantity: 0,
+                    enteredQuantity: undefined,
+                    enteredUnit: undefined,
+                    baseQuantityProduced: undefined,
+                    conversionFactorSnapshot: undefined,
+                }),
+            );
+            expect(toast.error).not.toHaveBeenCalled();
+        },
+    );
+
+    it.each(['button', 'Enter'])(
+        'accepts zero via %s without adding a fictitious good-output entry',
+        async (method) => {
+            render(<AddOutputDialog {...props} />);
+            openDialog();
+            const quantity = screen.getByLabelText('Jumlah per entri (ZAK)');
+            fireEvent.change(quantity, { target: { value: '0' } });
+            if (method === 'button') {
+                fireEvent.click(screen.getByRole('button', { name: 'Tambahkan' }));
+            } else {
+                fireEvent.keyDown(quantity, { key: 'Enter' });
+            }
+            expect(toast.error).not.toHaveBeenCalled();
+            expect(screen.queryByRole('button', { name: 'Hapus entri 1' })).toBeNull();
+            expect((quantity as HTMLInputElement).value).toBe('');
+            addScrap();
+            fireEvent.click(screen.getByRole('button', { name: 'Catat Hasil' }));
+            await waitFor(() => expect(toast.success).toHaveBeenCalled());
+            expect(addProductionOutput).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({ quantityProduced: 0, notes: '' }),
+            );
+        },
+    );
+
+    it('preserves added good output when the remaining input is zero', async () => {
+        render(<AddOutputDialog {...props} />);
+        openDialog();
+        addGoodOutput();
+        addScrap();
+        fireEvent.change(screen.getByLabelText('Jumlah per entri (ZAK)'), {
+            target: { value: '0' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Catat Hasil' }));
+        await waitFor(() => expect(toast.success).toHaveBeenCalled());
+        expect(addProductionOutput).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                quantityProduced: 50,
+                enteredQuantity: 2,
+                enteredUnit: 'ZAK',
+                conversionFactorSnapshot: 25,
+            }),
+        );
+    });
+
+    it('still rejects an entirely zero output', () => {
+        render(<AddOutputDialog {...props} />);
+        openDialog();
+        fireEvent.change(screen.getByLabelText('Jumlah per entri (ZAK)'), {
+            target: { value: '0' },
+        });
+        fireEvent.change(screen.getByLabelText('Prongkol (KG)'), {
+            target: { value: '0' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Catat Hasil' }));
+        expect(addProductionOutput).not.toHaveBeenCalled();
+        expect(screen.getByRole('alert').textContent).toContain(
+            'Isi hasil bagus atau scrap yang dihasilkan.',
+        );
+    });
+
+    it('still blocks negative good-output entries and submission', () => {
+        render(<AddOutputDialog {...props} />);
+        openDialog();
+        addScrap();
+        fireEvent.change(screen.getByLabelText('Jumlah per entri (ZAK)'), {
+            target: { value: '-1' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Tambahkan' }));
+        expect(screen.getByRole('alert')).toBeTruthy();
+        expect(screen.queryByRole('button', { name: 'Hapus entri 1' })).toBeNull();
+        fireEvent.submit(form());
+        expect(addProductionOutput).not.toHaveBeenCalled();
+    });
+
     it.each(['', '2026-09-03'])(
         'rejects missing/future date %s before invoking the action',
         (value) => {

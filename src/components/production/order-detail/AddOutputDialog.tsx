@@ -123,11 +123,12 @@ export function AddOutputDialog({
     }
     function addEntry() {
         const quantity = Number(currentRollWeight);
-        if (!Number.isFinite(quantity) || quantity <= 0) {
-            fail('Jumlah hasil harus lebih dari 0.', 'wo-output-quantity');
+        if (!Number.isFinite(quantity) || quantity < 0) {
+            fail('Jumlah hasil harus 0 atau lebih.', 'wo-output-quantity');
             return;
         }
-        setRolls((values) => [...values, quantity]);
+        // Zero means no good output, not a roll to add to the list.
+        if (quantity > 0) setRolls((values) => [...values, quantity]);
         setCurrentRollWeight('');
         setError(null);
     }
@@ -150,7 +151,7 @@ export function AddOutputDialog({
             );
             return;
         }
-        if (currentRollWeight.trim()) {
+        if (currentRollWeight.trim() && Number(currentRollWeight) !== 0) {
             fail(
                 'Tambahkan jumlah ke daftar hasil, atau kosongkan isian sebelum menyimpan.',
                 'wo-output-quantity',
@@ -451,6 +452,7 @@ export function AddOutputDialog({
                                                 id="wo-output-quantity"
                                                 placeholder={`Jumlah (${displayUnit})`}
                                                 type="number"
+                                                min={0}
                                                 step="0.01"
                                                 className="min-h-11 min-w-0 flex-1"
                                                 value={currentRollWeight}
@@ -479,8 +481,10 @@ export function AddOutputDialog({
                                     <ul className="max-h-52 divide-y overflow-y-auto rounded-lg border">
                                         {!rolls.length && (
                                             <li className="p-5 text-sm text-muted-foreground">
-                                                Belum ada hasil bagus. Entri
-                                                scrap saja tetap dapat dicatat.
+                                                Hasil bagus 0? Isi affal/scrap,
+                                                lalu langsung Catat Hasil.
+                                                Jumlah per entri boleh 0 atau
+                                                kosong; tidak perlu Tambahkan.
                                             </li>
                                         )}
                                         {rolls.map((quantity, index) => (
