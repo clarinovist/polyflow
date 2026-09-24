@@ -87,6 +87,7 @@ function makeInvoice(overrides: Partial<Record<string, unknown>> = {}) {
     const base = {
         id: 'inv-1',
         invoiceNumber: 'INV/2026/0001',
+        salesOrderId: 'so-1',
         invoiceDate: new Date('2026-08-01'),
         dueDate: new Date('2026-08-15'),
         status: 'DRAFT' as InvoiceStatusType,
@@ -122,6 +123,35 @@ function makeInvoice(overrides: Partial<Record<string, unknown>> = {}) {
         typeof FinancialInvoiceDetail
     >['invoice'];
 }
+
+describe('FinancialInvoiceDetail — Reference Order navigation', () => {
+    it.each([
+        { status: 'PAID', commercialSnapshot: null, orderNumber: 'SO-0001' },
+        { status: 'UNPAID', commercialSnapshot: snapshotFixture(), orderNumber: 'SO-test' },
+    ])('links the reference SO by ID for $status invoices', ({ orderNumber, ...overrides }) => {
+        render(<FinancialInvoiceDetail invoice={makeInvoice(overrides)} />);
+
+        const reference = screen.getByText('Reference Order').parentElement!;
+        const link = within(reference).getByRole('link', { name: orderNumber });
+        expect(link.getAttribute('href')).toBe('/sales/orders/so-1');
+    });
+
+    it('shows N/A without a link when the SO relation is missing', () => {
+        render(<FinancialInvoiceDetail invoice={makeInvoice({ salesOrder: null })} />);
+
+        const reference = screen.getByText('Reference Order').parentElement!;
+        expect(within(reference).getByText('N/A')).toBeDefined();
+        expect(within(reference).queryByRole('link')).toBeNull();
+    });
+
+    it('keeps the SO number as text when its ID is unavailable', () => {
+        render(<FinancialInvoiceDetail invoice={makeInvoice({ salesOrderId: undefined })} />);
+
+        const reference = screen.getByText('Reference Order').parentElement!;
+        expect(within(reference).getByText('SO-0001')).toBeDefined();
+        expect(within(reference).queryByRole('link')).toBeNull();
+    });
+});
 
 describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
     beforeEach(() => {

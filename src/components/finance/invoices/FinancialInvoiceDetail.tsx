@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -430,9 +431,18 @@ export function FinancialInvoiceDetail({
                                 <p className="text-muted-foreground">
                                     Reference Order
                                 </p>
-                                <p className="font-medium text-blue-600">
-                                    {salesOrder?.orderNumber || 'N/A'}
-                                </p>
+                                {salesOrder?.orderNumber && invoice.salesOrderId ? (
+                                    <Link
+                                        href={`/sales/orders/${invoice.salesOrderId}`}
+                                        className="font-medium text-blue-600 dark:text-blue-400 hover:underline rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                    >
+                                        {salesOrder.orderNumber}
+                                    </Link>
+                                ) : (
+                                    <p className="font-medium">
+                                        {salesOrder?.orderNumber || 'N/A'}
+                                    </p>
+                                )}
                             </div>
                             {salesOrder?.sourceReference && (
                                 <div>
