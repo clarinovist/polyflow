@@ -23,6 +23,7 @@ import {
 } from '@/lib/labels';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import {
     ArrowLeft,
     Edit,
@@ -54,7 +55,7 @@ import {
     rejectPriceAction,
 } from '@/actions/sales/price-list';
 import { createInvoice } from '@/actions/finance/invoice';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ShipmentDialog } from './ShipmentDialog';
@@ -70,7 +71,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SalesMetricInfo } from '@/components/sales/SalesMetricInfo';
@@ -78,6 +78,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { SalesOrderDetailClientProps } from './sales-order-types';
@@ -92,6 +93,10 @@ export function SalesOrderDetailClient({
 }: SalesOrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [confirmation, setConfirmation] = useState<
+        'cancel' | 'delete' | null
+    >(null);
+    const moreActionsRef = useRef<HTMLButtonElement>(null);
     const [isShipDialogOpen, setIsShipDialogOpen] = useState(false);
     const [isFollowUpDialogOpen, setIsFollowUpDialogOpen] = useState(false);
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -150,7 +155,17 @@ export function SalesOrderDetailClient({
     const primaryOpenDo =
         openDeliveryOrders.length === 1 ? openDeliveryOrders[0] : null;
 
-    // MRP Simulation State
+    const showQuickShip =
+        !warehouseMode &&
+        (order.status === 'CONFIRMED' ||
+            order.status === 'READY_TO_SHIP' ||
+            (order.status === 'IN_PRODUCTION' && !!primaryOpenDo));
+    const showCancel =
+        !warehouseMode &&
+        ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(
+            order.status,
+        );
+    const showDelete = !warehouseMode && order.status === 'DRAFT';
 
     const handleAction = async (
         action: string,
@@ -514,45 +529,20 @@ export function SalesOrderDetailClient({
                 </Alert>
             )}
 
-            {/* Shipping path guidance — only for sellable orders */}
-            {!isLegacyInternalOrder &&
-                !isMaklonOrder &&
-                !warehouseMode &&
-                ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(
-                    order.status,
-                ) && (
-                    <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-800/50 dark:bg-blue-900/20">
-                        <Truck className="h-4 w-4 text-blue-700 dark:text-blue-400" />
-                        <AlertTitle className="flex items-center justify-between gap-2">
-                            Alur Kirim
-                            <SalesMetricInfo label="Info alur kirim">
-                                Gunakan Jadwal Kirim untuk rute harian multi-toko,
-                                atau Buat Surat Jalan untuk satu SO hot-load.
-                                Muat, verifikasi, dan tandai dikirim dilakukan
-                                di Portal Gudang.
-                            </SalesMetricInfo>
-                        </AlertTitle>
-                        <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                            <span>Siapkan Jadwal Kirim atau Surat Jalan.</span>
-                            <Link href="/warehouse/outgoing" className="inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
-                                Buka Portal Gudang →
-                            </Link>
-                        </AlertDescription>
-                    </Alert>
-                )}
-
-            {/* Header Actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-4">
+            {/* Identity gets the full width; actions must never squeeze the order number. */}
+            <header className="min-w-0 space-y-4">
+                <div className="space-y-3">
                     <Button variant="outline" size="sm" asChild>
                         <Link href={basePath}>
                             <ArrowLeft className="mr-2 h-4 w-4" />{' '}
                             {actionLabels.back}
                         </Link>
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                            Order {order.orderNumber}
+                    <div className="min-w-0 space-y-2">
+                        <h1 className="text-2xl font-bold tracking-tight [overflow-wrap:anywhere] sm:text-3xl">
+                            {order.orderNumber}
+                        </h1>
+                        <div className="flex flex-wrap items-center gap-2">
                             {getStatusBadge(order.status)}
                             {order.entrySource === 'EMERGENCY_DISPATCH' && (
                                 <Badge
@@ -574,17 +564,21 @@ export function SalesOrderDetailClient({
                                 <Badge variant="destructive">Ditolak</Badge>
                             )}
                             {getPriceStatusBadge(priceStatus)}
-                        </h1>
-                        <p className="text-muted-foreground text-sm">
-                            {formLabels.createdOn}{' '}
-                            {format(new Date(order.orderDate), 'PPP')}
-                        </p>
+                            <p className="w-full text-sm text-muted-foreground sm:w-auto">
+                                {formLabels.createdOn}{' '}
+                                {format(new Date(order.orderDate), 'd MMMM yyyy', {
+                                    locale: id,
+                                })}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex gap-2 flex-wrap">
-                    {/* Button Place */}
-
+                <div
+                    role="group"
+                    aria-label="Aksi pesanan"
+                    className="grid grid-cols-2 gap-2 border-t pt-4 sm:flex sm:flex-wrap sm:items-center [&_button]:min-h-11 [&_a]:min-h-11 [&_button]:max-w-full [&_a]:max-w-full [&_button]:whitespace-normal [&_a]:whitespace-normal [&_button]:h-auto [&_a]:h-auto"
+                >
                     {/* ── Quotation-phase actions ── */}
                     {order.status === 'QUOTATION' && (
                         <>
@@ -710,90 +704,37 @@ export function SalesOrderDetailClient({
                         </>
                     )}
 
-                    {/* ── Edit button: visible for QUOTATION*, DRAFT, CONFIRMED+, READY_TO_SHIP ── */}
-                    {!warehouseMode &&
-                        (order.status === 'QUOTATION' ||
-                            order.status === 'QUOTATION_SENT' ||
-                            order.status === 'DRAFT' ||
-                            order.status === 'CONFIRMED' ||
-                            order.status === 'IN_PRODUCTION' ||
-                            order.status === 'READY_TO_SHIP') && (
-                            <Button variant="outline" asChild>
-                                <Link href={`${basePath}/${order.id}/edit`}>
-                                    <Edit className="mr-2 h-4 w-4" />{' '}
-                                    {actionLabels.edit}
-                                </Link>
-                            </Button>
-                        )}
-
                     {!warehouseMode && order.status === 'DRAFT' && (
-                        <>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="destructive"
-                                        disabled={isLoading}
-                                    >
-                                        {actionLabels.delete}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Apakah Anda yakin?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Aksi ini tidak dapat dibatalkan. Ini
-                                            akan menghapus draf order secara
-                                            permanen.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            {actionLabels.cancel}
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={handleDelete}
-                                            className="bg-destructive hover:bg-destructive/90"
-                                        >
-                                            {actionLabels.delete}
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-
-                            <Button
-                                onClick={() =>
-                                    handleAction(
-                                        'confirmed',
-                                        confirmSalesOrder,
-                                        (data) => {
-                                            const result = data as
-                                                | {
-                                                      warnings?: {
-                                                          message: string;
-                                                      }[];
-                                                  }
-                                                | undefined;
-                                            const warnings =
-                                                result?.warnings ?? [];
-                                            if (warnings.length > 0) {
-                                                toast.warning(
-                                                    warnings
-                                                        .map((w) => w.message)
-                                                        .join(' '),
-                                                );
-                                            }
-                                        },
-                                    )
-                                }
-                                disabled={isLoading || isLegacyInternalOrder}
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                                <CheckCircle className="mr-2 h-4 w-4" />{' '}
-                                Konfirmasi Order
-                            </Button>
-                        </>
+                        <Button
+                            onClick={() =>
+                                handleAction(
+                                    'confirmed',
+                                    confirmSalesOrder,
+                                    (data) => {
+                                        const result = data as
+                                            | {
+                                                  warnings?: {
+                                                      message: string;
+                                                  }[];
+                                              }
+                                            | undefined;
+                                        const warnings = result?.warnings ?? [];
+                                        if (warnings.length > 0) {
+                                            toast.warning(
+                                                warnings
+                                                    .map((w) => w.message)
+                                                    .join(' '),
+                                            );
+                                        }
+                                    },
+                                )
+                            }
+                            disabled={isLoading || isLegacyInternalOrder}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            <CheckCircle className="mr-2 h-4 w-4" />{' '}
+                            Konfirmasi Order
+                        </Button>
                     )}
 
                     {order.status === 'IN_PRODUCTION' && (
@@ -818,7 +759,11 @@ export function SalesOrderDetailClient({
                         !isMaklonOrder &&
                         (primaryOpenDo ? (
                             <Button
-                                variant="default"
+                                variant={
+                                    order.status === 'IN_PRODUCTION'
+                                        ? 'outline'
+                                        : 'default'
+                                }
                                 className="shadow-sm"
                                 asChild
                             >
@@ -859,6 +804,11 @@ export function SalesOrderDetailClient({
                                 <>
                                     <CreateDeliveryOrderDialog
                                         defaultSalesOrderId={order.id}
+                                        triggerVariant={
+                                            order.status === 'IN_PRODUCTION'
+                                                ? 'outline'
+                                                : 'default'
+                                        }
                                     />
                                     <AddToScheduleDialog
                                         salesOrderId={order.id}
@@ -866,46 +816,6 @@ export function SalesOrderDetailClient({
                                 </>
                             )
                         ))}
-
-                    {/* Quick ship: demoted to dropdown "Lainnya" */}
-                    {!warehouseMode &&
-                        (order.status === 'CONFIRMED' ||
-                            order.status === 'READY_TO_SHIP' ||
-                            (order.status === 'IN_PRODUCTION' &&
-                                !!primaryOpenDo)) && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        disabled={
-                                            isLoading ||
-                                            openDeliveryOrders.length > 1
-                                        }
-                                        title={
-                                            openDeliveryOrders.length > 1
-                                                ? salesLabels.selectDoToShip
-                                                : undefined
-                                        }
-                                    >
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setIsShipDialogOpen(true)
-                                        }
-                                    >
-                                        <Truck className="mr-2 h-4 w-4" />
-                                        {isMaklonOrder
-                                            ? 'Tutup Order Jasa'
-                                            : primaryOpenDo
-                                              ? `Kirim SJ cepat (${primaryOpenDo.orderNumber ?? 'SJ'}) — lanjutan`
-                                              : 'Buat SJ + Kirim Cepat (lanjutan)'}
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
 
                     {(order.status === 'SHIPPED' ||
                         order.status === 'DELIVERED') && (
@@ -998,23 +908,82 @@ export function SalesOrderDetailClient({
 
                     {!warehouseMode &&
                         [
-                            'DRAFT',
-                            'CONFIRMED',
-                            'IN_PRODUCTION',
-                            'READY_TO_SHIP',
+                            'QUOTATION', 'QUOTATION_SENT', 'DRAFT', 'CONFIRMED',
+                            'IN_PRODUCTION', 'READY_TO_SHIP',
                         ].includes(order.status) && (
-                            <Button
-                                variant="ghost"
-                                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-500 dark:hover:bg-red-900/30"
-                                onClick={() =>
-                                    handleAction('cancelled', cancelSalesOrder)
-                                }
-                                disabled={isLoading}
-                            >
-                                <XCircle className="mr-2 h-4 w-4" />{' '}
-                                {actionLabels.cancel}
+                            <Button variant="outline" asChild>
+                                <Link href={`${basePath}/${order.id}/edit`}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    {actionLabels.edit}
+                                </Link>
                             </Button>
                         )}
+
+                    {(showQuickShip || showCancel || showDelete) && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    ref={moreActionsRef}
+                                    variant="outline"
+                                    disabled={isLoading}
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    Lainnya
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                align="end"
+                                className="max-w-[calc(100vw-2rem)]"
+                                onCloseAutoFocus={(event) => {
+                                    if (confirmation || isShipDialogOpen) {
+                                        event.preventDefault();
+                                    }
+                                }}
+                            >
+                                {showQuickShip && (
+                                    <DropdownMenuItem
+                                        className="min-h-11"
+                                        disabled={openDeliveryOrders.length > 1}
+                                        title={
+                                            openDeliveryOrders.length > 1
+                                                ? salesLabels.selectDoToShip
+                                                : undefined
+                                        }
+                                        onSelect={() => setIsShipDialogOpen(true)}
+                                    >
+                                        <Truck className="h-4 w-4" />
+                                        {isMaklonOrder
+                                            ? 'Tutup Order Jasa'
+                                            : primaryOpenDo
+                                              ? `Kirim SJ cepat (${primaryOpenDo.orderNumber ?? 'SJ'}) — lanjutan`
+                                              : 'Buat SJ + Kirim Cepat (lanjutan)'}
+                                    </DropdownMenuItem>
+                                )}
+                                {showQuickShip && (showCancel || showDelete) && (
+                                    <DropdownMenuSeparator />
+                                )}
+                                {showCancel && (
+                                    <DropdownMenuItem
+                                        className="min-h-11"
+                                        variant="destructive"
+                                        onSelect={() => setConfirmation('cancel')}
+                                    >
+                                        <XCircle className="h-4 w-4" />
+                                        Batalkan pesanan
+                                    </DropdownMenuItem>
+                                )}
+                                {showDelete && (
+                                    <DropdownMenuItem
+                                        className="min-h-11"
+                                        variant="destructive"
+                                        onSelect={() => setConfirmation('delete')}
+                                    >
+                                        Hapus draf
+                                    </DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
 
                     {/* Quick Reorder: show for DELIVERED orders with a customer */}
                     {!warehouseMode &&
@@ -1030,7 +999,75 @@ export function SalesOrderDetailClient({
                             </Button>
                         )}
                 </div>
-            </div>
+            </header>
+
+            <AlertDialog
+                open={confirmation !== null}
+                onOpenChange={(open) => {
+                    if (!open) setConfirmation(null);
+                }}
+            >
+                <AlertDialogContent
+                    onCloseAutoFocus={(event) => {
+                        event.preventDefault();
+                        moreActionsRef.current?.focus();
+                    }}
+                >
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {confirmation === 'delete'
+                                ? 'Hapus draf pesanan?'
+                                : 'Batalkan pesanan?'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {confirmation === 'delete'
+                                ? `Draf ${order.orderNumber} akan dihapus secara permanen. Aksi ini tidak dapat dibatalkan.`
+                                : `Pesanan ${order.orderNumber} akan dibatalkan. Pastikan pesanan ini memang tidak akan dilanjutkan.`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Kembali</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isLoading}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={() =>
+                                confirmation === 'delete'
+                                    ? handleDelete()
+                                    : handleAction('cancelled', cancelSalesOrder)
+                            }
+                        >
+                            {confirmation === 'delete' ? 'Hapus draf' : 'Batalkan pesanan'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Shipping guidance stays below the order identity and actions. */}
+            {!isLegacyInternalOrder &&
+                !isMaklonOrder &&
+                !warehouseMode &&
+                ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(
+                    order.status,
+                ) && (
+                    <div className="flex flex-col gap-x-3 gap-y-1 rounded-lg border border-blue-200 bg-blue-50/50 px-4 py-2 text-sm sm:flex-row sm:flex-wrap sm:items-center dark:border-blue-800/50 dark:bg-blue-900/20">
+                        <div className="flex min-w-0 items-center gap-2 sm:flex-1">
+                            <Truck className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-400" />
+                            <p>Siapkan Jadwal Kirim atau Surat Jalan.</p>
+                            <SalesMetricInfo label="Info alur kirim">
+                                Gunakan Jadwal Kirim untuk rute harian multi-toko,
+                                atau Buat Surat Jalan untuk satu SO hot-load.
+                                Muat, verifikasi, dan tandai dikirim dilakukan
+                                di Portal Gudang.
+                            </SalesMetricInfo>
+                        </div>
+                        <Link
+                            href="/warehouse/outgoing"
+                            className="inline-flex min-h-11 shrink-0 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+                        >
+                            Buka Portal Gudang →
+                        </Link>
+                    </div>
+                )}
 
             {/* Active delivery orders — always visible on SO detail */}
             {openDeliveryOrders.length > 0 && (
@@ -1077,7 +1114,7 @@ export function SalesOrderDetailClient({
                 </Card>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 {/* Main Order Info */}
                 <OrderInfoCard
                     order={order}

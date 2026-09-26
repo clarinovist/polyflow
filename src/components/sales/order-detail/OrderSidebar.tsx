@@ -33,15 +33,17 @@ export function OrderSidebar({
     canPlan,
 }: OrderSidebarProps) {
     return (
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
             {/* INVOICES CARD */}
             {!warehouseMode && (
-                <Card>
+                <Card className={order.invoices.length === 0 ? 'gap-3 py-4' : undefined}>
                     <CardHeader>
                         <CardTitle>{salesLabels.invoice}</CardTitle>
-                        <CardDescription>
-                            Invoice yang diterbitkan untuk order ini
-                        </CardDescription>
+                        {order.invoices.length > 0 && (
+                            <CardDescription>
+                                Invoice yang diterbitkan untuk pesanan ini
+                            </CardDescription>
+                        )}
                     </CardHeader>
                     <CardContent>
                         {order.invoices && order.invoices.length > 0 ? (

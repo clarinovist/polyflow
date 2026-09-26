@@ -39,12 +39,12 @@ export function OrderInfoCard({
     const summaryColSpan = showDpp ? 5 : 4;
 
     return (
-        <Card className="min-w-0 md:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
             <CardHeader>
                 <CardTitle>Detail Pesanan</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
                     <div>
                         <h3 className="font-semibold text-sm text-muted-foreground">
                             {salesLabels.customer}
@@ -99,7 +99,7 @@ export function OrderInfoCard({
                             Follow-up
                         </h3>
                         {followUpDate ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <p
                                     className={
                                         isFollowUpOverdue

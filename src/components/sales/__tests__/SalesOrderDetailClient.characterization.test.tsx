@@ -53,8 +53,14 @@ vi.mock('@/actions/sales/price-list', () => ({ approvePriceAction: mocks.approve
 // The detail component, extracted render leaves, Radix controls and date helpers stay real.
 vi.mock('../ProductionStatusCard', () => ({ ProductionStatusCard: () => null }));
 vi.mock('@/components/shared/EntityStatusTimeline', () => ({ EntityStatusTimeline: () => null }));
-vi.mock('../ShipmentDialog', () => ({ ShipmentDialog: () => null }));
-vi.mock('../CreateDeliveryOrderDialog', () => ({ CreateDeliveryOrderDialog: () => null }));
+vi.mock('../ShipmentDialog', () => ({
+    ShipmentDialog: ({ isOpen }: { isOpen: boolean }) => isOpen ? <div role="dialog" aria-label="Synthetic shipment" /> : null,
+}));
+vi.mock('../CreateDeliveryOrderDialog', () => ({
+    CreateDeliveryOrderDialog: ({ triggerVariant }: { triggerVariant?: string }) => (
+        <button data-variant={triggerVariant}>Buat Surat Jalan</button>
+    ),
+}));
 vi.mock('../AddToScheduleDialog', () => ({ AddToScheduleDialog: () => null }));
 
 const NOW = new Date('2026-09-14T12:00:00.000Z');
@@ -104,6 +110,17 @@ function isDisabled(element: HTMLElement) {
     expect(element).toHaveProperty('disabled', true);
 }
 
+async function openMoreActions() {
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Lainnya' }), { key: 'Enter' });
+    return screen.findByRole('menu');
+}
+
+async function openConfirmation(name = 'Batalkan pesanan') {
+    const menu = await openMoreActions();
+    fireEvent.click(within(menu).getByRole('menuitem', { name }));
+    return screen.findByRole('alertdialog');
+}
+
 async function openInvoice() {
     fireEvent.click(screen.getByRole('button', { name: 'Buat Invoice' }));
     return screen.findByRole('dialog', { name: 'Buat Sales Invoice' });
@@ -149,6 +166,119 @@ afterEach(() => {
 });
 
 describe('SalesOrderDetailClient existing behavior (UI visibility is not authorization)', () => {
+    it('separates the order identity, metadata and actions and localizes the header date', () => {
+        renderOrder({ status: 'IN_PRODUCTION', orderNumber: 'SO-2026-0248', priceStatus: 'FINAL' });
+        const heading = screen.getByRole('heading', { level: 1 });
+        expect(heading.textContent).toBe('SO-2026-0248');
+        expect(within(heading).queryByText('Dalam Produksi')).toBeNull();
+        expect(screen.getByText('Dibuat pada 14 September 2026')).toBeTruthy();
+        const actions = screen.getByRole('group', { name: 'Aksi pesanan' });
+        expect(within(actions).getByRole('button', { name: 'Produksi Selesai' })).toBeTruthy();
+        expect(within(actions).getByRole('button', { name: 'Buat Surat Jalan' }).getAttribute('data-variant')).toBe('outline');
+        expect(actions.compareDocumentPosition(screen.getByText('Siapkan Jadwal Kirim atau Surat Jalan.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('keeps shipping primary once production is no longer the next action', () => {
+        const view = renderOrder({ status: 'READY_TO_SHIP' });
+        expect(screen.getByRole('button', { name: 'Buat Surat Jalan' }).getAttribute('data-variant')).toBe('default');
+        view.rerender(<SalesOrderDetailClient order={order({
+            status: 'IN_PRODUCTION',
+            deliveryOrders: [{ id: 'fixture-do', orderNumber: 'SJ-FIXTURE', status: 'PENDING', totalCharge: 0 }],
+        })} />);
+        const link = screen.getAllByRole('link').find((element) => element.textContent?.includes('SJ-FIXTURE'));
+        expect(link?.getAttribute('data-variant')).toBe('outline');
+        expect(link?.getAttribute('href')).toBe('/sales/deliveries/fixture-do');
+    });
+
+    it('compacts only the empty invoice state without removing its explanation', () => {
+        const view = renderOrder();
+        expect(screen.queryByText('Invoice yang diterbitkan untuk pesanan ini')).toBeNull();
+        view.rerender(<SalesOrderDetailClient order={order({ invoices: [draftInvoice()] })} />);
+        expect(screen.getByText('Invoice yang diterbitkan untuk pesanan ini')).toBeTruthy();
+        expect(screen.getByRole('link', { name: /INV-FIXTURE/ })).toBeTruthy();
+    });
+
+    it('submits cancellation once after confirmation and locks actions until it finishes', async () => {
+        let resolve: (result: CommandResult) => void = () => { throw new Error('Cancellation not started'); };
+        mocks.cancel.mockImplementation(() => new Promise((done) => { resolve = done; }));
+        renderOrder({ status: 'IN_PRODUCTION' });
+        const confirmation = await openConfirmation();
+        expect(mocks.cancel).not.toHaveBeenCalled();
+        fireEvent.click(within(confirmation).getByRole('button', { name: 'Batalkan pesanan' }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+        expect(mocks.cancel).toHaveBeenCalledExactlyOnceWith('fixture-order');
+        isDisabled(screen.getByRole('button', { name: 'Lainnya' }));
+        isDisabled(screen.getByRole('button', { name: 'Produksi Selesai' }));
+        await act(async () => resolve({ success: true }));
+        expect(mocks.success).toHaveBeenCalledWith('Order SO-FIXTURE dibatalkan.');
+        expect(mocks.refresh).toHaveBeenCalledOnce();
+    });
+
+    it('keeps cancellation behind confirmation, defaults focus to safety and allows dismissal', async () => {
+        renderOrder({ status: 'IN_PRODUCTION' });
+        expect(screen.queryByRole('button', { name: 'Batalkan pesanan' })).toBeNull();
+        const confirmation = await openConfirmation();
+        expect(mocks.cancel).not.toHaveBeenCalled();
+        const back = within(confirmation).getByRole('button', { name: 'Kembali' });
+        await waitFor(() => expect(document.activeElement).toBe(back));
+        fireEvent.click(back);
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Lainnya' })));
+        expect(mocks.cancel).not.toHaveBeenCalled();
+    });
+
+    it.each(['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] as const)(
+        'retains cancellation availability for %s but not in warehouse mode', async (status) => {
+            const view = renderOrder({ status });
+            const menu = await openMoreActions();
+            expect(within(menu).getByRole('menuitem', { name: 'Batalkan pesanan' })).toBeTruthy();
+            expect(Boolean(within(menu).queryByRole('menuitem', { name: 'Hapus draf' }))).toBe(status === 'DRAFT');
+            fireEvent.keyDown(menu, { key: 'Escape' });
+            await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+            view.rerender(<SalesOrderDetailClient order={order({ status })} warehouseMode />);
+            expect(screen.queryByRole('button', { name: 'Lainnya' })).toBeNull();
+        },
+    );
+
+    it.each(['QUOTATION', 'QUOTATION_SENT', 'QUOTATION_REJECTED', 'QUOTATION_EXPIRED', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const)(
+        'does not expose cancellation or deletion for %s', (status) => {
+            renderOrder({ status });
+            expect(screen.queryByRole('button', { name: 'Lainnya' })).toBeNull();
+        },
+    );
+
+    it.each([
+        { status: 'CONFIRMED', count: 0, quick: true },
+        { status: 'READY_TO_SHIP', count: 0, quick: true },
+        { status: 'IN_PRODUCTION', count: 0, quick: false },
+        { status: 'IN_PRODUCTION', count: 1, quick: true },
+        { status: 'IN_PRODUCTION', count: 2, quick: false },
+        { status: 'CONFIRMED', count: 2, quick: true },
+        { status: 'READY_TO_SHIP', count: 2, quick: true },
+    ] as const)('preserves advanced shipping gates for $status with $count open deliveries', async ({ status, count, quick }) => {
+        renderOrder({ status, deliveryOrders: Array.from({ length: count }, (_, index) => ({
+            id: `fixture-do-${index}`, orderNumber: `SJ-FIXTURE-${index}`, status: 'PENDING', totalCharge: 0,
+        })) });
+        const menu = await openMoreActions();
+        const ship = within(menu).queryByRole('menuitem', { name: /lanjutan/ });
+        expect(Boolean(ship)).toBe(quick);
+        expect(within(menu).getByRole('menuitem', { name: 'Batalkan pesanan' }).hasAttribute('data-disabled')).toBe(false);
+        if (ship) {
+            expect(ship.hasAttribute('data-disabled')).toBe(count > 1);
+            fireEvent.click(ship);
+            if (count > 1) expect(screen.queryByRole('dialog', { name: 'Synthetic shipment' })).toBeNull();
+            else expect(await screen.findByRole('dialog', { name: 'Synthetic shipment' })).toBeTruthy();
+        }
+    });
+
+    it('keeps maklon closure in the advanced menu without offering physical delivery creation', async () => {
+        renderOrder({ status: 'READY_TO_SHIP', orderType: 'MAKLON_JASA' });
+        expect(screen.queryByRole('button', { name: 'Buat Surat Jalan' })).toBeNull();
+        const menu = await openMoreActions();
+        fireEvent.click(within(menu).getByRole('menuitem', { name: 'Tutup Order Jasa' }));
+        expect(await screen.findByRole('dialog', { name: 'Synthetic shipment' })).toBeTruthy();
+    });
+
     it('keeps shipping guidance and warehouse navigation visible while details live in info', async () => {
         const view = renderOrder({ status: 'CONFIRMED' });
         expect(screen.getByText('Siapkan Jadwal Kirim atau Surat Jalan.')).toBeTruthy();
@@ -208,7 +338,7 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi Order' }));
         expect(mocks.confirm).toHaveBeenCalledWith('fixture-order');
         isDisabled(screen.getByRole('button', { name: 'Konfirmasi Order' }));
-        isDisabled(screen.getByRole('button', { name: 'Batal' }));
+        isDisabled(screen.getByRole('button', { name: 'Lainnya' }));
         expect(mocks.refresh).not.toHaveBeenCalled();
         await act(async () => { resolve({ success: true, data: { warnings: [{ message: 'Synthetic warning A' }, { message: 'Synthetic warning B' }] } }); });
         expect(mocks.success).toHaveBeenCalledWith('SO SO-FIXTURE dikonfirmasi. Siap diproses ke gudang.');
@@ -222,10 +352,12 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
     it('preserves returned and thrown command errors without refresh and allows retry', async () => {
         mocks.cancel.mockResolvedValueOnce({ success: false, error: 'Synthetic denial' }).mockRejectedValueOnce(new Error('Synthetic failure'));
         renderOrder();
-        fireEvent.click(screen.getByRole('button', { name: 'Batal' }));
+        let confirmation = await openConfirmation();
+        fireEvent.click(within(confirmation).getByRole('button', { name: 'Batalkan pesanan' }));
         await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Synthetic denial'));
-        expect(screen.getByRole('button', { name: 'Batal' })).toHaveProperty('disabled', false);
-        fireEvent.click(screen.getByRole('button', { name: 'Batal' }));
+        expect(screen.getByRole('button', { name: 'Lainnya' })).toHaveProperty('disabled', false);
+        confirmation = await openConfirmation();
+        fireEvent.click(within(confirmation).getByRole('button', { name: 'Batalkan pesanan' }));
         await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Gagal memproses pesanan. Silakan coba lagi.'));
         expect(mocks.cancel).toHaveBeenCalledTimes(2);
         expect(mocks.refresh).not.toHaveBeenCalled();
@@ -235,10 +367,9 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         renderOrder({}, { basePath: '/fixture/orders' });
         expect(screen.getByRole('link', { name: 'Kembali' }).getAttribute('href')).toBe('/fixture/orders');
         expect(screen.getByRole('link', { name: 'Edit' }).getAttribute('href')).toBe('/fixture/orders/fixture-order/edit');
-        fireEvent.click(screen.getByRole('button', { name: 'Hapus' }));
-        const confirmation = await screen.findByRole('alertdialog');
+        const confirmation = await openConfirmation('Hapus draf');
         expect(mocks.delete).not.toHaveBeenCalled();
-        fireEvent.click(within(confirmation).getByRole('button', { name: 'Hapus' }));
+        fireEvent.click(within(confirmation).getByRole('button', { name: 'Hapus draf' }));
         await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/fixture/orders'));
         expect(mocks.delete).toHaveBeenCalledWith('fixture-order');
         expect(mocks.success).toHaveBeenCalledWith('Pesanan berhasil dihapus');
