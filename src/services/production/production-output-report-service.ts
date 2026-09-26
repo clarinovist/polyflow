@@ -7,6 +7,7 @@ import {
     REPORT_PAGE_SIZE,
     UNASSIGNED,
     parseOutputReportFilter,
+    type OutputOrderRow,
     type OutputReport,
     type OutputReportEntry,
     type OutputReportFilter,
@@ -32,6 +33,9 @@ const SELECT = {
         select: {
             id: true,
             orderNumber: true,
+            status: true,
+            plannedQuantity: true,
+            plannedStartDate: true,
             bom: {
                 select: {
                     category: true,
@@ -221,6 +225,118 @@ function aggregate(
         );
 }
 
+interface OrderMeta {
+    status: string;
+    plannedQuantity: Prisma.Decimal;
+    plannedStartDate: Date;
+}
+function orderMetas(executions: OutputExecution[]): Map<string, OrderMeta> {
+    // SPK-level target is stored once on the order; dedupe before aggregating.
+    const metas = new Map<string, OrderMeta>();
+    for (const exec of executions) {
+        const order = exec.productionOrder;
+        if (!metas.has(order.id)) {
+            metas.set(order.id, {
+                status: order.status,
+                plannedQuantity: new Prisma.Decimal(order.plannedQuantity),
+                plannedStartDate: order.plannedStartDate,
+            });
+        }
+    }
+    return metas;
+}
+function aggregateOrders(
+    entries: OutputReportEntry[],
+    metas: Map<string, OrderMeta>,
+    cumulative: Map<string, Prisma.Decimal>,
+): OutputOrderRow[] {
+    const groups = new Map<
+        string,
+        { row: OutputOrderRow; period: Prisma.Decimal }
+    >();
+    for (const entry of entries) {
+        const meta = metas.get(entry.orderId);
+        if (!meta) continue;
+        let group = groups.get(entry.orderId);
+        if (!group) {
+            group = {
+                row: {
+                    orderId: entry.orderId,
+                    orderNumber: entry.orderNumber,
+                    status: meta.status,
+                    plannedStartDate: meta.plannedStartDate.toISOString(),
+                    productVariantId: entry.productVariantId,
+                    productName: entry.productName,
+                    variantName: entry.variantName,
+                    sku: entry.sku,
+                    productType: entry.productType,
+                    unit: entry.unit,
+                    hasTarget: meta.plannedQuantity.gt(0),
+                    target: meta.plannedQuantity.toString(),
+                    producedInPeriod: '0',
+                    producedCumulative: '0',
+                    difference: null,
+                    achievement: null,
+                },
+                period: new Prisma.Decimal(0),
+            };
+            groups.set(entry.orderId, group);
+        }
+        group.period = group.period.plus(entry.produced);
+    }
+    return [...groups.values()]
+        .map(({ row, period }) => {
+            const target = new Prisma.Decimal(row.target);
+            const producedCumulative =
+                cumulative.get(row.orderId) ?? new Prisma.Decimal(0);
+            return {
+                ...row,
+                producedInPeriod: period.toString(),
+                producedCumulative: producedCumulative.toString(),
+                difference: row.hasTarget
+                    ? producedCumulative.minus(target).toString()
+                    : null,
+                // Target 0/absent is reported as "tanpa target", never infinity.
+                achievement: row.hasTarget
+                    ? producedCumulative
+                          .div(target)
+                          .times(100)
+                          .toDecimalPlaces(1)
+                          .toString()
+                    : null,
+            };
+        })
+        .sort(
+            (a, b) =>
+                b.plannedStartDate.localeCompare(a.plannedStartDate) ||
+                a.orderNumber.localeCompare(b.orderNumber),
+        );
+}
+async function orderReportRows(
+    entries: OutputReportEntry[],
+    metas: Map<string, OrderMeta>,
+): Promise<OutputOrderRow[]> {
+    const orderIds = [...new Set(entries.map((entry) => entry.orderId))];
+    if (orderIds.length === 0) return [];
+    // Cumulative SPK progress is read once per order so a shared target is
+    // never multiplied by the number of executions that reference it.
+    const sums = await prisma.productionExecution.groupBy({
+        by: ['productionOrderId'],
+        where: {
+            status: { not: 'VOIDED' },
+            productionOrderId: { in: orderIds },
+        },
+        _sum: { quantityProduced: true },
+    });
+    const cumulative = new Map<string, Prisma.Decimal>(
+        sums.map((row) => [
+            row.productionOrderId,
+            row._sum.quantityProduced ?? new Prisma.Decimal(0),
+        ]),
+    );
+    return aggregateOrders(entries, metas, cumulative);
+}
+
 export class ProductionOutputReportService {
     /** Caller must authorize and enter tenant context. No cache, mutations, or truncated period totals. */
     static async getReport(input: OutputReportFilter): Promise<OutputReport> {
@@ -269,11 +385,19 @@ export class ProductionOutputReportService {
             totals.set(key, total);
         }
         const rows =
-            filter.mode === 'entries'
+            filter.mode === 'entries' || filter.mode === 'order'
                 ? []
                 : aggregate(entries, filter.mode === 'operator');
+        const orderRows =
+            filter.mode === 'order'
+                ? await orderReportRows(entries, orderMetas(executions))
+                : [];
         const totalRows =
-            filter.mode === 'entries' ? entries.length : rows.length;
+            filter.mode === 'entries'
+                ? entries.length
+                : filter.mode === 'order'
+                  ? orderRows.length
+                  : rows.length;
         const pageCount = Math.max(1, Math.ceil(totalRows / REPORT_PAGE_SIZE));
         const page = Math.min(filter.page, pageCount);
         const start = (page - 1) * REPORT_PAGE_SIZE;
@@ -297,6 +421,10 @@ export class ProductionOutputReportService {
                     ),
             },
             rows: rows.slice(start, start + REPORT_PAGE_SIZE),
+            orders:
+                filter.mode === 'order'
+                    ? orderRows.slice(start, start + REPORT_PAGE_SIZE)
+                    : [],
             entries:
                 filter.mode === 'entries'
                     ? entries.slice(start, start + REPORT_PAGE_SIZE)

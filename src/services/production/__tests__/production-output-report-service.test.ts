@@ -3,8 +3,8 @@ import { Prisma } from '@prisma/client';
 import { parseOutputReportFilter } from '@/lib/production/output-report';
 import { ProductionOutputReportService, type OutputExecution } from '../production-output-report-service';
 
-const { findMany } = vi.hoisted(() => ({ findMany: vi.fn() }));
-vi.mock('@/lib/core/prisma', () => ({ prisma: { productionExecution: { findMany } } }));
+const { findMany, groupBy } = vi.hoisted(() => ({ findMany: vi.fn(), groupBy: vi.fn() }));
+vi.mock('@/lib/core/prisma', () => ({ prisma: { productionExecution: { findMany, groupBy } } }));
 const decimal = (n: string | number) => new Prisma.Decimal(n);
 function execution(overrides: Partial<OutputExecution> = {}): OutputExecution {
     return {
@@ -16,7 +16,8 @@ function execution(overrides: Partial<OutputExecution> = {}): OutputExecution {
         machine: { id: 'machine-1', code: 'EX-01', name: 'Mesin Uji' },
         pieceMachineType: null,
         operator: { id: 'operator-1', name: 'Operator Uji' }, shift: null,
-        productionOrder: { id: 'order-1', orderNumber: 'SPK-TEST-1', bom: {
+        productionOrder: { id: 'order-1', orderNumber: 'SPK-TEST-1', status: 'IN_PROGRESS',
+            plannedQuantity: decimal(1000), plannedStartDate: new Date('2026-09-02T00:00:00Z'), bom: {
             category: 'EXTRUSION', productVariant: {
                 id: 'variant-1', name: 'Varian Uji', skuCode: 'TEST-WIP', primaryUnit: 'KG',
                 product: { name: 'Produk Uji', productType: 'WIP' },
@@ -26,7 +27,7 @@ function execution(overrides: Partial<OutputExecution> = {}): OutputExecution {
 }
 const filter = (params = {}) => parseOutputReportFilter({ from: '2026-09-01', to: '2026-09-30', ...params });
 
-beforeEach(() => { findMany.mockReset().mockResolvedValue([]); });
+beforeEach(() => { findMany.mockReset().mockResolvedValue([]); groupBy.mockReset().mockResolvedValue([]); });
 describe('ProductionOutputReportService', () => {
     it('queries all nonvoided output by WIB start date, without FG/location/row limits', async () => {
         await ProductionOutputReportService.getReport(filter());
@@ -155,5 +156,71 @@ describe('ProductionOutputReportService', () => {
         expect(empty).toMatchObject({ rows: [], entries: [], totalRows: 0, pageCount: 1, filter: { page: 1 } });
         findMany.mockRejectedValue(new Error('unavailable'));
         await expect(ProductionOutputReportService.getReport(filter())).rejects.toThrow('unavailable');
+    });
+    it('reports SPK target against period and cumulative actuals without multiplying the target', async () => {
+        findMany.mockResolvedValue([
+            execution({ quantityProduced: decimal(30) }),
+            execution({ id: 'e2', quantityProduced: decimal(20) }),
+            execution({ id: 'e3', quantityProduced: decimal(10), startTime: new Date('2026-09-05T02:00:00Z') }),
+        ]);
+        groupBy.mockResolvedValue([{ productionOrderId: 'order-1', _sum: { quantityProduced: decimal(75) } }]);
+        const report = await ProductionOutputReportService.getReport(filter({ mode: 'order' }));
+        expect(report.orders).toHaveLength(1);
+        expect(report.orders[0]).toMatchObject({
+            orderId: 'order-1', orderNumber: 'SPK-TEST-1', status: 'IN_PROGRESS', unit: 'KG',
+            hasTarget: true, target: '1000', producedInPeriod: '60', producedCumulative: '75',
+            difference: '-925', achievement: '7.5',
+        });
+        expect(report.rows).toEqual([]);
+        expect(report.entries).toEqual([]);
+        expect(report.totalRows).toBe(1);
+        expect(groupBy).toHaveBeenCalledTimes(1);
+        expect(groupBy).toHaveBeenCalledWith(expect.objectContaining({
+            by: ['productionOrderId'],
+            where: { status: { not: 'VOIDED' }, productionOrderId: { in: ['order-1'] } },
+        }));
+    });
+    it('shows overproduction and target-less SPK honestly instead of infinity', async () => {
+        const base = execution();
+        findMany.mockResolvedValue([
+            execution({ quantityProduced: decimal(50) }),
+            execution({ id: 'e2', quantityProduced: decimal(10), productionOrder: {
+                ...base.productionOrder, id: 'order-2', orderNumber: 'SPK-2', plannedQuantity: decimal(0),
+            } }),
+        ]);
+        groupBy.mockResolvedValue([
+            { productionOrderId: 'order-1', _sum: { quantityProduced: decimal(1200) } },
+            { productionOrderId: 'order-2', _sum: { quantityProduced: decimal(20) } },
+        ]);
+        const report = await ProductionOutputReportService.getReport(filter({ mode: 'order' }));
+        expect(report.orders.find(o => o.orderId === 'order-1')).toMatchObject({
+            hasTarget: true, target: '1000', producedCumulative: '1200', difference: '200', achievement: '120',
+        });
+        expect(report.orders.find(o => o.orderId === 'order-2')).toMatchObject({
+            hasTarget: false, target: '0', difference: null, achievement: null,
+        });
+        expect(report.orders.find(o => o.orderId === 'order-2')!.producedInPeriod).toBe('10');
+    });
+    it('keeps non-SPK modes free of the cumulative query and scopes SPK mode to filtered entries', async () => {
+        const base = execution();
+        findMany.mockResolvedValue([
+            execution(),
+            execution({ id: 'e2', productionOrder: { ...base.productionOrder, id: 'order-2', orderNumber: 'SPK-2',
+                bom: { ...base.productionOrder.bom, category: 'PACKING' } } }),
+        ]);
+        const product = await ProductionOutputReportService.getReport(filter());
+        expect(product.orders).toEqual([]);
+        expect(groupBy).not.toHaveBeenCalled();
+
+        const scoped = await ProductionOutputReportService.getReport(filter({ mode: 'order', process: 'EXTRUSION' }));
+        expect(scoped.orders.map(o => o.orderId)).toEqual(['order-1']);
+        expect(groupBy).toHaveBeenCalledWith(expect.objectContaining({
+            where: expect.objectContaining({ productionOrderId: { in: ['order-1'] } }),
+        }));
+
+        groupBy.mockClear();
+        const empty = await ProductionOutputReportService.getReport(filter({ mode: 'order', q: 'missing' }));
+        expect(empty).toMatchObject({ orders: [], totalRows: 0, pageCount: 1 });
+        expect(groupBy).not.toHaveBeenCalled();
     });
 });

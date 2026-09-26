@@ -6,7 +6,7 @@ import Page from '../page';
 import { ReportView } from '../ReportView';
 import ErrorView from '../error';
 import Loading from '../loading';
-import { reportFixture } from './fixtures';
+import { orderRowFixture, reportFixture } from './fixtures';
 import { OutputReportFilterError } from '@/lib/production/output-report';
 
 const { load } = vi.hoisted(() => ({ load: vi.fn() }));
@@ -69,6 +69,27 @@ describe('output report page and view', () => {
         view.rerender(<ReportView report={report} canViewOrders today="2026-09-16" />);
         expect(screen.getByRole('link', { name: 'SPK-TEST' }).getAttribute('href')).toBe('/production/orders/order-test');
         expect(screen.getByText('Selesai: 03/09/2026 01:00')).toBeTruthy();
+    });
+    it('renders SPK target recap with cumulative progress and honest edge labels', () => {
+        const report = reportFixture();
+        report.filter.mode = 'order';
+        report.rows = [];
+        report.orders = [
+            orderRowFixture(),
+            orderRowFixture({ orderId: 'order-over', orderNumber: 'SPK-OVER', target: '500',
+                producedInPeriod: '0', producedCumulative: '600', difference: '100', achievement: '120' }),
+            orderRowFixture({ orderId: 'order-none', orderNumber: 'SPK-NONE', hasTarget: false, target: '0',
+                producedInPeriod: '40', producedCumulative: '40', difference: null, achievement: null }),
+        ];
+        render(<ReportView report={report} canViewOrders today="2026-09-16" />);
+        expect(screen.getByRole('link', { name: 'SPK-TEST' }).getAttribute('href')).toBe('/production/orders/order-test');
+        expect(screen.getByText('1.000 KG')).toBeTruthy();
+        expect(screen.getByText('800 KG')).toBeTruthy();
+        expect(screen.getByText('600 KG')).toBeTruthy();
+        expect(screen.getByText('80%')).toBeTruthy();
+        expect(screen.getByText('120%')).toBeTruthy();
+        expect(screen.getByText('Tanpa target')).toBeTruthy();
+        expect(screen.getByText(/bukan target harian/)).toBeTruthy();
     });
     it('renders empty results without implying unsupported products', () => {
         const report = reportFixture();

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { formatWIB } from '@/lib/utils/timezone';
 import {
+    ORDER_STATUS_LABELS,
     PROCESS_LABELS,
     REPORT_MODES,
     outputReportHref,
@@ -30,7 +31,11 @@ const TYPES: Record<string, string> = {
     RAW_MATERIAL: 'Bahan baku',
     SCRAP: 'Scrap',
 };
-function Product({ item }: { item: OutputIdentity }) {
+type ProductIdentity = Pick<
+    OutputIdentity,
+    'productName' | 'variantName' | 'sku' | 'productType'
+>;
+function Product({ item }: { item: ProductIdentity }) {
     return (
         <div className="min-w-48 whitespace-normal">
             <p className="font-medium">{item.productName}</p>
@@ -70,6 +75,7 @@ export function ReportView({
 }) {
     const { filter, summary } = report;
     const details = filter.mode === 'entries';
+    const perOrder = filter.mode === 'order';
     return (
         <div className="space-y-6 min-w-0">
             <header>
@@ -77,8 +83,8 @@ export function ReportView({
                     Rekap Hasil Produksi
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Hasil tercatat per produk dan operator — mixing, extru,
-                    packing, termasuk barang setengah jadi.
+                    Hasil tercatat per produk, operator, dan pencapaian SPK —
+                    mixing, extru, packing, termasuk barang setengah jadi.
                 </p>
             </header>
             <ReportFilters
@@ -181,48 +187,145 @@ export function ReportView({
                 {report.totalRows === 0 ? (
                     <div className="p-10 text-center space-y-2">
                         <p className="font-medium">
-                            Tidak ada hasil produksi sesuai filter.
+                            {perOrder
+                                ? 'Tidak ada SPK dengan hasil produksi pada periode ini.'
+                                : 'Tidak ada hasil produksi sesuai filter.'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                            Coba ubah periode, proses, produk, atau operator.
-                            Data kosong bukan berarti produk tidak dapat
-                            diproduksi.
+                            {perOrder
+                                ? 'Pencapaian hanya muncul untuk SPK yang memiliki hasil tercatat pada periode ini. Coba ubah periode atau filter.'
+                                : 'Coba ubah periode, proses, produk, atau operator. Data kosong bukan berarti produk tidak dapat diproduksi.'}
                         </p>
                     </div>
                 ) : (
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                {details && (
-                                    <TableHead>Tanggal / SPK</TableHead>
-                                )}
-                                <TableHead>Produk / Varian</TableHead>
-                                <TableHead>Proses</TableHead>
-                                <TableHead>Operator</TableHead>
-                                {details && <TableHead>Mesin</TableHead>}
-                                <TableHead className="text-right">
-                                    Hasil Bersih
-                                </TableHead>
-                                <TableHead className="text-right">
-                                    Affal
-                                </TableHead>
-                                {!details && (
+                                {perOrder ? (
                                     <>
+                                        <TableHead>SPK</TableHead>
+                                        <TableHead>Produk / Varian</TableHead>
+                                        <TableHead>Status</TableHead>
                                         <TableHead className="text-right">
-                                            Entri / SPK
+                                            Target
                                         </TableHead>
-                                        <TableHead>
-                                            <span className="sr-only">
-                                                Aksi
-                                            </span>
+                                        <TableHead className="text-right">
+                                            Aktual periode
                                         </TableHead>
+                                        <TableHead className="text-right">
+                                            Aktual kumulatif SPK
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Selisih
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Pencapaian
+                                        </TableHead>
+                                    </>
+                                ) : (
+                                    <>
+                                        {details && (
+                                            <TableHead>Tanggal / SPK</TableHead>
+                                        )}
+                                        <TableHead>Produk / Varian</TableHead>
+                                        <TableHead>Proses</TableHead>
+                                        <TableHead>Operator</TableHead>
+                                        {details && <TableHead>Mesin</TableHead>}
+                                        <TableHead className="text-right">
+                                            Hasil Bersih
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Affal
+                                        </TableHead>
+                                        {!details && (
+                                            <>
+                                                <TableHead className="text-right">
+                                                    Entri / SPK
+                                                </TableHead>
+                                                <TableHead>
+                                                    <span className="sr-only">
+                                                        Aksi
+                                                    </span>
+                                                </TableHead>
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {details
-                                ? report.entries.map((entry) => (
+                            {perOrder
+                                ? report.orders.map((row) => (
+                                      <TableRow key={row.orderId}>
+                                          <TableCell>
+                                              {canViewOrders ? (
+                                                  <Link
+                                                      prefetch={false}
+                                                      href={`/production/orders/${row.orderId}`}
+                                                      className="text-primary underline underline-offset-4"
+                                                  >
+                                                      {row.orderNumber}
+                                                  </Link>
+                                              ) : (
+                                                  <span>{row.orderNumber}</span>
+                                              )}
+                                              <p className="text-xs text-muted-foreground">
+                                                  Rencana:{' '}
+                                                  {formatWIB(
+                                                      row.plannedStartDate,
+                                                      'dd/MM/yyyy',
+                                                  )}
+                                              </p>
+                                          </TableCell>
+                                          <TableCell>
+                                              <Product item={row} />
+                                          </TableCell>
+                                          <TableCell>
+                                              {ORDER_STATUS_LABELS[
+                                                  row.status
+                                              ] ?? row.status}
+                                          </TableCell>
+                                          <TableCell className="text-right tabular-nums">
+                                              {row.hasTarget ? (
+                                                  <>
+                                                      {fmt(row.target)}{' '}
+                                                      {row.unit}
+                                                  </>
+                                              ) : (
+                                                  <span className="text-muted-foreground">
+                                                      Tanpa target
+                                                  </span>
+                                              )}
+                                          </TableCell>
+                                          <TableCell className="text-right tabular-nums">
+                                              {fmt(row.producedInPeriod)}{' '}
+                                              {row.unit}
+                                          </TableCell>
+                                          <TableCell className="text-right font-semibold tabular-nums">
+                                              {fmt(row.producedCumulative)}{' '}
+                                              {row.unit}
+                                          </TableCell>
+                                          <TableCell
+                                              className={`text-right tabular-nums ${
+                                                  row.difference !== null &&
+                                                  Number(row.difference) < 0
+                                                      ? 'text-destructive'
+                                                      : ''
+                                              }`}
+                                          >
+                                              {row.difference === null
+                                                  ? '—'
+                                                  : `${fmt(row.difference)} ${row.unit}`}
+                                          </TableCell>
+                                          <TableCell className="text-right tabular-nums">
+                                              {row.achievement === null
+                                                  ? '—'
+                                                  : `${fmt(row.achievement)}%`}
+                                          </TableCell>
+                                      </TableRow>
+                                  ))
+                                : details
+                                  ? report.entries.map((entry) => (
                                       <TableRow key={entry.id}>
                                           <TableCell>
                                               <p>
@@ -411,6 +514,16 @@ export function ReportView({
                 </div>
             </section>
             <div className="text-xs text-muted-foreground space-y-1">
+                {perOrder && (
+                    <p>
+                        Target berasal dari rencana SPK, bukan target harian
+                        atau per shift. Aktual kumulatif menghitung seluruh
+                        hasil SPK yang belum dibatalkan; aktual periode hanya
+                        yang tercatat pada rentang tanggal ini. Selisih negatif
+                        berarti sisa pekerjaan, dan pencapaian di atas 100%
+                        ditampilkan apa adanya.
+                    </p>
+                )}
                 <p>
                     Tanggal produksi mengikuti waktu mulai/shift dalam WIB.
                     Entri dibatalkan tidak dihitung. Operator memakai catatan

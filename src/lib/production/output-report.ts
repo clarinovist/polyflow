@@ -11,10 +11,19 @@ export const PROCESS_LABELS: Record<ProcessKey, string> = {
     OTHER: 'Lainnya',
 };
 export const REPORT_MODES = {
+    order: 'Per SPK',
     product: 'Per Produk',
     operator: 'Per Operator',
     entries: 'Rincian Entri',
 } as const;
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+    DRAFT: 'Draf',
+    RELEASED: 'Dirilis',
+    IN_PROGRESS: 'Berjalan',
+    COMPLETED: 'Selesai',
+    CANCELLED: 'Dibatalkan',
+    WAITING_MATERIAL: 'Menunggu bahan',
+};
 export type ReportMode = keyof typeof REPORT_MODES;
 export type ReportSearchParams = Record<string, string | string[] | undefined>;
 export interface OutputReportFilter {
@@ -153,6 +162,29 @@ export interface OutputReportRow extends OutputIdentity {
     entries: number;
     orders: number;
 }
+/**
+ * Target only exists at SPK level (`ProductionOrder.plannedQuantity`), so
+ * pencapaian is reported per SPK — never split across days or shifts. The
+ * period columns stay separate from the cumulative SPK progress.
+ */
+export interface OutputOrderRow {
+    orderId: string;
+    orderNumber: string;
+    status: string;
+    plannedStartDate: string;
+    productVariantId: string;
+    productName: string;
+    variantName: string;
+    sku: string;
+    productType: string;
+    unit: string;
+    hasTarget: boolean;
+    target: string;
+    producedInPeriod: string;
+    producedCumulative: string;
+    difference: string | null;
+    achievement: string | null;
+}
 export interface OutputReport {
     filter: OutputReportFilter;
     options: {
@@ -167,6 +199,7 @@ export interface OutputReport {
         totals: { process: ProcessKey; unit: string; produced: string }[];
     };
     rows: OutputReportRow[];
+    orders: OutputOrderRow[];
     entries: OutputReportEntry[];
     totalRows: number;
     pageCount: number;
