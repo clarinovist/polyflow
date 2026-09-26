@@ -1,5 +1,76 @@
 # Changelog
 
+## [1.11.0](https://github.com/clarinovist/polyflow/compare/polyflow-v1.10.0...polyflow-v1.11.0) (2026-09-26)
+
+
+### Features
+
+* **auth:** add read-only FACTORY_MANAGER (kepala pabrik) role ([3c5c4ee](https://github.com/clarinovist/polyflow/commit/3c5c4ee36bd82e7172e672ff27ebd1919e5b606f))
+* **finance:** add audited customer credit notes and invoice allocations ([28c16ad](https://github.com/clarinovist/polyflow/commit/28c16ad3e3a73fa7309a443dbd1566b400c6d278))
+* **finance:** add audited invoice price adjustments ([416a40f](https://github.com/clarinovist/polyflow/commit/416a40f8f423d9d68313d73da6ceb35ec4b5269e))
+* **finance:** approve audited manual sales return credits ([2a58fe1](https://github.com/clarinovist/polyflow/commit/2a58fe15268c6f4c6099baa8fb848163bf4508a5))
+* **finance:** complete sales return credits and compensating recovery ([5c93825](https://github.com/clarinovist/polyflow/commit/5c93825fde2f321bd5dedbae232010fc10a4c0c2))
+* **finance:** expose read-only sales return queue and details ([0c05ab1](https://github.com/clarinovist/polyflow/commit/0c05ab1ca249d626686fbb9b242a216225037348))
+* **lang:** lokalisasi label form akun COA ke Indonesia ([5d0f71a](https://github.com/clarinovist/polyflow/commit/5d0f71af5da69348bbe45fb088513218943b529b))
+* **production:** add multi-customer SPK and configurable quality display ([136f558](https://github.com/clarinovist/polyflow/commit/136f558f644ba1cd6e4cd5567afc8edfc5d399eb))
+* **production:** add product and operator output recap ([1f9a42b](https://github.com/clarinovist/polyflow/commit/1f9a42be3526e851fcc04f5bcb0d5b1c4a6b022e))
+* **production:** allow explicit WO output date ([d7fd60f](https://github.com/clarinovist/polyflow/commit/d7fd60f9a1385eeab547414be0b796584c1f398f))
+* **production:** complete SPK form recovery and accessible workflows ([b3e5002](https://github.com/clarinovist/polyflow/commit/b3e50029b0e5f9e9de7f66b9b50c4665efc03661))
+* **production:** condense supplemental guidance into accessible info ([52b9413](https://github.com/clarinovist/polyflow/commit/52b941343f8ea9ded5f6c25e3d9ccb0d4959cbcb))
+* **production:** redesign SPK list, creation and detail views ([a7d0c39](https://github.com/clarinovist/polyflow/commit/a7d0c393380cdedf51d4ccbabd3395d6f2ac1f69))
+* **production:** report SPK target vs actual achievement ([9606eaa](https://github.com/clarinovist/polyflow/commit/9606eaafd51215ff16b3f6b819bdcbe427ca4bcc))
+* **purchasing:** close unfulfilled purchase order balances safely ([8605eb6](https://github.com/clarinovist/polyflow/commit/8605eb62c1b0a620b5724d70bb3e9027cbb9d86c))
+* **sales:** harmonize fleet summaries with trip mileage ([9d3bfa5](https://github.com/clarinovist/polyflow/commit/9d3bfa54c6ff024041226402d4d24dfdbc7c8116))
+* **sales:** harmonize fleet summaries with trip mileage ([1457670](https://github.com/clarinovist/polyflow/commit/14576708c3212577a5a39cd293cc0cb9a5932116))
+* **sales:** integrate load revisions and immutable invoice snapshots ([7751764](https://github.com/clarinovist/polyflow/commit/775176422e3e3b61eed3a719262b009f03e18f25))
+* **sales:** move supplemental guidance into compact info controls ([8929929](https://github.com/clarinovist/polyflow/commit/892992970f91ca1d0537ceda33b6799b3c61b3f4))
+* **sales:** receive returns and credit SO invoices in one step ([62451ba](https://github.com/clarinovist/polyflow/commit/62451bab1ab8f2895036cf4707414f05121548df))
+* **sales:** refresh delivery schedule list and filters ([c648d7f](https://github.com/clarinovist/polyflow/commit/c648d7f1f82aaf4ea5857bb425cc5025ad651c7d))
+* **sales:** refresh order forms and delivery schedule workspace ([23e263d](https://github.com/clarinovist/polyflow/commit/23e263d6ed30a878d72926df52ee705b03ddc015))
+* **sales:** replace period gross card with actual shipped weight ([528bb7e](https://github.com/clarinovist/polyflow/commit/528bb7e90d5d801e9b00fd5fad092508e9d110ab))
+* **sales:** simplify summary cards with accessible info tooltips ([0cc467a](https://github.com/clarinovist/polyflow/commit/0cc467a2b7be7d8daa7e4b91842ad75e81ea97fa))
+* **sales:** track planned routes and factory vehicle mileage ([63f44e3](https://github.com/clarinovist/polyflow/commit/63f44e3ed81f6522ef7604ee93c94bba9c12fdaf))
+* **sales:** track planned routes and factory vehicle mileage ([edd1d6f](https://github.com/clarinovist/polyflow/commit/edd1d6f4706af2cc3e66e8093bda61b8ddabdc25))
+
+
+### Bug Fixes
+
+* **build:** set Next deploymentId for version-skew protection ([0fc1f9a](https://github.com/clarinovist/polyflow/commit/0fc1f9a78bb56f027c9761f9a77240896c685cf9))
+* **ci:** decouple shard coverage from benchmark candidates ([6eeebba](https://github.com/clarinovist/polyflow/commit/6eeebbaf2f2e6cf76757f290c984471bf8784904))
+* **ci:** size TypeScript heap for return contract gate ([fa26163](https://github.com/clarinovist/polyflow/commit/fa26163fe575b25274010870ba6a7970afc85ec8))
+* **finance:** guard invoice settlement and clarify blocked correction flows ([b0a4094](https://github.com/clarinovist/polyflow/commit/b0a40947b484b7e6a3745644635dff926ef8fd77))
+* **finance:** link cash recap vouchers to journal details ([332f91a](https://github.com/clarinovist/polyflow/commit/332f91a39f2ba5fb2088fd5bdb555deeb036ac13))
+* **finance:** link invoice reference to sales order ([470655f](https://github.com/clarinovist/polyflow/commit/470655fc6b72000d4ec88834c7595642cf213cf7))
+* **finance:** link invoice reference to sales order ([7d08f68](https://github.com/clarinovist/polyflow/commit/7d08f689ad4f1d36e3e77b60b8781bf9439ae404))
+* **finance:** make workspace responsive and move assistant into navigation ([6b33d6a](https://github.com/clarinovist/polyflow/commit/6b33d6a5012cd7683b4090d53d8663acade1f351))
+* **finance:** show current SO values as legacy invoice references ([067b79a](https://github.com/clarinovist/polyflow/commit/067b79a9e0e32ab98f2ec7b643fabd59650c5e09))
+* **finance:** simplify return credit posting and clarify invoice balances ([29dd993](https://github.com/clarinovist/polyflow/commit/29dd993a2bc04f607b614383db171f87d07609d4))
+* **finance:** support multi-account invoice price adjustments ([6c55bcb](https://github.com/clarinovist/polyflow/commit/6c55bcb5682dd15fd9fe9b03c4d92db1ebaf8c94))
+* **inventory:** preserve stock context and improve mobile workflows (plan: docs/plan/2026-09-21-stock-ui-improvement-plan.md) ([c5362f7](https://github.com/clarinovist/polyflow/commit/c5362f752fd2c732d2ed52235fe3e4d6c963c203))
+* **mobile:** harden monitoring data and scoped navigation ([8efeccd](https://github.com/clarinovist/polyflow/commit/8efeccd8e10a09c819d505def995e994680552dc))
+* **mobile:** harden monitoring data and scoped navigation ([0c7652d](https://github.com/clarinovist/polyflow/commit/0c7652d021a6fb1282bb19177bf00b0e2d149b65))
+* **production:** allow explicit zero good output with scrap ([be3df51](https://github.com/clarinovist/polyflow/commit/be3df519abdbdb764237b3a138d4cb3b70d35316))
+* **production:** clarify work views and creation outcomes (plan: docs/plan/2026-09-21-production-ui-ia-implementation.md) ([f632ba5](https://github.com/clarinovist/polyflow/commit/f632ba5c6e246e03b49254253cb99954a869714a))
+* **production:** use concrete tenant client for metadata transactions ([f8bec5f](https://github.com/clarinovist/polyflow/commit/f8bec5f46c0a7272b01b66b7b9e56a253e2c40e9))
+* **purchasing:** align purchase order detail layout with sales ([fae741a](https://github.com/clarinovist/polyflow/commit/fae741a01e6b63569d328e454336fb9697dde276))
+* render a safe retirement notice for legacy CEO note links ([4e3469b](https://github.com/clarinovist/polyflow/commit/4e3469b209f0ce805c0fbe237494a2256c1676f7))
+* **sales:** bind mileage transactions to explicit tenant client ([1c4c86e](https://github.com/clarinovist/polyflow/commit/1c4c86e53a1be52f6db7dcb98856b5896d75d268))
+* **sales:** bind mileage transactions to explicit tenant client ([7cf0bcb](https://github.com/clarinovist/polyflow/commit/7cf0bcbbebb722a9247f0cbb6a6ac52acac2ca5f))
+* **sales:** clarify order detail layout and action hierarchy ([cf9ec70](https://github.com/clarinovist/polyflow/commit/cf9ec70e35e7447df33dd81930acb4bed02b8984))
+* **sales:** correct delivery item units and freight weight ([98d5412](https://github.com/clarinovist/polyflow/commit/98d5412a27ea05a6e431680005d835690912522a))
+* **sales:** isolate quick-return numbering from legacy sequences ([dabd7be](https://github.com/clarinovist/polyflow/commit/dabd7be29c5e47b6b95bbacb1eec4ff9d02dc5df))
+* **sales:** prevent clipped sales order totals ([27fee3a](https://github.com/clarinovist/polyflow/commit/27fee3a40c9d42363a5424383042796bf4c32033))
+* **sales:** restore accessible sales return navigation ([a13ff86](https://github.com/clarinovist/polyflow/commit/a13ff862acb51a09d934b6d4b7f3fafc040f921a))
+* **sales:** serialize customer credit values before editing ([c15f3df](https://github.com/clarinovist/polyflow/commit/c15f3df803e0a64f859b6996fe2040a689f0ea56))
+* **ui:** keep commercial detail totals visible on narrow screens ([b17fe95](https://github.com/clarinovist/polyflow/commit/b17fe95234812f546bc30b81b0972c9c088e0be1))
+* **upload:** return explicit auth errors for upload APIs ([df4b793](https://github.com/clarinovist/polyflow/commit/df4b793033b7ad60cdddc80fa7f231cf9f28b243))
+
+
+### Performance Improvements
+
+* **ci:** shard coverage behind a SHA-safe release gate (plan: docs/plan/2026-09-21-ci-two-shard-release-gate.md) ([6e48005](https://github.com/clarinovist/polyflow/commit/6e480053b8f097262db093abc17985206aad7b9a))
+* **nav:** land workspace links directly and add purchasing loading UI ([d8bbe7b](https://github.com/clarinovist/polyflow/commit/d8bbe7b36eff7f03ed6662f19f98c527c871f34a))
+
 ## [1.10.0](https://github.com/clarinovist/polyflow/compare/polyflow-v1.9.0...polyflow-v1.10.0) (2026-09-15)
 
 ### Fitur
