@@ -7,7 +7,7 @@ import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/core/prisma';
-import { getTenantActiveModules } from '@/lib/auth/access-policy';
+import { getTenantActiveModules, buildWorkspaceEntryHrefs } from '@/lib/auth/access-policy';
 
 export default async function DashboardLayout({
     children,
@@ -91,6 +91,7 @@ export default async function DashboardLayout({
                 user={user}
                 permissions={permissions}
                 activeModules={getTenantActiveModules()}
+                entryHrefs={buildWorkspaceEntryHrefs(permissions)}
             />
 
             {/* Main Content */}

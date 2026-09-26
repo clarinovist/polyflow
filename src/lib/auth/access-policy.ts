@@ -197,6 +197,56 @@ export function getPreferredWorkspaceLanding(
 }
 
 /**
+ * Workspace roots that navigation surfaces link to directly. Aliases
+ * ('/field', '/kiosk') and non-sidebar roots ('/admin', '/dashboard',
+ * '/support', '/my') are excluded.
+ */
+const NAVIGABLE_WORKSPACE_ROOTS: readonly string[] = Array.from(
+    new Set(
+        MODULE_DEFINITIONS.flatMap((mod) => mod.workspaceRoots).filter(
+            (root) =>
+                /^\/[a-z]+$/.test(root) &&
+                !['/admin', '/dashboard', '/support', '/my', '/field', '/kiosk'].includes(
+                    root,
+                ),
+        ),
+    ),
+);
+
+/**
+ * Direct entry href for each workspace root the user may enter but only
+ * through nested grants.
+ *
+ * A workspace-root link (/purchasing) is redirected by the workspace layout to
+ * the preferred landing page. Linking straight to that landing removes a
+ * redirect hop from every click and — more importantly — from every prefetch,
+ * which otherwise renders the full landing page on the server for a link the
+ * user never opened. Resolution matches the layout by construction: both use
+ * `getPreferredWorkspaceLanding`.
+ *
+ * Roots the user can open directly, and roots they cannot access at all, are
+ * left untouched.
+ */
+export function buildWorkspaceEntryHrefs(
+    permissions: string[] | 'ALL' | null | undefined,
+): Record<string, string> {
+    if (!permissions || permissions === 'ALL') return {};
+
+    const hrefs: Record<string, string> = {};
+    for (const root of NAVIGABLE_WORKSPACE_ROOTS) {
+        if (permissions.includes(root)) continue;
+        if (!hasWorkspaceResourceAccess(permissions, root.slice(1))) continue;
+
+        const landing = getPreferredWorkspaceLanding(
+            root.slice(1) as WorkspaceKey,
+            permissions,
+        );
+        if (landing !== root) hrefs[root] = landing;
+    }
+    return hrefs;
+}
+
+/**
  * Checks if a user has permission to access a workspace.
  *
  * Role policy is the primary gate. Access Control matrix entries

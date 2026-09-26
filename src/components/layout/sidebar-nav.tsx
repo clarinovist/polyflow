@@ -51,6 +51,12 @@ interface SidebarNavProps {
     permissions: string[] | 'ALL';
     /** Active module keys for this tenant. Empty array = all modules shown (super admin / legacy). */
     activeModules?: string[];
+    /**
+     * Workspace root → landing href overrides for users who may only enter a
+     * workspace through nested grants (see `buildWorkspaceEntryHrefs`). Keeps
+     * clicks and prefetches off the workspace-root redirect.
+     */
+    entryHrefs?: Record<string, string>;
 }
 
 interface NavItemType {
@@ -134,6 +140,7 @@ export function SidebarNav({
     user,
     permissions,
     activeModules,
+    entryHrefs,
 }: SidebarNavProps) {
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
@@ -197,6 +204,10 @@ export function SidebarNav({
         .filter((group) => group.items.length > 0);
 
     const helpActive = isSupportActive(pathname);
+
+    // Land on the reachable page inside a workspace instead of its root, which
+    // the workspace layout would redirect (see `buildWorkspaceEntryHrefs`).
+    const resolveHref = (href: string) => entryHrefs?.[href] ?? href;
 
     return (
         <>
@@ -295,7 +306,7 @@ export function SidebarNav({
                                   .map((item) => (
                                       <Link
                                           key={item.href}
-                                          href={item.href}
+                                          href={resolveHref(item.href)}
                                           title={item.title}
                                           className={cn(
                                               'flex items-center justify-center rounded-lg py-2 transition-colors mx-1',
@@ -334,7 +345,8 @@ export function SidebarNav({
                                       {group.items.map((item) => (
                                           <NavItem
                                               key={item.href}
-                                              href={item.href}
+                                              href={resolveHref(item.href)}
+                                              activeHref={item.href}
                                               icon={item.icon}
                                               label={item.title}
                                               pathname={pathname}
@@ -499,18 +511,22 @@ export function SidebarNav({
 
 function NavItem({
     href,
+    activeHref,
     icon: Icon,
     label,
     pathname,
 }: {
     href: string;
+    /** Path that decides the active state when the link target differs (e.g. a workspace landing). */
+    activeHref?: string;
     icon: LucideIcon;
     label: string;
     pathname: string;
 }) {
+    const matchHref = activeHref ?? href;
     const isActive =
-        pathname === href ||
-        (href !== '/dashboard' && pathname.startsWith(href));
+        pathname === matchHref ||
+        (matchHref !== '/dashboard' && pathname.startsWith(matchHref));
     return (
         <Link
             href={href}

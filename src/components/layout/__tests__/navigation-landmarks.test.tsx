@@ -85,4 +85,19 @@ describe('sidebar navigation landmarks', () => {
             }),
         ).toBeTruthy();
     });
+
+    it('links workspace entries straight to the landing page when the grant is nested-only', () => {
+        render(
+            <SidebarNav
+                user={{ name: 'Test User' }}
+                permissions={['/dashboard', '/purchasing/orders']}
+                entryHrefs={{ '/purchasing': '/purchasing/orders' }}
+            />,
+        );
+
+        expect(
+            document.querySelector('a[href="/purchasing/orders"]'),
+        ).toBeTruthy();
+        expect(document.querySelector('a[href="/purchasing"]')).toBeNull();
+    });
 });

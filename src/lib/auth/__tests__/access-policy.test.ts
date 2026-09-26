@@ -6,6 +6,7 @@ import {
   hasWorkspaceResourceAccess,
   isPathAllowedByResources,
   getPreferredWorkspaceLanding,
+  buildWorkspaceEntryHrefs,
 } from '../access-policy';
 import { MATRIX_ROLES, SYSTEM_ROLES } from '../system-roles';
 
@@ -265,6 +266,56 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(user, 'hrd', '/hrd/payroll')).toBe(false);
       expect(canAccessWorkspace(user, 'sales', '/sales/reports/margin')).toBe(false);
       expect(canAccessWorkspace(user, 'warehouse', '/warehouse/outgoing')).toBe(false);
+    });
+  });
+
+  describe('buildWorkspaceEntryHrefs', () => {
+    const factoryManagerResources = [
+      '/dashboard',
+      '/production/daily',
+      '/production/orders',
+      '/production/schedule',
+      '/production/machines',
+      '/production/inventory',
+      '/production/history',
+      '/production/daily-report',
+      '/production/output-report',
+      '/production/packing-monthly',
+      '/production/analytics',
+      '/warehouse/inventory',
+      '/purchasing/requests',
+      '/purchasing/orders',
+    ];
+
+    it('points nested-only workspaces at the layout landing page', () => {
+      expect(buildWorkspaceEntryHrefs(factoryManagerResources)).toEqual({
+        '/production': '/production/daily',
+        '/warehouse': '/warehouse/inventory',
+        '/purchasing': '/purchasing/orders',
+      });
+    });
+
+    it('leaves unrestricted and inaccessible workspaces untouched', () => {
+      // 'ALL' and blunt grants can open the root directly.
+      expect(buildWorkspaceEntryHrefs('ALL')).toEqual({});
+      expect(buildWorkspaceEntryHrefs(['/purchasing'])).toEqual({});
+      expect(
+        buildWorkspaceEntryHrefs(['/purchasing', '/production/orders']),
+      ).toEqual({ '/production': '/production/orders' });
+      // No access at all → the sidebar hides the item, so no override.
+      expect(buildWorkspaceEntryHrefs(['/dashboard'])).toEqual({});
+      expect(buildWorkspaceEntryHrefs([])).toEqual({});
+      expect(buildWorkspaceEntryHrefs(undefined)).toEqual({});
+    });
+
+    it('always resolves to a path the workspace layout accepts', () => {
+      const hrefs = buildWorkspaceEntryHrefs(factoryManagerResources);
+      for (const [root, landing] of Object.entries(hrefs)) {
+        expect(landing.startsWith(`${root}/`)).toBe(true);
+        expect(
+          isPathAllowedByResources(landing, factoryManagerResources),
+        ).toBe(true);
+      }
     });
   });
 });
