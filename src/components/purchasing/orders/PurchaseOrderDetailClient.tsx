@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
     PurchaseOrder,
     PurchaseOrderItem,
@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import {
     ArrowLeft,
     Download,
@@ -29,6 +30,7 @@ import {
     Receipt,
     Info,
     Trash2,
+    MoreHorizontal,
     Edit,
 } from 'lucide-react';
 import {
@@ -57,6 +59,22 @@ import {
     DialogFooter,
     DialogDescription,
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { ClosePurchaseOrderDialog } from './ClosePurchaseOrderDialog';
 import {
@@ -125,6 +143,8 @@ export function PurchaseOrderDetailClient({
     const summaryColSpan = showDpp ? 5 : 4;
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const moreActionsRef = useRef<HTMLButtonElement>(null);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
     const [invoiceDate, setInvoiceDate] = useState(() =>
         new Date().toISOString().slice(0, 10),
@@ -223,19 +243,41 @@ export function PurchaseOrderDetailClient({
         }
     };
 
+    const handleDelete = async () => {
+        setIsLoading(true);
+        try {
+            const result = await deletePurchaseOrder(order.id);
+            if (result.success) {
+                toast.success(`${order.orderNumber} berhasil dihapus`);
+                router.push(basePath);
+            } else {
+                toast.error(
+                    result.error ||
+                        'Gagal menghapus Purchase Order. Silakan coba lagi.',
+                );
+            }
+        } catch {
+            toast.error('Gagal menghapus Purchase Order. Silakan coba lagi.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-4">
+            <header className="min-w-0 space-y-4">
+                <div className="space-y-3">
                     <Button variant="outline" size="sm" asChild>
                         <Link href={basePath}>
                             <ArrowLeft className="mr-2 h-4 w-4" />{' '}
                             {actionLabels.back}
                         </Link>
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                            PO {order.orderNumber}
+                    <div className="min-w-0 space-y-2">
+                        <h1 className="text-2xl font-bold tracking-tight [overflow-wrap:anywhere] sm:text-3xl">
+                            {order.orderNumber}
+                        </h1>
+                        <div className="flex flex-wrap items-center gap-2">
                             {getStatusBadge(order.status)}
                             {order.entrySource === 'WALK_IN_RECEIPT' && (
                                 <Badge
@@ -256,19 +298,22 @@ export function PurchaseOrderDetailClient({
                             {order.commercialReviewStatus === 'REJECTED' && (
                                 <Badge variant="destructive">Ditolak</Badge>
                             )}
-                        </h1>
-                        <p className="text-muted-foreground text-sm">
-                            Dibuat pada{' '}
-                            {format(new Date(order.orderDate), 'PPP')} oleh{' '}
-                            {order.createdBy?.name || 'Tidak Diketahui'}
-                        </p>
+                            <p className="w-full text-sm text-muted-foreground [overflow-wrap:anywhere] sm:w-auto">
+                                Dibuat pada{' '}
+                                {format(new Date(order.orderDate), 'd MMMM yyyy', {
+                                    locale: id,
+                                })} oleh{' '}
+                                {order.createdBy?.name || 'Tidak Diketahui'}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                    {!warehouseMode && order.status === 'PARTIAL_RECEIVED' && (
-                        <ClosePurchaseOrderDialog id={order.id} orderNumber={order.orderNumber} />
-                    )}
+                <div
+                    role="group"
+                    aria-label="Aksi pesanan pembelian"
+                    className="grid grid-cols-2 gap-2 border-t pt-4 sm:flex sm:flex-wrap sm:items-center [&_button]:min-h-11 [&_a]:min-h-11 [&_button]:max-w-full [&_a]:max-w-full [&_button]:whitespace-normal [&_a]:whitespace-normal [&_button]:h-auto [&_a]:h-auto"
+                >
                     {!warehouseMode && order.status === 'DRAFT' && (
                         <Button
                             onClick={handleConfirm}
@@ -280,27 +325,19 @@ export function PurchaseOrderDetailClient({
                         </Button>
                     )}
 
-                    {!warehouseMode &&
-                        (order.status === 'DRAFT' ||
-                            order.status === 'SENT' ||
-                            order.status === 'PARTIAL_RECEIVED') && (
-                            <Link href={`/purchasing/orders/${order.id}/edit`}>
-                                <Button variant="outline">
-                                    <Edit className="mr-2 h-4 w-4" /> Edit PO
-                                </Button>
-                            </Link>
-                        )}
-
                     {(order.status === 'SENT' ||
                         order.status === 'PARTIAL_RECEIVED') && (
-                        <Link
-                            href={`/warehouse/incoming/create-receipt?poId=${order.id}`}
+                        <Button
+                            asChild
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                                <Download className="mr-2 h-4 w-4" />{' '}
+                            <Link
+                                href={`/warehouse/incoming/create-receipt?poId=${order.id}`}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
                                 {purchasingLabels.goodsReceipt}
-                            </Button>
-                        </Link>
+                            </Link>
+                        </Button>
                     )}
 
                     {!warehouseMode &&
@@ -309,7 +346,12 @@ export function PurchaseOrderDetailClient({
                         order.status !== 'DRAFT' && (
                             <>
                                 <Button
-                                    variant="outline"
+                                    variant={
+                                        order.status === 'RECEIVED' ||
+                                        order.status === 'CLOSED'
+                                            ? 'default'
+                                            : 'outline'
+                                    }
                                     onClick={() => {
                                         setTermDays(
                                             order.supplier?.paymentTermDays ??
@@ -524,55 +566,93 @@ export function PurchaseOrderDetailClient({
 
                     {!warehouseMode &&
                         (order.status === 'DRAFT' ||
-                            order.status === 'CANCELLED') && (
-                            <Button
-                                variant="outline"
-                                className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/30"
-                                onClick={async () => {
-                                    if (
-                                        !confirm(
-                                            `Apakah Anda yakin ingin menghapus ${order.orderNumber}? Tindakan ini tidak dapat dibatalkan.`,
-                                        )
-                                    ) {
-                                        return;
-                                    }
-                                    setIsLoading(true);
-                                    try {
-                                        const result =
-                                            await deletePurchaseOrder(order.id);
-                                        if (result.success) {
-                                            toast.success(
-                                                `${order.orderNumber} berhasil dihapus`,
-                                            );
-                                            router.push(basePath);
-                                        } else {
-                                            toast.error(
-                                                result.error ||
-                                                    'Gagal menghapus Purchase Order. Silakan coba lagi.',
-                                            );
-                                        }
-                                    } catch (_error) {
-                                        toast.error(
-                                            'Gagal menghapus Purchase Order. Silakan coba lagi.',
-                                        );
-                                    } finally {
-                                        setIsLoading(false);
-                                    }
-                                }}
-                                disabled={isLoading}
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" />{' '}
-                                {actionLabels.delete}
+                            order.status === 'SENT' ||
+                            order.status === 'PARTIAL_RECEIVED') && (
+                            <Button variant="outline" asChild>
+                                <Link href={`/purchasing/orders/${order.id}/edit`}>
+                                    <Edit className="mr-2 h-4 w-4" /> Edit PO
+                                </Link>
                             </Button>
                         )}
-                </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="min-w-0 md:col-span-2 space-y-6">
+                    {!warehouseMode && order.status === 'PARTIAL_RECEIVED' && (
+                        <ClosePurchaseOrderDialog
+                            id={order.id}
+                            orderNumber={order.orderNumber}
+                        />
+                    )}
+
+                    {!warehouseMode &&
+                        (order.status === 'DRAFT' ||
+                            order.status === 'CANCELLED') && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        ref={moreActionsRef}
+                                        variant="outline"
+                                        disabled={isLoading}
+                                    >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        Lainnya
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    onCloseAutoFocus={(event) => {
+                                        if (deleteDialogOpen) event.preventDefault();
+                                    }}
+                                >
+                                    <DropdownMenuItem
+                                        variant="destructive"
+                                        className="min-h-11"
+                                        onSelect={() => setDeleteDialogOpen(true)}
+                                    >
+                                        <Trash2 className="h-4 w-4" /> Hapus PO
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                </div>
+            </header>
+
+            <AlertDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+            >
+                <AlertDialogContent
+                    onCloseAutoFocus={(event) => {
+                        event.preventDefault();
+                        moreActionsRef.current?.focus();
+                    }}
+                >
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Purchase Order?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {order.orderNumber} akan dihapus secara permanen.
+                            Tindakan ini tidak dapat dibatalkan.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Kembali</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isLoading}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={handleDelete}
+                        >
+                            Hapus PO
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="min-w-0 space-y-6 lg:col-span-2">
                     <Card>
                         <CardHeader>
                             <CardTitle>Item PO</CardTitle>
+                            <CardDescription className="lg:hidden">
+                                Geser tabel untuk melihat seluruh kolom.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div
@@ -581,10 +661,12 @@ export function PurchaseOrderDetailClient({
                                 aria-label="Rincian item pembelian"
                                 tabIndex={0}
                             >
-                                <table className="w-full text-sm">
+                                <table
+                                    className={`w-full text-sm ${warehouseMode ? 'min-w-96' : 'min-w-[40rem]'}`}
+                                >
                                     <thead className="bg-muted/50 border-b">
                                         <tr>
-                                            <th className="h-10 px-4 text-left font-medium">
+                                            <th className="h-10 min-w-40 px-4 text-left font-medium">
                                                 {formLabels.product}
                                             </th>
                                             <th className="h-10 px-4 text-right font-medium">
@@ -807,7 +889,7 @@ export function PurchaseOrderDetailClient({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                                <p className="text-sm whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
                                     {order.notes}
                                 </p>
                             </CardContent>
@@ -815,7 +897,7 @@ export function PurchaseOrderDetailClient({
                     )}
                 </div>
 
-                <div className="space-y-6">
+                <div className="min-w-0 space-y-6 [&_p]:[overflow-wrap:anywhere]">
                     <Card>
                         <CardHeader>
                             <CardTitle>Informasi Supplier</CardTitle>
@@ -847,7 +929,8 @@ export function PurchaseOrderDetailClient({
                                     {order.expectedDate
                                         ? format(
                                               new Date(order.expectedDate),
-                                              'PPP',
+                                              'd MMMM yyyy',
+                                              { locale: id },
                                           )
                                         : 'Tidak ditentukan'}
                                 </p>
@@ -873,14 +956,18 @@ export function PurchaseOrderDetailClient({
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card
+                        className={order.goodsReceipts.length === 0 ? 'gap-3 py-4' : undefined}
+                    >
                         <CardHeader>
                             <CardTitle>
                                 {purchasingLabels.goodsReceipt}
                             </CardTitle>
-                            <CardDescription>
-                                Item yang diterima untuk PO ini
-                            </CardDescription>
+                            {order.goodsReceipts.length > 0 && (
+                                <CardDescription>
+                                    Item yang diterima untuk PO ini
+                                </CardDescription>
+                            )}
                         </CardHeader>
                         <CardContent>
                             {order.goodsReceipts.length === 0 ? (
@@ -894,10 +981,10 @@ export function PurchaseOrderDetailClient({
                                             key={gr.id}
                                             className="border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-r-md"
                                         >
-                                            <div className="flex justify-between items-center mb-1">
+                                            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                                                 <Link
                                                     href={`/warehouse/incoming/${gr.id}`}
-                                                    className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                                                    className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 hover:underline [overflow-wrap:anywhere]"
                                                 >
                                                     {gr.receiptNumber}
                                                 </Link>
@@ -931,7 +1018,9 @@ export function PurchaseOrderDetailClient({
                     />
 
                     {!warehouseMode && (
-                        <Card>
+                        <Card
+                            className={order.invoices.length === 0 ? 'gap-3 py-4' : undefined}
+                        >
                             <CardHeader>
                                 <CardTitle>
                                     {purchasingLabels.purchaseInvoice}
@@ -949,8 +1038,8 @@ export function PurchaseOrderDetailClient({
                                                 key={inv.id}
                                                 className="border p-3 rounded-md shadow-sm"
                                             >
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="font-bold text-xs">
+                                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                                    <span className="text-xs font-bold [overflow-wrap:anywhere]">
                                                         {inv.invoiceNumber}
                                                     </span>
                                                     <Badge
@@ -966,7 +1055,7 @@ export function PurchaseOrderDetailClient({
                                                         )}
                                                     </Badge>
                                                 </div>
-                                                <div className="flex justify-between text-sm">
+                                                <div className="flex flex-wrap justify-between gap-2 text-sm">
                                                     <span className="font-semibold">
                                                         {formatRupiah(
                                                             Number(inv.totalAmount),

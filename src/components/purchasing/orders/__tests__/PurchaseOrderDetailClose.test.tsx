@@ -28,7 +28,7 @@ describe('PO detail close entry point', () => {
         expect(screen.queryByRole('button', { name: 'Tutup PO' })).toBeNull();
         if (status === 'CLOSED') {
             expect(screen.getByText('Ditutup')).toBeTruthy();
-            expect(screen.queryByRole('button', { name: 'Edit PO' })).toBeNull();
+            expect(screen.queryByRole('link', { name: 'Edit PO' })).toBeNull();
             expect(screen.queryByRole('link', { name: /Penerimaan Barang/ })).toBeNull();
             expect(screen.getByRole('button', { name: 'Buat Invoice' })).toBeTruthy();
         }
