@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -33,6 +33,8 @@ import {
 } from '@/actions/sales/vehicle-tariffs';
 import { useRouter } from 'next/navigation';
 import { salesLabels } from '@/lib/labels';
+import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
+import { estimateDeliveryWeightKg } from '@/lib/sales/delivery-weight';
 
 interface SalesOrderItem {
     id: string;
@@ -44,6 +46,7 @@ interface SalesOrderItem {
         name: string;
         primaryUnit: string;
         salesUnit?: string | null;
+        conversionFactor?: string | number | null;
         product?: { name: string; productType?: string } | null;
     } | null;
 }
@@ -135,6 +138,8 @@ export function CreateDeliveryOrderDialog({
     const [blockedOpenDo, setBlockedOpenDo] =
         useState<OpenDeliveryOrder | null>(null);
     const router = useRouter();
+    const weightInputId = useId();
+    const detailRequest = useRef(0);
 
     // PER_KG calculation: weight × rate = total
     const { suggestedCharge, suggestedCost } = useMemo(() => {
@@ -143,7 +148,7 @@ export function CreateDeliveryOrderDialog({
         const weight = parseFloat(estimatedWeightKg);
         const chargeRate = parseFloat(overrideChargeRate);
         const costRate = parseFloat(overrideCostRate);
-        if (!weight || weight <= 0)
+        if (!Number.isFinite(weight) || weight <= 0)
             return { suggestedCharge: null, suggestedCost: null };
         return {
             suggestedCharge: chargeRate > 0 ? weight * chargeRate : null,
@@ -200,14 +205,18 @@ export function CreateDeliveryOrderDialog({
     }, [defaultSalesOrderId]);
 
     const handleSalesOrderChange = async (soId: string) => {
+        const request = ++detailRequest.current;
         setSelectedSalesOrderId(soId);
         setSelectedSoDetail(null);
+        setEstimatedWeightKg('');
+        setIsLoadingSoDetail(false);
         if (!soId) return;
 
         // Fetch full SO detail to get items + quantities
         setIsLoadingSoDetail(true);
         try {
             const res = await getSalesOrderById(soId);
+            if (request !== detailRequest.current) return;
             if (res.success && res.data) {
                 const so = res.data as SalesOrder;
                 setSelectedSoDetail(so);
@@ -222,16 +231,10 @@ export function CreateDeliveryOrderDialog({
                     '';
                 setDestinationAddress(addr);
 
-                // Auto-calculate estimated weight = sum of item quantities
-                if (so.items && so.items.length > 0) {
-                    const totalQty = so.items.reduce((sum, item) => {
-                        const qty = parseFloat(
-                            String(item.enteredQuantity ?? item.quantity ?? 0),
-                        );
-                        return sum + (isNaN(qty) ? 0 : qty);
-                    }, 0);
-                    if (totalQty > 0) setEstimatedWeightKg(String(totalQty));
-                }
+                const weightKg = estimateDeliveryWeightKg(so.items ?? []);
+                setEstimatedWeightKg(
+                    weightKg != null && weightKg > 0 ? String(weightKg) : '',
+                );
 
                 // Auto-select default vehicle from customer
                 if (so.customer?.defaultVehicleId && !selectedVehicleId) {
@@ -239,13 +242,14 @@ export function CreateDeliveryOrderDialog({
                 }
             }
         } finally {
-            setIsLoadingSoDetail(false);
+            if (request === detailRequest.current) setIsLoadingSoDetail(false);
         }
     };
 
     useEffect(() => {
         if (!open) return;
         let cancelled = false;
+        const requestState = detailRequest;
         (async () => {
             await loadData();
             if (cancelled) return;
@@ -256,6 +260,7 @@ export function CreateDeliveryOrderDialog({
         })();
         return () => {
             cancelled = true;
+            requestState.current++;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when dialog opens
     }, [open, loadData, defaultSalesOrderId]);
@@ -317,6 +322,8 @@ export function CreateDeliveryOrderDialog({
     };
 
     const resetForm = () => {
+        detailRequest.current++;
+        setIsLoadingSoDetail(false);
         setSelectedSalesOrderId(defaultSalesOrderId || '');
         setSelectedSoDetail(null);
         setSelectedLocationId('');
@@ -354,6 +361,16 @@ export function CreateDeliveryOrderDialog({
         }
         if (!selectedLocationId) {
             toast.error('Pilih lokasi gudang terlebih dahulu');
+            return;
+        }
+
+        if (isLoadingSoDetail) return;
+        const weightKg = Number(estimatedWeightKg);
+        if (
+            tariffRateType === 'PER_KG' &&
+            (!Number.isFinite(weightKg) || weightKg <= 0)
+        ) {
+            toast.error('Isi estimasi berat yang valid untuk tarif per kg');
             return;
         }
 
@@ -548,18 +565,6 @@ export function CreateDeliveryOrderDialog({
                                 </p>
                                 <div className="space-y-1">
                                     {selectedSoDetail.items.map((item) => {
-                                        const qty = parseFloat(
-                                            String(
-                                                item.enteredQuantity ??
-                                                    item.quantity ??
-                                                    0,
-                                            ),
-                                        );
-                                        const unit =
-                                            item.enteredUnit ||
-                                            item.productVariant?.salesUnit ||
-                                            item.productVariant?.primaryUnit ||
-                                            '';
                                         const productName =
                                             item.productVariant?.product
                                                 ?.name ||
@@ -574,12 +579,10 @@ export function CreateDeliveryOrderDialog({
                                                     {productName}
                                                 </span>
                                                 <span className="font-medium text-foreground tabular-nums">
-                                                    {isNaN(qty)
-                                                        ? '-'
-                                                        : qty.toLocaleString(
-                                                              'id-ID',
-                                                          )}{' '}
-                                                    {unit}
+                                                    {getEnteredQuantityDisplay({
+                                                        ...item,
+                                                        ...item.productVariant,
+                                                    })}
                                                 </span>
                                             </div>
                                         );
@@ -588,21 +591,10 @@ export function CreateDeliveryOrderDialog({
                                 <div className="border-t pt-1 flex justify-between text-sm font-semibold">
                                     <span>Total estimasi berat</span>
                                     <span className="tabular-nums">
-                                        {selectedSoDetail.items
-                                            .reduce((sum, item) => {
-                                                const qty = parseFloat(
-                                                    String(
-                                                        item.enteredQuantity ??
-                                                            item.quantity ??
-                                                            0,
-                                                    ),
-                                                );
-                                                return (
-                                                    sum + (isNaN(qty) ? 0 : qty)
-                                                );
-                                            }, 0)
-                                            .toLocaleString('id-ID')}{' '}
-                                        kg
+                                        {estimatedWeightKg &&
+                                        Number.isFinite(Number(estimatedWeightKg))
+                                            ? `${Number(estimatedWeightKg).toLocaleString('id-ID')} kg`
+                                            : 'Isi berat manual'}
                                     </span>
                                 </div>
                             </div>
@@ -746,16 +738,29 @@ export function CreateDeliveryOrderDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Estimasi Berat (Kg)</Label>
+                            <Label htmlFor={weightInputId}>
+                                Estimasi Berat (Kg)
+                            </Label>
                             <Input
+                                id={weightInputId}
+                                aria-describedby={`${weightInputId}-hint`}
                                 type="number"
                                 value={estimatedWeightKg}
                                 onChange={(e) =>
                                     setEstimatedWeightKg(e.target.value)
                                 }
-                                placeholder="Opsional"
+                                placeholder="Isi berat dalam kg"
                                 min={0}
+                                step="any"
                             />
+                            <p
+                                id={`${weightInputId}-hint`}
+                                className="text-xs text-muted-foreground"
+                            >
+                                Estimasi dari sisa barang yang belum dikirim.
+                                Jika konversi ke kg tidak tersedia, isi manual.
+                                Wajib untuk tarif per kg.
+                            </p>
                         </div>
                         <div className="space-y-2">
                             <Label>Alamat Tujuan</Label>
@@ -833,6 +838,7 @@ export function CreateDeliveryOrderDialog({
                         onClick={handleSubmit}
                         disabled={
                             isLoading ||
+                            isLoadingSoDetail ||
                             !!blockedOpenDo ||
                             (!defaultSalesOrderId && salesOrders.length === 0)
                         }
