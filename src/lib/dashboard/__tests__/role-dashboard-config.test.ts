@@ -324,4 +324,42 @@ describe('role-dashboard-config', () => {
             lastUpdated: '21.00 WIB',
         });
     });
+
+    describe('kepala pabrik (FACTORY_MANAGER)', () => {
+        it('treats the role as an ops portal with ops-only KPIs', () => {
+            expect(isOpsPortalRole('FACTORY_MANAGER')).toBe(true);
+            expect(getPortalCta('FACTORY_MANAGER')).toMatchObject({
+                href: '/production/daily',
+                resourceHint: '/production/daily',
+            });
+            expect(roleDisplayName('FACTORY_MANAGER')).toBe('Kepala Pabrik');
+            expect(canSeeExecutiveChart('FACTORY_MANAGER')).toBe(false);
+
+            const ids = buildKpis('FACTORY_MANAGER', baseStats).map(
+                (item) => item.id,
+            );
+            expect(ids).toContain('activeJobs');
+            expect(ids).toContain('machines');
+            for (const forbidden of [
+                'revenue',
+                'spending',
+                'cashPressure',
+                'overdueAr',
+                'overdueAp',
+            ]) {
+                expect(ids).not.toContain(forbidden);
+            }
+        });
+
+        it('keeps every shortcut inside the granted read-only scope', () => {
+            const actions = buildQuickActions('FACTORY_MANAGER');
+            expect(actions.length).toBeGreaterThan(0);
+            for (const action of actions) {
+                expect(action.resourceHint).toBe(action.href);
+                expect(action.resourceHint?.startsWith('/production/')).toBe(
+                    true,
+                );
+            }
+        });
+    });
 });

@@ -88,7 +88,7 @@ function monthlyTrendLabel(n: number | undefined): string {
 /** Roles that land on ops portals by default — show compact dashboard + deep link */
 export function isOpsPortalRole(role: DashboardRole): boolean {
     const r = role.toUpperCase();
-    return r === 'WAREHOUSE' || r === 'PRODUCTION';
+    return r === 'WAREHOUSE' || r === 'PRODUCTION' || r === 'FACTORY_MANAGER';
 }
 
 export function getPortalCta(role: DashboardRole): PortalCta | null {
@@ -120,6 +120,16 @@ export function getPortalCta(role: DashboardRole): PortalCta | null {
             description: 'Kehadiran, payroll, cuti, dan manajemen karyawan.',
             ctaLabel: 'Buka Portal HRD',
             resourceHint: '/hrd',
+        };
+    }
+    if (r === 'FACTORY_MANAGER') {
+        return {
+            href: '/production/daily',
+            title: 'Portal Produksi',
+            description:
+                'Pantau pencapaian SPK, jadwal, mesin, dan stok lantai.',
+            ctaLabel: 'Buka Portal Produksi',
+            resourceHint: '/production/daily',
         };
     }
     return null;
@@ -365,6 +375,9 @@ export function buildKpis(
             return [lowStock, inventory, activeJobs, pendingPo];
         case 'PRODUCTION':
             return [machines, productionYield, activeJobs, scrap, lowStock];
+        case 'FACTORY_MANAGER':
+            // Ops-only KPIs: never revenue, spending, or cash-pressure metrics.
+            return [activeJobs, machines, productionYield, scrap, lowStock];
         case 'HRD':
             // HRD has its own portal dashboard (/hrd) with dedicated KPIs.
             // Generic dashboard shows only permission-filtered task shortcuts.
@@ -683,6 +696,44 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
                 resourceHint: '/dashboard/employees',
             },
         ],
+        FACTORY_MANAGER: [
+            {
+                href: '/production/output-report',
+                label: 'Pencapaian SPK',
+                icon: FileText,
+                color: 'text-blue-600',
+                bg: 'bg-blue-50 dark:bg-blue-900/10',
+                border: 'hover:border-blue-200 dark:hover:border-blue-800',
+                resourceHint: '/production/output-report',
+            },
+            {
+                href: '/production/schedule',
+                label: 'Jadwal',
+                icon: CalendarClock,
+                color: 'text-purple-600',
+                bg: 'bg-purple-50 dark:bg-purple-900/10',
+                border: 'hover:border-purple-200 dark:hover:border-purple-800',
+                resourceHint: '/production/schedule',
+            },
+            {
+                href: '/production/machines',
+                label: 'Papan Mesin',
+                icon: Factory,
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 dark:bg-emerald-900/10',
+                border: 'hover:border-emerald-200 dark:hover:border-emerald-800',
+                resourceHint: '/production/machines',
+            },
+            {
+                href: '/production/inventory',
+                label: 'Stok Lantai',
+                icon: Package,
+                color: 'text-amber-600',
+                bg: 'bg-amber-50 dark:bg-amber-900/10',
+                border: 'hover:border-amber-200 dark:hover:border-amber-800',
+                resourceHint: '/production/inventory',
+            },
+        ],
     };
 
     return catalog[r] ?? catalog.ADMIN;
@@ -715,6 +766,7 @@ export function roleDisplayName(role: DashboardRole): string {
         FINANCE: 'Finance',
         PROCUREMENT: 'Pembelian',
         HRD: 'HRD',
+        FACTORY_MANAGER: 'Kepala Pabrik',
     };
     return map[role.toUpperCase()] ?? role;
 }

@@ -21,6 +21,7 @@ export const SYSTEM_ROLES: SystemRole[] = [
     { value: 'FINANCE', label: 'Finance', matrix: true },
     { value: 'PROCUREMENT', label: 'Purchasing', matrix: true },
     { value: 'HRD', label: 'HRD', matrix: true },
+    { value: 'FACTORY_MANAGER', label: 'Kepala Pabrik', matrix: true },
 ] as const;
 
 /** Roles that appear in the Access Control matrix (non-admin). */

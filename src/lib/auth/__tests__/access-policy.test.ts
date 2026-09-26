@@ -7,6 +7,7 @@ import {
   isPathAllowedByResources,
   getPreferredWorkspaceLanding,
 } from '../access-policy';
+import { MATRIX_ROLES, SYSTEM_ROLES } from '../system-roles';
 
 describe('Access Policy Helpers', () => {
   describe('getWorkspaceFromPath', () => {
@@ -206,6 +207,64 @@ describe('Access Policy Helpers', () => {
       expect(getDefaultRedirectForUser({ role: 'PRODUCTION' })).toBe('/production');
       expect(getDefaultRedirectForUser({ role: 'FINANCE' })).toBe('/dashboard');
       expect(getDefaultRedirectForUser({ role: 'ADMIN', isSuperAdmin: false })).toBe('/dashboard');
+    });
+  });
+
+  describe('kepala pabrik (FACTORY_MANAGER) read-only scope', () => {
+    // Mirrors DEFAULT_PERMISSIONS.FACTORY_MANAGER. Deliberately no bare
+    // '/production' so /production/costing (HPP/biaya) stays closed, and no
+    // finance/HRD/sales-margin grants.
+    const resources = [
+      '/dashboard',
+      '/production/daily',
+      '/production/orders',
+      '/production/schedule',
+      '/production/machines',
+      '/production/inventory',
+      '/production/history',
+      '/production/daily-report',
+      '/production/output-report',
+      '/production/packing-monthly',
+      '/production/analytics',
+      '/warehouse/inventory',
+      '/purchasing/requests',
+      '/purchasing/orders',
+    ];
+    const user = {
+      role: 'FACTORY_MANAGER',
+      roles: ['FACTORY_MANAGER'],
+      allowedResources: resources,
+    };
+
+    it('registers the role in the access-control matrix with its label', () => {
+      expect(SYSTEM_ROLES.find((r) => r.value === 'FACTORY_MANAGER')?.label).toBe('Kepala Pabrik');
+      expect(MATRIX_ROLES).toContain('FACTORY_MANAGER');
+    });
+
+    it('lands on the production portal', () => {
+      expect(getDefaultRedirectForUser({ role: 'FACTORY_MANAGER' })).toBe('/production');
+    });
+
+    it('reaches operational pages through resource grants, not a blanket policy', () => {
+      for (const [workspace, path] of [
+        ['production', '/production/daily-report'],
+        ['production', '/production/output-report'],
+        ['warehouse', '/warehouse/inventory'],
+        ['purchasing', '/purchasing/requests'],
+        ['dashboard', '/dashboard'],
+      ] as const) {
+        expect(canAccessWorkspace(user, workspace, path)).toBe(true);
+      }
+      expect(getPreferredWorkspaceLanding('production', resources)).toBe('/production/daily');
+    });
+
+    it('denies costing, finance, HRD and sales margins', () => {
+      expect(isPathAllowedByResources('/production/costing', resources)).toBe(false);
+      expect(canAccessWorkspace(user, 'production', '/production/costing')).toBe(false);
+      expect(canAccessWorkspace(user, 'finance', '/finance/journals')).toBe(false);
+      expect(canAccessWorkspace(user, 'hrd', '/hrd/payroll')).toBe(false);
+      expect(canAccessWorkspace(user, 'sales', '/sales/reports/margin')).toBe(false);
+      expect(canAccessWorkspace(user, 'warehouse', '/warehouse/outgoing')).toBe(false);
     });
   });
 });

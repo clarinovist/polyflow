@@ -294,6 +294,10 @@ export function getDefaultRedirectForUser(user: {
         PROCUREMENT: 'purchasing',
         PLANNING: 'production',
         MARKETING: 'sales',
+        // Kepala pabrik lands on the production portal; workspace entry relies
+        // on explicit resource grants (not a blanket workspace policy) so
+        // /production/costing stays closed.
+        FACTORY_MANAGER: 'production',
     };
 
     if (activeRole && roleLandingMap[activeRole]) {

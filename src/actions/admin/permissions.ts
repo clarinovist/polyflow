@@ -413,6 +413,25 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/sales/customers',
         '/warehouse/inventory',
     ],
+    // Read-only lintas bagian. Sengaja tanpa '/production' polos agar
+    // /production/costing (HPP/biaya) tetap tertutup, dan tanpa hak finance,
+    // HRD, margin sales, atau transaksi inventori/purchasing.
+    FACTORY_MANAGER: [
+        '/dashboard',
+        '/production/daily',
+        '/production/orders',
+        '/production/schedule',
+        '/production/machines',
+        '/production/inventory',
+        '/production/history',
+        '/production/daily-report',
+        '/production/output-report',
+        '/production/packing-monthly',
+        '/production/analytics',
+        '/warehouse/inventory',
+        '/purchasing/requests',
+        '/purchasing/orders',
+    ],
 };
 
 export const getMyPermissions = withTenant(async function getMyPermissions() {
