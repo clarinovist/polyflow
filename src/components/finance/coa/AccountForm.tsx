@@ -110,14 +110,14 @@ export function AccountForm({
             <DialogTrigger asChild>
                 {trigger || (
                     <Button>
-                        <Plus className="mr-2 h-4 w-4" /> Add Account
+                        <Plus className="mr-2 h-4 w-4" /> Tambah Akun
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>
-                        {account ? 'Edit Account' : 'New Account'}
+                        {account ? 'Ubah Akun' : 'Akun Baru'}
                     </DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
@@ -130,10 +130,10 @@ export function AccountForm({
                             name="code"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Account Code</FormLabel>
+                                    <FormLabel>Kode Akun</FormLabel>
                                     <FormControl>
                                         <Input
-                                            placeholder="e.g. 1001"
+                                            placeholder="mis. 1001"
                                             {...field}
                                         />
                                     </FormControl>
@@ -146,10 +146,10 @@ export function AccountForm({
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Account Name</FormLabel>
+                                    <FormLabel>Nama Akun</FormLabel>
                                     <FormControl>
                                         <Input
-                                            placeholder="e.g. Cash on Hand"
+                                            placeholder="mis. Kas di Tangan"
                                             {...field}
                                         />
                                     </FormControl>
@@ -163,14 +163,14 @@ export function AccountForm({
                                 name="type"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Type</FormLabel>
+                                        <FormLabel>Jenis</FormLabel>
                                         <Select
                                             onValueChange={field.onChange}
                                             defaultValue={field.value}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select type" />
+                                                    <SelectValue placeholder="Pilih jenis" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -195,14 +195,14 @@ export function AccountForm({
                                 name="category"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Category</FormLabel>
+                                        <FormLabel>Kategori</FormLabel>
                                         <Select
                                             onValueChange={field.onChange}
                                             defaultValue={field.value}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select category" />
+                                                    <SelectValue placeholder="Pilih kategori" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -229,7 +229,7 @@ export function AccountForm({
                             name="parentId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Parent Account</FormLabel>
+                                    <FormLabel>Akun Induk</FormLabel>
                                     <Select
                                         onValueChange={field.onChange}
                                         defaultValue={field.value || undefined}
@@ -237,12 +237,12 @@ export function AccountForm({
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="None (Top Level)" />
+                                                <SelectValue placeholder="Tidak ada (akun induk)" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="null">
-                                                None
+                                                Tidak ada
                                             </SelectItem>{' '}
                                             {/* Handle null explicitly if generic doesn't support null */}
                                             {(parentOptions || []).map(
@@ -279,10 +279,10 @@ export function AccountForm({
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
                                         <FormLabel>
-                                            Is Cash/Bank Account?
+                                            Akun Kas/Bank?
                                         </FormLabel>
                                         <FormDescription>
-                                            Enable for payment methods.
+                                            Aktifkan untuk metode pembayaran.
                                         </FormDescription>
                                     </div>
                                 </FormItem>

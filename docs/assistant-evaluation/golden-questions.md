@@ -109,6 +109,19 @@
 
 ---
 
+## Regresi Pasca-Baseline
+
+Pertanyaan tambahan setelah baseline 2026-07-26 dibekukan (jumlah di atas tetap 60).
+Ditambahkan 2026-09-26 setelah laporan pengguna finance yang bertanya cara membuat akun
+baru dan dijawab artikel tidak relevan (stok/kiosk) karena KB belum punya artikel COA.
+
+| ID    | Question                                | Expected Tool/Source    | Expected Behavior                                                      |
+| ----- | --------------------------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| RG-01 | "Gimana cara create akun baru?"         | HelpArticle (global KB) | Artikel "Cara Membuat Akun Baru di Bagan Akun (COA)" + link /finance/coa |
+| RG-02 | "Cara buat akun baru"                   | HelpArticle (global KB) | Artikel yang sama; sebut tombol Tambah Akun dan role FINANCE/ADMIN      |
+
+---
+
 ## Tenant Isolation Negative Cases (2 tenant fixtures)
 
 | ID    | Scenario                                                                   | Expected                               |

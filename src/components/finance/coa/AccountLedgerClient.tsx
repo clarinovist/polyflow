@@ -191,7 +191,7 @@ export function AccountLedgerClient({
                     </Button>
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
-                            Account Ledger
+                            Buku Besar Akun
                         </h1>
                         <p className="text-muted-foreground">
                             {account.code} - {account.name}
