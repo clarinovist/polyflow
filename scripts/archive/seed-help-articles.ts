@@ -714,6 +714,74 @@ Saat melaporkan masalah kepada Admin atau Tim Support, sertakan informasi rinci 
         ],
         source: 'SEED' as HelpArticleSource,
     },
+    {
+        slug: 'cara-membuat-akun-baru-coa',
+        title: 'Cara Membuat Akun Baru di Bagan Akun (COA)',
+        summary:
+            'Panduan menambah akun baru (akun buku besar / COA): buka Finance, klik tombol Add Account, isi kode, nama, jenis, kategori, dan akun induk, lalu simpan. Termasuk cara ubah/hapus akun, aturan kode unik, dan langkah kalau menu atau tombolnya tidak muncul.',
+        bodyMd: `## Ringkasan
+
+Akun buku besar (COA) baru dibuat dari halaman Bagan Akun: buka **Finance → Pengaturan → Bagan Akun (COA)**, lalu klik tombol **+ Add Account** di kanan atas daftar akun. Formulir yang muncul berjudul **New Account**.
+
+Catatan: label tombol dan formulir masih berbahasa Inggris (**Add Account**, **New Account**, **Edit Account**), sedangkan isi halaman lainnya sudah berbahasa Indonesia.
+
+Hanya pengguna dengan role **FINANCE** atau **ADMIN** yang bisa membuka menu ini.
+
+## Langkah Membuat Akun Baru
+
+1. Buka **Finance → Pengaturan → Bagan Akun (COA)**.
+2. Di halaman Daftar Akun, klik tombol **+ Add Account** di kanan atas. Formulir **New Account** terbuka.
+3. Isi kolom berikut:
+   - **Account Code** — kode akun. Wajib diisi dan harus unik, tidak boleh sama dengan kode akun yang sudah ada.
+   - **Account Name** — nama akun. Wajib diisi.
+   - **Type** — pilih salah satu: **ASSET**, **LIABILITY**, **EQUITY**, **REVENUE**, atau **EXPENSE**.
+   - **Category** — pilih kategori yang paling dekat, misalnya **CURRENT_ASSET**, **COGS**, **OPERATING_EXPENSE**, atau **OPERATING_REVENUE**.
+   - **Parent Account** — biarkan **None (Top Level)** kalau ini akun induk, atau pilih akun lain kalau ini sub-akun.
+   - **Is Cash/Bank Account?** — centang kalau akun ini kas/bank. Akun bertanda ini dipakai untuk pengelompokan Kas & Bank dan pemilihan akun pada rekonsiliasi bank.
+4. Klik **Simpan Perubahan**. Kalau berhasil muncul notifikasi "Akun berhasil dibuat." dan akun langsung tampil di tabel Daftar Akun.
+
+## Mengelola Akun yang Sudah Ada
+
+- Tabel **Daftar Akun** menampilkan kolom Kode, Nama, Jenis, Kategori, Induk, dan Tindakan. Pakai kolom pencarian "Cari kode, nama, atau kategori akun..." untuk menemukan akun tertentu.
+- Klik salah satu baris untuk membuka halaman **Account Ledger** (mutasi/buku besar akun tersebut) beserta tombol export.
+- Ikon pensil di kolom Tindakan membuka dialog **Edit Account** untuk mengubah kode, nama, jenis, kategori, induk, atau tanda kas/bank.
+- Ikon tempat sampah menghapus akun setelah konfirmasi. Penghapusan bersifat permanen.
+
+## Aturan dan Pesan yang Sering Muncul
+
+| Pesan di layar | Arti dan solusi |
+| --- | --- |
+| Account code ... already exists. | Kode akun sudah dipakai akun lain. Gunakan kode yang berbeda. |
+| Cannot delete account. It is used in N journal entries. | Akun sudah terpakai di jurnal, jadi tidak boleh dihapus. Biarkan akun tetap ada. |
+| Cannot delete account. Please reassign or delete its N sub-accounts first. | Masih ada sub-akun di bawah akun ini. Pindahkan atau hapus sub-akunnya lebih dulu. |
+| Kode akun ini memakai format lama yang sudah dimigrasi. | Kode lama tidak bisa dipakai. Pakai kode akun format baru; hubungi Superadmin kalau kode lama tetap diperlukan. |
+
+## Kalau Menu atau Tombolnya Tidak Muncul
+
+1. Pastikan role akun Anda sudah **FINANCE** atau **ADMIN**. Menu Bagan Akun tidak ditampilkan untuk role lain — minta Admin mengaturnya di **Pengaturan → Pengguna** (lihat artikel "Cara Atur Role & Hak Akses (Permission) User").
+2. Kalau role sudah benar tetapi menu atau tombol tetap tidak muncul, cek artikel **"Penyebab Menu Tidak Muncul & Cara Mengatasinya"**, lalu laporkan ke Admin dengan menyebutkan halaman yang sedang dibuka.
+
+## Pertanyaan Umum
+
+- **Bisakah akun langsung dipakai setelah dibuat?** Ya. Akun baru tersedia di pemilihan akun pada jurnal, saldo awal, dan form keuangan lain yang memakai akun buku besar.
+- **Bisakah kode akun diubah?** Bisa, lewat dialog **Edit Account**. Sebaiknya koordinasikan dengan Admin kalau akun tersebut sudah dipakai di laporan atau jurnal.
+- **Kenapa akun tidak bisa dihapus?** Sistem menolak menghapus akun yang sudah dipakai jurnal atau masih punya sub-akun, supaya jurnal dan laporan lama tidak rusak.
+`,
+        modules: ['finance'],
+        tags: [
+            'coa',
+            'bagan-akun',
+            'chart-of-accounts',
+            'akun',
+            'akun-baru',
+            'tambah-akun',
+            'buat-akun',
+            'buku-besar',
+            'create',
+        ],
+        errorCodes: [],
+        source: 'SEED' as HelpArticleSource,
+    },
 ];
 
 async function seedHelpArticles() {
