@@ -304,6 +304,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            NEXT_DEPLOYMENT_ID=${{ github.sha }}
           tags: ${{ env.REGISTRY }}/${{ env.REPO }}:${{ github.sha }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache,mode=max

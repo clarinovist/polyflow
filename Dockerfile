@@ -16,6 +16,13 @@ RUN \
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+# Deployment identity for Next.js version-skew protection. The value is baked
+# into the build (and kept for runtime) so a stale client can detect a
+# mismatch and reload instead of rendering an empty page.
+ARG NEXT_DEPLOYMENT_ID
+ENV NEXT_DEPLOYMENT_ID=${NEXT_DEPLOYMENT_ID}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -122,5 +129,9 @@ EXPOSE 3000
 ENV PORT=3000
 # set hostname to localhost
 ENV HOSTNAME="0.0.0.0"
+
+# Keep the runtime deployment id identical to the value used at build time.
+ARG NEXT_DEPLOYMENT_ID
+ENV NEXT_DEPLOYMENT_ID=${NEXT_DEPLOYMENT_ID}
 
 ENTRYPOINT ["./entrypoint.sh"]
