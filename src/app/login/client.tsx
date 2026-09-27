@@ -10,10 +10,12 @@ export default function LoginClient({
     subdomain,
     isAdminSubdomain,
     centralSsoEnabled = false,
+    oauthError,
 }: {
     subdomain: string | null;
     isAdminSubdomain: boolean;
     centralSsoEnabled?: boolean;
+    oauthError?: string;
 }) {
     const [invitationToken, setInvitationToken] = useState<string>();
     useEffect(() => {
@@ -89,6 +91,7 @@ export default function LoginClient({
                                     <LoginForm
                                         centralSsoEnabled={centralSsoEnabled}
                                         invitationToken={invitationToken}
+                                        oauthError={oauthError}
                                     />
                                 </motion.div>
                             </AnimatePresence>

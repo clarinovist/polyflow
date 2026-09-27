@@ -46,6 +46,34 @@ describe('LoginClient heading hierarchy', () => {
         ).toBeTruthy();
     });
 
+    it('shows a generic Google access error without revealing membership details', () => {
+        render(
+            <LoginClient
+                subdomain="acme"
+                isAdminSubdomain={false}
+                centralSsoEnabled
+                oauthError="AccessDenied"
+            />,
+        );
+        const alert = screen.getByRole('alert');
+        expect(alert.textContent).toMatch(
+            /akun google ini belum memiliki akses ke perusahaan tersebut/i,
+        );
+        expect(alert.textContent).not.toMatch(/membership|tenant|user id/i);
+    });
+
+    it('does not show an OAuth error on the superadmin login', () => {
+        render(
+            <LoginClient
+                subdomain={null}
+                isAdminSubdomain
+                centralSsoEnabled={false}
+                oauthError="AccessDenied"
+            />,
+        );
+        expect(screen.queryByRole('alert')).toBeNull();
+    });
+
     it('shows Google login only when tenant SSO is enabled', () => {
         const { rerender } = render(
             <LoginClient

@@ -22,6 +22,10 @@ import { hasRole } from '@/lib/auth/roles';
 export const authConfig = {
     pages: {
         signIn: '/login',
+        // Keep OAuth failures on the branded tenant login page. The UI maps
+        // provider errors to generic copy so account/membership existence is
+        // never exposed.
+        error: '/login',
     },
     session: {
         strategy: 'jwt',

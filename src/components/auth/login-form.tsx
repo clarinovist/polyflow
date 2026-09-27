@@ -24,12 +24,14 @@ interface LoginFormProps {
     onBack?: () => void;
     centralSsoEnabled?: boolean;
     invitationToken?: string;
+    oauthError?: string;
 }
 
 export default function LoginForm({
     onBack,
     centralSsoEnabled = false,
     invitationToken,
+    oauthError,
 }: LoginFormProps = {}) {
     const [errorMessage, formAction, isPending] = useActionState(
         authenticate,
@@ -59,6 +61,20 @@ export default function LoginForm({
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 sm:mb-8">
                 {L.signInHeader}
             </h1>
+
+            {centralSsoEnabled && oauthError && (
+                <div
+                    role="alert"
+                    className="mb-5 flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-destructive"
+                >
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                    <p className="text-sm font-medium">
+                        Akun Google ini belum memiliki akses ke perusahaan
+                        tersebut. Silakan masuk menggunakan email dan kata sandi
+                        PolyFlow, atau hubungi administrator.
+                    </p>
+                </div>
+            )}
 
             {centralSsoEnabled && (
                 <div className="mb-6 space-y-5">
