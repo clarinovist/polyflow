@@ -46,6 +46,9 @@ describe('assistant exchange persistence integration', () => {
         expect(prompt).toContain('Saat pengguna frustrasi');
         expect(prompt).not.toContain('Sapa user dengan nama');
         expect(prompt).toContain('TIDAK DAPAT membuat');
+        expect(prompt).toContain('Read-only melarang ANDA mengeksekusi perubahan');
+        expect(prompt).toContain('jangan membuka dengan penolakan read-only');
+        expect(prompt).toContain('baca langkah artikel yang relevan');
     });
     it('uses authorized multi-turn reproduction details without calling the LLM', async () => {
         load.mockResolvedValue({ resolvedEntities: new Map(), history: [

@@ -1,5 +1,6 @@
 import { getMainPrisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
+import { helpSearchTerms } from './help-search-terms';
 import type { NavArticleItem } from '@/lib/bot/help-article-shared';
 export {
     isTroubleshootArticle,
@@ -114,79 +115,53 @@ export async function searchHelpArticles(
     module?: string,
     limit = 5,
 ): Promise<HelpSearchResult[]> {
-    const mainDb = getMainPrisma();
-    const q = query.trim();
-    if (!q) return [];
-
-    // Build keyword search — split into words for broader match
-    const words = q.split(/\s+/).filter((w) => w.length > 2);
-    const searchConditions: Prisma.HelpArticleWhereInput[] = [];
-
-    // Full query match
-    searchConditions.push({ title: { contains: q, mode: 'insensitive' } });
-    searchConditions.push({ summary: { contains: q, mode: 'insensitive' } });
-    searchConditions.push({ bodyMd: { contains: q, mode: 'insensitive' } });
-    searchConditions.push({ tags: { has: q.toLowerCase() } });
-
-    // Individual word match for longer queries
-    if (words.length > 1) {
-        for (const word of words.slice(0, 3)) {
-            searchConditions.push({
-                title: { contains: word, mode: 'insensitive' },
-            });
-            searchConditions.push({ tags: { has: word.toLowerCase() } });
-        }
-    }
-
-    const where: Prisma.HelpArticleWhereInput = {
-        status: 'PUBLISHED',
-        OR: searchConditions,
-    };
-
-    if (module) {
-        where.modules = { has: module };
-    }
-
-    const articles = await mainDb.helpArticle.findMany({
-        where,
-        orderBy: [{ helpfulCount: 'desc' }, { publishedAt: 'desc' }],
-        take: limit,
-        select: {
-            title: true,
-            slug: true,
-            summary: true,
-            modules: true,
-            tags: true,
-            bodyMd: true,
-            helpfulCount: true,
-        },
+    const terms = helpSearchTerms(query);
+    if (!terms.length || !Number.isFinite(limit) || limit <= 0) return [];
+    const maxResults = Math.min(Math.floor(limit), 10);
+    // Rank in PostgreSQL BEFORE LIMIT. Parameters are bound by Prisma; only
+    // published global articles may enter evidence, never tenant knowledge.
+    const scores = terms.map((group) => {
+        const patterns = group.map((term) => `%${term}%`);
+        return Prisma.sql`CASE
+            WHEN (${Prisma.join(
+                patterns.map((p) => Prisma.sql`title ILIKE ${p}`),
+                ' OR ',
+            )}) THEN 8
+            WHEN (${Prisma.join(
+                patterns.map(
+                    (p) => Prisma.sql`array_to_string(tags, ' ') ILIKE ${p}`,
+                ),
+                ' OR ',
+            )}) THEN 6
+            WHEN (${Prisma.join(
+                patterns.map((p) => Prisma.sql`summary ILIKE ${p}`),
+                ' OR ',
+            )}) THEN 3
+            WHEN (${Prisma.join(
+                patterns.map((p) => Prisma.sql`"bodyMd" ILIKE ${p}`),
+                ' OR ',
+            )}) THEN 1
+            ELSE 0 END`;
     });
-
-    // Simple relevance scoring: exact title match > tag match > body match
-    const scored = articles.map((a) => {
-        let score = 0;
-        const lowerTitle = a.title.toLowerCase();
-        const lowerQ = q.toLowerCase();
-
-        if (lowerTitle === lowerQ) score += 100;
-        if (lowerTitle.includes(lowerQ)) score += 50;
-        if (a.tags.some((t) => t.includes(lowerQ))) score += 30;
-        if (a.summary.toLowerCase().includes(lowerQ)) score += 20;
-        score += Math.min(a.helpfulCount, 10);
-
-        return {
-            title: a.title,
-            slug: a.slug,
-            summary: a.summary,
-            modules: a.modules,
-            tags: a.tags,
-            bodyExcerpt: a.bodyMd.slice(0, 300),
-            helpfulCount: a.helpfulCount,
-            _score: score,
-        };
-    });
-
-    scored.sort((a, b) => b._score - a._score);
-
-    return scored.map(({ _score: _, ...rest }) => rest);
+    const score = Prisma.sql`(${Prisma.join(scores, ' + ')})`;
+    const articles = await getMainPrisma().$queryRaw<
+        Array<{
+            title: string;
+            slug: string;
+            summary: string;
+            modules: string[];
+            tags: string[];
+            bodyExcerpt: string;
+            helpfulCount: number;
+        }>
+    >(Prisma.sql`
+        SELECT title, slug, summary, modules, tags,
+            LEFT("bodyMd", 6000) AS "bodyExcerpt", "helpfulCount"
+        FROM "HelpArticle"
+        WHERE status = 'PUBLISHED' AND ${score} > 0
+            ${module ? Prisma.sql`AND ${module} = ANY(modules)` : Prisma.empty}
+        ORDER BY ${score} DESC, "helpfulCount" DESC, "publishedAt" DESC, slug ASC
+        LIMIT ${maxResults}
+    `);
+    return articles;
 }

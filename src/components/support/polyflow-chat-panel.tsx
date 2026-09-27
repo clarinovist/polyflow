@@ -2,6 +2,7 @@
 
 import {
     FormEvent,
+    ReactNode,
     useEffect,
     useMemo,
     useRef,
@@ -89,6 +90,7 @@ type StreamEvent =
 type WorkProfile = 'general' | 'finance' | 'production';
 
 interface PolyflowChatPanelProps {
+    presenceSettings?: ReactNode;
     embedded?: boolean;
     initialQuestion?: string;
     allowedResources?: string[] | 'ALL';
@@ -106,23 +108,21 @@ function profileFromPath(pathname: string): WorkProfile {
     return 'general';
 }
 
-const PROFILE_UI: Record<
-    WorkProfile,
-    { label: string; description: string }
-> = {
-    general: {
-        label: 'Umum',
-        description: 'Panduan dan analisis operasional sesuai akses Anda',
-    },
-    finance: {
-        label: 'Finance',
-        description: 'Asisten accountant read-only',
-    },
-    production: {
-        label: 'Production',
-        description: 'Asisten manajer produksi read-only',
-    },
-};
+const PROFILE_UI: Record<WorkProfile, { label: string; description: string }> =
+    {
+        general: {
+            label: 'Umum',
+            description: 'Panduan dan analisis operasional sesuai akses Anda',
+        },
+        finance: {
+            label: 'Finance',
+            description: 'Asisten accountant read-only',
+        },
+        production: {
+            label: 'Production',
+            description: 'Asisten manajer produksi read-only',
+        },
+    };
 
 function renderRichText(text: string) {
     const lines = text.split('\n');
@@ -332,6 +332,7 @@ export function PolyflowChatPanel(props: PolyflowChatPanelProps) {
 }
 
 function AuthenticatedChatPanel({
+    presenceSettings,
     embedded = false,
     initialQuestion,
     currentPath = '/',
@@ -836,6 +837,7 @@ function AuthenticatedChatPanel({
 
     return (
         <div
+            aria-busy={isLoading}
             className={cn(
                 'isolate flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-white dark:bg-zinc-950 shadow-2xl transition-all duration-300',
                 embedded
@@ -900,6 +902,7 @@ function AuthenticatedChatPanel({
                 </div>
             </div>
 
+            {presenceSettings}
             {history.busy && (
                 <p role="status" className="px-4 py-2 text-xs">
                     Memuat riwayat…
@@ -1042,7 +1045,10 @@ function AuthenticatedChatPanel({
                                             {renderRichText(msg.text)}
                                         </div>
                                         {msg.bugReportNotice && (
-                                            <p role="status" className="mt-3 border-t border-border/40 pt-3 text-xs text-muted-foreground">
+                                            <p
+                                                role="status"
+                                                className="mt-3 border-t border-border/40 pt-3 text-xs text-muted-foreground"
+                                            >
                                                 {msg.bugReportNotice}
                                             </p>
                                         )}
@@ -1118,11 +1124,8 @@ function AuthenticatedChatPanel({
                                                           : 'Rendah'}
                                                 </span>
                                                 <span>
-                                                    Confidence:{' '}
-                                                    {Math.round(
-                                                        msg.confidence * 100,
-                                                    )}
-                                                    %
+                                                    Cakupan bukti, bukan jaminan
+                                                    jawaban benar
                                                 </span>
                                             </div>
                                         )}

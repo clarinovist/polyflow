@@ -4,6 +4,7 @@ import { recordVirtualCsMetric } from '@/lib/bot/metrics';
 import { getMainPrisma } from '@/lib/core/prisma';
 import { HelpOutcome } from '@prisma/client';
 import type { AssistantDisposition } from './assistant-types';
+import { hasUnresolvedAnswer } from './answer-quality';
 
 export type VirtualCsAuditInput = {
     channel: 'telegram' | 'web' | 'telegram_mini_app';
@@ -39,15 +40,6 @@ const GENERIC_FAILURE_PATTERNS = [
     /Network Error/i,
 ];
 
-const WEAK_ANSWER_PATTERNS = [
-    /tidak tahu/i,
-    /tidak yakin/i,
-    /maaf.*tidak bisa/i,
-    /tidak memiliki informasi/i,
-    /tidak tersedia/i,
-    /belum tersedia/i,
-];
-
 export function resolveOutcome(input: VirtualCsAuditInput): HelpOutcome {
     if (!input.allowed) return 'BLOCKED';
     if (!input.success) return 'FAILED';
@@ -58,7 +50,7 @@ export function resolveOutcome(input: VirtualCsAuditInput): HelpOutcome {
     const answer = (input.answer || '').trim();
     if (answer.length < 10) return 'FAILED';
     if (GENERIC_FAILURE_PATTERNS.some((p) => p.test(answer))) return 'FAILED';
-    if (WEAK_ANSWER_PATTERNS.some((p) => p.test(answer))) return 'PARTIAL';
+    if (hasUnresolvedAnswer(answer)) return 'PARTIAL';
     return 'SUCCESS';
 }
 

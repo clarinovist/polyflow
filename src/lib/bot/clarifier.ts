@@ -57,7 +57,11 @@ export function analyzeForClarification(
     const q = question.trim().toLowerCase();
 
     // Check if question is too short or vague
-    if (q.length < 5) {
+    if (
+        q.length < 5 &&
+        history.length === 0 &&
+        !/^(ya|iya|oke|ok|sip)$/i.test(q)
+    ) {
         return {
             needsClarification: true,
             category: 'too-short',
@@ -85,7 +89,12 @@ export function analyzeForClarification(
 
     // Check if multiple results returned (ambiguous entity)
     for (const result of toolResults) {
-        if (result.entities && result.entities.length > 1) {
+        if (
+            result.source === 'tenant-data' &&
+            result.entities &&
+            result.entities.length > 1 &&
+            !/\b(daftar|semua|ringkasan|berapa|rekap)\b/i.test(q)
+        ) {
             const entityType = result.entities[0]?.type;
             return {
                 needsClarification: true,
@@ -97,9 +106,14 @@ export function analyzeForClarification(
     }
 
     // Check if tool returned no results + question is vague
-    const noResults = toolResults.every(
-        (r) => r.completeness === 'partial' && r.facts.length === 0,
-    );
+    const noResults =
+        toolResults.length > 0 &&
+        toolResults.every(
+            (r) =>
+                r.source === 'tenant-data' &&
+                r.completeness === 'partial' &&
+                r.facts.length === 0,
+        );
     if (noResults && q.length < 30) {
         return {
             needsClarification: true,
@@ -213,13 +227,10 @@ export function calculateConfidence(
 ): number {
     if (hasClarification) return 0.3;
 
-    let score = 0.5; // base
-
-    for (const result of toolResults) {
-        if (result.completeness === 'complete') score += 0.15;
-        if (result.entities && result.entities.length > 0) score += 0.1;
-        if (result.facts.length > 0) score += 0.05;
-    }
-
-    return Math.min(score, 1.0);
+    if (!toolResults.length) return 0.3;
+    // Evidence coverage, not probability of correctness. Repeating a KB search
+    // must not inflate confidence to 100% or outweigh partial business evidence.
+    return toolResults.every((result) => result.completeness === 'complete')
+        ? 0.7
+        : 0.3;
 }

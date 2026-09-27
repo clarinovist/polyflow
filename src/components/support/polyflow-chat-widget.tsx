@@ -7,6 +7,11 @@ import { useSession } from 'next-auth/react';
 import { MessageCircleHeart, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PolyflowChatPanel } from '@/components/support/polyflow-chat-panel';
+import { useAssistantPresence } from './use-assistant-presence';
+import {
+    AssistantPresenceOffer,
+    AssistantPresenceSettings,
+} from './assistant-presence-controls';
 
 const ENABLED_PATH_PREFIXES = [
     '/dashboard',
@@ -44,6 +49,7 @@ export function PolyflowChatWidget({
     return (
         <AuthenticatedWidget
             key={session.user.id}
+            userId={session.user.id}
             pathname={pathname}
             contextualProfilesEnabled={contextualProfilesEnabled}
         />
@@ -51,13 +57,16 @@ export function PolyflowChatWidget({
 }
 
 function AuthenticatedWidget({
+    userId,
     pathname,
     contextualProfilesEnabled,
 }: {
+    userId: string;
     pathname: string;
     contextualProfilesEnabled: boolean;
 }) {
     const [open, setOpen] = useState(false);
+    const presence = useAssistantPresence(userId, pathname, open);
     const [visited, setVisited] = useState(false);
     const root = useRef<HTMLDivElement>(null);
     const trigger = useRef<HTMLButtonElement>(null);
@@ -194,6 +203,12 @@ function AuthenticatedWidget({
                       }`
             }
         >
+            {!open && (
+                <AssistantPresenceOffer
+                    presence={presence}
+                    docked={!!navigationPortal}
+                />
+            )}
             {visited && (
                 <div
                     ref={dialog}
@@ -222,6 +237,9 @@ function AuthenticatedWidget({
                         <Minus className="h-4 w-4" />
                     </Button>
                     <PolyflowChatPanel
+                        presenceSettings={
+                            <AssistantPresenceSettings presence={presence} />
+                        }
                         currentPath={pathname}
                         contextualProfilesEnabled={contextualProfilesEnabled}
                     />

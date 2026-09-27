@@ -264,6 +264,7 @@ jobs:
           src/services/production/__tests__/order-context-postgres.test.ts
           src/services/sales/__tests__/trip-distance-postgres.test.ts
           src/actions/finance/__tests__/mobile-readiness-postgres.test.ts
+          src/lib/bot/__tests__/help-guides-postgres.test.ts
 
   # ─────────────────────────────────────────────
   # 3. Build & Push Docker Image

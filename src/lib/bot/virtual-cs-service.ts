@@ -20,6 +20,8 @@ import { checkPromptInjection, logInjectionAttempt } from './injection-defense';
 import { conversationAccessScope } from './conversation-scope';
 import { detectGreeting } from './greeting';
 import { ASSISTANT_PERSONA } from './assistant-persona';
+import { buildIntentInstructions } from './assistant-intent';
+import { hasUnresolvedAnswer } from './answer-quality';
 import { collectReproduction } from './bug-triage';
 import {
     buildTroubleshootingResponse,
@@ -206,9 +208,13 @@ export async function generateVirtualCsReply(
 
     // UI issue reports need a deterministic, evidence-aware protocol. The
     // browser pathname is deliberately not used to infer a menu or cause.
-    const reproduction = collectReproduction(input.question, conversationHistory);
+    const reproduction = collectReproduction(
+        input.question,
+        conversationHistory,
+    );
     if (
-        isUiIssueReport(input.question) || reproduction.continuation ||
+        isUiIssueReport(input.question) ||
+        reproduction.continuation ||
         Object.keys(reproduction.details).length >= 2
     ) {
         let fallbackResults: Awaited<ReturnType<typeof searchHelpArticles>> =
@@ -273,6 +279,8 @@ export async function generateVirtualCsReply(
 
 ${ASSISTANT_PERSONA}
 
+${buildIntentInstructions(input.question)}
+
 Konteks kerja:
 ${profileInstructions}
 
@@ -282,7 +290,7 @@ Aturan Penting:
 3. Gunakan tools yang tersedia untuk mengambil data. Jika tool tidak tersedia karena permission, jelaskan dengan jelas.
 
 Jenis Pertanyaan:
-- CARA PAKAI / tutorial: gunakan search_help_articles, lalu jelaskan hasilnya.
+- CARA PAKAI / tutorial: gunakan search_help_articles, baca langkah artikel yang relevan, lalu jelaskan langkah UI beserta syarat dan sumbernya. Jangan meminta nomor transaksi untuk menjawab panduan umum.
 - DATA OPERASIONAL (stok, SO, SPK, invoice, dll): gunakan tools data yang sesuai.
 - LAPORAN KENDALA UI (tidak bisa/error/berubah/hilang): cari artikel, tetapi jangan menebak penyebab, format, atau menu. Nyatakan keterbatasan observasi dan minta field, input aktual, hasil aktual, error, serta langkah reproduksi. Jika nilai transaksi berubah, ingatkan jangan simpan/post.
 - DIAGNOSIS ("kenapa"): gunakan beberapa tools untuk investigasi.
@@ -494,9 +502,12 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
                                     collectedCited.push({
                                         slug,
                                         title: entity.label,
-                                        summary: evidence.facts.find(
-                                            (f) => f.label === entity.label,
-                                        )?.value,
+                                        summary: evidence.facts
+                                            .find(
+                                                (f) => f.label === entity.label,
+                                            )
+                                            ?.value.split('\n')[0]
+                                            .slice(0, 150),
                                     });
                                 }
                             }
@@ -694,7 +705,8 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
         // Calculate confidence score
         const confidence = calculateConfidence(
             collectedEvidence,
-            clarification.needsClarification,
+            clarification.needsClarification ||
+                hasUnresolvedAnswer(finalAnswer),
         );
 
         // Build evidence chips for UI

@@ -365,7 +365,7 @@ async function executeSearchHelpArticles(
     args: { query: string; module?: string },
     _ctx: AssistantUserContext,
 ): Promise<ToolEvidence> {
-    const results = await searchHelpArticles(args.query, args.module, 5);
+    const results = await searchHelpArticles(args.query, args.module, 3);
 
     if (!results.length) {
         return createEvidence({
@@ -378,7 +378,7 @@ async function executeSearchHelpArticles(
 
     const facts = results.map((r) => ({
         label: r.title,
-        value: r.summary?.slice(0, 150) || '',
+        value: `${r.summary}\n${r.bodyExcerpt}\nSumber: /support/${r.slug}`,
     }));
 
     const entities = results.map((r) => ({
