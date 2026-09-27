@@ -45,6 +45,9 @@ CREATE TABLE "User" (
   "isActive" BOOLEAN NOT NULL DEFAULT true,
   "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
   "tokenVersion" INTEGER NOT NULL DEFAULT 0,
+  "locale" TEXT NOT NULL DEFAULT 'en',
+  "avatarUrl" TEXT,
+  "notificationPrefs" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
