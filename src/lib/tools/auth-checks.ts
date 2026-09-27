@@ -61,19 +61,24 @@ export async function requireAuth() {
 
     // Verify user exists in DB to prevent Foreign Key errors (stale sessions)
     // Use tenant-aware DB if available (important for multi-tenant setups)
-    const tenant = await resolveTenantDb();
+    const requireLocalBinding =
+        process.env.REQUIRE_TENANT_SESSION_BINDING === 'true';
+    const needsTenantValidation =
+        !!session.user.globalAccountId ||
+        !!session.user.tenantId ||
+        requireLocalBinding;
+    const tenant = needsTenantValidation ? await resolveTenantDb() : null;
     if (tenant) {
         await assertTenantSession(
             session,
             { tenantId: tenant.tenantId, subdomain: tenant.subdomain },
-            new CentralIdentityService({
-                mainDb: tenant.mainDb,
-                loadTenantDb: async () => tenant.tenantDb,
-            }),
-            {
-                requireLocalBinding:
-                    process.env.REQUIRE_TENANT_SESSION_BINDING === 'true',
-            },
+            session.user.globalAccountId
+                ? new CentralIdentityService({
+                      mainDb: tenant.mainDb,
+                      loadTenantDb: async () => tenant.tenantDb,
+                  })
+                : null,
+            { requireLocalBinding },
         );
     }
     const user = await (tenant?.tenantDb || prisma).user.findUnique({

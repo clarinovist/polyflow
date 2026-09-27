@@ -90,14 +90,24 @@ async function requireMatchingTenantSession(
     result: Extract<TenantResolutionResult, { type: 'RESOLVED' }>,
 ): Promise<void> {
     if (!session?.user?.id) return;
+    const requireLocalBinding =
+        process.env.REQUIRE_TENANT_SESSION_BINDING === 'true';
+    // Legacy LOCAL sessions have no tenant claims. Preserve rollout
+    // compatibility without constructing MAIN-dependent validators; CENTRAL
+    // and newly tenant-bound sessions always take the fail-closed path below.
+    if (
+        !session.user.globalAccountId &&
+        !session.user.tenantId &&
+        !requireLocalBinding
+    )
+        return;
     await assertTenantSession(
         session,
         { tenantId: result.tenantId, subdomain: result.subdomain },
-        centralIdentityServiceForTenant(result.tenantDb),
-        {
-            requireLocalBinding:
-                process.env.REQUIRE_TENANT_SESSION_BINDING === 'true',
-        },
+        session.user.globalAccountId
+            ? centralIdentityServiceForTenant(result.tenantDb)
+            : null,
+        { requireLocalBinding },
     );
 }
 

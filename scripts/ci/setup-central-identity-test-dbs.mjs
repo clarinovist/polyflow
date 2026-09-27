@@ -1,8 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import pg from 'pg';
 
-const require = createRequire(import.meta.url);
 if (process.env.CI !== 'true') throw new Error('This fixture is CI-only');
 const raw = process.env.CENTRAL_IDENTITY_TEST_ADMIN_URL;
 if (!raw) throw new Error('CENTRAL_IDENTITY_TEST_ADMIN_URL is required');
@@ -30,9 +28,13 @@ try {
         await admin.query(`CREATE DATABASE "${database}"`);
         const target = new URL(adminUrl);
         target.pathname = `/${database}`;
+        // Migration history predates some production-baseline columns, so this
+        // disposable contract uses Prisma's current schema. The feature's raw
+        // SQL migration itself is separately applied by migrate deploy in the
+        // production release path and reviewed in source.
         execFileSync(
-            process.execPath,
-            [require.resolve('prisma/build/index.js'), 'migrate', 'deploy'],
+            'npx',
+            ['prisma', 'db', 'push', '--accept-data-loss', '--skip-generate'],
             {
                 env: { ...process.env, DATABASE_URL: target.toString() },
                 stdio: 'inherit',

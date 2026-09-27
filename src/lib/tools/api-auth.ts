@@ -36,15 +36,20 @@ export async function requireApiAuth(
   const db = tenant.type === 'RESOLVED' ? tenant.tenantDb : getMainPrisma();
   if (tenant.type === 'RESOLVED') {
     try {
-      await assertTenantSession(
-        session,
-        { tenantId: tenant.tenantId, subdomain: tenant.subdomain },
-        new CentralIdentityService({
-          mainDb: getMainPrisma(),
-          loadTenantDb: async () => tenant.tenantDb,
-        }),
-        { requireLocalBinding: process.env.REQUIRE_TENANT_SESSION_BINDING === 'true' },
-      );
+      const requireLocalBinding = process.env.REQUIRE_TENANT_SESSION_BINDING === 'true';
+      if (session.user.globalAccountId || session.user.tenantId || requireLocalBinding) {
+        await assertTenantSession(
+          session,
+          { tenantId: tenant.tenantId, subdomain: tenant.subdomain },
+          session.user.globalAccountId
+            ? new CentralIdentityService({
+                mainDb: getMainPrisma(),
+                loadTenantDb: async () => tenant.tenantDb,
+              })
+            : null,
+          { requireLocalBinding },
+        );
+      }
     } catch {
       return deny(403, 'TENANT_SESSION_MISMATCH');
     }

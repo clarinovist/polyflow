@@ -15,7 +15,7 @@ export interface TenantRequestIdentity {
 export async function assertTenantSession(
     session: Session,
     requestTenant: TenantRequestIdentity,
-    centralIdentityService: CentralIdentityService,
+    centralIdentityService: CentralIdentityService | null,
     options: { requireLocalBinding?: boolean } = {},
 ): Promise<void> {
     if (!session.user?.id)
@@ -55,6 +55,9 @@ export async function assertTenantSession(
     ) {
         throw new AuthorizationError('Sesi akun pusat tidak lengkap.');
     }
+
+    if (!centralIdentityService)
+        throw new AuthorizationError('Validator akun pusat tidak tersedia.');
 
     await centralIdentityService.validateSessionBinding({
         globalAccountId,
