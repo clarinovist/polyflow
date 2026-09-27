@@ -2,6 +2,16 @@ import type { OAuthConfig } from 'next-auth/providers';
 
 type CentralOidcEnvironment = Record<string, string | undefined>;
 
+// Bracket access is intentional: Next's compiler may inline direct
+// `process.env.CENTRAL_*` reads at image build time, while these secrets are
+// supplied only when the production container starts.
+function runtimeEnvironment(): CentralOidcEnvironment {
+    return new Proxy({} as CentralOidcEnvironment, {
+        get: (_target, key) =>
+            typeof key === 'string' ? process.env[key] : undefined,
+    });
+}
+
 export interface CentralOidcProfile {
     iss?: string;
     sub?: string;
@@ -12,7 +22,7 @@ export interface CentralOidcProfile {
 }
 
 export function isCentralSsoConfigured(
-    env: CentralOidcEnvironment = process.env,
+    env: CentralOidcEnvironment = runtimeEnvironment(),
 ): boolean {
     return (
         env.CENTRAL_SSO_ENABLED === 'true' &&
@@ -28,7 +38,7 @@ export function isCentralSsoConfigured(
  * to resolve an explicit tenant membership before issuing an application JWT.
  */
 export function buildCentralOidcProvider(
-    env: CentralOidcEnvironment = process.env,
+    env: CentralOidcEnvironment = runtimeEnvironment(),
 ): OAuthConfig<CentralOidcProfile> | null {
     if (!isCentralSsoConfigured(env)) return null;
 
