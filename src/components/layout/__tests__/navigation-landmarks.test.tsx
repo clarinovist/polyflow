@@ -40,7 +40,7 @@ vi.mock('@/lib/modules/module-registry', () => ({
 }));
 
 describe('sidebar navigation landmarks', () => {
-    it.each(['finance', 'sales'] as const)('reserves %s assistant slots outside the scrollable navigation', (portal) => {
+    it.each(['finance', 'sales'] as const)('keeps the %s assistant out of the desktop sidebar and in the mobile header', (portal) => {
         const { container } = render(
             <PortalSidebarBase user={{ name: 'Synthetic user' }} portalName={portal} assistantSlots assistantSlotPrefix={portal}>
                 <a href={`/${portal}`}>Beranda</a>
@@ -48,9 +48,9 @@ describe('sidebar navigation landmarks', () => {
         );
         const desktop = container.querySelector(`#${portal}-assistant-desktop`);
         const mobile = container.querySelector(`#${portal}-assistant-mobile`);
-        expect(desktop).toBeTruthy();
+        expect(desktop).toBeNull();
         expect(mobile).toBeTruthy();
-        expect(desktop?.closest('nav')).toBeNull();
+        expect(mobile?.closest('aside')).toBeNull();
         expect(mobile?.closest('header')).toBeTruthy();
     });
 

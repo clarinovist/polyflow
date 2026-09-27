@@ -84,7 +84,13 @@ export default async function SalesLayout({
             <SidebarSpacer>
                 <main id="main-content" tabIndex={-1} className="min-h-screen">
                     <div className="p-4 md:p-6 lg:p-8">
-                        <PathBreadCrumb />
+                        <header className="mb-4 flex items-center gap-4">
+                            <PathBreadCrumb className="mb-0 min-w-0" />
+                            <div
+                                id="sales-assistant-desktop"
+                                className="ml-auto hidden shrink-0 lg:flex print:hidden"
+                            />
+                        </header>
                         {children}
                     </div>
                 </main>

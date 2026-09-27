@@ -14,6 +14,21 @@ beforeEach(() => {
 });
 const renderWidget = () => render(<><div id="finance-assistant-desktop" /><div id="finance-assistant-mobile" /><PolyflowChatWidget /></>);
 describe('finance navigation assistant', () => {
+    it.each(['/finance', '/sales/orders'])('shows a labeled, secondary assistant action on %s at both breakpoints', (path) => {
+        state.path = path;
+        render(<><div id="finance-assistant-desktop" /><div id="finance-assistant-mobile" /><div id="sales-assistant-desktop" /><div id="sales-assistant-mobile" /><PolyflowChatWidget /></>);
+        const assertLauncher = () => {
+            const trigger = screen.getByRole('button', { name: 'Buka Asisten Polyflow' });
+            expect(trigger.textContent?.trim()).toBe('Asisten');
+            expect(trigger.querySelector('span')?.className).not.toMatch(/sr-only|hidden/);
+            expect(trigger.getAttribute('data-variant')).toBe('outline');
+            expect(trigger.getAttribute('type')).toBe('button');
+            expect(screen.getAllByRole('button')).toHaveLength(1);
+        };
+        assertLauncher();
+        act(() => { desktop = false; resize(); });
+        assertLauncher();
+    });
     it('moves one authenticated launcher between reserved slots, preserving the panel and draft', () => {
         renderWidget();
         const trigger = screen.getByRole('button', { name: 'Buka Asisten Polyflow' });

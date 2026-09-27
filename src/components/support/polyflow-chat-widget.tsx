@@ -140,7 +140,9 @@ function AuthenticatedWidget({
     const launcher = (
         <Button
             ref={trigger}
+            type="button"
             size="lg"
+            variant={navigationPortal ? 'outline' : 'default'}
             aria-label={
                 open ? 'Minimize Asisten Polyflow' : 'Buka Asisten Polyflow'
             }
@@ -153,20 +155,21 @@ function AuthenticatedWidget({
             }}
             className={
                 navigationPortal
-                    ? 'h-11 w-11 shrink-0 rounded-lg bg-purple-700 p-0 text-white hover:bg-purple-800'
+                    ? 'h-11 shrink-0 gap-2 rounded-lg px-3 text-foreground has-[>svg]:px-3'
                     : 'group h-11 w-11 p-0 sm:h-14 sm:w-auto sm:px-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 text-white shadow-lg flex items-center justify-center'
             }
             title="Asisten Polyflow"
         >
             <MessageCircleHeart
+                aria-hidden="true"
                 className={
                     navigationPortal
                         ? 'h-5 w-5 shrink-0'
                         : 'h-5 w-5 sm:mr-2 shrink-0'
                 }
             />
-            <span className={navigationPortal ? 'sr-only' : 'hidden sm:inline'}>
-                Asisten Polyflow
+            <span className={navigationPortal ? undefined : 'hidden sm:inline'}>
+                {navigationPortal ? 'Asisten' : 'Asisten Polyflow'}
             </span>
         </Button>
     );

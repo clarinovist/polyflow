@@ -38,7 +38,7 @@ interface PortalSidebarBaseProps {
     portalName: string;
     accentColor?: 'primary' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose';
     children: ReactNode;
-    /** Opt-in slots; the authenticated root widget remains the single chat owner. */
+    /** Opt-in mobile slot; desktop slots live in the workspace content headers. */
     assistantSlots?: boolean;
     assistantSlotPrefix?: 'finance' | 'sales';
 }
@@ -176,13 +176,6 @@ export function PortalSidebarBase({
                             )}
                         </button>
                     </div>
-
-                    {assistantSlots && (
-                        <div
-                            id={`${assistantSlotPrefix}-assistant-desktop`}
-                            className="hidden px-2 pt-2 lg:flex lg:justify-center"
-                        />
-                    )}
 
                     {/* Navigation */}
                     <nav

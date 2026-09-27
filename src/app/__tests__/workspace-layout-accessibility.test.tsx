@@ -91,6 +91,25 @@ afterEach(() => {
 });
 
 describe('desktop workspace layout accessibility', () => {
+    it.each([
+        ['finance', FinanceLayout],
+        ['sales', SalesLayout],
+    ] as const)(
+        '%s reserves its desktop assistant in the content header, not the sidebar',
+        async (portal, Layout) => {
+            requestedPath = `/${portal}`;
+            render(await Layout({ children: <p>Isi halaman</p> }));
+
+            const slot = document.getElementById(`${portal}-assistant-desktop`);
+            expect(slot).toBeTruthy();
+            expect(slot?.closest('header')).toBeTruthy();
+            expect(slot?.closest('aside')).toBeNull();
+            expect(slot?.closest('main')).toBe(screen.getByRole('main'));
+            expect(slot?.className).toContain('ml-auto');
+            expect(document.querySelectorAll(`#${portal}-assistant-desktop`)).toHaveLength(1);
+        },
+    );
+
     it.each(layouts)(
         '%s puts the skip link first and renders exactly one target main landmark',
         async (_name, Layout) => {
