@@ -107,12 +107,12 @@ describe.skipIf(!enabled)('central identity PostgreSQL isolation', () => {
         expect(new Set(memberships.map((row) => row.tenantUserId))).toEqual(
             new Set([localA, localB]),
         );
-        expect((await tenantA!.user.findUnique({ where: { id: localA } }))?.role).toBe(
-            'FINANCE',
-        );
-        expect((await tenantB!.user.findUnique({ where: { id: localB } }))?.role).toBe(
-            'WAREHOUSE',
-        );
+        expect(
+            (await tenantA!.user.findUnique({ where: { id: localA } }))?.role,
+        ).toBe('FINANCE');
+        expect(
+            (await tenantB!.user.findUnique({ where: { id: localB } }))?.role,
+        ).toBe('WAREHOUSE');
     });
 
     it('revokes tenant B without changing tenant A', async () => {
