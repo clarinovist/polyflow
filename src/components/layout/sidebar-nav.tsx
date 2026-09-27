@@ -39,6 +39,8 @@ import { mainNavLabels } from '@/lib/labels';
 import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { resolvePathToModule } from '@/lib/modules/module-registry';
+import { TenantSwitcher } from '@/components/layout/tenant-switcher';
+import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 
 interface SidebarNavProps {
     user: {
@@ -57,6 +59,9 @@ interface SidebarNavProps {
      * clicks and prefetches off the workspace-root redirect.
      */
     entryHrefs?: Record<string, string>;
+    currentTenantId?: string;
+    currentTenantName?: string;
+    workspaces?: CentralWorkspaceOption[];
 }
 
 interface NavItemType {
@@ -141,6 +146,9 @@ export function SidebarNav({
     permissions,
     activeModules,
     entryHrefs,
+    currentTenantId,
+    currentTenantName,
+    workspaces = [],
 }: SidebarNavProps) {
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
@@ -283,6 +291,17 @@ export function SidebarNav({
                             )}
                         </button>
                     </div>
+
+                    {currentTenantName && (
+                        <div className="px-3 pt-3">
+                            <TenantSwitcher
+                                currentTenantId={currentTenantId}
+                                currentTenantName={currentTenantName}
+                                workspaces={workspaces}
+                                collapsed={effectiveCollapsed}
+                            />
+                        </div>
+                    )}
 
                     {!effectiveCollapsed && (
                         <div className="px-4 pt-4">

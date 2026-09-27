@@ -9,6 +9,8 @@ import {
     deleteUser,
     reactivateUser,
     setUserRoles,
+    inviteUserToCentralLogin,
+    revokeUserCentralMembership,
     CreateUserInput,
     UpdateUserInput,
 } from '@/actions/admin/users';
@@ -70,6 +72,7 @@ import {
     RotateCcw,
     Eye,
     EyeOff,
+    KeyRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SYSTEM_ROLES } from '@/lib/auth/system-roles';
@@ -82,6 +85,9 @@ interface UserData {
     roles: Role[];
     isActive: boolean;
     createdAt: Date;
+    authMode: 'LOCAL' | 'CENTRAL';
+    centralAccountId: string | null;
+    centralMembershipStatus: 'PENDING' | 'ACTIVE' | 'REVOKED' | null;
 }
 
 const USER_ROLES = SYSTEM_ROLES.map((r) => ({
@@ -89,7 +95,13 @@ const USER_ROLES = SYSTEM_ROLES.map((r) => ({
     label: r.label,
 }));
 
-export function UsersTab({ currentUserId }: { currentUserId?: string }) {
+export function UsersTab({
+    currentUserId,
+    centralSsoEnabled = false,
+}: {
+    currentUserId?: string;
+    centralSsoEnabled?: boolean;
+}) {
     const [users, setUsers] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
     const [createOpen, setCreateOpen] = useState(false);
@@ -279,6 +291,45 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
         } else {
             toast.error(result.error);
         }
+    };
+
+    const handleCentralInvite = async (userId: string) => {
+        setIsSubmitting(true);
+        const result = await inviteUserToCentralLogin(userId);
+        if (result.success) {
+            const invitationUrl = result.data.invitationUrl;
+            try {
+                await navigator.clipboard.writeText(invitationUrl);
+                toast.success(
+                    'Tautan undangan login Google disalin. Kirim melalui jalur privat.',
+                );
+            } catch {
+                toast.error(
+                    'Undangan dibuat, tetapi tautan tidak dapat disalin. Buat ulang setelah izin clipboard diperbaiki.',
+                );
+            }
+        } else {
+            toast.error(result.error || 'Gagal membuat undangan akun pusat');
+        }
+        setIsSubmitting(false);
+    };
+
+    const handleCentralRevoke = async (userId: string) => {
+        if (
+            !confirm(
+                'Cabut akses login Google pengguna ini untuk perusahaan aktif?',
+            )
+        )
+            return;
+        setIsSubmitting(true);
+        const result = await revokeUserCentralMembership(userId);
+        if (result.success) {
+            toast.success('Akses login Google dicabut.');
+            fetchUsers();
+        } else {
+            toast.error(result.error || 'Gagal mencabut login Google');
+        }
+        setIsSubmitting(false);
     };
 
     const handleReactivate = async (userId: string) => {
@@ -694,6 +745,60 @@ export function UsersTab({ currentUserId }: { currentUserId?: string }) {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
+                                                    {centralSsoEnabled &&
+                                                        user.authMode ===
+                                                            'CENTRAL' && (
+                                                            <Badge variant="outline">
+                                                                {user.centralMembershipStatus ===
+                                                                'ACTIVE'
+                                                                    ? 'Google aktif'
+                                                                    : user.centralMembershipStatus ===
+                                                                        'REVOKED'
+                                                                      ? 'Google dicabut'
+                                                                      : 'Google pending'}
+                                                            </Badge>
+                                                        )}
+                                                    {centralSsoEnabled &&
+                                                    user.authMode ===
+                                                        'CENTRAL' &&
+                                                    user.centralMembershipStatus ===
+                                                        'ACTIVE' ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 text-muted-foreground hover:text-destructive"
+                                                            onClick={() =>
+                                                                handleCentralRevoke(
+                                                                    user.id,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                isSubmitting
+                                                            }
+                                                            title="Cabut akses login Google"
+                                                        >
+                                                            Google
+                                                        </Button>
+                                                    ) : centralSsoEnabled ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                                            onClick={() =>
+                                                                handleCentralInvite(
+                                                                    user.id,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                isSubmitting ||
+                                                                !user.isActive
+                                                            }
+                                                            title="Buat undangan login Google"
+                                                            aria-label={`Buat undangan login Google untuk ${user.name || user.email}`}
+                                                        >
+                                                            <KeyRound className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : null}
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"

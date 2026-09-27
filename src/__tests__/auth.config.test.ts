@@ -96,6 +96,8 @@ describe('auth.config', () => {
                 role: 'ADMIN',
                 rememberMe: true,
                 isSuperAdmin: false,
+                tenantId: 'tenant-a',
+                tenantSubdomain: 'tenant-a',
             };
 
             // Act
@@ -110,6 +112,8 @@ describe('auth.config', () => {
                 id: 'user-1',
                 rememberMe: true,
                 isSuperAdmin: false,
+                tenantId: 'tenant-a',
+                tenantSubdomain: 'tenant-a',
             });
             expect(result!.lastActive).toBeDefined();
         });
@@ -183,6 +187,8 @@ describe('auth.config', () => {
                 role: 'ADMIN',
                 id: 'user-1',
                 isSuperAdmin: true,
+                tenantId: 'tenant-a',
+                membershipId: 'membership-a',
             };
 
             // Act
@@ -195,10 +201,33 @@ describe('auth.config', () => {
             expect((result.user as any).role).toBe('ADMIN');
             expect((result.user as any).id).toBe('user-1');
             expect((result.user as any).isSuperAdmin).toBe(true);
+            expect((result.user as any).tenantId).toBe('tenant-a');
+            expect((result.user as any).membershipId).toBe('membership-a');
         });
     });
 
     describe('authorized callback', () => {
+        it('rejects a central session presented on a different tenant host', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const result = await authorizedCallback({
+                auth: {
+                    user: {
+                        id: 'local-user-a',
+                        globalAccountId: 'account-a',
+                        tenantSubdomain: 'tenant-a',
+                    },
+                },
+                request: {
+                    nextUrl: new URL('https://tenant-b.polyflow.uk/dashboard'),
+                    headers: new Map([['host', 'tenant-b.polyflow.uk']]),
+                },
+            } as any);
+
+            expect(result).toBe(false);
+        });
+
         it('should allow access to kiosk pages without auth', async () => {
             // Arrange
             const { authConfig } = await import('@/auth.config');

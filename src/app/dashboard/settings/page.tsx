@@ -6,6 +6,7 @@ import { prisma } from '@/lib/core/prisma';
 import { ContextualHelp } from '@/components/support/contextual-help';
 import { getTenantActiveModules } from '@/lib/auth/access-policy';
 import packageJson from '../../../../package.json';
+import { isCentralSsoConfigured } from '@/lib/auth/central-oidc-config';
 
 export default async function SettingsPage() {
     const session = await auth();
@@ -74,6 +75,7 @@ export default async function SettingsPage() {
                 appVersion={packageJson.version}
                 environment={process.env.NODE_ENV}
                 activeModules={getTenantActiveModules()}
+                centralSsoEnabled={isCentralSsoConfigured()}
             />
         </div>
     );

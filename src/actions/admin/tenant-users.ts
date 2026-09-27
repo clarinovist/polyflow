@@ -165,6 +165,12 @@ export async function deleteTenantUser(tenantId: string, userId: string) {
     const target = await db.user.findUnique({ where: { id: userId } });
     if (!target) throw new BusinessRuleError('User tidak ditemukan.');
 
+    if (target.centralAccountId) {
+        throw new BusinessRuleError(
+            'User yang terhubung ke akun pusat tidak boleh dihapus. Cabut membership dan nonaktifkan user agar riwayat audit tetap utuh.',
+        );
+    }
+
     await db.user.delete({ where: { id: userId } });
 
     // User dihapus permanen — buang cache permission-nya agar tidak ada

@@ -15,6 +15,9 @@ vi.mock('framer-motion', () => ({
 vi.mock('@/actions/auth/auth.actions', () => ({
     authenticate: vi.fn(),
 }));
+vi.mock('@/actions/auth/central-sso.actions', () => ({
+    startCentralGoogleLogin: vi.fn(),
+}));
 
 describe('LoginClient heading hierarchy', () => {
     beforeEach(() => {
@@ -41,6 +44,43 @@ describe('LoginClient heading hierarchy', () => {
                 name: /selamat datang di polyflow/i,
             }),
         ).toBeTruthy();
+    });
+
+    it('shows Google login only when tenant SSO is enabled', () => {
+        const { rerender } = render(
+            <LoginClient
+                subdomain="acme"
+                isAdminSubdomain={false}
+                centralSsoEnabled
+            />,
+        );
+        expect(
+            screen.getByRole('button', { name: 'Masuk dengan Google' }),
+        ).toBeTruthy();
+
+        rerender(
+            <LoginClient
+                subdomain="acme"
+                isAdminSubdomain={false}
+                centralSsoEnabled={false}
+            />,
+        );
+        expect(
+            screen.queryByRole('button', { name: 'Masuk dengan Google' }),
+        ).toBeNull();
+    });
+
+    it('never shows Google login on the superadmin host', () => {
+        render(
+            <LoginClient
+                subdomain={null}
+                isAdminSubdomain
+                centralSsoEnabled
+            />,
+        );
+        expect(
+            screen.queryByRole('button', { name: 'Masuk dengan Google' }),
+        ).toBeNull();
     });
 
     it('uses the login form title as the only H1 on tenant login', () => {

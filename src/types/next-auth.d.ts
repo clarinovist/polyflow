@@ -9,6 +9,13 @@ declare module 'next-auth' {
             id: string;
             isSuperAdmin?: boolean;
             allowedResources?: string[];
+            tenantId?: string;
+            tenantSubdomain?: string;
+            globalAccountId?: string;
+            membershipId?: string;
+            globalRevocationVersion?: number;
+            membershipVersion?: number;
+            localAuthVersion?: number;
         } & DefaultSession['user'];
     }
 
@@ -17,6 +24,13 @@ declare module 'next-auth' {
         roles?: Role[];
         isSuperAdmin?: boolean;
         allowedResources?: string[];
+        tenantId?: string;
+        tenantSubdomain?: string;
+        globalAccountId?: string;
+        membershipId?: string;
+        globalRevocationVersion?: number;
+        membershipVersion?: number;
+        localAuthVersion?: number;
     }
 }
 
@@ -30,6 +44,13 @@ declare module 'next-auth/jwt' {
         rememberMe?: boolean;
         lastActive?: number;
         tokenVersion?: number;
+        tenantId?: string;
+        tenantSubdomain?: string;
+        globalAccountId?: string;
+        membershipId?: string;
+        globalRevocationVersion?: number;
+        membershipVersion?: number;
+        localAuthVersion?: number;
         impersonatedBy?: string;
         impersonationExpiresAt?: number;
         picture?: string;

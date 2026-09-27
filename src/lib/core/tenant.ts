@@ -3,10 +3,12 @@ import {
     tenantContext,
     tenantIdContext,
     entitlementContext,
+    getMainPrisma,
 } from '@/lib/core/prisma';
 import { actorContext } from '@/lib/core/actor-context';
 import { alertCrossTenantContextLeak } from '@/lib/core/tenant-context-leak-alert';
 import { PrismaClient } from '@prisma/client';
+import type { Session } from 'next-auth';
 import { headers } from 'next/headers';
 import { cache } from 'react';
 
@@ -14,6 +16,8 @@ import { cache } from 'react';
 // it can be shared with client components like login-form.tsx. Imported here
 // (and re-exported) for backward compatibility with existing server-side callers.
 import { extractSubdomain } from '@/lib/core/subdomain';
+import { assertTenantSession } from '@/lib/auth/tenant-session';
+import { CentralIdentityService } from '@/services/auth/central-identity-service';
 export { extractSubdomain };
 
 export type TenantResolutionResult =
@@ -72,6 +76,29 @@ export async function resolveTenantContext(reqHeaders: {
     }
 
     return resolveTenantBySubdomain(subdomain);
+}
+
+function centralIdentityServiceForTenant(tenantDb: PrismaClient) {
+    return new CentralIdentityService({
+        mainDb: getMainPrisma(),
+        loadTenantDb: async () => tenantDb,
+    });
+}
+
+async function requireMatchingTenantSession(
+    session: Session | null,
+    result: Extract<TenantResolutionResult, { type: 'RESOLVED' }>,
+): Promise<void> {
+    if (!session?.user?.id) return;
+    await assertTenantSession(
+        session,
+        { tenantId: result.tenantId, subdomain: result.subdomain },
+        centralIdentityServiceForTenant(result.tenantDb),
+        {
+            requireLocalBinding:
+                process.env.REQUIRE_TENANT_SESSION_BINDING === 'true',
+        },
+    );
 }
 
 const resolveTenantBySubdomain = cache(async function resolveTenantBySubdomain(
@@ -215,12 +242,15 @@ export function withTenant<T extends (...args: never[]) => Promise<unknown>>(
         // Run the action inside the AsyncLocalStorage context
         // Resolve actor from session (best-effort; falls back to SYSTEM for unauthenticated calls)
         let actorUserId = SYSTEM_USER_ID;
+        let tenantSession: Session | null = null;
         try {
-            const session = await auth();
-            if (session?.user?.id) actorUserId = session.user.id;
+            tenantSession = await auth();
+            if (tenantSession?.user?.id) actorUserId = tenantSession.user.id;
         } catch {
             // No session (e.g. cron, script) — keep SYSTEM fallback
         }
+
+        await requireMatchingTenantSession(tenantSession, result);
 
         return tenantContext.run(result.tenantDb, () =>
             tenantIdContext.run(result.tenantId, () =>
@@ -285,12 +315,15 @@ export function withTenantRoute(
         }
 
         let actorUserId = SYSTEM_USER_ID;
+        let tenantSession: Session | null = null;
         try {
-            const session = await auth();
-            if (session?.user?.id) actorUserId = session.user.id;
+            tenantSession = await auth();
+            if (tenantSession?.user?.id) actorUserId = tenantSession.user.id;
         } catch {
             // No session — keep SYSTEM fallback
         }
+
+        await requireMatchingTenantSession(tenantSession, result);
 
         return tenantContext.run(result.tenantDb, () =>
             tenantIdContext.run(result.tenantId, () =>

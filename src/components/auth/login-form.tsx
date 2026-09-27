@@ -18,12 +18,19 @@ import {
 import PolyFlowLogo from './polyflow-logo';
 import { loginFormLabels as L } from '@/lib/labels/auth';
 import { extractSubdomain } from '@/lib/core/subdomain';
+import { startCentralGoogleLogin } from '@/actions/auth/central-sso.actions';
 
 interface LoginFormProps {
     onBack?: () => void;
+    centralSsoEnabled?: boolean;
+    invitationToken?: string;
 }
 
-export default function LoginForm({ onBack }: LoginFormProps = {}) {
+export default function LoginForm({
+    onBack,
+    centralSsoEnabled = false,
+    invitationToken,
+}: LoginFormProps = {}) {
     const [errorMessage, formAction, isPending] = useActionState(
         authenticate,
         undefined,
@@ -52,6 +59,26 @@ export default function LoginForm({ onBack }: LoginFormProps = {}) {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 sm:mb-8">
                 {L.signInHeader}
             </h1>
+
+            {centralSsoEnabled && (
+                <div className="mb-6 space-y-5">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="h-12 w-full rounded-lg font-medium"
+                        onClick={() => startCentralGoogleLogin(invitationToken)}
+                    >
+                        Masuk dengan Google
+                    </Button>
+                    <div className="flex items-center gap-3" aria-hidden="true">
+                        <span className="h-px flex-1 bg-border" />
+                        <span className="text-xs text-muted-foreground">
+                            atau gunakan akun lokal
+                        </span>
+                        <span className="h-px flex-1 bg-border" />
+                    </div>
+                </div>
+            )}
 
             <form action={formAction} className="space-y-5">
                 {/* Hidden Subdomain field — needed for tenant resolution in NextAuth authorize.

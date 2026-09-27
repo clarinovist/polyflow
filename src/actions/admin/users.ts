@@ -2,7 +2,12 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { auth } from '@/auth';
-import { prisma } from '@/lib/core/prisma';
+import {
+    prisma,
+    getMainPrisma,
+    getTenantDbFromContext,
+    getTenantIdFromContext,
+} from '@/lib/core/prisma';
 import { Role, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -17,6 +22,10 @@ import {
 import { logActivity } from '@/lib/tools/audit';
 import { isTenantAdmin } from '@/lib/auth/roles';
 import { unassignAllCustomersFromUser } from '@/services/sales/customer-assignment-service';
+import { createTenantInvitationService } from '@/services/auth/tenant-invitation-service';
+import { CentralIdentityService } from '@/services/auth/central-identity-service';
+import { buildTenantOrigin } from '@/lib/auth/tenant-origin';
+import { isCentralSsoConfigured } from '@/lib/auth/central-oidc-config';
 
 // Schema for creating a user
 const CreateUserSchema = z.object({
@@ -111,15 +120,169 @@ export const getUsers = withTenant(async function getUsers() {
                 roles: { select: { role: true } },
                 isActive: true,
                 createdAt: true,
+                authMode: true,
+                centralAccountId: true,
             },
             orderBy: { createdAt: 'desc' },
         });
+        const tenantId = getTenantIdFromContext();
+        const centralIds = users
+            .map((user) => user.centralAccountId)
+            .filter((id): id is string => !!id);
+        const memberships =
+            tenantId && centralIds.length > 0
+                ? await getMainPrisma().tenantMembership.findMany({
+                      where: {
+                          tenantId,
+                          globalAccountId: { in: centralIds },
+                      },
+                      select: {
+                          globalAccountId: true,
+                          status: true,
+                      },
+                  })
+                : [];
+        const membershipStatus = new Map(
+            memberships.map((membership) => [
+                membership.globalAccountId,
+                membership.status,
+            ]),
+        );
         return users.map((u) => ({
             ...u,
             roles: u.roles.map((r) => r.role),
+            centralMembershipStatus: u.centralAccountId
+                ? (membershipStatus.get(u.centralAccountId) ?? null)
+                : null,
         }));
     });
 });
+
+export const inviteUserToCentralLogin = withTenant(
+    async function inviteUserToCentralLogin(userId: string) {
+        return safeAction(async () => {
+            if (!isCentralSsoConfigured()) {
+                throw new BusinessRuleError(
+                    'Login Google belum diaktifkan untuk deployment ini.',
+                );
+            }
+            const session = await checkAdmin();
+            const actorId = getActorId(session);
+            const tenantId = getTenantIdFromContext();
+            const tenantDb = getTenantDbFromContext();
+            if (!tenantId || !tenantDb) {
+                throw new BusinessRuleError('Konteks tenant tidak tersedia.');
+            }
+
+            const target = await tenantDb.user.findUnique({
+                where: { id: userId },
+                select: { id: true, email: true, role: true },
+            });
+            if (!target)
+                throw new BusinessRuleError('Pengguna tidak ditemukan.');
+
+            const service = createTenantInvitationService({
+                mainDb: getMainPrisma(),
+                loadTenantDb: async (requestedTenantId) => {
+                    if (requestedTenantId !== tenantId) {
+                        throw new AuthorizationError('Tenant tidak cocok.');
+                    }
+                    return tenantDb;
+                },
+            });
+            // Delivery is deliberately separate: until the email transport is
+            // configured, expose the raw token only to this authenticated admin
+            // response and never persist/log it.
+            const invitation = await service.createInvitation({
+                tenantId,
+                tenantUserId: target.id,
+                role: target.role,
+                recipientEmail: target.email,
+                actor: { userId: actorId },
+            });
+
+            const tenant = await getMainPrisma().tenant.findUnique({
+                where: { id: tenantId },
+                select: { id: true, subdomain: true, status: true },
+            });
+            if (!tenant) throw new BusinessRuleError('Tenant tidak ditemukan.');
+            // MAIN already contains the atomic security event. The tenant audit
+            // is supplementary and must not hide the only copy of this raw URL
+            // if its write fails after invitation creation.
+            await logActivity({
+                userId: actorId,
+                action: 'CENTRAL_INVITATION_CREATED',
+                entityType: 'User',
+                entityId: target.id,
+                details: 'Undangan login pusat dibuat.',
+                changes: {
+                    tenantId,
+                    invitationId: invitation.invitationId,
+                    expiresAt: invitation.expiresAt.toISOString(),
+                },
+            }).catch(() => undefined);
+            return {
+                invitationId: invitation.invitationId,
+                // Keep the raw token in the URL fragment so it is not sent to
+                // Caddy/application access logs or Referer headers.
+                invitationUrl: `${buildTenantOrigin(tenant)}/login#invite=${encodeURIComponent(invitation.token)}`,
+                expiresAt: invitation.expiresAt,
+            };
+        });
+    },
+);
+
+export const revokeUserCentralMembership = withTenant(
+    async function revokeUserCentralMembership(userId: string) {
+        return safeAction(async () => {
+            const session = await checkAdmin();
+            const actorId = getActorId(session);
+            const tenantId = getTenantIdFromContext();
+            const tenantDb = getTenantDbFromContext();
+            if (!tenantId || !tenantDb) {
+                throw new BusinessRuleError('Konteks tenant tidak tersedia.');
+            }
+            const target = await tenantDb.user.findUnique({
+                where: { id: userId },
+                select: { id: true, centralAccountId: true },
+            });
+            if (!target?.centralAccountId) {
+                throw new BusinessRuleError(
+                    'Pengguna belum terhubung ke akun pusat.',
+                );
+            }
+            const mainDb = getMainPrisma();
+            const service = new CentralIdentityService({
+                mainDb,
+                loadTenantDb: async (requestedTenantId) => {
+                    if (requestedTenantId !== tenantId)
+                        throw new AuthorizationError('Tenant tidak cocok.');
+                    return tenantDb;
+                },
+            });
+            await service.revokeMembership({
+                globalAccountId: target.centralAccountId,
+                tenantId,
+            });
+            // Keep CENTRAL mode and its binding after revoke. Returning to LOCAL
+            // would silently restore the legacy password as an authentication
+            // fallback. A fresh admin invitation is required for future access.
+            // MAIN revocation + security event are already committed atomically.
+            // A supplementary tenant audit failure must not report revocation as
+            // failed and tempt an unsafe retry.
+            await logActivity({
+                userId: actorId,
+                action: 'CENTRAL_MEMBERSHIP_REVOKED',
+                entityType: 'User',
+                entityId: userId,
+                details: 'Akses login pusat pengguna dicabut.',
+            }).catch(() => undefined);
+            invalidatePermissionsCache({ userId });
+            revalidatePath('/dashboard/settings');
+            return { success: true as const };
+        });
+    },
+);
 
 export const createUser = withTenant(async function createUser(
     data: CreateUserInput,
@@ -304,6 +467,15 @@ export const updateUser = withTenant(async function updateUser(
 
         const updateData: Prisma.UserUpdateInput = {};
         if (validated.name) updateData.name = validated.name;
+        if (
+            validated.email &&
+            targetUser.authMode === 'CENTRAL' &&
+            validated.email !== targetUser.email
+        ) {
+            throw new BusinessRuleError(
+                'Email akun pusat tidak dapat diubah dari tenant.',
+            );
+        }
         if (validated.email) {
             // Check if email taken by someone else
             const existing = await prisma.user.findFirst({
@@ -316,6 +488,11 @@ export const updateUser = withTenant(async function updateUser(
             updateData.email = validated.email;
         }
         if (validated.password) {
+            if (targetUser.authMode === 'CENTRAL') {
+                throw new BusinessRuleError(
+                    'Password akun pusat tidak dapat direset dari tenant.',
+                );
+            }
             updateData.password = await bcrypt.hash(validated.password, 10);
         }
         if (validated.role) updateData.role = validated.role;

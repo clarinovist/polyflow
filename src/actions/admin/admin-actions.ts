@@ -402,6 +402,11 @@ export async function resetTenantAdminPassword(
                             'Tidak ada user admin untuk tenant ini.',
                         );
                     }
+                    if (adminUser.authMode === 'CENTRAL') {
+                        throw new BusinessRuleError(
+                            'Password akun pusat tidak dapat direset dari tenant.',
+                        );
+                    }
 
                     await getTenantDb(tenant.dbUrl).user.update({
                         where: { id: adminUser.id },

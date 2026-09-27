@@ -30,6 +30,10 @@ vi.mock('@/lib/core/prisma', () => ({
     },
 }));
 
+vi.mock('next/headers', () => ({
+    headers: vi.fn(async () => new Headers({ host: 'polyflow.uk' })),
+}));
+
 vi.mock('next/navigation', () => ({
     redirect: vi.fn(() => {
         throw new Error('REDIRECT');

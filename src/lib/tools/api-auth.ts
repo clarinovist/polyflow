@@ -3,6 +3,8 @@ import { auth } from '@/auth';
 import { getMainPrisma, prisma } from '@/lib/core/prisma';
 import { resolveTenantContext } from '@/lib/core/tenant';
 import { hasAnyRole } from '@/lib/auth/roles';
+import { assertTenantSession } from '@/lib/auth/tenant-session';
+import { CentralIdentityService } from '@/services/auth/central-identity-service';
 
 type ApiAuthResult =
   | { response: NextResponse; userId: '' }
@@ -32,6 +34,21 @@ export async function requireApiAuth(
   // A tenant lookup failure must never validate a user against the main DB.
   if (tenant.type === 'NOT_FOUND') return deny(403, 'TENANT_NOT_FOUND');
   const db = tenant.type === 'RESOLVED' ? tenant.tenantDb : getMainPrisma();
+  if (tenant.type === 'RESOLVED') {
+    try {
+      await assertTenantSession(
+        session,
+        { tenantId: tenant.tenantId, subdomain: tenant.subdomain },
+        new CentralIdentityService({
+          mainDb: getMainPrisma(),
+          loadTenantDb: async () => tenant.tenantDb,
+        }),
+        { requireLocalBinding: process.env.REQUIRE_TENANT_SESSION_BINDING === 'true' },
+      );
+    } catch {
+      return deny(403, 'TENANT_SESSION_MISMATCH');
+    }
+  }
   const user = await db.user.findUnique({
     where: { id: session.user.id },
     select: { id: true },

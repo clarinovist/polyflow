@@ -48,6 +48,7 @@ interface SettingsTabsProps {
     environment?: string;
     /** Active module keys for this tenant. Used to filter Access Control UI. */
     activeModules?: string[];
+    centralSsoEnabled?: boolean;
 }
 
 type TabValue =
@@ -79,6 +80,7 @@ export function SettingsTabs({
     appVersion,
     environment,
     activeModules,
+    centralSsoEnabled = false,
 }: SettingsTabsProps) {
     const isAdmin = isTenantAdmin({
         role: currentUserRole,
@@ -170,7 +172,10 @@ export function SettingsTabs({
                 return isAdmin ? <CompanySettings /> : null;
             case 'users':
                 return isAdmin ? (
-                    <UsersTab currentUserId={currentUserId} />
+                    <UsersTab
+                        currentUserId={currentUserId}
+                        centralSsoEnabled={centralSsoEnabled}
+                    />
                 ) : null;
             case 'access':
                 return isAdmin ? (
@@ -257,7 +262,9 @@ export function SettingsTabs({
                     );
                 })}
             </nav>
-            <div className="min-w-0 max-w-full overflow-x-auto">{renderContent()}</div>
+            <div className="min-w-0 max-w-full overflow-x-auto">
+                {renderContent()}
+            </div>
         </div>
     );
 }

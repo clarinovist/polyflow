@@ -7,7 +7,12 @@ import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/core/prisma';
-import { getTenantActiveModules, buildWorkspaceEntryHrefs } from '@/lib/auth/access-policy';
+import {
+    getTenantActiveModules,
+    buildWorkspaceEntryHrefs,
+} from '@/lib/auth/access-policy';
+import { getMainPrisma } from '@/lib/core/prisma';
+import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
 
 export default async function DashboardLayout({
     children,
@@ -48,6 +53,23 @@ export default async function DashboardLayout({
         email: session.user?.email,
         role: (session.user as { role?: string }).role || 'WAREHOUSE',
     };
+    const tenantId = session.user.tenantId;
+    const currentTenant = tenantId
+        ? await getMainPrisma().tenant.findUnique({
+              where: { id: tenantId },
+              select: { id: true, name: true },
+          })
+        : null;
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> = [];
+    try {
+        workspaces = await getCentralWorkspaceOptions(
+            session.user.globalAccountId,
+        );
+    } catch {
+        // Workspace switching is optional navigation. The current tenant remains
+        // usable even if MAIN membership listing is temporarily unavailable.
+        workspaces = [];
+    }
 
     // Fetch permissions for the sidebar
     // Admin gets 'ALL' by default from the action logic, but let's be explicit if needed
@@ -92,6 +114,9 @@ export default async function DashboardLayout({
                 permissions={permissions}
                 activeModules={getTenantActiveModules()}
                 entryHrefs={buildWorkspaceEntryHrefs(permissions)}
+                currentTenantId={currentTenant?.id}
+                currentTenantName={currentTenant?.name}
+                workspaces={workspaces}
             />
 
             {/* Main Content */}

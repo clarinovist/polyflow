@@ -4,14 +4,31 @@ import LoginForm from '@/components/auth/login-form';
 import BrandPanel from '@/components/auth/brand-panel';
 import WorkspaceDiscovery from '@/components/auth/workspace-discovery';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 export default function LoginClient({
     subdomain,
     isAdminSubdomain,
+    centralSsoEnabled = false,
 }: {
     subdomain: string | null;
     isAdminSubdomain: boolean;
+    centralSsoEnabled?: boolean;
 }) {
+    const [invitationToken, setInvitationToken] = useState<string>();
+    useEffect(() => {
+        const fragment = new URLSearchParams(window.location.hash.slice(1));
+        const invite = fragment.get('invite');
+        if (invite) {
+            setInvitationToken(invite);
+            window.history.replaceState(
+                {},
+                '',
+                window.location.pathname + window.location.search,
+            );
+        }
+    }, []);
+
     // Determine what to show in the right panel
     const brandSubdomain = isAdminSubdomain ? 'admin' : subdomain;
 
@@ -69,7 +86,10 @@ export default function LoginClient({
                                         ease: 'easeInOut',
                                     }}
                                 >
-                                    <LoginForm />
+                                    <LoginForm
+                                        centralSsoEnabled={centralSsoEnabled}
+                                        invitationToken={invitationToken}
+                                    />
                                 </motion.div>
                             </AnimatePresence>
                         </>

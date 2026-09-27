@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { Role } from '@prisma/client';
 import { headers } from 'next/headers';
 import { extractSubdomain } from '@/lib/core/tenant';
+import { assertTenantSession } from '@/lib/auth/tenant-session';
+import { CentralIdentityService } from '@/services/auth/central-identity-service';
 import { AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
 import { getUserRoles, hasAnyRole } from '@/lib/auth/roles';
 
@@ -24,13 +26,22 @@ async function resolveTenantDb() {
         }
         if (!subdomain) return null;
 
-        const tenant = await prisma.tenant.findUnique({ where: { subdomain } });
+        const { getMainPrisma, getTenantDb } =
+            await import('@/lib/core/prisma');
+        const mainDb = getMainPrisma();
+        const tenant = await mainDb.tenant.findUnique({ where: { subdomain } });
         if (!tenant?.dbUrl) return null;
 
-        const { getTenantDb } = await import('@/lib/core/prisma');
-        return getTenantDb(tenant.dbUrl);
+        return {
+            tenantId: tenant.id,
+            subdomain,
+            tenantDb: getTenantDb(tenant.dbUrl),
+            mainDb,
+        };
     } catch {
-        return null;
+        // A request that names a tenant must never silently fall back to MAIN
+        // when registry resolution fails.
+        throw new AuthorizationError('Tenant tidak dapat diverifikasi.');
     }
 }
 
@@ -50,8 +61,22 @@ export async function requireAuth() {
 
     // Verify user exists in DB to prevent Foreign Key errors (stale sessions)
     // Use tenant-aware DB if available (important for multi-tenant setups)
-    const tenantDb = await resolveTenantDb();
-    const user = await (tenantDb || prisma).user.findUnique({
+    const tenant = await resolveTenantDb();
+    if (tenant) {
+        await assertTenantSession(
+            session,
+            { tenantId: tenant.tenantId, subdomain: tenant.subdomain },
+            new CentralIdentityService({
+                mainDb: tenant.mainDb,
+                loadTenantDb: async () => tenant.tenantDb,
+            }),
+            {
+                requireLocalBinding:
+                    process.env.REQUIRE_TENANT_SESSION_BINDING === 'true',
+            },
+        );
+    }
+    const user = await (tenant?.tenantDb || prisma).user.findUnique({
         where: { id: session.user.id },
         select: { id: true },
     });
@@ -168,9 +193,7 @@ export async function requireMaterialPathRole(
  * ADMIN role always passes. Users with `ALL` resources always pass.
  * Throws AuthorizationError if denied.
  */
-export async function requireWarehouseResourcePermission(
-    resourcePath: string,
-) {
+export async function requireWarehouseResourcePermission(resourcePath: string) {
     const session = await requireAuth();
     const sessionUser = session.user;
 
@@ -186,7 +209,9 @@ export async function requireWarehouseResourcePermission(
     });
 
     if (!dbUser || !dbUser.isActive) {
-        throw new AuthorizationError('User account tidak aktif atau tidak ditemukan.');
+        throw new AuthorizationError(
+            'User account tidak aktif atau tidak ditemukan.',
+        );
     }
 
     if (dbUser.role === 'ADMIN') {

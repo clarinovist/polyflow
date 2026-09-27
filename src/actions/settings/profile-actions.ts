@@ -46,22 +46,39 @@ export const updateOwnProfile = withTenant(async function updateOwnProfile(
         const userId = await requireUserId();
         const data = UpdateProfileSchema.parse(input);
 
-        // Email must be unique across the tenant (except for the user themselves).
-        const existing = await prisma.user.findUnique({
-            where: { email: data.email },
-            select: { id: true },
+        const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { authMode: true, email: true },
         });
-        if (existing && existing.id !== userId) {
-            throw new ConflictError(
-                'Email sudah digunakan oleh pengguna lain.',
+        if (!currentUser) throw new NotFoundError('User', userId);
+
+        // A central identity owns its verified email. Tenant profile edits
+        // must not silently redirect ownership of that account.
+        const isCentral = currentUser.authMode === 'CENTRAL';
+        if (isCentral && data.email !== currentUser.email) {
+            throw new ValidationError(
+                'Email akun pusat harus diubah melalui layanan login pusat.',
             );
+        }
+
+        if (!isCentral) {
+            // Email must be unique across the tenant (except for the user themselves).
+            const existing = await prisma.user.findUnique({
+                where: { email: data.email },
+                select: { id: true },
+            });
+            if (existing && existing.id !== userId) {
+                throw new ConflictError(
+                    'Email sudah digunakan oleh pengguna lain.',
+                );
+            }
         }
 
         const updated = await prisma.user.update({
             where: { id: userId },
             data: {
                 name: data.name,
-                email: data.email,
+                ...(!isCentral ? { email: data.email } : {}),
                 ...(data.locale ? { locale: data.locale } : {}),
             },
             select: { id: true, name: true, email: true, locale: true },
@@ -102,10 +119,16 @@ export const changeOwnPassword = withTenant(async function changeOwnPassword(
 
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, password: true },
+            select: { id: true, password: true, authMode: true },
         });
         if (!user) {
             throw new NotFoundError('User', userId);
+        }
+
+        if (user.authMode === 'CENTRAL') {
+            throw new ValidationError(
+                'Password akun pusat harus diubah melalui layanan login pusat.',
+            );
         }
 
         const valid = await bcrypt.compare(data.currentPassword, user.password);
@@ -201,6 +224,21 @@ export const removeOwnAvatar = withTenant(async function removeOwnAvatar() {
 export const logoutAllDevices = withTenant(async function logoutAllDevices() {
     return safeAction(async () => {
         const userId = await requireUserId();
+        const current = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { centralAccountId: true },
+        });
+        if (!current) throw new NotFoundError('User', userId);
+
+        // CENTRAL sessions are invalidated in MAIN first. If the tenant write
+        // then fails, the operation remains fail-closed globally.
+        if (current.centralAccountId) {
+            const { getMainPrisma } = await import('@/lib/core/prisma');
+            await getMainPrisma().globalAccount.update({
+                where: { id: current.centralAccountId },
+                data: { revocationVersion: { increment: 1 } },
+            });
+        }
         const updated = await prisma.user.update({
             where: { id: userId },
             data: { tokenVersion: { increment: 1 } },

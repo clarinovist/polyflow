@@ -42,6 +42,8 @@ export const authConfig = {
         },
     },
     callbacks: {
+        // Non-credential identity resolution runs in auth.ts, where Node/Prisma
+        // are available. Keep the shared Edge-safe config free of DB imports.
         // Fix: redirect to relative path when NEXTAUTH_URL is not set (multi-tenant)
         async redirect({ url, baseUrl }) {
             // When baseUrl is the Docker fallback (NEXTAUTH_URL not set),
@@ -220,7 +222,19 @@ export const authConfig = {
                             roles?: string[];
                             isSuperAdmin?: boolean;
                             allowedResources?: string[];
+                            tenantSubdomain?: string;
+                            globalAccountId?: string;
                         };
+
+                        // Edge middleware cannot query Prisma. CENTRAL sessions
+                        // are still bound fail-closed to the tenant host here;
+                        // full membership/version checks run in Node guards.
+                        if (
+                            user.globalAccountId &&
+                            user.tenantSubdomain !== hostname.split('.')[0]
+                        ) {
+                            return false;
+                        }
 
                         // === MOBILE ALLOWLIST GATE ===
                         // Only operational surfaces (sales/mobile, kiosk, my) are accessible on mobile.
@@ -428,6 +442,13 @@ export const authConfig = {
                     isSuperAdmin?: boolean;
                     allowedResources?: string[];
                     tokenVersion?: number;
+                    tenantId?: string;
+                    tenantSubdomain?: string;
+                    globalAccountId?: string;
+                    membershipId?: string;
+                    globalRevocationVersion?: number;
+                    membershipVersion?: number;
+                    localAuthVersion?: number;
                     impersonatedBy?: string;
                     impersonationExpiresAt?: number;
                 };
@@ -439,6 +460,13 @@ export const authConfig = {
                 token.isSuperAdmin = u.isSuperAdmin;
                 token.allowedResources = u.allowedResources;
                 token.tokenVersion = u.tokenVersion;
+                token.tenantId = u.tenantId;
+                token.tenantSubdomain = u.tenantSubdomain;
+                token.globalAccountId = u.globalAccountId;
+                token.membershipId = u.membershipId;
+                token.globalRevocationVersion = u.globalRevocationVersion;
+                token.membershipVersion = u.membershipVersion;
+                token.localAuthVersion = u.localAuthVersion;
                 token.lastActive = Math.floor(Date.now() / 1000);
                 // Impersonation claims — only present on sessions started via
                 // impersonateTenant(). Propagate to token so session()/authorized()
@@ -526,6 +554,25 @@ export const authConfig = {
                 ).allowedResources = token.allowedResources;
                 (session.user as { tokenVersion?: unknown }).tokenVersion =
                     token.tokenVersion;
+                (session.user as { tenantId?: unknown }).tenantId =
+                    token.tenantId;
+                (
+                    session.user as { tenantSubdomain?: unknown }
+                ).tenantSubdomain = token.tenantSubdomain;
+                (
+                    session.user as { globalAccountId?: unknown }
+                ).globalAccountId = token.globalAccountId;
+                (session.user as { membershipId?: unknown }).membershipId =
+                    token.membershipId;
+                (
+                    session.user as { globalRevocationVersion?: unknown }
+                ).globalRevocationVersion = token.globalRevocationVersion;
+                (
+                    session.user as { membershipVersion?: unknown }
+                ).membershipVersion = token.membershipVersion;
+                (
+                    session.user as { localAuthVersion?: unknown }
+                ).localAuthVersion = token.localAuthVersion;
                 (session.user as { impersonatedBy?: unknown }).impersonatedBy =
                     token.impersonatedBy;
                 (

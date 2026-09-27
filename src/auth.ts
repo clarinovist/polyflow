@@ -15,12 +15,97 @@ import {
 } from '@/lib/auth/auth-log-filter';
 import { checkMainLoginRateLimit } from '@/lib/auth/login-rate-limit';
 import { verifyImpersonationSignature } from '@/lib/auth/impersonation-signature';
+import {
+    buildCentralOidcProvider,
+    type CentralOidcProfile,
+} from '@/lib/auth/central-oidc-config';
+import { resolveCentralLoginUser } from '@/services/auth/central-login-service';
+import { cookies, headers } from 'next/headers';
+import {
+    CENTRAL_INVITATION_COOKIE,
+    centralInvitationCookieOptions,
+} from '@/lib/auth/central-invitation-cookie';
+import { createTenantInvitationService } from '@/services/auth/tenant-invitation-service';
+import { CentralIdentityService } from '@/services/auth/central-identity-service';
 
 function getRequestIp(request: Request | undefined): string {
     return (
         request?.headers?.get('x-forwarded-for')?.split(',')[0]?.trim() ||
         request?.headers?.get('x-real-ip') ||
         '127.0.0.1'
+    );
+}
+
+const centralOidcProvider = buildCentralOidcProvider();
+
+async function resolveCentralOidcUser(profile: CentralOidcProfile) {
+    const requestHeaders = await headers();
+    const subdomain =
+        requestHeaders.get('x-tenant-subdomain') ||
+        extractSubdomain(requestHeaders.get('host') || '');
+    if (!subdomain || !profile.iss || !profile.sub || !profile.email) {
+        throw new Error('CentralTenantContextMissing');
+    }
+
+    const { getMainPrisma, getTenantDb } = await import('@/lib/core/prisma');
+    const mainDb = getMainPrisma();
+    const cookieStore = await cookies();
+    const invitationToken = cookieStore.get(CENTRAL_INVITATION_COOKIE)?.value;
+    if (invitationToken) {
+        const tenant = await mainDb.tenant.findUnique({
+            where: { subdomain },
+            select: { id: true, dbUrl: true },
+        });
+        if (!tenant?.dbUrl) throw new Error('CentralTenantContextMissing');
+        const loadInvitationTenant = async (tenantId: string) => {
+            if (tenantId !== tenant.id)
+                throw new Error('CentralTenantContextMismatch');
+            return getTenantDb(tenant.dbUrl);
+        };
+        const accepted = await createTenantInvitationService({
+            mainDb,
+            loadTenantDb: loadInvitationTenant,
+        }).acceptInvitation({
+            token: invitationToken,
+            expectedTenantId: tenant.id,
+            identity: {
+                issuer: profile.iss,
+                subject: profile.sub,
+                email: profile.email,
+                emailVerified: [true, 'true'].includes(
+                    profile.email_verified ?? false,
+                ),
+            },
+        });
+        await new CentralIdentityService({
+            mainDb,
+            loadTenantDb: loadInvitationTenant,
+        }).activateExistingUser({
+            globalAccountId: accepted.globalAccountId,
+            tenantId: accepted.tenantId,
+            tenantUserId: accepted.tenantUserId,
+        });
+        cookieStore.set(CENTRAL_INVITATION_COOKIE, '', {
+            ...centralInvitationCookieOptions(),
+            maxAge: 0,
+        });
+    }
+
+    return resolveCentralLoginUser(
+        {
+            tenantSubdomain: subdomain,
+            identity: {
+                issuer: profile.iss,
+                subject: profile.sub,
+                email: profile.email,
+                emailVerified: [true, 'true'].includes(
+                    profile.email_verified ?? false,
+                ),
+                name: profile.name,
+                image: profile.picture,
+            },
+        },
+        { mainDb, loadTenantDb: getTenantDb },
     );
 }
 
@@ -60,7 +145,30 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             }
         },
     },
+    callbacks: {
+        ...authConfig.callbacks,
+        async signIn(params) {
+            if (params.account?.provider !== 'central-oidc') return true;
+            try {
+                // Auth.js 5 beta passes this same user object from signIn to
+                // handleLoginOrRegister and then into the JWT callback when no
+                // adapter is configured. Keep a regression test around this
+                // installed-version contract before upgrading Auth.js.
+                Object.assign(
+                    params.user,
+                    await resolveCentralOidcUser(
+                        params.profile as CentralOidcProfile,
+                    ),
+                );
+                return true;
+            } catch {
+                // Never leak whether an account, tenant, or membership exists.
+                return false;
+            }
+        },
+    },
     providers: [
+        ...(centralOidcProvider ? [centralOidcProvider] : []),
         Credentials({
             async authorize(credentials, request) {
                 const parsedCredentials = z
@@ -129,6 +237,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     }
 
                     let user;
+                    let resolvedTenantId: string | undefined;
                     let tenantDbRef: PrismaClient | null = null;
 
                     if (subdomain) {
@@ -154,6 +263,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             }
 
                             if (tenant?.dbUrl) {
+                                resolvedTenantId = tenant.id;
                                 tenantDbRef = getTenantDb(tenant.dbUrl);
                                 const { tenantIdContext } =
                                     await import('@/lib/core/prisma');
@@ -193,6 +303,14 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                     if (user.isActive === false) {
                         return null;
+                    }
+
+                    // Once a tenant-local actor is linked to a central identity,
+                    // its old password must never remain a fallback credential.
+                    // A signed superadmin impersonation remains a separate,
+                    // explicitly verified support path.
+                    if (!isImpersonation && user.authMode === 'CENTRAL') {
+                        throw new Error('CentralLoginRequired');
                     }
 
                     const passwordsMatch =
@@ -261,6 +379,14 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             // Deliberately NOT verified in the Edge middleware (auth.config.ts)
                             // to avoid a Prisma query on every request in that runtime.
                             tokenVersion: user.tokenVersion,
+                            // Bind every tenant session to the server-resolved host.
+                            // Never infer this later from a local user id because ids
+                            // can legitimately overlap across tenant databases.
+                            tenantId: resolvedTenantId,
+                            tenantSubdomain:
+                                resolvedTenantId && subdomain
+                                    ? subdomain
+                                    : undefined,
                             // Only set during impersonation — absence = normal login.
                             impersonatedBy: isImpersonation
                                 ? impersonationBy

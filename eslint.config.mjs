@@ -14,6 +14,11 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "scripts/**",
     "coverage/**",
+    // Local operational plans/evidence are gitignored and may contain compiled
+    // third-party fixtures. They are not application source and must not make
+    // the repository lint gate depend on private workspace artifacts.
+    "docs/plan/**",
+    "graphify-out/**",
   ]),
   {
     rules: {

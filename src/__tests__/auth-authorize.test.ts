@@ -89,6 +89,40 @@ describe('credentials authorize behavior', () => {
         ).resolves.toBeNull();
     });
 
+    it('rejects a legacy password for a centrally linked tenant user', async () => {
+        vi.resetModules();
+        const captured = { config: null as CapturedAuthConfig | null };
+        mockAuthModule(captured);
+        vi.doMock('@/lib/core/prisma', () => ({
+            prisma: {
+                user: {
+                    findUnique: vi.fn().mockResolvedValue({
+                        id: 'user-central',
+                        name: 'Central User',
+                        email: 'central@example.com',
+                        password: 'legacy-hash',
+                        role: 'ADMIN',
+                        isActive: true,
+                        isSuperAdmin: false,
+                        avatarUrl: null,
+                        tokenVersion: 1,
+                        authMode: 'CENTRAL',
+                    }),
+                },
+            },
+        }));
+
+        await import('@/auth');
+
+        const authorize = captured.config?.providers[0]?.authorize;
+        await expect(
+            authorize?.({
+                email: 'central@example.com',
+                password: 'secret123',
+            }),
+        ).rejects.toThrow('CentralLoginRequired');
+    });
+
     it('rate limits direct credentials callback attempts inside authorize', async () => {
         vi.resetModules();
         process.env.LOGIN_RATE_LIMIT_IDENTITY_MAX = '1';
