@@ -224,6 +224,47 @@ export class TenantInvitationService {
         return { invitationId: invitation.id, token, expiresAt };
     }
 
+    async revokePendingInvitation(input: {
+        tenantId: string;
+        tenantUserId: string;
+        actor: InvitationActor;
+    }): Promise<{ invitationId: string; revoked: boolean }> {
+        const invitation =
+            await this.dependencies.mainDb.tenantInvitation.findFirst({
+                where: {
+                    tenantId: input.tenantId,
+                    tenantUserId: input.tenantUserId,
+                    status: PENDING,
+                },
+                orderBy: { createdAt: 'desc' },
+                select: { id: true },
+            });
+        if (!invitation) {
+            throw new NotFoundError('TenantInvitation');
+        }
+
+        return this.dependencies.mainDb.$transaction(async (tx) => {
+            const revoked = await tx.tenantInvitation.updateMany({
+                where: { id: invitation.id, status: PENDING },
+                data: { status: 'REVOKED' },
+            });
+            if (revoked.count !== 1) {
+                return { invitationId: invitation.id, revoked: false };
+            }
+            await tx.centralIdentityEvent.create({
+                data: {
+                    action: 'TENANT_INVITATION_REVOKED',
+                    tenantId: input.tenantId,
+                    tenantUserId: input.tenantUserId,
+                    invitationId: invitation.id,
+                    actorType: 'TENANT_USER',
+                    actorId: input.actor.userId,
+                },
+            });
+            return { invitationId: invitation.id, revoked: true };
+        });
+    }
+
     async acceptInvitation(input: {
         token: string;
         expectedTenantId: string;

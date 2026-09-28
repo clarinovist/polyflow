@@ -209,6 +209,34 @@ describe('TenantInvitationService', () => {
         expect(dependencies.mainDb.$transaction).not.toHaveBeenCalled();
     });
 
+    it('revokes a pending invitation so a lost raw token can be replaced', async () => {
+        const dependencies = mocks();
+        vi.mocked(
+            dependencies.mainDb.tenantInvitation.findFirst,
+        ).mockResolvedValue({ id: invitation.id } as never);
+        dependencies.tx.tenantInvitation.updateMany.mockResolvedValue({ count: 1 });
+
+        await expect(
+            dependencies.service.revokePendingInvitation({
+                tenantId: invitation.tenantId,
+                tenantUserId: invitation.tenantUserId,
+                actor: { userId: 'admin-a' },
+            }),
+        ).resolves.toEqual({ invitationId: invitation.id, revoked: true });
+        expect(dependencies.tx.tenantInvitation.updateMany).toHaveBeenCalledWith({
+            where: { id: invitation.id, status: 'PENDING' },
+            data: { status: 'REVOKED' },
+        });
+        expect(dependencies.tx.centralIdentityEvent.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    action: 'TENANT_INVITATION_REVOKED',
+                    actorId: 'admin-a',
+                }),
+            }),
+        );
+    });
+
     it('creates the central account from a verified invitation identity', async () => {
         const dependencies = mocks();
         vi.mocked(

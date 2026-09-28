@@ -11,6 +11,7 @@ import {
     setUserRoles,
     inviteUserToCentralLogin,
     revokeUserCentralMembership,
+    cancelUserCentralInvitation,
     CreateUserInput,
     UpdateUserInput,
 } from '@/actions/admin/users';
@@ -310,6 +311,20 @@ export function UsersTab({
             }
         } else {
             toast.error(result.error || 'Gagal membuat undangan akun pusat');
+        }
+        setIsSubmitting(false);
+    };
+
+    const handleCentralInviteCancel = async (userId: string) => {
+        setIsSubmitting(true);
+        const result = await cancelUserCentralInvitation(userId);
+        if (result.success) {
+            toast.success(
+                'Undangan lama dibatalkan. Klik ikon kunci lagi untuk membuat tautan baru.',
+            );
+            fetchUsers();
+        } else {
+            toast.error(result.error || 'Gagal membatalkan undangan');
         }
         setIsSubmitting(false);
     };
@@ -759,10 +774,29 @@ export function UsersTab({
                                                             </Badge>
                                                         )}
                                                     {centralSsoEnabled &&
-                                                    user.authMode ===
-                                                        'CENTRAL' &&
                                                     user.centralMembershipStatus ===
-                                                        'ACTIVE' ? (
+                                                        'PENDING' ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 text-muted-foreground hover:text-destructive"
+                                                            onClick={() =>
+                                                                handleCentralInviteCancel(
+                                                                    user.id,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                isSubmitting
+                                                            }
+                                                            title="Batalkan undangan Google"
+                                                        >
+                                                            Batalkan
+                                                        </Button>
+                                                    ) : centralSsoEnabled &&
+                                                      user.authMode ===
+                                                          'CENTRAL' &&
+                                                      user.centralMembershipStatus ===
+                                                          'ACTIVE' ? (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"

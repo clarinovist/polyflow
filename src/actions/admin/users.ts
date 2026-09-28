@@ -232,6 +232,41 @@ export const inviteUserToCentralLogin = withTenant(
     },
 );
 
+export const cancelUserCentralInvitation = withTenant(
+    async function cancelUserCentralInvitation(userId: string) {
+        return safeAction(async () => {
+            const session = await checkAdmin();
+            const actorId = getActorId(session);
+            const tenantId = getTenantIdFromContext();
+            const tenantDb = getTenantDbFromContext();
+            if (!tenantId || !tenantDb) {
+                throw new BusinessRuleError('Konteks tenant tidak tersedia.');
+            }
+            const target = await tenantDb.user.findUnique({
+                where: { id: userId },
+                select: { id: true },
+            });
+            if (!target)
+                throw new BusinessRuleError('Pengguna tidak ditemukan.');
+
+            const result = await createTenantInvitationService({
+                mainDb: getMainPrisma(),
+                loadTenantDb: async (requestedTenantId) => {
+                    if (requestedTenantId !== tenantId)
+                        throw new AuthorizationError('Tenant tidak cocok.');
+                    return tenantDb;
+                },
+            }).revokePendingInvitation({
+                tenantId,
+                tenantUserId: userId,
+                actor: { userId: actorId },
+            });
+            revalidatePath('/dashboard/settings');
+            return result;
+        });
+    },
+);
+
 export const revokeUserCentralMembership = withTenant(
     async function revokeUserCentralMembership(userId: string) {
         return safeAction(async () => {
