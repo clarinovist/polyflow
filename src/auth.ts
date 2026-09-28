@@ -27,6 +27,10 @@ import {
 } from '@/lib/auth/central-invitation-cookie';
 import { createTenantInvitationService } from '@/services/auth/tenant-invitation-service';
 import { CentralIdentityService } from '@/services/auth/central-identity-service';
+import {
+    logCentralLoginFailure,
+    type CentralLoginDiagnosticContext,
+} from '@/lib/auth/central-login-diagnostics';
 
 function getRequestIp(request: Request | undefined): string {
     return (
@@ -38,7 +42,10 @@ function getRequestIp(request: Request | undefined): string {
 
 const centralOidcProvider = buildCentralOidcProvider();
 
-async function resolveCentralOidcUser(profile: CentralOidcProfile) {
+async function resolveCentralOidcUser(
+    profile: CentralOidcProfile,
+    diagnostic: CentralLoginDiagnosticContext,
+) {
     const requestHeaders = await headers();
     const subdomain =
         requestHeaders.get('x-tenant-subdomain') ||
@@ -49,9 +56,12 @@ async function resolveCentralOidcUser(profile: CentralOidcProfile) {
 
     const { getMainPrisma, getTenantDb } = await import('@/lib/core/prisma');
     const mainDb = getMainPrisma();
+    diagnostic.stage = 'INVITATION_COOKIE_READ';
     const cookieStore = await cookies();
     const invitationToken = cookieStore.get(CENTRAL_INVITATION_COOKIE)?.value;
+    diagnostic.invitationPresent = !!invitationToken;
     if (invitationToken) {
+        diagnostic.stage = 'INVITATION_TENANT_LOOKUP';
         const tenant = await mainDb.tenant.findUnique({
             where: { subdomain },
             select: { id: true, dbUrl: true },
@@ -62,6 +72,7 @@ async function resolveCentralOidcUser(profile: CentralOidcProfile) {
                 throw new Error('CentralTenantContextMismatch');
             return getTenantDb(tenant.dbUrl);
         };
+        diagnostic.stage = 'INVITATION_ACCEPT';
         const accepted = await createTenantInvitationService({
             mainDb,
             loadTenantDb: loadInvitationTenant,
@@ -77,6 +88,7 @@ async function resolveCentralOidcUser(profile: CentralOidcProfile) {
                 ),
             },
         });
+        diagnostic.stage = 'MEMBERSHIP_ACTIVATE';
         await new CentralIdentityService({
             mainDb,
             loadTenantDb: loadInvitationTenant,
@@ -85,12 +97,14 @@ async function resolveCentralOidcUser(profile: CentralOidcProfile) {
             tenantId: accepted.tenantId,
             tenantUserId: accepted.tenantUserId,
         });
+        diagnostic.stage = 'INVITATION_COOKIE_CLEAR';
         cookieStore.set(CENTRAL_INVITATION_COOKIE, '', {
             ...centralInvitationCookieOptions(),
             maxAge: 0,
         });
     }
 
+    diagnostic.stage = 'LOGIN_USER_RESOLVE';
     return resolveCentralLoginUser(
         {
             tenantSubdomain: subdomain,
@@ -149,19 +163,24 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         ...authConfig.callbacks,
         async signIn(params) {
             if (params.account?.provider !== 'central-oidc') return true;
+            const diagnostic: CentralLoginDiagnosticContext = {
+                stage: 'REQUEST_CONTEXT',
+                invitationPresent: null,
+            };
             try {
                 // Auth.js 5 beta passes this same user object from signIn to
                 // handleLoginOrRegister and then into the JWT callback when no
                 // adapter is configured. Keep a regression test around this
                 // installed-version contract before upgrading Auth.js.
-                Object.assign(
-                    params.user,
-                    await resolveCentralOidcUser(
-                        params.profile as CentralOidcProfile,
-                    ),
+                const resolvedUser = await resolveCentralOidcUser(
+                    params.profile as CentralOidcProfile,
+                    diagnostic,
                 );
+                diagnostic.stage = 'SESSION_USER_ASSIGN';
+                Object.assign(params.user, resolvedUser);
                 return true;
-            } catch {
+            } catch (error) {
+                logCentralLoginFailure(diagnostic, error);
                 // Never leak whether an account, tenant, or membership exists.
                 return false;
             }
