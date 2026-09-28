@@ -151,7 +151,7 @@ export const getUsers = withTenant(async function getUsers() {
                           status: 'PENDING',
                           expiresAt: { gt: new Date() },
                       },
-                      select: { tenantUserId: true },
+                      select: { id: true, tenantUserId: true },
                   })
                 : [],
         ]);
@@ -161,8 +161,8 @@ export const getUsers = withTenant(async function getUsers() {
                 membership.status,
             ]),
         );
-        const pendingInvitations = new Set(
-            invitations.map((invitation) => invitation.tenantUserId),
+        const pendingInvitations = new Map(
+            invitations.map((invitation) => [invitation.tenantUserId, invitation.id]),
         );
         return users.map((u) => ({
             ...u,
@@ -173,6 +173,7 @@ export const getUsers = withTenant(async function getUsers() {
             centralInvitationStatus: pendingInvitations.has(u.id)
                 ? 'PENDING'
                 : null,
+            centralInvitationId: pendingInvitations.get(u.id) ?? null,
         }));
     });
 });
@@ -195,7 +196,7 @@ export const inviteUserToCentralLogin = withTenant(
 
             const target = await tenantDb.user.findUnique({
                 where: { id: userId },
-                select: { id: true, email: true, role: true },
+                select: { id: true, name: true, email: true, role: true },
             });
             if (!target)
                 throw new BusinessRuleError('Pengguna tidak ditemukan.');
@@ -222,7 +223,7 @@ export const inviteUserToCentralLogin = withTenant(
 
             const tenant = await getMainPrisma().tenant.findUnique({
                 where: { id: tenantId },
-                select: { id: true, subdomain: true, status: true },
+                select: { id: true, name: true, subdomain: true, status: true },
             });
             if (!tenant) throw new BusinessRuleError('Tenant tidak ditemukan.');
             // MAIN already contains the atomic security event. The tenant audit
@@ -246,6 +247,8 @@ export const inviteUserToCentralLogin = withTenant(
                 // Caddy/application access logs or Referer headers.
                 invitationUrl: `${buildTenantOrigin(tenant)}/login#invite=${encodeURIComponent(invitation.token)}`,
                 expiresAt: invitation.expiresAt,
+                recipient: { id: target.id, name: target.name, email: target.email },
+                tenant: { name: tenant.name, origin: buildTenantOrigin(tenant) },
             };
         });
     },

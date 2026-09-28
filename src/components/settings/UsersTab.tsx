@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Role } from '@prisma/client';
 import {
     getUsers,
@@ -77,6 +77,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SYSTEM_ROLES } from '@/lib/auth/system-roles';
+import { GoogleInvitationDialog, type GoogleInvitation } from './GoogleInvitationDialog';
 
 interface UserData {
     id: string;
@@ -90,6 +91,15 @@ interface UserData {
     centralAccountId: string | null;
     centralMembershipStatus: 'PENDING' | 'ACTIVE' | 'REVOKED' | null;
     centralInvitationStatus: 'PENDING' | null;
+    centralInvitationId: string | null;
+}
+
+function canReopenInvitation(user: UserData, invitation?: GoogleInvitation) {
+    return !!invitation && user.isActive &&
+        user.centralInvitationStatus === 'PENDING' &&
+        user.centralInvitationId === invitation.invitationId &&
+        user.email === invitation.recipient.email &&
+        new Date(invitation.expiresAt).getTime() > Date.now();
 }
 
 const USER_ROLES = SYSTEM_ROLES.map((r) => ({
@@ -112,6 +122,13 @@ export function UsersTab({
     const [searchQuery, setSearchQuery] = useState('');
     const [filterRole, setFilterRole] = useState<string>('ALL');
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
+    // Per-actor, page-memory only; raw invitation URLs must never be persisted.
+    const [invitations, setInvitations] = useState<Record<string, GoogleInvitation>>({});
+    const [openInvitation, setOpenInvitation] = useState<GoogleInvitation | null>(null);
+    const [replaceTarget, setReplaceTarget] = useState<UserData | null>(null);
+    const invitationBusy = useRef(false);
+    const invitationControls = useRef<HTMLDivElement>(null);
+    const [invitationPending, setInvitationPending] = useState(false);
 
     // Form state for creation
     const [formData, setFormData] = useState<CreateUserInput>({
@@ -155,7 +172,14 @@ export function UsersTab({
     const fetchUsers = async () => {
         const result = await getUsers();
         if (result.success && result.data) {
-            setUsers(result.data as UserData[]);
+            const freshUsers = result.data as UserData[];
+            setUsers(freshUsers);
+            setInvitations((cached) => Object.fromEntries(Object.entries(cached).filter(
+                ([id, invitation]) => freshUsers.some((user) => user.id === id && canReopenInvitation(user, invitation)),
+            )));
+            setOpenInvitation((current) => current && freshUsers.some(
+                (user) => user.id === current.recipient.id && canReopenInvitation(user, current),
+            ) ? current : null);
         } else {
             toast.error('Gagal memuat pengguna');
         }
@@ -295,39 +319,78 @@ export function UsersTab({
         }
     };
 
-    const handleCentralInvite = async (userId: string) => {
-        setIsSubmitting(true);
-        const result = await inviteUserToCentralLogin(userId);
-        if (result.success) {
-            const invitationUrl = result.data.invitationUrl;
-            try {
-                await navigator.clipboard.writeText(invitationUrl);
-                toast.success(
-                    'Tautan undangan login Google disalin. Kirim melalui jalur privat.',
-                );
-            } catch {
-                toast.error(
-                    'Undangan dibuat, tetapi tautan tidak dapat disalin. Buat ulang setelah izin clipboard diperbaiki.',
-                );
+    const forgetInvitation = (userId: string) => {
+        setInvitations((cached) => {
+            const next = { ...cached };
+            delete next[userId];
+            return next;
+        });
+        setOpenInvitation((current) => current?.recipient.id === userId ? null : current);
+    };
+
+    const handleCentralInvite = async (userId: string, replace = false) => {
+        if (invitationBusy.current) return;
+        invitationBusy.current = true;
+        setInvitationPending(true);
+        let cancelled = false;
+        try {
+            if (replace) {
+                const revoked = await cancelUserCentralInvitation(userId);
+                if (!revoked.success) {
+                    toast.error(revoked.error || 'Gagal membatalkan undangan lama.');
+                    return;
+                }
+                forgetInvitation(userId);
+                if (!revoked.data.revoked) {
+                    toast.error('Status undangan telah berubah. Muat ulang daftar sebelum melanjutkan.');
+                    return;
+                }
+                cancelled = true;
             }
-        } else {
-            toast.error(result.error || 'Gagal membuat undangan akun pusat');
+            const result = await inviteUserToCentralLogin(userId);
+            if (!result.success) {
+                toast.error(cancelled
+                    ? 'Undangan lama sudah dibatalkan, tetapi tautan baru belum dibuat. Coba Buat undangan lagi.'
+                    : result.error || 'Gagal membuat undangan Google.');
+                return;
+            }
+            setInvitations((cached) => ({ ...cached, [userId]: result.data }));
+            setUsers((current) => current.map((user) => user.id === userId ? {
+                ...user, centralInvitationStatus: 'PENDING', centralInvitationId: result.data.invitationId,
+            } : user));
+            setReplaceTarget(null);
+            setOpenInvitation(result.data);
+        } catch {
+            toast.error(cancelled
+                ? 'Undangan lama sudah dibatalkan. Pembuatan baru belum terkonfirmasi; periksa status sebelum mencoba lagi.'
+                : 'Hasil pembuatan undangan belum terkonfirmasi. Periksa status sebelum mencoba lagi.');
+        } finally {
+            setReplaceTarget(null);
+            try { await fetchUsers(); } catch { toast.error('Gagal memperbarui daftar pengguna.'); }
+            invitationBusy.current = false;
+            setInvitationPending(false);
         }
-        setIsSubmitting(false);
     };
 
     const handleCentralInviteCancel = async (userId: string) => {
-        setIsSubmitting(true);
-        const result = await cancelUserCentralInvitation(userId);
-        if (result.success) {
-            toast.success(
-                'Undangan lama dibatalkan. Klik ikon kunci lagi untuk membuat tautan baru.',
-            );
-            fetchUsers();
-        } else {
-            toast.error(result.error || 'Gagal membatalkan undangan');
+        if (invitationBusy.current) return;
+        invitationBusy.current = true;
+        setInvitationPending(true);
+        try {
+            const result = await cancelUserCentralInvitation(userId);
+            if (result.success) {
+                forgetInvitation(userId);
+                toast.success(result.data.revoked ? 'Undangan Google dibatalkan.' : 'Status undangan telah berubah.');
+            } else {
+                toast.error(result.error || 'Gagal membatalkan undangan');
+            }
+        } catch {
+            toast.error('Pembatalan belum terkonfirmasi. Periksa status sebelum mencoba lagi.');
+        } finally {
+            try { await fetchUsers(); } catch { toast.error('Gagal memperbarui daftar pengguna.'); }
+            invitationBusy.current = false;
+            setInvitationPending(false);
         }
-        setIsSubmitting(false);
     };
 
     const handleCentralRevoke = async (userId: string) => {
@@ -374,7 +437,7 @@ export function UsersTab({
     };
 
     return (
-        <Card>
+        <Card ref={invitationControls}>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle>Manajemen Pengguna</CardTitle>
@@ -782,6 +845,24 @@ export function UsersTab({
                                                     {centralSsoEnabled &&
                                                     user.centralInvitationStatus ===
                                                         'PENDING' ? (
+                                                        <>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="min-h-11"
+                                                            disabled={isSubmitting || invitationPending || !user.isActive}
+                                                            data-invitation-user-id={user.id}
+                                                            aria-label={`Tautan undangan Google untuk ${user.name || user.email}`}
+                                                            onClick={() => {
+                                                                if (canReopenInvitation(user, invitations[user.id])) {
+                                                                    setOpenInvitation(invitations[user.id]);
+                                                                } else {
+                                                                    setReplaceTarget(user);
+                                                                }
+                                                            }}
+                                                        >
+                                                            {canReopenInvitation(user, invitations[user.id]) ? 'Lihat tautan' : 'Buat ulang undangan'}
+                                                        </Button>
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -792,12 +873,14 @@ export function UsersTab({
                                                                 )
                                                             }
                                                             disabled={
-                                                                isSubmitting
+                                                                isSubmitting || invitationPending
                                                             }
                                                             title="Batalkan undangan Google"
+                                                            aria-label={`Batalkan undangan Google untuk ${user.name || user.email}`}
                                                         >
                                                             Batalkan
                                                         </Button>
+                                                        </>
                                                     ) : centralSsoEnabled &&
                                                       user.authMode ===
                                                           'CENTRAL' &&
@@ -813,7 +896,7 @@ export function UsersTab({
                                                                 )
                                                             }
                                                             disabled={
-                                                                isSubmitting
+                                                                isSubmitting || invitationPending
                                                             }
                                                             title="Cabut akses login Google"
                                                         >
@@ -830,10 +913,11 @@ export function UsersTab({
                                                                 )
                                                             }
                                                             disabled={
-                                                                isSubmitting ||
+                                                                isSubmitting || invitationPending ||
                                                                 !user.isActive
                                                             }
                                                             title="Buat undangan login Google"
+                                                            data-invitation-user-id={user.id}
                                                             aria-label={`Buat undangan login Google untuk ${user.name || user.email}`}
                                                         >
                                                             <KeyRound className="h-4 w-4" />
@@ -1207,6 +1291,42 @@ export function UsersTab({
                     </>
                 )}
             </CardContent>
+            {openInvitation && (
+                <GoogleInvitationDialog
+                    key={openInvitation.invitationId}
+                    invitation={openInvitation}
+                    onClose={() => setOpenInvitation(null)}
+                    onAfterClose={() => {
+                        const buttons = invitationControls.current?.querySelectorAll<HTMLButtonElement>('[data-invitation-user-id]');
+                        const trigger = buttons && Array.from(buttons).find(button => button.dataset.invitationUserId === openInvitation.recipient.id);
+                        trigger?.focus();
+                    }}
+                />
+            )}
+            <AlertDialog open={!!replaceTarget} onOpenChange={(open) => {
+                if (!open && !invitationPending) setReplaceTarget(null);
+            }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Buat ulang undangan Google?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tautan lama untuk <strong>{replaceTarget?.name || replaceTarget?.email}</strong>{' '}
+                            ({replaceTarget?.email}) tidak tersimpan di halaman ini.
+                            Membuat ulang akan membatalkan tautan lama. Kirim hanya tautan baru kepada penerima.
+                            Akun, role, dan riwayat tidak diubah.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={invitationPending}>Kembali</AlertDialogCancel>
+                        <AlertDialogAction disabled={invitationPending} onClick={(event) => {
+                            event.preventDefault();
+                            if (replaceTarget) void handleCentralInvite(replaceTarget.id, true);
+                        }}>
+                            {invitationPending ? 'Memproses…' : 'Batalkan tautan lama & buat baru'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     );
 }
