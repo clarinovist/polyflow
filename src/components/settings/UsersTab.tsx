@@ -89,6 +89,7 @@ interface UserData {
     authMode: 'LOCAL' | 'CENTRAL';
     centralAccountId: string | null;
     centralMembershipStatus: 'PENDING' | 'ACTIVE' | 'REVOKED' | null;
+    centralInvitationStatus: 'PENDING' | null;
 }
 
 const USER_ROLES = SYSTEM_ROLES.map((r) => ({
@@ -761,8 +762,13 @@ export function UsersTab({
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
                                                     {centralSsoEnabled &&
-                                                        user.authMode ===
-                                                            'CENTRAL' && (
+                                                        (user.centralInvitationStatus ===
+                                                        'PENDING' ? (
+                                                            <Badge variant="outline">
+                                                                Google pending
+                                                            </Badge>
+                                                        ) : user.authMode ===
+                                                          'CENTRAL' ? (
                                                             <Badge variant="outline">
                                                                 {user.centralMembershipStatus ===
                                                                 'ACTIVE'
@@ -772,9 +778,9 @@ export function UsersTab({
                                                                       ? 'Google dicabut'
                                                                       : 'Google pending'}
                                                             </Badge>
-                                                        )}
+                                                        ) : null)}
                                                     {centralSsoEnabled &&
-                                                    user.centralMembershipStatus ===
+                                                    user.centralInvitationStatus ===
                                                         'PENDING' ? (
                                                         <Button
                                                             variant="ghost"

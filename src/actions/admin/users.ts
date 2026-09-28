@@ -129,9 +129,10 @@ export const getUsers = withTenant(async function getUsers() {
         const centralIds = users
             .map((user) => user.centralAccountId)
             .filter((id): id is string => !!id);
-        const memberships =
+        const userIds = users.map((user) => user.id);
+        const [memberships, invitations] = await Promise.all([
             tenantId && centralIds.length > 0
-                ? await getMainPrisma().tenantMembership.findMany({
+                ? getMainPrisma().tenantMembership.findMany({
                       where: {
                           tenantId,
                           globalAccountId: { in: centralIds },
@@ -141,18 +142,36 @@ export const getUsers = withTenant(async function getUsers() {
                           status: true,
                       },
                   })
-                : [];
+                : [],
+            tenantId && userIds.length > 0
+                ? getMainPrisma().tenantInvitation.findMany({
+                      where: {
+                          tenantId,
+                          tenantUserId: { in: userIds },
+                          status: 'PENDING',
+                          expiresAt: { gt: new Date() },
+                      },
+                      select: { tenantUserId: true },
+                  })
+                : [],
+        ]);
         const membershipStatus = new Map(
             memberships.map((membership) => [
                 membership.globalAccountId,
                 membership.status,
             ]),
         );
+        const pendingInvitations = new Set(
+            invitations.map((invitation) => invitation.tenantUserId),
+        );
         return users.map((u) => ({
             ...u,
             roles: u.roles.map((r) => r.role),
             centralMembershipStatus: u.centralAccountId
                 ? (membershipStatus.get(u.centralAccountId) ?? null)
+                : null,
+            centralInvitationStatus: pendingInvitations.has(u.id)
+                ? 'PENDING'
                 : null,
         }));
     });
