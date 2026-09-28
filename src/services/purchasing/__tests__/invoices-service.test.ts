@@ -20,6 +20,9 @@ vi.mock('@/lib/core/prisma', () => ({
         appSetting: {
             findUnique: vi.fn().mockResolvedValue(null),
         },
+        auditLog: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
         $transaction: vi.fn(async (callback) => callback({
             purchaseInvoice: {
                 findUnique: vi.fn(),
@@ -646,6 +649,32 @@ describe('getOutstandingPurchaseInvoices', () => {
 describe('generateBillNumber', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(prisma.auditLog.findMany).mockResolvedValue([]);
+    });
+
+    it.each([
+        ['0005', ['0007'], '0008'],
+        ['0008', ['0005'], '0009'],
+        [null, ['0007', '0010', '0009'], '0011'],
+        ['0005', ['invalid', '0009junk'], '0006'],
+    ])('keeps removed bill numbers reserved (%s)', async (live, reserved, next) => {
+        const prefix = `BILL - ${new Date().getFullYear()} -`;
+        vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue(
+            live ? { invoiceNumber: `${prefix}${live} ` } as any : null,
+        );
+        vi.mocked(prisma.auditLog.findMany).mockResolvedValue(
+            reserved.map(sequence => ({ entityId: `${prefix}${sequence} ` })) as any,
+        );
+        expect(await generateBillNumber()).toBe(`${prefix}${next} `);
+        expect(prisma.auditLog.findMany).toHaveBeenCalledWith({
+            where: {
+                action: 'RESERVE_PURCHASE_BILL_NUMBER',
+                entityType: 'PurchaseInvoiceNumber',
+                entityId: { startsWith: prefix },
+            },
+            select: { entityId: true },
+        });
+        vi.mocked(prisma.auditLog.findMany).mockResolvedValue([]);
     });
 
     it('should generate bill number with sequence 0001', async () => {

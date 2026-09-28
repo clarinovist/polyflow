@@ -605,12 +605,27 @@ export async function generateBillNumber(
         orderBy: { invoiceNumber: 'desc' },
     });
 
+    // Explicit reconciliation may remove an unpaid bill after retaining its
+    // before-image in audit. Its issued number must never be reused.
+    const reservedNumbers = await db.auditLog.findMany({
+        where: {
+            action: 'RESERVE_PURCHASE_BILL_NUMBER',
+            entityType: 'PurchaseInvoiceNumber',
+            entityId: { startsWith: prefix },
+        },
+        select: { entityId: true },
+    });
     let nextSequence = 1;
-    if (lastBill) {
-        const parts = lastBill.invoiceNumber.split('-');
-        const lastSeq = parseInt(parts[2]);
-        if (!isNaN(lastSeq)) {
-            nextSequence = lastSeq + 1;
+    for (const number of [
+        lastBill?.invoiceNumber,
+        ...reservedNumbers.map((entry) => entry.entityId),
+    ]) {
+        const sequence = number?.slice(prefix.length).trim();
+        if (sequence && /^\d+$/.test(sequence)) {
+            const lastSeq = Number(sequence);
+            if (Number.isSafeInteger(lastSeq)) {
+                nextSequence = Math.max(nextSequence, lastSeq + 1);
+            }
         }
     }
 
