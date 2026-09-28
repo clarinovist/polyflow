@@ -25,6 +25,14 @@ const handler = auth((req) => {
     const hostname = host.split(':')[0];
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pathname', req.nextUrl.pathname);
+    // Auth.js builds callback/sign-in URLs from forwarded headers. Caddy keeps
+    // the public Host, but the Next runtime can surface its 0.0.0.0 bind URL;
+    // pin both values to the validated request host before Auth.js handles it.
+    requestHeaders.set('x-forwarded-host', host);
+    requestHeaders.set(
+        'x-forwarded-proto',
+        req.nextUrl.protocol.replace(':', ''),
+    );
 
     if (
         isBlockedScannerProbe({
