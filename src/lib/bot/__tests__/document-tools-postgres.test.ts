@@ -7,7 +7,8 @@ vi.mock('@/lib/core/prisma', async () => {
     const { returnTestClient } = await import('@/services/finance/__tests__/return-credit-postgres-fixture');
     const connection = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
     const db = connection ? returnTestClient(connection) : undefined;
-    return { prisma: db, tenantContext: new AsyncLocalStorage(), tenantIdContext: new AsyncLocalStorage() };
+    const tenantIdContext = new AsyncLocalStorage();
+    return { prisma: db, getMainPrisma: () => db, getTenantIdFromContext: () => tenantIdContext.getStore(), tenantContext: new AsyncLocalStorage(), tenantIdContext };
 });
 import { prisma as db, tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { getToolByName } from '../tool-registry';
@@ -80,6 +81,42 @@ describe.skipIf(!process.env.RETURN_CREDIT_TEST_DATABASE_URL)('document lookup P
     it.each(['BILL - 2026 -0422', 'BILL‑2026‑0422'])('matches BILL predicate %s on PurchaseInvoice (tool arrives in phase B)', async raw => {
         const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM "PurchaseInvoice" WHERE (${documentNumberPredicate(Prisma.sql`"invoiceNumber"`, raw)})`);
         expect(rows.map(r => r.id)).toEqual(['doc-bill']);
+    });
+    it('reads purchase BILL status and diagnoses draft without changing business data', async () => {
+        await db.purchaseOrder.update({ where: { id: 'doc-po' }, data: { entrySource: 'WALK_IN_RECEIPT' } });
+        await db.purchaseInvoice.update({ where: { id: 'doc-bill' }, data: { status: 'DRAFT' } });
+        const before = await db.purchaseInvoice.findUniqueOrThrow({ where: { id: 'doc-bill' } });
+        const result = await execute('diagnose_purchase_invoice', 'BILL - 2026 -0422');
+        expect(result.searchMeta?.matchCount).toBe(1);
+        expect(result.facts.find(f => f.label === 'Draft')?.value).toContain('approval Finance');
+        expect(result.entities?.[0].id).toBe('doc-bill');
+        expect(await db.purchaseInvoice.findUniqueOrThrow({ where: { id: 'doc-bill' } })).toEqual(before);
+        await db.purchaseInvoice.create({ data: { id: 'doc-bill-extra', invoiceNumber: 'BILL-2026-0422-EXTRA', purchaseOrderId: 'doc-po', totalAmount: 10 } });
+        expect((await execute('get_purchase_invoice', 'BILL‑2026‑0422')).searchMeta?.matchCount).toBe(1);
+        const ambiguous = await execute('diagnose_purchase_invoice', 'BILL');
+        expect(ambiguous.searchMeta?.matchCount).toBe(2);
+        expect(ambiguous.summary).toContain('ambigu');
+        expect((await execute('get_purchase_invoice', 'BILL-2024-0422')).searchMeta?.matchCount).toBe(0);
+    });
+    it('reads return status and existing proposal blocker without creating credit or journal', async () => {
+        await db.salesReturn.update({ where: { id: 'return-1' }, data: { returnNumber: 'SR-2026-0421', status: 'DRAFT' } });
+        const before = { credits: await db.salesReturnCredit.count(), journals: await db.journalEntry.count(), status: (await db.salesReturn.findUniqueOrThrow({ where: { id: 'return-1' } })).status };
+        const result = await execute('diagnose_sales_return_credit', 'SR‑2026‑0421');
+        expect(result.searchMeta?.matchCount).toBe(1);
+        expect(result.facts.find(f => f.label === 'Usulan Finance')?.value).toBe('Menunggu penerimaan barang.');
+        expect(await db.salesReturnCredit.count()).toBe(before.credits);
+        expect(await db.journalEntry.count()).toBe(before.journals);
+        expect((await db.salesReturn.findUniqueOrThrow({ where: { id: 'return-1' } })).status).toBe(before.status);
+        expect((await execute('diagnose_sales_return_credit', 'SR-2024-0421')).searchMeta?.matchCount).toBe(0);
+        await db.salesReturn.update({ where: { id: 'return-1' }, data: { status: 'RECEIVED' } });
+        const ready = await execute('diagnose_sales_return_credit', 'SR‑2026‑0421');
+        expect(ready.facts.find(f => f.label === 'Usulan Finance')?.value).toContain('Usulan tersedia');
+        expect(ready.facts.find(f => f.label === 'Bukti penerimaan')?.value).toContain('1/1');
+        expect(await db.salesReturnCredit.count()).toBe(before.credits);
+        expect(await db.journalEntry.count()).toBe(before.journals);
+        await db.fiscalPeriod.updateMany({ data: { status: 'CLOSED' } });
+        const closed = await tenantContext.run(db, () => tenantIdContext.run(ctx.tenantId, () => getToolByName('diagnose_sales_return_credit')!.execute({ searchTerm: 'SR-2026-0421', postingDate: '2026-09-18' }, ctx)));
+        expect(closed.facts.find(f => f.label === 'Periode tanggal posting yang diperiksa')?.value).toContain('posting tertahan');
     });
     it('offers PO tools to a live tenant ADMIN without permission rows and removes them when revoked', async () => {
         const id = 'doc-admin';

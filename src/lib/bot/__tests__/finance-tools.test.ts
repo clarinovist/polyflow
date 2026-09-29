@@ -9,13 +9,14 @@ import { tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { getToolByName, getToolsForContext, toolsToOpenAiFormat } from '../tool-registry';
 import { getToolLabel } from '../tool-labels';
 import type { AssistantUserContext } from '../assistant-types';
-const ctx: AssistantUserContext = { userId: 'finance', roles: ['FINANCE'], tenantId: 'one', allowedResources: ['/finance'], channel: 'web', locale: 'id-ID' };
+const ctx: AssistantUserContext = { userId: 'finance', roles: ['FINANCE'], tenantId: 'one', allowedResources: ['/finance', '/sales/returns'], channel: 'web', locale: 'id-ID' };
 const tx = { $executeRaw: vi.fn() };
 const transaction = vi.fn(async fn => fn(tx));
 const db = { $transaction: transaction } as unknown as PrismaClient;
 const run = (fn: () => unknown, tenantId = 'one') => tenantContext.run(db, () => tenantIdContext.run(tenantId, fn));
 beforeEach(() => vi.clearAllMocks());
-const names = ['get_invoice_status', 'diagnose_invoice_payment', 'get_finance_reconciliation'];
+const newNames = ['get_purchase_invoice', 'diagnose_purchase_invoice', 'diagnose_sales_return_credit'];
+const names = ['get_invoice_status', 'diagnose_invoice_payment', 'get_finance_reconciliation', ...newNames];
 const args = (name: string) => name === 'get_finance_reconciliation' ? { startDate: '2026-08-01', endDate: '2026-08-31' } : { searchTerm: 'INV' };
 
 describe('finance execution boundary', () => {
@@ -35,6 +36,12 @@ describe('finance execution boundary', () => {
             await expect(run(() => tool.execute({ ...args(name), ...extra }, ctx))).rejects.toThrow();
         }
         expect(transaction).not.toHaveBeenCalled();
+    });
+    it('requires both sales-return and finance resources for return diagnosis', () => {
+        for (const resources of [['/finance'], ['/sales/returns']]) {
+            expect(getToolsForContext({ ...ctx, allowedResources: resources }).map(t => t.name)).not.toContain('diagnose_sales_return_credit');
+        }
+        for (const name of newNames) expect(getToolLabel(name)).not.toBe('Mengambil data terkait');
     });
     it('uses a read-only repeatable-read transaction from live ALS', async () => {
         await run(() => getToolByName('get_invoice_status')!.execute({ searchTerm: 'INV' }, ctx));

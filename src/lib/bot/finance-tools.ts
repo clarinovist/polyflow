@@ -8,12 +8,14 @@ import type { AssistantToolDefinition, AssistantUserContext, ToolEvidence } from
 import { checkToolAuthorization } from './tool-authorization';
 import { documentSearchMeta } from './document-search';
 import { invoiceDiagnosisEvidence, invoiceSelectionEvidence, reconciliationEvidence } from './finance-evidence';
+import { inspectPurchaseInvoice, inspectSalesReturnCredit } from '@/services/finance/assistant-document-diagnosis';
+import { purchaseInvoiceEvidence, salesReturnCreditEvidence } from './document-diagnosis-evidence';
 
 function financeTool<T extends z.ZodType>(
-    name: string, description: string, resource: string, inputSchema: T,
+    name: string, description: string, resource: string | string[], inputSchema: T,
     execute: (tx: Prisma.TransactionClient, input: z.output<T>) => Promise<ToolEvidence>,
 ): AssistantToolDefinition {
-    const policy = { name, requiredResources: [resource], sensitivity: 'financial' as const };
+    const policy = { name, requiredResources: typeof resource === 'string' ? [resource] : resource, sensitivity: 'financial' as const };
     return { ...policy, description, inputSchema,
         execute: async (raw, context: AssistantUserContext) => {
             if (!context?.userId || !checkToolAuthorization(policy, context).allowed) {
@@ -46,6 +48,13 @@ function financeTool<T extends z.ZodType>(
 }
 
 export const financeTools: AssistantToolDefinition[] = [
+    financeTool('get_purchase_invoice', 'Cek status purchase invoice/BILL, total dan dibayar, PO dan jumlah GR terkait melalui nomor/ID. Bukan invoice penjualan. Hasil ambigu perlu nomor persis.',
+        '/finance/invoices/purchase', invoiceSearchSchema, async (tx, input) => purchaseInvoiceEvidence(await inspectPurchaseInvoice(tx, input.searchTerm, false), input.searchTerm)),
+    financeTool('diagnose_purchase_invoice', 'Diagnosis read-only kenapa purchase invoice/BILL masih DRAFT: asal walk-in, review Finance, PO/GR, seluruh tagihan PO vs nilai diterima, pembayaran dan jurnal. Tidak melakukan approval/posting.',
+        '/finance/invoices/purchase', invoiceSearchSchema, async (tx, input) => purchaseInvoiceEvidence(await inspectPurchaseInvoice(tx, input.searchTerm, true), input.searchTerm)),
+    financeTool('diagnose_sales_return_credit', 'Diagnosis read-only kredit retur penjualan/tombol posting abu-abu melalui nomor/ID retur: status, penerimaan, invoice tujuan, usulan Finance existing, dan periode. postingDate opsional YYYY-MM-DD; jika tidak diisi memeriksa hari ini WIB.',
+        ['/sales/returns', '/finance/returns'], invoiceSearchSchema.extend({ postingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => { const d = new Date(value); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value; }, 'Tanggal tidak valid').optional() }),
+        async (tx, input) => salesReturnCreditEvidence(await inspectSalesReturnCredit(tx, input.searchTerm, input.postingDate ? new Date(`${input.postingDate}T00:00:00+07:00`) : new Date()), input.searchTerm)),
     financeTool('get_invoice_status', 'Cek status invoice penjualan melalui nomor/id persis atau nama customer. Hasil ambigu memerlukan nomor persis.',
         '/finance/invoices/sales', invoiceSearchSchema, async (tx, input) => {
             const result = await findInvoices(tx, input.searchTerm);
