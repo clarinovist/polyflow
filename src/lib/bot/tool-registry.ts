@@ -11,6 +11,7 @@ import { createEvidence } from './evidence';
 import { checkToolAuthorization } from './tool-authorization';
 import { financeTools } from './finance-tools';
 import { productionTools } from './production-tools';
+import { documentNumberPredicate, documentSearchMeta, escapeDocumentLike } from './document-search';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -83,13 +84,14 @@ async function executeGetSalesOrderLines(
     SELECT so.id, so."orderNumber", c.name as customer, so.status
     FROM "SalesOrder" so
     LEFT JOIN "Customer" c ON so."customerId" = c.id
-    WHERE so."orderNumber" ILIKE ${'%' + args.searchTerm + '%'} OR c.name ILIKE ${'%' + args.searchTerm + '%'} OR so."id" = ${args.searchTerm}
+    WHERE (${documentNumberPredicate(Prisma.sql`so."orderNumber"`, args.searchTerm)}) OR c.name ILIKE ${'%' + escapeDocumentLike(args.searchTerm.trim()) + '%'} OR so."id" = ${args.searchTerm.trim()}
     ORDER BY so."createdAt" DESC
     LIMIT 3
   `);
 
     if (!orders.length) {
         return createEvidence({
+            searchMeta: documentSearchMeta(args.searchTerm, 0),
             summary: `Sales Order dengan kata kunci '${args.searchTerm}' tidak ditemukan.`,
             facts: [{ label: 'Pencarian', value: args.searchTerm }],
             source: 'tenant-data',
@@ -131,6 +133,7 @@ async function executeGetSalesOrderLines(
     }
 
     return createEvidence({
+        searchMeta: documentSearchMeta(args.searchTerm, orders.length),
         summary: `Ditemukan ${orders.length} Sales Order untuk pencarian '${args.searchTerm}':`,
         facts,
         entities,
@@ -517,20 +520,21 @@ export const toolRegistry: AssistantToolDefinition[] = [
                     deliveryDate: Date | null;
                 }[]
             >(Prisma.sql`
-        SELECT d.id, d."orderNumber", d.status, d."deliveryDate", d."estimatedArrival",
+        SELECT d.id, d."orderNumber", d.status, d."deliveryDate",
                c.name AS customer, so."orderNumber" AS soNumber
         FROM "DeliveryOrder" d
         LEFT JOIN "SalesOrder" so ON d."salesOrderId" = so.id
         LEFT JOIN "Customer" c ON so."customerId" = c.id
-        WHERE d."orderNumber" ILIKE ${'%' + searchTerm + '%'}
-           OR so."orderNumber" ILIKE ${'%' + searchTerm + '%'}
-           OR c.name ILIKE ${'%' + searchTerm + '%'}
+        WHERE (${documentNumberPredicate(Prisma.sql`d."orderNumber"`, searchTerm)})
+           OR (${documentNumberPredicate(Prisma.sql`so."orderNumber"`, searchTerm)})
+           OR c.name ILIKE ${'%' + escapeDocumentLike(searchTerm.trim()) + '%'}
         ORDER BY d."createdAt" DESC
         LIMIT 5
       `);
 
             if (!rows.length) {
                 return createEvidence({
+                    searchMeta: documentSearchMeta(searchTerm, 0),
                     summary: `Pengiriman dengan kata kunci '${searchTerm}' tidak ditemukan.`,
                     facts: [{ label: 'Pencarian', value: searchTerm }],
                     source: 'tenant-data',
@@ -560,6 +564,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
             );
 
             return createEvidence({
+                searchMeta: documentSearchMeta(searchTerm, rows.length),
                 summary: `Status pengiriman untuk '${searchTerm}':`,
                 facts,
                 entities,
@@ -596,14 +601,15 @@ export const toolRegistry: AssistantToolDefinition[] = [
                s.name AS supplier, po."orderDate"
         FROM "PurchaseOrder" po
         LEFT JOIN "Supplier" s ON po."supplierId" = s.id
-        WHERE po."orderNumber" ILIKE ${'%' + searchTerm + '%'}
-           OR s.name ILIKE ${'%' + searchTerm + '%'}
+        WHERE (${documentNumberPredicate(Prisma.sql`po."orderNumber"`, searchTerm)})
+           OR s.name ILIKE ${'%' + escapeDocumentLike(searchTerm.trim()) + '%'}
         ORDER BY po."createdAt" DESC
         LIMIT 5
       `);
 
             if (!rows.length) {
                 return createEvidence({
+                    searchMeta: documentSearchMeta(searchTerm, 0),
                     summary: `Purchase Order dengan kata kunci '${searchTerm}' tidak ditemukan.`,
                     facts: [{ label: 'Pencarian', value: searchTerm }],
                     source: 'tenant-data',
@@ -634,6 +640,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
             );
 
             return createEvidence({
+                searchMeta: documentSearchMeta(searchTerm, rows.length),
                 summary: `Status PO untuk '${searchTerm}':`,
                 facts,
                 entities,
@@ -746,12 +753,13 @@ export const toolRegistry: AssistantToolDefinition[] = [
         SELECT so.id, so."orderNumber", so.status, c.name AS customer
         FROM "SalesOrder" so
         LEFT JOIN "Customer" c ON so."customerId" = c.id
-        WHERE so."orderNumber" ILIKE ${'%' + searchTerm + '%'} OR c.name ILIKE ${'%' + searchTerm + '%'}
+        WHERE (${documentNumberPredicate(Prisma.sql`so."orderNumber"`, searchTerm)}) OR c.name ILIKE ${'%' + escapeDocumentLike(searchTerm.trim()) + '%'}
         ORDER BY so."createdAt" DESC LIMIT 3
       `);
 
             if (!orders.length) {
                 return createEvidence({
+                    searchMeta: documentSearchMeta(searchTerm, 0),
                     summary: `SO dengan kata kunci '${searchTerm}' tidak ditemukan.`,
                     facts: [{ label: 'Pencarian', value: searchTerm }],
                     source: 'tenant-data',
@@ -853,6 +861,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
             }
 
             return createEvidence({
+                searchMeta: documentSearchMeta(searchTerm, orders.length),
                 summary: `Diagnosa SO ${order.orderNumber}: ${hasPartial ? 'Ada item dengan stok tidak mencukupi' : 'Stok mencukupi, periksa produksi/pengiriman'}`,
                 facts,
                 entities,
@@ -1063,12 +1072,13 @@ export const toolRegistry: AssistantToolDefinition[] = [
                s.name AS supplier
         FROM "PurchaseOrder" po
         LEFT JOIN "Supplier" s ON po."supplierId" = s.id
-        WHERE po."orderNumber" ILIKE ${'%' + searchTerm + '%'}
+        WHERE (${documentNumberPredicate(Prisma.sql`po."orderNumber"`, searchTerm)})
         ORDER BY po."createdAt" DESC LIMIT 1
       `);
 
             if (!pos.length) {
                 return createEvidence({
+                    searchMeta: documentSearchMeta(searchTerm, 0),
                     summary: `PO dengan kata kunci '${searchTerm}' tidak ditemukan.`,
                     facts: [{ label: 'Pencarian', value: searchTerm }],
                     source: 'tenant-data',
@@ -1097,20 +1107,23 @@ export const toolRegistry: AssistantToolDefinition[] = [
                 {
                     id: string;
                     receiptNumber: string;
-                    status: string;
+                    receivedDate: Date;
                     totalAmount: Prisma.Decimal;
                 }[]
             >(Prisma.sql`
-        SELECT gr.id, gr."receiptNumber", gr.status, gr."totalAmount"
+        SELECT gr.id, gr."receiptNumber", gr."receivedDate",
+               COALESCE(SUM(gri."receivedQty" * gri."unitCost"), 0) AS "totalAmount"
         FROM "GoodsReceipt" gr
+        LEFT JOIN "GoodsReceiptItem" gri ON gri."goodsReceiptId" = gr.id
         WHERE gr."purchaseOrderId" = ${po.id}
+        GROUP BY gr.id
       `);
 
             if (receipts.length > 0) {
                 for (const r of receipts) {
                     facts.push({
                         label: `Receipt: ${r.receiptNumber}`,
-                        value: `${r.status} — ${formatCurrency(Number(r.totalAmount))}`,
+                        value: `Diterima ${new Date(r.receivedDate).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })} — nilai item ${formatCurrency(Number(r.totalAmount))}`,
                     });
                 }
             } else {
@@ -1141,6 +1154,7 @@ export const toolRegistry: AssistantToolDefinition[] = [
             }
 
             return createEvidence({
+                searchMeta: documentSearchMeta(searchTerm, pos.length),
                 summary: `Diagnosa PO ${po.orderNumber}: ${receipts.length === 0 ? 'Belum ada penerimaan barang' : receipts.length + ' receipt ditemukan, ' + invoices.length + ' invoice'}`,
                 facts,
                 entities,

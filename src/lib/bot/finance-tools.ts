@@ -6,6 +6,7 @@ import { reconcileFinance } from '@/services/finance/finance-reconciliation-serv
 import { financeRangeSchema, invoiceSearchSchema } from '@/services/finance/finance-diagnostic-input';
 import type { AssistantToolDefinition, AssistantUserContext, ToolEvidence } from './assistant-types';
 import { checkToolAuthorization } from './tool-authorization';
+import { documentSearchMeta } from './document-search';
 import { invoiceDiagnosisEvidence, invoiceSelectionEvidence, reconciliationEvidence } from './finance-evidence';
 
 function financeTool<T extends z.ZodType>(
@@ -46,9 +47,15 @@ function financeTool<T extends z.ZodType>(
 
 export const financeTools: AssistantToolDefinition[] = [
     financeTool('get_invoice_status', 'Cek status invoice penjualan melalui nomor/id persis atau nama customer. Hasil ambigu memerlukan nomor persis.',
-        '/finance/invoices/sales', invoiceSearchSchema, async (tx, input) => invoiceSelectionEvidence(await findInvoices(tx, input.searchTerm))),
+        '/finance/invoices/sales', invoiceSearchSchema, async (tx, input) => {
+            const result = await findInvoices(tx, input.searchTerm);
+            return { ...invoiceSelectionEvidence(result), searchMeta: documentSearchMeta(input.searchTerm, result.total, 'total') };
+        }),
     financeTool('diagnose_invoice_payment', 'Diagnosis read-only invoice: pembayaran vs paidAmount, jurnal penjualan/pembayaran, nominal dan periode WIB. Jangan pilih diam-diam jika invoice ambigu.',
-        '/finance/invoices/sales', invoiceSearchSchema, async (tx, input) => invoiceDiagnosisEvidence(await diagnoseInvoice(tx, input.searchTerm))),
+        '/finance/invoices/sales', invoiceSearchSchema, async (tx, input) => {
+            const result = await diagnoseInvoice(tx, input.searchTerm);
+            return { ...invoiceDiagnosisEvidence(result), searchMeta: documentSearchMeta(input.searchTerm, result.selection.total, 'total') };
+        }),
     financeTool('get_finance_reconciliation', 'Rekonsiliasi laba-rugi/COGS read-only untuk tanggal WIB eksplisit (maksimal 366 hari): angka laporan existing, akun, jurnal sumber terbesar dan screening invoice. Bukan ringkasan AR/AP atau perbaikan data.',
         '/finance/reports/income-statement', financeRangeSchema, async (tx, input) => reconciliationEvidence(await reconcileFinance(tx, input))),
 ];

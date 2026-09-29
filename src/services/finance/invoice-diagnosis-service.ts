@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { NotFoundError } from '@/lib/errors/errors';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { resolveByPatterns } from '@/services/accounting/account-resolver';
+import { escapeDocumentLike, normalizeDocumentSearch } from '@/lib/bot/document-search';
 
 const SAMPLE_LIMIT = 20;
 const invoiceSelect = {
@@ -25,11 +26,12 @@ export async function findInvoices(
     searchTerm: string,
 ) {
     // Prisma's insensitive equals uses ILIKE too: escape literal wildcards in BOTH paths.
-    const contains = searchTerm.replace(/[\\%_]/g, '\\$&');
+    const candidates = normalizeDocumentSearch(searchTerm).map(escapeDocumentLike);
+    const contains = escapeDocumentLike(searchTerm.trim());
     const exactWhere: Prisma.InvoiceWhereInput = {
         OR: [
-            { id: searchTerm },
-            { invoiceNumber: { equals: contains, mode: 'insensitive' } },
+            { id: searchTerm.trim() },
+            ...candidates.map(equals => ({ invoiceNumber: { equals, mode: 'insensitive' as const } })),
         ],
     };
     const exact = await tx.invoice.findMany({
@@ -47,7 +49,7 @@ export async function findInvoices(
         );
     const where: Prisma.InvoiceWhereInput = {
         OR: [
-            { invoiceNumber: { contains, mode: 'insensitive' } },
+            ...candidates.map(candidate => ({ invoiceNumber: { contains: candidate, mode: 'insensitive' as const } })),
             {
                 salesOrder: {
                     customer: { name: { contains, mode: 'insensitive' } },

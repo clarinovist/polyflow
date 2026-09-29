@@ -8,6 +8,7 @@ import {
 } from './assistant-tool-access';
 import { checkToolAuthorization } from './tool-authorization';
 import { evidenceToText } from './evidence';
+import { documentSearchMeta } from './document-search';
 import { buildAssistantContext } from './assistant-context';
 import { prisma } from '@/lib/core/prisma';
 import {
@@ -529,6 +530,7 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
                         allowed: true,
                         outcome: 'SUCCESS',
                         durationMs,
+                        searchMeta: evidence.searchMeta,
                     });
                 } catch (_execError) {
                     const durationMs = Date.now() - startTime;
@@ -545,6 +547,11 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
                         allowed: true,
                         outcome: 'ERROR',
                         durationMs,
+                        searchMeta: documentSearchMeta(
+                            typeof parseResult.data === 'object' && parseResult.data !== null && 'searchTerm' in parseResult.data
+                                ? parseResult.data.searchTerm : undefined,
+                            null,
+                        ),
                     });
                 }
             }
@@ -801,6 +808,7 @@ function logToolExecution(entry: {
     allowed: boolean;
     outcome: string;
     durationMs: number;
+    searchMeta?: ToolEvidence['searchMeta'];
 }) {
     if (AGENTIC_DEBUG) {
         console.debug(
@@ -818,6 +826,7 @@ function logToolExecution(entry: {
                 allowed: entry.allowed,
                 outcome: entry.outcome,
                 durationMs: entry.durationMs,
+                evidenceMetaJson: entry.searchMeta ?? documentSearchMeta(undefined, null),
             },
         })
         .catch(() => {

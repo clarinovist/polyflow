@@ -33,7 +33,7 @@ function compactAnswer(answer: string): string {
 }
 
 const GENERIC_FAILURE_PATTERNS = [
-    /tidak dapat merangkum/i,
+    /(?:tidak|belum) (?:dapat|bisa) merangkum/i,
     /gangguan koneksi/i,
     /tidak dikenali/i,
     /sedang mengalami/i,
@@ -45,7 +45,6 @@ export function resolveOutcome(input: VirtualCsAuditInput): HelpOutcome {
     if (!input.success) return 'FAILED';
     if (input.disposition === 'ESCALATE') return 'ESCALATED';
     if (input.disposition === 'NEEDS_CLARIFICATION') return 'PARTIAL';
-    if (input.disposition === 'RESOLVED') return 'SUCCESS';
 
     const answer = (input.answer || '').trim();
     if (answer.length < 10) return 'FAILED';

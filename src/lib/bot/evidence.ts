@@ -13,6 +13,7 @@ export function createEvidence(input: {
     entities?: ToolEvidenceEntity[];
     source: ToolEvidence['source'];
     completeness?: ToolEvidence['completeness'];
+    searchMeta?: ToolEvidence['searchMeta'];
 }): ToolEvidence {
     return {
         summary: input.summary,
@@ -21,6 +22,7 @@ export function createEvidence(input: {
         source: input.source,
         checkedAt: new Date().toISOString(),
         completeness: input.completeness ?? 'complete',
+        ...(input.searchMeta ? { searchMeta: input.searchMeta } : {}),
     };
 }
 

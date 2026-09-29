@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 const completion = vi.fn();
 const save = vi.fn();
 const getConversation = vi.fn();
 const load = vi.fn();
 const search = vi.fn();
+const executeTool = vi.fn();
+const auditTool = vi.fn().mockResolvedValue({});
+const allowedTool = vi.fn();
 vi.mock('openai', () => ({ default: class { chat = { completions: { create: completion } }; } }));
-vi.mock('@/lib/core/prisma', () => ({ prisma: { helpToolExecution: { create: vi.fn().mockResolvedValue({}) } } }));
+vi.mock('@/lib/core/prisma', () => ({ prisma: { helpToolExecution: { create: (...args: unknown[]) => auditTool(...args) } } }));
 vi.mock('../conversation-service', () => ({
     getOrCreateConversation: (...args: unknown[]) => getConversation(...args),
     loadConversationContext: (...args: unknown[]) => load(...args),
@@ -13,11 +17,13 @@ vi.mock('../conversation-service', () => ({
     buildLlmHistory: (context: { history: unknown[] }) => context.history,
 }));
 vi.mock('../tool-registry', () => ({ toolsToOpenAiFormat: () => [] }));
-vi.mock('../assistant-tool-access', () => ({ getAvailableAssistantTools: () => [], findAllowedAssistantTool: () => undefined }));
+vi.mock('../assistant-tool-access', () => ({ getAvailableAssistantTools: () => [], findAllowedAssistantTool: (...args: unknown[]) => allowedTool(...args) }));
 vi.mock('../help-articles', () => ({ searchHelpArticles: (...args: unknown[]) => search(...args) }));
 vi.mock('../injection-defense', () => ({ checkPromptInjection: () => ({ safe: true }), logInjectionAttempt: vi.fn() }));
 import { generateVirtualCsReply } from '../virtual-cs-service';
 import type { AssistantRequestContext } from '../assistant-types';
+import { createEvidence } from '../evidence';
+import { documentSearchMeta } from '../document-search';
 const context: AssistantRequestContext = { tenantId: 'tenant-1', permissionsVerified: true, sessionUser: { id: 'user-1', role: 'FINANCE', roles: ['FINANCE'], allowedResources: ['/finance'] }, workContext: { pathname: '/finance' }, conversationId: 'requested' };
 
 beforeEach(() => {
@@ -27,7 +33,44 @@ beforeEach(() => {
     load.mockResolvedValue({ history: [], resolvedEntities: new Map() });
     save.mockResolvedValue(undefined);
     search.mockResolvedValue([]);
+    allowedTool.mockReturnValue(undefined);
+    executeTool.mockReset();
+    auditTool.mockResolvedValue({});
     completion.mockResolvedValue({ choices: [{ message: { role: 'assistant', content: 'Jawaban berbukti' } }] });
+});
+
+describe('assistant tool audit metadata', () => {
+    function requestTool(searchTerm: string) {
+        allowedTool.mockReturnValue({ name: 'get_invoice_status', requiredResources: ['/finance/invoices/sales'], sensitivity: 'financial', inputSchema: z.object({ searchTerm: z.string() }), execute: executeTool });
+        completion.mockResolvedValueOnce({ choices: [{ message: { role: 'assistant', tool_calls: [{ id: 'tool-1', type: 'function', function: { name: 'get_invoice_status', arguments: JSON.stringify({ searchTerm }) } }] } }] });
+        completion.mockResolvedValue({ choices: [{ message: { role: 'assistant', content: 'Hasil pemeriksaan invoice tersedia.' } }] });
+        return generateVirtualCsReply({ question: 'Cek status invoice', channel: 'web' }, context);
+    }
+    it.each([0, 1])('persists bounded metadata on lookup result count %i', async count => {
+        const meta = documentSearchMeta('INV INV‑2026‑0421', count, 'total');
+        executeTool.mockResolvedValue(createEvidence({ summary: count ? 'Ditemukan' : 'Tidak ditemukan', facts: [{ label: 'Customer', value: 'PRIVATE FIXTURE' }], source: 'tenant-data', searchMeta: meta }));
+        await requestTool('INV INV‑2026‑0421');
+        expect(auditTool).toHaveBeenCalledWith({ data: expect.objectContaining({ conversationId: 'authorized', toolName: 'get_invoice_status', outcome: 'SUCCESS', evidenceMetaJson: meta }) });
+        expect(JSON.stringify(auditTool.mock.calls)).not.toContain('PRIVATE FIXTURE');
+        const toolMessage = completion.mock.calls.at(-1)?.[0].messages.find((m: { role: string }) => m.role === 'tool');
+        expect(toolMessage.content).not.toContain('matchCount');
+    });
+    it('does not serialize free text on query failure', async () => {
+        executeTool.mockRejectedValue(new Error('PRIVATE QUERY ERROR'));
+        await requestTool('Fixture Person');
+        expect(auditTool).toHaveBeenCalledWith({ data: expect.objectContaining({ outcome: 'ERROR', evidenceMetaJson: { searchTerm: null, candidates: [], matchCount: null, matchCountScope: 'unknown' } }) });
+        expect(JSON.stringify(auditTool.mock.calls)).not.toMatch(/Fixture Person|PRIVATE QUERY ERROR/);
+    });
+    it('uses explicit unknown counts for tools without lookup metadata', async () => {
+        executeTool.mockResolvedValue(createEvidence({ summary: 'Ringkasan', facts: [], source: 'tenant-data' }));
+        await requestTool('Fixture Person');
+        expect(auditTool.mock.calls[0][0].data.evidenceMetaJson).toEqual(documentSearchMeta(undefined, null));
+    });
+    it('keeps audit write failure non-blocking', async () => {
+        executeTool.mockResolvedValue(createEvidence({ summary: 'Ringkasan', facts: [], source: 'tenant-data' }));
+        auditTool.mockRejectedValue(new Error('audit unavailable'));
+        expect((await requestTool('INV-2026-0421')).answer).toBe('Hasil pemeriksaan invoice tersedia.');
+    });
 });
 
 describe('assistant exchange persistence integration', () => {

@@ -44,6 +44,8 @@ export type ToolEvidence = {
     source: ToolEvidenceSource;
     checkedAt: string;
     completeness: 'complete' | 'partial';
+    /** Internal audit only; never rendered as model context or an evidence chip. */
+    searchMeta?: import('./document-search').DocumentSearchMeta;
 };
 
 // ---------------------------------------------------------------------------
