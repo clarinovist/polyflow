@@ -29,16 +29,23 @@ const allowedSlugs = [
     'cara-retur-penjualan-dan-kredit-finance',
     'cara-retur-dan-potong-tagihan',
 ];
+const resolutionSlugs = [
+    'invoice-purchase-draft-dan-approval',
+    'posting-kredit-retur-belum-tersedia',
+    'periksa-closing-dobel-dan-adjustment-loss',
+    'pembayaran-tagihan-dan-petty-cash',
+];
 function validate(guides) {
+    const reviewed = Array.isArray(guides) && guides.some(g => resolutionSlugs.includes(g.slug)) ? resolutionSlugs : allowedSlugs;
     if (
         !Array.isArray(guides) ||
-        guides.length !== allowedSlugs.length ||
-        new Set(guides.map((g) => g.slug)).size !== allowedSlugs.length
+        guides.length !== reviewed.length ||
+        new Set(guides.map((g) => g.slug)).size !== reviewed.length
     )
         throw new Error('Expected exactly the reviewed guide set');
     for (const guide of guides) {
         if (
-            !allowedSlugs.includes(guide.slug) ||
+            !reviewed.includes(guide.slug) ||
             !guide.title ||
             !guide.summary ||
             !guide.bodyMd ||
@@ -49,16 +56,16 @@ function validate(guides) {
             throw new Error('Invalid guide');
     }
 }
-async function snapshot(db) {
+async function snapshot(db, guides) {
     return db.helpArticle.findMany({
-        where: { slug: { in: allowedSlugs } },
+        where: { slug: { in: guides.map(g => g.slug) } },
         select: fields,
         orderBy: { slug: 'asc' },
     });
 }
 export async function previewGuides(db, guides) {
     validate(guides);
-    const before = await snapshot(db);
+    const before = await snapshot(db, guides);
     return {
         manifest: guideFingerprint(guides),
         before: JSON.parse(JSON.stringify(before)),
@@ -81,7 +88,7 @@ export async function publishGuides(db, guides, backup, actorId) {
                 select: { id: true },
             });
             if (!actor) throw new Error('Verified superadmin actor required');
-            const current = await snapshot(tx);
+            const current = await snapshot(tx, guides);
             // Identical re-runs are harmless; a conflicting edit must be previewed again.
             const matches = (row, guide) =>
                 row &&
@@ -99,6 +106,8 @@ export async function publishGuides(db, guides, backup, actorId) {
                 )
             )
                 return { changed: 0 };
+            if (guides.some(g => resolutionSlugs.includes(g.slug)) && current.some(row => !matches(row, guides.find(g => g.slug === row.slug))))
+                throw new Error('Resolution guide slug already exists with different content; refusing overwrite');
             if (guideFingerprint(current) !== backup.fingerprint)
                 throw new Error('Articles changed since preview; abort');
             let changed = 0;

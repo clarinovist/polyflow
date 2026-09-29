@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { workflowGuides } from '../knowledge/workflow-guides';
+import { resolutionGuides } from '../knowledge/resolution-guides';
 import { previewGuides, publishGuides } from '../../../../scripts/publish-assistant-guides.mjs';
 const connection = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
 let db: PrismaClient;
@@ -21,7 +22,7 @@ describe.skipIf(!connection)('assistant guide publication and ranking on Postgre
     });
     afterAll(async () => {
         await db.auditLog.deleteMany({ where: { userId: actorId } });
-        await db.helpArticle.deleteMany({ where: { slug: { in: [...workflowGuides.map(g => g.slug), 'synthetic-unrelated', 'synthetic-private'] } } });
+        await db.helpArticle.deleteMany({ where: { slug: { in: [...workflowGuides.map(g => g.slug), ...resolutionGuides.map(g => g.slug), 'synthetic-unrelated', 'synthetic-private'] } } });
         await db.user.delete({ where: { id: actorId } });
         await db.$disconnect();
     });
@@ -50,6 +51,18 @@ describe.skipIf(!connection)('assistant guide publication and ranking on Postgre
         await db.helpArticle.update({ where: { slug: workflowGuides[0].slug }, data: { title: 'Concurrent editorial change' } });
         await expect(publishGuides(db, workflowGuides, backup, actorId)).rejects.toThrow('changed since preview');
         expect(await db.auditLog.count({ where: { userId: actorId } })).toBe(4);
+    });
+    it('publishes resolution guides without rewriting older articles and refuses occupied slugs', async () => {
+        const before = await db.helpArticle.findMany({ where: { slug: { in: workflowGuides.map(g => g.slug) } }, orderBy: { slug: 'asc' } });
+        const backup = await previewGuides(db, resolutionGuides);
+        expect(backup.before).toEqual([]);
+        expect(await publishGuides(db, resolutionGuides, backup, actorId)).toEqual({ changed: 4 });
+        expect(await publishGuides(db, resolutionGuides, backup, actorId)).toEqual({ changed: 0 });
+        expect(await db.helpArticle.findMany({ where: { slug: { in: workflowGuides.map(g => g.slug) } }, orderBy: { slug: 'asc' } })).toEqual(before);
+        expect((await searchHelpArticles('purchase invoice draft', 'finance', 3)).map(r => r.slug)).toContain('invoice-purchase-draft-dan-approval');
+        await db.helpArticle.update({ where: { slug: resolutionGuides[0].slug }, data: { title: 'Existing editorial change' } });
+        const fresh = await previewGuides(db, resolutionGuides);
+        await expect(publishGuides(db, resolutionGuides, fresh, actorId)).rejects.toThrow('refusing overwrite');
     });
     it('rolls article changes back if audit insertion fails', async () => {
         const backup = await previewGuides(db, workflowGuides);
