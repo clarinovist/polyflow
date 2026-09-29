@@ -35,7 +35,13 @@ export async function startCentralGoogleLogin(invitationToken?: string) {
         );
     }
 
-    // Relative callback keeps the browser on the tenant origin. Auth.js owns
-    // state/nonce/PKCE and the callback URL itself.
-    await signIn('central-oidc', { redirectTo: '/dashboard' });
+    // prompt=select_account forces Google's account chooser on every attempt.
+    // Without it Google may silently reuse an already-signed-in browser
+    // session, so the verified profile email can differ from the invitation
+    // recipient and the callback is denied as INVITATION_EMAIL_MISMATCH.
+    await signIn(
+        'central-oidc',
+        { redirectTo: '/dashboard' },
+        { prompt: 'select_account' },
+    );
 }

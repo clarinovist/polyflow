@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginClient from '@/app/login/client';
+import { startCentralGoogleLogin } from '@/actions/auth/central-sso.actions';
 
 vi.mock('framer-motion', () => ({
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
@@ -109,6 +110,46 @@ describe('LoginClient heading hierarchy', () => {
         expect(
             screen.queryByRole('button', { name: 'Masuk dengan Google' }),
         ).toBeNull();
+    });
+
+    it('does not claim an invitation loaded before the fragment is parsed', () => {
+        render(
+            <LoginClient
+                subdomain="acme"
+                isAdminSubdomain={false}
+                centralSsoEnabled
+            />,
+        );
+        expect(
+            screen.getByRole('button', { name: 'Masuk dengan Google' })
+                .textContent,
+        ).not.toMatch(/dengan tautan undangan/i);
+    });
+
+    it('passes the invitation fragment token to the server action', async () => {
+        window.history.replaceState(
+            {},
+            '',
+            '/login#invite=synthetic-fragment-token-long-enough-123',
+        );
+        render(
+            <LoginClient
+                subdomain="acme"
+                isAdminSubdomain={false}
+                centralSsoEnabled
+            />,
+        );
+
+        const invitationButton = await screen.findByRole('button', {
+            name: /masuk dengan google.*tautan undangan/i,
+        });
+        fireEvent.click(invitationButton);
+
+        await waitFor(() => {
+            expect(startCentralGoogleLogin).toHaveBeenCalledWith(
+                'synthetic-fragment-token-long-enough-123',
+            );
+        });
     });
 
     it('uses the login form title as the only H1 on tenant login', () => {

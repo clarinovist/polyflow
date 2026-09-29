@@ -31,9 +31,11 @@ describe('startCentralGoogleLogin', () => {
     it('starts OIDC on the current tenant without persisting an invite', async () => {
         await expect(startCentralGoogleLogin()).rejects.toThrow('NEXT_REDIRECT');
         expect(mocks.setCookie).not.toHaveBeenCalled();
-        expect(mocks.signIn).toHaveBeenCalledWith('central-oidc', {
-            redirectTo: '/dashboard',
-        });
+        expect(mocks.signIn).toHaveBeenCalledWith(
+            'central-oidc',
+            { redirectTo: '/dashboard' },
+            { prompt: 'select_account' },
+        );
     });
 
     it('stores a valid invitation only in an HttpOnly temporary cookie', async () => {

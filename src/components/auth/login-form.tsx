@@ -70,21 +70,38 @@ export default function LoginForm({
                     <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
                     <p className="text-sm font-medium">
                         Akun Google ini belum memiliki akses ke perusahaan
-                        tersebut. Silakan masuk menggunakan email dan kata sandi
-                        PolyFlow, atau hubungi administrator.
+                        tersebut. Untuk aktivasi pertama, masuk melalui tautan
+                        undangan dan pilih akun Google dengan email yang sesuai
+                        penerima undangan. Silakan coba lagi, atau hubungi
+                        administrator.
                     </p>
                 </div>
             )}
 
             {centralSsoEnabled && (
                 <div className="mb-6 space-y-5">
+                    {invitationToken && (
+                        <div
+                            role="status"
+                            className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-blue-700 dark:text-blue-300"
+                        >
+                            <Mail className="mt-0.5 h-5 w-5 shrink-0" />
+                            <p className="text-sm font-medium">
+                                Tautan undangan terdeteksi. Klik tombol di bawah
+                                lalu pilih akun Google yang sesuai penerima
+                                undangan.
+                            </p>
+                        </div>
+                    )}
                     <Button
                         type="button"
                         variant="outline"
                         className="h-12 w-full rounded-lg font-medium"
                         onClick={() => startCentralGoogleLogin(invitationToken)}
                     >
-                        Masuk dengan Google
+                        {invitationToken
+                            ? 'Masuk dengan Google — tautan undangan'
+                            : 'Masuk dengan Google'}
                     </Button>
                     <div className="flex items-center gap-3" aria-hidden="true">
                         <span className="h-px flex-1 bg-border" />
