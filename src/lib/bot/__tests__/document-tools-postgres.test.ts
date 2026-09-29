@@ -98,6 +98,16 @@ describe.skipIf(!process.env.RETURN_CREDIT_TEST_DATABASE_URL)('document lookup P
         expect(ambiguous.summary).toContain('ambigu');
         expect((await execute('get_purchase_invoice', 'BILL-2024-0422')).searchMeta?.matchCount).toBe(0);
     });
+    it('matches legacy stored document spacing without rewriting the document number', async () => {
+        await db.purchaseInvoice.update({ where: { id: 'doc-bill' }, data: { invoiceNumber: ' BILL - 2026 -0422 ' } });
+        await db.invoice.update({ where: { id: 'invoice' }, data: { invoiceNumber: ' INV ‑ 2026 ‑0421 ' } });
+        await db.purchaseOrder.update({ where: { id: 'doc-po' }, data: { orderNumber: ' PO - 2026 -0421 ' } });
+        expect((await execute('get_purchase_invoice', 'BILL-2026-0422')).entities?.[0].id).toBe('doc-bill');
+        expect((await execute('get_invoice_status', 'INV-2026-0421')).entities?.[0].id).toBe('invoice');
+        expect((await execute('get_purchase_order', 'PO-2026-0421')).entities?.[0].id).toBe('doc-po');
+        expect((await db.purchaseInvoice.findUniqueOrThrow({ where: { id: 'doc-bill' } })).invoiceNumber).toBe(' BILL - 2026 -0422 ');
+        await db.purchaseOrder.update({ where: { id: 'doc-po' }, data: { orderNumber: 'PO-2026-0421' } });
+    });
     it('reads return status and existing proposal blocker without creating credit or journal', async () => {
         await db.salesReturn.update({ where: { id: 'return-1' }, data: { returnNumber: 'SR-2026-0421', status: 'DRAFT' } });
         const before = { credits: await db.salesReturnCredit.count(), journals: await db.journalEntry.count(), status: (await db.salesReturn.findUniqueOrThrow({ where: { id: 'return-1' } })).status };

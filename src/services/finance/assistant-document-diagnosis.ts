@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { escapeDocumentLike, normalizeDocumentSearch } from '@/lib/bot/document-search';
+import { canonicalDocument, escapeDocumentLike, normalizeDocumentSearch, normalizedDocumentPredicate } from '@/lib/bot/document-search';
 import { calculatePoInvoiceTotalFromReceipts } from '@/services/purchasing/invoices-service';
 import { prepareReturnCreditProposal } from './return-credit-proposal-service';
 import { isPeriodOpen } from '@/services/accounting/periods-service';
@@ -15,7 +15,10 @@ export async function inspectPurchaseInvoice(tx: Prisma.TransactionClient, searc
         { id: searchTerm.trim() },
         ...candidates.map(equals => ({ invoiceNumber: { equals, mode: 'insensitive' as const } })),
     ] };
-    const exact = await tx.purchaseInvoice.findMany({ where: exactWhere, select: { id: true }, take: LIMIT });
+    let exact = await tx.purchaseInvoice.findMany({ where: exactWhere, select: { id: true }, take: LIMIT });
+    if (!exact.length && canonicalDocument(searchTerm)) {
+        exact = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM "PurchaseInvoice" WHERE ${normalizedDocumentPredicate(Prisma.sql`"invoiceNumber"`, searchTerm)} ORDER BY id LIMIT ${LIMIT}`);
+    }
     const invoices = await tx.purchaseInvoice.findMany({
         where: exact.length ? { id: { in: exact.map(i => i.id) } } : { OR:
             candidates.map(contains => ({ invoiceNumber: { contains, mode: 'insensitive' as const } })),
@@ -60,7 +63,10 @@ export async function inspectSalesReturnCredit(tx: Prisma.TransactionClient, sea
         { id: searchTerm.trim() },
         ...candidates.map(equals => ({ returnNumber: { equals, mode: 'insensitive' as const } })),
     ] };
-    const exact = await tx.salesReturn.findMany({ where: exactWhere, select: { id: true }, take: LIMIT });
+    let exact = await tx.salesReturn.findMany({ where: exactWhere, select: { id: true }, take: LIMIT });
+    if (!exact.length && canonicalDocument(searchTerm)) {
+        exact = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM "SalesReturn" WHERE ${normalizedDocumentPredicate(Prisma.sql`"returnNumber"`, searchTerm)} ORDER BY id LIMIT ${LIMIT}`);
+    }
     const returns = await tx.salesReturn.findMany({
         where: exact.length ? { id: { in: exact.map(r => r.id) } } : { OR:
             candidates.map(contains => ({ returnNumber: { contains, mode: 'insensitive' as const } })),

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { NotFoundError } from '@/lib/errors/errors';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { resolveByPatterns } from '@/services/accounting/account-resolver';
-import { escapeDocumentLike, normalizeDocumentSearch } from '@/lib/bot/document-search';
+import { canonicalDocument, escapeDocumentLike, normalizeDocumentSearch, normalizedDocumentPredicate } from '@/lib/bot/document-search';
 
 const SAMPLE_LIMIT = 20;
 const invoiceSelect = {
@@ -28,18 +28,29 @@ export async function findInvoices(
     // Prisma's insensitive equals uses ILIKE too: escape literal wildcards in BOTH paths.
     const candidates = normalizeDocumentSearch(searchTerm).map(escapeDocumentLike);
     const contains = escapeDocumentLike(searchTerm.trim());
-    const exactWhere: Prisma.InvoiceWhereInput = {
+    let exactWhere: Prisma.InvoiceWhereInput = {
         OR: [
             { id: searchTerm.trim() },
             ...candidates.map(equals => ({ invoiceNumber: { equals, mode: 'insensitive' as const } })),
         ],
     };
-    const exact = await tx.invoice.findMany({
+    let exact = await tx.invoice.findMany({
         where: exactWhere,
         select: invoiceSelect,
         orderBy: { id: 'asc' },
         take: 6,
     });
+    if (!exact.length && canonicalDocument(searchTerm)) {
+        const ids = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM "Invoice" WHERE ${normalizedDocumentPredicate(Prisma.sql`"invoiceNumber"`, searchTerm)} ORDER BY id LIMIT 6`);
+        if (ids.length) {
+            exactWhere = { id: { in: ids.map(row => row.id) } };
+            exact = await tx.invoice.findMany({ where: exactWhere, select: invoiceSelect, orderBy: { id: 'asc' }, take: 6 });
+            if (ids.length === 6) {
+                const counts = await tx.$queryRaw<{ total: bigint }[]>(Prisma.sql`SELECT count(*) AS total FROM "Invoice" WHERE ${normalizedDocumentPredicate(Prisma.sql`"invoiceNumber"`, searchTerm)}`);
+                return selection(exact, Number(counts[0].total));
+            }
+        }
+    }
     if (exact.length)
         return selection(
             exact,

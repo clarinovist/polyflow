@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '@prisma/client';
-import { documentNumberPredicate, documentSearchMeta, normalizeDocumentSearch } from '../document-search';
+import { documentNumberPredicate, documentSearchMeta, normalizeDocumentSearch, normalizedDocumentPredicate } from '../document-search';
 import { resolveOutcome } from '../chat-audit';
 
 const outcome = (answer: string, disposition?: 'RESOLVED') => resolveOutcome({
@@ -30,6 +30,12 @@ describe('document search normalization', () => {
         const sql = documentNumberPredicate(Prisma.sql`po."orderNumber"`, "A%_\\' OR 1=1");
         expect(sql.sql).toBe('po."orderNumber" ILIKE ?');
         expect(sql.values).toEqual(["%A\\%\\_\\\\' OR 1=1%"]);
+    });
+    it('normalizes stored delimiters only for recognized documents with bound values', () => {
+        expect(normalizedDocumentPredicate(Prisma.sql`"invoiceNumber"`, 'Fixture Name').sql).toBe('FALSE');
+        const predicate = normalizedDocumentPredicate(Prisma.sql`"invoiceNumber"`, 'bill - 2026 -0421');
+        expect(predicate.sql).toContain('regexp_replace');
+        expect(predicate.values.at(-1)).toBe('BILL-2026-0421');
     });
     it('retains only allowlisted document inputs in audit metadata', () => {
         expect(documentSearchMeta('PO PO-2026-0421', 0)).toMatchObject({
