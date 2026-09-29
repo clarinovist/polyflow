@@ -187,9 +187,11 @@ export function AssignOrderDialog({
                 <DialogHeader>
                     <DialogTitle>{planningLabels.assignOrder}</DialogTitle>
                     <DialogDescription>
-                        {presetOrderId
-                            ? planningLabels.selectMachineAndDate
-                            : planningLabels.selectOrderToAssign}
+                        {presetMachineId && activeMachine
+                            ? `Pilih SPK dan tanggal untuk ${activeMachine.code}. Alokasi ini tidak otomatis memulai produksi.`
+                            : presetOrderId
+                              ? planningLabels.selectMachineAndDate
+                              : planningLabels.selectOrderToAssign}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -203,7 +205,7 @@ export function AssignOrderDialog({
                                 value={selectedOrderId}
                                 onValueChange={handleOrderChange}
                             >
-                                <SelectTrigger id="order">
+                                <SelectTrigger id="order" className="min-h-11 w-full min-w-0">
                                     <SelectValue
                                         placeholder={planningLabels.chooseOrder}
                                     />
@@ -227,6 +229,11 @@ export function AssignOrderDialog({
                                     )}
                                 </SelectContent>
                             </Select>
+                            {selectedOrder && (
+                                <p className="break-words text-xs text-muted-foreground">
+                                    {selectedOrder.orderNumber} — {selectedOrder.bomName}
+                                </p>
+                            )}
                         </div>
                     )}
 

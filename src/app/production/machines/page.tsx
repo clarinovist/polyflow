@@ -19,6 +19,8 @@ import { ReassignMachineButton } from '@/components/production/ReassignMachineBu
 import { ShiftManagerDialog } from '@/components/production/ShiftManagerDialog';
 import { AssignJobButton } from '@/components/production/AssignJobButton';
 import { MachineActions } from '@/components/production/MachineActions';
+import { MachineOrderList } from '@/components/production/MachineOrderList';
+import { partitionScheduleOrders } from '@/lib/production/schedule-history';
 import { serializeData } from '@/lib/utils/utils';
 import { ProductionStatus } from '@prisma/client';
 import {
@@ -70,13 +72,7 @@ export default async function ProductionMachinesPage() {
         machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
     const ordersRes = await getProductionOrders();
-    const allOrders = ordersRes;
-    const releasedOrdersRaw = allOrders.filter(
-        (o) => o.status === ProductionStatus.RELEASED,
-    );
-    const inProgressOrdersRaw = allOrders.filter(
-        (o) => o.status === ProductionStatus.IN_PROGRESS,
-    );
+    const { ongoing: ongoingOrdersRaw } = partitionScheduleOrders(ordersRes, []);
 
     const employeesRes = await getEmployees();
     const employeesRaw =
@@ -96,12 +92,18 @@ export default async function ProductionMachinesPage() {
     const machines = serializeData(
         machinesRaw,
     ) as unknown as SerializedMachine[];
-    const releasedOrders = serializeData(
-        releasedOrdersRaw,
+    const ongoingOrders = serializeData(
+        ongoingOrdersRaw,
     ) as unknown as SerializedProductionOrder[];
-    const inProgressOrders = serializeData(
-        inProgressOrdersRaw,
-    ) as unknown as SerializedProductionOrder[];
+    const schedulableOrders = ongoingOrders.map((order) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        bomName: order.bom.productVariant.name,
+        bomCategory: order.bom.category,
+        status: order.status,
+        plannedQuantity: Number(order.plannedQuantity),
+        machineId: order.machineId,
+    }));
     const employees = serializeData(
         employeesRaw,
     ) as unknown as SerializedEmployee[];
@@ -109,9 +111,9 @@ export default async function ProductionMachinesPage() {
         workShiftsRaw,
     ) as unknown as SerializedWorkShift[];
 
-    // Build a map: machineId → IN_PROGRESS orders assigned to that machine
+    // Include planned SPKs, not only those already in progress.
     const ordersByMachine = new Map<string, SerializedProductionOrder[]>();
-    for (const order of inProgressOrders) {
+    for (const order of ongoingOrders) {
         const mid = order.machine?.id;
         if (mid) {
             const existing = ordersByMachine.get(mid) || [];
@@ -127,14 +129,14 @@ export default async function ProductionMachinesPage() {
                     Status Mesin Saat Ini
                 </h1>
                 <p className="text-muted-foreground">
-                    Kondisi mesin dan eksekusi sekarang, termasuk penugasan shift.
+                    Kondisi mesin, eksekusi saat ini, dan daftar SPK yang dialokasikan.
                 </p>
                 <Link href="/production/schedule" className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline">
                     Lihat rencana mesin & tanggal di Jadwal Produksi →
                 </Link>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mb-10">
                 {machines.map((machine: SerializedMachine) => {
                     const activeExecution = machine.executions[0];
                     const activeOrder = activeExecution?.productionOrder;
@@ -145,9 +147,17 @@ export default async function ProductionMachinesPage() {
                     const assignedOrders =
                         ordersByMachine.get(machine.id) || [];
                     const assignedOrder = !activeExecution
-                        ? assignedOrders[0]
+                        ? assignedOrders.find(
+                              (order) => order.status === ProductionStatus.IN_PROGRESS,
+                          )
                         : null;
                     const assignedShift = assignedOrder?.shifts?.[0];
+                    // An execution may still run here after its SPK is reassigned.
+                    // Keep actual execution visible without duplicating an assigned SPK.
+                    const visibleOrders =
+                        activeOrder && !assignedOrders.some((order) => order.id === activeOrder.id)
+                            ? [activeOrder, ...assignedOrders]
+                            : assignedOrders;
 
                     return (
                         <Card
@@ -277,7 +287,7 @@ export default async function ProductionMachinesPage() {
                                                 <div className="flex items-center gap-1.5 leading-none">
                                                     <PauseCircle className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
                                                     <span className="text-[9px] uppercase font-black tracking-widest text-amber-500 dark:text-amber-400">
-                                                        Paused
+                                                        Tanpa Eksekusi
                                                     </span>
                                                 </div>
                                                 <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 font-bold">
@@ -363,15 +373,32 @@ export default async function ProductionMachinesPage() {
                                         <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest leading-none">
                                             Station Idle
                                         </span>
-                                        <AssignJobButton
-                                            machineId={machine.id}
-                                            machineCode={machine.code}
-                                            machineType={machine.type}
-                                            releasedOrders={releasedOrders}
-                                            machineStageMap={machineStageMap}
-                                        />
                                     </div>
                                 )}
+
+                                <MachineOrderList
+                                    machineCode={machine.code}
+                                    activeOrderId={activeOrder?.id}
+                                    orders={visibleOrders.map((order) => ({
+                                        id: order.id,
+                                        orderNumber: order.orderNumber,
+                                        status: order.status,
+                                        productName: order.bom.productVariant.name,
+                                        plannedQuantity: Number(order.plannedQuantity),
+                                        primaryUnit: order.bom.productVariant.primaryUnit,
+                                        plannedStartDate: order.plannedStartDate,
+                                    }))}
+                                />
+                                <AssignJobButton
+                                    machine={{
+                                        id: machine.id,
+                                        code: machine.code,
+                                        type: machine.type,
+                                        status: machine.status,
+                                    }}
+                                    orders={schedulableOrders}
+                                    machineStageMap={machineStageMap}
+                                />
 
                                 <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800">
                                     <MachineActions

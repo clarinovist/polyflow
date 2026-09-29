@@ -18,6 +18,7 @@ import {
 } from '@/lib/tools/auth-checks';
 import { auth } from '@/auth';
 import { Prisma } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
@@ -578,6 +579,17 @@ describe('production order actions', () => {
             // Assert
             expect(res.success).toBe(true);
             expect(ProductionService.updateOrder).toHaveBeenCalled();
+        });
+
+        it('schedules without starting production and refreshes both machine views', async () => {
+            const allocation = { id: 'po-1', machineId: 'mac-1', plannedStartDate: new Date('2026-09-29') };
+            vi.mocked(ProductionService.updateOrder).mockResolvedValue(undefined as never);
+
+            expect((await updateProductionOrder(allocation)).success).toBe(true);
+            expect(requirePlanningRole).toHaveBeenCalled();
+            expect(ProductionService.updateOrder).toHaveBeenCalledWith(allocation);
+            expect(revalidatePath).toHaveBeenCalledWith('/production/machines');
+            expect(revalidatePath).toHaveBeenCalledWith('/production/schedule');
         });
 
         it('rejects a payload the schema refuses', async () => {

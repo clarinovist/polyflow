@@ -813,6 +813,7 @@ export const updateProductionOrder = withTenant(
                 revalidatePath(`/production/orders/${result.data.id}`);
                 revalidatePath('/production');
                 revalidatePath('/production/schedule');
+                revalidatePath('/production/machines');
                 return null;
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;
