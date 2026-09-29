@@ -2,7 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { getMyMobilePortals } from '@/actions/settings/mobile-portals';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
-import { MobileAccountMenu } from '@/components/layout/mobile-account-menu';
+import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
 import Link from 'next/link';
 import { Layers, ChevronRight } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
@@ -49,7 +49,7 @@ export default async function MobileSelectorPage() {
                         PolyFlow Mobile
                     </span>
                 </div>
-                <MobileAccountMenu user={user} />
+                <MobileAccountMenuServer user={session.user} />
             </header>
 
             <main className="flex-1 max-w-md w-full mx-auto p-5 flex flex-col justify-center gap-6">

@@ -29,7 +29,7 @@ vi.mock('@/actions/sales/field-actions', () => ({ getMyFieldSalesOrders: m.order
 vi.mock('@/actions/settings/mobile-portals', () => ({ getMyMobilePortals: m.portals }));
 vi.mock('@/auth', () => ({ auth: m.auth }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: m.refresh, push: m.push }), redirect: m.redirect }));
-vi.mock('@/components/layout/mobile-account-menu', () => ({ MobileAccountMenu: () => null }));
+vi.mock('@/components/layout/mobile-account-menu-server', () => ({ MobileAccountMenuServer: () => null }));
 vi.mock('@/components/ui/barcode-scanner', () => ({ BarcodeScanner: () => null }));
 vi.mock('../field/sales/orders/OrderListClient', () => ({ OrderListClient: () => <p>Orders</p> }));
 vi.mock('../field/sales/receivables/ReceivablesListClient', () => ({ ReceivablesListClient: () => <p>Receivables</p> }));

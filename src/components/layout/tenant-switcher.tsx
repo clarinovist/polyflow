@@ -67,7 +67,11 @@ export function TenantSwitcher({
                     )}
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuContent
+                align="start"
+                collisionPadding={16}
+                className="w-64 max-w-[calc(100vw-2rem)]"
+            >
                 <DropdownMenuLabel>Ganti perusahaan</DropdownMenuLabel>
                 {workspaces.map((workspace) => (
                     <DropdownMenuItem key={workspace.tenantId} asChild>
