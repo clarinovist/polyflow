@@ -128,6 +128,21 @@ describe.skipIf(!process.env.RETURN_CREDIT_TEST_DATABASE_URL)('document lookup P
         const closed = await tenantContext.run(db, () => tenantIdContext.run(ctx.tenantId, () => getToolByName('diagnose_sales_return_credit')!.execute({ searchTerm: 'SR-2026-0421', postingDate: '2026-09-18' }, ctx)));
         expect(closed.facts.find(f => f.label === 'Periode tanggal posting yang diperiksa')?.value).toContain('posting tertahan');
     });
+    it('retrieves only published permitted tenant KB and keeps another tenant out', async () => {
+        const slugs = ['synthetic-kb-visible', 'synthetic-kb-foreign', 'synthetic-kb-draft', 'synthetic-kb-private', 'synthetic-kb-denied'];
+        try {
+            await db.tenantKnowledgeArticle.createMany({ data: slugs.map((slug, i) => ({ slug, title: 'Synthetic invoice protocol', bodyMd: 'invoice synthetic instructions', tenantId: i === 1 ? 'other-tenant' : ctx.tenantId, status: i === 2 ? 'DRAFT' : 'PUBLISHED', sensitivity: i === 3 ? 'RESTRICTED' : 'INTERNAL', modules: ['finance'], tags: [], allowedResources: i === 4 ? ['/hrd/payroll'] : ['/finance/invoices/purchase'] })) });
+            const limited = { ...ctx, allowedResources: ['/finance'] };
+            const search = () => getToolByName('search_help_articles')!.execute({ query: 'synthetic invoice', module: 'finance' }, limited);
+            const result = await tenantContext.run(db, () => tenantIdContext.run(ctx.tenantId, search));
+            expect(result.entities?.filter(e => e.type === 'TenantKnowledgeArticle')).toHaveLength(1);
+            expect(result.source).toBe('tenant-kb');
+            await expect(tenantContext.run(db, () => tenantIdContext.run('other-tenant', search))).rejects.toThrow(/tenant/);
+            const foreign = await tenantContext.run(db, () => tenantIdContext.run('other-tenant', () => getToolByName('search_help_articles')!.execute({ query: 'synthetic invoice', module: 'finance' }, { ...limited, tenantId: 'other-tenant' })));
+            expect(foreign.entities?.filter(e => e.type === 'TenantKnowledgeArticle')).toHaveLength(1);
+            expect(foreign.entities?.[0].id).not.toBe(result.entities?.[0].id);
+        } finally { await db.tenantKnowledgeArticle.deleteMany({ where: { slug: { in: slugs } } }); }
+    });
     it('offers PO tools to a live tenant ADMIN without permission rows and removes them when revoked', async () => {
         const id = 'doc-admin';
         await db.user.create({ data: { id, email: 'doc-admin@example.invalid', password: 'synthetic-not-a-login', role: 'ADMIN' } });

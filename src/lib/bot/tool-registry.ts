@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
-import { searchHelpArticles } from './help-articles';
+import { searchCombinedKnowledge } from './tenant-knowledge';
 import type {
     AssistantToolDefinition,
     AssistantUserContext,
@@ -366,9 +366,9 @@ async function executeGetPendingSalesOverview(
 // --- search_help_articles ---
 async function executeSearchHelpArticles(
     args: { query: string; module?: string },
-    _ctx: AssistantUserContext,
+    ctx: AssistantUserContext,
 ): Promise<ToolEvidence> {
-    const results = await searchHelpArticles(args.query, args.module, 3);
+    const results = await searchCombinedKnowledge(args.query, args.module, ctx, 3);
 
     if (!results.length) {
         return createEvidence({
@@ -381,21 +381,21 @@ async function executeSearchHelpArticles(
 
     const facts = results.map((r) => ({
         label: r.title,
-        value: `${r.summary}\n${r.bodyExcerpt}\nSumber: /support/${r.slug}`,
+        value: `${r.summary}\n${r.bodyExcerpt}\nSumber: ${r.source === 'global-kb' ? `/support/${r.slug}` : `SOP internal perusahaan (${r.slug}); bukan panduan global`}`,
     }));
 
     const entities = results.map((r) => ({
-        type: 'HelpArticle',
-        id: r.slug,
+        type: r.source === 'global-kb' ? 'HelpArticle' : 'TenantKnowledgeArticle',
+        id: r.source === 'global-kb' ? r.slug : r.id,
         label: r.title,
-        href: `/support/${r.slug}`,
+        ...(r.source === 'global-kb' ? { href: `/support/${r.slug}` } : {}),
     }));
 
     return createEvidence({
-        summary: `Artikel ditemukan di Knowledge Base (${results.length} hasil):`,
+        summary: `Artikel ditemukan di Knowledge Base (${results.length} hasil); sumber tiap artikel dilabelkan:`,
         facts,
         entities,
-        source: 'global-kb',
+        source: results.some(r => r.source === 'tenant-kb') ? 'tenant-kb' : 'global-kb',
     });
 }
 
