@@ -142,10 +142,12 @@ export const prisma: typeof mainPrisma =
             if (typeof prop === 'string' && prop.startsWith('_')) {
                 return Reflect.get(target, prop, receiver);
             }
-            const tenantDb = tenantContext.getStore();
-            if (tenantDb) {
-                return Reflect.get(tenantDb, prop, receiver);
-            }
-            return Reflect.get(target, prop, receiver);
+            const client = tenantContext.getStore() ?? target;
+            const value = Reflect.get(client, prop, client);
+            // Raw/client methods use this._request/_engine. Calling them with
+            // the routing proxy as `this` would read MAIN's private fields
+            // above even inside a tenant scope. Delegates already own their
+            // concrete client; bind only functions, never route internals.
+            return typeof value === 'function' ? value.bind(client) : value;
         },
     }));
