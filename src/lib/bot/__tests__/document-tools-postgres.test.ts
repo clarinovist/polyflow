@@ -12,6 +12,9 @@ vi.mock('@/lib/core/prisma', async () => {
 import { prisma as db, tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { getToolByName } from '../tool-registry';
 import { documentNumberPredicate } from '../document-search';
+import { verifyAssistantSessionUser } from '../assistant-session';
+import { buildAssistantContext } from '../assistant-context';
+import { getAvailableAssistantTools } from '../assistant-tool-access';
 import type { AssistantUserContext } from '../assistant-types';
 
 const ctx: AssistantUserContext = { userId: 'synthetic-user', roles: ['ADMIN'], allowedResources: 'ALL', tenantId: 'synthetic-tenant', channel: 'web', locale: 'id-ID' };
@@ -77,6 +80,27 @@ describe.skipIf(!process.env.RETURN_CREDIT_TEST_DATABASE_URL)('document lookup P
     it.each(['BILL - 2026 -0422', 'BILL‑2026‑0422'])('matches BILL predicate %s on PurchaseInvoice (tool arrives in phase B)', async raw => {
         const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM "PurchaseInvoice" WHERE (${documentNumberPredicate(Prisma.sql`"invoiceNumber"`, raw)})`);
         expect(rows.map(r => r.id)).toEqual(['doc-bill']);
+    });
+    it('offers PO tools to a live tenant ADMIN without permission rows and removes them when revoked', async () => {
+        const id = 'doc-admin';
+        await db.user.create({ data: { id, email: 'doc-admin@example.invalid', password: 'synthetic-not-a-login', role: 'ADMIN' } });
+        // No RolePermission row is needed for the existing ADMIN role policy.
+        const session = { id, role: 'ADMIN', allowedResources: ['ALL'] };
+        const verified = await verifyAssistantSessionUser(session);
+        expect(verified).toMatchObject({ allowedResources: 'ALL', isSuperAdmin: false });
+        const context = buildAssistantContext(verified!, ctx.tenantId);
+        const tools = getAvailableAssistantTools(context, true);
+        const poTool = tools.find(tool => tool.name === 'get_purchase_order');
+        expect(poTool).toBeDefined();
+        expect((await poTool!.execute({ searchTerm: 'PO PO-2026-0421' }, context)).searchMeta?.matchCount).toBe(1);
+        await db.user.update({ where: { id }, data: { role: 'WAREHOUSE' } });
+        const revoked = await verifyAssistantSessionUser(session);
+        expect(revoked?.allowedResources).not.toBe('ALL');
+        expect(getAvailableAssistantTools(buildAssistantContext(revoked!, ctx.tenantId), true).some(tool => tool.name === 'get_purchase_order')).toBe(false);
+        await db.userRole.create({ data: { userId: id, role: 'ADMIN' } });
+        expect((await verifyAssistantSessionUser(session))?.allowedResources).toBe('ALL');
+        await db.user.update({ where: { id }, data: { isActive: false } });
+        expect(await verifyAssistantSessionUser(session)).toBeNull();
     });
     it('keeps read-only finance tenant and permission guards intact', async () => {
         const tool = getToolByName('get_invoice_status')!;

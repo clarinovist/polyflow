@@ -48,6 +48,23 @@ describe('verifyAssistantSessionUser', () => {
         });
     });
 
+    it.each(['primary', 'assigned'])('applies existing tenant ADMIN policy from the current %s DB role', async source => {
+        findUser.mockResolvedValue({ id: 'user-1', role: source === 'primary' ? 'ADMIN' : 'FINANCE', isSuperAdmin: false, isActive: true });
+        findRoles.mockResolvedValue(source === 'assigned' ? [{ role: 'ADMIN' }] : []);
+        findPermissions.mockResolvedValue([]);
+        const result = await verifyAssistantSessionUser({ id: 'user-1', role: 'FINANCE', allowedResources: [] });
+        expect(result).toMatchObject({ isSuperAdmin: false, allowedResources: 'ALL' });
+        expect(result?.roles).toContain('ADMIN');
+        expect(findUser).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'user-1' } }));
+        expect(findRoles).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-1' } }));
+    });
+
+    it('does not grant tenant ADMIN access from stale session roles or wildcard arrays', async () => {
+        findPermissions.mockResolvedValue([]);
+        const result = await verifyAssistantSessionUser({ id: 'user-1', role: 'ADMIN', roles: ['ADMIN'], isSuperAdmin: true, allowedResources: ['ALL'] });
+        expect(result).toMatchObject({ roles: ['FINANCE'], isSuperAdmin: false, allowedResources: [] });
+    });
+
     it('fails closed for missing and inactive users', async () => {
         expect(await verifyAssistantSessionUser({})).toBeNull();
         findUser.mockResolvedValueOnce(null);
@@ -72,7 +89,7 @@ describe('verifyAssistantSessionUser', () => {
         ).toBeNull();
     });
 
-    it('grants ALL only from a current DB super-admin record', async () => {
+    it('retains current DB super-admin policy', async () => {
         findUser.mockResolvedValueOnce({
             id: 'admin',
             name: 'Admin',

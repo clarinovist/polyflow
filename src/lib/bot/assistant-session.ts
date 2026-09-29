@@ -61,7 +61,10 @@ export async function verifyAssistantSessionUser(
             role: user.role,
             roles,
             isSuperAdmin: false,
-            allowedResources: [
+            // Match the application's tenant ADMIN policy, but only after
+            // reloading roles from this tenant DB (never the JWT snapshot).
+            // ALL grants tool resources; it does not make this user a superadmin.
+            allowedResources: roles.includes('ADMIN') ? 'ALL' : [
                 ...new Set(
                     permissions.map((permission) => permission.resource),
                 ),
