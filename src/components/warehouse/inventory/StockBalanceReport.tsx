@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -30,11 +31,24 @@ const headers = [
 
 export function StockBalanceReport({ data }: { data: StockBalanceData }) {
     const [search, setSearch] = useState('');
+    const [showAllZeroRows, setShowAllZeroRows] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const query = search.trim().toLocaleLowerCase('id-ID');
-    const rows = data.rows.filter((row) =>
-        `${row.skuCode} ${row.name}`.toLocaleLowerCase('id-ID').includes(query),
-    );
+    const rows = data.rows.filter((row) => {
+        const hasNonZeroValue = [
+            row.openingStock,
+            row.totalIn,
+            row.totalOut,
+            row.closingStock,
+        ].some((value) => value !== 0);
+
+        return (
+            (showAllZeroRows || hasNonZeroValue) &&
+            `${row.skuCode} ${row.name}`
+                .toLocaleLowerCase('id-ID')
+                .includes(query)
+        );
+    });
     const pageCount = Math.max(1, Math.ceil(rows.length / 25));
     const page = Math.min(currentPage, pageCount);
     const pageRows = rows.slice((page - 1) * 25, page * 25);
@@ -142,6 +156,22 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
                         placeholder="Cari nama atau SKU..."
                     />
                 </div>
+                <div className="flex h-9 items-center gap-2">
+                    <Checkbox
+                        id="balance-show-zero"
+                        checked={showAllZeroRows}
+                        onCheckedChange={(checked) => {
+                            setShowAllZeroRows(checked === true);
+                            setCurrentPage(1);
+                        }}
+                    />
+                    <Label
+                        htmlFor="balance-show-zero"
+                        className="cursor-pointer font-normal"
+                    >
+                        Tampilkan barang dengan semua nilai 0
+                    </Label>
+                </div>
                 <Button
                     variant="outline"
                     onClick={exportCsv}
@@ -151,8 +181,9 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
                 </Button>
             </div>
             <p className="text-sm text-muted-foreground">
-                {rows.length} dari {data.rows.length} barang · Ekspor mengikuti
-                seluruh hasil pencarian, bukan hanya halaman ini.
+                {rows.length} dari {data.rows.length} barang · Secara default,
+                barang dengan semua nilai 0 disembunyikan · Ekspor mengikuti
+                seluruh hasil filter, bukan hanya halaman ini.
             </p>
             <div
                 className="rounded-lg border overflow-x-auto"

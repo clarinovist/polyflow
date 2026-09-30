@@ -16,6 +16,7 @@ const data: StockBalanceData = {
     rows: [
         { productVariantId: 'A', skuCode: 'RM-A', name: 'Bahan Baku', unit: 'KG', openingStock: 1.1, totalIn: 0.2, totalOut: 1.3001, closingStock: -0.0001 },
         { productVariantId: 'B', skuCode: 'FG-B', name: 'Barang Jadi', unit: 'PCS', openingStock: 2, totalIn: 5, totalOut: 1, closingStock: 6 },
+        { productVariantId: 'C', skuCode: 'ZERO-C', name: 'Barang Nol', unit: 'PCS', openingStock: 0, totalIn: 0, totalOut: 0, closingStock: 0 },
     ],
 };
 beforeEach(() => vi.clearAllMocks());
@@ -53,11 +54,27 @@ describe('StockBalanceReport', () => {
         expect(screen.getByRole('link', { name: 'Reset' }).getAttribute('href')).toBe('/warehouse/inventory/balance');
     });
 
-    it('searches name and SKU, and exports exactly the visible rows with period context', () => {
+    it('hides rows whose stock values are all zero by default and can show them', () => {
+        render(<StockBalanceReport data={data} />);
+
+        expect(screen.queryByText('Barang Nol')).toBeNull();
+        expect(screen.getByText(/2 dari 3 barang/)).toBeTruthy();
+
+        fireEvent.click(
+            screen.getByRole('checkbox', {
+                name: 'Tampilkan barang dengan semua nilai 0',
+            }),
+        );
+
+        expect(screen.getByText('Barang Nol')).toBeTruthy();
+        expect(screen.getByText(/3 dari 3 barang/)).toBeTruthy();
+    });
+
+    it('searches name and SKU, and exports exactly the filtered rows with period context', () => {
         render(<StockBalanceReport data={data} />);
         fireEvent.change(screen.getByLabelText('Cari barang / SKU'), { target: { value: '  bahan BAKU  ' } });
         expect(screen.queryByText('Barang Jadi')).toBeNull();
-        expect(screen.getByText(/1 dari 2 barang/)).toBeTruthy();
+        expect(screen.getByText(/1 dari 3 barang/)).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: /Ekspor CSV/ }));
         expect(downloadCsv).toHaveBeenCalledWith(
             'Neraca_Stok_2026-09-01_2026-09-09.csv',
