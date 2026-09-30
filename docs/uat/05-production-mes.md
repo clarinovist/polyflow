@@ -281,24 +281,21 @@
 
 ## E. Command Board & IA Collapse (Gelombang 2026-07-22)
 
-### TC-CB-001: Home Board Work Strip
+### TC-CB-001: Ringkasan Hasil Hari Ini
 
 | **ID** | TC-CB-001 | **Prioritas** | 🔴 P1 |
 
 **Langkah:**
 
-1. Buka `/production` sebagai PRODUCTION/ADMIN
-2. Lihat strip atas — kartu: SPK jalan, Rilis, Tunggu bahan, Downtime aktif, Butuh perhatian, (optional) Belum di-SPK
-3. Klik tiap kartu — harus deep link:
-    - SPK jalan → `/production/daily`
-    - Rilis → `/production/orders?status=RELEASED`
-    - Tunggu bahan → `/production/orders?status=WAITING_MATERIAL`
-    - Downtime aktif → `/production/machines`
-    - Butuh perhatian → scroll `#attentions` (bukan navigasi silang)
-    - Belum di-SPK → `/production/requests`
-4. Quick actions row: `+ SPK baru` → create, `Papan FG` → requests, `SPK Aktif` → daily, `Bahan Gudang` → `/warehouse/materials`, `Kiosk` → `/kiosk`
+1. Buka `/production` sebagai PRODUCTION/ADMIN.
+2. Pastikan ringkasan **Hasil hari ini** tampil di bagian atas, setelah indikator waktu pembaruan.
+3. Verifikasi total ditampilkan per proses dan per satuan; jangan menjumlahkan KG dengan PCS atau satuan lain.
+4. Periksa rincian per barang: nama, SKU, proses, jumlah, satuan, dan jumlah SPK.
+5. Klik salah satu barang — halaman Rekap Hasil Produksi harus terbuka dengan filter hari ini, barang, dan proses terkait.
+6. Klik **Lihat rekap lengkap** — halaman Rekap Hasil Produksi harus terbuka pada tampilan per produk untuk hari ini.
+7. Pastikan blok lama **Kondisi seluruh proses** tidak tampil.
 
-**Diharapkan:** Kartu menampilkan count real (bukan filtered by tab), deep link filter status preserve ?category if present, quick actions reachable.
+**Diharapkan:** Ringkasan hasil aktual menjadi informasi pertama di dashboard, rincian per barang konsisten dengan total proses, dan semua tautan menggunakan hari bisnis WIB.
 
 **Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** \_\_\_
 

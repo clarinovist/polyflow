@@ -22,23 +22,13 @@ import {
     CheckCircle2,
     ExternalLink,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/utils';
+import { cn, formatQuantity } from '@/lib/utils/utils';
+import { formatUnitLabel } from '@/lib/utils/unit-label';
+import type { TodayOutputItem } from '@/lib/production/live-overview';
 import type { ProductionAlertThresholds } from '@/lib/production/alert-thresholds';
 
 type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
 export type TabKey = ProcessKey | 'ALL';
-
-type ProcessPulse = {
-    outputToday: number;
-    outputYesterday: number;
-    scrapToday: number;
-    scrapRate: number;
-    recordedThisHour: number;
-    activeJobs: number;
-    released: number;
-    waiting: number;
-    hourly: { hour: number; today: number; avg7d: number }[];
-};
 
 type RunningOrder = {
     id: string;
@@ -69,24 +59,9 @@ type AttentionItem = {
 };
 
 export type ProductionOverviewData = {
-    processes: Record<ProcessKey, ProcessPulse>;
-    stackedHourly: {
-        hour: number;
-        MIXING: number;
-        EXTRUSION: number;
-        PACKING: number;
-        OTHER: number;
-    }[];
     runningOrders: RunningOrder[];
     attentions: AttentionItem[];
-    totals: {
-        activeJobs: number;
-        released: number;
-        waiting: number;
-        downtimeOpen: number;
-        waitingMaterialCount: number;
-        fgUncoveredVariants: number;
-    };
+    todayOutputItems: TodayOutputItem[];
 };
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -104,49 +79,11 @@ const PROCESS_COLOR: Record<ProcessKey, string> = {
     OTHER: 'text-muted-foreground',
 };
 
-function emptyPulse(): ProcessPulse {
-    return {
-        outputToday: 0,
-        outputYesterday: 0,
-        scrapToday: 0,
-        scrapRate: 0,
-        recordedThisHour: 0,
-        activeJobs: 0,
-        released: 0,
-        waiting: 0,
-        hourly: Array.from({ length: 24 }, (_, i) => ({
-            hour: i,
-            today: 0,
-            avg7d: 0,
-        })),
-    };
-}
-
 export function emptyOverviewData(): ProductionOverviewData {
     return {
-        processes: {
-            MIXING: emptyPulse(),
-            EXTRUSION: emptyPulse(),
-            PACKING: emptyPulse(),
-            OTHER: emptyPulse(),
-        },
-        stackedHourly: Array.from({ length: 24 }, (_, hour) => ({
-            hour,
-            MIXING: 0,
-            EXTRUSION: 0,
-            PACKING: 0,
-            OTHER: 0,
-        })),
         runningOrders: [],
         attentions: [],
-        totals: {
-            activeJobs: 0,
-            released: 0,
-            waiting: 0,
-            downtimeOpen: 0,
-            waitingMaterialCount: 0,
-            fgUncoveredVariants: 0,
-        },
+        todayOutputItems: [],
     };
 }
 
@@ -230,86 +167,7 @@ export function ProductionOverviewClient({
                 lastUpdated={lastUpdated}
             />
 
-            {/* Work Strip — antrean kerja hari ini */}
-            <div className="rounded-xl border bg-card/60 p-3">
-                <div className="flex items-center gap-2 mb-2.5">
-                    <h2 className="text-sm font-bold">
-                        Kondisi seluruh proses
-                    </h2>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                    <WorkStripCard
-                        label="SPK jalan"
-                        count={activeData.totals.activeJobs}
-                        href="/production/orders?status=IN_PROGRESS"
-                        accent="emerald"
-                    />
-                    <WorkStripCard
-                        label="Rilis"
-                        count={activeData.totals.released}
-                        href="/production/orders?status=RELEASED"
-                        accent="blue"
-                    />
-                    <WorkStripCard
-                        label="Tunggu bahan"
-                        count={activeData.totals.waitingMaterialCount}
-                        href="/production/orders?status=WAITING_MATERIAL"
-                        accent="amber"
-                    />
-                    <WorkStripCard
-                        label="Downtime aktif"
-                        count={activeData.totals.downtimeOpen}
-                        href="/production/machines"
-                        accent="red"
-                    />
-                    <button
-                        type="button"
-                        className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-left text-rose-700 dark:text-rose-400 hover:brightness-95"
-                        onClick={() => {
-                            setTab('ALL');
-                            document
-                                .getElementById('attentions')
-                                ?.scrollIntoView({ block: 'start' });
-                        }}
-                    >
-                        <span className="block text-[11px] font-semibold">
-                            Butuh perhatian
-                        </span>
-                        <span className="text-xl font-bold tabular-nums">
-                            {activeData.attentions.length}
-                        </span>
-                    </button>
-                    {activeData.totals.fgUncoveredVariants > 0 && (
-                        <WorkStripCard
-                            label="Belum di-SPK"
-                            count={activeData.totals.fgUncoveredVariants}
-                            href="/production/requests"
-                            accent="violet"
-                        />
-                    )}
-                </div>
-                {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
-                <div className="flex flex-wrap gap-1.5 mt-2.5">
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="min-h-11 text-xs font-bold"
-                    >
-                        <Link href="/production/orders/create">Buat SPK</Link>
-                    </Button>
-                    <Button
-                        asChild
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-11 text-xs"
-                    >
-                        <Link href="/production/history?from=today&to=today">
-                            Log & Bukti hari ini →
-                        </Link>
-                    </Button>
-                </div>
-            </div>
+            <TodayOutputSummary items={activeData.todayOutputItems ?? []} />
 
             <div>
                 <p className="mb-2 text-sm font-medium">
@@ -513,98 +371,137 @@ export function ProductionOverviewClient({
                     </CardContent>
                 </Card>
             </div>
-
-            <section
-                aria-label="Ringkasan hasil hari ini"
-                className="rounded-xl border bg-card/60 p-4"
-            >
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h2 className="text-sm font-bold">
-                        Hasil hari ini · seluruh proses
-                    </h2>
-                    <Link
-                        href="/production/analytics"
-                        className="text-sm font-medium text-primary hover:underline"
-                    >
-                        Tren & Analitik →
-                    </Link>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {(
-                        [
-                            'MIXING',
-                            'EXTRUSION',
-                            'PACKING',
-                            'OTHER',
-                        ] as ProcessKey[]
-                    ).map((key) => (
-                        <div key={key}>
-                            <p
-                                className={cn(
-                                    'text-xs font-semibold',
-                                    PROCESS_COLOR[key],
-                                )}
-                            >
-                                {key === 'OTHER' ? 'Lainnya' : key}
-                            </p>
-                            <p className="font-bold tabular-nums">
-                                {activeData.processes[
-                                    key
-                                ].outputToday.toLocaleString('id-ID', {
-                                    maximumFractionDigits: 1,
-                                })}{' '}
-                                <span className="text-xs font-normal text-muted-foreground">
-                                    KG
-                                </span>
-                            </p>
-                        </div>
-                    ))}
-                </div>
-                <p className="mt-3 text-xs text-muted-foreground">
-                    Hasil setiap proses ditampilkan terpisah, bukan dijumlahkan
-                    sebagai produk akhir.
-                </p>
-            </section>
         </div>
     );
 }
 
-const WORK_STRIP_ACCENT: Record<string, string> = {
-    emerald:
-        'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400',
-    blue: 'border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-400',
-    amber: 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400',
-    red: 'border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-400',
-    rose: 'border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-400',
-    violet: 'border-violet-500/30 bg-violet-500/5 text-violet-700 dark:text-violet-400',
+const PROCESS_LABEL: Record<ProcessKey, string> = {
+    MIXING: 'Mixing',
+    EXTRUSION: 'Extru',
+    PACKING: 'Packing',
+    OTHER: 'Lainnya',
 };
 
-function WorkStripCard({
-    label,
-    count,
-    href,
-    accent,
-}: {
-    label: string;
-    count: number;
-    href: string;
-    accent: string;
-}) {
+function TodayOutputSummary({ items }: { items: TodayOutputItem[] }) {
+    const processTotals = new Map<ProcessKey, Map<string, number>>();
+    for (const item of items) {
+        const totals = processTotals.get(item.processKey) ?? new Map();
+        totals.set(item.unit, (totals.get(item.unit) ?? 0) + item.quantity);
+        processTotals.set(item.processKey, totals);
+    }
+
     return (
-        <Link
-            href={href}
-            aria-label={`${count} ${label}`}
-            className={cn(
-                'flex flex-col gap-0.5 rounded-lg border p-2.5 text-xs transition-colors hover:opacity-80',
-                WORK_STRIP_ACCENT[accent] || WORK_STRIP_ACCENT.emerald,
-            )}
+        <section
+            aria-label="Ringkasan hasil hari ini"
+            className="rounded-xl border bg-card/60 p-4"
         >
-            <span className="font-bold text-lg tabular-nums leading-tight">
-                {count}
-            </span>
-            <span className="font-medium text-[11px] leading-tight">
-                {label}
-            </span>
-        </Link>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-bold">
+                    Hasil hari ini · seluruh proses
+                </h2>
+                <Link
+                    href="/production/output-report?mode=product&page=1&preset=today"
+                    className="text-sm font-medium text-primary hover:underline"
+                >
+                    Lihat rekap lengkap →
+                </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {(Object.keys(PROCESS_LABEL) as ProcessKey[]).map((key) => (
+                    <div key={key}>
+                        <p
+                            className={cn(
+                                'text-xs font-semibold',
+                                PROCESS_COLOR[key],
+                            )}
+                        >
+                            {PROCESS_LABEL[key]}
+                        </p>
+                        {[...(processTotals.get(key) ?? [])].length === 0 ? (
+                            <p className="font-bold tabular-nums">0</p>
+                        ) : (
+                            [...(processTotals.get(key) ?? [])].map(
+                                ([unit, quantity]) => (
+                                    <p
+                                        key={unit}
+                                        className="font-bold tabular-nums"
+                                    >
+                                        {formatQuantity(quantity)}{' '}
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                            {formatUnitLabel(unit)}
+                                        </span>
+                                    </p>
+                                ),
+                            )
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            <div className="mt-4 border-t pt-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Hasil per barang
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                        {items.length} barang/proses
+                    </span>
+                </div>
+                {items.length === 0 ? (
+                    <p className="rounded-lg border border-dashed py-5 text-center text-sm text-muted-foreground">
+                        Belum ada hasil produksi yang tercatat hari ini.
+                    </p>
+                ) : (
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {items.slice(0, 6).map((item) => {
+                            const params = new URLSearchParams({
+                                mode: 'product',
+                                page: '1',
+                                preset: 'today',
+                                productVariantId: item.productVariantId,
+                                process: item.processKey,
+                            });
+
+                            return (
+                                <Link
+                                    key={`${item.processKey}:${item.productVariantId}:${item.unit}`}
+                                    href={`/production/output-report?${params.toString()}`}
+                                    className="rounded-lg border bg-background/40 p-3 transition-colors hover:bg-muted/50"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-semibold">
+                                                {item.productName}
+                                            </p>
+                                            <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                                                {item.skuCode} ·{' '}
+                                                {PROCESS_LABEL[item.processKey]}{' '}
+                                                · {item.orderCount} SPK
+                                            </p>
+                                        </div>
+                                        <p className="shrink-0 text-sm font-bold tabular-nums">
+                                            {formatQuantity(item.quantity)}{' '}
+                                            <span className="text-xs font-normal text-muted-foreground">
+                                                {formatUnitLabel(item.unit)}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                )}
+                {items.length > 6 && (
+                    <p className="mt-2 text-right text-xs text-muted-foreground">
+                        {items.length - 6} barang/proses lainnya tersedia di
+                        rekap lengkap.
+                    </p>
+                )}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+                Hasil dikelompokkan per barang dan proses. Nilai dengan satuan
+                berbeda tidak dijumlahkan.
+            </p>
+        </section>
     );
 }

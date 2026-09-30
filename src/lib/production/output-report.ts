@@ -50,7 +50,12 @@ export function parseOutputReportFilter(
         return raw?.trim() ?? '';
     };
     const today = toBusinessDateString(now);
-    const from = value('from') || `${today.slice(0, 7)}-01`;
+    const preset = value('preset');
+    if (preset && preset !== 'today') {
+        throw new OutputReportFilterError('Preset tidak valid.');
+    }
+    const from =
+        value('from') || (preset === 'today' ? today : `${today.slice(0, 7)}-01`);
     const to = value('to') || today;
     try {
         parseBusinessDate(from);

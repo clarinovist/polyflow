@@ -5,10 +5,13 @@ describe('output report filter', () => {
     it('defaults using WIB rather than browser/server date', () => {
         expect(parseOutputReportFilter({}, new Date('2026-08-31T18:00:00Z'))).toMatchObject({ from: '2026-09-01', to: '2026-09-01', mode: 'product', page: 1 });
     });
+    it('supports a server-resolved today preset for dashboard links', () => {
+        expect(parseOutputReportFilter({ preset: 'today' }, new Date('2026-09-01T18:00:00Z'))).toMatchObject({ from: '2026-09-02', to: '2026-09-02' });
+    });
     it.each([
         { from: '2026-02-30' }, { from: 'bad' }, { from: '2026-10-01', to: '2026-09-01' },
         { from: '2025-01-01', to: '2026-01-02' }, { process: 'bad' }, { mode: 'toString' },
-        { page: '0' }, { page: '1.5' }, { page: '99999999' }, { q: 'x'.repeat(121) },
+        { page: '0' }, { page: '1.5' }, { page: '99999999' }, { preset: 'tomorrow' }, { q: 'x'.repeat(121) },
         { operatorId: "' OR 1=1" }, { machineId: 'a'.repeat(101) }, { q: ['a', 'b'] },
     ])('rejects invalid filters %j', params => {
         expect(() => parseOutputReportFilter(params)).toThrow();
