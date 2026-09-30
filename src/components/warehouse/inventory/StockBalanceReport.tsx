@@ -55,6 +55,16 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
     const locationName =
         data.locations.find((location) => location.id === data.locationId)
             ?.name ?? 'Semua lokasi';
+    const detailHref = (productVariantId: string) => {
+        const params = new URLSearchParams({
+            tab: 'ledger',
+            startDate: data.startDate,
+            endDate: data.endDate,
+        });
+        if (data.locationId) params.set('locationId', data.locationId);
+
+        return `/warehouse/inventory/${encodeURIComponent(productVariantId)}?${params.toString()}`;
+    };
 
     const exportCsv = () =>
         downloadCsv(
@@ -218,9 +228,25 @@ export function StockBalanceReport({ data }: { data: StockBalanceData }) {
                             pageRows.map((row) => (
                                 <TableRow key={row.productVariantId}>
                                     <TableCell className="font-mono text-xs">
-                                        {row.skuCode}
+                                        <Link
+                                            href={detailHref(
+                                                row.productVariantId,
+                                            )}
+                                            className="text-primary underline-offset-4 hover:underline"
+                                        >
+                                            {row.skuCode}
+                                        </Link>
                                     </TableCell>
-                                    <TableCell>{row.name}</TableCell>
+                                    <TableCell>
+                                        <Link
+                                            href={detailHref(
+                                                row.productVariantId,
+                                            )}
+                                            className="font-medium text-primary underline-offset-4 hover:underline"
+                                        >
+                                            {row.name}
+                                        </Link>
+                                    </TableCell>
                                     <TableCell>{row.unit}</TableCell>
                                     {[
                                         row.openingStock,

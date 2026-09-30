@@ -54,6 +54,31 @@ describe('StockBalanceReport', () => {
         expect(screen.getByRole('link', { name: 'Reset' }).getAttribute('href')).toBe('/warehouse/inventory/balance');
     });
 
+    it('links each item to its stock ledger with the active balance filters', () => {
+        render(<StockBalanceReport data={{ ...data, locationId: 'L1' }} />);
+
+        expect(
+            screen.getByRole('link', { name: 'Bahan Baku' }).getAttribute('href'),
+        ).toBe(
+            '/warehouse/inventory/A?tab=ledger&startDate=2026-09-01&endDate=2026-09-09&locationId=L1',
+        );
+        expect(
+            screen.getByRole('link', { name: 'RM-A' }).getAttribute('href'),
+        ).toBe(
+            '/warehouse/inventory/A?tab=ledger&startDate=2026-09-01&endDate=2026-09-09&locationId=L1',
+        );
+    });
+
+    it('omits the ledger location filter when all locations are selected', () => {
+        render(<StockBalanceReport data={data} />);
+
+        expect(
+            screen.getByRole('link', { name: 'Barang Jadi' }).getAttribute('href'),
+        ).toBe(
+            '/warehouse/inventory/B?tab=ledger&startDate=2026-09-01&endDate=2026-09-09',
+        );
+    });
+
     it('hides rows whose stock values are all zero by default and can show them', () => {
         render(<StockBalanceReport data={data} />);
 
