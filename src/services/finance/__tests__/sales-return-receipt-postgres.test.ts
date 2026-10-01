@@ -8,6 +8,7 @@ import { postReturnCredit } from '../sales-return-credit-service';
 import { recordCustomerPaymentInTransaction } from '../customer-payment-service';
 import { tenantContext } from '@/lib/core/prisma';
 import { captureInvoiceReturnBasis } from '../invoice-return-basis-capture';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 const connection=process.env.RETURN_CREDIT_TEST_DATABASE_URL;
 const receiptUrl=connection?new URL(connection):null;
 if(receiptUrl)receiptUrl.pathname='/polyflow_return_receipt_scope_test';
@@ -103,6 +104,12 @@ describe.skipIf(!db)('return receiving uses original shipment cost',()=>{
   expect(await db!.$transaction(tx=>captureInvoiceReturnBasis(tx,'invoice'))).toBe('CAPTURED');
   await db!.invoice.update({where:{id:'invoice'},data:{status:'UNPAID'}});
   const basis=await db!.invoiceReturnBasisLine.findFirstOrThrow();
+  const [currentYear,currentMonth]=toBusinessDateString(new Date()).split('-').map(Number);
+  await db!.fiscalPeriod.upsert({
+   where:{year_month:{year:currentYear,month:currentMonth}},
+   update:{status:'OPEN'},
+   create:{name:'Current test period',year:currentYear,month:currentMonth,status:'OPEN',startDate:new Date(Date.UTC(currentYear,currentMonth-1,1)),endDate:new Date(Date.UTC(currentYear,currentMonth,0))},
+  });
   await tenantContext.run(db!,()=>receiveSalesReturn('return-1',actor));
   await tenantContext.run(db!,()=>transitionSalesReturn('return-1',actor,'COMPLETED'));
   // The service records today's receipt; the credit cannot predate that actual receipt.
