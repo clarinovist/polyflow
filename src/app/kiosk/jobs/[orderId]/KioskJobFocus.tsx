@@ -6,10 +6,18 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
     ArrowLeft,
     Play,
     Square,
     AlertTriangle,
+    Ellipsis,
+    PackagePlus,
     PlusCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,6 +26,10 @@ import { startExecution } from '@/actions/production/production';
 import { KioskStopDialog } from '@/components/production/kiosk/KioskStopDialog';
 import { DowntimeDialog } from '@/components/production/kiosk/DowntimeDialog';
 import { KioskLogOutputDialog } from '@/components/production/kiosk/KioskLogOutputDialog';
+import {
+    AdditionalMaterialRequestDialog,
+    type KioskMaterialOption,
+} from '@/components/production/kiosk/AdditionalMaterialRequestDialog';
 import { KioskJobProgress } from '@/components/kiosk/KioskJobProgress';
 import {
     getProductionUnitMeta,
@@ -106,16 +118,20 @@ export interface Shift {
 interface KioskJobFocusProps {
     order: Order;
     shifts?: Shift[];
+    materials?: KioskMaterialOption[];
 }
 
 export default function KioskJobFocus({
     order,
     shifts = [],
+    materials = [],
 }: KioskJobFocusProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [stopDialogOpen, setStopDialogOpen] = useState(false);
     const [logDialogOpen, setLogDialogOpen] = useState(false);
+    const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
+    const [downtimeDialogOpen, setDowntimeDialogOpen] = useState(false);
     const [operatorId, setOperatorId] = useState<string | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [timeLeft, setTimeLeft] = useState(30);
@@ -164,7 +180,11 @@ export default function KioskJobFocus({
     }, [order.executions, optimisticExecutionId]);
 
     // Auto-refresh timer (30s) — pause while log/stop dialog open
-    const dialogOpen = logDialogOpen || stopDialogOpen;
+    const dialogOpen =
+        logDialogOpen ||
+        stopDialogOpen ||
+        materialDialogOpen ||
+        downtimeDialogOpen;
     useEffect(() => {
         if (dialogOpen) return;
         const timer = setInterval(() => {
@@ -388,22 +408,36 @@ export default function KioskJobFocus({
                         </Button>
 
                         <div className="grid grid-cols-2 gap-3">
-                            {order.machine && (
-                                <DowntimeDialog
-                                    machineId={order.machine.id}
-                                    machineName={order.machine.name}
-                                    operatorId={operatorId || undefined}
-                                    trigger={
-                                        <Button
-                                            variant="outline"
-                                            className="h-14 text-base font-bold border-2 active:scale-95"
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-14 border-2 text-base font-bold active:scale-95"
+                                    >
+                                        <Ellipsis className="mr-2 h-5 w-5" />
+                                        Aksi Lainnya
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="min-w-64 p-2">
+                                    <DropdownMenuItem
+                                        className="min-h-12 text-base font-semibold"
+                                        onSelect={() => setMaterialDialogOpen(true)}
+                                    >
+                                        <PackagePlus className="h-5 w-5" />
+                                        Bahan Tambahan
+                                    </DropdownMenuItem>
+                                    {order.machine && (
+                                        <DropdownMenuItem
+                                            className="min-h-12 text-base font-semibold text-amber-700"
+                                            onSelect={() => setDowntimeDialogOpen(true)}
                                         >
-                                            <AlertTriangle className="mr-2 h-5 w-5" />
+                                            <AlertTriangle className="h-5 w-5" />
                                             {kioskLabels.focusDowntime}
-                                        </Button>
-                                    }
-                                />
-                            )}
+                                        </DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             <Button
                                 variant="destructive"
                                 className="h-14 text-base font-bold active:scale-95"
@@ -538,6 +572,24 @@ export default function KioskJobFocus({
             {/* Dialogs */}
             {activeExecution && (
                 <>
+                    <AdditionalMaterialRequestDialog
+                        productionOrderId={order.id}
+                        orderNumber={order.orderNumber}
+                        operatorId={operatorId}
+                        materials={materials}
+                        open={materialDialogOpen}
+                        onOpenChange={setMaterialDialogOpen}
+                        onSuccess={() => router.refresh()}
+                    />
+                    {order.machine && (
+                        <DowntimeDialog
+                            machineId={order.machine.id}
+                            machineName={order.machine.name}
+                            operatorId={operatorId}
+                            open={downtimeDialogOpen}
+                            onOpenChange={setDowntimeDialogOpen}
+                        />
+                    )}
                     <KioskStopDialog
                         open={stopDialogOpen}
                         onOpenChange={setStopDialogOpen}

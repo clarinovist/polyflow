@@ -104,6 +104,7 @@ model User {
   barterPartnersUpdated          BarterPartner[]                  @relation("BarterPartnerUpdatedBy")
   barterSettlementsCreated       BarterSettlement[]               @relation("BarterSettlementCreatedBy")
   barterSettlementsVoided        BarterSettlement[]               @relation("BarterSettlementVoidedBy")
+  reviewedAdditionalMaterialRequests AdditionalMaterialRequest[]   @relation("AdditionalMaterialRequestReviewer")
 }
 
 model UserRole {
@@ -175,6 +176,7 @@ model Employee {
   salaryHistory            EmployeeSalaryHistory[]
   documents                EmployeeDocument[]
   shiftAssignments         EmployeeShiftAssignment[]
+  additionalMaterialRequests AdditionalMaterialRequest[] @relation("AdditionalMaterialRequestOperator")
 }
 
 // ── Gelombang B3: Salary history (append-only on salary field change) ──
@@ -446,6 +448,7 @@ model Location {
   machines                           Machine[]
   MaterialIssue                      MaterialIssue[]
   ProductionOrder                    ProductionOrder[]
+  additionalMaterialRequests         AdditionalMaterialRequest[]
   salesOrders                        SalesOrder[]           @relation("SalesSourceLocation")
   ScrapRecord                        ScrapRecord[]
   movementsFrom                      StockMovement[]        @relation("FromLocation")
@@ -538,6 +541,7 @@ model ProductVariant {
   productionRoutes       ProductionRoute[]
   productionRuns         ProductionRun[]
   qualityCheckParameters QualityCheckParameter[]
+  additionalMaterialRequests AdditionalMaterialRequest[]
 
   @@index([archivedAt])
 }
@@ -655,6 +659,7 @@ model StockMovement {
   productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
   returnSources     SalesReturnReceiptLine[] @relation("ReturnSourceMovement")
   returnReceipt     SalesReturnReceiptLine? @relation("ReturnReceiptMovement")
+  additionalMaterialRequest AdditionalMaterialRequest?
 
   @@index([productionOrderId])
   @@index([productVariantId])
@@ -816,6 +821,7 @@ model ProductionOrder {
   customerDestinations            ProductionOrderCustomer[]
   maklonCostItems                 MaklonCostItem[]
   materialIssues                  MaterialIssue[]
+  additionalMaterialRequests      AdditionalMaterialRequest[]
   executions                      ProductionExecution[]
   plannedMaterials                ProductionMaterial[]
   bom                             Bom                      @relation(fields: [bomId], references: [id])
@@ -1029,8 +1035,47 @@ model MaterialIssue {
   location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  additionalMaterialRequest AdditionalMaterialRequest?
 
   @@index([productionOrderId])
+}
+
+enum AdditionalMaterialRequestStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+model AdditionalMaterialRequest {
+  id                String                           @id @default(uuid())
+  productionOrderId String
+  productVariantId  String
+  quantity          Decimal                          @db.Decimal(15, 4)
+  reason            String                           @db.Text
+  status            AdditionalMaterialRequestStatus @default(PENDING)
+  operatorId        String
+  clientRequestId   String                           @unique
+  requestedAt       DateTime                         @default(now())
+  reviewedById      String?
+  reviewedAt        DateTime?
+  rejectionReason   String?                          @db.Text
+  sourceLocationId  String?
+  materialIssueId   String?                          @unique
+  stockMovementId   String?                          @unique
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  productVariant  ProductVariant  @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  operator        Employee        @relation("AdditionalMaterialRequestOperator", fields: [operatorId], references: [id], onDelete: Restrict)
+  reviewedBy      User?           @relation("AdditionalMaterialRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  sourceLocation  Location?       @relation(fields: [sourceLocationId], references: [id], onDelete: SetNull)
+  materialIssue   MaterialIssue?  @relation(fields: [materialIssueId], references: [id], onDelete: SetNull)
+  stockMovement   StockMovement?  @relation(fields: [stockMovementId], references: [id], onDelete: SetNull)
+
+  @@index([status, requestedAt])
+  @@index([productionOrderId, status])
+  @@index([productVariantId])
 }
 
 model ProductionIssue {

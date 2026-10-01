@@ -32,6 +32,13 @@ export {
 } from './production-materials';
 
 export {
+    requestAdditionalMaterial,
+    getPendingAdditionalMaterialRequests,
+    confirmAdditionalMaterialRequest,
+    rejectAdditionalMaterialRequest,
+} from './additional-material-requests';
+
+export {
     createProductionIssue,
     updateProductionIssueStatus,
 } from './production-issues';

@@ -450,6 +450,27 @@ export class ProductionExecutionService {
 
             // Handle completion status separately (needs order update with status)
             if (data.completed) {
+                const pendingAdditionalMaterial = await tx.$queryRaw<
+                    Array<{ count: bigint }>
+                >`
+                    SELECT COUNT(*)::bigint AS count
+                    FROM "AdditionalMaterialRequest"
+                    WHERE "productionOrderId" = ${productionOrderId}
+                      AND "status" = 'PENDING'
+                `;
+                const pendingAdditionalMaterialCount = Number(
+                    pendingAdditionalMaterial[0]?.count ?? 0,
+                );
+                if (pendingAdditionalMaterialCount > 0) {
+                    throw new ProductionRuleViolationError(
+                        'Masih ada permintaan bahan tambahan yang menunggu konfirmasi gudang. Minta gudang konfirmasi atau tolak sebelum menandai SPK selesai.',
+                        {
+                            productionOrderId,
+                            pendingAdditionalMaterial:
+                                pendingAdditionalMaterialCount,
+                        },
+                    );
+                }
                 await tx.productionOrder.update({
                     where: { id: productionOrderId },
                     data: { status: ProductionStatus.COMPLETED },

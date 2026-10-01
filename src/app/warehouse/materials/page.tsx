@@ -1,5 +1,8 @@
 import { getProductionOrders } from '@/actions/production/production-orders';
-import { getProductionFormData } from '@/actions/production/production';
+import {
+    getPendingAdditionalMaterialRequests,
+    getProductionFormData,
+} from '@/actions/production/production';
 import WarehouseRefreshWrapper from '../WarehouseRefreshWrapper';
 import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
@@ -13,9 +16,21 @@ export default async function WarehouseMaterialsPage({
     searchParams: Promise<{ orderId?: string }>;
 }) {
     const params = await searchParams;
-    const ordersRes = await getProductionOrders();
+    const [ordersRes, formDataRes, pendingRequestsRes] = await Promise.all([
+        getProductionOrders(),
+        getProductionFormData(),
+        getPendingAdditionalMaterialRequests(),
+    ]);
     const activeStatuses = ['RELEASED', 'IN_PROGRESS', 'WAITING_MATERIAL'];
-    const orders = ordersRes.filter((o) => activeStatuses.includes(o.status));
+    const pendingOrderIds = new Set(
+        pendingRequestsRes.success
+            ? pendingRequestsRes.data.map((request) => request.productionOrderId)
+            : [],
+    );
+    const orders = ordersRes.filter(
+        (order) =>
+            activeStatuses.includes(order.status) || pendingOrderIds.has(order.id),
+    );
     const initialOrderId = orders.some(
         (order) =>
             order.id === params.orderId &&
@@ -24,7 +39,6 @@ export default async function WarehouseMaterialsPage({
         ? params.orderId
         : undefined;
 
-    const formDataRes = await getProductionFormData();
     const formData =
         formDataRes.success && formDataRes.data
             ? formDataRes.data
@@ -46,8 +60,8 @@ export default async function WarehouseMaterialsPage({
                         Bahan Produksi
                     </h1>
                     <p className="text-muted-foreground">
-                        Keluarkan RM ke Mixing, catat pelembab ad-hoc, dan
-                        kelola antrean SPK.
+                        Keluarkan RM ke Mixing, review permintaan bahan tambahan
+                        dari kiosk, dan kelola antrean SPK.
                     </p>
                 </div>
             </div>
@@ -55,6 +69,11 @@ export default async function WarehouseMaterialsPage({
             <div className="grid gap-4 h-[calc(100vh-140px)]">
                 <WarehouseRefreshWrapper
                     initialOrderId={initialOrderId}
+                    pendingAdditionalMaterialRequests={
+                        pendingRequestsRes.success
+                            ? serializeData(pendingRequestsRes.data)
+                            : []
+                    }
                     initialOrders={
                         serializeData(
                             orders,

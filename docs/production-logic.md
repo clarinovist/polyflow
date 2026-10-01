@@ -30,6 +30,8 @@ Not every stock move goes through the formal RM warehouse desk. Continuous plast
 
 | Action                                            | Path          | Allowed roles                                  |
 | ------------------------------------------------- | ------------- | ---------------------------------------------- |
+| `requestAdditionalMaterial`                       | A (request only; no stock impact) | Active kiosk operator                 |
+| `confirmAdditionalMaterialRequest` / `reject...`  | A (RM ad-hoc) | `WAREHOUSE`, `ADMIN`                           |
 | `recordAdHocMaterialUsage`                        | A (RM ad-hoc) | `WAREHOUSE`, `ADMIN`                           |
 | `recordMaterialIssue` / `deleteMaterialIssue`     | A             | `WAREHOUSE`, `ADMIN`                           |
 | `consolidatedBatchIssueMaterials`                 | A             | `WAREHOUSE`, `ADMIN`                           |
@@ -61,6 +63,15 @@ Helper: `src/lib/production/material-path.ts` + `requireMaterialPathRole` / `req
     - **No Over-Issue Blocking:** System allows issuing MORE than the planned BOM quantity.
     - **Partial Issue:** Allowed. Can issue 10kg now, 20kg later. System accumulates total.
 - **Batch FIFO:** System automatically selects oldest batches (First-In-First-Out) during issuance.
+
+### Bahan tambahan spontan dari kiosk
+
+- Operator pada SPK yang sedang berjalan membuka **Aksi Lainnya → Bahan Tambahan**.
+- Pengajuan hanya menyimpan bahan, jumlah, alasan, operator, SPK, dan waktu dengan status `PENDING`; belum mengurangi stok atau HPP.
+- Gudang/Admin me-review pengajuan pada `/warehouse/materials`, memilih lokasi sumber, lalu konfirmasi atau menolak.
+- Konfirmasi dilakukan atomik: validasi stok, stock OUT tambahan, jurnal persediaan, `MaterialIssue`, status `CONFIRMED`, dan audit. Movement memakai prefix khusus `PROD-ADDITIONAL-` agar konsumsi aktual tambahan terpisah dari backflush standar BOM; master BOM dan rencana standar SPK tidak diubah.
+- Master BOM tidak otomatis berubah. Selisih berulang dievaluasi terpisah sebelum resep standar direvisi.
+- Dialog penghentian SPK mengingatkan operator untuk mencatat tambahan yang belum diajukan. Penghentian shift tetap boleh, tetapi SPK tidak dapat ditandai `COMPLETED` selama masih ada permintaan `PENDING` agar HPP final tidak mendahului konfirmasi bahan.
 
 ## 3. Substitutions & Plan Changes
 

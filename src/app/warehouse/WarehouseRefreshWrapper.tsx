@@ -31,6 +31,10 @@ import { cn } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
 import { AdHocMaterialUsageDialog } from '@/components/production/order-detail/AdHocMaterialUsageDialog';
+import {
+    AdditionalMaterialRequestReviewDialog,
+    type PendingAdditionalMaterialRequest,
+} from '@/components/warehouse/AdditionalMaterialRequestReviewDialog';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { warehouseLabels } from '@/lib/labels';
 import { resolveMaterialPath } from '@/lib/production/material-path';
@@ -57,6 +61,7 @@ function orderPath(
 interface WarehouseRefreshWrapperProps {
     initialOrders: ExtendedProductionOrder[];
     initialOrderId?: string;
+    pendingAdditionalMaterialRequests?: PendingAdditionalMaterialRequest[];
     formData: {
         locations: Location[];
         operators: PrismaEmployee[];
@@ -70,9 +75,16 @@ interface WarehouseRefreshWrapperProps {
 export default function WarehouseRefreshWrapper({
     initialOrders: allOrders,
     initialOrderId,
+    pendingAdditionalMaterialRequests = [],
     formData,
 }: WarehouseRefreshWrapperProps) {
-    const initialOrders = useMemo(() => allOrders.filter((order) => order.materialConsumptionMode !== 'DIRECT'), [allOrders]);
+    const initialOrders = useMemo(
+        () =>
+            allOrders.filter(
+                (order) => order.materialConsumptionMode !== 'DIRECT',
+            ),
+        [allOrders],
+    );
     const router = useRouter();
     const [isConsolDialogOpen, setIsConsolDialogOpen] = useState(false);
     const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
@@ -230,7 +242,23 @@ export default function WarehouseRefreshWrapper({
                         >
                             {filteredOrders.map((order) => {
                                 const path = orderPath(order);
+                                const additionalRequests =
+                                    pendingAdditionalMaterialRequests.filter(
+                                        (request) =>
+                                            request.productionOrderId ===
+                                            order.id,
+                                    );
                                 const isRmPath = path === 'warehouse_rm';
+                                const isHistoricalReview = ![
+                                    'RELEASED',
+                                    'IN_PROGRESS',
+                                    'WAITING_MATERIAL',
+                                ].includes(order.status);
+                                const canIssueMaterials = [
+                                    'RELEASED',
+                                    'IN_PROGRESS',
+                                    'WAITING_MATERIAL',
+                                ].includes(order.status);
                                 const plannedMaterials =
                                     order.plannedMaterials || [];
                                 const materialIssues =
@@ -286,6 +314,8 @@ export default function WarehouseRefreshWrapper({
                                             'border rounded-lg px-4 bg-card shadow-sm',
                                             order.id === initialOrderId &&
                                                 'ring-2 ring-primary',
+                                            isHistoricalReview &&
+                                                'border-amber-300 bg-amber-50/30',
                                         )}
                                     >
                                         <AccordionTrigger className="hover:no-underline py-3">
@@ -468,33 +498,63 @@ export default function WarehouseRefreshWrapper({
                                                     </div>
 
                                                     <div className="flex flex-col gap-2">
-                                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                                                            {
-                                                                warehouseLabels.warehouseActions
-                                                            }
-                                                        </p>
-                                                        <BatchIssueMaterialDialog
-                                                            order={order}
-                                                            locations={
-                                                                formData.locations
-                                                            }
-                                                            rawMaterials={
-                                                                formData.rawMaterials
-                                                            }
-                                                        />
-                                                        {(order.status ===
-                                                            'RELEASED' ||
-                                                            order.status ===
-                                                                'IN_PROGRESS') && (
-                                                            <AdHocMaterialUsageDialog
-                                                                order={order}
+                                                        {isHistoricalReview && (
+                                                            <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                                                                SPK sudah selesai,
+                                                                tetapi request ini
+                                                                tetap perlu direview
+                                                                agar stok dan HPP
+                                                                aktual lengkap.
+                                                            </p>
+                                                        )}
+                                                        {additionalRequests.length >
+                                                            0 && (
+                                                            <AdditionalMaterialRequestReviewDialog
+                                                                orderNumber={
+                                                                    order.orderNumber
+                                                                }
+                                                                requests={
+                                                                    additionalRequests
+                                                                }
                                                                 locations={
                                                                     formData.locations
                                                                 }
-                                                                rawMaterials={
-                                                                    formData.rawMaterials
+                                                                onSuccess={() =>
+                                                                    router.refresh()
                                                                 }
                                                             />
+                                                        )}
+                                                        {canIssueMaterials && (
+                                                            <>
+                                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                                                                    {
+                                                                        warehouseLabels.warehouseActions
+                                                                    }
+                                                                </p>
+                                                                <BatchIssueMaterialDialog
+                                                                    order={order}
+                                                                    locations={
+                                                                        formData.locations
+                                                                    }
+                                                                    rawMaterials={
+                                                                        formData.rawMaterials
+                                                                    }
+                                                                />
+                                                                {(order.status ===
+                                                                    'RELEASED' ||
+                                                                    order.status ===
+                                                                        'IN_PROGRESS') && (
+                                                                    <AdHocMaterialUsageDialog
+                                                                        order={order}
+                                                                        locations={
+                                                                            formData.locations
+                                                                        }
+                                                                        rawMaterials={
+                                                                            formData.rawMaterials
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>

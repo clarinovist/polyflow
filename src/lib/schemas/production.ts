@@ -215,6 +215,45 @@ export const adHocMaterialUsageSchema = z.object({
 
 export type AdHocMaterialUsageValues = z.infer<typeof adHocMaterialUsageSchema>;
 
+export const additionalMaterialRequestSchema = z.object({
+    productionOrderId: z.string().trim().min(1, 'Production Order ID is required'),
+    productVariantId: z.string().trim().min(1, 'Material variant is required'),
+    quantity: z.coerce.number().positive('Quantity must be positive'),
+    reason: z
+        .string()
+        .trim()
+        .min(3, 'Alasan bahan tambahan minimal 3 karakter')
+        .max(500)
+        .transform(sanitizeHtml),
+    operatorId: z.string().trim().min(1, 'Operator ID is required'),
+    clientRequestId: z.string().uuid('Request ID tidak valid'),
+});
+
+export const confirmAdditionalMaterialRequestSchema = z.object({
+    requestId: z.string().trim().min(1, 'Request ID is required'),
+    sourceLocationId: z.string().trim().min(1, 'Lokasi sumber wajib dipilih'),
+});
+
+export const rejectAdditionalMaterialRequestSchema = z.object({
+    requestId: z.string().trim().min(1, 'Request ID is required'),
+    reason: z
+        .string()
+        .trim()
+        .min(3, 'Alasan penolakan minimal 3 karakter')
+        .max(500)
+        .transform(sanitizeHtml),
+});
+
+export type AdditionalMaterialRequestValues = z.infer<
+    typeof additionalMaterialRequestSchema
+>;
+export type ConfirmAdditionalMaterialRequestValues = z.infer<
+    typeof confirmAdditionalMaterialRequestSchema
+>;
+export type RejectAdditionalMaterialRequestValues = z.infer<
+    typeof rejectAdditionalMaterialRequestSchema
+>;
+
 export const consolidatedBatchMaterialIssueSchema = z.object({
     productionOrderIds: z
         .array(z.string().min(1))

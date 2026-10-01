@@ -471,6 +471,80 @@ describe('ProductionExecutionService.startExecution - routed order reservation',
     });
 });
 
+describe('ProductionExecutionService.stopExecution', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(tx.$queryRaw).mockResolvedValue([{ count: BigInt(0) }] as never);
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            operatorId: 'op-1',
+            machineId: 'machine-1',
+            enteredQuantity: null,
+            enteredUnit: null,
+            conversionFactorSnapshot: null,
+        } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            operatorId: 'op-1',
+            machineId: 'machine-1',
+            quantityProduced: 0,
+            enteredQuantity: null,
+            enteredUnit: null,
+            conversionFactorSnapshot: null,
+        } as never);
+    });
+
+    it('allows stopping a shift without completing the SPK when a request is pending', async () => {
+        vi.mocked(tx.$queryRaw).mockResolvedValue([{ count: BigInt(1) }] as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({
+            id: 'po-1',
+            orderNumber: 'WO-001',
+            status: 'IN_PROGRESS',
+            isMaklon: false,
+            locationId: 'loc-1',
+            productionRunId: null,
+            bom: { productVariantId: 'pv-1', items: [] },
+            plannedMaterials: [],
+        } as never);
+
+        await expect(
+            ProductionExecutionService.stopExecution({
+                executionId: 'exec-1',
+                quantityProduced: 0,
+                scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
+                notes: '',
+                completed: false,
+                operatorId: 'op-1',
+            } as never),
+        ).resolves.toBeTruthy();
+
+        expect(tx.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('blocks final completion while an additional-material request is pending', async () => {
+        vi.mocked(tx.$queryRaw).mockResolvedValue([{ count: BigInt(1) }] as never);
+
+        await expect(
+            ProductionExecutionService.stopExecution({
+                executionId: 'exec-1',
+                quantityProduced: 0,
+                scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
+                notes: '',
+                completed: true,
+                operatorId: 'op-1',
+            } as never),
+        ).rejects.toThrow(/menunggu konfirmasi gudang/i);
+
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+    });
+});
+
 describe('ProductionExecutionService.getActiveExecutions', () => {
     beforeEach(() => {
         vi.clearAllMocks();

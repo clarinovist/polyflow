@@ -3,6 +3,7 @@ import { withTenantPage } from '@/lib/core/tenant';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
 import KioskJobFocus, { type Order, type Shift } from './KioskJobFocus';
+import { ISSUABLE_MATERIAL_TYPES } from '@/lib/constants/products';
 
 const getOrder = withTenantPage(async function getOrder(orderId: string) {
     const order = await prisma.productionOrder.findUnique({
@@ -42,10 +43,12 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
         },
     });
 
-    if (!order) return null;
+    if (!order || !['RELEASED', 'IN_PROGRESS'].includes(order.status)) {
+        return null;
+    }
 
     const orderNumbers = [order.orderNumber];
-    const [movements, shifts] = await Promise.all([
+    const [movements, shifts, materials] = await Promise.all([
         prisma.stockMovement.findMany({
             where: {
                 reference: {
@@ -67,9 +70,25 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
             },
             orderBy: { startTime: 'asc' },
         }),
+        prisma.productVariant.findMany({
+            where: {
+                archivedAt: null,
+                product: {
+                    productType: { in: [...ISSUABLE_MATERIAL_TYPES] },
+                },
+            },
+            select: {
+                id: true,
+                name: true,
+                skuCode: true,
+                primaryUnit: true,
+                product: { select: { productType: true } },
+            },
+            orderBy: { name: 'asc' },
+        }),
     ]);
 
-    return { order, movements, shifts };
+    return { order, movements, shifts, materials };
 });
 
 export default async function KioskFocusPage({
@@ -82,7 +101,7 @@ export default async function KioskFocusPage({
 
     if (!data) notFound();
 
-    const { order, movements, shifts } = data;
+    const { order, movements, shifts, materials } = data;
 
     const orderWithLogs = {
         ...order,
@@ -104,6 +123,7 @@ export default async function KioskFocusPage({
             <KioskJobFocus
                 order={serializeData(orderWithLogs) as unknown as Order}
                 shifts={serializeData(shifts) as unknown as Shift[]}
+                materials={serializeData(materials)}
             />
         </div>
     );

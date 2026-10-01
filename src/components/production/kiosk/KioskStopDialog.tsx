@@ -115,7 +115,11 @@ export function KioskStopDialog({
             });
 
             if (result.success) {
-                toast.success('SPK berhasil diselesaikan!');
+                toast.success(
+                    completed
+                        ? 'SPK berhasil diselesaikan!'
+                        : 'Pekerjaan dihentikan dan hasil tersimpan.',
+                );
                 onOpenChange(false);
                 onSuccess();
             } else {
@@ -198,6 +202,13 @@ export function KioskStopDialog({
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                        <span className="font-semibold">Sebelum berhenti:</span>{' '}
+                        pastikan bahan tambahan yang dipakai di luar rencana sudah
+                        diajukan melalui aksi Bahan Tambahan. SPK tidak dapat
+                        ditandai selesai selama permintaan masih menunggu review
+                        gudang.
+                    </div>
                     <div className="space-y-2">
                         <Label
                             htmlFor="quantity"

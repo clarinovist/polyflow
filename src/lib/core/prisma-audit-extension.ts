@@ -33,6 +33,7 @@ const AUDITABLE_MODELS = new Set([
     'BankReconciliation',
     'JournalEntry',
     'MaterialIssue',
+    'AdditionalMaterialRequest',
     'ProductionExecution',
     'ProductionIssue',
     'PettyCashTransaction',

@@ -16,12 +16,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logMachineDowntime } from '@/actions/production/downtime';
-import { kioskLabels } from '@/lib/labels';
 
 interface DowntimeDialogProps {
     machineId: string;
     machineName: string;
     operatorId?: string;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
     trigger?: React.ReactNode;
 }
 
@@ -29,9 +30,16 @@ export function DowntimeDialog({
     machineId,
     machineName,
     operatorId,
+    open: controlledOpen,
+    onOpenChange,
     trigger,
 }: DowntimeDialogProps) {
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = controlledOpen ?? internalOpen;
+    const setOpen = (nextOpen: boolean) => {
+        setInternalOpen(nextOpen);
+        onOpenChange?.(nextOpen);
+    };
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -69,20 +77,7 @@ export function DowntimeDialog({
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {trigger ? (
-                    trigger
-                ) : (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100"
-                    >
-                        <AlertTriangle className="mr-2 h-4 w-4" />{' '}
-                        {kioskLabels.logDowntime}
-                    </Button>
-                )}
-            </DialogTrigger>
+            {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle className="text-destructive flex items-center">

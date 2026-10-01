@@ -12,6 +12,12 @@ import {
     deleteMaterialIssue,
     recordScrap,
 } from '../production-materials';
+import {
+    confirmAdditionalMaterialRequest,
+    getPendingAdditionalMaterialRequests,
+    rejectAdditionalMaterialRequest,
+    requestAdditionalMaterial,
+} from '../additional-material-requests';
 import { recordQualityInspection } from '../production-inspection';
 import {
     startExecution,
@@ -197,6 +203,49 @@ describe('production actions — auth guards', () => {
             expect(
                 ProductionService.recordQualityInspection,
             ).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('additional material request guards', () => {
+        it('allows kiosk request with an operator id but does not expose warehouse confirmation', async () => {
+            asMock(ProductionService.recordMaterialIssue).mockClear();
+            const createRequest = vi
+                .spyOn(
+                    (await import('@/services/production/additional-material-request-service'))
+                        .AdditionalMaterialRequestService,
+                    'createRequest',
+                )
+                .mockResolvedValue({ id: 'request-1', status: 'PENDING', idempotent: false } as never);
+
+            const result = await requestAdditionalMaterial({
+                productionOrderId: 'po-1',
+                productVariantId: 'pv-1',
+                quantity: 2,
+                reason: 'Campuran kering',
+                operatorId: 'operator-1',
+                clientRequestId: '11111111-1111-4111-8111-111111111111',
+            });
+
+            expect(result.success).toBe(true);
+            expect(createRequest).toHaveBeenCalled();
+        });
+
+        it('redirects anonymous reads, confirmation, and rejection to login', async () => {
+            await expect(
+                getPendingAdditionalMaterialRequests(),
+            ).rejects.toThrow(/NEXT_REDIRECT/);
+            await expect(
+                confirmAdditionalMaterialRequest({
+                    requestId: 'request-1',
+                    sourceLocationId: 'loc-1',
+                }),
+            ).rejects.toThrow(/NEXT_REDIRECT/);
+            await expect(
+                rejectAdditionalMaterialRequest({
+                    requestId: 'request-1',
+                    reason: 'Tidak sesuai',
+                }),
+            ).rejects.toThrow(/NEXT_REDIRECT/);
         });
     });
 
