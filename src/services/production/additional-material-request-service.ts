@@ -58,7 +58,17 @@ async function getIssueUnitCost(
     );
 }
 
-function assertRequestStillPending(status: AdditionalMaterialRequestStatus) {
+function assertRequestStillPending(
+    status: AdditionalMaterialRequestStatus,
+    request: { materialIssueId?: string | null; stockMovementId?: string | null },
+) {
+    if (
+        status === AdditionalMaterialRequestStatus.CONFIRMED &&
+        request.materialIssueId &&
+        request.stockMovementId
+    ) {
+        return false;
+    }
     if (status !== AdditionalMaterialRequestStatus.PENDING) {
         throw new BusinessRuleError(
             `Permintaan bahan tambahan sudah berstatus ${status}. Segarkan halaman sebelum melanjutkan.`,
@@ -66,6 +76,7 @@ function assertRequestStillPending(status: AdditionalMaterialRequestStatus) {
             'ADDITIONAL_MATERIAL_REQUEST_ALREADY_REVIEWED',
         );
     }
+    return true;
 }
 
 export class AdditionalMaterialRequestService {
@@ -207,7 +218,14 @@ export class AdditionalMaterialRequestService {
             if (!request) {
                 throw new NotFoundError('AdditionalMaterialRequest', data.requestId);
             }
-            assertRequestStillPending(request.status);
+            if (!assertRequestStillPending(request.status, request)) {
+                return {
+                    id: request.id,
+                    productionOrderId: request.productionOrderId,
+                    materialIssueId: request.materialIssueId!,
+                    idempotent: true,
+                };
+            }
             assertTransferMaterialOrder(request.productionOrder);
             if (
                 !REVIEWABLE_ORDER_STATUSES.some(
@@ -329,6 +347,7 @@ export class AdditionalMaterialRequestService {
                 id: request.id,
                 productionOrderId: request.productionOrderId,
                 materialIssueId: materialIssue.id,
+                idempotent: false,
             };
         });
     }
@@ -337,6 +356,16 @@ export class AdditionalMaterialRequestService {
         data: RejectAdditionalMaterialRequestValues & { reviewerId: string },
     ) {
         return prisma.$transaction(async (tx) => {
+            const lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+                SELECT "id"
+                FROM "AdditionalMaterialRequest"
+                WHERE "id" = ${data.requestId}
+                FOR UPDATE
+            `;
+            if (lockedRows.length === 0) {
+                throw new NotFoundError('AdditionalMaterialRequest', data.requestId);
+            }
+
             const request = await tx.additionalMaterialRequest.findUnique({
                 where: { id: data.requestId },
                 include: {
@@ -346,7 +375,13 @@ export class AdditionalMaterialRequestService {
             if (!request) {
                 throw new NotFoundError('AdditionalMaterialRequest', data.requestId);
             }
-            assertRequestStillPending(request.status);
+            if (!assertRequestStillPending(request.status, request)) {
+                throw new BusinessRuleError(
+                    'Permintaan yang sudah dikonfirmasi tidak dapat ditolak.',
+                    { requestId: request.id },
+                    'ADDITIONAL_MATERIAL_REQUEST_ALREADY_CONFIRMED',
+                );
+            }
 
             const reviewedAt = new Date();
             const claimed = await tx.additionalMaterialRequest.updateMany({

@@ -195,7 +195,7 @@ describe('AdditionalMaterialRequestService', () => {
             reviewerId: 'warehouse-1',
         });
 
-        expect(result).toEqual({ id: 'request-1', productionOrderId: 'po-1', materialIssueId: 'issue-1' });
+        expect(result).toEqual({ id: 'request-1', productionOrderId: 'po-1', materialIssueId: 'issue-1', idempotent: false });
         expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
         expect(InventoryCoreService.validateAndLockStock).toHaveBeenCalledWith(
             prisma,
@@ -255,6 +255,30 @@ describe('AdditionalMaterialRequestService', () => {
                 tx: prisma,
             }),
         );
+    });
+
+    it('returns an idempotent result when confirmation is retried', async () => {
+        vi.mocked(prisma.additionalMaterialRequest.findUnique).mockResolvedValue({
+            ...pendingRequest,
+            status: AdditionalMaterialRequestStatus.CONFIRMED,
+            materialIssueId: 'issue-1',
+            stockMovementId: 'movement-1',
+        } as never);
+
+        await expect(
+            AdditionalMaterialRequestService.confirmRequest({
+                requestId: 'request-1',
+                sourceLocationId: 'rm-1',
+                reviewerId: 'warehouse-1',
+            }),
+        ).resolves.toEqual({
+            id: 'request-1',
+            productionOrderId: 'po-1',
+            materialIssueId: 'issue-1',
+            idempotent: true,
+        });
+        expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+        expect(prisma.stockMovement.create).not.toHaveBeenCalled();
     });
 
     it('fails before stock mutation when the request disappeared before the lock', async () => {
@@ -323,7 +347,7 @@ describe('AdditionalMaterialRequestService', () => {
                 sourceLocationId: 'rm-1',
                 reviewerId: 'warehouse-1',
             }),
-        ).resolves.toEqual({ id: 'request-1', productionOrderId: 'po-1', materialIssueId: 'issue-1' });
+        ).resolves.toEqual({ id: 'request-1', productionOrderId: 'po-1', materialIssueId: 'issue-1', idempotent: false });
     });
 
     it('rejects a pending request without touching stock', async () => {
