@@ -10,6 +10,7 @@
 
   Catatan:
   - Script ini mengirim file .prn sebagai RAW bytes via Windows spooler (winspool.drv).
+  - Nama printer sharing seperti "EPSON LX-300+II on PC-PUTRI" atau UNC dideteksi otomatis.
   - Jangan pakai Out-Printer/Notepad untuk ESC/P karena bisa merusak control code dot matrix.
 #>
 
@@ -105,14 +106,59 @@ public class RawPrinterHelper
 "@
 }
 
-function Get-ConfiguredPrinter {
+function Get-WindowsPrinters {
+    try {
+        return @(Get-CimInstance Win32_Printer)
+    } catch {
+        return @(Get-WmiObject Win32_Printer)
+    }
+}
+
+function Resolve-ConfiguredPrinter {
     param([string]$Name)
 
-    try {
-        return Get-CimInstance Win32_Printer | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
-    } catch {
-        return Get-WmiObject Win32_Printer | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+    $printers = @(Get-WindowsPrinters)
+    $exactMatch = @(
+        $printers | Where-Object {
+            [string]::Equals([string]$_.Name, $Name, [StringComparison]::OrdinalIgnoreCase)
+        }
+    )
+
+    if ($exactMatch.Count -gt 0) {
+        return $exactMatch[0]
     }
+
+    $sharedDisplayPrefix = "$Name on "
+    $compatibleMatches = @(
+        $printers | Where-Object {
+            $displayName = [string]$_.Name
+            $shareName = [string]$_.ShareName
+            $serverName = ([string]$_.ServerName).TrimEnd('\')
+            $uncName = if ($serverName -and $shareName) { "$serverName\$shareName" } else { "" }
+
+            $displayName.StartsWith($sharedDisplayPrefix, [StringComparison]::OrdinalIgnoreCase) -or
+                [string]::Equals($shareName, $Name, [StringComparison]::OrdinalIgnoreCase) -or
+                [string]::Equals($uncName, $Name, [StringComparison]::OrdinalIgnoreCase)
+        } | Sort-Object Name -Unique
+    )
+
+    if ($compatibleMatches.Count -eq 1) {
+        return $compatibleMatches[0]
+    }
+
+    if ($compatibleMatches.Count -gt 1) {
+        $candidateNames = ($compatibleMatches | ForEach-Object { "'$($_.Name)'" }) -join ", "
+        throw "Nama printer '$Name' cocok dengan beberapa printer: $candidateNames. Jalankan kembali dengan -PrinterName memakai salah satu nama tersebut."
+    }
+
+    $availableNames = @($printers | ForEach-Object { [string]$_.Name } | Where-Object { $_ } | Sort-Object -Unique)
+    $availableMessage = if ($availableNames.Count -gt 0) {
+        " Printer tersedia: " + (($availableNames | ForEach-Object { "'$_'" }) -join ", ") + "."
+    } else {
+        " Tidak ada printer yang terdeteksi Windows."
+    }
+
+    throw "Printer '$Name' tidak ditemukan di Windows.$availableMessage Cek Devices > Printers atau gunakan -PrinterName dengan nama yang tampil di Windows."
 }
 
 function Wait-FileReady {
@@ -160,10 +206,8 @@ function Send-RawPrintFile {
         throw "File tidak ditemukan: $Path"
     }
 
-    $printer = Get-ConfiguredPrinter -Name $Name
-    if (-not $printer) {
-        throw "Printer '$Name' tidak ditemukan di Windows. Cek Devices > Printers dan pastikan namanya persis."
-    }
+    $printer = Resolve-ConfiguredPrinter -Name $Name
+    $resolvedPrinterName = [string]$printer.Name
 
     if (-not (Wait-FileReady -Path $Path)) {
         throw "File belum selesai didownload/masih terkunci: $Path"
@@ -171,13 +215,13 @@ function Send-RawPrintFile {
 
     Initialize-RawPrinterApi
 
-    $ok = [RawPrinterHelper]::SendFileToPrinter($Name, $Path)
+    $ok = [RawPrinterHelper]::SendFileToPrinter($resolvedPrinterName, $Path)
     if (-not $ok) {
         $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        throw "Gagal mengirim RAW print ke '$Name'. Win32Error=$err"
+        throw "Gagal mengirim RAW print ke '$resolvedPrinterName'. Win32Error=$err"
     }
 
-    return $true
+    return $resolvedPrinterName
 }
 
 function Print-OneFile {
@@ -185,8 +229,11 @@ function Print-OneFile {
 
     $name = Split-Path -Leaf $Path
     Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Memprint RAW: $name" -ForegroundColor Yellow
-    Send-RawPrintFile -Path $Path -Name $PrinterName | Out-Null
-    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Berhasil dikirim ke spooler: $name" -ForegroundColor Green
+    $resolvedPrinterName = Send-RawPrintFile -Path $Path -Name $PrinterName
+    if (-not [string]::Equals($resolvedPrinterName, $PrinterName, [StringComparison]::OrdinalIgnoreCase)) {
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Printer sharing terdeteksi: $resolvedPrinterName" -ForegroundColor Cyan
+    }
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Berhasil dikirim ke spooler '$resolvedPrinterName': $name" -ForegroundColor Green
 
     if (-not $KeepPrintedFiles) {
         Start-Sleep -Seconds 5
@@ -215,14 +262,13 @@ Write-Host "Tekan Ctrl+C untuk stop." -ForegroundColor Yellow
 Write-Host ""
 
 try {
-    $printer = Get-ConfiguredPrinter -Name $PrinterName
-    if ($printer) {
-        Write-Host "Printer ditemukan: $($printer.Name) / Port: $($printer.PortName)" -ForegroundColor Green
-    } else {
-        Write-Host "WARNING: Printer '$PrinterName' belum ditemukan. Script tetap watch, tapi print akan gagal sampai printer terinstall." -ForegroundColor Yellow
+    $printer = Resolve-ConfiguredPrinter -Name $PrinterName
+    if (-not [string]::Equals([string]$printer.Name, $PrinterName, [StringComparison]::OrdinalIgnoreCase)) {
+        Write-Host "Printer sharing terdeteksi: $($printer.Name)" -ForegroundColor Cyan
     }
+    Write-Host "Printer ditemukan: $($printer.Name) / Port: $($printer.PortName)" -ForegroundColor Green
 } catch {
-    Write-Host "WARNING: Gagal mengecek printer: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "WARNING: $($_.Exception.Message) Script tetap watch, tapi print akan gagal sampai printer tersedia." -ForegroundColor Yellow
 }
 
 if (-not (Test-Path -LiteralPath $DownloadPath)) {
