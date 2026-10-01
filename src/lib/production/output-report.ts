@@ -164,6 +164,7 @@ export interface OutputReportRow extends OutputIdentity {
     operators: ReportOption[];
     produced: string;
     scrapKg: string | null;
+    scrapPercent: string | null;
     entries: number;
     orders: number;
 }
@@ -201,6 +202,18 @@ export interface OutputReport {
         products: number;
         entries: number;
         orders: number;
+        productsProduced: Array<
+            Pick<
+                OutputIdentity,
+                | 'productVariantId'
+                | 'productName'
+                | 'variantName'
+                | 'sku'
+                | 'productType'
+                | 'process'
+                | 'unit'
+            > & { produced: string; scrapKg: string | null }
+        >;
         totals: { process: ProcessKey; unit: string; produced: string }[];
     };
     rows: OutputReportRow[];

@@ -64,6 +64,45 @@ function Scrap({ kg }: { kg: string | null }) {
     );
 }
 
+function ScrapPercent({
+    percent,
+    produced,
+    scrapKg,
+}: {
+    percent: string | null;
+    produced: string;
+    scrapKg: string | null;
+}) {
+    if (scrapKg === null) {
+        return (
+            <span
+                title="Persentase affal tidak dapat dihitung karena satuannya belum pasti"
+                aria-label="Persentase affal tidak dapat dihitung"
+            >
+                —*
+            </span>
+        );
+    }
+    if (percent === null) {
+        return (
+            <span
+                title="Persentase affal tidak dapat dihitung karena hasil dan affal sama-sama nol"
+                aria-label="Persentase affal tidak dapat dihitung"
+            >
+                —
+            </span>
+        );
+    }
+    return (
+        <div>
+            <p className="font-semibold">{fmt(percent)}%</p>
+            <p className="text-xs font-normal text-muted-foreground">
+                {fmt(scrapKg)} / {fmt(Number(produced) + Number(scrapKg))} kg
+            </p>
+        </div>
+    );
+}
+
 export function ReportView({
     report,
     canViewOrders,
@@ -111,31 +150,59 @@ export function ReportView({
                     </Card>
                 ))}
             </div>
-            {summary.totals.length > 0 && (
+            {summary.productsProduced.length > 0 && (
                 <section
-                    aria-label="Hasil per proses dan satuan"
-                    className="rounded-xl border bg-card p-4"
+                    aria-label="Daftar barang yang diproduksi"
+                    className="rounded-xl border bg-card overflow-hidden"
                 >
-                    <div className="mb-3 flex items-center gap-1">
-                        <h2 className="font-semibold text-sm">Hasil bersih sesuai filter</h2>
-                        <InfoHint label="Info hasil per proses dan satuan">
-                            Hasil tidak dijumlah antarproses atau satuan karena
-                            satu barang dapat melewati beberapa tahap produksi.
-                        </InfoHint>
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
+                        <div>
+                            <h2 className="font-semibold text-sm">
+                                Barang yang diproduksi
+                            </h2>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Ringkasan hasil bersih per barang dan proses.
+                            </p>
+                        </div>
+                        <Badge variant="secondary">
+                            {fmt(summary.products)} varian
+                        </Badge>
                     </div>
-                    <div className="flex flex-wrap gap-x-8 gap-y-3">
-                        {summary.totals.map((total) => (
-                            <div key={`${total.process}:${total.unit}`}>
-                                <p className="text-xs text-muted-foreground">
-                                    {PROCESS_LABELS[total.process]} ·{' '}
-                                    {total.unit}
-                                </p>
-                                <p className="font-bold tabular-nums">
-                                    {fmt(total.produced)}{' '}
-                                    <span className="text-xs font-normal">
-                                        {total.unit}
-                                    </span>
-                                </p>
+                    <div className="divide-y">
+                        {summary.productsProduced.map((item) => (
+                            <div
+                                key={`${item.productVariantId}:${item.process}:${item.unit}`}
+                                className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                            >
+                                <div className="min-w-0">
+                                    <p className="font-medium">
+                                        {item.productName}
+                                    </p>
+                                    {item.variantName !== item.productName && (
+                                        <p className="text-sm text-muted-foreground">
+                                            {item.variantName}
+                                        </p>
+                                    )}
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                        <span className="font-mono">
+                                            {item.sku}
+                                        </span>
+                                        <span aria-hidden="true">·</span>
+                                        <span>
+                                            {PROCESS_LABELS[item.process]}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="sm:text-right">
+                                    <p className="font-bold tabular-nums">
+                                        {fmt(item.produced)} {item.unit}
+                                    </p>
+                                    {item.scrapKg !== null && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Affal {fmt(item.scrapKg)} kg
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -240,7 +307,14 @@ export function ReportView({
                                         {!details && (
                                             <>
                                                 <TableHead className="text-right">
-                                                    Entri / SPK
+                                                    <span className="inline-flex items-center justify-end gap-1">
+                                                        % Affal
+                                                        <InfoHint label="Info persentase affal">
+                                                            Affal ÷ (hasil bersih + affal) × 100.
+                                                            Hanya dihitung jika hasil dan affal
+                                                            sama-sama tercatat dalam kg.
+                                                        </InfoHint>
+                                                    </span>
                                                 </TableHead>
                                                 <TableHead>
                                                     <span className="sr-only">
@@ -444,7 +518,11 @@ export function ReportView({
                                               <Scrap kg={row.scrapKg} />
                                           </TableCell>
                                           <TableCell className="text-right tabular-nums">
-                                              {row.entries} / {row.orders}
+                                              <ScrapPercent
+                                                  percent={row.scrapPercent}
+                                                  produced={row.produced}
+                                                  scrapKg={row.scrapKg}
+                                              />
                                           </TableCell>
                                           <TableCell>
                                               <Button

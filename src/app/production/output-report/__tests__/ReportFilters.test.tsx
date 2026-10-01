@@ -22,8 +22,11 @@ function lastParams() { return new URL(push.mock.calls.at(-1)![0], 'http://local
 describe('ReportFilters', () => {
     it('applies date, process and search as a single URL navigation', () => {
         setup();
+        expect(screen.queryByLabelText('Proses')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: /Filter lanjutan/ }));
         fireEvent.change(screen.getByLabelText('Cari produk / varian / SKU'), { target: { value: 'Hitam' } });
         fireEvent.change(screen.getByLabelText('Proses'), { target: { value: 'EXTRUSION' } });
+        expect(screen.getByRole('button', { name: /Filter lanjutan/ }).textContent).toContain('1');
         fireEvent.click(screen.getByRole('button', { name: 'Terapkan' }));
         expect(lastParams().get('q')).toBe('Hitam');
         expect(lastParams().get('process')).toBe('EXTRUSION');
@@ -46,6 +49,7 @@ describe('ReportFilters', () => {
     });
     it('searchable product/operator/machine options preserve IDs and clear to Semua', async () => {
         setup();
+        fireEvent.click(screen.getByRole('button', { name: /Filter lanjutan/ }));
         for (const [label, option] of [['Produk', 'Produk Uji · Hitam (TEST-WIP)'], ['Operator', 'Operator Uji'], ['Mesin', 'EX-01']]) {
             fireEvent.click(screen.getByRole('combobox', { name: label }));
             fireEvent.click(await screen.findByRole('option', { name: option }));
@@ -66,9 +70,10 @@ describe('ReportFilters', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Terapkan' }));
         await waitFor(() => expect(lastParams().has('productVariantId')).toBe(false));
     });
-    it('keeps a selected historical ID visible when period options are empty', () => {
+    it('keeps a selected historical ID visible and expands active advanced filters', () => {
         const fixture = reportFixture();
         render(<ReportFilters filter={{ ...fixture.filter, operatorId: 'old-id' }} options={{ products: [], operators: [], machines: [] }} today="2026-09-16" />);
+        expect(screen.getByRole('button', { name: /Filter lanjutan/ }).getAttribute('aria-expanded')).toBe('true');
         expect(screen.getByRole('combobox', { name: 'Operator' }).textContent).toContain('Pilihan tersimpan');
     });
 });

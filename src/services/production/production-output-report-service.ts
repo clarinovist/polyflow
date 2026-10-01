@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { getWibDayBounds } from '@/lib/utils/timezone';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
+import { affalPercent } from '@/lib/production/affal';
 import { processKeyFromCategory } from '@/lib/production/process-keys';
 import {
     REPORT_PAGE_SIZE,
@@ -184,6 +185,7 @@ function aggregate(
                     operators: [],
                     produced: '0',
                     scrapKg: entry.scrapKg === null ? null : '0',
+                    scrapPercent: null,
                     entries: 0,
                     orders: 0,
                 },
@@ -205,6 +207,10 @@ function aggregate(
             ...row,
             produced: produced.toString(),
             scrapKg: row.scrapKg === null ? null : scrap.toString(),
+            scrapPercent:
+                row.scrapKg === null
+                    ? null
+                    : affalPercent(produced.toNumber(), scrap.toNumber())?.toString() ?? null,
             orders: orders.size,
             operators: [...operators]
                 .map(([id, label]) => ({ id, label }))
@@ -384,10 +390,24 @@ export class ProductionOutputReportService {
             total.produced = total.produced.plus(entry.produced);
             totals.set(key, total);
         }
+        const productRows = aggregate(entries, false);
         const rows =
             filter.mode === 'entries' || filter.mode === 'order'
                 ? []
-                : aggregate(entries, filter.mode === 'operator');
+                : filter.mode === 'product'
+                  ? productRows
+                  : aggregate(entries, true);
+        const productsProduced = productRows.map((row) => ({
+            productVariantId: row.productVariantId,
+            productName: row.productName,
+            variantName: row.variantName,
+            sku: row.sku,
+            productType: row.productType,
+            process: row.process,
+            unit: row.unit,
+            produced: row.produced,
+            scrapKg: row.scrapKg,
+        }));
         const orderRows =
             filter.mode === 'order'
                 ? await orderReportRows(entries, orderMetas(executions))
@@ -412,6 +432,7 @@ export class ProductionOutputReportService {
                 products: new Set(entries.map((e) => e.productVariantId)).size,
                 entries: entries.length,
                 orders: new Set(entries.map((e) => e.orderId)).size,
+                productsProduced,
                 totals: [...totals.values()]
                     .map((t) => ({ ...t, produced: t.produced.toString() }))
                     .sort(

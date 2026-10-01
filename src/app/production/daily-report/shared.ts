@@ -7,6 +7,9 @@
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import type { MachineTotals } from '@/services/production/production-daily-report-service';
 import type { ProcessKey } from '@/lib/production/process-keys';
+import { affalPercent } from '@/lib/production/affal';
+
+export { affalPercent };
 
 export const PROCESS_LABEL: Record<ProcessKey, string> = {
     MIXING: 'Mixing',
@@ -23,20 +26,6 @@ export function dayName(dateStr: string): string {
 }
 
 export const fmt = (n: number) => n.toLocaleString('id-ID');
-
-/**
- * Affal share of gross output: affal / (hasil + affal) * 100, rounded to
- * 1 decimal. Null when there is nothing to divide (empty process) — both
- * quantities share one unit, so the ratio is unit-safe.
- */
-export function affalPercent(
-    produced: number,
-    affal: number,
-): number | null {
-    const gross = produced + affal;
-    if (gross <= 0) return null;
-    return Math.round((affal / gross) * 1000) / 10;
-}
 
 /**
  * The worst affal share among named machines — the HIGHEST % affal (most

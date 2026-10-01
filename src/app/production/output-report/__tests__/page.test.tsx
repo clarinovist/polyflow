@@ -27,6 +27,9 @@ describe('output report page and view', () => {
         render(await Page({ searchParams: Promise.resolve({}) }));
         expect(screen.getByRole('heading', { name: 'Rekap Hasil Produksi' })).toBeTruthy();
         expect(screen.getByText('Setengah jadi (WIP)')).toBeTruthy();
+        expect(screen.getByRole('heading', { name: 'Barang yang diproduksi' })).toBeTruthy();
+        expect(screen.getByText('1%')).toBeTruthy();
+        expect(screen.queryByText('501 / 2')).toBeNull();
         expect(screen.getByText(/501 entri sesuai filter/)).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: 'Info cakupan laporan hasil' }));
         expect((await screen.findByRole('tooltip')).textContent).toContain('bukan hanya halaman tabel ini');
@@ -45,6 +48,7 @@ describe('output report page and view', () => {
         report.pageCount = 3;
         render(<ReportView report={report} canViewOrders={false} today="2026-09-16" />);
         expect(screen.getByLabelText('Satuan affal belum dapat dipastikan')).toBeTruthy();
+        expect(screen.getByLabelText('Persentase affal tidak dapat dihitung')).toBeTruthy();
         expect(screen.getByRole('link', { name: 'Sebelumnya' }).getAttribute('href')).toContain('page=1');
         expect(screen.getByRole('link', { name: 'Berikutnya' }).getAttribute('href')).toContain('page=3');
         expect(screen.getByRole('link', { name: 'Rincian Hitam' }).getAttribute('href')).toContain('operatorId=operator-test');
@@ -93,7 +97,7 @@ describe('output report page and view', () => {
     });
     it('renders empty results without implying unsupported products', () => {
         const report = reportFixture();
-        report.rows = []; report.totalRows = 0; report.summary.totals = [];
+        report.rows = []; report.totalRows = 0; report.summary.productsProduced = []; report.summary.totals = [];
         render(<ReportView report={report} canViewOrders={false} today="2026-09-16" />);
         expect(screen.getByText('Tidak ada hasil produksi sesuai filter.')).toBeTruthy();
     });

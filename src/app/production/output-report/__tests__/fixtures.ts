@@ -19,12 +19,22 @@ export function reportFixture(): OutputReport {
             operators: [{ id: 'operator-test', label: 'Operator Uji' }],
             machines: [{ id: 'machine-test', label: 'EX-01' }],
         },
-        summary: { products: 1, entries: 501, orders: 2, totals: [{ process: 'EXTRUSION', unit: 'KG', produced: '1234.5678' }] },
+        summary: {
+            products: 1,
+            entries: 501,
+            orders: 2,
+            productsProduced: [{
+                productVariantId: 'variant-test', productName: 'Produk Uji', variantName: 'Hitam',
+                sku: 'TEST-WIP', productType: 'WIP', process: 'EXTRUSION', unit: 'KG',
+                produced: '1234.5678', scrapKg: '12',
+            }],
+            totals: [{ process: 'EXTRUSION', unit: 'KG', produced: '1234.5678' }],
+        },
         rows: [{
             key: 'row-test', productVariantId: 'variant-test', productName: 'Produk Uji', variantName: 'Hitam',
             sku: 'TEST-WIP', productType: 'WIP', process: 'EXTRUSION', unit: 'KG', operatorId: null,
             operators: [{ id: 'operator-test', label: 'Operator Uji' }],
-            produced: '1234.5678', scrapKg: '12', entries: 501, orders: 2,
+            produced: '1234.5678', scrapKg: '12', scrapPercent: '1', entries: 501, orders: 2,
         }], orders: [], entries: [], totalRows: 1, pageCount: 1,
     };
 }

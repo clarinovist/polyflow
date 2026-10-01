@@ -63,7 +63,10 @@ describe('ProductionOutputReportService', () => {
         findMany.mockResolvedValue(Array.from({ length: 501 }, (_, i) => execution({ id: `e-${i}`, quantityProduced: decimal('0.0001') })));
         const report = await ProductionOutputReportService.getReport(filter());
         expect(report.summary).toMatchObject({ products: 1, entries: 501, orders: 1 });
-        expect(report.rows[0]).toMatchObject({ produced: '0.0501', entries: 501, orders: 1, productType: 'WIP' });
+        expect(report.rows[0]).toMatchObject({ produced: '0.0501', scrapPercent: '0', entries: 501, orders: 1, productType: 'WIP' });
+        expect(report.summary.productsProduced).toEqual([
+            expect.objectContaining({ productVariantId: 'variant-1', process: 'EXTRUSION', produced: '0.0501' }),
+        ]);
         const detail = await ProductionOutputReportService.getReport(filter({ mode: 'entries', page: '11' }));
         expect(detail.entries).toHaveLength(1);
         expect(detail.summary).toEqual(report.summary);
@@ -107,7 +110,7 @@ describe('ProductionOutputReportService', () => {
         expect(report.rows).toHaveLength(3);
         expect(report.summary.totals).toHaveLength(3);
         expect(report.summary.orders).toBe(2);
-        expect(report.rows.find(r => r.unit === 'PCS')).toMatchObject({ produced: '20', scrapKg: null });
+        expect(report.rows.find(r => r.unit === 'PCS')).toMatchObject({ produced: '20', scrapKg: null, scrapPercent: null });
         const detail = await ProductionOutputReportService.getReport(filter({ mode: 'entries', process: 'PACKING' }));
         expect(detail.entries[0]).toMatchObject({ produced: '20', enteredQuantity: '2', enteredUnit: 'BAL', scrapRaw: '3' });
     });
@@ -118,7 +121,7 @@ describe('ProductionOutputReportService', () => {
             execution({ id: 'e3', scrapProngkolQty: decimal(7), scrapDaunQty: decimal(1) }),
         ]);
         const result = await ProductionOutputReportService.getReport(filter());
-        expect(result.rows[0]).toMatchObject({ produced: '200', scrapKg: '17', entries: 3 });
+        expect(result.rows[0]).toMatchObject({ produced: '200', scrapKg: '17', scrapPercent: '7.8', entries: 3 });
     });
     it('keeps four-decimal scrap precision without floating addition noise', async () => {
         findMany.mockResolvedValue([execution({ scrapProngkolQty: decimal('0.1'), scrapDaunQty: decimal('0.2') })]);
