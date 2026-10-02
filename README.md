@@ -109,13 +109,14 @@ and the distinction between shared source, historical documents, and local artif
 | `npm run test`  | Run tests                                        |
 | `npm run lint`  | Run linter                                       |
 
-## GitHub Actions sesuai perubahan
+## GitHub Actions dan rilis
 
-Push yang seluruh perubahannya berupa dokumen dalam daftar aman hanya menjalankan
-pemeriksaan ringan. Kode, konfigurasi, kontrak, berkas belum dikenali, dan campuran
-tetap menjalankan seluruh gate sebelum deploy. **Run workflow** manual menjalankan
-verifikasi lengkap tanpa deploy. Pantau check **Status CI** untuk kedua jalur.
-Lihat [daftar aman dan panduan CI selektif](docs/development/ci-selective.md).
+Push ke `main` mengumpulkan perubahan tanpa langsung memakai runner atau deploy.
+**Production Pipeline** merilis HEAD `main` sekali pada setiap hari kerja pukul
+21:17 WIB. Untuk rilis mendesak, jalankan **Actions → Production Pipeline → Run
+workflow** pada `main`; jalur manual juga menjalankan seluruh gate sebelum membuat
+image dan deploy. Pantau check **Status CI** sampai selesai.
+Lihat [jadwal dan panduan rilis](docs/development/ci-selective.md).
 
 ## Documentation
 

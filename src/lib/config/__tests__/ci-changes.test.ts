@@ -169,10 +169,8 @@ describe('dokumen dan output CLI', () => {
 });
 
 interface Needs { [name: string]: { result: string; outputs?: { full?: unknown } } }
-function results(full: string, eventName = 'push'): Needs {
-    const result = full === 'true' ? 'success' : 'skipped';
-    const release = full === 'true' && eventName === 'push' ? 'success' : 'skipped';
-    return { 'agents-consistency': { result: 'success', outputs: { full } },
+function results(eventName: 'schedule' | 'workflow_dispatch' = 'schedule'): Needs {
+    return { 'agents-consistency': { result: 'success', outputs: { full: 'true' } },
         ...Object.fromEntries([
             'test-shards',
             'test',
@@ -180,33 +178,37 @@ function results(full: string, eventName = 'push'): Needs {
             'build-and-push',
             'return-contract',
             'jev-contract',
-        ].map(name => [name, { result }])),
-        deploy: { result: release }, 'release-please': { result: release } };
+            'deploy',
+        ].map(name => [name, { result: 'success' }])),
+        'release-please': { result: eventName === 'schedule' ? 'success' : 'skipped' } };
 }
 
 describe('status akhir CI', () => {
-    it.each([['true', 'push'], ['false', 'push'], ['true', 'workflow_dispatch']])('menerima jalur %s %s', (full, name) => {
-        expect(() => checkStatus(results(full, name), name)).not.toThrow();
+    it.each(['schedule', 'workflow_dispatch'] as const)('menerima rilis lengkap %s', eventName => {
+        expect(() => checkStatus(results(eventName), eventName)).not.toThrow();
     });
-    it.each(['failure', 'cancelled', 'skipped', 'success'])('memeriksa setiap job dengan status %s', status => {
-        for (const [full, eventName] of [['true', 'push'], ['false', 'push'], ['true', 'workflow_dispatch']]) {
-            for (const name of Object.keys(results(full, eventName))) {
-                const needs = results(full, eventName);
-                const valid = needs[name].result === status;
+    it.each(['failure', 'cancelled', 'skipped'])('menolak gate wajib dengan status %s', status => {
+        for (const eventName of ['schedule', 'workflow_dispatch'] as const) {
+            for (const name of ['agents-consistency', 'test-shards', 'test', 'lint', 'build-and-push',
+                'return-contract', 'jev-contract', 'deploy']) {
+                const needs = results(eventName);
                 needs[name].result = status;
-                if (valid) expect(() => checkStatus(needs, eventName)).not.toThrow();
-                else expect(() => checkStatus(needs, eventName), `${full}/${eventName}/${name}`).toThrow();
+                expect(() => checkStatus(needs, eventName), `${eventName}/${name}`).toThrow();
             }
         }
     });
-    it.each(['', undefined, null, true, false, 'True'])('output invalid %j tidak menjadi ringan', full => {
-        const needs = results('false'); needs['agents-consistency'].outputs = { full };
-        expect(() => checkStatus(needs, 'push')).toThrow();
+    it.each(['', undefined, null, true, false, 'True'])('output invalid %j tidak menjadi rilis', full => {
+        const needs = results(); needs['agents-consistency'].outputs = { full };
+        expect(() => checkStatus(needs, 'schedule')).toThrow();
     });
-    it('menolak job hilang dan dispatch ringan', () => {
-        const needs = results('true'); delete needs.lint;
-        expect(() => checkStatus(needs, 'push')).toThrow();
-        expect(() => checkStatus(results('false', 'workflow_dispatch'), 'workflow_dispatch')).toThrow();
-        expect(() => checkStatus(results('true'), 'unknown')).toThrow();
+    it('menolak job hilang, event push, dan hasil release automation yang salah', () => {
+        const missing = results(); delete missing.lint;
+        expect(() => checkStatus(missing, 'schedule')).toThrow();
+        expect(() => checkStatus(results(), 'push')).toThrow();
+        expect(() => checkStatus(results(), 'unknown')).toThrow();
+        const scheduled = results(); scheduled['release-please'].result = 'skipped';
+        expect(() => checkStatus(scheduled, 'schedule')).toThrow();
+        const manual = results('workflow_dispatch'); manual['release-please'].result = 'success';
+        expect(() => checkStatus(manual, 'workflow_dispatch')).toThrow();
     });
 });

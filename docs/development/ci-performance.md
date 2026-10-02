@@ -3,11 +3,11 @@
 Production splits the complete suite across two independent runners, retaining default
 workers and the original global thresholds **71/63/75/72**. The stable `test` gate merges
 coverage and validates the full suite before release. Lint, shards, image build and the
-PostgreSQL/typecheck contract run in parallel after the initial consistency/change
-classification gate; all four gates remain required by deploy. Only pushes limited to
-an explicit safe-document allow-list skip those heavy jobs. Manual production dispatch
-runs full verification without release PR/deployment; see [selective CI](ci-selective.md).
-Performance claims require paired hosted evidence, not individual shard durations.
+PostgreSQL/typecheck contract run in parallel after the initial consistency gate; all
+remain required by deploy. Pushes are batched: a weekday schedule releases HEAD `main`,
+and manual production dispatch provides the same full-gated deploy for urgent changes;
+see [scheduled CI](ci-selective.md). Performance claims require paired hosted evidence,
+not individual shard durations.
 
 ## 1. Baseline and instrumentation
 
@@ -34,10 +34,10 @@ Timing definitions (seconds):
   cache import/export vertex durations; lazy layer downloads may occur during build,
   so import-manifest duration is not all cache transfer time. Missing data stays missing.
 
-The timing summary job is observational, runs only on the full path, and is not a deploy
-gate. The separate **Status CI** check validates expected success/skip on both full and
-documentation paths. Timing reports wall time through
-completed jobs (including deployment), excluding its own job/post steps. Sum of job
+The timing summary job is observational and is not a deploy gate. The separate **Status
+CI** check rejects missing, failed, cancelled or unexpectedly skipped release gates.
+Timing reports wall time through completed jobs (including deployment), excluding its
+own job/post steps. Sum of job
 occupancy is runner-minutes, **not wall time, billed rounded minutes or a price**.
 For exact end-to-end workflow duration after completion, use GitHub's run
 `created_at`/`updated_at`; on reruns, inspect the individual attempt timeline instead.
@@ -49,8 +49,7 @@ included in the controlled comparison; the summary job adds a small extra runner
 `.github/workflows/ci-benchmark.yml` has only `workflow_dispatch`, read-only permissions,
 no production secrets, no image publishing and no deployment job. Follow `AGENTS.md`
 for current scope/authorization rules. GitHub may require a manual workflow to exist on
-the default branch before dispatch; do not push `main` merely to register an experiment
-(that triggers production). Use the existing registered workflow with an explicit
+the default branch before dispatch. Use the existing registered workflow with an explicit
 benchmark branch/SHA and record the exact dispatch inputs.
 
 The dispatch input `strategy` selects the experiment explicitly. `all` retains the
@@ -121,7 +120,9 @@ variance) and renewed budget agreement.
 
 ## 3. Production strategy decision
 
-Production uses **two independent shards with default workers**. The stable `test`
+Production runs on a weekday schedule or urgent manual dispatch rather than every push.
+This targets total runner occupancy by batching commits; every actual release still uses
+**two independent shards with default workers**. The stable `test`
 job (`Test & Validate`) requires both shards and performs the official blob merge,
 full discovery/count reconciliation, original global coverage thresholds, and Nginx
 validation. Any shard failure/cancellation/skip fails the gate before artifact download.

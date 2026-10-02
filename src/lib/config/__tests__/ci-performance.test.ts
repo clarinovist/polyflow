@@ -67,7 +67,7 @@ describe('CI performance guardrails', () => {
         expect(command).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
         expect(command).not.toMatch(/--shard|--maxWorkers|--exclude|--no-isolate/);
         // Kondisi event tetap memakai implicit success(), bukan always().
-        expect(production.jobs.deploy.if).toBe("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
+        expect(production.jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
         const contract = production.jobs['return-contract'];
         expect(contract.services.postgres.image).toBe('postgres:15-alpine');
         expect(contract.services.postgres.ports).toEqual(['55439:5432']);

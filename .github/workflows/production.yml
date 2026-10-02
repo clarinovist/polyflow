@@ -1,10 +1,11 @@
 name: Production Pipeline
 
 on:
-  push:
-    branches:
-      - main
-  # Manual selalu lengkap, tetapi tidak membuat release PR atau deploy.
+  # Batch perubahan agar full release tidak menghabiskan runner pada setiap push.
+  # 14:17 UTC = 21:17 WIB; Senin–Jumat. GitHub cron memakai UTC.
+  schedule:
+    - cron: '17 14 * * 1-5'
+  # Jalur rilis urgent: tetap menjalankan seluruh gate, lalu deploy bila ref main.
   workflow_dispatch:
 
 env:
@@ -23,7 +24,7 @@ jobs:
   release-please:
     name: Release Please
     needs: agents-consistency
-    if: ${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'push' }}
+    if: ${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v5
@@ -34,7 +35,7 @@ jobs:
 
   # ─────────────────────────────────────────────
   # 1b. Palang ringan selalu aktif, tanpa npm ci atau service database.
-  #     Klasifikasi fail-safe: hanya allow-list dokumen yang boleh skip job berat.
+  #     Schedule/dispatch selalu memilih jalur lengkap secara fail-safe.
   # ─────────────────────────────────────────────
   agents-consistency:
     name: AGENTS.md Consistency
@@ -349,7 +350,7 @@ jobs:
   deploy:
     name: Deploy to VPS
     needs: [test, lint, build-and-push, return-contract, jev-contract]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     concurrency:
       group: production-deploy
@@ -417,7 +418,7 @@ jobs:
           DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}
           REGISTRY_USER: ${{ github.actor }}
 
-  # Status lintas jalur: merah bila gate gagal/cancelled/skip di luar rencana.
+  # Status rilis: merah bila gate gagal/cancelled/skip di luar rencana.
   status:
     name: Status CI
     if: ${{ always() }}

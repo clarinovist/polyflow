@@ -72,8 +72,9 @@ Risk reason: <dampak, invariant, caller yang terpengaruh>
 
 - Build produksi utamakan CI; bila reproduksi lokal diperlukan, cek konflik output,
   workspace dan resource, bukan sekadar keberadaan terminal aktif.
-- Push/deploy dalam scope diizinkan sesuai root; push `main` memicu deploy otomatis.
-  Artifact commit SHA harus lolos gate CI lint, full coverage, build image, dan gate domain terkait.
+- Push/deploy dalam scope diizinkan sesuai root; push `main` dibatch sampai release terjadwal,
+  atau jalankan `workflow_dispatch` untuk rilis mendesak. Artifact commit SHA harus lolos gate
+  CI lint, full coverage, build image, dan gate domain terkait.
 - Produksi: ikuti `docs/ops/vps.md` lokal; tidak build di VPS. Bila runbook tidak ada, minta detail.
 - Pascadeploy: health/log + smoke test scope; jika schema/data berubah, cek migration dan
   invariant/isi tabel tenant target. Catat hasil aktual, jangan hanya CI green.
@@ -81,7 +82,7 @@ Risk reason: <dampak, invariant, caller yang terpengaruh>
 ## 7. Commit Plan
 
 - Setelah acceptance criteria/guardrail terpenuhi + pemeriksaan lokal terjangkau lolos.
-  Gate berat boleh melalui push CI, wajib lolos sebelum deploy.
+  Gate berat berjalan pada release terjadwal atau `workflow_dispatch` dan wajib lolos sebelum deploy.
 - Message: `fix(<scope>): <judul> (plan: docs/plan/YYYY-MM-DD-<slug>.md)`
 - Stage/commit scope sendiri saja, jangan sertakan perubahan sesi lain atau plan lokal.
 - Push dalam scope diizinkan sesuai root; pantau CI pada SHA yang benar dan verifikasi pascadeploy.

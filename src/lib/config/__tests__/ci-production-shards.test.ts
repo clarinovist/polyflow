@@ -95,7 +95,7 @@ describe('production two-shard release gate', () => {
             'return-contract',
             'jev-contract',
         ]);
-        expect(jobs.deploy.if).toBe("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
+        expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
         expect(jobs.timing.needs).toContain('test-shards');
         for (const name of [
             'test-shards',

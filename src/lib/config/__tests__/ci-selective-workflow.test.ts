@@ -17,11 +17,11 @@ const heavy = [
     'jev-contract',
 ];
 
-describe('wiring CI selektif tanpa bypass rilis', () => {
-    it('pemicu tidak melewati seluruh workflow atau menyediakan mode dokumen paksa', () => {
-        expect(on).toEqual({ push: { branches: ['main'] }, workflow_dispatch: null });
+describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
+    it('membatasi release otomatis ke hari kerja dan menyediakan jalur urgent manual', () => {
+        expect(on).toEqual({ schedule: [{ cron: '17 14 * * 1-5' }], workflow_dispatch: null });
     });
-    it('palang lama selalu aktif, sekarang gate awal read-only tanpa install aplikasi', () => {
+    it('palang awal selalu aktif dan read-only tanpa install aplikasi', () => {
         const initial = jobs['agents-consistency'];
         expect(initial.name).toBe('AGENTS.md Consistency');
         expect(initial.needs).toBeUndefined(); expect(initial.if).toBeUndefined();
@@ -44,7 +44,7 @@ describe('wiring CI selektif tanpa bypass rilis', () => {
         expect(jobs.test.if).toBe("${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}");
         expect(jobs.test.steps[0].run).toContain('"$SHARDS_RESULT" != "success"');
     });
-    it('semua gate dan release identity tetap wajib; manual tidak mutasi release/deploy', () => {
+    it('semua gate dan release identity tetap wajib untuk schedule maupun dispatch manual', () => {
         expect(jobs.deploy.needs).toEqual([
             'test',
             'lint',
@@ -52,9 +52,9 @@ describe('wiring CI selektif tanpa bypass rilis', () => {
             'return-contract',
             'jev-contract',
         ]);
-        expect(jobs.deploy.if).toBe("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
+        expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
         expect(jobs['release-please'].needs).toBe('agents-consistency');
-        expect(jobs['release-please'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'push' }}");
+        expect(jobs['release-please'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'schedule' }}");
         expect(JSON.stringify(jobs.deploy)).toContain('release-guard.cjs');
         expect(JSON.stringify(jobs.deploy)).toContain('needs.build-and-push.outputs.digest');
         expect(JSON.stringify(jobs)).not.toContain('continue-on-error');
@@ -72,16 +72,17 @@ describe('wiring CI selektif tanpa bypass rilis', () => {
         expect(jobs.timing.if).toBe("${{ always() && needs.agents-consistency.outputs.full == 'true' }}");
         expect(jobs.timing.needs).toContain('agents-consistency');
     });
-    it.each(['true', 'false'])('menjalankan shell status aktual untuk full=%s', full => {
+    it.each(['schedule', 'workflow_dispatch'])('menjalankan shell status aktual untuk %s', eventName => {
         const needs: Record<string, { result: string; outputs?: { full: string } }> = {
-            'agents-consistency': { result: 'success', outputs: { full } },
-            ...Object.fromEntries([...heavy, 'deploy', 'release-please'].map(name => [name, { result: full === 'true' ? 'success' : 'skipped' }])),
+            'agents-consistency': { result: 'success', outputs: { full: 'true' } },
+            ...Object.fromEntries([...heavy, 'deploy'].map(name => [name, { result: 'success' }])),
+            'release-please': { result: eventName === 'schedule' ? 'success' : 'skipped' },
         };
         const command = jobs.status.steps.find(step => step.name === 'Validasi hasil jalur CI')!.run!;
         for (const fail of [false, true]) {
             if (fail) needs.lint.result = 'failure';
             const child = spawnSync('bash', ['-e', '-c', command], { encoding: 'utf8', timeout: 10_000,
-                env: { ...process.env, CI_NEEDS: JSON.stringify(needs), GITHUB_EVENT_NAME: 'push' } });
+                env: { ...process.env, CI_NEEDS: JSON.stringify(needs), GITHUB_EVENT_NAME: eventName } });
             expect(child.status, child.stdout + child.stderr).toBe(fail ? 1 : 0);
         }
     });

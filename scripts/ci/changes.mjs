@@ -79,19 +79,15 @@ export function checkDocuments(root) {
 export function checkStatus(needs, eventName) {
     const initial = needs?.['agents-consistency'];
     const full = initial?.outputs?.full;
-    if (initial?.result !== 'success' || !['true', 'false'].includes(full)) throw new Error('Palang/klasifikasi gagal atau tidak lengkap.');
-    if (!['push', 'workflow_dispatch'].includes(eventName) || (eventName === 'workflow_dispatch' && full !== 'true')) {
-        throw new Error('Jalur event tidak sah.');
-    }
-    const expected = full === 'true' ? 'success' : 'skipped';
+    if (initial?.result !== 'success' || full !== 'true') throw new Error('Palang/klasifikasi rilis gagal atau tidak lengkap.');
+    if (!['schedule', 'workflow_dispatch'].includes(eventName)) throw new Error('Jalur event tidak sah.');
     for (const name of heavyJobs) {
-        if (needs[name]?.result !== expected) throw new Error('Gate wajib gagal atau dilewati tanpa izin.');
+        if (needs[name]?.result !== 'success') throw new Error('Gate wajib gagal atau dilewati tanpa izin.');
     }
-    const release = full === 'true' && eventName === 'push' ? 'success' : 'skipped';
-    for (const name of ['release-please', 'deploy']) {
-        if (needs[name]?.result !== release) throw new Error('Hasil rilis tidak sesuai jalur.');
-    }
-    return full === 'true' ? 'lengkap' : 'dokumen aman (bukan bukti rilis)';
+    if (needs.deploy?.result !== 'success') throw new Error('Deploy gagal atau dilewati tanpa izin.');
+    const releasePlease = eventName === 'schedule' ? 'success' : 'skipped';
+    if (needs['release-please']?.result !== releasePlease) throw new Error('Hasil otomasi release tidak sesuai jalur.');
+    return eventName === 'schedule' ? 'rilis terjadwal lengkap' : 'rilis manual lengkap';
 }
 
 export function main(root, mode, env = process.env) {

@@ -39,7 +39,7 @@
 
 ## CI/CD Pipeline (GitHub Actions)
 
-This project includes a **GitHub Actions** workflow (`.github/workflows/production.yml`) that automatically builds, pushes a Docker image to the **GitHub Container Registry (GHCR)**, and **deploys to the VPS via SSH** whenever changes are pushed to the `main` branch.
+This project includes a **GitHub Actions** workflow (`.github/workflows/production.yml`) that batches changes and, on weekday schedule or urgent manual dispatch, builds and pushes a Docker image to the **GitHub Container Registry (GHCR)** before deploying it to the VPS via SSH.
 
 ### Prerequisites
 
@@ -54,7 +54,7 @@ To enable this workflow, you must verify the following in your repository settin
 
 ### How it Works
 
-1.  **Trigger**: Pushing to `main`.
+1.  **Trigger**: Weekdays at `14:17 UTC` (`21:17 WIB`), or manual **Run workflow** on `main` for an urgent release. A push alone does not build an image or deploy.
 2.  **Parallel gates**: Two independent test shards, lint, image build, and the isolated PostgreSQL/typecheck contract run concurrently.
 3.  **Test & Validate**: Both shards must succeed. The stable `test` job merges their blobs, reconciles complete test discovery/counts, enforces the unchanged global coverage thresholds, and validates Nginx.
 4.  **Build and cache**: GitHub Actions builds the production image with Docker Buildx and the GHCR registry cache. It publishes the commit-addressed image and exposes its immutable digest; never build on the VPS.
