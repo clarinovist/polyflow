@@ -40,13 +40,14 @@ Source of truth: `.env.example`
 | `LLM_BASE_URL` | No       | OpenAI-compatible endpoint URL | `http://localhost:11434/v1` |
 | `LLM_API_KEY`  | No       | API key for LLM service        | —                           |
 | `LLM_MODEL`    | No       | Model identifier               | `deepseek-r1:7b`            |
-| `ASSISTANT_JEV_ENABLED` | No | Enable JEV preflight, quality gate, and one bounded revision | `false` |
+| `ASSISTANT_JEV_ENABLED` | No | Enable JEV preflight for semantic intent and tool routing | `false` |
 | `SYSTEMONE_ENDPOINT` | No | Pinned TypeSafe System One evaluation endpoint | `https://api.typesafe.ai/v1/systemone` |
 | `SYSTEMONE_API_KEY` | When JEV enabled | Server-only TypeSafe API credential | — |
 | `ASSISTANT_JEV_TIMEOUT_MS` | No | Timeout per JEV evaluation, clamped to 1–15 seconds | `6000` |
 
-JEV receives a minimized/redacted semantic payload and never controls tenant access,
-permissions, tool authorization, or mutations. Keep its key in runtime secrets and never
+JEV receives a minimized/redacted question for preflight routing and never evaluates the
+final answer or raw tool evidence. It also never controls tenant access, permissions, tool
+authorization, or mutations. Keep its key in runtime secrets and never
 use a `NEXT_PUBLIC_` prefix. Production CI also requires the repository Actions secret
 `SYSTEMONE_API_KEY` for the provider contract gate.
 

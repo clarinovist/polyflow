@@ -26,14 +26,8 @@ import {
     detectAssistantIntent,
 } from './assistant-intent';
 import {
-    assessmentNeedsRevision,
-    assistantJevModel,
-    buildAssistantJevSafeFallback,
-    buildAssistantRevisionInstruction,
-    evaluateAssistantDraft,
     evaluateAssistantPreflight,
     isAssistantJevEnabled,
-    type AssistantJevMetadata,
     type AssistantJevPreflight,
 } from './assistant-jev';
 import { hasUnresolvedAnswer } from './answer-quality';
@@ -279,7 +273,7 @@ export async function generateVirtualCsReply(
         canUseBusinessTools,
     );
 
-    // JEV is a semantic quality gate, never an authorization gate. The
+    // JEV is a semantic preflight router, never an authorization gate. The
     // available tool set has already been filtered by server-side permissions.
     const jevEnabled = isAssistantJevEnabled();
     const preflight = jevEnabled
@@ -411,17 +405,7 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
         let finalAnswer = '';
         const collectedCited: CitedArticleForResponse[] = [];
         const collectedEvidence: ToolEvidence[] = [];
-        const toolOutcomes: Array<{
-            name: string;
-            outcome: 'SUCCESS' | 'ERROR';
-        }> = [];
         const onEvent = context?.onEvent;
-        // A quality gate cannot retract streamed text. Keep tool progress live,
-        // but buffer model text until JEV approves the final answer.
-        const emitDraftDelta =
-            jevEnabled && preflight.status === 'completed'
-                ? undefined
-                : onEvent;
 
         /**
          * Eksekusi satu batch tool call: otorisasi → validasi Zod → execute
@@ -548,7 +532,6 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
                         ),
                     ]);
                     collectedEvidence.push(evidence);
-                    toolOutcomes.push({ name: toolName, outcome: 'SUCCESS' });
 
                     // Collect cited articles from search_help_articles
                     if (toolName === 'search_help_articles') {
@@ -592,7 +575,6 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
                     });
                 } catch (_execError) {
                     const durationMs = Date.now() - startTime;
-                    toolOutcomes.push({ name: toolName, outcome: 'ERROR' });
                     messages.push({
                         role: 'tool',
                         tool_call_id: call.id,
@@ -647,7 +629,7 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
 
                     if (delta.content) {
                         streamedContent += delta.content;
-                        emitDraftDelta?.({ type: 'delta', text: delta.content });
+                        onEvent({ type: 'delta', text: delta.content });
                     }
 
                     for (const tc of delta.tool_calls ?? []) {
@@ -736,166 +718,6 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
             }
         }
 
-        let qualityGate: AssistantJevMetadata | undefined;
-        if (jevEnabled) {
-            const evaluationsBeforeDraft =
-                preflight.status === 'completed' ? 1 : 0;
-            if (preflight.status === 'unavailable' || !semanticPreflight) {
-                qualityGate = {
-                    provider: 'jev',
-                    model: assistantJevModel(),
-                    status: 'UNAVAILABLE',
-                    evaluations: evaluationsBeforeDraft,
-                };
-            } else if (!finalAnswer) {
-                finalAnswer = buildAssistantJevSafeFallback(
-                    semanticPreflight.route,
-                );
-                qualityGate = {
-                    provider: 'jev',
-                    model: preflight.model,
-                    status: 'SAFE_FALLBACK',
-                    route: semanticPreflight.route,
-                    evaluations: evaluationsBeforeDraft,
-                };
-            } else {
-                let assessment = await evaluateAssistantDraft({
-                    question: input.question,
-                    draft: finalAnswer,
-                    preflight: semanticPreflight,
-                    evidence: collectedEvidence,
-                    toolOutcomes,
-                    requesterName: input.requesterName,
-                });
-                let evaluations = evaluationsBeforeDraft +
-                    (assessment.status === 'completed' ? 1 : 0);
-
-                if (
-                    assessment.status === 'completed' &&
-                    assessmentNeedsRevision(assessment.data)
-                ) {
-                    const clarificationRequested =
-                        assessment.data.disposition === 'clarify';
-                    let revisedAnswer = '';
-                    try {
-                        const revision =
-                            await openai.chat.completions.create({
-                                model,
-                                messages: [
-                                    ...messages,
-                                    {
-                                        role: 'system',
-                                        content:
-                                            buildAssistantRevisionInstruction(
-                                                assessment.data,
-                                            ),
-                                    },
-                                ],
-                                temperature: 0.2,
-                            });
-                        revisedAnswer =
-                            revision.choices[0]?.message?.content?.trim() || '';
-                    } catch {
-                        // The draft failed quality review. Do not leak it merely
-                        // because the bounded revision call failed.
-                    }
-                    if (!revisedAnswer) {
-                        finalAnswer = buildAssistantJevSafeFallback(
-                            semanticPreflight.route,
-                        );
-                        qualityGate = {
-                            provider: 'jev',
-                            model: assessment.model,
-                            status: clarificationRequested
-                                ? 'CLARIFICATION'
-                                : 'SAFE_FALLBACK',
-                            route: semanticPreflight.route,
-                            evaluations,
-                            finalHelpfulness: assessment.data.helpfulness,
-                            unsupportedClaim:
-                                assessment.data.unsupportedClaim,
-                        };
-                    } else {
-                        finalAnswer = revisedAnswer;
-                        const finalAssessment = await evaluateAssistantDraft({
-                            question: input.question,
-                            draft: finalAnswer,
-                            preflight: semanticPreflight,
-                            evidence: collectedEvidence,
-                            toolOutcomes,
-                            requesterName: input.requesterName,
-                        });
-                        if (finalAssessment.status === 'completed') {
-                            evaluations += 1;
-                            assessment = finalAssessment;
-                            const stillNeedsRevision =
-                                assessmentNeedsRevision(finalAssessment.data);
-                            if (stillNeedsRevision) {
-                                finalAnswer = buildAssistantJevSafeFallback(
-                                    semanticPreflight.route,
-                                );
-                            }
-                            qualityGate = {
-                                provider: 'jev',
-                                model: finalAssessment.model,
-                                status:
-                                    clarificationRequested ||
-                                    finalAssessment.data.disposition ===
-                                        'clarify'
-                                        ? 'CLARIFICATION'
-                                        : stillNeedsRevision
-                                          ? 'SAFE_FALLBACK'
-                                          : 'REVISED',
-                                route: semanticPreflight.route,
-                                evaluations,
-                                finalHelpfulness:
-                                    finalAssessment.data.helpfulness,
-                                unsupportedClaim:
-                                    finalAssessment.data.unsupportedClaim,
-                            };
-                        } else {
-                            qualityGate = {
-                                provider: 'jev',
-                                model: assessment.model,
-                                status: 'UNAVAILABLE',
-                                route: semanticPreflight.route,
-                                evaluations,
-                                finalHelpfulness: assessment.data.helpfulness,
-                                unsupportedClaim:
-                                    assessment.data.unsupportedClaim,
-                            };
-                        }
-                    }
-                } else if (assessment.status === 'completed') {
-                    qualityGate = {
-                        provider: 'jev',
-                        model: assessment.model,
-                        status: 'PASSED',
-                        route: semanticPreflight.route,
-                        evaluations,
-                        finalHelpfulness: assessment.data.helpfulness,
-                        unsupportedClaim: assessment.data.unsupportedClaim,
-                    };
-                } else {
-                    qualityGate = {
-                        provider: 'jev',
-                        model: preflight.model,
-                        status: 'UNAVAILABLE',
-                        route: semanticPreflight.route,
-                        evaluations,
-                    };
-                }
-            }
-        }
-
-        if (
-            jevEnabled &&
-            preflight.status === 'completed' &&
-            finalAnswer
-        ) {
-            onEvent?.({ type: 'delta', text: finalAnswer });
-        }
-
         const citedArticles = collectedCited.slice(0, 3);
 
         // Fetch related articles from same modules (exclude already cited)
@@ -929,13 +751,10 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
         );
 
         // Calculate confidence score
-        const finalNeedsClarification =
-            clarification.needsClarification ||
-            qualityGate?.status === 'CLARIFICATION' ||
-            qualityGate?.status === 'SAFE_FALLBACK';
         const confidence = calculateConfidence(
             collectedEvidence,
-            finalNeedsClarification || hasUnresolvedAnswer(finalAnswer),
+            clarification.needsClarification ||
+                hasUnresolvedAnswer(finalAnswer),
         );
 
         // Build evidence chips for UI
@@ -958,17 +777,13 @@ Utamakan jawaban ringkas dan langkah lanjutan yang relevan, tanpa penutup berula
                     finalAnswer ||
                     'Maaf, saya belum dapat merangkum analisis pada saat ini.',
                 citations: ['db:polyflow-agentic', 'api:llm-tools'],
-                qualityGate,
                 citedArticles,
                 relatedArticles,
                 evidence: evidenceChips,
                 conversationId: activeConversationId,
-                needsClarification: finalNeedsClarification,
+                needsClarification: clarification.needsClarification,
                 suggestions: clarification.suggestions,
                 confidence,
-                disposition: finalNeedsClarification
-                    ? 'NEEDS_CLARIFICATION'
-                    : 'RESOLVED',
                 safety: { allowed: true },
             },
             collectedEvidence.flatMap((e) => e.entities || []),

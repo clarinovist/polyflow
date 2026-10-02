@@ -10,7 +10,6 @@ const auditTool = vi.fn().mockResolvedValue({});
 const allowedTool = vi.fn();
 const availableTools = vi.fn();
 const preflight = vi.fn();
-const assessDraft = vi.fn();
 vi.mock('openai', () => ({ default: class { chat = { completions: { create: completion } }; } }));
 vi.mock('../assistant-jev', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../assistant-jev')>();
@@ -19,7 +18,6 @@ vi.mock('../assistant-jev', async (importOriginal) => {
         isAssistantJevEnabled: () =>
             process.env.ASSISTANT_JEV_ENABLED === 'true',
         evaluateAssistantPreflight: (...args: unknown[]) => preflight(...args),
-        evaluateAssistantDraft: (...args: unknown[]) => assessDraft(...args),
     };
 });
 vi.mock('@/lib/core/prisma', () => ({ prisma: { helpToolExecution: { create: (...args: unknown[]) => auditTool(...args) } } }));
@@ -55,17 +53,6 @@ beforeEach(() => {
             route: 'knowledge_base',
             routeConfidence: 0.9,
             needsClarification: 0.1,
-        },
-    });
-    assessDraft.mockResolvedValue({
-        status: 'completed',
-        model: 'jev-1.13.0',
-        usage: { inputTokens: 10, outputTokens: 2 },
-        data: {
-            disposition: 'pass',
-            helpfulness: 3.2,
-            unsupportedClaim: 0.1,
-            excessiveVerbosity: 0.1,
         },
     });
     getConversation.mockResolvedValue({ id: 'authorized' });
@@ -192,7 +179,100 @@ describe('assistant exchange persistence integration', () => {
         );
     });
 
-    it('uses JEV preflight, buffers draft deltas, and returns a passed answer', async () => {
+    it('returns a successful income-statement answer without a post-answer JEV gate', async () => {
+        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
+        const financeEvidence = createEvidence({
+            summary:
+                'Rekonsiliasi laba-rugi/COGS 2026-09-01 s.d. 2026-09-30 WIB (read-only).',
+            facts: [
+                { label: 'Laba bersih', value: 'Rp10.000,00' },
+                { label: 'Laba kotor', value: 'Rp15.000,00' },
+            ],
+            entities: [
+                {
+                    type: 'JournalEntry',
+                    id: 'journal-1',
+                    label: 'JE-SYNTHETIC',
+                },
+            ],
+            source: 'tenant-data',
+        });
+        const financeTool = {
+            name: 'get_finance_reconciliation',
+            description: 'Laporan laba rugi',
+            requiredResources: ['/finance/reports/income-statement'],
+            sensitivity: 'financial',
+            inputSchema: z.object({
+                startDate: z.string(),
+                endDate: z.string(),
+            }),
+            execute: executeTool,
+        };
+        availableTools.mockReturnValueOnce([financeTool]);
+        allowedTool.mockReturnValue(financeTool);
+        executeTool.mockResolvedValue(financeEvidence);
+        preflight.mockResolvedValueOnce({
+            status: 'completed',
+            model: 'jev-1.13.0',
+            usage: { inputTokens: 10, outputTokens: 2 },
+            data: {
+                intent: 'data',
+                route: 'data_tools',
+                routeConfidence: 0.9,
+                needsClarification: 0,
+            },
+        });
+        completion
+            .mockResolvedValueOnce({
+                choices: [
+                    {
+                        message: {
+                            role: 'assistant',
+                            tool_calls: [
+                                {
+                                    id: 'tool-finance',
+                                    type: 'function',
+                                    function: {
+                                        name: 'get_finance_reconciliation',
+                                        arguments: JSON.stringify({
+                                            startDate: '2026-09-01',
+                                            endDate: '2026-09-30',
+                                        }),
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            })
+            .mockResolvedValueOnce({
+                choices: [
+                    {
+                        message: {
+                            role: 'assistant',
+                            content:
+                                'September untung. Laba bersihnya Rp10.000,00 berdasarkan laporan laba rugi.',
+                        },
+                    },
+                ],
+            });
+
+        const result = await generateVirtualCsReply(
+            {
+                question: 'Saya ingin tahu bulan September apakah untung?',
+                channel: 'web',
+            },
+            context,
+        );
+
+        expect(result.answer).toContain('September untung');
+        expect(result.answer).not.toContain('kirim nomor atau nama data');
+        expect(result).not.toHaveProperty('qualityGate');
+        expect(completion).toHaveBeenCalledTimes(2);
+        expect(executeTool).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps streaming the DeepSeek answer after JEV preflight', async () => {
         vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
         const onEvent = vi.fn();
         completion.mockImplementationOnce(async (request: { stream?: boolean }) => {
@@ -211,120 +291,15 @@ describe('assistant exchange persistence integration', () => {
         );
 
         expect(preflight).toHaveBeenCalledTimes(1);
-        expect(assessDraft).toHaveBeenCalledWith(
-            expect.objectContaining({ draft: 'Jawaban berbukti' }),
-        );
         expect(onEvent.mock.calls).toEqual([
-            [{ type: 'delta', text: 'Jawaban berbukti' }],
+            [{ type: 'delta', text: 'Jawaban ' }],
+            [{ type: 'delta', text: 'berbukti' }],
         ]);
-        expect(result).toMatchObject({
-            answer: 'Jawaban berbukti',
-            qualityGate: { status: 'PASSED', evaluations: 2 },
-        });
+        expect(result).toMatchObject({ answer: 'Jawaban berbukti' });
+        expect(result).not.toHaveProperty('qualityGate');
     });
 
-    it('revises a weak draft once and evaluates the revision before returning it', async () => {
-        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
-        assessDraft
-            .mockResolvedValueOnce({
-                status: 'completed',
-                model: 'jev-1.13.0',
-                usage: { inputTokens: 10, outputTokens: 2 },
-                data: {
-                    disposition: 'revise',
-                    helpfulness: 1.8,
-                    unsupportedClaim: 0.8,
-                    excessiveVerbosity: 0.8,
-                },
-            })
-            .mockResolvedValueOnce({
-                status: 'completed',
-                model: 'jev-1.13.0',
-                usage: { inputTokens: 10, outputTokens: 2 },
-                data: {
-                    disposition: 'pass',
-                    helpfulness: 3.1,
-                    unsupportedClaim: 0.1,
-                    excessiveVerbosity: 0.1,
-                },
-            });
-        completion
-            .mockResolvedValueOnce({
-                choices: [
-                    {
-                        message: {
-                            role: 'assistant',
-                            content: 'Jawaban awal terlalu panjang.',
-                        },
-                    },
-                ],
-            })
-            .mockResolvedValueOnce({
-                choices: [
-                    {
-                        message: {
-                            role: 'assistant',
-                            content: 'Jawaban revisi yang ringkas.',
-                        },
-                    },
-                ],
-            });
-
-        const result = await generateVirtualCsReply(
-            { question: 'Jelaskan invoice', channel: 'web' },
-            context,
-        );
-
-        expect(completion).toHaveBeenCalledTimes(2);
-        expect(assessDraft).toHaveBeenCalledTimes(2);
-        expect(result).toMatchObject({
-            answer: 'Jawaban revisi yang ringkas.',
-            qualityGate: { status: 'REVISED', evaluations: 3 },
-        });
-        expect(completion.mock.calls[1][0].tools).toBeUndefined();
-        expect(completion.mock.calls[1][0].messages.at(-1).content).toContain(
-            'jangan memanggil tool lagi',
-        );
-    });
-
-    it('uses a safe fallback when a weak draft cannot be revised', async () => {
-        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
-        assessDraft.mockResolvedValueOnce({
-            status: 'completed',
-            model: 'jev-1.13.0',
-            usage: { inputTokens: 10, outputTokens: 2 },
-            data: {
-                disposition: 'revise',
-                helpfulness: 1,
-                unsupportedClaim: 0.9,
-                excessiveVerbosity: 0.8,
-            },
-        });
-        completion
-            .mockResolvedValueOnce({
-                choices: [
-                    {
-                        message: {
-                            role: 'assistant',
-                            content: 'Draft spekulatif.',
-                        },
-                    },
-                ],
-            })
-            .mockRejectedValueOnce(new Error('revision unavailable'));
-
-        const result = await generateVirtualCsReply(
-            { question: 'Jelaskan invoice', channel: 'web' },
-            context,
-        );
-
-        expect(result.answer).not.toContain('Draft spekulatif');
-        expect(result).toMatchObject({
-            qualityGate: { status: 'SAFE_FALLBACK', evaluations: 2 },
-        });
-    });
-
-    it('keeps the assistant available when JEV is unavailable', async () => {
+    it('keeps the assistant available when JEV preflight is unavailable', async () => {
         vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
         preflight.mockResolvedValueOnce({
             status: 'unavailable',
@@ -336,11 +311,8 @@ describe('assistant exchange persistence integration', () => {
             context,
         );
 
-        expect(assessDraft).not.toHaveBeenCalled();
-        expect(result).toMatchObject({
-            answer: 'Jawaban berbukti',
-            qualityGate: { status: 'UNAVAILABLE', evaluations: 0 },
-        });
+        expect(result).toMatchObject({ answer: 'Jawaban berbukti' });
+        expect(result).not.toHaveProperty('qualityGate');
     });
 
     it('waits for exchange persistence before returning the normal answer', async () => {

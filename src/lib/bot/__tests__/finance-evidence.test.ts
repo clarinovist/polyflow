@@ -42,7 +42,7 @@ describe('finance evidence delivered to the model', () => {
         expect(evidenceToText(evidence)).toContain('640,00'); expect(evidenceToText(evidence)).toContain('-Rp');
         expect(evidenceToText(evidence)).toContain('BUKAN tambahan laba'); expect(evidenceToText(evidence)).toContain('Tanggal jurnal');
         expect(evidenceToText(evidence)).toContain('bukan audit nominal/periode');
-        expect(evidence.entities?.map(e => e.id)).toEqual(['j', 'i']);
+        expect(evidence.entities).toEqual([]);
     });
     it('caps account evidence, preserves report totals and signals any partial dimension', () => {
         const accounts = Array.from({ length: 22 }, (_, n) => ({ id: `a${n}`, code: `A${n}`, name: 'Account', type: 'EXPENSE' as const, category: 'COGS' as const, netBalance: n }));

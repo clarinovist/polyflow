@@ -71,6 +71,9 @@ export function reconciliationEvidence(result: Awaited<ReturnType<typeof reconci
             ...cogs.rows.map(j => ({ label: `COGS ${j.entryNumber}`, value: `${date(j.entryDate)}; ${money(j.net)}; sumber ${j.referenceType ?? '-'} ${j.referenceId ?? '-'} (${j.reference ?? '-'})` })),
             ...invoices.rows.map(i => ({ label: `Invoice ${i.invoiceNumber}`, value: `${i.customer ?? '-'}; ${i.status}; ${date(i.invoiceDate)}; total ${money(i.totalAmount)}; paidAmount ${money(i.paidAmount)}; Payment ${money(i.paymentTotal)}; jurnal aktif ${i.activeJournals}, POSTED ${i.postedJournals}, DRAFT ${i.draftJournals}` })),
         ],
-        entities: [...cogs.rows.map(j => ({ type: 'JournalEntry', id: j.id, label: j.entryNumber, href: `/finance/journals/${encodeURIComponent(j.id)}` })), ...invoices.rows.map(invoiceEntity)],
+        // Detail rows remain in facts for DeepSeek diagnosis. Do not promote
+        // every sampled journal/invoice to UI entity chips on an aggregate P&L
+        // answer; users can ask for document-level follow-up when needed.
+        entities: [],
     });
 }
