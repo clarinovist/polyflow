@@ -42,6 +42,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { warehouseComponentLabels } from '@/lib/labels';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
+import { formatWibDate } from '@/lib/utils/timezone';
+import { FinalizeOpnameDialog } from './FinalizeOpnameDialog';
 import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
@@ -70,6 +72,7 @@ export interface OpnameSession {
     createdBy?: { name: string | null } | null;
     items: OpnameItem[];
     opnameNumber: string | null;
+    effectiveDate?: Date | string | null;
 }
 
 interface OpnameDetailClientProps {
@@ -88,6 +91,7 @@ export function OpnameDetailClient({
     const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
+    const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
     const router = useRouter();
 
     // Add Item dialog
@@ -154,27 +158,20 @@ export function OpnameDetailClient({
         })
         .slice(0, 30);
 
-    const handleFinalize = async () => {
+    const handleFinalize = async (effectiveDate: string) => {
         if (!currentUserId) {
             toast.error('Kesalahan autentikasi: User ID tidak ditemukan.');
             return;
         }
 
-        if (
-            !confirm(
-                'Yakin ingin menyelesaikan sesi ini? Tindakan ini akan membuat penyesuaian stok untuk semua selisih.',
-            )
-        ) {
-            return;
-        }
-
         setIsFinalizing(true);
         try {
-            const result = await completeOpname(session.id);
+            const result = await completeOpname(session.id, effectiveDate);
             if (result.success) {
                 toast.success(
-                    'Sesi berhasil diselesaikan dan inventaris diperbarui',
+                    `Sesi berhasil diselesaikan dengan tanggal efektif ${effectiveDate}`,
                 );
+                setFinalizeDialogOpen(false);
                 router.refresh();
             } else {
                 toast.error(`Gagal: ${result.error}`);
@@ -228,6 +225,12 @@ export function OpnameDetailClient({
                         {session.remarks || 'No Remarks'}
                         <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
                         Created by {session.createdBy?.name || 'System'}
+                        {session.effectiveDate && (
+                            <>
+                                <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+                                Efektif {formatWibDate(session.effectiveDate)}
+                            </>
+                        )}
                     </p>
                 </div>
 
@@ -267,7 +270,7 @@ export function OpnameDetailClient({
                         <Button
                             variant="default"
                             className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-900/10"
-                            onClick={handleFinalize}
+                            onClick={() => setFinalizeDialogOpen(true)}
                             disabled={isFinalizing}
                         >
                             {isFinalizing ? (
@@ -361,6 +364,16 @@ export function OpnameDetailClient({
             />
 
             {/* Add Item Dialog */}
+            <FinalizeOpnameDialog
+                open={finalizeDialogOpen}
+                onOpenChange={setFinalizeDialogOpen}
+                onConfirm={handleFinalize}
+                isSubmitting={isFinalizing}
+                uncountedItems={session.items.filter(
+                    (item) => item.countedQuantity === null,
+                ).length}
+            />
+
             <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>

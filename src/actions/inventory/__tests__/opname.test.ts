@@ -86,6 +86,12 @@ vi.mock('@/services/accounting/accounting-service', () => ({
     },
 }));
 
+vi.mock('@/services/inventory/stock-opname-service', () => ({
+    StockOpnameService: {
+        completeOpname: vi.fn(),
+    },
+}));
+
 import { prisma } from '@/lib/core/prisma';
 import { requireRole } from '@/lib/tools/auth-checks';
 import { revalidatePath } from 'next/cache';
@@ -95,7 +101,9 @@ import {
     saveOpnameCount,
     addOpnameEntry,
     deleteOpnameEntry,
+    completeOpname,
 } from '../opname';
+import { StockOpnameService } from '@/services/inventory/stock-opname-service';
 import { AuthorizationError } from '@/lib/errors/errors';
 import { Prisma } from '@prisma/client';
 
@@ -196,6 +204,46 @@ describe('createOpnameSession', () => {
         await expect(createOpnameSession('loc-1', longRemarks)).rejects.toThrow(
             'Remarks maksimal 500 karakter',
         );
+    });
+});
+
+describe('completeOpname', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireRole).mockResolvedValue({
+            user: { id: 'user-1', role: 'WAREHOUSE' },
+        } as never);
+        vi.mocked(StockOpnameService.completeOpname).mockResolvedValue();
+    });
+
+    it('authorizes and passes the selected effective date to the service', async () => {
+        const result = await completeOpname('opname-1', '2026-09-30');
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(requireRole).toHaveBeenCalledWith([
+            'WAREHOUSE',
+            'PRODUCTION',
+            'PLANNING',
+        ]);
+        expect(StockOpnameService.completeOpname).toHaveBeenCalledExactlyOnceWith(
+            'opname-1',
+            '2026-09-30',
+            'user-1',
+        );
+        expect(revalidatePath).toHaveBeenCalledWith(
+            '/warehouse/inventory/balance',
+        );
+    });
+
+    it('does not call the service when the role check fails', async () => {
+        vi.mocked(requireRole).mockRejectedValue(
+            new AuthorizationError('Tidak memiliki izin yang cukup'),
+        );
+
+        await expect(
+            completeOpname('opname-1', '2026-09-30'),
+        ).rejects.toThrow(AuthorizationError);
+        expect(StockOpnameService.completeOpname).not.toHaveBeenCalled();
     });
 });
 

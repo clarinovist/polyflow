@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, CheckCircle2, Clock, History } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { formatWibDate } from '@/lib/utils/timezone';
 import { CreateOpnameDialog } from '@/components/warehouse/inventory/opname/CreateOpnameDialog';
 import { Separator } from '@/components/ui/separator';
 import { Suspense } from 'react';
@@ -106,10 +107,15 @@ export default async function WarehouseOpnameListPage() {
                                                 <Calendar className="h-3.5 w-3.5" />
                                             </div>
                                             <span>
-                                                {format(
-                                                    new Date(session.createdAt),
-                                                    'PPP',
-                                                )}
+                                                {session.status === 'COMPLETED' &&
+                                                session.effectiveDate
+                                                    ? `Efektif ${formatWibDate(session.effectiveDate)}`
+                                                    : format(
+                                                          new Date(
+                                                              session.createdAt,
+                                                          ),
+                                                          'PPP',
+                                                      )}
                                             </span>
                                         </div>
                                     </div>

@@ -350,6 +350,27 @@ describe("inventory-link-service", () => {
       expect(call.lines).toHaveLength(2);
     });
 
+    it("uses the persisted adjustment movement timestamp as journal entryDate", async () => {
+      const effectiveDate = new Date("2026-09-30T16:59:59.999Z");
+      const mv = {
+        ...baseMovement,
+        type: "ADJUSTMENT",
+        createdAt: effectiveDate,
+        toLocationId: null,
+        productVariant: {
+          name: "Opname Item",
+          product: { ...baseProduct },
+        },
+      };
+
+      await recordInventoryMovement(mv as never);
+
+      expect(mockCreateJournalEntry).toHaveBeenCalledWith(
+        expect.objectContaining({ entryDate: effectiveDate }),
+        undefined,
+      );
+    });
+
     it("skips GL validation for PURCHASE type", async () => {
       vi.mocked(prisma.journalLine.aggregate).mockResolvedValue({
         _sum: {

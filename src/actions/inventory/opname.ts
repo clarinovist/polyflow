@@ -8,9 +8,7 @@ import {
     safeAction,
     BusinessRuleError,
     NotFoundError,
-    AuthenticationError,
 } from '@/lib/errors/errors';
-import { auth } from '@/auth';
 import { requireRole } from '@/lib/tools/auth-checks';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
 import { toDecimalNumber } from '@/lib/utils/utils';
@@ -478,15 +476,23 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
 
 export const completeOpname = withTenant(async function completeOpname(
     opnameId: string,
+    effectiveDate: string,
 ) {
     return safeAction(async () => {
-        const session = await auth();
-        if (!session?.user?.id) {
-            throw new AuthenticationError('User not authenticated');
-        }
+        const session = await requireRole([
+            Role.WAREHOUSE,
+            Role.PRODUCTION,
+            Role.PLANNING,
+        ]);
 
-        await StockOpnameService.completeOpname(opnameId, session.user.id);
+        await StockOpnameService.completeOpname(
+            opnameId,
+            effectiveDate,
+            session.user.id,
+        );
         revalidateOpnamePaths(opnameId);
+        revalidatePath('/warehouse/inventory');
+        revalidatePath('/warehouse/inventory/balance');
     });
 });
 

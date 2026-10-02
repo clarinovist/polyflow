@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatWibDate } from '@/lib/utils/timezone';
 
 import { CreateOpnameDialog } from '@/components/warehouse/inventory/opname/CreateOpnameDialog';
 
@@ -26,6 +27,7 @@ type OpnameSession = {
     location: { name: string };
     createdBy: { name: string | null } | null;
     createdAt: string;
+    effectiveDate: string | null;
     items: { id: string; countedQuantity: number | null }[];
 };
 
@@ -189,10 +191,17 @@ export function MobileOpnameListClient({ sessions = [] }: MobileOpnameListClient
                                         {countedItems}/{totalItems} item dihitung
                                     </span>
                                     <span>
-                                        {new Date(session.createdAt).toLocaleDateString('id-ID', {
-                                            day: 'numeric',
-                                            month: 'short',
-                                        })}
+                                        {isOpen || !session.effectiveDate
+                                            ? new Date(
+                                                  session.createdAt,
+                                              ).toLocaleDateString('id-ID', {
+                                                  day: 'numeric',
+                                                  month: 'short',
+                                              })
+                                            : `Efektif ${formatWibDate(
+                                                  session.effectiveDate,
+                                                  'dd MMM',
+                                              )}`}
                                     </span>
                                 </div>
                             </Link>

@@ -50,6 +50,8 @@ import {
     type OpnameEntryView,
 } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
 import { useOpnameAutosave } from '@/hooks/useOpnameAutosave';
+import { formatWibDate } from '@/lib/utils/timezone';
+import { FinalizeOpnameDialog } from '@/components/warehouse/inventory/opname/FinalizeOpnameDialog';
 
 const MAX_VARIANT_RESULTS = 50;
 
@@ -80,6 +82,7 @@ type OpnameSession = {
     createdBy?: { name: string | null } | null;
     items: OpnameItem[];
     opnameNumber: string | null;
+    effectiveDate?: Date | string | null;
 };
 
 interface MobileOpnameDetailClientProps {
@@ -125,6 +128,7 @@ export function MobileOpnameDetailClient({
     const [itemFilter, setItemFilter] = useState<ItemFilter>('ALL');
     const [isSaving, setIsSaving] = useState(false);
     const [isFinalizing, setIsFinalizing] = useState(false);
+    const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showVarianceSummary, setShowVarianceSummary] = useState(false);
 
@@ -400,8 +404,7 @@ export function MobileOpnameDetailClient({
         }
     };
 
-    const handleFinalize = async () => {
-        // Guard: reject if any entries are still pending/failed
+    const openFinalizeDialog = () => {
         const unsavedEntryCount = Object.values(entriesByItem).reduce(
             (total, entries) =>
                 total +
@@ -418,24 +421,18 @@ export function MobileOpnameDetailClient({
             );
             return;
         }
+        setFinalizeDialogOpen(true);
+    };
 
-        if (stats.uncounted > 0) {
-            if (
-                !confirm(
-                    `Masih ada ${stats.uncounted} item belum dihitung. Lanjutkan finalisasi?`,
-                )
-            ) {
-                return;
-            }
-        } else if (!confirm('Yakin ingin menyelesaikan sesi ini?')) {
-            return;
-        }
-
+    const handleFinalize = async (effectiveDate: string) => {
         setIsFinalizing(true);
         try {
-            const result = await completeOpname(session.id);
+            const result = await completeOpname(session.id, effectiveDate);
             if (result.success) {
-                toast.success('Sesi berhasil diselesaikan');
+                toast.success(
+                    `Sesi selesai dengan tanggal efektif ${effectiveDate}`,
+                );
+                setFinalizeDialogOpen(false);
                 router.refresh();
             } else {
                 toast.error(`Gagal: ${result.error}`);
@@ -701,6 +698,9 @@ export function MobileOpnameDetailClient({
                         <Warehouse className="h-3 w-3 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">
                             {session.location?.name || '—'}
+                            {session.effectiveDate
+                                ? ` · Efektif ${formatWibDate(session.effectiveDate)}`
+                                : ''}
                         </span>
                     </div>
                 </div>
@@ -1170,6 +1170,14 @@ export function MobileOpnameDetailClient({
                 </DialogContent>
             </Dialog>
 
+            <FinalizeOpnameDialog
+                open={finalizeDialogOpen}
+                onOpenChange={setFinalizeDialogOpen}
+                onConfirm={handleFinalize}
+                isSubmitting={isFinalizing}
+                uncountedItems={stats.uncounted}
+            />
+
             {/* Sticky Actions */}
             {isOpen && (
                 <div className="fixed bottom-16 left-0 right-0 z-40 bg-background border-t p-3 pb-[env(safe-area-inset-bottom)]">
@@ -1217,7 +1225,7 @@ export function MobileOpnameDetailClient({
                             Simpan
                         </Button>
                         <Button
-                            onClick={handleFinalize}
+                            onClick={openFinalizeDialog}
                             disabled={isFinalizing}
                             className="flex-1 h-11"
                         >
