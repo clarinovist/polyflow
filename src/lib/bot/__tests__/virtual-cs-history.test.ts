@@ -8,7 +8,20 @@ const search = vi.fn();
 const executeTool = vi.fn();
 const auditTool = vi.fn().mockResolvedValue({});
 const allowedTool = vi.fn();
+const availableTools = vi.fn();
+const preflight = vi.fn();
+const assessDraft = vi.fn();
 vi.mock('openai', () => ({ default: class { chat = { completions: { create: completion } }; } }));
+vi.mock('../assistant-jev', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../assistant-jev')>();
+    return {
+        ...actual,
+        isAssistantJevEnabled: () =>
+            process.env.ASSISTANT_JEV_ENABLED === 'true',
+        evaluateAssistantPreflight: (...args: unknown[]) => preflight(...args),
+        evaluateAssistantDraft: (...args: unknown[]) => assessDraft(...args),
+    };
+});
 vi.mock('@/lib/core/prisma', () => ({ prisma: { helpToolExecution: { create: (...args: unknown[]) => auditTool(...args) } } }));
 vi.mock('../conversation-service', () => ({
     getOrCreateConversation: (...args: unknown[]) => getConversation(...args),
@@ -16,8 +29,11 @@ vi.mock('../conversation-service', () => ({
     saveConversationExchange: (...args: unknown[]) => save(...args),
     buildLlmHistory: (context: { history: unknown[] }) => context.history,
 }));
-vi.mock('../tool-registry', () => ({ toolsToOpenAiFormat: () => [] }));
-vi.mock('../assistant-tool-access', () => ({ getAvailableAssistantTools: () => [], findAllowedAssistantTool: (...args: unknown[]) => allowedTool(...args) }));
+vi.mock('../tool-registry', () => ({
+    toolsToOpenAiFormat: (tools: Array<{ name: string }>) =>
+        tools.map((tool) => ({ type: 'function', function: { name: tool.name } })),
+}));
+vi.mock('../assistant-tool-access', () => ({ getAvailableAssistantTools: (...args: unknown[]) => availableTools(...args), findAllowedAssistantTool: (...args: unknown[]) => allowedTool(...args) }));
 vi.mock('../help-articles', () => ({ searchHelpArticles: (...args: unknown[]) => search(...args) }));
 vi.mock('../injection-defense', () => ({ checkPromptInjection: () => ({ safe: true }), logInjectionAttempt: vi.fn() }));
 import { generateVirtualCsReply } from '../virtual-cs-service';
@@ -29,11 +45,35 @@ const context: AssistantRequestContext = { tenantId: 'tenant-1', permissionsVeri
 beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('ASSISTANT_CONTEXTUAL_PROFILES', 'true');
+    vi.stubEnv('ASSISTANT_JEV_ENABLED', 'false');
+    preflight.mockResolvedValue({
+        status: 'completed',
+        model: 'jev-1.13.0',
+        usage: { inputTokens: 10, outputTokens: 2 },
+        data: {
+            intent: 'guidance',
+            route: 'knowledge_base',
+            routeConfidence: 0.9,
+            needsClarification: 0.1,
+        },
+    });
+    assessDraft.mockResolvedValue({
+        status: 'completed',
+        model: 'jev-1.13.0',
+        usage: { inputTokens: 10, outputTokens: 2 },
+        data: {
+            disposition: 'pass',
+            helpfulness: 3.2,
+            unsupportedClaim: 0.1,
+            excessiveVerbosity: 0.1,
+        },
+    });
     getConversation.mockResolvedValue({ id: 'authorized' });
     load.mockResolvedValue({ history: [], resolvedEntities: new Map() });
     save.mockResolvedValue(undefined);
     search.mockResolvedValue([]);
     allowedTool.mockReturnValue(undefined);
+    availableTools.mockReturnValue([]);
     executeTool.mockReset();
     auditTool.mockResolvedValue({});
     completion.mockResolvedValue({ choices: [{ message: { role: 'assistant', content: 'Jawaban berbukti' } }] });
@@ -109,6 +149,197 @@ describe('assistant exchange persistence integration', () => {
         expect(result.disposition).toBe('NEEDS_CLARIFICATION');
         expect(completion).not.toHaveBeenCalled();
     });
+    it('uses the JEV route to expose data tools without substituting Knowledge Base', async () => {
+        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
+        const dataTool = {
+            name: 'get_purchase_order',
+            description: 'Cek PO',
+            requiredResources: ['/finance'],
+            sensitivity: 'financial',
+        };
+        const knowledgeTool = {
+            name: 'search_help_articles',
+            description: 'Cari panduan',
+            requiredResources: [],
+            sensitivity: 'normal',
+        };
+        availableTools.mockReturnValueOnce([dataTool, knowledgeTool]);
+        preflight.mockResolvedValueOnce({
+            status: 'completed',
+            model: 'jev-1.13.0',
+            usage: { inputTokens: 10, outputTokens: 2 },
+            data: {
+                intent: 'data',
+                route: 'data_tools',
+                routeConfidence: 0.9,
+                needsClarification: 0.1,
+            },
+        });
+
+        await generateVirtualCsReply(
+            { question: 'Apakah ada draft PO?', channel: 'web' },
+            context,
+        );
+
+        expect(completion.mock.calls[0][0].tools).toEqual([
+            { type: 'function', function: { name: 'get_purchase_order' } },
+        ]);
+        expect(completion.mock.calls[0][0].messages[0].content).toContain(
+            'Rute semantik: data_tools',
+        );
+    });
+
+    it('uses JEV preflight, buffers draft deltas, and returns a passed answer', async () => {
+        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
+        const onEvent = vi.fn();
+        completion.mockImplementationOnce(async (request: { stream?: boolean }) => {
+            expect(request.stream).toBe(true);
+            return {
+                async *[Symbol.asyncIterator]() {
+                    yield { choices: [{ delta: { content: 'Jawaban ' } }] };
+                    yield { choices: [{ delta: { content: 'berbukti' } }] };
+                },
+            };
+        });
+
+        const result = await generateVirtualCsReply(
+            { question: 'Jelaskan invoice', channel: 'web' },
+            { ...context, onEvent },
+        );
+
+        expect(preflight).toHaveBeenCalledTimes(1);
+        expect(assessDraft).toHaveBeenCalledWith(
+            expect.objectContaining({ draft: 'Jawaban berbukti' }),
+        );
+        expect(onEvent.mock.calls).toEqual([
+            [{ type: 'delta', text: 'Jawaban berbukti' }],
+        ]);
+        expect(result).toMatchObject({
+            answer: 'Jawaban berbukti',
+            qualityGate: { status: 'PASSED', evaluations: 2 },
+        });
+    });
+
+    it('revises a weak draft once and evaluates the revision before returning it', async () => {
+        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
+        assessDraft
+            .mockResolvedValueOnce({
+                status: 'completed',
+                model: 'jev-1.13.0',
+                usage: { inputTokens: 10, outputTokens: 2 },
+                data: {
+                    disposition: 'revise',
+                    helpfulness: 1.8,
+                    unsupportedClaim: 0.8,
+                    excessiveVerbosity: 0.8,
+                },
+            })
+            .mockResolvedValueOnce({
+                status: 'completed',
+                model: 'jev-1.13.0',
+                usage: { inputTokens: 10, outputTokens: 2 },
+                data: {
+                    disposition: 'pass',
+                    helpfulness: 3.1,
+                    unsupportedClaim: 0.1,
+                    excessiveVerbosity: 0.1,
+                },
+            });
+        completion
+            .mockResolvedValueOnce({
+                choices: [
+                    {
+                        message: {
+                            role: 'assistant',
+                            content: 'Jawaban awal terlalu panjang.',
+                        },
+                    },
+                ],
+            })
+            .mockResolvedValueOnce({
+                choices: [
+                    {
+                        message: {
+                            role: 'assistant',
+                            content: 'Jawaban revisi yang ringkas.',
+                        },
+                    },
+                ],
+            });
+
+        const result = await generateVirtualCsReply(
+            { question: 'Jelaskan invoice', channel: 'web' },
+            context,
+        );
+
+        expect(completion).toHaveBeenCalledTimes(2);
+        expect(assessDraft).toHaveBeenCalledTimes(2);
+        expect(result).toMatchObject({
+            answer: 'Jawaban revisi yang ringkas.',
+            qualityGate: { status: 'REVISED', evaluations: 3 },
+        });
+        expect(completion.mock.calls[1][0].tools).toBeUndefined();
+        expect(completion.mock.calls[1][0].messages.at(-1).content).toContain(
+            'jangan memanggil tool lagi',
+        );
+    });
+
+    it('uses a safe fallback when a weak draft cannot be revised', async () => {
+        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
+        assessDraft.mockResolvedValueOnce({
+            status: 'completed',
+            model: 'jev-1.13.0',
+            usage: { inputTokens: 10, outputTokens: 2 },
+            data: {
+                disposition: 'revise',
+                helpfulness: 1,
+                unsupportedClaim: 0.9,
+                excessiveVerbosity: 0.8,
+            },
+        });
+        completion
+            .mockResolvedValueOnce({
+                choices: [
+                    {
+                        message: {
+                            role: 'assistant',
+                            content: 'Draft spekulatif.',
+                        },
+                    },
+                ],
+            })
+            .mockRejectedValueOnce(new Error('revision unavailable'));
+
+        const result = await generateVirtualCsReply(
+            { question: 'Jelaskan invoice', channel: 'web' },
+            context,
+        );
+
+        expect(result.answer).not.toContain('Draft spekulatif');
+        expect(result).toMatchObject({
+            qualityGate: { status: 'SAFE_FALLBACK', evaluations: 2 },
+        });
+    });
+
+    it('keeps the assistant available when JEV is unavailable', async () => {
+        vi.stubEnv('ASSISTANT_JEV_ENABLED', 'true');
+        preflight.mockResolvedValueOnce({
+            status: 'unavailable',
+            code: 'timeout',
+        });
+
+        const result = await generateVirtualCsReply(
+            { question: 'Jelaskan invoice', channel: 'web' },
+            context,
+        );
+
+        expect(assessDraft).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+            answer: 'Jawaban berbukti',
+            qualityGate: { status: 'UNAVAILABLE', evaluations: 0 },
+        });
+    });
+
     it('waits for exchange persistence before returning the normal answer', async () => {
         let finishSave!: () => void;
         save.mockImplementation(() => new Promise<void>((resolve) => { finishSave = resolve; }));

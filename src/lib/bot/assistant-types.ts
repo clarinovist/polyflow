@@ -107,6 +107,8 @@ export type AssistantDisposition =
 export type AssistantResponse = {
     answer: string;
     citations: string[];
+    /** Non-sensitive quality-gate metadata for audit and operations. */
+    qualityGate?: import('./assistant-jev').AssistantJevMetadata;
     citedArticles?: CitedArticleForResponse[];
     relatedArticles?: CitedArticleForResponse[];
     evidence?: AssistantEvidenceChip[];

@@ -275,6 +275,29 @@ jobs:
           src/lib/bot/__tests__/document-tools-postgres.test.ts
           src/lib/core/__tests__/prisma-proxy-postgres.test.ts
 
+  jev-contract:
+    name: JEV Provider Contract
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - name: Verify pinned JEV preflight contract
+        env:
+          SYSTEMONE_API_KEY: ${{ secrets.SYSTEMONE_API_KEY }}
+        run: node scripts/smoke-assistant-jev.mjs
+
   # ─────────────────────────────────────────────
   # 3. Build & Push Docker Image
   #    Deliberately does NOT `needs: test` — the image build consumes no test
@@ -325,7 +348,7 @@ jobs:
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
-    needs: [test, lint, build-and-push, return-contract]
+    needs: [test, lint, build-and-push, return-contract, jev-contract]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     concurrency:
