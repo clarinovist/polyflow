@@ -13,6 +13,7 @@ describe('detectGreeting', () => {
             'assalamualaikum',
             'permisi',
             'halo mau tanya dong',
+            'hallo polyflow mau tanya nih',
             'hai min',
             'halo pak',
             'test',

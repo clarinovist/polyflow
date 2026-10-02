@@ -43,6 +43,7 @@ const FILLER_WORDS = [
     'min',
     'admin',
     'bot',
+    'polyflow',
     'dong',
     'ya',
     'yaa',

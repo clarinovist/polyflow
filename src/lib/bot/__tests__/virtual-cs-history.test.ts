@@ -114,14 +114,17 @@ describe('assistant tool audit metadata', () => {
 });
 
 describe('assistant exchange persistence integration', () => {
-    it('persists greetings without calling the model and stamps server-only access/context', async () => {
-        const result = await generateVirtualCsReply({ question: 'halo', channel: 'web' }, context);
+    it.each(['halo', 'hallo polyflow mau tanya nih'])(
+        'persists greeting %j without calling the model and stamps server-only access/context',
+        async (question) => {
+        const result = await generateVirtualCsReply({ question, channel: 'web' }, context);
         expect(result).toMatchObject({ conversationId: 'authorized', historySaved: true });
         expect(completion).not.toHaveBeenCalled();
-        expect(save).toHaveBeenCalledWith(expect.objectContaining({ conversationId: 'authorized', question: 'halo', metadata: expect.objectContaining({ contextKey: 'finance:/finance', accessScope: expect.stringMatching(/^[a-f0-9]{64}$/) }) }));
+        expect(save).toHaveBeenCalledWith(expect.objectContaining({ conversationId: 'authorized', question, metadata: expect.objectContaining({ contextKey: 'finance:/finance', accessScope: expect.stringMatching(/^[a-f0-9]{64}$/) }) }));
         expect(getConversation.mock.calls[0][0]).toMatchObject({ conversationId: 'requested', tenantId: 'tenant-1', userId: 'user-1', channel: 'web' });
         expect(load.mock.calls[0][2]).toBe(save.mock.calls[0][0].metadata.accessScope);
-    });
+        },
+    );
     it('uses the detailed persona without repetitive greeting instructions', async () => {
         await generateVirtualCsReply({ question: 'Jelaskan invoice', channel: 'web', requesterName: 'User' }, context);
         const prompt = completion.mock.calls[0][0].messages[0].content;
