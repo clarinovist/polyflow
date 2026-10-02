@@ -173,7 +173,14 @@ function results(full: string, eventName = 'push'): Needs {
     const result = full === 'true' ? 'success' : 'skipped';
     const release = full === 'true' && eventName === 'push' ? 'success' : 'skipped';
     return { 'agents-consistency': { result: 'success', outputs: { full } },
-        ...Object.fromEntries(['test-shards', 'test', 'lint', 'build-and-push', 'return-contract'].map(name => [name, { result }])),
+        ...Object.fromEntries([
+            'test-shards',
+            'test',
+            'lint',
+            'build-and-push',
+            'return-contract',
+            'jev-contract',
+        ].map(name => [name, { result }])),
         deploy: { result: release }, 'release-please': { result: release } };
 }
 
