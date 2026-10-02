@@ -27,7 +27,10 @@ describe('output report page and view', () => {
         render(await Page({ searchParams: Promise.resolve({}) }));
         expect(screen.getByRole('heading', { name: 'Rekap Hasil Produksi' })).toBeTruthy();
         expect(screen.getByText('Setengah jadi (WIP)')).toBeTruthy();
-        expect(screen.getByRole('heading', { name: 'Barang yang diproduksi' })).toBeTruthy();
+        expect(screen.queryByRole('heading', { name: 'Barang yang diproduksi' })).toBeNull();
+        expect(screen.getByRole('heading', { name: 'Output per proses' })).toBeTruthy();
+        expect(screen.getByRole('heading', { name: 'Affal terbesar tercatat' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: 'Produk Uji' }).getAttribute('href')).toContain('mode=entries');
         expect(screen.getByText('1%')).toBeTruthy();
         expect(screen.queryByText('501 / 2')).toBeNull();
         expect(screen.getByText(/501 entri sesuai filter/)).toBeTruthy();

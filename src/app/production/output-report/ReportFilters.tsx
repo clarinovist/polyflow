@@ -124,14 +124,7 @@ export function ReportFilters({
 }) {
     const router = useRouter();
     const [draft, setDraft] = useState(filter);
-    const [advancedOpen, setAdvancedOpen] = useState(
-        Boolean(
-            filter.process ||
-                filter.productVariantId ||
-                filter.operatorId ||
-                filter.machineId,
-        ),
-    );
+    const [advancedOpen, setAdvancedOpen] = useState(false);
     const [error, setError] = useState('');
     const [pending, startTransition] = useTransition();
     const advancedFilterCount = [
@@ -140,6 +133,24 @@ export function ReportFilters({
         draft.operatorId,
         draft.machineId,
     ].filter(Boolean).length;
+    const optionLabel = (
+        choices: ReportOption[],
+        id: string,
+        fallback: string,
+    ) => choices.find((choice) => choice.id === id)?.label ?? fallback;
+    const activeFilterLabels = [
+        filter.q ? `Cari: ${filter.q}` : '',
+        filter.process ? PROCESS_LABELS[filter.process] : '',
+        filter.productVariantId
+            ? optionLabel(options.products, filter.productVariantId, 'Produk tersimpan')
+            : '',
+        filter.operatorId
+            ? optionLabel(options.operators, filter.operatorId, 'Operator tersimpan')
+            : '',
+        filter.machineId
+            ? optionLabel(options.machines, filter.machineId, 'Mesin tersimpan')
+            : '',
+    ].filter(Boolean);
     const set = (updates: Partial<OutputReportFilter>) =>
         setDraft((current) => ({ ...current, ...updates }));
     const apply = (next = draft) => {
@@ -159,36 +170,38 @@ export function ReportFilters({
                 event.preventDefault();
                 apply();
             }}
-            className="overflow-hidden rounded-xl border bg-card"
+            className="overflow-hidden rounded-xl border bg-card shadow-sm"
             aria-label="Filter rekap produksi"
             aria-busy={pending}
         >
             <fieldset disabled={pending} className="min-w-0 border-0 p-0">
-                <div className="space-y-4 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 xl:grid-cols-[auto_minmax(9rem,0.7fr)_minmax(9rem,0.7fr)_minmax(15rem,1.3fr)_auto] xl:items-end">
+                    <div className="space-y-1 md:col-span-2 xl:col-span-1">
                         <div className="flex items-center gap-1">
-                            <h2 className="text-sm font-semibold">
-                                Filter laporan
-                            </h2>
+                            <span className="text-xs font-medium">
+                                Periode cepat
+                            </span>
                             <InfoHint label="Info periode laporan">
                                 Periode maksimal 366 hari dan mengikuti waktu
                                 Indonesia Barat (WIB).
                             </InfoHint>
                         </div>
                         <div
-                            className="flex flex-wrap items-center gap-1"
+                            className="flex flex-wrap gap-1"
                             aria-label="Pilihan periode cepat"
                         >
-                            <span className="mr-1 text-xs text-muted-foreground">
-                                Periode cepat
-                            </span>
                             {reportPresets(today).map((preset) => (
                                 <Button
                                     key={preset.label}
                                     type="button"
-                                    variant="outline"
+                                    variant={
+                                        draft.from === preset.from &&
+                                        draft.to === preset.to
+                                            ? 'secondary'
+                                            : 'outline'
+                                    }
                                     size="sm"
-                                    className="h-9"
+                                    className="h-11 xl:h-10"
                                     onClick={() => {
                                         const next = {
                                             ...draft,
@@ -204,78 +217,76 @@ export function ReportFilters({
                             ))}
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(10rem,0.8fr)_minmax(10rem,0.8fr)_minmax(16rem,1.4fr)_auto]">
-                        <div className="space-y-1">
-                            <label
-                                htmlFor="report-from"
-                                className="text-xs font-medium"
-                            >
-                                Dari (WIB)
-                            </label>
-                            <Input
-                                id="report-from"
-                                type="date"
-                                required
-                                value={draft.from}
-                                max={draft.to}
-                                onChange={(event) =>
-                                    set({ from: event.target.value })
-                                }
-                                className="h-11"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label
-                                htmlFor="report-to"
-                                className="text-xs font-medium"
-                            >
-                                Sampai (WIB)
-                            </label>
-                            <Input
-                                id="report-to"
-                                type="date"
-                                required
-                                value={draft.to}
-                                min={draft.from}
-                                onChange={(event) =>
-                                    set({ to: event.target.value })
-                                }
-                                className="h-11"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label
-                                htmlFor="report-query"
-                                className="text-xs font-medium"
-                            >
-                                Cari produk / varian / SKU
-                            </label>
-                            <Input
-                                id="report-query"
-                                value={draft.q}
-                                maxLength={120}
-                                onChange={(event) =>
-                                    set({ q: event.target.value })
-                                }
-                                placeholder="Ketik nama atau SKU…"
-                                className="h-11"
-                            />
-                        </div>
-                        <Button
-                            type="submit"
-                            className="h-11 lg:self-end lg:px-6"
+                    <div className="space-y-1">
+                        <label
+                            htmlFor="report-from"
+                            className="text-xs font-medium"
                         >
-                            {pending ? 'Memuat…' : 'Terapkan'}
-                        </Button>
+                            Dari (WIB)
+                        </label>
+                        <Input
+                            id="report-from"
+                            type="date"
+                            required
+                            value={draft.from}
+                            max={draft.to}
+                            onChange={(event) =>
+                                set({ from: event.target.value })
+                            }
+                            className="h-11 xl:h-10"
+                        />
                     </div>
+                    <div className="space-y-1">
+                        <label
+                            htmlFor="report-to"
+                            className="text-xs font-medium"
+                        >
+                            Sampai (WIB)
+                        </label>
+                        <Input
+                            id="report-to"
+                            type="date"
+                            required
+                            value={draft.to}
+                            min={draft.from}
+                            onChange={(event) =>
+                                set({ to: event.target.value })
+                            }
+                            className="h-11 xl:h-10"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label
+                            htmlFor="report-query"
+                            className="text-xs font-medium"
+                        >
+                            Cari produk / varian / SKU
+                        </label>
+                        <Input
+                            id="report-query"
+                            value={draft.q}
+                            maxLength={120}
+                            onChange={(event) =>
+                                set({ q: event.target.value })
+                            }
+                            placeholder="Ketik nama atau SKU…"
+                            className="h-11 xl:h-10"
+                        />
+                    </div>
+                    <Button
+                        type="submit"
+                        className="h-11 md:col-span-2 xl:col-span-1 xl:h-10 xl:px-6"
+                    >
+                        {pending ? 'Memuat…' : 'Terapkan'}
+                    </Button>
                 </div>
 
                 <div className="border-t bg-muted/20">
-                    <div className="flex flex-wrap items-center gap-2 p-2">
+                    <div className="flex flex-wrap items-center gap-2 px-2 py-1.5">
                         <Button
                             type="button"
                             variant="ghost"
-                            className="h-11"
+                            className="h-11 xl:h-10"
                             aria-expanded={advancedOpen}
                             aria-controls="report-advanced-filters"
                             onClick={() => setAdvancedOpen((open) => !open)}
@@ -296,10 +307,27 @@ export function ReportFilters({
                                 }`}
                             />
                         </Button>
+                        {activeFilterLabels.length > 0 && (
+                            <div
+                                className="flex min-w-0 flex-1 flex-wrap gap-1"
+                                aria-label="Filter aktif"
+                            >
+                                {activeFilterLabels.map((label) => (
+                                    <Badge
+                                        key={label}
+                                        variant="secondary"
+                                        className="max-w-52 truncate"
+                                        title={label}
+                                    >
+                                        {label}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                         <Button
                             type="button"
                             variant="ghost"
-                            className="ml-auto h-11"
+                            className="ml-auto h-11 xl:h-10"
                             onClick={() =>
                                 startTransition(() =>
                                     router.push(OUTPUT_REPORT_PATH),

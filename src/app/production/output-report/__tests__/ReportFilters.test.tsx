@@ -70,10 +70,12 @@ describe('ReportFilters', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Terapkan' }));
         await waitFor(() => expect(lastParams().has('productVariantId')).toBe(false));
     });
-    it('keeps a selected historical ID visible and expands active advanced filters', () => {
+    it('summarizes active filters while keeping advanced controls compact', () => {
         const fixture = reportFixture();
         render(<ReportFilters filter={{ ...fixture.filter, operatorId: 'old-id' }} options={{ products: [], operators: [], machines: [] }} today="2026-09-16" />);
-        expect(screen.getByRole('button', { name: /Filter lanjutan/ }).getAttribute('aria-expanded')).toBe('true');
+        expect(screen.getByRole('button', { name: /Filter lanjutan/ }).getAttribute('aria-expanded')).toBe('false');
+        expect(screen.getByLabelText('Filter aktif').textContent).toContain('Operator tersimpan');
+        fireEvent.click(screen.getByRole('button', { name: /Filter lanjutan/ }));
         expect(screen.getByRole('combobox', { name: 'Operator' }).textContent).toContain('Pilihan tersimpan');
     });
 });
