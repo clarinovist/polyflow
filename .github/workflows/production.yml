@@ -421,7 +421,7 @@ jobs:
   status:
     name: Status CI
     if: ${{ always() }}
-    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, deploy, release-please]
+    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, jev-contract, deploy, release-please]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -442,7 +442,7 @@ jobs:
   timing:
     name: Pipeline timing
     if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
-    needs: [test-shards, test, lint, build-and-push, return-contract, deploy, agents-consistency, release-please]
+    needs: [test-shards, test, lint, build-and-push, return-contract, jev-contract, deploy, agents-consistency, release-please]
     runs-on: ubuntu-latest
     permissions:
       contents: read

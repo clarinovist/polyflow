@@ -44,9 +44,21 @@ const reports = () => [report('1/2', 'a'), report('2/2', 'b')];
 
 describe('CI performance guardrails', () => {
     it('keeps production parallel and gated on original jobs plus the return transaction contract', () => {
-        expect(production.jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push', 'return-contract']);
+        expect(production.jobs.deploy.needs).toEqual([
+            'test',
+            'lint',
+            'build-and-push',
+            'return-contract',
+            'jev-contract',
+        ]);
         expect(production.jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
-        for (const name of ['test-shards', 'lint', 'build-and-push', 'return-contract']) {
+        for (const name of [
+            'test-shards',
+            'lint',
+            'build-and-push',
+            'return-contract',
+            'jev-contract',
+        ]) {
             expect(production.jobs[name].needs).toBe('agents-consistency');
             expect(production.jobs[name].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
             expect(production.jobs[name]['continue-on-error']).toBeUndefined();

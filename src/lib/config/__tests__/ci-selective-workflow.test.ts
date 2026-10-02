@@ -8,7 +8,14 @@ interface Job { name: string; needs?: string | string[]; if?: string; steps: Ste
 const require = createRequire(import.meta.url);
 const { load } = require('js-yaml') as { load(text: string): { on: Record<string, unknown>; jobs: Record<string, Job> } };
 const { on, jobs } = load(readFileSync('.github/workflows/production.yml', 'utf8'));
-const heavy = ['test-shards', 'test', 'lint', 'build-and-push', 'return-contract'];
+const heavy = [
+    'test-shards',
+    'test',
+    'lint',
+    'build-and-push',
+    'return-contract',
+    'jev-contract',
+];
 
 describe('wiring CI selektif tanpa bypass rilis', () => {
     it('pemicu tidak melewati seluruh workflow atau menyediakan mode dokumen paksa', () => {
@@ -38,7 +45,13 @@ describe('wiring CI selektif tanpa bypass rilis', () => {
         expect(jobs.test.steps[0].run).toContain('"$SHARDS_RESULT" != "success"');
     });
     it('semua gate dan release identity tetap wajib; manual tidak mutasi release/deploy', () => {
-        expect(jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push', 'return-contract']);
+        expect(jobs.deploy.needs).toEqual([
+            'test',
+            'lint',
+            'build-and-push',
+            'return-contract',
+            'jev-contract',
+        ]);
         expect(jobs.deploy.if).toBe("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
         expect(jobs['release-please'].needs).toBe('agents-consistency');
         expect(jobs['release-please'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'push' }}");

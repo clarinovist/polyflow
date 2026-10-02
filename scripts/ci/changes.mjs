@@ -8,7 +8,14 @@ export const safeDocuments = Object.freeze([
     'README.md', 'docs/README.md', 'docs/development/ci-selective.md',
 ]);
 const shaPattern = /^[a-f0-9]{40}$/;
-const heavyJobs = ['test-shards', 'test', 'lint', 'build-and-push', 'return-contract'];
+const heavyJobs = [
+    'test-shards',
+    'test',
+    'lint',
+    'build-and-push',
+    'return-contract',
+    'jev-contract',
+];
 
 function git(root, ...args) {
     return execFileSync('git', ['-C', root, ...args], {

@@ -88,10 +88,23 @@ describe('production two-shard release gate', () => {
     });
 
     it('preserves every release gate and includes shard occupancy in timing', () => {
-        expect(jobs.deploy.needs).toEqual(['test', 'lint', 'build-and-push', 'return-contract']);
+        expect(jobs.deploy.needs).toEqual([
+            'test',
+            'lint',
+            'build-and-push',
+            'return-contract',
+            'jev-contract',
+        ]);
         expect(jobs.deploy.if).toBe("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
         expect(jobs.timing.needs).toContain('test-shards');
-        for (const name of ['test-shards', 'test', 'lint', 'build-and-push', 'return-contract']) {
+        for (const name of [
+            'test-shards',
+            'test',
+            'lint',
+            'build-and-push',
+            'return-contract',
+            'jev-contract',
+        ]) {
             expect(jobs[name]['continue-on-error']).toBeUndefined();
             for (const item of jobs[name].steps) expect(item['continue-on-error']).toBeUndefined();
         }
