@@ -30,7 +30,6 @@ export class InvoiceService {
         data: {
             dueDate?: Date;
             termOfPaymentDays?: number;
-            invoiceDate?: Date;
         },
         userId: string,
     ) {

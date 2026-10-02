@@ -114,6 +114,32 @@ describe('EditSalesInvoiceDueDateDialog', () => {
     expect(screen.getByRole('button', { name: /Batal/i })).toBeDefined();
   });
 
+  it('preserves an existing non-preset term as a custom value', async () => {
+    render(
+      <EditSalesInvoiceDueDateDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        invoice={makeInvoice({ termOfPaymentDays: 21 }) as any}
+      />,
+    );
+
+    expect(
+      (screen.getByPlaceholderText(/Misal 21/) as HTMLInputElement).value,
+    ).toBe('21');
+    expect(screen.getAllByText(/21 hari/).length).toBeGreaterThan(0);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Simpan Jatuh Tempo/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith(
+        'inv-1',
+        expect.objectContaining({ termOfPaymentDays: 21 }),
+      );
+    });
+  });
+
   it('toggles manual due date checkbox and shows manual input, preview updates', async () => {
     render(
       <EditSalesInvoiceDueDateDialog
@@ -136,16 +162,15 @@ describe('EditSalesInvoiceDueDateDialog', () => {
       expect(screen.getByText(/Jatuh Tempo Manual/)).toBeDefined();
     });
 
-    // Find all date inputs, second one after toggle should be manual
     const allDateInputs = Array.from(
       document.querySelectorAll('input[type="date"]'),
     ) as HTMLInputElement[];
 
-    // We have invoiceDate input + manualDueDate input when checked
-    expect(allDateInputs.length).toBeGreaterThanOrEqual(2);
+    // The invoice date is immutable historical basis; only due date is editable.
+    expect(allDateInputs).toHaveLength(1);
 
     // Set manual due date to a known date
-    const manualDue = allDateInputs[allDateInputs.length - 1];
+    const manualDue = allDateInputs[0];
     fireEvent.change(manualDue, { target: { value: '2026-09-15' } });
 
     await waitFor(() => {
@@ -252,7 +277,7 @@ describe('EditSalesInvoiceDueDateDialog', () => {
     expect(id).toBe('inv-1');
     expect(payload.termOfPaymentDays).toBe(30);
     expect(payload.dueDate).toBeInstanceOf(Date);
-    expect(payload.invoiceDate).toBeInstanceOf(Date);
+    expect(payload).not.toHaveProperty('invoiceDate');
 
     await waitFor(() => {
       expect(mockToastSuccess).toHaveBeenCalledWith(
@@ -285,7 +310,8 @@ describe('EditSalesInvoiceDueDateDialog', () => {
     const allDateInputs = Array.from(
       document.querySelectorAll('input[type="date"]'),
     ) as HTMLInputElement[];
-    const manualDue = allDateInputs[allDateInputs.length - 1];
+    expect(allDateInputs).toHaveLength(1);
+    const manualDue = allDateInputs[0];
     fireEvent.change(manualDue, { target: { value: '2026-09-20' } });
 
     const saveBtn = screen.getByRole('button', {
@@ -377,7 +403,7 @@ describe('EditSalesInvoiceDueDateDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('preview changes when invoiceDate changed', async () => {
+  it('shows invoice date as immutable text instead of an editable input', () => {
     render(
       <EditSalesInvoiceDueDateDialog
         open={true}
@@ -386,16 +412,7 @@ describe('EditSalesInvoiceDueDateDialog', () => {
       />,
     );
 
-    const allDateInputs = Array.from(
-      document.querySelectorAll('input[type="date"]'),
-    ) as HTMLInputElement[];
-    const invDateInput = allDateInputs[0];
-    fireEvent.change(invDateInput, { target: { value: '2026-08-10' } });
-
-    await waitFor(() => {
-      expect(screen.getByText(/Preview Jatuh Tempo/)).toBeDefined();
-    });
-
-    expect(screen.getAllByText(/hari/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('01 Aug 2026').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('input[type="date"]')).toHaveLength(0);
   });
 });

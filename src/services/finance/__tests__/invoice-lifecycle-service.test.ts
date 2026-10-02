@@ -1036,18 +1036,19 @@ describe("updateSalesInvoiceDueDate", () => {
     expect(updateCall.data.dueDate).toEqual(explicit);
   });
 
-  it("should calculate dueDate from invoiceDate + term when no explicit dueDate", async () => {
+  it("should calculate dueDate from the immutable invoiceDate + term when no explicit dueDate", async () => {
     vi.mocked(prisma.invoice.findUnique).mockResolvedValue(baseExisting as any);
     vi.mocked(prisma.invoice.update).mockResolvedValue(baseExisting as any);
 
     await updateSalesInvoiceDueDate(
       "inv-1",
-      { invoiceDate: new Date(2026, 5, 1), termOfPaymentDays: 30 },
+      { termOfPaymentDays: 30 },
       "user-1",
     );
 
     const call = vi.mocked(prisma.invoice.update).mock.calls[0][0];
-    expect(call.data.dueDate).toBeDefined();
+    expect(call.data.dueDate).toEqual(new Date(2026, 6, 24));
+    expect(call.data).not.toHaveProperty("invoiceDate");
   });
 
   it("should guard PAID invoices", async () => {
@@ -1095,8 +1096,10 @@ describe("updateSalesInvoiceDueDate", () => {
         action: "UPDATE_SALES_INVOICE_DUE_DATE",
         entityType: "Invoice",
         entityId: "inv-1",
+        tx: prisma,
       }),
     );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("should allow DRAFT invoices (auto-draft from delivery)", async () => {

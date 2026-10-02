@@ -134,7 +134,7 @@ describe('updateSalesInvoiceDueDate action', () => {
         } as any);
     });
 
-    it('parses Date from string, calls InvoiceService.updateSalesInvoiceDueDate with correct params, and returns success', async () => {
+    it('parses due date from string, calls InvoiceService without rewriting invoice date, and returns success', async () => {
         const updatedInvoice = {
             id: 'inv-1',
             invoiceNumber: 'INV/2026/0001',
@@ -153,7 +153,6 @@ describe('updateSalesInvoiceDueDate action', () => {
             {
                 dueDate: '2026-09-01',
                 termOfPaymentDays: 30,
-                invoiceDate: '2026-08-01',
             },
         );
 
@@ -168,7 +167,6 @@ describe('updateSalesInvoiceDueDate action', () => {
             {
                 dueDate: expect.any(Date),
                 termOfPaymentDays: 30,
-                invoiceDate: expect.any(Date),
             },
             AUTH_MOCK_ID,
         );
@@ -176,7 +174,7 @@ describe('updateSalesInvoiceDueDate action', () => {
         const callArgs = vi.mocked(InvoiceService.updateSalesInvoiceDueDate)
             .mock.calls[0]?.[1] as any;
         expect(callArgs.dueDate.toISOString().slice(0, 10)).toBe('2026-09-01');
-        expect(callArgs.invoiceDate.toISOString().slice(0, 10)).toBe('2026-08-01');
+        expect(callArgs).not.toHaveProperty('invoiceDate');
 
         // revalidatePath called 3 times
         expect(revalidatePath).toHaveBeenCalledWith('/finance/invoices/sales');
@@ -205,7 +203,6 @@ describe('updateSalesInvoiceDueDate action', () => {
             {
                 dueDate: expect.any(Date),
                 termOfPaymentDays: 14,
-                invoiceDate: undefined,
             },
             AUTH_MOCK_ID,
         );
@@ -231,6 +228,39 @@ describe('updateSalesInvoiceDueDate action', () => {
                 'Tidak dapat mengubah tanggal jatuh tempo invoice yang sudah LUNAS atau DIBATALKAN',
             );
         }
+    });
+
+    it('rejects an invalid due date before calling the service', async () => {
+        const { updateSalesInvoiceDueDate } = await import('../invoice');
+
+        const result = await updateSalesInvoiceDueDate('inv-3', {
+            dueDate: 'not-a-date',
+            termOfPaymentDays: 7,
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error).toBe('Tanggal jatuh tempo tidak valid');
+            expect(result.code).toBe('VALIDATION_ERROR');
+        }
+        expect(InvoiceService.updateSalesInvoiceDueDate).not.toHaveBeenCalled();
+    });
+
+    it('rejects a term outside 0-365 days before calling the service', async () => {
+        const { updateSalesInvoiceDueDate } = await import('../invoice');
+
+        const result = await updateSalesInvoiceDueDate('inv-3', {
+            termOfPaymentDays: 366,
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error).toBe(
+                'Tempo pembayaran harus berupa 0 sampai 365 hari',
+            );
+            expect(result.code).toBe('VALIDATION_ERROR');
+        }
+        expect(InvoiceService.updateSalesInvoiceDueDate).not.toHaveBeenCalled();
     });
 
     it('returns success:false when service throws generic error (safeAction generic message)', async () => {
@@ -273,7 +303,6 @@ describe('updateSalesInvoiceDueDate action', () => {
             {
                 dueDate: undefined,
                 termOfPaymentDays: 60,
-                invoiceDate: undefined,
             },
             AUTH_MOCK_ID,
         );

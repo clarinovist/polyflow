@@ -47,13 +47,16 @@ export function EditSalesInvoiceDueDateDialog({
 }: Props) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
-    const [invoiceDate, setInvoiceDate] = useState(() =>
-        new Date(invoice.invoiceDate).toISOString().slice(0, 10),
+    const initialTermDays = invoice.termOfPaymentDays ?? 30;
+    const hasPresetTerm = PAYMENT_TERM_OPTIONS.some(
+        (option) => option.value === initialTermDays,
     );
     const [termDays, setTermDays] = useState<number>(
-        invoice.termOfPaymentDays ?? 30,
+        hasPresetTerm ? initialTermDays : -1,
     );
-    const [customTermDays, setCustomTermDays] = useState<string>('');
+    const [customTermDays, setCustomTermDays] = useState<string>(
+        hasPresetTerm ? '' : String(initialTermDays),
+    );
     const [useManualDue, setUseManualDue] = useState(false);
     const [manualDueDate, setManualDueDate] = useState(() =>
         invoice.dueDate
@@ -63,16 +66,13 @@ export function EditSalesInvoiceDueDateDialog({
 
     const computedDueDate = useMemo(() => {
         if (useManualDue && manualDueDate) return new Date(manualDueDate);
-        const inv = invoiceDate
-            ? new Date(invoiceDate)
-            : new Date(invoice.invoiceDate);
+        const inv = new Date(invoice.invoiceDate);
         const t =
             termDays === -1
                 ? parseInt(customTermDays || '0', 10) || 0
                 : termDays;
         return calculateDueDate(inv, t);
     }, [
-        invoiceDate,
         termDays,
         customTermDays,
         useManualDue,
@@ -88,19 +88,15 @@ export function EditSalesInvoiceDueDateDialog({
                     ? parseInt(customTermDays || '0', 10) || 0
                     : termDays;
             const payload: {
-                dueDate?: Date;
-                termOfPaymentDays?: number;
-                invoiceDate?: Date;
-            } = {};
-            if (useManualDue && manualDueDate) {
-                payload.dueDate = new Date(manualDueDate);
-                payload.termOfPaymentDays = finalTerm;
-                payload.invoiceDate = new Date(invoiceDate);
-            } else {
-                payload.dueDate = computedDueDate;
-                payload.termOfPaymentDays = finalTerm;
-                payload.invoiceDate = new Date(invoiceDate);
-            }
+                dueDate: Date;
+                termOfPaymentDays: number;
+            } = {
+                dueDate:
+                    useManualDue && manualDueDate
+                        ? new Date(manualDueDate)
+                        : computedDueDate,
+                termOfPaymentDays: finalTerm,
+            };
 
             const res = await updateSalesInvoiceDueDate(invoice.id, payload);
             if (res.success) {
@@ -135,11 +131,12 @@ export function EditSalesInvoiceDueDateDialog({
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <Label>Tanggal Invoice</Label>
-                            <Input
-                                type="date"
-                                value={invoiceDate}
-                                onChange={(e) => setInvoiceDate(e.target.value)}
-                            />
+                            <div className="py-2 text-sm font-medium">
+                                {format(
+                                    new Date(invoice.invoiceDate),
+                                    'dd MMM yyyy',
+                                )}
+                            </div>
                         </div>
                         <div className="space-y-1.5">
                             <Label>Tempo Saat Ini</Label>
@@ -226,9 +223,10 @@ export function EditSalesInvoiceDueDateDialog({
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                             Invoice{' '}
-                            {invoiceDate
-                                ? format(new Date(invoiceDate), 'dd MMM yyyy')
-                                : '-'}{' '}
+                            {format(
+                                new Date(invoice.invoiceDate),
+                                'dd MMM yyyy',
+                            )}{' '}
                             +{' '}
                             {useManualDue
                                 ? 'Manual'

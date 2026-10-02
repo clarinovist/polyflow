@@ -369,16 +369,28 @@ export const updateSalesInvoiceDueDate = withTenant(
         data: {
             dueDate?: Date | string;
             termOfPaymentDays?: number;
-            invoiceDate?: Date | string;
         },
     ) {
         return safeAction(async () => {
             const session = await requireFinanceMutation();
+            const dueDate = data.dueDate
+                ? new Date(data.dueDate)
+                : undefined;
+            if (dueDate && Number.isNaN(dueDate.getTime())) {
+                throw new ValidationError('Tanggal jatuh tempo tidak valid');
+            }
+            if (
+                data.termOfPaymentDays != null &&
+                (!Number.isInteger(data.termOfPaymentDays) ||
+                    data.termOfPaymentDays < 0 ||
+                    data.termOfPaymentDays > 365)
+            ) {
+                throw new ValidationError(
+                    'Tempo pembayaran harus berupa 0 sampai 365 hari',
+                );
+            }
             const parsed = {
-                dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-                invoiceDate: data.invoiceDate
-                    ? new Date(data.invoiceDate)
-                    : undefined,
+                dueDate,
                 termOfPaymentDays: data.termOfPaymentDays,
             };
             const updated = await InvoiceService.updateSalesInvoiceDueDate(

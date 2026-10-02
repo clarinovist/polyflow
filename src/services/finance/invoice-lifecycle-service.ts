@@ -598,46 +598,44 @@ export async function createDraftInvoiceFromOrder(
 
 export async function updateSalesInvoiceDueDate(
     id: string,
-    data: { dueDate?: Date; termOfPaymentDays?: number; invoiceDate?: Date },
+    data: { dueDate?: Date; termOfPaymentDays?: number },
     userId: string,
 ) {
-    const existing = await prisma.invoice.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundError('Invoice', id);
+    return invoiceWriter().$transaction(async (tx) => {
+        const existing = await tx.invoice.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundError('Invoice', id);
 
-    if (
-        existing.status === InvoiceStatus.PAID ||
-        existing.status === InvoiceStatus.CANCELLED
-    ) {
-        throw new BusinessRuleError(
-            'Tidak dapat mengubah tanggal jatuh tempo invoice yang sudah LUNAS atau DIBATALKAN',
-        );
-    }
+        if (
+            existing.status === InvoiceStatus.PAID ||
+            existing.status === InvoiceStatus.CANCELLED
+        ) {
+            throw new BusinessRuleError(
+                'Tidak dapat mengubah tanggal jatuh tempo invoice yang sudah LUNAS atau DIBATALKAN',
+            );
+        }
 
-    let finalDueDate = data.dueDate;
-    if (!finalDueDate) {
-        const invDate = data.invoiceDate ?? existing.invoiceDate;
         const term = data.termOfPaymentDays ?? existing.termOfPaymentDays;
-        finalDueDate = addDays(invDate, term);
-    }
+        const finalDueDate = data.dueDate ?? addDays(existing.invoiceDate, term);
 
-    const updated = await prisma.invoice.update({
-        where: { id },
-        data: {
-            ...(data.invoiceDate && { invoiceDate: data.invoiceDate }),
-            dueDate: finalDueDate,
-            ...(data.termOfPaymentDays != null && {
-                termOfPaymentDays: data.termOfPaymentDays,
-            }),
-        },
+        const updated = await tx.invoice.update({
+            where: { id },
+            data: {
+                dueDate: finalDueDate,
+                ...(data.termOfPaymentDays != null && {
+                    termOfPaymentDays: data.termOfPaymentDays,
+                }),
+            },
+        });
+
+        await logActivity({
+            userId,
+            action: 'UPDATE_SALES_INVOICE_DUE_DATE',
+            entityType: 'Invoice',
+            entityId: id,
+            details: `Due date changed to ${finalDueDate.toISOString()} term ${updated.termOfPaymentDays} days`,
+            tx,
+        });
+
+        return updated;
     });
-
-    await logActivity({
-        userId,
-        action: 'UPDATE_SALES_INVOICE_DUE_DATE',
-        entityType: 'Invoice',
-        entityId: id,
-        details: `Due date changed to ${finalDueDate.toISOString()} term ${updated.termOfPaymentDays} days`,
-    });
-
-    return updated;
 }
