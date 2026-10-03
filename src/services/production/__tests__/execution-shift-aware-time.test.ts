@@ -199,7 +199,7 @@ describe('ProductionExecutionService shift-aware business time', () => {
 
             expect(tx.productionShift.findUnique).toHaveBeenCalledWith({
                 where: { id: 'shift-1' },
-                select: { startTime: true },
+                select: { startTime: true, endTime: true },
             });
             expect(tx.productionExecution.create).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -257,6 +257,36 @@ describe('ProductionExecutionService shift-aware business time', () => {
                     data: expect.objectContaining({
                         startTime: LOG_AT,
                         endTime: LOG_AT,
+                    }),
+                }),
+            );
+        });
+
+        it('shift 3 (mulai 00:00 WIB) → hasil dipindah ke tanggal siklus sebelumnya', async () => {
+            // Skema 8 jam: shift 1 08:00, shift 2 16:00, shift 3 00:00–08:00
+            // esok pagi. LOG_AT = 02 Sep 00:30 WIB → siklus 01 Sep.
+            vi.mocked(tx.productionShift.findUnique).mockResolvedValue({
+                startTime: new Date('2026-09-02T00:00:00.000+07:00'),
+                endTime: new Date('2026-09-02T08:00:00.000+07:00'),
+            } as never);
+
+            await ProductionExecutionService.logRunningOutput({
+                executionId: 'exec-1',
+                quantityProduced: 50,
+                scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
+                notes: '',
+                shiftId: 'shift-1',
+                userId: 'user-1',
+            });
+
+            const expectedCycle = new Date('2026-09-01T00:00:00.000+07:00');
+            expect(tx.productionExecution.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        startTime: expectedCycle,
+                        endTime: expectedCycle,
                     }),
                 }),
             );
@@ -409,6 +439,39 @@ describe('ProductionExecutionService shift-aware business time', () => {
                     data: expect.objectContaining({
                         startTime: clientTime,
                         endTime: clientTime,
+                    }),
+                }),
+            );
+        });
+
+        it('shift 3 (mulai 00:00 WIB) → hasil dipindah ke tanggal siklus sebelumnya', async () => {
+            vi.mocked(tx.productionShift.findFirst).mockResolvedValue({
+                id: 'shift-1',
+                startTime: new Date('2026-09-02T00:00:00.000+07:00'),
+                endTime: new Date('2026-09-02T08:00:00.000+07:00'),
+            } as never);
+
+            await ProductionExecutionService.addProductionOutput({
+                productionOrderId: 'po-1',
+                shiftId: 'shift-1',
+                quantityProduced: 50,
+                scrapQuantity: 0,
+                startTime: new Date(LOG_AT),
+                endTime: new Date(LOG_AT),
+                userId: 'user-1',
+            } as never);
+
+            expect(tx.productionShift.findFirst).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    select: { id: true, startTime: true, endTime: true },
+                }),
+            );
+            const expectedCycle = new Date('2026-09-01T00:00:00.000+07:00');
+            expect(tx.productionExecution.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        startTime: expectedCycle,
+                        endTime: expectedCycle,
                     }),
                 }),
             );

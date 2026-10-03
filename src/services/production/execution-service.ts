@@ -635,19 +635,18 @@ export class ProductionExecutionService {
             // Shift-aware business time: entri otomatis setelah tengah malam yang
             // masih dalam jangkauan shift di-backdate ke mulai shift (laporan Ika
             // 2026-09-01 — hasil shift malam masuk tanggal shift, bukan tanggal input).
-            const shiftStartForLog = shiftId
-                ? (
-                      await tx.productionShift.findUnique({
-                          where: { id: shiftId },
-                          select: { startTime: true },
-                      })
-                  )?.startTime ?? null
+            const shiftForLog = shiftId
+                ? await tx.productionShift.findUnique({
+                      where: { id: shiftId },
+                      select: { startTime: true, endTime: true },
+                  })
                 : null;
             const logTimes = resolveShiftAwareLogTimes({
                 logAt: new Date(),
                 clientStart: null,
                 clientEnd: null,
-                shiftStart: shiftStartForLog,
+                shiftStart: shiftForLog?.startTime ?? null,
+                shiftEnd: shiftForLog?.endTime ?? null,
             });
             const pieceSnap = await buildPieceSnapshotForOperator(tx, {
                 operatorId,
@@ -781,10 +780,11 @@ export class ProductionExecutionService {
 
             // Validate: shift must belong to the same production order
             let shiftStartForLog: Date | null = null;
+            let shiftEndForLog: Date | null = null;
             if (shiftId) {
                 const shiftOk = await tx.productionShift.findFirst({
                     where: { id: shiftId, productionOrderId },
-                    select: { id: true, startTime: true },
+                    select: { id: true, startTime: true, endTime: true },
                 });
                 if (!shiftOk) {
                     throw new ProductionRuleViolationError(
@@ -792,6 +792,7 @@ export class ProductionExecutionService {
                     );
                 }
                 shiftStartForLog = shiftOk.startTime;
+                shiftEndForLog = shiftOk.endTime;
             }
 
             // Explicit WO production dates win; legacy callers retain automatic
@@ -802,6 +803,7 @@ export class ProductionExecutionService {
                 clientStart: startTime ?? null,
                 clientEnd: endTime ?? null,
                 shiftStart: shiftStartForLog,
+                shiftEnd: shiftEndForLog,
             });
 
             // Validate: qty=0 needs something to record — either scrap (mesin trobel,

@@ -936,7 +936,7 @@ describe('ProductionExecutionService.addProductionOutput', () => {
 
         expect(tx.productionShift.findFirst).toHaveBeenCalledWith({
             where: { id: 'shift-from-other-wo', productionOrderId: 'po-1' },
-            select: { id: true, startTime: true },
+            select: { id: true, startTime: true, endTime: true },
         });
         expect(tx.productionExecution.create).not.toHaveBeenCalled();
     });
