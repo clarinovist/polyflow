@@ -219,25 +219,41 @@ describe("listFgDemandBoard", () => {
     expect(result[0].openSpkCount).toBe(2);
   });
 
-  it("should exclude SERVICE product types", async () => {
-    // SERVICE items would not appear because the query filters on productType != SERVICE
-    // This test verifies the filter is applied at query level
+  it("should exclude SERVICE and SCRAP product types", async () => {
+    // SERVICE is never produced; SCRAP (affal) is sold from the scrap warehouse and
+    // never made via SPK/BOM. Both must be filtered out at query level.
     vi.mocked(prisma.salesOrderItem.findMany).mockResolvedValue([]);
 
     const result = await listFgDemandBoard();
 
     expect(result).toEqual([]);
-    // Verify the query includes the SERVICE filter
     expect(prisma.salesOrderItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           productVariant: expect.objectContaining({
             product: expect.objectContaining({
-              productType: { not: ProductType.SERVICE },
+              productType: {
+                notIn: [ProductType.SERVICE, ProductType.SCRAP],
+              },
             }),
           }),
         }),
       }),
+    );
+  });
+
+  it("should not surface a scrap (affal) sales order as FG demand", async () => {
+    // Regression: a scrap (affal) sales order — productType SCRAP, stock held in a
+    // SCRAP-purposed location. availableFg ignores SCRAP locations, so without the
+    // productType filter the full residual showed up as needToMake.
+    vi.mocked(prisma.salesOrderItem.findMany).mockResolvedValue([]);
+
+    const rows = await listFgDemandBoard();
+
+    expect(rows).toEqual([]);
+    const where = vi.mocked(prisma.salesOrderItem.findMany).mock.calls[0][0];
+    expect(where.where.productVariant.product.productType.notIn).toContain(
+      ProductType.SCRAP,
     );
   });
 
