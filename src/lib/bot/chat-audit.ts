@@ -21,6 +21,7 @@ export type VirtualCsAuditInput = {
     confidence?: number;
     citedSlugs?: string[];
     conversationId?: string;
+    requestId?: string;
     disposition?: AssistantDisposition;
 };
 
@@ -79,21 +80,35 @@ export async function logVirtualCsEvent(
     let interactionId: string | null = null;
     try {
         const mainDb = getMainPrisma();
-        const interaction = await mainDb.helpInteraction.create({
-            data: {
-                tenantId: input.tenantId || null,
-                userId: input.userId || null,
-                channel: input.channel,
-                question: input.question.trim().slice(0, 2000),
-                answerPreview: input.answer ? compactAnswer(input.answer) : '',
-                outcome: resolveOutcome(input),
-                confidence: input.confidence ?? null,
-                latencyMs: input.latencyMs,
-                blockedReason: input.blockedReason || null,
-                conversationId: input.conversationId || null,
-                citedSlugs: input.citedSlugs ?? [],
-            },
-        });
+        const data = {
+            tenantId: input.tenantId || null,
+            userId: input.userId || null,
+            channel: input.channel,
+            question: input.question.trim().slice(0, 2000),
+            answerPreview: input.answer ? compactAnswer(input.answer) : '',
+            outcome: resolveOutcome(input),
+            confidence: input.confidence ?? null,
+            latencyMs: input.latencyMs,
+            blockedReason: input.blockedReason || null,
+            conversationId: input.conversationId || null,
+            requestId: input.requestId ?? undefined,
+            citedSlugs: input.citedSlugs ?? [],
+        };
+        const interaction =
+            input.requestId && input.tenantId && input.userId
+                ? await mainDb.helpInteraction.upsert({
+                      where: {
+                          tenantId_userId_channel_requestId: {
+                              tenantId: input.tenantId,
+                              userId: input.userId,
+                              channel: input.channel,
+                              requestId: input.requestId,
+                          },
+                      },
+                      create: data,
+                      update: data,
+                  })
+                : await mainDb.helpInteraction.create({ data });
         interactionId = interaction.id;
     } catch (error) {
         logger.error('Failed to persist HelpInteraction', {

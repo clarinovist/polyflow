@@ -106,6 +106,8 @@ export type AssistantDisposition =
 
 export type AssistantResponse = {
     answer: string;
+    /** Stable client-generated key shared by SSE, JSON status, and retries. */
+    requestId?: string;
     citations: string[];
     citedArticles?: CitedArticleForResponse[];
     relatedArticles?: CitedArticleForResponse[];
@@ -141,6 +143,7 @@ export type AssistantSessionUserInput = {
 
 export type AssistantRequestContext = {
     tenantId?: string;
+    requestId?: string;
     sessionUser?: AssistantSessionUserInput;
     conversationId?: string;
     /** Already validated against the active tenant DB for web routes. */

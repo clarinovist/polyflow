@@ -3,9 +3,10 @@ import { getTenantIdFromContext } from '@/lib/core/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import { validateExternalRequest } from '@/lib/api/external-api-helper';
 import { isPolyflowScoped, POLYFLOW_PRODUCT_ID } from '@/lib/bot/product-scope';
-import { generateVirtualCsReply } from '@/lib/bot/virtual-cs-service';
 import { rateLimit } from '@/lib/api/rate-limit';
 import { logVirtualCsEvent } from '@/lib/bot/chat-audit';
+import { AssistantWorkerProtocolError } from '@/lib/bot/durable/protocol';
+import { runRestrictedTelegramSubmission } from '@/lib/bot/durable/telegram';
 
 export const POST = withTenantRoute(async function POST(req: NextRequest) {
     const startedAt = Date.now();
@@ -48,6 +49,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => null)) as {
+        requestId?: string;
         question?: string;
         requesterName?: string;
     } | null;
@@ -76,10 +78,12 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
     const tenantId = getTenantIdFromContext();
 
     try {
-        const result = await generateVirtualCsReply({
+        // Telegram remains public-KB-only until an authoritative identity map
+        // exists. Even the manual web rollback must not widen this channel.
+        const result = await submitRestrictedTelegram({
+            requestId: body?.requestId,
             question,
-            channel: 'telegram',
-            requesterName: body?.requesterName,
+            tenantId,
         });
 
         const interactionId = await logVirtualCsEvent({
@@ -127,3 +131,23 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
         );
     }
 });
+
+async function submitRestrictedTelegram(input: {
+    requestId?: string;
+    question: string;
+    tenantId?: string;
+}): ReturnType<typeof runRestrictedTelegramSubmission> {
+    if (!input.tenantId || !input.requestId) {
+        throw new AssistantWorkerProtocolError(
+            'INVALID_REQUEST',
+            'Telegram Pi Durable requires a stable requestId and resolved tenant.',
+            400,
+        );
+    }
+    // No verified tenant user exists on this integration yet. Use the separate
+    // global/public KB-only durable conversation; no tenant business tool is installed.
+    return runRestrictedTelegramSubmission({
+        requestId: input.requestId,
+        question: input.question,
+    });
+}

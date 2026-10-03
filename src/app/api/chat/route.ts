@@ -1,19 +1,24 @@
-import { auth } from '@/auth';
 import { withTenantRoute } from '@/lib/core/tenant';
-import { getTenantIdFromContext } from '@/lib/core/prisma';
-import { NextRequest, NextResponse } from 'next/server';
-import { generateVirtualCsReply } from '@/lib/bot/virtual-cs-service';
-import { POLYFLOW_PRODUCT_ID } from '@/lib/bot/product-scope';
-import { logVirtualCsEvent } from '@/lib/bot/chat-audit';
-import { checkChatRateLimit } from '@/lib/bot/chat-rate-limit';
-import { parseChatRequestBody } from '@/lib/bot/chat-request';
-import { verifyAssistantSessionUser } from '@/lib/bot/assistant-session';
-import { assistantBugReportNotice } from '@/lib/bot/bug-report';
+import { NextRequest } from 'next/server';
+import { handleAssistantRequest } from '@/lib/bot/durable/route-handler';
+import { getAssistantRuntime } from '@/lib/bot/durable/runtime-config';
 
 // Rate limit (20 req/menit per user) di-share dengan /api/chat/stream lewat
 // `@/lib/bot/chat-rate-limit` — jangan bikin peta lokal di sini lagi.
 
-export const POST = withTenantRoute(async function POST(req: NextRequest) {
+const legacyPOST = withTenantRoute(async function legacyPOST(req: NextRequest) {
+    const { auth } = await import('@/auth');
+    const { getTenantIdFromContext } = await import('@/lib/core/prisma');
+    const { NextResponse } = await import('next/server');
+    const { generateVirtualCsReply } =
+        await import('@/lib/bot/virtual-cs-service');
+    const { POLYFLOW_PRODUCT_ID } = await import('@/lib/bot/product-scope');
+    const { logVirtualCsEvent } = await import('@/lib/bot/chat-audit');
+    const { checkChatRateLimit } = await import('@/lib/bot/chat-rate-limit');
+    const { parseChatRequestBody } = await import('@/lib/bot/chat-request');
+    const { verifyAssistantSessionUser } =
+        await import('@/lib/bot/assistant-session');
+    const { assistantBugReportNotice } = await import('@/lib/bot/bug-report');
     const startedAt = Date.now();
     const session = await auth();
     if (!session?.user) {
@@ -45,7 +50,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
             { status: 400 },
         );
     }
-    const { question, conversationId, workContext } = parsed.data;
+    const { requestId, question, conversationId, workContext } = parsed.data;
     const tenantId = getTenantIdFromContext();
 
     const verifiedUser = await verifyAssistantSessionUser(session.user);
@@ -91,13 +96,18 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
             citedSlugs: result.citedArticles?.map((a) => a.slug) || [],
             confidence: result.confidence,
             conversationId: result.conversationId,
+            requestId,
             disposition: result.disposition,
         });
 
-        const bugReportNotice = await assistantBugReportNotice(result, interactionId, {
-            tenantId,
-            userId: verifiedUser.id,
-        });
+        const bugReportNotice = await assistantBugReportNotice(
+            result,
+            interactionId,
+            {
+                tenantId,
+                userId: verifiedUser.id,
+            },
+        );
         return NextResponse.json({
             success: true,
             product: POLYFLOW_PRODUCT_ID,
@@ -118,6 +128,7 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
             requesterName: session.user.name || undefined,
             latencyMs: Date.now() - startedAt,
             conversationId,
+            requestId,
         });
 
         return NextResponse.json(
@@ -129,3 +140,15 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
         );
     }
 });
+
+const durablePOST = withTenantRoute(async function durablePOST(
+    req: NextRequest,
+) {
+    return handleAssistantRequest(req, { stream: false });
+});
+
+export async function POST(req: NextRequest) {
+    return getAssistantRuntime() === 'legacy'
+        ? legacyPOST(req)
+        : durablePOST(req);
+}

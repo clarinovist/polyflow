@@ -107,25 +107,25 @@ describe('POST /api/chat/stream', () => {
 
     it('menolak request tanpa sesi', async () => {
         authMock.mockResolvedValue(null);
-        const res = await (POST as unknown as Handler)(makeReq({ question: 'halo' }));
+        const res = await (POST as unknown as Handler)(makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'halo' }));
         expect(res.status).toBe(401);
     });
 
     it('menolak pertanyaan kosong', async () => {
-        const res = await (POST as unknown as Handler)(makeReq({ question: '   ' }));
+        const res = await (POST as unknown as Handler)(makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: '   ' }));
         expect(res.status).toBe(400);
     });
 
     it('menolak pertanyaan melebihi 2000 karakter', async () => {
         const res = await (POST as unknown as Handler)(
-            makeReq({ question: 'a'.repeat(2001) }),
+            makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'a'.repeat(2001) }),
         );
         expect(res.status).toBe(400);
     });
 
     it('menolak work context yang malformed', async () => {
         const res = await (POST as unknown as Handler)(
-            makeReq({ question: 'cek invoice', workContext: { pathname: 42 } }),
+            makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'cek invoice', workContext: { pathname: 42 } }),
         );
         expect(res.status).toBe(400);
     });
@@ -133,7 +133,7 @@ describe('POST /api/chat/stream', () => {
     it('menolak saat user tidak ada di DB tenant (session-tenant binding)', async () => {
         findUniqueMock.mockResolvedValue(null);
         verifySessionMock.mockResolvedValue(null);
-        const res = await (POST as unknown as Handler)(makeReq({ question: 'cek stok' }));
+        const res = await (POST as unknown as Handler)(makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'cek stok' }));
         expect(res.status).toBe(403);
     });
 
@@ -144,9 +144,9 @@ describe('POST /api/chat/stream', () => {
                 citations: [],
                 safety: { allowed: true },
             });
-            await (POST as unknown as Handler)(makeReq({ question: 'cek stok' }));
+            await (POST as unknown as Handler)(makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'cek stok' }));
         }
-        const res = await (POST as unknown as Handler)(makeReq({ question: 'cek stok' }));
+        const res = await (POST as unknown as Handler)(makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'cek stok' }));
         expect(res.status).toBe(429);
     });
 
@@ -175,6 +175,7 @@ describe('POST /api/chat/stream', () => {
 
         const res = await (POST as unknown as Handler)(
             makeReq({
+                requestId: '11111111-1111-4111-8111-111111111111',
                 question: 'cek stok MP 15',
                 workContext: { pathname: '/production/orders/order-1' },
             }),
@@ -219,7 +220,7 @@ describe('POST /api/chat/stream', () => {
         });
 
         const res = await (POST as unknown as Handler)(
-            makeReq({ question: 'cara buat SO' }),
+            makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'cara buat SO' }),
         );
         await collectEvents(res.body!);
 
@@ -235,7 +236,7 @@ describe('POST /api/chat/stream', () => {
         const result = { answer: 'Dugaan bug', citations: [], disposition: 'ESCALATE', conversationId: 'authorized', historySaved: true, safety: { allowed: true } };
         generateMock.mockResolvedValueOnce(result);
         bugNotice.mockResolvedValueOnce('Notifikasi terkirim.');
-        const res = await (POST as unknown as Handler)(makeReq({ question: 'error input', userId: 'forged' }));
+        const res = await (POST as unknown as Handler)(makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'error input', userId: 'forged' }));
         const events = await collectEvents(res.body!);
         expect(bugNotice).toHaveBeenCalledWith(result, 'interaction-9', { tenantId: 'tenant-a', userId: 'user-1' });
         expect(logMock.mock.invocationCallOrder[0]).toBeLessThan(bugNotice.mock.invocationCallOrder[0]);
@@ -245,7 +246,7 @@ describe('POST /api/chat/stream', () => {
         generateMock.mockRejectedValue(new Error('LLM down'));
 
         const res = await (POST as unknown as Handler)(
-            makeReq({ question: 'cek stok' }),
+            makeReq({ requestId: '11111111-1111-4111-8111-111111111111', question: 'cek stok' }),
         );
         const events = (await collectEvents(res.body!)) as Array<{
             type: string;

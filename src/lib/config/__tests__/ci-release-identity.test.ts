@@ -25,6 +25,7 @@ const dependencies = () => ({
     context: { sha, ref: 'refs/heads/main', repo: { owner: 'fixture', repo: 'app' } },
     core: { setOutput: vi.fn(), notice: vi.fn() },
     digest,
+    workerDigest: digest,
 });
 const check = (input: ReturnType<typeof dependencies>) => {
     const guard = require('../../../../scripts/ci/release-guard.cjs') as { check(value: typeof input): Promise<void> };
@@ -60,6 +61,12 @@ describe('release identity guard', () => {
         expect(input.github.rest.repos.getCommit).not.toHaveBeenCalled();
     });
 
+    it('rejects an invalid assistant worker digest before API calls', async () => {
+        const input = { ...dependencies(), workerDigest: 'latest' };
+        await expect(check(input)).rejects.toThrow('identity');
+        expect(input.github.rest.repos.getCommit).not.toHaveBeenCalled();
+    });
+
     it('rejects non-main refs and malformed commit IDs', async () => {
         const input = dependencies();
         await expect(check({ ...input, context: { ...input.context, ref: 'refs/heads/other' } })).rejects.toThrow('identity');
@@ -70,8 +77,12 @@ describe('release identity guard', () => {
 describe('SHA-safe deployment wiring', () => {
     it('serializes deployments and exposes the exact built digest', () => {
         expect(jobs.deploy.concurrency).toEqual({ group: 'production-deploy', 'cancel-in-progress': false });
-        expect(jobs['build-and-push'].outputs).toEqual({ digest: '${{ steps.image.outputs.digest }}' });
-        expect(jobs['build-and-push'].steps.find(item => item.name === 'Build and push Docker image')?.id).toBe('image');
+        expect(jobs['build-and-push'].outputs).toEqual({
+            digest: '${{ steps.image.outputs.digest }}',
+            'worker-digest': '${{ steps.worker-image.outputs.digest }}',
+        });
+        expect(jobs['build-and-push'].steps.find(item => item.name === 'Build and push web Docker image')?.id).toBe('image');
+        expect(jobs['build-and-push'].steps.find(item => item.name === 'Build and push assistant worker image')?.id).toBe('worker-image');
     });
 
     it('guards every mutating step before image promotion or SSH', () => {
@@ -79,8 +90,9 @@ describe('SHA-safe deployment wiring', () => {
         expect(guardIndex).toBeGreaterThanOrEqual(0);
         const guard = jobs.deploy.steps[guardIndex];
         expect(guard.env?.IMAGE_DIGEST).toBe('${{ needs.build-and-push.outputs.digest }}');
+        expect(guard.env?.WORKER_IMAGE_DIGEST).toBe('${{ needs.build-and-push.outputs.worker-digest }}');
         expect(guard.with?.script).toContain("require('./scripts/ci/release-guard.cjs').check");
-        for (const name of ['Log in to Container Registry', 'Promote tested image to :latest', 'Deploy via SSH']) {
+        for (const name of ['Log in to Container Registry', 'Promote tested images to :latest', 'Deploy via SSH']) {
             const index = jobs.deploy.steps.findIndex(item => item.name === name);
             expect(index).toBeGreaterThan(guardIndex);
             expect(jobs.deploy.steps[index].if).toBe("steps.revision.outputs.current == 'true'");
@@ -89,11 +101,17 @@ describe('SHA-safe deployment wiring', () => {
 
     it('binds runtime checkout and image to verified metadata without deleting WIP or pruning images', () => {
         const remote = jobs.deploy.steps.find(item => item.name === 'Deploy via SSH');
-        expect(remote?.env).toMatchObject({ DEPLOY_SHA: '${{ github.sha }}', DEPLOY_IMAGE: '${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}' });
+        expect(remote?.env).toMatchObject({
+            DEPLOY_SHA: '${{ github.sha }}',
+            DEPLOY_IMAGE: '${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}',
+            ASSISTANT_WORKER_DEPLOY_IMAGE: '${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.build-and-push.outputs.worker-digest }}',
+        });
         expect(remote?.with?.envs).toContain('DEPLOY_SHA');
         expect(remote?.with?.envs).toContain('DEPLOY_IMAGE');
+        expect(remote?.with?.envs).toContain('ASSISTANT_WORKER_DEPLOY_IMAGE');
         expect(remote?.with?.script).toContain('git checkout --detach "$DEPLOY_SHA"');
         expect(remote?.with?.script).toContain('export POLYFLOW_IMAGE="$DEPLOY_IMAGE"');
+        expect(remote?.with?.script).toContain('export ASSISTANT_WORKER_IMAGE="$ASSISTANT_WORKER_DEPLOY_IMAGE"');
         expect(remote?.with?.script).toContain('docker compose up -d --no-deps --no-build polyflow');
         expect(remote?.with?.script).not.toMatch(/reset --hard|docker rm|image prune|docker build|npm /);
         const compose = load(readFileSync('docker-compose.yml', 'utf8')) as unknown as { services: { polyflow: { image: string } } };

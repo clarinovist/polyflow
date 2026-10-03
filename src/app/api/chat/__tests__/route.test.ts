@@ -83,6 +83,7 @@ describe('POST /api/chat', () => {
             req: unknown,
         ) => Promise<ResponseLike>)(
             request({
+                requestId: '11111111-1111-4111-8111-111111111111',
                 question: 'cek invoice ini',
                 workContext: { pathname: '/finance/invoices/sales/inv-1' },
             }),
@@ -113,7 +114,7 @@ describe('POST /api/chat', () => {
         });
         await (POST as unknown as (
             req: unknown,
-        ) => Promise<ResponseLike>)(request({ question: 'nilai berubah' }));
+        ) => Promise<ResponseLike>)(request({ requestId: '11111111-1111-4111-8111-111111111111', question: 'nilai berubah' }));
 
         expect(audit).toHaveBeenCalledWith(
             expect.objectContaining({ disposition: 'NEEDS_CLARIFICATION' }),
@@ -124,7 +125,7 @@ describe('POST /api/chat', () => {
         const result = { answer: 'Dugaan bug', citations: [], disposition: 'ESCALATE', conversationId: 'authorized', historySaved: true, safety: { allowed: true } };
         generate.mockResolvedValueOnce(result);
         bugNotice.mockResolvedValueOnce('Telegram belum tersedia.');
-        const response = await (POST as unknown as (req: unknown) => Promise<ResponseLike>)(request({ question: 'error input', tenantId: 'forged', userId: 'forged', disposition: 'ESCALATE' }));
+        const response = await (POST as unknown as (req: unknown) => Promise<ResponseLike>)(request({ requestId: '11111111-1111-4111-8111-111111111111', question: 'error input', tenantId: 'forged', userId: 'forged', disposition: 'ESCALATE' }));
         expect(bugNotice).toHaveBeenCalledWith(result, 'interaction-1', { tenantId: 'tenant-1', userId: 'user-1' });
         expect(audit.mock.invocationCallOrder[0]).toBeLessThan(bugNotice.mock.invocationCallOrder[0]);
         expect((await response.json()).data).toMatchObject({ bugReportNotice: 'Telegram belum tersedia.' });
@@ -133,7 +134,7 @@ describe('POST /api/chat', () => {
         verify.mockResolvedValue(null);
         const response = await (POST as unknown as (
             req: unknown,
-        ) => Promise<ResponseLike>)(request({ question: 'cek invoice' }));
+        ) => Promise<ResponseLike>)(request({ requestId: '11111111-1111-4111-8111-111111111111', question: 'cek invoice' }));
         expect(response.status).toBe(403);
         expect(generate).not.toHaveBeenCalled();
         expect(bugNotice).not.toHaveBeenCalled();
@@ -144,6 +145,7 @@ describe('POST /api/chat', () => {
             req: unknown,
         ) => Promise<ResponseLike>)(
             request({
+                requestId: '11111111-1111-4111-8111-111111111111',
                 question: 'cek invoice',
                 workContext: { pathname: 1 },
             }),

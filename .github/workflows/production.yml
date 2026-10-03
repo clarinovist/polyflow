@@ -276,6 +276,71 @@ jobs:
           src/lib/bot/__tests__/document-tools-postgres.test.ts
           src/lib/core/__tests__/prisma-proxy-postgres.test.ts
 
+  assistant-contract:
+    name: Durable Assistant PostgreSQL & Crash Contract
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: disposable-assistant-ci-only
+        ports:
+          - 55440:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ASSISTANT_TEST_ADMIN_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/postgres
+      ASSISTANT_TEST_MAIN_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_main_test
+      ASSISTANT_TEST_TENANT_A_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_tenant_a_test
+      ASSISTANT_TEST_TENANT_B_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_tenant_b_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: node scripts/ci/setup-assistant-test-dbs.mjs
+      - name: Validate worker contracts, migrations, and crash recovery
+        run: >-
+          npx vitest run --maxWorkers=1 --no-file-parallelism
+          src/lib/bot/durable/__tests__
+      - name: Build worker artifact
+        run: npm run typecheck:assistant-worker && npm run build:assistant-worker
+      - name: Smoke worker health and graceful shutdown
+        run: |
+          set -eu
+          export ASSISTANT_WORKER_TOKEN=ci-only-assistant-worker-token-0001
+          export ASSISTANT_STORAGE_ROOT="$RUNNER_TEMP/assistant-worker"
+          export LLM_BASE_URL=http://127.0.0.1:9/v1
+          export LLM_API_KEY=ci-only
+          export LLM_MODEL=ci-faux
+          export ASSISTANT_WORKER_PORT=3011
+          export DATABASE_URL="$ASSISTANT_TEST_MAIN_DATABASE_URL"
+          node dist/assistant-worker/index.mjs >"$RUNNER_TEMP/assistant-worker.log" 2>&1 &
+          pid=$!
+          trap 'kill -TERM "$pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3011/health/ready && break
+            [ "$attempt" -eq 30 ] && exit 1
+            sleep 1
+          done
+          kill -TERM "$pid"
+          wait "$pid"
+          trap - EXIT
+
   jev-contract:
     name: JEV Provider Contract
     needs: agents-consistency
@@ -315,6 +380,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       digest: ${{ steps.image.outputs.digest }}
+      worker-digest: ${{ steps.worker-image.outputs.digest }}
     permissions:
       contents: read
       packages: write
@@ -332,7 +398,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and push Docker image
+      - name: Build and push web Docker image
         id: image
         uses: docker/build-push-action@v7
         with:
@@ -344,12 +410,23 @@ jobs:
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache,mode=max
 
+      - name: Build and push assistant worker image
+        id: worker-image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.assistant-worker
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:buildcache,mode=max
+
   # ─────────────────────────────────────────────
   # 4. Deploy to VPS
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
-    needs: [test, lint, build-and-push, return-contract, jev-contract]
+    needs: [test, lint, build-and-push, return-contract, assistant-contract, jev-contract]
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     concurrency:
@@ -368,9 +445,10 @@ jobs:
         uses: actions/github-script@v8
         env:
           IMAGE_DIGEST: ${{ needs.build-and-push.outputs.digest }}
+          WORKER_IMAGE_DIGEST: ${{ needs.build-and-push.outputs.worker-digest }}
         with:
           script: |
-            await require('./scripts/ci/release-guard.cjs').check({ github, context, core, digest: process.env.IMAGE_DIGEST });
+            await require('./scripts/ci/release-guard.cjs').check({ github, context, core, digest: process.env.IMAGE_DIGEST, workerDigest: process.env.WORKER_IMAGE_DIGEST });
       # `needs` above is the real gate: this job only starts when tests AND lint
       # are green AND the image exists. Promoting the tag here is what keeps
       # `:latest` a "tested" marker rather than merely a "built" one.
@@ -382,14 +460,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.CR_PAT }}
 
-      - name: Promote tested image to :latest
+      - name: Promote tested images to :latest
         if: steps.revision.outputs.current == 'true'
         env:
           DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}
+          ASSISTANT_WORKER_DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.build-and-push.outputs.worker-digest }}
         run: |
           docker buildx imagetools create \
             --tag "$REGISTRY/$REPO:latest" \
             "$DEPLOY_IMAGE"
+          docker buildx imagetools create \
+            --tag "$REGISTRY/$REPO-assistant-worker:latest" \
+            "$ASSISTANT_WORKER_DEPLOY_IMAGE"
 
       - name: Deploy via SSH
         if: steps.revision.outputs.current == 'true'
@@ -398,31 +480,41 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: CR_PAT,DEPLOY_SHA,DEPLOY_IMAGE,REGISTRY_USER
+          envs: CR_PAT,DEPLOY_SHA,DEPLOY_IMAGE,ASSISTANT_WORKER_DEPLOY_IMAGE,REGISTRY_USER
           script: |
             set -eu
             [[ "$DEPLOY_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
             [[ "$DEPLOY_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]] || exit 1
+            [[ "$ASSISTANT_WORKER_DEPLOY_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]] || exit 1
             cd ~/polyflow
             git diff --quiet
             git diff --cached --quiet
             git fetch origin main
             git checkout --detach "$DEPLOY_SHA"
             export POLYFLOW_IMAGE="$DEPLOY_IMAGE"
+            export ASSISTANT_WORKER_IMAGE="$ASSISTANT_WORKER_DEPLOY_IMAGE"
             printf '%s' "$CR_PAT" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
-            docker compose pull polyflow
+            docker compose pull assistant-worker polyflow
+            docker compose up -d --no-deps --no-build assistant-worker
+            for attempt in $(seq 1 30); do
+              status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' polyflow-assistant-worker)
+              [ "$status" = healthy ] && break
+              [ "$attempt" -eq 30 ] && { docker logs --tail 100 polyflow-assistant-worker; exit 1; }
+              sleep 2
+            done
             docker compose up -d --no-deps --no-build polyflow
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
           DEPLOY_SHA: ${{ github.sha }}
           DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}
+          ASSISTANT_WORKER_DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.build-and-push.outputs.worker-digest }}
           REGISTRY_USER: ${{ github.actor }}
 
   # Status rilis: merah bila gate gagal/cancelled/skip di luar rencana.
   status:
     name: Status CI
     if: ${{ always() }}
-    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, jev-contract, deploy, release-please]
+    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, release-please]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -443,7 +535,7 @@ jobs:
   timing:
     name: Pipeline timing
     if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
-    needs: [test-shards, test, lint, build-and-push, return-contract, jev-contract, deploy, agents-consistency, release-please]
+    needs: [test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, agents-consistency, release-please]
     runs-on: ubuntu-latest
     permissions:
       contents: read

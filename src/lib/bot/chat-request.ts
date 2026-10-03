@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { assistantWorkContextHintSchema } from './assistant-work-context';
 
+const requestIdSchema = z.string().uuid();
+
 const chatRequestSchema = z.object({
+    requestId: requestIdSchema,
     question: z.string().trim().min(1).max(2000),
     conversationId: z.string().trim().min(1).max(100).optional(),
     workContext: assistantWorkContextHintSchema.optional(),
@@ -29,6 +32,13 @@ export function parseChatRequestBody(
     }
     if (typeof question !== 'string' || question.trim().length === 0) {
         return { success: false, error: 'Question is required.' };
+    }
+    const requestId =
+        raw && typeof raw === 'object' && 'requestId' in raw
+            ? (raw as { requestId?: unknown }).requestId
+            : undefined;
+    if (!requestIdSchema.safeParse(requestId).success) {
+        return { success: false, error: 'A valid requestId is required.' };
     }
 
     return { success: false, error: 'Request context is invalid.' };

@@ -348,6 +348,12 @@ function AuthenticatedChatPanel({
     const [conversationId, setConversationId] = useState<string | undefined>();
     const [saveWarning, setSaveWarning] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
+    const activeRequestRef = useRef<{
+        requestId: string;
+        question: string;
+        conversationId?: string;
+        pathname: string;
+    } | null>(null);
     const requestPathRef = useRef(effectivePath);
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -483,7 +489,7 @@ function AuthenticatedChatPanel({
     };
 
     const handleResetChat = () => {
-        handleCancel();
+        stopLocalRequest();
         history.reset();
         setSaveWarning(false);
         setMessages([initialWelcomeMsg]);
@@ -502,6 +508,39 @@ function AuthenticatedChatPanel({
     };
 
     const handleCancel = () => {
+        const active = activeRequestRef.current;
+        if (!active) return;
+        // Keep the UI pending until the durable worker acknowledges cancellation.
+        // A local fetch abort alone would leave accepted work running.
+        void fetch('/api/chat/abort', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requestId: active.requestId,
+                question: active.question,
+                conversationId: active.conversationId,
+                workContext: { pathname: active.pathname },
+            }),
+            keepalive: true,
+        })
+            .then((response) => {
+                if (!response.ok) throw new Error('cancel-not-confirmed');
+                activeRequestRef.current = null;
+                abortRef.current?.abort();
+                abortRef.current = null;
+                setIsLoading(false);
+                setLongWait(false);
+                setToolProgress(null);
+            })
+            .catch(() => {
+                setToolProgress(
+                    'Pembatalan belum terkonfirmasi; menunggu status',
+                );
+            });
+    };
+
+    const stopLocalRequest = () => {
+        activeRequestRef.current = null;
         abortRef.current?.abort();
         setIsLoading(false);
         setLongWait(false);
@@ -577,11 +616,21 @@ function AuthenticatedChatPanel({
         const controller = new AbortController();
         abortRef.current = controller;
         const requestPath = effectivePath;
+        const requestId = crypto.randomUUID();
+        const requestConversationId = conversationId;
+        activeRequestRef.current = {
+            requestId,
+            question: payload,
+            conversationId: requestConversationId,
+            pathname: requestPath,
+        };
         requestPathRef.current = requestPath;
 
         try {
             const streamResult = await sendViaStream(
                 payload,
+                requestId,
+                requestConversationId,
                 requestPath,
                 controller,
             );
@@ -591,7 +640,13 @@ function AuthenticatedChatPanel({
                 abortRef.current === controller &&
                 !controller.signal.aborted
             ) {
-                await sendViaJson(payload, requestPath, controller);
+                await sendViaJson(
+                    payload,
+                    requestId,
+                    requestConversationId,
+                    requestPath,
+                    controller,
+                );
             }
         } catch (err) {
             if (
@@ -616,6 +671,7 @@ function AuthenticatedChatPanel({
                 setIsLoading(false);
                 setToolProgress(null);
                 abortRef.current = null;
+                activeRequestRef.current = null;
             }
         }
     };
@@ -627,6 +683,8 @@ function AuthenticatedChatPanel({
      */
     const sendViaStream = async (
         payload: string,
+        requestId: string,
+        requestConversationId: string | undefined,
         requestPath: string,
         controller: AbortController,
     ): Promise<'handled' | 'fallback'> => {
@@ -636,8 +694,9 @@ function AuthenticatedChatPanel({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    requestId,
                     question: payload,
-                    conversationId,
+                    conversationId: requestConversationId,
                     workContext: { pathname: requestPath },
                 }),
                 signal: controller.signal,
@@ -780,6 +839,8 @@ function AuthenticatedChatPanel({
     /** Jalur lama (non-stream). Dipertahankan sebagai fallback. */
     const sendViaJson = async (
         payload: string,
+        requestId: string,
+        requestConversationId: string | undefined,
         requestPath: string,
         controller: AbortController,
     ): Promise<void> => {
@@ -787,8 +848,9 @@ function AuthenticatedChatPanel({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                requestId,
                 question: payload,
-                conversationId,
+                conversationId: requestConversationId,
                 workContext: { pathname: requestPath },
             }),
             signal: controller.signal,
@@ -881,7 +943,8 @@ function AuthenticatedChatPanel({
                             title="Riwayat chat"
                             aria-label="Riwayat chat"
                             onClick={() => {
-                                handleCancel();
+                                if (activeRequestRef.current) return;
+                                stopLocalRequest();
                                 history.open();
                             }}
                         >
@@ -973,7 +1036,8 @@ function AuthenticatedChatPanel({
                             type="button"
                             disabled={history.busy}
                             onClick={() => {
-                                handleCancel();
+                                if (activeRequestRef.current) return;
+                                stopLocalRequest();
                                 history.select(item.id);
                             }}
                             className="block w-full rounded-xl border p-3 text-left hover:bg-muted"
