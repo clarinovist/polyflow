@@ -300,6 +300,102 @@ describe("confirmOrder", () => {
     expect(ProductionService.createOrderFromSales).not.toHaveBeenCalled();
   });
 
+  it("stok affal kurang → SELL_TO_STOCK, bukan peringatan produksi", async () => {
+    // Regresi: penjualan affal (productType SCRAP) tidak boleh diarahkan ke
+    // Papan Permintaan FG — papan itu sudah menyaring SCRAP.
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 100 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-scrap",
+          quantity: { toNumber: () => 10 } as never,
+          productVariant: {
+            name: "Affal Daun",
+            product: { productType: ProductType.SCRAP },
+          },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([] as never);
+
+    const result = await confirmOrder("so-1", "user-1");
+
+    expect(result.status).toBe(SalesOrderStatus.CONFIRMED);
+    expect(result.shortageCount).toBe(1);
+    expect(result.warnings.map((w) => w.code)).toEqual(["SELL_TO_STOCK"]);
+    expect(result.warnings[0].message).toBe(
+      "Stok kurang, silahkan jual sesuai stok yang tersedia saja: Affal Daun.",
+    );
+    // Bukan permintaan produksi: tidak ada query BOM dan tidak ada WO
+    expect(prisma.bom.findMany).not.toHaveBeenCalled();
+    expect(ProductionService.createOrderFromSales).not.toHaveBeenCalled();
+  });
+
+  it("campuran FG + bahan baku kurang → peringatan produksi hanya untuk FG", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-1",
+      orderNumber: "SO-001",
+      status: SalesOrderStatus.DRAFT,
+      orderType: SalesOrderType.MAKE_TO_STOCK,
+      totalAmount: { toNumber: () => 100 } as never,
+      customerId: "cust-1",
+      sourceLocationId: "loc-1",
+      items: [
+        {
+          id: "item-1",
+          productVariantId: "pv-fg",
+          quantity: { toNumber: () => 10 } as never,
+          productVariant: {
+            name: "Rafia Hitam KW 0,95 (10)",
+            product: { productType: "PHYSICAL" },
+          },
+        },
+        {
+          id: "item-2",
+          productVariantId: "pv-rm",
+          quantity: { toNumber: () => 5 } as never,
+          productVariant: {
+            name: "HD Resin",
+            product: { productType: ProductType.RAW_MATERIAL },
+          },
+        },
+      ],
+    } as never);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.productVariant.findMany).mockResolvedValue([
+      { id: "pv-fg", name: "Rafia Hitam KW 0,95 (10)" },
+    ] as never);
+
+    const result = await confirmOrder("so-1", "user-1");
+
+    const codes = result.warnings.map((w) => w.code);
+    expect(codes).toEqual(
+      expect.arrayContaining(["MISSING_DEFAULT_BOM", "FG_DEMAND_QUEUED", "SELL_TO_STOCK"]),
+    );
+
+    const sell = result.warnings.find((w) => w.code === "SELL_TO_STOCK");
+    expect(sell?.productNames).toEqual(["HD Resin"]);
+    expect(sell?.productVariantIds).toEqual(["pv-rm"]);
+
+    // Papan FG & pencarian BOM hanya menyertakan item yang bisa diproduksi
+    const fg = result.warnings.find((w) => w.code === "FG_DEMAND_QUEUED");
+    expect(fg?.productVariantIds).toEqual(["pv-fg"]);
+    const missing = result.warnings.find((w) => w.code === "MISSING_DEFAULT_BOM");
+    expect(missing?.productVariantIds).toEqual(["pv-fg"]);
+    expect(result.shortageCount).toBe(2);
+  });
+
   it("shortage + has BOM → default no auto-WO, status IN_PRODUCTION, FG demand queued", async () => {
     // Setup: MTO order, no inventory, BOM exists
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({

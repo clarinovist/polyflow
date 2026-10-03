@@ -88,11 +88,34 @@ function maxDiscountPercentInItems(
 
 // ── Confirm Order types ──────────────────────────────────────────────
 type ConfirmOrderWarning = {
-    code: 'MISSING_DEFAULT_BOM' | 'WO_CREATE_FAILED' | 'FG_DEMAND_QUEUED';
+    code:
+        | 'MISSING_DEFAULT_BOM'
+        | 'WO_CREATE_FAILED'
+        | 'FG_DEMAND_QUEUED'
+        | 'SELL_TO_STOCK';
     productVariantIds: string[];
     productNames: string[];
     message: string;
 };
+
+type ShortageEntry = {
+    productVariantId: string;
+    quantity: number;
+    productType: ProductType;
+};
+
+/**
+ * Jenis produk yang tidak pernah diproduksi sendiri. Kekurangan stok untuk mereka
+ * bukan permintaan produksi: tidak boleh masuk perhitungan BOM/WO maupun ditujukan
+ * ke Papan Permintaan FG (papan itu sudah menyaring ketiganya), cukup memberi sinyal
+ * "jual sesuai stok yang tersedia".
+ * SERVICE sudah dilewati sebelum perhitungan stok; SCRAP = affal; RAW_MATERIAL = bahan baku.
+ */
+const NON_PRODUCEABLE_TYPES = new Set<ProductType>([
+    ProductType.SERVICE,
+    ProductType.SCRAP,
+    ProductType.RAW_MATERIAL,
+]);
 
 export type ConfirmOrderResult = {
     orderId: string;
@@ -932,10 +955,22 @@ export async function confirmOrder(
             ? SalesOrderStatus.IN_PRODUCTION
             : SalesOrderStatus.CONFIRMED;
 
-    const shortages: { productVariantId: string; quantity: number }[] = [];
+    const shortages: ShortageEntry[] = [];
+    // Dipisah setelah cek stok: yang bisa diproduksi → WO / Papan Permintaan FG;
+    // bahan baku & affal → cukup sinyal "jual sesuai stok yang tersedia".
+    let producibleShortages: ShortageEntry[] = [];
+    let sellToStockShortages: ShortageEntry[] = [];
     const warnings: ConfirmOrderWarning[] = [];
     // Track whether we had creatable shortages (for MTS status upgrade)
     let hadCreatableShortage = false;
+
+    // Build name map from order items for friendly warning messages
+    const variantNameMap = new Map(
+        order.items.map((item) => [
+            item.productVariantId,
+            item.productVariant.name,
+        ]),
+    );
 
     await salesTransactionClient().$transaction(async (tx) => {
         if (order.sourceLocationId) {
@@ -1022,14 +1057,42 @@ export async function confirmOrder(
                     shortages.push({
                         productVariantId: item.productVariantId,
                         quantity: shortageAmount,
+                        productType: item.productVariant.product.productType,
                     });
                 }
             }
         }
 
+        // ── Split producible vs sell-to-stock ───────────────────────
+        producibleShortages = shortages.filter(
+            (s) => !NON_PRODUCEABLE_TYPES.has(s.productType),
+        );
+        sellToStockShortages = shortages.filter((s) =>
+            NON_PRODUCEABLE_TYPES.has(s.productType),
+        );
+
+        // Bahan baku / affal yang stoknya kurang: bukan permintaan produksi.
+        if (sellToStockShortages.length > 0) {
+            const names = sellToStockShortages.map(
+                (s) =>
+                    variantNameMap.get(s.productVariantId) ||
+                    s.productVariantId,
+            );
+            warnings.push({
+                code: 'SELL_TO_STOCK',
+                productVariantIds: sellToStockShortages.map(
+                    (s) => s.productVariantId,
+                ),
+                productNames: names,
+                message: `Stok kurang, silahkan jual sesuai stok yang tersedia saja: ${names.join(', ')}.`,
+            });
+        }
+
         // ── Soft BOM check: split creatable vs missing ──────────────
-        if (shortages.length > 0) {
-            const shortageVariantIds = shortages.map((s) => s.productVariantId);
+        if (producibleShortages.length > 0) {
+            const shortageVariantIds = producibleShortages.map(
+                (s) => s.productVariantId,
+            );
 
             const boms = await tx.bom.findMany({
                 where: {
@@ -1107,16 +1170,10 @@ export async function confirmOrder(
     // ProductionService.createOrderFromSales.
     const hasProduction = await hasTenantModule('PRODUCTION');
 
-    // Build name map from order items for friendly warning messages
-    const variantNameMap = new Map(
-        order.items.map((item) => [
-            item.productVariantId,
-            item.productVariant.name,
-        ]),
-    );
-
-    if (autoCreateWo && hasProduction && shortages.length > 0) {
-        const shortageVariantIds = shortages.map((s) => s.productVariantId);
+    if (autoCreateWo && hasProduction && producibleShortages.length > 0) {
+        const shortageVariantIds = producibleShortages.map(
+            (s) => s.productVariantId,
+        );
 
         // Re-query which variants have BOM (could have been created between tx and now)
         const bomsNow = await prisma.bom.findMany({
@@ -1130,7 +1187,7 @@ export async function confirmOrder(
         const bomNowIds = new Set(bomsNow.map((b) => b.productVariantId));
 
         // Only attempt WO creation for shortages that currently have a BOM
-        const creatableShortages = shortages.filter((s) =>
+        const creatableShortages = producibleShortages.filter((s) =>
             bomNowIds.has(s.productVariantId),
         );
 
@@ -1211,11 +1268,13 @@ export async function confirmOrder(
     }
 
     // When auto-WO is disabled, inform that shortages are on the FG demand board
-    if (!autoCreateWo && shortages.length > 0) {
+    if (!autoCreateWo && producibleShortages.length > 0) {
         warnings.push({
             code: 'FG_DEMAND_QUEUED',
-            productVariantIds: shortages.map((s) => s.productVariantId),
-            productNames: shortages.map(
+            productVariantIds: producibleShortages.map(
+                (s) => s.productVariantId,
+            ),
+            productNames: producibleShortages.map(
                 (s) =>
                     variantNameMap.get(s.productVariantId) ||
                     s.productVariantId,
