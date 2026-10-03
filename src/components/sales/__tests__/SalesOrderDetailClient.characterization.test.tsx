@@ -89,6 +89,7 @@ function order(overrides: Partial<SerializedSalesOrder> = {}): SerializedSalesOr
         entrySource: 'STANDARD', sourceReference: null, commercialReviewStatus: 'NOT_REQUIRED',
         idempotencyKey: null, salesRepId: null, items: [], customer, sourceLocation: null,
         invoices: [], productionOrders: [], movements: [], deliveryOrders: [], createdBy: null,
+        salesReturns: [],
         ...overrides,
     };
 }
@@ -461,11 +462,11 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
     });
 
     it.each([
-        { scenario: 'without item tax', taxPercent: null, taxAmount: null, columns: 5 },
-        { scenario: 'with zero item tax', taxPercent: 0, taxAmount: 0, columns: 5 },
-        { scenario: 'with tax percent only', taxPercent: 11, taxAmount: 0, columns: 6 },
-        { scenario: 'with tax amount only', taxPercent: 0, taxAmount: 550, columns: 6 },
-        { scenario: 'with both tax fields', taxPercent: 11, taxAmount: 550, columns: 6 },
+        { scenario: 'without item tax', taxPercent: null, taxAmount: null, columns: 6 },
+        { scenario: 'with zero item tax', taxPercent: 0, taxAmount: 0, columns: 6 },
+        { scenario: 'with tax percent only', taxPercent: 11, taxAmount: 0, columns: 7 },
+        { scenario: 'with tax amount only', taxPercent: 0, taxAmount: 550, columns: 7 },
+        { scenario: 'with both tax fields', taxPercent: 11, taxAmount: 550, columns: 7 },
     ])('aligns all summary rows $scenario while preserving units and warehouse visibility', ({ taxPercent, taxAmount, columns }) => {
         const item: SerializedSalesOrder['items'][number] = {
             id: 'fixture-item', salesOrderId: 'fixture-order', productVariantId: 'fixture-variant',
@@ -502,7 +503,7 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(within(row).getByText('1 ZAK (25 KG)')).toBeTruthy();
         expect(within(row).getByText(/2.500.*\/ZAK/)).toBeTruthy();
         expect(table.getAllByRole('columnheader')).toHaveLength(columns);
-        expect(Boolean(table.queryByRole('columnheader', { name: 'DPP' }))).toBe(columns === 6);
+        expect(Boolean(table.queryByRole('columnheader', { name: 'DPP' }))).toBe(columns === 7);
         const tableElement = screen.getByRole<HTMLTableElement>('table');
         for (const itemRow of Array.from(tableElement.tBodies[0].rows)) {
             expect(itemRow.cells).toHaveLength(columns);
@@ -522,17 +523,90 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         view.rerender(<SalesOrderDetailClient order={fixture} warehouseMode />);
         expect(within(screen.getByRole('table')).getAllByRole('row')[1]).toBe(row);
         expect(screen.queryByRole('columnheader', { name: 'DPP' })).toBeNull();
-        expect(within(row).getAllByRole('cell')).toHaveLength(3);
+        expect(within(row).getAllByRole('cell')).toHaveLength(4);
         expect(tableElement.tFoot).toBeNull();
-        expect(within(tableElement).getAllByRole('columnheader')).toHaveLength(3);
+        expect(within(tableElement).getAllByRole('columnheader')).toHaveLength(4);
     });
 
     it('aligns the total with the subtotal column for an empty order', () => {
         renderOrder();
         const table = screen.getByRole<HTMLTableElement>('table');
-        expect(table.tHead!.rows[0].cells).toHaveLength(5);
+        expect(table.tHead!.rows[0].cells).toHaveLength(6);
         expect(table.tFoot!.rows).toHaveLength(1);
-        expect(table.tFoot!.rows[0].cells[0].colSpan).toBe(4);
+        expect(table.tFoot!.rows[0].cells[0].colSpan).toBe(5);
+    });
+
+    it('shows derived per-item status including returns without editable retur input', () => {
+        const returned: SerializedSalesOrder['salesReturns'] = [
+            {
+                id: 'fixture-return',
+                returnNumber: 'SR-FIXTURE',
+                status: 'CONFIRMED',
+                items: [{ productVariantId: 'fixture-variant', returnedQty: 25 }],
+            },
+        ];
+        const fixture = order({
+            status: 'DELIVERED',
+            salesReturns: returned,
+            items: [
+                {
+                    id: 'item-a',
+                    salesOrderId: 'fixture-order',
+                    productVariantId: 'fixture-variant',
+                    quantity: 50,
+                    unitPrice: 100,
+                    subtotal: 5_000,
+                    deliveredQty: 50,
+                    enteredQuantity: null,
+                    enteredUnit: null,
+                    enteredUnitPrice: null,
+                    conversionFactorSnapshot: null,
+                    isFreeItem: false,
+                    discountPercent: null,
+                    taxPercent: null,
+                    taxAmount: null,
+                    dppOtherAmount: null,
+                    ppnMode: 'EXCLUDE',
+                    createdAt: NOW,
+                    updatedAt: NOW,
+                    productVariant: {
+                        id: 'fixture-variant',
+                        productId: 'fixture-product',
+                        name: 'Synthetic bags',
+                        skuCode: 'FIXTURE-BAG',
+                        primaryUnit: 'KG',
+                        salesUnit: 'ZAK',
+                        conversionFactor: 25,
+                        packagingContainerSize: null,
+                        attributes: null,
+                        leadTimeDays: null,
+                        preferredSupplierId: null,
+                        revenueAccountId: null,
+                        returnAccountId: null,
+                        archivedAt: null,
+                        createdAt: NOW,
+                        updatedAt: NOW,
+                        product: {
+                            id: 'fixture-product',
+                            name: 'Synthetic Product',
+                            productType: 'FINISHED_GOOD',
+                            assetCategory: null,
+                            cogsAccountId: null,
+                            inventoryAccountId: null,
+                            revenueAccountId: null,
+                            wipAccountId: null,
+                            createdAt: NOW,
+                            updatedAt: NOW,
+                        },
+                    },
+                },
+            ],
+        });
+        render(<SalesOrderDetailClient order={fixture} />);
+        expect(screen.getByRole('columnheader', { name: 'Status' })).toBeTruthy();
+        expect(screen.getByText('Retur sebagian')).toBeTruthy();
+        // Read-only: tidak ada input untuk mengubah status item dari SO.
+        expect(screen.queryByRole('combobox', { name: /status|retur/i })).toBeNull();
     });
 
     it('requires notes for LAINNYA and trims rejection payload before closing', async () => {

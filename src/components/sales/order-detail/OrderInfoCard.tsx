@@ -8,6 +8,11 @@ import {
     getEnteredUnitPriceDisplay,
 } from '@/lib/utils/production-units';
 import { isBillableDeliveryStatus } from '@/lib/sales/delivery-status';
+import {
+    aggregateReturnedQtyByVariant,
+    getOrderItemStatus,
+    type OrderItemStatusKey,
+} from '@/lib/sales/order-item-status';
 import { SALES_LOST_REASON_LABELS } from '@/lib/sales/order-phase';
 import type { SerializedSalesOrder } from '../sales-order-types';
 
@@ -36,7 +41,26 @@ export function OrderInfoCard({
             (item) =>
                 Number(item.taxPercent || 0) > 0 || Number(item.taxAmount || 0) > 0,
         );
-    const summaryColSpan = showDpp ? 5 : 4;
+    const summaryColSpan = showDpp ? 6 : 5;
+    const returnedQtyByVariant = aggregateReturnedQtyByVariant(
+        order.salesReturns,
+    );
+
+    const itemStatusStyle: Record<OrderItemStatusKey, string> = {
+        draft: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        cancelled:
+            'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+        in_production:
+            'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+        partial:
+            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+        delivered:
+            'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+        returned_partial:
+            'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+        returned_full:
+            'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+    };
 
     return (
         <Card className="min-w-0 lg:col-span-2">
@@ -190,6 +214,9 @@ export function OrderInfoCard({
                                 <th className="h-10 px-4 text-right font-medium">
                                     Terkirim
                                 </th>
+                                <th className="h-10 px-4 text-left font-medium">
+                                    Status
+                                </th>
                                 {!warehouseMode && (
                                     <th className="h-10 px-4 text-right font-medium">
                                         {formLabels.unitPrice}
@@ -208,7 +235,17 @@ export function OrderInfoCard({
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {order.items.map((item) => (
+                            {order.items.map((item) => {
+                                const itemStatus = getOrderItemStatus({
+                                    orderStatus: order.status,
+                                    quantity: Number(item.quantity),
+                                    deliveredQty: Number(item.deliveredQty),
+                                    returnedQty:
+                                        returnedQtyByVariant.get(
+                                            item.productVariantId,
+                                        ) ?? 0,
+                                });
+                                return (
                                 <tr key={item.id} className="hover:bg-muted/50">
                                     <td className="p-4">
                                         <div className="flex items-center gap-2 flex-wrap">
@@ -266,6 +303,37 @@ export function OrderInfoCard({
                                             })}
                                         </span>
                                     </td>
+                                    <td className="p-4">
+                                        <Badge
+                                            variant="outline"
+                                            className={itemStatusStyle[itemStatus.key]}
+                                        >
+                                            {itemStatus.label}
+                                        </Badge>
+                                        {itemStatus.returnedQty > 0 && (
+                                            <div className="text-xs text-muted-foreground mt-1">
+                                                Retur:{' '}
+                                                {getEnteredQuantityDisplay({
+                                                    ...item,
+                                                    ...item.productVariant,
+                                                    quantity:
+                                                        itemStatus.returnedQty,
+                                                    enteredQuantity:
+                                                        item.enteredQuantity &&
+                                                        Number(item.quantity) >
+                                                            0
+                                                            ? (Number(
+                                                                  item.enteredQuantity,
+                                                              ) *
+                                                                  itemStatus.returnedQty) /
+                                                              Number(
+                                                                  item.quantity,
+                                                              )
+                                                            : null,
+                                                })}
+                                            </div>
+                                        )}
+                                    </td>
                                     {!warehouseMode && (
                                         <td className="p-4 text-right">
                                             {(() => {
@@ -295,7 +363,8 @@ export function OrderInfoCard({
                                         </td>
                                     )}
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                         {!warehouseMode && (
                             <tfoot className="bg-muted/50 border-t [&_td:last-child]:whitespace-nowrap">

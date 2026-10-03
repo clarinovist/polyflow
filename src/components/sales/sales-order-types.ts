@@ -204,6 +204,16 @@ export type SerializedSalesOrder = Omit<
     })[];
     productionOrders: SerializedProductionOrder[];
     movements: SerializedStockMovement[];
+    // Agregat retur untuk keterangan per item (read-only, derived).
+    salesReturns?: Array<{
+        id: string;
+        returnNumber?: string;
+        status?: string | null;
+        items?: Array<{
+            productVariantId: string;
+            returnedQty: number;
+        }>;
+    }>;
     deliveryOrders?: Array<{
         id: string;
         status: string;

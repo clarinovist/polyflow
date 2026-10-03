@@ -326,6 +326,22 @@ export async function getOrderById(id: string) {
             salesRep: {
                 select: { id: true, name: true },
             },
+            // Keterangan per item (read-only): agregat retur per varian.
+            // Status CANCELLED diabaikan di aggregateReturnedQtyByVariant.
+            salesReturns: {
+                select: {
+                    id: true,
+                    returnNumber: true,
+                    status: true,
+                    items: {
+                        select: {
+                            productVariantId: true,
+                            returnedQty: true,
+                        },
+                    },
+                },
+                orderBy: { returnDate: 'desc' },
+            },
         },
     });
 }
