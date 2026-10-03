@@ -1283,6 +1283,7 @@ model AuditLog {
   changes    Json?
   fromStatus String?
   toStatus   String?
+  dedupeKey  String?  @unique
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id])
 
@@ -3132,6 +3133,8 @@ model Tenant {
   memberships    TenantMembership[]
   invitations    TenantInvitation[]
   identityEvents CentralIdentityEvent[]
+  assistantBindings    AssistantDurableBinding[]
+  assistantSubmissions AssistantDurableSubmission[]
 }
 
 // ── Modular entitlements ────────────────────────────────────────────────────
@@ -4195,11 +4198,13 @@ model HelpInteraction {
   blockedReason  String?
   conversationId String? // links to HelpConversation
   citedSlugs     String[] // evidence article slugs
+  requestId      String?
   createdAt      DateTime      @default(now())
 
   @@index([tenantId, createdAt])
   @@index([outcome])
   @@index([createdAt])
+  @@unique([tenantId, userId, channel, requestId])
 }
 
 model HelpSettings {
@@ -4320,22 +4325,83 @@ enum HelpMessageRole {
 }
 
 model HelpConversation {
-  id            String                 @id @default(cuid())
-  tenantId      String
-  userId        String
-  channel       String                 @default("web")
-  title         String?
-  status        HelpConversationStatus @default(ACTIVE)
-  lastMessageAt DateTime               @default(now())
-  summary       String?                @db.Text
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  id              String                 @id @default(cuid())
+  tenantId        String
+  userId          String
+  channel         String                 @default("web")
+  title           String?
+  status          HelpConversationStatus @default(ACTIVE)
+  lastMessageAt   DateTime               @default(now())
+  summary         String?                @db.Text
+  assistantRuntime String?
+  accessScopeHash String?
+  workContextKey  String?
+  durableVersion  Int?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   messages       HelpMessage[]
   toolExecutions HelpToolExecution[]
 
   @@index([tenantId, userId, lastMessageAt(sort: Desc)])
   @@index([tenantId, status])
+  @@index([tenantId, userId, channel, accessScopeHash, workContextKey])
+}
+
+// ─── Durable assistant bindings (main DB; read by worker for crash-safe resume) ──
+// AssistantDurableBinding maps one public HelpConversation to its tenant,
+// owner, live access-scope/work-context binding, opaque storage key, and
+// durable conversation ID. AssistantDurableSubmission reserves one row per
+// (tenant,user,channel,requestId) BEFORE SQLite admission so a hard crash
+// between admission and registration cannot orphan a duplicate run. Nullable
+// durable IDs + pending status mark the reservation window; admission fills
+// them in and flips status. Deferrable FK lets the reservation commit before
+// the binding row exists in the same retry cycle without weakening Restrict.
+model AssistantDurableBinding {
+  id                    String   @id @default(cuid())
+  publicConversationId  String   @unique
+  tenantId              String
+  userId                String
+  channel               String
+  accessScopeHash       String
+  workContextKey        String
+  storageKey            String
+  durableConversationId String
+  storageVersion        Int      @default(1)
+  pathname              String
+  profile               String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  submissions AssistantDurableSubmission[]
+
+  @@unique([tenantId, userId, channel, accessScopeHash, workContextKey, publicConversationId])
+  @@index([tenantId, userId, channel])
+  @@index([storageKey])
+}
+
+model AssistantDurableSubmission {
+  id                    String   @id @default(cuid())
+  requestId             String
+  questionHash          String
+  publicConversationId  String
+  tenantId              String
+  userId                String
+  channel               String
+  durableSubmissionId   String?
+  durableConversationId String?
+  status                String   @default("pending")
+  attempts              Int      @default(0)
+  lastError             String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  binding AssistantDurableBinding? @relation(fields: [publicConversationId], references: [publicConversationId], onDelete: Restrict)
+
+  @@unique([tenantId, userId, channel, requestId])
+  @@index([publicConversationId, status])
 }
 
 model HelpMessage {
@@ -4344,11 +4410,15 @@ model HelpMessage {
   role           HelpMessageRole
   content        String          @db.Text
   evidenceJson   Json?
+  requestId      String?
+  durableEntryId String?
   createdAt      DateTime        @default(now())
 
   conversation HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt(sort: Asc)])
+  @@unique([conversationId, requestId, role])
+  @@unique([conversationId, durableEntryId])
 }
 
 model HelpToolExecution {
@@ -4361,12 +4431,17 @@ model HelpToolExecution {
   outcome            String   @default("SUCCESS")
   durationMs         Int      @default(0)
   evidenceMetaJson   Json?
+  executionKey       String?
+  durableTaskId      String?
+  durableCallId      String?
   createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   conversation HelpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([toolName])
+  @@unique([conversationId, executionKey])
 }
 
 // ─── Phase 5: Tenant-private knowledge ─────────────────────────
