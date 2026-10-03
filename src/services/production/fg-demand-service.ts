@@ -64,10 +64,14 @@ export async function listFgDemandBoard(
     filters?: FgDemandFilters,
 ): Promise<FgDemandRow[]> {
     // 1. Fetch open SO items with residual > 0, excluding non-manufacturable types.
-    //    SERVICE is never produced; SCRAP (affal) is a by-product sold from the scrap
-    //    warehouse, never made via SPK/BOM — and its stock lives in SCRAP-purposed
-    //    locations which step 3 below deliberately skips, so leaving it in made every
-    //    scrap SO show up as "need to make" on this board.
+    //    - SERVICE: never produced.
+    //    - SCRAP (affal): by-product sold from the scrap warehouse; its stock lives in
+    //      SCRAP-purposed locations which step 3 below deliberately skips, so leaving
+    //      it in made every scrap SO show up as "need to make" on this board.
+    //    - RAW_MATERIAL: bought, not made — no default BOM exists for it in either
+    //      tenant, so a short raw-material line would have pointed at a board that
+    //      can never cover it. PACKAGING stays: most packaging variants do have a
+    //      default BOM (produced in-house) and are genuine production demand.
     const openStatuses: SalesOrderStatus[] = [
         SalesOrderStatus.CONFIRMED,
         SalesOrderStatus.IN_PRODUCTION,
@@ -80,7 +84,11 @@ export async function listFgDemandBoard(
             productVariant: {
                 product: {
                     productType: {
-                        notIn: [ProductType.SERVICE, ProductType.SCRAP],
+                        notIn: [
+                            ProductType.SERVICE,
+                            ProductType.SCRAP,
+                            ProductType.RAW_MATERIAL,
+                        ],
                     },
                 },
             },

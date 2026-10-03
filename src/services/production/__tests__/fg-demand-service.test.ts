@@ -219,9 +219,9 @@ describe("listFgDemandBoard", () => {
     expect(result[0].openSpkCount).toBe(2);
   });
 
-  it("should exclude SERVICE and SCRAP product types", async () => {
-    // SERVICE is never produced; SCRAP (affal) is sold from the scrap warehouse and
-    // never made via SPK/BOM. Both must be filtered out at query level.
+  it("should exclude SERVICE, SCRAP and RAW_MATERIAL product types", async () => {
+    // SERVICE is never produced; SCRAP (affal) is a by-product sold from the scrap
+    // warehouse; RAW_MATERIAL is bought, not made. None of them belong on the board.
     vi.mocked(prisma.salesOrderItem.findMany).mockResolvedValue([]);
 
     const result = await listFgDemandBoard();
@@ -233,7 +233,11 @@ describe("listFgDemandBoard", () => {
           productVariant: expect.objectContaining({
             product: expect.objectContaining({
               productType: {
-                notIn: [ProductType.SERVICE, ProductType.SCRAP],
+                notIn: [
+                  ProductType.SERVICE,
+                  ProductType.SCRAP,
+                  ProductType.RAW_MATERIAL,
+                ],
               },
             }),
           }),
@@ -254,6 +258,9 @@ describe("listFgDemandBoard", () => {
     const where = vi.mocked(prisma.salesOrderItem.findMany).mock.calls[0][0];
     expect(where.where.productVariant.product.productType.notIn).toContain(
       ProductType.SCRAP,
+    );
+    expect(where.where.productVariant.product.productType.notIn).toContain(
+      ProductType.RAW_MATERIAL,
     );
   });
 
