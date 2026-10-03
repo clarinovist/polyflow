@@ -23,7 +23,7 @@ concurrency:
 jobs:
   candidates:
     name: Benchmark ${{ matrix.candidate }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +57,7 @@ jobs:
 
   shards:
     name: Benchmark shards ${{ matrix.shard }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -97,7 +97,7 @@ jobs:
     # A failed experimental worker must not suppress successful shard measurements.
     # Default success() still requires BOTH shard jobs to pass.
     needs: shards
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -132,7 +132,7 @@ jobs:
     # Run even after failure/skip so this named gate is explicitly red, not skipped.
     if: ${{ always() }}
     needs: [candidates, shard-coverage]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Require every candidate and complete shard coverage
         env:
@@ -166,7 +166,7 @@ jobs:
   timing:
     if: ${{ always() }}
     needs: [candidates, shards, shard-coverage, test]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:

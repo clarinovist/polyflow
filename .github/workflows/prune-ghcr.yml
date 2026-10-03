@@ -28,7 +28,7 @@ permissions:
 jobs:
   prune-untagged:
     name: Prune untagged image versions
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Prune untagged image versions
         uses: snok/container-retention-policy@v3.1.0
@@ -44,7 +44,7 @@ jobs:
 
   prune-tagged:
     name: Prune old tagged image versions
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Prune old tagged image versions
         uses: snok/container-retention-policy@v3.1.0

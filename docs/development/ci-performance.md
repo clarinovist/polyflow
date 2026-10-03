@@ -59,9 +59,9 @@ The final comparison requires exactly the selected comparators, validates all or
 identity/count/coverage checks, and rejects unknown strategies or unexpected artifacts.
 A failed selected comparator still fails the entire benchmark.
 
-Each approved dispatch runs the same checkout/lockfile on the pinned `ubuntu-24.04`
-image (not `ubuntu-latest`), so the Ubuntu 26 runner migration starting 2026-10-19
-cannot shift benchmark baselines mid-comparison:
+Each approved dispatch runs the same checkout/lockfile on the pinned `ubuntu-26.04`
+image (not `ubuntu-latest`), so a future `ubuntu-latest` migration cannot shift
+benchmark baselines mid-comparison:
 
 1. Default single full suite, global coverage enforced.
 2. With `strategy=all` only: explicit hardware-aware worker candidate, full suite, same global coverage gate.

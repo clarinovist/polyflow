@@ -12,9 +12,9 @@ env:
   REGISTRY: ghcr.io
   REPO: ${{ github.repository }}
 
-# Every job pins the dated `ubuntu-24.04` label instead of `ubuntu-latest` so the
-# runner-image migration to Ubuntu 26 (starting 2026-10-19) cannot change release
-# behaviour unannounced. Trial `ubuntu-26.04` via a separate dispatch before switching.
+# Every job pins a dated label (`ubuntu-26.04`, verified schedulable in probe run
+# 37118246651 on 2026-10-03: Ubuntu 26.04.1, kernel 7.0.0, Docker 29.4.2) instead of
+# `ubuntu-latest`, so the runner image only changes when we switch it deliberately.
 # Artifact actions are pinned to the first node24 majors (upload@v6, download@v7);
 # upgrading further is a separate change because download@v8 makes digest mismatches fatal.
 
@@ -31,7 +31,7 @@ jobs:
     name: Release Please
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'schedule' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: googleapis/release-please-action@v5
         with:
@@ -45,7 +45,7 @@ jobs:
   # ─────────────────────────────────────────────
   agents-consistency:
     name: AGENTS.md Consistency
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     outputs:
@@ -79,7 +79,7 @@ jobs:
     name: Lint
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -106,7 +106,7 @@ jobs:
     name: Test shard ${{ matrix.shard }}
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -153,7 +153,7 @@ jobs:
     name: Test & Validate
     needs: [agents-consistency, test-shards]
     if: ${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -231,7 +231,7 @@ jobs:
     name: Return PostgreSQL Contract
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     services:
       postgres:
         image: postgres:15-alpine
@@ -286,7 +286,7 @@ jobs:
     name: Durable Assistant PostgreSQL & Crash Contract
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -351,7 +351,7 @@ jobs:
     name: JEV Provider Contract
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -383,7 +383,7 @@ jobs:
     name: Build & Push Docker Image
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       digest: ${{ steps.image.outputs.digest }}
       worker-digest: ${{ steps.worker-image.outputs.digest }}
@@ -434,7 +434,7 @@ jobs:
     name: Deploy to VPS
     needs: [test, lint, build-and-push, return-contract, assistant-contract, jev-contract]
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     concurrency:
       group: production-deploy
       cancel-in-progress: false
@@ -521,7 +521,7 @@ jobs:
     name: Status CI
     if: ${{ always() }}
     needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, release-please]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -542,7 +542,7 @@ jobs:
     name: Pipeline timing
     if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
     needs: [test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, agents-consistency, release-please]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: read
