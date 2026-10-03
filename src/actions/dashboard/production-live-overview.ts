@@ -17,6 +17,10 @@ import {
 } from '@/lib/production/process-keys';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import { aggregateTodayOutputItems } from '@/lib/production/live-overview';
+import {
+    assessMissingShift,
+    missingShiftMessage,
+} from '@/lib/production/shift-coverage';
 
 export const getProductionLiveOverview = withTenant(
     async function getProductionLiveOverview() {
@@ -206,6 +210,7 @@ export const getProductionLiveOverview = withTenant(
                     | 'waiting_material'
                     | 'issue'
                     | 'no_operator'
+                    | 'no_shift'
                     | 'late'
                     | 'high_scrap';
                 severity: 'red' | 'amber';
@@ -306,6 +311,29 @@ export const getProductionLiveOverview = withTenant(
                         orderId: order.id,
                         ageMinutes: age,
                         processKey,
+                    });
+                }
+
+                // Disiplin admin: SPK jalan tanpa shift yang mencakup saat ini.
+                // Kiosk akan jatuh ke shift basi dan guard 24 jam menolak
+                // backdate → hasil shift malam salah bucket (plan 2026-09-02).
+                const missingShift = assessMissingShift({
+                    shifts: order.shifts ?? [],
+                    executions: order.executions,
+                    createdAt: order.createdAt,
+                    now,
+                });
+                if (missingShift.alert) {
+                    attentions.push({
+                        type: 'no_shift',
+                        severity: missingShift.severity,
+                        title: `SPK #${order.orderNumber} Tanpa Shift Aktif`,
+                        subtitle: missingShiftMessage(order.shifts ?? [], now),
+                        orderId: order.id,
+                        ageMinutes: missingShift.ageMinutes,
+                        processKey,
+                        secondaryHref: `/production/orders/${order.id}`,
+                        secondaryLabel: 'Tambah Shift',
                     });
                 }
             }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -20,7 +20,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2, Users } from 'lucide-react';
 import {
     addProductionShift,
     deleteProductionShift,
@@ -30,6 +30,10 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { productionComponentLabels } from '@/lib/labels';
+import {
+    hasActiveShift,
+    missingShiftMessage,
+} from '@/lib/production/shift-coverage';
 
 interface ShiftManagerProps {
     orderId: string;
@@ -65,6 +69,13 @@ export function ShiftManager({
     machines,
 }: ShiftManagerProps) {
     const [_isAdding, _setIsAdding] = useState(false);
+    // Di-set setelah mount supaya tidak memicu hydration mismatch
+    // (keputusan "shift aktif" bergantung waktu sekarang).
+    const [now, setNow] = useState<Date | null>(null);
+
+    useEffect(() => {
+        setNow(new Date());
+    }, []);
 
     async function handleDelete(shiftId: string) {
         if (!confirm('Yakin ingin menghapus shift ini?')) return;
@@ -91,6 +102,18 @@ export function ShiftManager({
                     />
                 )}
             </div>
+
+            {now && !readOnly && !hasActiveShift(shifts, now) && (
+                <div
+                    role="status"
+                    className="flex items-start gap-2 rounded-lg border border-amber-400 bg-amber-50 p-3"
+                >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <p className="text-xs text-amber-900">
+                        {missingShiftMessage(shifts, now)}
+                    </p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4">
                 {shifts.map((shift) => (
