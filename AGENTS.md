@@ -71,6 +71,18 @@ delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index cam
 - Default warisi model sesi. Worker code/migration/test minimum tier Sonnet; Haiku hanya task mekanis bounded. Jangan menurunkan tier demi biaya atau mengganti model tanpa alasan.
 - Orchestrator review diff aktual dan bukti verifikasi worker; gunakan hasil identik tanpa mengulang suite. Scope melenceng/overlap → hentikan dan review, jangan revert sesi lain. Operasi produksi, credential, commit/push/deploy dikoordinasikan orchestrator memakai izin tetap di atas; worker tetap mengikuti scope delegasi.
 
+## codemode
+
+- Utamakan `codemode` untuk menggabungkan pemanggilan tool independen dalam satu request: paralel via `Promise.allSettled()`, chaining antar-call, atau filter/agregasi output besar sebelum model melihatnya. Untuk satu `read`/`bash`/`edit` trivial, panggil tool langsung saja.
+- Skrip adalah JavaScript mentah (bukan JSON/fence), dijalankan sebagai body async di sandbox QuickJS: top-level `await`/`return` bisa; tanpa Node/fs/network/timer. Dunia luar hanya via `tools.*` dan `models`. Skrip tidak bisa memanggil `codemode` lain dari dalam.
+- Panggil tool sebagai `await tools.<nama>({...})` (karakter non-identifier jadi `_`). Call gagal/diblokir/argumen invalid me-reject sebagai `Error` — pakai `Promise.allSettled()` agar hasil yang sukses tetap kepakai. Call yang masih jalan saat skrip selesai dibatalkan; promise tanpa `await` dibuang. Tool call bersifat nyata: yang sudah jalan sebelum skrip gagal tidak di-undo.
+- Opsi baris pertama bila perlu: `// @options: {"max_output_tokens": 2000, "timeout_ms": 60000}`. `timeout_ms` adalah deadline keras seluruh skrip (default unset); jangan set pendek untuk generate image yang bisa makan waktu menit.
+- `store(key, value)` / `load(key)` hanya untuk state JSON kecil antar-call (ID, cursor, ringkasan; maks 256 KiB/nilai, 1 MiB total; hanya tersimpan bila skrip sukses). Jangan simpan data image; tampilkan via `image()` atau tulis ke file via tool.
+- `models` hanya untuk non-LLM via kredensial sesi: `classify()` (choice/score/bool, cek `stopReason`/`errorMessage`, maks 4 concurrent) dan `generateImages()` (tampilkan blok via `image()`, jangan print base64 sebagai teks). Chat model terdaftar tapi tidak bisa dijalankan dari skrip. Cari ID yang valid via `models.getAvailableOfType(type)`.
+- Batas VM 256 MB — filter/agregasi di dalam skrip, jangan akumulasi data besar. Tanpa timer: jangan `await` promise yang tak pernah settle tanpa pending tool call.
+- JEV tetap via `mcpScript` + `await jev.evaluate(...)` sesuai skill `jev`, bukan via `codemode`. Kebijakan data/sensitif dan provenance JEV tetap berlaku.
+- Pola ops-data (contoh: koreksi mapping akun WIP antar-produk, Okt 2026): bungkus batch query SSH/DB + agregasi dalam satu skrip, tampilkan hanya ringkasan via `console.log`; alur backup → dry-run → mutasi → verifikasi jalan tanpa roundtrip LLM. Definisikan helper `B = async (cmd) => (await tools.bash({command: cmd})).output` sekali lalu pakai ulang. Detail tenant tetap di `docs/plan/` (lokal, gitignored).
+
 ## graphify
 
 - Saat user mengetik `/graphify`, baca skill/instruksi terpasang terlebih dahulu.
