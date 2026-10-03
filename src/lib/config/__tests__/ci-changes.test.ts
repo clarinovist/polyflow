@@ -177,6 +177,7 @@ function results(eventName: 'schedule' | 'workflow_dispatch' = 'schedule'): Need
             'lint',
             'build-and-push',
             'return-contract',
+            'assistant-contract',
             'jev-contract',
             'deploy',
         ].map(name => [name, { result: 'success' }])),
@@ -190,7 +191,7 @@ describe('status akhir CI', () => {
     it.each(['failure', 'cancelled', 'skipped'])('menolak gate wajib dengan status %s', status => {
         for (const eventName of ['schedule', 'workflow_dispatch'] as const) {
             for (const name of ['agents-consistency', 'test-shards', 'test', 'lint', 'build-and-push',
-                'return-contract', 'jev-contract', 'deploy']) {
+                'return-contract', 'assistant-contract', 'jev-contract', 'deploy']) {
                 const needs = results(eventName);
                 needs[name].result = status;
                 expect(() => checkStatus(needs, eventName), `${eventName}/${name}`).toThrow();

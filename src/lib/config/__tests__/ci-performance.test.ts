@@ -49,6 +49,7 @@ describe('CI performance guardrails', () => {
             'lint',
             'build-and-push',
             'return-contract',
+            'assistant-contract',
             'jev-contract',
         ]);
         expect(production.jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
@@ -57,6 +58,7 @@ describe('CI performance guardrails', () => {
             'lint',
             'build-and-push',
             'return-contract',
+            'assistant-contract',
             'jev-contract',
         ]) {
             expect(production.jobs[name].needs).toBe('agents-consistency');

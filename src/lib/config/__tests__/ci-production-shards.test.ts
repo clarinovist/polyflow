@@ -93,6 +93,7 @@ describe('production two-shard release gate', () => {
             'lint',
             'build-and-push',
             'return-contract',
+            'assistant-contract',
             'jev-contract',
         ]);
         expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
@@ -103,6 +104,7 @@ describe('production two-shard release gate', () => {
             'lint',
             'build-and-push',
             'return-contract',
+            'assistant-contract',
             'jev-contract',
         ]) {
             expect(jobs[name]['continue-on-error']).toBeUndefined();
