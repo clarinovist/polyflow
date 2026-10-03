@@ -1,0 +1,25 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "incremental": false,
+        "target": "ES2023",
+        "lib": ["ES2023", "DOM"],
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "allowJs": false,
+        "jsx": "react-jsx"
+    },
+    "include": [
+        "workers/assistant/**/*.ts",
+        "src/lib/bot/**/*.ts",
+        "src/lib/core/**/*.ts",
+        "src/lib/auth/**/*.ts",
+        "src/services/auth/**/*.ts",
+        "src/generated/**/*.ts",
+        "src/types/**/*.d.ts",
+        "global.d.ts",
+        "next-env.d.ts"
+    ],
+    "exclude": ["node_modules", "src/**/*.test.ts", "src/**/__tests__/**"]
+}

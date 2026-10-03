@@ -14,6 +14,7 @@ const heavyJobs = [
     'lint',
     'build-and-push',
     'return-contract',
+    'assistant-contract',
     'jev-contract',
 ];
 

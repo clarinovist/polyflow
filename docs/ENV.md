@@ -40,6 +40,14 @@ Source of truth: `.env.example`
 | `LLM_BASE_URL` | No       | OpenAI-compatible endpoint URL | `http://localhost:11434/v1` |
 | `LLM_API_KEY`  | No       | API key for LLM service        | —                           |
 | `LLM_MODEL`    | No       | Model identifier               | `deepseek-r1:7b`            |
+| `LLM_CONTEXT_WINDOW` | Worker | Explicit context window for the configured gateway model | `65536` |
+| `LLM_MAX_TOKENS` | Worker | Maximum output tokens per durable model turn | `4096` |
+| `ASSISTANT_RUNTIME` | Yes in production | `pi-durable` for direct replacement; `legacy` is the manual rollback switch only | `legacy` |
+| `ASSISTANT_WORKER_URL` | App | Private container URL; never browser-facing | `http://assistant-worker:3010` |
+| `ASSISTANT_WORKER_TOKEN` | App + worker | Shared service token, minimum 32 characters; server-only | — |
+| `ASSISTANT_STORAGE_ROOT` | Worker | Persistent per-tenant SQLite root (opaque SHA-256 directories) | `/data/tenants` |
+| `ASSISTANT_MAX_OPEN_HARNESSES` | Worker | Bounded open tenant harness cache | `20` |
+| `ASSISTANT_HARNESS_IDLE_MS` | Worker | Idle close threshold when no task/watch is active | `300000` |
 | `ASSISTANT_JEV_ENABLED` | No | Enable JEV preflight for semantic intent and tool routing | `false` |
 | `SYSTEMONE_ENDPOINT` | No | Pinned TypeSafe System One evaluation endpoint | `https://api.typesafe.ai/v1/systemone` |
 | `SYSTEMONE_API_KEY` | When JEV enabled | Server-only TypeSafe API credential | — |

@@ -29,6 +29,12 @@ coverage
 # Dokumentasi dan arsip historis (tidak dipakai runtime)
 docs
 README.md
+
+# Test-only source is not needed by either runtime image.
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
 scripts/archive
 
 # Secrets & environment — jangan sampai masuk image

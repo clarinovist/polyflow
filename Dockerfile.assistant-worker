@@ -1,0 +1,29 @@
+FROM node:26-alpine AS base
+RUN apk add --no-cache libc6-compat openssl
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npx prisma generate && npm run typecheck:assistant-worker && npm run build:assistant-worker
+
+FROM base AS runner
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 assistant \
+    && mkdir -p /data /app/dist \
+    && chown -R assistant:nodejs /data /app
+COPY --from=deps --chown=assistant:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=assistant:nodejs /app/dist/assistant-worker ./dist/assistant-worker
+COPY --from=builder --chown=assistant:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=assistant:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=assistant:nodejs /app/scripts/backup-assistant-sqlite.mjs ./scripts/backup-assistant-sqlite.mjs
+COPY --chown=assistant:nodejs package.json ./package.json
+USER assistant
+EXPOSE 3010
+ENV ASSISTANT_WORKER_HOST=0.0.0.0 ASSISTANT_WORKER_PORT=3010 ASSISTANT_STORAGE_ROOT=/data/tenants
+CMD ["node", "dist/assistant-worker/index.mjs"]

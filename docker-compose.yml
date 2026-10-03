@@ -14,8 +14,14 @@ services:
       - AUTH_SECRET=${AUTH_SECRET}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - SKIP_MIGRATIONS=${SKIP_MIGRATIONS:-0}
+      - ASSISTANT_RUNTIME=${ASSISTANT_RUNTIME:-legacy}
+      - ASSISTANT_WORKER_URL=http://assistant-worker:3010
+      - ASSISTANT_WORKER_TOKEN=${ASSISTANT_WORKER_TOKEN:?Set ASSISTANT_WORKER_TOKEN in .env}
     depends_on:
-      - db
+      db:
+        condition: service_started
+      assistant-worker:
+        condition: service_healthy
     volumes:
       # Persist pre-migration DB snapshots (survives container recreate).
       # Host dir must be owned by uid 1001 (nextjs) so the app can write.
@@ -23,6 +29,60 @@ services:
     networks:
       - default
       - ceritakita-network
+
+
+  assistant-worker:
+    image: ${ASSISTANT_WORKER_IMAGE:-ghcr.io/clarinovist/polyflow-assistant-worker:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.assistant-worker
+    container_name: polyflow-assistant-worker
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - ASSISTANT_WORKER_TOKEN=${ASSISTANT_WORKER_TOKEN:?Set ASSISTANT_WORKER_TOKEN in .env}
+      - ASSISTANT_STORAGE_ROOT=/data/tenants
+      - ASSISTANT_WORKER_HOST=0.0.0.0
+      - ASSISTANT_WORKER_PORT=3010
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - LLM_CONTEXT_WINDOW=${LLM_CONTEXT_WINDOW:-65536}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-4096}
+      - SYSTEMONE_ENDPOINT=${SYSTEMONE_ENDPOINT:-https://api.typesafe.ai/v1/systemone}
+      - SYSTEMONE_API_KEY=${SYSTEMONE_API_KEY:-}
+      - ASSISTANT_JEV_ENABLED=${ASSISTANT_JEV_ENABLED:-false}
+    expose:
+      - "3010"
+    volumes:
+      - assistant_durable_data:/data
+      - /opt/backups/polyflow-assistant:/backups
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3010/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,uid=1001,gid=1001,mode=1770
+    stop_grace_period: 45s
+    cpus: 1.0
+    mem_limit: 1g
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.00"
+    networks:
+      - default
 
   db:
     image: postgres:15-alpine
@@ -38,6 +98,7 @@ services:
 
 volumes:
   postgres_data:
+  assistant_durable_data:
 
 networks:
   ceritakita-network:
