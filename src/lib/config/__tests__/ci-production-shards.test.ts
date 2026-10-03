@@ -82,8 +82,11 @@ describe('production two-shard release gate', () => {
         expect(shardUpload?.with?.path).toBe('coverage/ci-benchmark/blob.json\ncoverage/ci-benchmark/result.json\ncoverage/ci-benchmark/metrics.jsonl\n');
         const mergedUpload = jobs.test.steps.find(item => item.uses?.startsWith('actions/upload-artifact'));
         expect(mergedUpload?.with?.path).toBe('coverage/ci-merged/result.json\ncoverage/ci-merged/metrics.jsonl\ncoverage/ci-merged/coverage/coverage-final.json\n');
+        // Transport pin: upload@v6 / download@v7 are the first majors that run on
+        // Node 24 (v4–v5 upload, v4–v6 download still target deprecated Node 20).
+        // Shard uploads and the merged download must stay on this same pair.
         for (const item of [...shards.steps, ...jobs.test.steps].filter(item => /actions\/(upload|download)-artifact/.test(item.uses || ''))) {
-            expect(item.uses).toMatch(/@v4$/);
+            expect(item.uses).toMatch(item.uses!.includes('upload-artifact') ? /@v6$/ : /@v7$/);
         }
     });
 

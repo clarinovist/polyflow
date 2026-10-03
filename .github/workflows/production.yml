@@ -12,6 +12,12 @@ env:
   REGISTRY: ghcr.io
   REPO: ${{ github.repository }}
 
+# Every job pins the dated `ubuntu-24.04` label instead of `ubuntu-latest` so the
+# runner-image migration to Ubuntu 26 (starting 2026-10-19) cannot change release
+# behaviour unannounced. Trial `ubuntu-26.04` via a separate dispatch before switching.
+# Artifact actions are pinned to the first node24 majors (upload@v6, download@v7);
+# upgrading further is a separate change because download@v8 makes digest mismatches fatal.
+
 permissions:
   contents: write
   packages: write
@@ -25,7 +31,7 @@ jobs:
     name: Release Please
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'schedule' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: googleapis/release-please-action@v5
         with:
@@ -39,7 +45,7 @@ jobs:
   # ─────────────────────────────────────────────
   agents-consistency:
     name: AGENTS.md Consistency
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -73,7 +79,7 @@ jobs:
     name: Lint
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -100,7 +106,7 @@ jobs:
     name: Test shard ${{ matrix.shard }}
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -132,7 +138,7 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
         run: node scripts/ci/benchmark.mjs run shards "$SHARD"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-${{ matrix.artifact }}
           path: |
@@ -147,7 +153,7 @@ jobs:
     name: Test & Validate
     needs: [agents-consistency, test-shards]
     if: ${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -183,14 +189,14 @@ jobs:
       - name: Record runner and runtime (allowlisted fields only)
         run: node scripts/ci/metrics.mjs hardware
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*
           path: coverage/ci-input
           merge-multiple: false
       - name: Run Tests with Coverage
         run: node scripts/ci/benchmark.mjs merge coverage/ci-input
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-merged
           path: |
@@ -225,7 +231,7 @@ jobs:
     name: Return PostgreSQL Contract
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:15-alpine
@@ -280,7 +286,7 @@ jobs:
     name: Durable Assistant PostgreSQL & Crash Contract
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -345,7 +351,7 @@ jobs:
     name: JEV Provider Contract
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -377,7 +383,7 @@ jobs:
     name: Build & Push Docker Image
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       digest: ${{ steps.image.outputs.digest }}
       worker-digest: ${{ steps.worker-image.outputs.digest }}
@@ -428,7 +434,7 @@ jobs:
     name: Deploy to VPS
     needs: [test, lint, build-and-push, return-contract, assistant-contract, jev-contract]
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: production-deploy
       cancel-in-progress: false
@@ -515,7 +521,7 @@ jobs:
     name: Status CI
     if: ${{ always() }}
     needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, release-please]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -536,7 +542,7 @@ jobs:
     name: Pipeline timing
     if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
     needs: [test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, agents-consistency, release-please]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       actions: read

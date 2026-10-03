@@ -23,7 +23,7 @@ concurrency:
 jobs:
   candidates:
     name: Benchmark ${{ matrix.candidate }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +45,7 @@ jobs:
           CANDIDATE: ${{ matrix.candidate }}
         run: node scripts/ci/benchmark.mjs run "$CANDIDATE"
       - name: Upload current candidate only
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-${{ matrix.candidate }}
           path: |
@@ -57,7 +57,7 @@ jobs:
 
   shards:
     name: Benchmark shards ${{ matrix.shard }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -82,7 +82,7 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
         run: node scripts/ci/benchmark.mjs run shards "$SHARD"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-${{ matrix.artifact }}
           path: |
@@ -97,7 +97,7 @@ jobs:
     # A failed experimental worker must not suppress successful shard measurements.
     # Default success() still requires BOTH shard jobs to pass.
     needs: shards
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -109,7 +109,7 @@ jobs:
           cache: npm
       - run: node scripts/ci/metrics.mjs install npm ci
       - run: node scripts/ci/metrics.mjs prisma npx prisma generate
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           # No run-id/token: only artifacts from THIS run. Attempt and SHA also exact.
           pattern: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*
@@ -117,7 +117,7 @@ jobs:
           merge-multiple: false
       - name: Require both shards, merge once, enforce global thresholds and reconcile replay
         run: node scripts/ci/benchmark.mjs merge coverage/ci-input
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: shard-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           path: |
@@ -132,7 +132,7 @@ jobs:
     # Run even after failure/skip so this named gate is explicitly red, not skipped.
     if: ${{ always() }}
     needs: [candidates, shard-coverage]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require every candidate and complete shard coverage
         env:
@@ -149,12 +149,12 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       # Comparison uses only Node built-ins and manifests: no install or test rerun.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: bench-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-single-*
           path: coverage/ci-comparators
           merge-multiple: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: shard-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           path: coverage/ci-shard-result
@@ -166,7 +166,7 @@ jobs:
   timing:
     if: ${{ always() }}
     needs: [candidates, shards, shard-coverage, test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
