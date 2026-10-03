@@ -1,0 +1,75 @@
+name: Push CI
+
+# Fast feedback on push to main: lint + typecheck. Full coverage, PostgreSQL
+# contracts and the image build stay in the release pipeline (production.yml).
+# Docs-only pushes skip the heavy steps via the shared classifier in
+# scripts/ci/changes.mjs, so documentation edits do not pay for a full install.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Push beruntun membatalkan run lama: hanya push terakhir yang dijalankan.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Palang ringan selalu aktif, tanpa npm ci atau service database.
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-26.04
+    outputs:
+      full: ${{ steps.changes.outputs.full }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run AGENTS.md consistency check
+        run: bash scripts/check-agents-consistency.sh
+      - name: Check Node version consistency
+        run: bash scripts/check-node-version.sh
+      - name: Pilih jalur dan periksa dokumen aman
+        id: changes
+        run: node scripts/ci/changes.mjs
+
+  # Selalu selesai (sukses/gagal) bila classify sukses, agar branch protection
+  # bisa memakai job ini sebagai required check — termasuk push docs-only.
+  lint-typecheck:
+    name: Lint & Typecheck
+    needs: classify
+    if: ${{ needs.classify.result == 'success' }}
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Skip heavy checks for docs-only pushes
+        if: needs.classify.outputs.full != 'true'
+        run: echo "Docs-only push — lint/typecheck not required."
+      - uses: actions/checkout@v7
+        if: needs.classify.outputs.full == 'true'
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        if: needs.classify.outputs.full == 'true'
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+        if: needs.classify.outputs.full == 'true'
+      # Required: eslint-config-next type-aware rules resolve imports that
+      # include the generated Prisma client.
+      - name: Generate Prisma Client
+        if: needs.classify.outputs.full == 'true'
+        run: npx prisma generate
+      - name: Run ESLint
+        if: needs.classify.outputs.full == 'true'
+        run: npm run lint
+      - name: Generate route types and validate TypeScript
+        if: needs.classify.outputs.full == 'true'
+        run: npx next typegen && npx tsc --noEmit

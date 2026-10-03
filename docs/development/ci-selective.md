@@ -5,15 +5,18 @@ perubahan di branch tanpa build atau deploy. Workflow merilis HEAD `main` sekali
 per hari kerja pada `14:17 UTC` (`21:17 WIB`, Senin–Jumat), atau saat operator
 menjalankan dispatch manual untuk kebutuhan mendesak.
 
-Pengaturan ini mengurangi frekuensi pipeline, bukan kualitas pemeriksaannya. Setiap
-scheduled/manual release tetap menjalankan seluruh gate sebelum image dipromosikan
-atau VPS diubah.
+Push biasa menjalankan **Push CI** (`ci.yml`): lint + typecheck cepat untuk umpan
+balik sebelum rilis, tanpa build image atau deploy. Push yang seluruh delta-nya
+dokumen aman melewati langkah berat lewat classifier yang sama
+(`scripts/ci/changes.mjs`). Pengaturan ini mengurangi frekuensi pipeline rilis,
+bukan kualitas pemeriksaannya. Setiap scheduled/manual release tetap menjalankan
+seluruh gate sebelum image dipromosikan atau VPS diubah.
 
 ## Jalur release
 
 | Event | Hasil |
 | --- | --- |
-| Push ke `main` | Tidak menjalankan workflow dan tidak deploy; commit menunggu release berikutnya |
+| Push ke `main` | Push CI (lint + typecheck; skip langkah berat untuk docs-only); tidak build/deploy; commit menunggu release berikutnya |
 | Schedule hari kerja | Full gates, Release Please, build image, lalu deploy HEAD `main` |
 | Manual **Run workflow** pada `main` | Full gates, build image, lalu deploy; Release Please dilewati |
 

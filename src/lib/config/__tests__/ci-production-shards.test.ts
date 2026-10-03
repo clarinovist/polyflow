@@ -100,7 +100,9 @@ describe('production two-shard release gate', () => {
             'jev-contract',
         ]);
         expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
-        expect(jobs.timing.needs).toContain('test-shards');
+        const timing = jobs.status.steps.find(step => step.name === 'Pipeline timing report')!;
+        expect(timing['continue-on-error']).toBe(true);
+        expect(jobs.status.needs).toContain('test-shards');
         for (const name of [
             'test-shards',
             'test',

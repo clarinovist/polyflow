@@ -228,7 +228,9 @@ jobs:
 
   # Real transaction gate for the one-step receipt + receivable workflow.
   return-contract:
-    name: Return PostgreSQL Contract
+    # ID stays `return-contract` (referenced by needs/heavyJobs/tests); the
+    # display name now reflects that full TypeScript validation also lives here.
+    name: Return PostgreSQL Contract & Typecheck
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
@@ -524,6 +526,7 @@ jobs:
     runs-on: ubuntu-26.04
     permissions:
       contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -536,21 +539,13 @@ jobs:
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
         run: node scripts/ci/changes.mjs status
-
-  # Observability only, never a replacement for deploy's required gates.
-  timing:
-    name: Pipeline timing
-    if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
-    needs: [test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, agents-consistency, release-please]
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/github-script@v8
+      # Observability only, never a replacement for deploy's required gates.
+      # Merged from the former `timing` job; continue-on-error keeps a timeline
+      # failure from turning the fail-closed Status CI gate red.
+      - name: Pipeline timing report
+        if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
+        continue-on-error: true
+        uses: actions/github-script@v8
         with:
           script: |
             await require('./scripts/ci/timeline.cjs').report({ github, context, core });

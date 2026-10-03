@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 
-interface Step { id?: string; name?: string; run?: string; uses?: string; if?: string; env?: Record<string, string>; with?: Record<string, unknown> }
+interface Step { id?: string; name?: string; run?: string; uses?: string; if?: string; env?: Record<string, string>; with?: Record<string, unknown>; 'continue-on-error'?: boolean }
 interface Job { name: string; needs?: string | string[]; if?: string; steps: Step[]; permissions?: Record<string, string>; outputs?: Record<string, string> }
 const require = createRequire(import.meta.url);
 const { load } = require('js-yaml') as { load(text: string): { on: Record<string, unknown>; jobs: Record<string, Job> } };
@@ -59,20 +59,26 @@ describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
         expect(jobs['release-please'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'schedule' }}");
         expect(JSON.stringify(jobs.deploy)).toContain('release-guard.cjs');
         expect(JSON.stringify(jobs.deploy)).toContain('needs.build-and-push.outputs.digest');
-        expect(JSON.stringify(jobs)).not.toContain('continue-on-error');
+        // continue-on-error is allowed only on the observability timing step, never on a gate.
+        const continueOnErrorSteps = Object.values(jobs).flatMap(job => job.steps).filter(step => step['continue-on-error']);
+        expect(continueOnErrorSteps.map(step => step.name)).toEqual(['Pipeline timing report']);
     });
     it('status akhir selalu mengevaluasi seluruh gate tanpa npm install atau secrets', () => {
         const status = jobs.status;
         expect(status.name).toBe('Status CI'); expect(status.if).toBe('${{ always() }}');
         expect(status.needs).toEqual(['agents-consistency', ...heavy, 'deploy', 'release-please']);
-        expect(status.permissions).toEqual({ contents: 'read' });
+        expect(status.permissions).toEqual({ contents: 'read', actions: 'read' });
         expect(status.steps[0].with).toEqual({ ref: '${{ github.sha }}', 'persist-credentials': false });
         const step = status.steps.find(step => step.name === 'Validasi hasil jalur CI')!;
         expect(step.env).toEqual({ CI_NEEDS: '${{ toJSON(needs) }}' });
         expect(step.run).toBe('node scripts/ci/changes.mjs status');
         expect(JSON.stringify(status)).not.toMatch(/npm ci|npx|secrets\./);
-        expect(jobs.timing.if).toBe("${{ always() && needs.agents-consistency.outputs.full == 'true' }}");
-        expect(jobs.timing.needs).toContain('agents-consistency');
+        // Timing merged into status as an observability step (continue-on-error).
+        const timing = status.steps.find(step => step.name === 'Pipeline timing report')!;
+        expect(timing['continue-on-error']).toBe(true);
+        expect(timing.if).toBe("${{ always() && needs.agents-consistency.outputs.full == 'true' }}");
+        expect(timing.uses).toBe('actions/github-script@v8');
+        expect(status.needs).toContain('agents-consistency');
     });
     it.each(['schedule', 'workflow_dispatch'])('menjalankan shell status aktual untuk %s', eventName => {
         const needs: Record<string, { result: string; outputs?: { full: string } }> = {
