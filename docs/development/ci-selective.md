@@ -75,3 +75,11 @@ gatenya sukses, atau build langsung di VPS.
 Sebelum operasi produksi, baca runbook privat `docs/ops/vps.md`; setelah deploy,
 verifikasi image yang berjalan, health, migration status, dan log startup. CI hijau
 sendiri bukan bukti container terbaru aktif.
+
+## Branch protection
+
+`main` dilindungi: push wajib memiliki required check `Classify changes` dan
+`Lint & Typecheck` (job `ci.yml`) yang sukses, serta dilarang force-push dan
+delete. Owner tetap dapat bypass (`enforce_admins: false`) bila perlu. Push
+docs-only tetap diterima — `Lint & Typecheck` melewati langkah berat lewat
+classifier yang sama.
