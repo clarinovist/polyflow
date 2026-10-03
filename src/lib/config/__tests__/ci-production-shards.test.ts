@@ -97,7 +97,6 @@ describe('production two-shard release gate', () => {
             'build-and-push',
             'return-contract',
             'assistant-contract',
-            'jev-contract',
         ]);
         expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
         const timing = jobs.status.steps.find(step => step.name === 'Pipeline timing report')!;
@@ -110,7 +109,6 @@ describe('production two-shard release gate', () => {
             'build-and-push',
             'return-contract',
             'assistant-contract',
-            'jev-contract',
         ]) {
             expect(jobs[name]['continue-on-error']).toBeUndefined();
             for (const item of jobs[name].steps) expect(item['continue-on-error']).toBeUndefined();

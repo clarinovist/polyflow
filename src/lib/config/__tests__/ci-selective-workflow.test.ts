@@ -15,7 +15,6 @@ const heavy = [
     'build-and-push',
     'return-contract',
     'assistant-contract',
-    'jev-contract',
 ];
 
 describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
@@ -52,7 +51,6 @@ describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
             'build-and-push',
             'return-contract',
             'assistant-contract',
-            'jev-contract',
         ]);
         expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
         expect(jobs['release-please'].needs).toBe('agents-consistency');

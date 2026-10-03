@@ -50,7 +50,6 @@ describe('CI performance guardrails', () => {
             'build-and-push',
             'return-contract',
             'assistant-contract',
-            'jev-contract',
         ]);
         expect(production.jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
         for (const name of [
@@ -59,7 +58,6 @@ describe('CI performance guardrails', () => {
             'build-and-push',
             'return-contract',
             'assistant-contract',
-            'jev-contract',
         ]) {
             expect(production.jobs[name].needs).toBe('agents-consistency');
             expect(production.jobs[name].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");

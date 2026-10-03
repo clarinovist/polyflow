@@ -99,6 +99,14 @@ jobs:
       - name: Run ESLint
         run: node scripts/ci/metrics.mjs lint npm run lint
 
+      # JEV provider contract merged into lint (Fase 2): still a required deploy
+      # gate — deploy needs `lint` — just no longer a separate runner. Coupling is
+      # unchanged: deploy already depended on the JEV contract passing.
+      - name: Verify pinned JEV provider contract
+        env:
+          SYSTEMONE_API_KEY: ${{ secrets.SYSTEMONE_API_KEY }}
+        run: node scripts/smoke-assistant-jev.mjs
+
   # ─────────────────────────────────────────────
   # 2b. Tests
   # ─────────────────────────────────────────────
@@ -349,28 +357,9 @@ jobs:
           wait "$pid"
           trap - EXIT
 
-  jev-contract:
-    name: JEV Provider Contract
-    needs: agents-consistency
-    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-      - run: npm ci
-      - name: Verify pinned JEV preflight contract
-        env:
-          SYSTEMONE_API_KEY: ${{ secrets.SYSTEMONE_API_KEY }}
-        run: node scripts/smoke-assistant-jev.mjs
+  # ─────────────────────────────────────────────
+  # 2c. JEV provider contract merged into `lint` (see lint job, final step).
+  # ─────────────────────────────────────────────
 
   # ─────────────────────────────────────────────
   # 3. Build & Push Docker Image
@@ -434,7 +423,7 @@ jobs:
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
-    needs: [test, lint, build-and-push, return-contract, assistant-contract, jev-contract]
+    needs: [test, lint, build-and-push, return-contract, assistant-contract]
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-26.04
     concurrency:
@@ -522,7 +511,7 @@ jobs:
   status:
     name: Status CI
     if: ${{ always() }}
-    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, assistant-contract, jev-contract, deploy, release-please]
+    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, assistant-contract, deploy, release-please]
     runs-on: ubuntu-26.04
     permissions:
       contents: read

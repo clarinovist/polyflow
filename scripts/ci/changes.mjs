@@ -15,7 +15,6 @@ const heavyJobs = [
     'build-and-push',
     'return-contract',
     'assistant-contract',
-    'jev-contract',
 ];
 
 function git(root, ...args) {

@@ -5,10 +5,11 @@ perubahan di branch tanpa build atau deploy. Workflow merilis HEAD `main` sekali
 per hari kerja pada `14:17 UTC` (`21:17 WIB`, Senin–Jumat), atau saat operator
 menjalankan dispatch manual untuk kebutuhan mendesak.
 
-Push biasa menjalankan **Push CI** (`ci.yml`): lint + typecheck cepat untuk umpan
-balik sebelum rilis, tanpa build image atau deploy. Push yang seluruh delta-nya
-dokumen aman melewati langkah berat lewat classifier yang sama
-(`scripts/ci/changes.mjs`). Pengaturan ini mengurangi frekuensi pipeline rilis,
+Push biasa menjalankan **Push CI** (`ci.yml`): lint + typecheck + seluruh test suite
+(tanpa coverage) untuk umpan balik sebelum rilis, tanpa build image atau deploy.
+Test PostgreSQL contract melewati diri sendiri (`describe.skipIf`) tanpa DB. Push
+yang seluruh delta-nya dokumen aman melewati langkah berat lewat classifier yang
+sama (`scripts/ci/changes.mjs`). Pengaturan ini mengurangi frekuensi pipeline rilis,
 bukan kualitas pemeriksaannya. Setiap scheduled/manual release tetap menjalankan
 seluruh gate sebelum image dipromosikan atau VPS diubah.
 
@@ -27,7 +28,7 @@ Workflow harus dijalankan pada `main`. Deploy memerlukan:
 - dua shard seluruh test dan merge coverage global **71/63/75/72**;
 - validasi Nginx;
 - PostgreSQL contract + full TypeScript validation;
-- JEV provider contract; dan
+- JEV provider contract (tergabung di job `lint`); dan
 - image production hasil Buildx.
 
 `Status CI` fail-closed: schedule/dispatch dengan gate gagal, cancelled, atau skip

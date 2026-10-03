@@ -73,3 +73,26 @@ jobs:
       - name: Generate route types and validate TypeScript
         if: needs.classify.outputs.full == 'true'
         run: npx next typegen && npx tsc --noEmit
+
+  # A+: full test suite on push (no coverage). PostgreSQL contract tests
+  # self-skip via describe.skipIf when no DB URL is set, so this job needs no
+  # database service. Skipped entirely on docs-only pushes.
+  test:
+    name: Test
+    needs: classify
+    if: ${{ needs.classify.result == 'success' && needs.classify.outputs.full == 'true' }}
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Run test suite
+        run: npm run test
