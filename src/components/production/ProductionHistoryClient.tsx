@@ -23,6 +23,7 @@ import {
     List,
     LayoutList,
     Download,
+    Moon,
     Users,
     Leaf,
     Scissors,
@@ -45,6 +46,7 @@ interface ExecutionData {
     scrapProngkolQty: number;
     startTime: string | null;
     endTime: string | null;
+    createdAt: string | null;
     notes: string | null;
     photoUrl: string | null;
     status: string;
@@ -116,6 +118,28 @@ function getGroupAnomalies(
     if (scrapPct > anomalyPercent) anomalies.push('scrap_high');
     if (group.photoCount === 0) anomalies.push('no_photo');
     return anomalies;
+}
+
+function renderRecordedNote(exec: ExecutionData) {
+    if (!exec.createdAt) return null;
+    const ref = exec.startTime ?? exec.endTime;
+    if (!ref) return null;
+    if (
+        formatWIB(exec.createdAt, 'yyyy-MM-dd') ===
+        formatWIB(ref, 'yyyy-MM-dd')
+    )
+        return null;
+    const recorded = formatWIB(exec.createdAt, 'dd MMM HH:mm');
+    const bucket = formatWIB(ref, 'dd MMM');
+    return (
+        <span
+            className="text-[10px] text-muted-foreground/70 ml-1 inline-flex items-center gap-0.5"
+            title={`Dicatat ${recorded} — masuk laporan tanggal ${bucket}`}
+        >
+            <Moon className="h-2.5 w-2.5" />
+            Dicatat {recorded}
+        </span>
+    );
 }
 
 function AnomalyBadge({ type }: { type: AnomalyType }) {
@@ -713,6 +737,7 @@ function ExecutionDetailRow({
                     <span className="text-[10px] text-muted-foreground/70 ml-1">
                         ({formatDuration(exec.startTime, exec.endTime)})
                     </span>
+                    {renderRecordedNote(exec)}
                 </div>
                 {exec.operator && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -886,6 +911,7 @@ function TimelineRow({
                 <span className="text-[10px] text-muted-foreground/70">
                     ({formatDuration(exec.startTime, exec.endTime)})
                 </span>
+                {renderRecordedNote(exec)}
             </div>
 
             <Link

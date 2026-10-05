@@ -315,6 +315,7 @@ type ProductionHistoryExecution = {
     scrapProngkolQty: number;
     startTime: string | null;
     endTime: string | null;
+    createdAt: string | null;
     notes: string | null;
     photoUrl: string | null;
     status: string;
@@ -571,6 +572,7 @@ export const getProductionHistory = withTenant(
                     scrapProngkolQty: Number(exec.scrapProngkolQty || 0),
                     startTime: exec.startTime?.toISOString() || null,
                     endTime: exec.endTime?.toISOString() || null,
+                    createdAt: exec.createdAt?.toISOString() || null,
                     notes: exec.notes,
                     photoUrl: exec.photoUrl,
                     status: exec.status,
