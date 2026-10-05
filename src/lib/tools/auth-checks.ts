@@ -81,6 +81,25 @@ export async function requireAuth() {
             { requireLocalBinding },
         );
     }
+    const sessionTenantId = (session.user as { tenantId?: string })
+        .tenantId;
+    const sessionSubdomain = (
+        session.user as { tenantSubdomain?: string }
+    ).tenantSubdomain;
+    if (!tenant && (sessionTenantId || session.user.globalAccountId)) {
+        // Fail closed: this session belongs to a tenant, but the request
+        // carries no tenant context (e.g. root/www domain). Never fall back
+        // to MAIN and never destroy the session — bounce to login so the
+        // user can continue on the right subdomain (Oct 2026, mobile loop).
+        console.error(
+            '[requireAuth] Tenant-bound session without tenant context, redirecting to /login',
+            {
+                userId: session.user.id,
+                tenantSubdomain: sessionSubdomain ?? null,
+            },
+        );
+        redirect('/login');
+    }
     let user = await (tenant?.tenantDb || prisma).user.findUnique({
         where: { id: session.user.id },
         select: { id: true },

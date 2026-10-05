@@ -106,6 +106,32 @@ describe('requireAuth', () => {
         expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
     });
 
+    it('should redirect to login (not logout) when a tenant-bound session has no tenant context', async () => {
+        // Arrange — session belongs to a tenant, but the request is on the
+        // root domain (no subdomain): fail closed to /login, never MAIN
+        // fallback, never destroy the session. Default headers mock uses
+        // host polyflow.uk.
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        const { redirect } = await import('next/navigation');
+        const mockSession = {
+            user: {
+                id: 'user-123',
+                tenantId: 'tenant-acme',
+                tenantSubdomain: 'acme',
+            },
+        };
+
+        vi.mocked(auth).mockResolvedValue(mockSession as any);
+        vi.mocked(redirect).mockImplementationOnce(() => {
+            throw new Error('REDIRECT:/login');
+        });
+
+        // Act & Assert
+        await expect(requireAuth()).rejects.toThrow('REDIRECT:/login');
+        expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
     it('should return session when user is valid', async () => {
         // Arrange
         const { auth } = await import('@/auth');
