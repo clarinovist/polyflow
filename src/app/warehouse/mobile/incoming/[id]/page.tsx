@@ -4,6 +4,11 @@ import { listWarehouseAttachments } from '@/actions/warehouse/operational-attach
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
 import { MobileReceiptClient } from './MobileReceiptClient';
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getPurchaseOrder = withTenantPage(async (id: string) => {
+    return PurchaseService.getPurchaseOrderById(id);
+});
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -15,7 +20,7 @@ export default async function WarehouseMobileIncomingDetailPage({
     const { id } = await params;
 
     const [po, locationsRes, attachmentsRes] = await Promise.all([
-        PurchaseService.getPurchaseOrderById(id),
+        getPurchaseOrder(id),
         getLocations(),
         listWarehouseAttachments({ purchaseOrderId: id }),
     ]);
