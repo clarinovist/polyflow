@@ -5,6 +5,7 @@ import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { productionOutputSchema } from '@/lib/schemas/production';
+import { formatShiftOptionLabel } from '@/lib/production/shift-label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -405,30 +406,7 @@ export default function PotongPlongProductionForm({
                                                                     key={s.id}
                                                                     value={s.id}
                                                                 >
-                                                                    {
-                                                                        s.shiftName
-                                                                    }{' '}
-                                                                    (
-                                                                    {new Date(
-                                                                        s.startTime,
-                                                                    ).toLocaleTimeString(
-                                                                        'id-ID',
-                                                                        {
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit',
-                                                                        },
-                                                                    )}
-                                                                    –
-                                                                    {new Date(
-                                                                        s.endTime,
-                                                                    ).toLocaleTimeString(
-                                                                        'id-ID',
-                                                                        {
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit',
-                                                                        },
-                                                                    )}
-                                                                    )
+                                                                    {formatShiftOptionLabel(s)}
                                                                 </SelectItem>
                                                             ),
                                                         )}

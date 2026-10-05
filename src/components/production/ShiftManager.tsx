@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { AlertTriangle, Plus, Trash2, Users } from 'lucide-react';
+import { BulkGenerateShiftsDialog } from './BulkGenerateShiftsDialog';
 import {
     addProductionShift,
     deleteProductionShift,
@@ -92,14 +93,24 @@ export function ShiftManager({
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Shift produksi</h3>
                 {!readOnly && (
-                    <AddShiftDialog
-                        orderId={orderId}
-                        operators={operators}
-                        helpers={helpers}
-                        workShifts={workShifts}
-                        machines={machines}
-                        onOpenChange={_setIsAdding}
-                    />
+                    <div className="flex gap-2">
+                        <BulkGenerateShiftsDialog
+                            orderId={orderId}
+                            existingStartMs={shifts
+                                .map((s) => new Date(s.startTime).getTime())
+                                .filter((ms) => Number.isFinite(ms))}
+                            templates={workShifts}
+                            operators={operators}
+                        />
+                        <AddShiftDialog
+                            orderId={orderId}
+                            operators={operators}
+                            helpers={helpers}
+                            workShifts={workShifts}
+                            machines={machines}
+                            onOpenChange={_setIsAdding}
+                        />
+                    </div>
                 )}
             </div>
 

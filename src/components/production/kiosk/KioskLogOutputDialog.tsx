@@ -32,6 +32,7 @@ import {
 } from '@/lib/utils/production-units';
 import { Unit } from '@prisma/client';
 import { kioskLabels } from '@/lib/labels';
+import { formatShiftOptionLabel } from '@/lib/production/shift-label';
 import { CameraCapture } from '@/components/ui/camera-capture';
 import { KioskStepHeader } from '@/components/kiosk/KioskStepHeader';
 import {
@@ -198,9 +199,9 @@ export function KioskLogOutputDialog({
         });
     })();
 
-    // Auto-select shift: prefer operator's active shift, then operator's shift (any time),
-    // then latest shift overall (shifts prop is sorted startTime asc from server —
-    // mirrors findLatestShiftForOrder fallback used server-side in startExecution).
+    // Auto-select shift: hanya shift AKTIF (milik operator dulu, lalu shift aktif mana pun).
+    // Bila tidak ada shift aktif, TIDAK auto-pilih (anti tempel shift basi) — operator wajib
+    // memilih manual di picker (lihat validasi submitOutput).
     const autoSelectedShift = (() => {
         if (shifts.length === 0) return null;
         const now = Date.now();
@@ -214,12 +215,10 @@ export function KioskLogOutputDialog({
                 (s) => s.operatorId === operatorId && isActive(s),
             );
             if (activeByOperator) return activeByOperator;
-            const byOperator = shifts.find((s) => s.operatorId === operatorId);
-            if (byOperator) return byOperator;
         }
         const activeAny = shifts.find(isActive);
         if (activeAny) return activeAny;
-        return shifts[shifts.length - 1]; // fallback: latest shift overall (findLatestShiftForOrder equivalent)
+        return null;
     })();
 
     const unitMeta = getProductionUnitMeta({
@@ -321,8 +320,9 @@ export function KioskLogOutputDialog({
 
         const effectiveShiftId = selectedShiftId || autoSelectedShift?.id;
 
-        // Shift wajib untuk mode non-generik (individual/conversion)
-        if (mode !== 'GENERIC' && !effectiveShiftId) {
+        // Shift wajib untuk mode non-generik (individual/conversion), dan selalu wajib
+        // dipilih manual bila tidak ada shift aktif (anti tempel shift basi).
+        if ((mode !== 'GENERIC' || !hasActiveShiftByTime) && !effectiveShiftId) {
             toast.error(kioskLabels.shiftWajibMessage);
             return;
         }
@@ -1052,7 +1052,7 @@ export function KioskLogOutputDialog({
                                     >
                                         {shifts.map((s) => (
                                             <option key={s.id} value={s.id}>
-                                                {s.shiftName}
+                                                {formatShiftOptionLabel(s)}
                                             </option>
                                         ))}
                                     </select>

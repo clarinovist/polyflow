@@ -32,6 +32,7 @@ import {
 } from '@/lib/utils/production-units';
 import { Unit } from '@prisma/client';
 import { productionLabels } from '@/lib/labels';
+import { formatShiftOptionLabel } from '@/lib/production/shift-label';
 import { getProductionShiftsByOrder } from '@/actions/production/production-shifts';
 
 const bulkSchema = z.object({
@@ -407,30 +408,7 @@ export default function HdProductionForm({
                                                                     key={s.id}
                                                                     value={s.id}
                                                                 >
-                                                                    {
-                                                                        s.shiftName
-                                                                    }{' '}
-                                                                    (
-                                                                    {new Date(
-                                                                        s.startTime,
-                                                                    ).toLocaleTimeString(
-                                                                        'id-ID',
-                                                                        {
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit',
-                                                                        },
-                                                                    )}
-                                                                    –
-                                                                    {new Date(
-                                                                        s.endTime,
-                                                                    ).toLocaleTimeString(
-                                                                        'id-ID',
-                                                                        {
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit',
-                                                                        },
-                                                                    )}
-                                                                    )
+                                                                    {formatShiftOptionLabel(s)}
                                                                 </SelectItem>
                                                             ),
                                                         )}
