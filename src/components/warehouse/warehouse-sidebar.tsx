@@ -31,6 +31,7 @@ interface WarehouseSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 const warehouseLinks = [
@@ -113,6 +114,7 @@ export function WarehouseSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: WarehouseSidebarProps) {
     const filteredGroups = filterNavGroups(warehouseLinks, permissions);
 
@@ -128,6 +130,7 @@ export function WarehouseSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

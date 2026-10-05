@@ -37,7 +37,12 @@ type PromiseRow = {
     userId: string;
 };
 
-export default async function SalesMobileCollectionPage() {
+export default async function SalesMobileCollectionPage({
+    searchParams,
+}: {
+    searchParams?: Promise<{ invoiceId?: string }>;
+}) {
+    const invoiceId = (await searchParams)?.invoiceId ?? null;
     const [invoicesRes, promisesRes] = await Promise.all([
         getMyFieldReceivables(),
         getMyOverduePromisesAction(),
@@ -94,6 +99,7 @@ export default async function SalesMobileCollectionPage() {
         <CollectionListClient
             invoices={serializedInvoices}
             overduePromises={serializedPromises}
+            initialInvoiceId={invoiceId}
         />
     );
 }

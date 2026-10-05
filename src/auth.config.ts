@@ -275,24 +275,86 @@ export const authConfig = {
                             else if (isMobileAllowlistedPath(pathname)) {
                                 // fall through — RBAC will be checked by workspace/role logic
                             }
-                            // Sales soft-landing — /sales/* → /field/sales
+                            // Sales soft-landing — /sales/* → /field/sales.
+                            // Pertahankan suffix operasional + query agar konteks
+                            // tidak hilang (mis. /sales/orders/123 →
+                            // /field/sales/orders/123). Suffix non-operasional
+                            // jatuh ke hub agar tidak 404.
                             else if (shouldSoftLandToSalesMobile(pathname)) {
+                                const suffix = pathname.slice('/sales'.length);
+                                const salesBases = [
+                                    '/orders',
+                                    '/customers',
+                                    '/receivables',
+                                    '/stock',
+                                    '/visits',
+                                    '/collection',
+                                ];
+                                const mapped = salesBases.some(
+                                    (base) =>
+                                        suffix === base ||
+                                        suffix.startsWith(`${base}/`),
+                                )
+                                    ? `/field/sales${suffix}`
+                                    : '/field/sales';
                                 return Response.redirect(
-                                    new URL('/field/sales', nextUrl),
+                                    new URL(
+                                        `${mapped}${nextUrl.search}`,
+                                        nextUrl,
+                                    ),
                                 );
                             }
-                            // Warehouse soft-landing — /warehouse/* → /warehouse/mobile
+                            // Warehouse soft-landing — /warehouse/* →
+                            // /warehouse/mobile. Suffix hanya dibawa bila
+                            // targetnya ada di mobile (daftar di bawah +
+                            // dinamis [id]); sisanya (create-receipt,
+                            // history, orders, analytics, …) jatuh ke hub
+                            // agar tidak 404. Query selalu dipertahankan.
                             else if (
                                 shouldSoftLandToWarehouseMobile(pathname)
                             ) {
+                                const suffix = pathname.slice(
+                                    '/warehouse'.length,
+                                );
+                                // Hanya suffix yang route-nya ada di mobile.
+                                // /incoming/create-receipt|history|orders dan
+                                // /outgoing/history|orders tidak ada di mobile
+                                // → hub (bukan 404). Segmen tunggal lain
+                                // dianggap [id] (guard dual-id F7/F8 menangani).
+                                const warehouseDesktopOnly = new Set([
+                                    'create-receipt',
+                                    'history',
+                                    'orders',
+                                ]);
+                                const seg = suffix.split('/').filter(Boolean);
+                                const singleId =
+                                    seg.length === 2 &&
+                                    !warehouseDesktopOnly.has(seg[1]);
+                                const mapped =
+                                    suffix === '/incoming' ||
+                                    suffix === '/incoming/from-nota' ||
+                                    suffix === '/outgoing' ||
+                                    suffix === '/outgoing/walk-in' ||
+                                    suffix === '/opname' ||
+                                    (singleId &&
+                                        (seg[0] === 'incoming' ||
+                                            seg[0] === 'outgoing' ||
+                                            seg[0] === 'opname'))
+                                        ? `/warehouse/mobile${suffix}`
+                                        : '/warehouse/mobile';
                                 return Response.redirect(
-                                    new URL('/warehouse/mobile', nextUrl),
+                                    new URL(
+                                        `${mapped}${nextUrl.search}`,
+                                        nextUrl,
+                                    ),
                                 );
                             }
                             // Production soft-landing — /production/* → /kiosk
+                            // (pertahankan query; path produksi tidak 1:1
+                            // dengan kiosk sehingga suffix tidak dibawa).
                             else if (shouldSoftLandToKiosk(pathname)) {
                                 return Response.redirect(
-                                    new URL('/kiosk', nextUrl),
+                                    new URL(`/kiosk${nextUrl.search}`, nextUrl),
                                 );
                             }
                             // Dashboard soft-landing — /dashboard → mobile home by role

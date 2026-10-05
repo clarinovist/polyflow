@@ -24,6 +24,7 @@ interface MobileAccountMenuProps {
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
     workspacesUnavailable?: boolean;
+    centralLoginHint?: boolean;
 }
 
 export function MobileAccountMenu({
@@ -34,6 +35,7 @@ export function MobileAccountMenu({
     currentTenantName,
     workspaces = [],
     workspacesUnavailable = false,
+    centralLoginHint = false,
 }: MobileAccountMenuProps) {
     const handleLogout = async () => {
         if (onLogout) {
@@ -73,7 +75,11 @@ export function MobileAccountMenu({
                     <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                 </button>
             </PopoverTrigger>
-            <PopoverContent align="end" sideOffset={4} className="w-64 max-w-[calc(100vw-2rem)] p-2">
+            <PopoverContent
+                align="end"
+                sideOffset={4}
+                className="w-64 max-w-[calc(100vw-2rem)] p-2"
+            >
                 <div className="flex items-center gap-3 rounded-lg p-2">
                     <Avatar className="h-9 w-9 shrink-0">
                         {(user.image || user.avatarUrl) && (
@@ -105,18 +111,25 @@ export function MobileAccountMenu({
                         {currentTenantName && (
                             <>
                                 <p className="px-1 text-xs font-medium text-muted-foreground">
-                                    {workspaces.length > 1 ? 'Ganti perusahaan' : 'Perusahaan aktif'}
+                                    {workspaces.length > 1
+                                        ? 'Ganti perusahaan'
+                                        : 'Perusahaan aktif'}
                                 </p>
                                 <TenantSwitcher
                                     currentTenantId={currentTenantId}
                                     currentTenantName={currentTenantName}
                                     workspaces={workspaces}
+                                    centralLoginHint={centralLoginHint}
                                 />
                             </>
                         )}
                         {workspacesUnavailable && (
-                            <p role="status" className="px-1 text-xs text-muted-foreground">
-                                Daftar perusahaan belum tersedia. Muat ulang halaman untuk mencoba lagi.
+                            <p
+                                role="status"
+                                className="px-1 text-xs text-muted-foreground"
+                            >
+                                Daftar perusahaan belum tersedia. Muat ulang
+                                halaman untuk mencoba lagi.
                             </p>
                         )}
                     </div>

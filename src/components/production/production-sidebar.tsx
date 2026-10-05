@@ -33,6 +33,7 @@ interface ProductionSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 export const productionLinks: Pick<
@@ -199,6 +200,7 @@ export function ProductionSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: ProductionSidebarProps) {
     const filteredGroups = getProductionNavGroups(permissions);
     return (
@@ -213,6 +215,7 @@ export function ProductionSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

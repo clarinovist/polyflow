@@ -16,29 +16,39 @@ export function TenantSwitcher({
     currentTenantName,
     workspaces,
     collapsed = false,
+    centralLoginHint = false,
 }: {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces: CentralWorkspaceOption[];
     collapsed?: boolean;
+    /** Sesi password lokal tanpa klaim sentral: jelaskan cara mengaktifkan switcher. */
+    centralLoginHint?: boolean;
 }) {
     if (!currentTenantName) return null;
 
     if (workspaces.length <= 1) {
         return (
-            <div
-                className={cn(
-                    'flex min-h-11 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 text-sm',
-                    collapsed && 'justify-center px-2',
-                )}
-                aria-label={`Perusahaan aktif: ${currentTenantName}`}
-                title={currentTenantName}
-            >
-                <Building2 className="h-4 w-4 shrink-0" />
-                {!collapsed && (
-                    <span className="truncate font-medium">
-                        {currentTenantName}
-                    </span>
+            <div className="space-y-1">
+                <div
+                    className={cn(
+                        'flex min-h-11 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 text-sm',
+                        collapsed && 'justify-center px-2',
+                    )}
+                    aria-label={`Perusahaan aktif: ${currentTenantName}`}
+                    title={currentTenantName}
+                >
+                    <Building2 className="h-4 w-4 shrink-0" />
+                    {!collapsed && (
+                        <span className="truncate font-medium">
+                            {currentTenantName}
+                        </span>
+                    )}
+                </div>
+                {centralLoginHint && !collapsed && (
+                    <p className="px-1 text-[11px] leading-snug text-muted-foreground">
+                        Login dengan Google untuk pindah perusahaan.
+                    </p>
                 )}
             </div>
         );

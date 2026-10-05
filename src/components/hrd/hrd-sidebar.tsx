@@ -32,6 +32,7 @@ interface HrdSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 const hrdLinks = [
@@ -119,6 +120,7 @@ export function HrdSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: HrdSidebarProps) {
     const filteredGroups = filterNavGroups(hrdLinks, permissions);
     return (
@@ -133,6 +135,7 @@ export function HrdSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

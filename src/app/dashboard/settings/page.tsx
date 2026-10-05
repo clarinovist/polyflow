@@ -3,6 +3,14 @@ import { auth } from '@/auth';
 import { headers } from 'next/headers';
 import { extractSubdomain } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getUserProfile = withTenantPage(async (userId: string) =>
+    prisma.user.findUnique({
+        where: { id: userId },
+        select: { locale: true, avatarUrl: true },
+    }),
+);
 import { ContextualHelp } from '@/components/support/contextual-help';
 import { getTenantActiveModules } from '@/lib/auth/access-policy';
 import packageJson from '../../../../package.json';
@@ -34,10 +42,7 @@ export default async function SettingsPage() {
     let userLocale: string | undefined;
     let userAvatarUrl: string | null | undefined;
     if (session?.user?.id) {
-        const dbUser = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { locale: true, avatarUrl: true },
-        });
+        const dbUser = await getUserProfile(session.user.id);
         userLocale = dbUser?.locale;
         userAvatarUrl = dbUser?.avatarUrl;
     }

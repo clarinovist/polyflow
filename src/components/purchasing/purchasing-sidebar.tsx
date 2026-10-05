@@ -29,6 +29,7 @@ interface PurchasingSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 const purchasingLinks = [
@@ -105,6 +106,7 @@ export function PurchasingSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: PurchasingSidebarProps) {
     const filteredGroups = filterNavGroups(purchasingLinks, permissions);
     return (
@@ -119,6 +121,7 @@ export function PurchasingSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

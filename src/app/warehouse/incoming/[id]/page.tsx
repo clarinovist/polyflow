@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { GoodsReceiptDetailClient } from '@/components/purchasing/orders/GoodsReceiptDetailClient';
 import { Metadata } from 'next';
 import { serializeData } from '@/lib/utils/utils';
@@ -10,6 +10,12 @@ import { withTenantPage } from '@/lib/core/tenant';
 
 const getReceipt = withTenantPage(async (id: string) => {
     return PurchaseService.getGoodsReceiptById(id);
+});
+
+// Tabrakan makna path: /warehouse/mobile/incoming/[id] memakai purchaseOrderId.
+// Bila ID ternyata PO, arahkan ke form terima mobile-nya.
+const getPurchaseOrder = withTenantPage(async (id: string) => {
+    return PurchaseService.getPurchaseOrderById(id);
 });
 interface PageProps {
     params: Promise<{
@@ -39,6 +45,8 @@ export default async function WarehouseGoodsReceiptDetailPage({
     ]);
 
     if (!rawReceipt) {
+        const po = await getPurchaseOrder(id);
+        if (po) redirect(`/warehouse/mobile/incoming/${id}`);
         notFound();
     }
 

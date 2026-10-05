@@ -1,7 +1,8 @@
 import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
+import { getSalesOrderById } from '@/actions/sales/sales';
 import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
 import { serializeData } from '@/lib/utils/utils';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { WarehouseOutgoingDetailClient } from './WarehouseOutgoingDetailClient';
 
 interface PageProps {
@@ -18,6 +19,13 @@ export default async function WarehouseMobileOutgoingDetailPage({
     ]);
 
     if (!result?.success || !result.data) {
+        // Legacy: id bisa berupa Sales Order (tautan lama). Desktop memakai
+        // /warehouse/outgoing/orders/[id]; di mobile arahkan ke detail
+        // field yang setara (route desktop tidak ada di mobile).
+        const soResult = await getSalesOrderById(id);
+        if (soResult?.success && soResult.data) {
+            redirect(`/field/sales/orders/${id}`);
+        }
         notFound();
     }
 

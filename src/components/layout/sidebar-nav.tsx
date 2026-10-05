@@ -62,6 +62,7 @@ interface SidebarNavProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 interface NavItemType {
@@ -149,6 +150,7 @@ export function SidebarNav({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: SidebarNavProps) {
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
@@ -298,6 +300,7 @@ export function SidebarNav({
                                 currentTenantId={currentTenantId}
                                 currentTenantName={currentTenantName}
                                 workspaces={workspaces}
+                                centralLoginHint={centralLoginHint}
                                 collapsed={effectiveCollapsed}
                             />
                         </div>

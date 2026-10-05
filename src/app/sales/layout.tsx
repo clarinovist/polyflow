@@ -60,8 +60,7 @@ export default async function SalesLayout({
               select: { id: true, name: true },
           })
         : null;
-    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> =
-        [];
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> = [];
     try {
         workspaces = await getCentralWorkspaceOptions(
             session.user.globalAccountId,
@@ -107,6 +106,7 @@ export default async function SalesLayout({
                 currentTenantId={currentTenant?.id}
                 currentTenantName={currentTenant?.name}
                 workspaces={workspaces}
+                centralLoginHint={!session.user.globalAccountId}
             />
             <SidebarSpacer>
                 <main id="main-content" tabIndex={-1} className="min-h-screen">

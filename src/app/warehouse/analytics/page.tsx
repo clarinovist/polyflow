@@ -8,6 +8,17 @@ import {
 } from '@/actions/inventory/inventory';
 import { ABCAnalysisService } from '@/services/inventory/abc-analysis-service';
 import { StockAgingService } from '@/services/inventory/stock-aging-service';
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getAgingSummary = withTenantPage(() =>
+    StockAgingService.getAgingSummary(),
+);
+const getAbcClassification = withTenantPage(() =>
+    ABCAnalysisService.calculateABCClassification(),
+);
+const getStockAging = withTenantPage(() =>
+    StockAgingService.calculateStockAging(),
+);
 import { canViewPrices } from '@/actions/admin/permissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -80,7 +91,7 @@ export default async function AnalyticsDashboard() {
         getInventoryTurnover(),
         getDaysOfInventoryOnHand(),
         getDashboardStats(),
-        StockAgingService.getAgingSummary(),
+        getAgingSummary(),
         getSuggestedPurchases(),
         getInventoryStats(),
     ]);
@@ -125,7 +136,7 @@ export default async function AnalyticsDashboard() {
     }> = [];
     let abcSummary = { a: 0, b: 0, c: 0 };
     try {
-        abcResults = await ABCAnalysisService.calculateABCClassification();
+        abcResults = await getAbcClassification();
         abcSummary = {
             a: abcResults.filter((i) => i.class === 'A').length,
             b: abcResults.filter((i) => i.class === 'B').length,
@@ -136,7 +147,7 @@ export default async function AnalyticsDashboard() {
     }
 
     // Class A at risk: class A + (low stock OR aging 90+) — plan D6
-    const agingDetails = await StockAgingService.calculateStockAging();
+    const agingDetails = await getStockAging();
     const aging90PlusMap = new Map<string, number>();
     agingDetails.forEach((item) => {
         const qty90Plus = item.buckets['90+']?.quantity || 0;

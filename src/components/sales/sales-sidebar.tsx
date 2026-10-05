@@ -42,6 +42,7 @@ interface SalesSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 export const salesLinks = [
@@ -199,6 +200,7 @@ export function SalesSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: SalesSidebarProps) {
     const filteredGroups = filterNavGroups(salesLinks, permissions);
     return (
@@ -215,6 +217,7 @@ export function SalesSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

@@ -554,7 +554,7 @@ describe('auth.config', () => {
             }
         });
 
-        it('should soft-land SALES on /sales/orders to /field/sales', async () => {
+        it('should soft-land SALES on /sales/orders to /field/sales/orders (suffix preserved, F9)', async () => {
             const { authConfig } = await import('@/auth.config');
             const authorizedCallback = authConfig.callbacks!.authorized!;
 
@@ -576,7 +576,38 @@ describe('auth.config', () => {
 
                 expect(mockRedirect).toHaveBeenCalled();
                 const redirectUrl = mockRedirect.mock.calls[0][0];
-                expect(redirectUrl.pathname).toBe('/field/sales');
+                expect(redirectUrl.pathname).toBe('/field/sales/orders');
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
+        it('should preserve query on sales soft-landing (F9)', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                await authorizedCallback({
+                    auth: { user: { role: 'SALES' } },
+                    request: {
+                        nextUrl: new URL(
+                            'https://demo.polyflow.uk/sales/orders?followUpDue=1',
+                        ),
+                        headers: new Map([
+                            ['host', 'demo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).toHaveBeenCalled();
+                const redirectUrl = mockRedirect.mock.calls[0][0];
+                expect(redirectUrl.pathname).toBe('/field/sales/orders');
+                expect(redirectUrl.search).toBe('?followUpDue=1');
             } finally {
                 Response.redirect = originalRedirect;
             }
@@ -635,6 +666,37 @@ describe('auth.config', () => {
 
                 expect(mockRedirect).not.toHaveBeenCalled();
                 expect(result).toBe(true);
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
+        it('should soft-land WAREHOUSE create-receipt to hub (no mobile route, F9)', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                await authorizedCallback({
+                    auth: { user: { role: 'WAREHOUSE' } },
+                    request: {
+                        nextUrl: new URL(
+                            'https://demo.polyflow.uk/warehouse/incoming/create-receipt?poId=abc',
+                        ),
+                        headers: new Map([
+                            ['host', 'demo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).toHaveBeenCalled();
+                const redirectUrl = mockRedirect.mock.calls[0][0];
+                expect(redirectUrl.pathname).toBe('/warehouse/mobile');
+                expect(redirectUrl.search).toBe('?poId=abc');
             } finally {
                 Response.redirect = originalRedirect;
             }

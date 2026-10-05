@@ -1,6 +1,20 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/core/prisma';
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getHrdNotifications = withTenantPage(
+    async (userId: string, unreadOnly: boolean) =>
+        prisma.notification.findMany({
+            where: {
+                userId,
+                type: { in: ['HRD_PROBATION_ENDING', 'HRD_CONTRACT_EXPIRING'] },
+                ...(unreadOnly ? { isRead: false } : {}),
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+        }),
+);
 import { hasAnyRole } from '@/lib/auth/roles';
 import { AlertTriangle, Bell, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
@@ -21,15 +35,10 @@ export default async function AlertsPage({
 
     const userId = session.user.id;
 
-    const notifications = await prisma.notification.findMany({
-        where: {
-            userId,
-            type: { in: ['HRD_PROBATION_ENDING', 'HRD_CONTRACT_EXPIRING'] },
-            ...(params.unread === 'true' ? { isRead: false } : {}),
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-    });
+    const notifications = await getHrdNotifications(
+        userId,
+        params.unread === 'true',
+    );
 
     const fmt = (d: Date) => format(d, 'dd MMM yyyy, HH:mm', { locale: id });
 

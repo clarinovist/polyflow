@@ -26,6 +26,7 @@ interface MaklonSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 const maklonLinks = [
@@ -83,6 +84,7 @@ export function MaklonSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: MaklonSidebarProps) {
     const filteredGroups = filterNavGroups(maklonLinks, permissions);
     return (
@@ -93,6 +95,7 @@ export function MaklonSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

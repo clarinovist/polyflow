@@ -26,6 +26,7 @@ interface DistributionSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 // Fase 1: hub + alias ke modul existing (SO, PO, stok, invoice).
@@ -90,6 +91,7 @@ export function DistributionSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: DistributionSidebarProps) {
     const filteredGroups = filterNavGroups(distributionLinks, permissions);
     return (
@@ -104,6 +106,7 @@ export function DistributionSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

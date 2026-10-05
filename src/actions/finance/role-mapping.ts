@@ -2,7 +2,11 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireFinanceAccess, requireFinanceMutation, requireFinanceAdmin } from '@/lib/auth/finance-access';
+import {
+    requireFinanceAccess,
+    requireFinanceMutation,
+    requireFinanceAdmin,
+} from '@/lib/auth/finance-access';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import {
@@ -11,6 +15,7 @@ import {
     seedTenantAccountRoles,
 } from '@/services/accounting/coa-seed-service';
 import { getTenantIdFromContext } from '@/lib/core/prisma';
+import { isRoleCompatibleAccount } from '@/services/accounting/account-resolver';
 import { revalidatePath } from 'next/cache';
 
 /** Get all role mappings for the current tenant. */
@@ -37,6 +42,26 @@ export const updateRoleMapping = withTenant(async function updateRoleMapping(
 
         if (!role || !accountId) {
             throw new BusinessRuleError('Role and accountId are required');
+        }
+
+        // F13: tolak mapping yang tidak kompatibel saat simpan (mapping
+        // semacam intermediate→akun-afal lolos dulu lalu jadi WARN + fallback).
+        const account = await prisma.account.findUnique({
+            where: { id: accountId },
+        });
+        if (!account || account.isActive === false) {
+            throw new BusinessRuleError('Akun tidak ditemukan atau nonaktif');
+        }
+        if (
+            !isRoleCompatibleAccount(
+                role as Parameters<typeof isRoleCompatibleAccount>[0],
+                account,
+            )
+        ) {
+            throw new BusinessRuleError(
+                `Akun ${account.code} (${account.name}) tidak kompatibel untuk peran ${role}. ` +
+                    'Mapping ditolak agar jurnal tidak jatuh ke fallback diam-diam.',
+            );
         }
 
         try {

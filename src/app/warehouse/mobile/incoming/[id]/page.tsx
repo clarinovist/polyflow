@@ -2,12 +2,18 @@ import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { getLocations } from '@/actions/inventory/inventory';
 import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
 import { serializeData } from '@/lib/utils/utils';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { MobileReceiptClient } from './MobileReceiptClient';
 import { withTenantPage } from '@/lib/core/tenant';
 
 const getPurchaseOrder = withTenantPage(async (id: string) => {
     return PurchaseService.getPurchaseOrderById(id);
+});
+
+// Tabrakan makna path: /warehouse/incoming/[id] desktop memakai receiptId.
+// Bila ID ternyata goods receipt, arahkan ke detail desktop-nya.
+const getGoodsReceipt = withTenantPage(async (id: string) => {
+    return PurchaseService.getGoodsReceiptById(id);
 });
 
 interface PageProps {
@@ -26,6 +32,8 @@ export default async function WarehouseMobileIncomingDetailPage({
     ]);
 
     if (!po) {
+        const receipt = await getGoodsReceipt(id);
+        if (receipt) redirect(`/warehouse/incoming/${id}`);
         notFound();
     }
 
@@ -73,5 +81,11 @@ export default async function WarehouseMobileIncomingDetailPage({
               }>)
             : [];
 
-    return <MobileReceiptClient order={order} locations={locations} attachments={attachments} />;
+    return (
+        <MobileReceiptClient
+            order={order}
+            locations={locations}
+            attachments={attachments}
+        />
+    );
 }

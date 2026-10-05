@@ -151,16 +151,20 @@ function formatOverdueLabel(days: number) {
 export function CollectionListClient({
     invoices,
     overduePromises,
+    initialInvoiceId = null,
 }: {
     invoices: InvoiceItem[];
     overduePromises: OverduePromise[];
+    initialInvoiceId?: string | null;
 }) {
     const router = useRouter();
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<
         'ALL' | 'OVERDUE' | 'PROMISE' | 'NO_ACTIVITY'
     >('ALL');
-    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(
+        initialInvoiceId ?? null,
+    );
     const [activitiesByInvoice, setActivitiesByInvoice] = useState<
         Record<string, ActivityItem[]>
     >({});
@@ -207,7 +211,12 @@ export function CollectionListClient({
     const totalOutstanding = useMemo(
         () =>
             filtered.reduce(
-                (s, inv) => s + (inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
+                (s, inv) =>
+                    s +
+                    (inv.totalAmount +
+                        Number(inv.priceAdjustmentAmount ?? 0) -
+                        inv.paidAmount -
+                        Number(inv.creditedAmount ?? 0)),
                 0,
             ),
         [filtered],
@@ -454,7 +463,11 @@ export function CollectionListClient({
             ) : (
                 <div className="space-y-3">
                     {filtered.map((inv) => {
-                        const remaining = inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0);
+                        const remaining =
+                            inv.totalAmount +
+                            Number(inv.priceAdjustmentAmount ?? 0) -
+                            inv.paidAmount -
+                            Number(inv.creditedAmount ?? 0);
                         const expanded = expandedId === inv.id;
                         const history = activitiesByInvoice[inv.id] ?? [];
                         const isLoadingHist = loadingActivities === inv.id;
@@ -688,7 +701,15 @@ export function CollectionListClient({
                                     Sisa:{' '}
                                     {formatRupiah(
                                         activeInvoice.totalAmount -
-                                            activeInvoice.paidAmount - Number(activeInvoice.creditedAmount ?? 0) + Number(activeInvoice.priceAdjustmentAmount ?? 0),
+                                            activeInvoice.paidAmount -
+                                            Number(
+                                                activeInvoice.creditedAmount ??
+                                                    0,
+                                            ) +
+                                            Number(
+                                                activeInvoice.priceAdjustmentAmount ??
+                                                    0,
+                                            ),
                                     )}
                                 </p>
                             </div>

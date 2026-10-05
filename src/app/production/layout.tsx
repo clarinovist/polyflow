@@ -67,8 +67,7 @@ export default async function ProductionLayout({
               select: { id: true, name: true },
           })
         : null;
-    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> =
-        [];
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> = [];
     try {
         workspaces = await getCentralWorkspaceOptions(
             session.user.globalAccountId,
@@ -118,6 +117,7 @@ export default async function ProductionLayout({
                 currentTenantId={currentTenant?.id}
                 currentTenantName={currentTenant?.name}
                 workspaces={workspaces}
+                centralLoginHint={!session.user.globalAccountId}
             />
 
             <SidebarSpacer className="flex min-h-screen flex-col">

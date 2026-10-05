@@ -1,6 +1,31 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/core/prisma';
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getPayrollPrintData = withTenantPage(
+    async (periodId: string, payslipId?: string) => {
+        const period = await prisma.payrollPeriod.findUnique({
+            where: { id: periodId },
+        });
+        if (!period) return null;
+        const where = payslipId
+            ? { id: payslipId, payrollPeriodId: periodId }
+            : { payrollPeriodId: periodId };
+        const payslips = await prisma.payslip.findMany({
+            where,
+            include: {
+                employee: { select: { id: true, name: true, code: true } },
+                allowances: true,
+                loanPayments: {
+                    include: { loan: { select: { loanNumber: true } } },
+                },
+            },
+            orderBy: { employee: { code: 'asc' } },
+        });
+        return { period, payslips };
+    },
+);
 import { PayslipPrintView } from '@/components/hrd/PayslipPrintView';
 import { hasAnyRole } from '@/lib/auth/roles';
 
@@ -19,26 +44,9 @@ export default async function PrintPayslipPage({
     const { periodId } = await params;
     const { payslipId } = await searchParams;
 
-    const period = await prisma.payrollPeriod.findUnique({
-        where: { id: periodId },
-    });
-    if (!period) redirect('/hrd/payroll-monthly');
-
-    const where = payslipId
-        ? { id: payslipId, payrollPeriodId: periodId }
-        : { payrollPeriodId: periodId };
-
-    const payslips = await prisma.payslip.findMany({
-        where,
-        include: {
-            employee: { select: { id: true, name: true, code: true } },
-            allowances: true,
-            loanPayments: {
-                include: { loan: { select: { loanNumber: true } } },
-            },
-        },
-        orderBy: { employee: { code: 'asc' } },
-    });
+    const data = await getPayrollPrintData(periodId, payslipId);
+    if (!data) redirect('/hrd/payroll-monthly');
+    const { period, payslips } = data;
 
     return (
         <PayslipPrintView

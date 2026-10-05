@@ -117,6 +117,7 @@ export default async function DashboardLayout({
                 currentTenantId={currentTenant?.id}
                 currentTenantName={currentTenant?.name}
                 workspaces={workspaces}
+                centralLoginHint={!session.user.globalAccountId}
             />
 
             {/* Main Content */}

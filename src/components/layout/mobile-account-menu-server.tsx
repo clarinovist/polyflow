@@ -25,7 +25,9 @@ export async function MobileAccountMenuServer({
             });
             currentTenantName = tenant?.name;
             if (currentTenantName) {
-                workspaces = await getCentralWorkspaceOptions(user.globalAccountId);
+                workspaces = await getCentralWorkspaceOptions(
+                    user.globalAccountId,
+                );
             }
         } catch {
             // Optional navigation must not take down the active mobile portal.
@@ -46,6 +48,7 @@ export async function MobileAccountMenuServer({
             currentTenantName={currentTenantName}
             workspaces={workspaces}
             workspacesUnavailable={workspacesUnavailable}
+            centralLoginHint={!user.globalAccountId}
         />
     );
 }

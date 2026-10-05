@@ -503,7 +503,12 @@ async function isMelindoTenantDb(db: PatternDb): Promise<boolean> {
     return !!marker;
 }
 
-function isRoleCompatibleAccount(role: AccountRole, account: Account): boolean {
+/** Write-time guard juga dipakai aksi mapping (F13): mapping eksplisit yang tidak
+ * kompatibel ditolak saat simpan agar tidak menjadi WARN + fallback diam-diam. */
+export function isRoleCompatibleAccount(
+    role: AccountRole,
+    account: Account,
+): boolean {
     const normalizedName = account.name.toLowerCase();
     if (role === 'customer-credit') return account.type === 'LIABILITY';
 

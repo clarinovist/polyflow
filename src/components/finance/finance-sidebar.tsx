@@ -35,6 +35,7 @@ interface FinanceSidebarProps {
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
+    centralLoginHint?: boolean;
 }
 
 export const financeLinks = [
@@ -234,6 +235,7 @@ export function FinanceSidebar({
     currentTenantId,
     currentTenantName,
     workspaces = [],
+    centralLoginHint = false,
 }: FinanceSidebarProps) {
     const filteredGroups = filterNavGroups(financeLinks, permissions);
     return (
@@ -249,6 +251,7 @@ export function FinanceSidebar({
                         currentTenantId={currentTenantId}
                         currentTenantName={currentTenantName}
                         workspaces={workspaces}
+                        centralLoginHint={centralLoginHint}
                     />
                 </div>
             )}

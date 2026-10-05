@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { redirect } from 'next/navigation';
 import { withTenantPage } from '@/lib/core/tenant';
 import { readKioskFeatureSettings } from '@/services/settings/kiosk-feature-service';
 import { KioskHub } from '@/components/kiosk/KioskHub';
@@ -61,7 +62,13 @@ const getData = withTenantPage(async function getData() {
     return { employees, machines, machinesByOperator, hasProsesKhusus };
 });
 
-export default async function KioskPage() {
+export default async function KioskPage({
+    searchParams,
+}: {
+    searchParams?: Promise<{ orderId?: string }>;
+}) {
+    const orderId = (await searchParams)?.orderId;
+    if (orderId) redirect(`/kiosk/jobs/${orderId}`);
     const { employees, machines, machinesByOperator, hasProsesKhusus } =
         await getData();
 

@@ -58,8 +58,7 @@ export default async function DistributionLayout({
               select: { id: true, name: true },
           })
         : null;
-    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> =
-        [];
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> = [];
     try {
         workspaces = await getCentralWorkspaceOptions(
             session.user.globalAccountId,
@@ -103,6 +102,7 @@ export default async function DistributionLayout({
                 currentTenantId={currentTenant?.id}
                 currentTenantName={currentTenant?.name}
                 workspaces={workspaces}
+                centralLoginHint={!session.user.globalAccountId}
             />
             <SidebarSpacer>
                 <main className="min-h-screen">
