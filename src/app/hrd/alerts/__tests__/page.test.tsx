@@ -12,6 +12,7 @@ vi.mock('@/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/core/prisma', () => ({
     prisma: { notification: { findMany: mocks.findMany } },
 }));
+vi.mock('@/lib/core/tenant', () => ({ withTenantPage: (fn: unknown) => fn }));
 vi.mock('@/lib/auth/roles', () => ({ hasAnyRole: () => true }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 vi.mock('@/components/hrd/ScanRemindersButton', () => ({
