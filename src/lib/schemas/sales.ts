@@ -133,6 +133,8 @@ export const shipSalesOrderSchema = z.object({
 export const createManualDeliveryOrderSchema = z.object({
     salesOrderId: z.string().min(1, 'Sales Order is required'),
     sourceLocationId: z.string().min(1, 'Source location is required'),
+    /** Tanggal Surat Jalan (backdate koreksi). Default = hari ini bila kosong. */
+    deliveryDate: z.coerce.date().optional(),
     carrier: z.string().optional().transform(sanitizeHtml),
     trackingNumber: z.string().optional().transform(sanitizeHtml),
     notes: z.string().optional().transform(sanitizeHtml),

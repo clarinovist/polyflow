@@ -26,6 +26,7 @@ import { revalidatePath } from 'next/cache';
 import { requireWarehouseResourcePermission } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
 import { DELIVERY_ORDERS_LIST_ROUTE } from '@/lib/constants/performance';
+import { normalizeToBusinessDay } from '@/lib/utils/timezone';
 
 export const getDeliveryOrders = withTenant(
     async function getDeliveryOrders(dateRange?: {
@@ -268,6 +269,7 @@ export const createManualDeliveryOrder = withTenant(
         totalCharge?: number;
         estimatedWeightKg?: number;
         destinationAddress?: string;
+        deliveryDate?: Date;
     }) {
         return safeAction(async () => {
             const session = await requireWarehouseResourcePermission(
@@ -294,6 +296,9 @@ export const createManualDeliveryOrder = withTenant(
                 totalCharge: validatedData.totalCharge,
                 estimatedWeightKg: validatedData.estimatedWeightKg,
                 destinationAddress: validatedData.destinationAddress,
+                deliveryDate: validatedData.deliveryDate
+                    ? normalizeToBusinessDay(validatedData.deliveryDate)
+                    : undefined,
             });
 
             // Sync SO shipping cost from DO charges

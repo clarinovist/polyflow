@@ -29,6 +29,11 @@ import {
     NotFoundError,
     ConflictError,
 } from '@/lib/errors/errors';
+import {
+    toBusinessDateString,
+    normalizeToBusinessDay,
+} from '@/lib/utils/timezone';
+import { isPeriodOpen } from '@/services/accounting/periods-service';
 
 // =============================================================================
 // Types
@@ -50,7 +55,12 @@ interface CreateDeliveryOrderParams {
     totalCharge?: number;
     estimatedWeightKg?: number;
     destinationAddress?: string;
-    /** Optional: exact planned quantities per item. If provided, DO uses these instead of full residual. */
+    /**
+     * Optional backdate bisnis (akan dinormalisasi ke WIB-midnight).
+     * Default = sekarang. Dipakai sebagai deliveryDate DO dan diwariskan ke
+     * tanggal commit stok + draft invoice (kasus koreksi September).
+     */
+    deliveryDate?: Date;
     plannedItems?: Array<{
         salesOrderItemId: string;
         plannedQuantity: number;
@@ -113,6 +123,7 @@ export async function createDeliveryOrderFromSalesOrder(
         totalCharge,
         estimatedWeightKg,
         destinationAddress,
+        deliveryDate,
         plannedItems,
     } = params;
 
@@ -178,6 +189,26 @@ export async function createDeliveryOrderFromSalesOrder(
             );
         }
 
+        // 3b. Tanggal Surat Jalan (backdate untuk koreksi, default hari ini).
+        const effectiveDeliveryDate = deliveryDate
+            ? normalizeToBusinessDay(deliveryDate)
+            : new Date();
+        if (
+            toBusinessDateString(effectiveDeliveryDate) >
+            toBusinessDateString(new Date())
+        ) {
+            throw new BusinessRuleError(
+                'Tanggal Surat Jalan tidak boleh melebihi hari ini.',
+            );
+        }
+        if (!(await isPeriodOpen(effectiveDeliveryDate, tx))) {
+            throw new BusinessRuleError(
+                'Periode jurnal untuk Tanggal Surat Jalan sudah ditutup atau belum tersedia. Periksa periode buku sebelum melanjutkan.',
+                { deliveryDate: effectiveDeliveryDate },
+                'FISCAL_PERIOD_CLOSED',
+            );
+        }
+
         // 4. Check no open DO exists for this SO (D6)
         const openDos = await tx.deliveryOrder.findMany({
             where: {
@@ -205,7 +236,9 @@ export async function createDeliveryOrderFromSalesOrder(
             orderBy: { createdAt: 'desc' },
         });
 
-        const year = new Date().getFullYear();
+        const year = Number(
+            toBusinessDateString(effectiveDeliveryDate).slice(0, 4),
+        );
         let nextDoNumber = 1;
         if (lastDo?.orderNumber?.startsWith(`DO-${year}-`)) {
             const parts = lastDo.orderNumber.split('-');
@@ -222,7 +255,7 @@ export async function createDeliveryOrderFromSalesOrder(
                 salesOrderId,
                 sourceLocationId,
                 status: 'PENDING',
-                deliveryDate: new Date(),
+                deliveryDate: effectiveDeliveryDate,
                 carrier,
                 trackingNumber,
                 notes,
@@ -297,6 +330,7 @@ export async function commitDeliveryShipment(
     let salesOrderIdForInvoice = '';
     let doOrderNumber = '';
     let soOrderNumber = '';
+    let doDeliveryDate: Date | null = null;
     const result = await salesTransactionClient().$transaction(
         async (tx) => {
             // Serialize revision, receiving, and shipment on the SO before claiming the DO.
@@ -369,6 +403,16 @@ export async function commitDeliveryShipment(
             if (doRecord.salesOrder.status === SalesOrderStatus.CANCELLED) {
                 throw new BusinessRuleError(
                     'SO sudah dibatalkan — tidak bisa commit pengiriman.',
+                );
+            }
+
+            // 3b. Commit memakai Tanggal Surat Jalan (mendukung backdate koreksi).
+            const commitDate = doRecord.deliveryDate;
+            if (!(await isPeriodOpen(commitDate, tx))) {
+                throw new BusinessRuleError(
+                    'Periode jurnal untuk Tanggal Surat Jalan sudah ditutup atau belum tersedia. Periksa periode buku sebelum melanjutkan.',
+                    { deliveryDate: commitDate },
+                    'FISCAL_PERIOD_CLOSED',
                 );
             }
 
@@ -512,7 +556,7 @@ export async function commitDeliveryShipment(
                         salesOrderId: doRecord.salesOrderId,
                         createdById: userId,
                         reference: `Shipment for ${doRecord.salesOrder.orderNumber} via ${doRecord.orderNumber}`,
-                        createdAt: new Date(),
+                        createdAt: commitDate,
                     },
                 });
                 await AccountingService.recordInventoryMovement(movement, tx);
@@ -526,7 +570,7 @@ export async function commitDeliveryShipment(
                 },
                 data: {
                     status: DeliveryStatus.SHIPPED,
-                    stockCommittedAt: new Date(),
+                    stockCommittedAt: commitDate,
                     stockCommittedById: userId,
                     ...(opts?.trackingNumber && {
                         trackingNumber: opts.trackingNumber,
@@ -591,6 +635,7 @@ export async function commitDeliveryShipment(
             salesOrderIdForInvoice = doRecord.salesOrderId;
             doOrderNumber = doRecord.orderNumber;
             soOrderNumber = doRecord.salesOrder.orderNumber;
+            doDeliveryDate = doRecord.deliveryDate;
 
             await logActivity({
                 userId,
@@ -616,6 +661,7 @@ export async function commitDeliveryShipment(
             await InvoiceService.createDraftInvoiceFromOrder(
                 salesOrderIdForInvoice,
                 userId,
+                { invoiceDate: doDeliveryDate ?? new Date() },
             );
             await logActivity({
                 userId,

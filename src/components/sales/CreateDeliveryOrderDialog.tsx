@@ -34,6 +34,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { salesLabels } from '@/lib/labels';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 import { estimateDeliveryWeightKg } from '@/lib/sales/delivery-weight';
 
 interface SalesOrderItem {
@@ -124,6 +125,9 @@ export function CreateDeliveryOrderDialog({
     );
     const [isLoadingSoDetail, setIsLoadingSoDetail] = useState(false);
     const [destinationAddress, setDestinationAddress] = useState('');
+    const [deliveryDate, setDeliveryDate] = useState(() =>
+        toBusinessDateString(new Date()),
+    );
     // Route fields
     const [selectedRouteName, setSelectedRouteName] = useState('');
     const [routeOptions, setRouteOptions] = useState<string[]>([]);
@@ -139,6 +143,7 @@ export function CreateDeliveryOrderDialog({
         useState<OpenDeliveryOrder | null>(null);
     const router = useRouter();
     const weightInputId = useId();
+    const deliveryDateInputId = useId();
     const detailRequest = useRef(0);
 
     // PER_KG calculation: weight × rate = total
@@ -336,6 +341,7 @@ export function CreateDeliveryOrderDialog({
         setOverrideChargeRate('');
         setEstimatedWeightKg('');
         setDestinationAddress('');
+        setDeliveryDate(toBusinessDateString(new Date()));
         setSelectedRouteName('');
         setRouteOptions([]);
         setSelectedCustomerId(undefined);
@@ -376,9 +382,15 @@ export function CreateDeliveryOrderDialog({
 
         setIsLoading(true);
         try {
+        if (!deliveryDate) {
+            toast.error('Pilih Tanggal Surat Jalan terlebih dahulu');
+            return;
+        }
+
             const result = await createManualDeliveryOrder({
                 salesOrderId: selectedSalesOrderId,
                 sourceLocationId: selectedLocationId,
+                deliveryDate: new Date(`${deliveryDate}T00:00:00`),
                 carrier: carrier || undefined,
                 trackingNumber: trackingNumber || undefined,
                 notes: notes || undefined,
@@ -599,6 +611,25 @@ export function CreateDeliveryOrderDialog({
                                 </div>
                             </div>
                         )}
+
+                    <div className="space-y-2">
+                        <Label htmlFor={deliveryDateInputId}>
+                            Tanggal Surat Jalan *
+                        </Label>
+                        <Input
+                            id={deliveryDateInputId}
+                            type="date"
+                            value={deliveryDate}
+                            max={toBusinessDateString(new Date())}
+                            onChange={(e) => setDeliveryDate(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Default hari ini. Untuk koreksi (mis. September),
+                            pilih tanggalnya — stok, jurnal, dan nomor invoice
+                            ikut bulan tanggal ini. Tidak bisa melebihi hari
+                            ini dan periode jurnal harus masih buka.
+                        </p>
+                    </div>
 
                     <div className="space-y-2">
                         <Label>Lokasi Gudang *</Label>

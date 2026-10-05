@@ -68,15 +68,6 @@ function cappedPush(list: string[], value: string | undefined, cap: number): str
     return next.slice(0, cap);
 }
 
-function buildProposalDraft(canonical: string, uniqueUsers: number, tenants: string[], mod: string | null) {
-    const scope = tenants.length > 1 ? tenants.length + " tenants" : "1 tenant";
-    return {
-        title: canonical.length > 90 ? canonical.slice(0, 87) + "..." : canonical,
-        problemMd: "Permintaan dari " + uniqueUsers + " user (" + scope + ").\n\n" + canonical,
-        impactedModules: mod && mod !== "global" ? [mod] : [],
-    };
-}
-
 export async function upsertFeatureSignal(input: FeatureSignalInput) {
     const { getMainPrisma } = await import('@/lib/core/prisma');
     const mainDb = getMainPrisma();
@@ -155,7 +146,15 @@ async function maybePropose(mainDb: ProposalStore, cluster: SignalClusterRow) {
     try {
         if (!cluster || cluster.uniqueUsers < FEATURE_CANDIDATE_MIN_USERS) return null;
         if (cluster.status !== "OPEN" && cluster.status !== "CANDIDATE") return null;
-        const draft = buildProposalDraft(cluster.canonicalRequest, cluster.uniqueUsers, cluster.tenantIds || [], cluster.suggestedModule || null);
+        const { generateProposalDraft, buildTemplateDraft } = await import("./feature-draft");
+        const draftInput = {
+            canonicalRequest: cluster.canonicalRequest,
+            sampleRequests: cluster.sampleRequests || [],
+            uniqueUsers: cluster.uniqueUsers,
+            tenantIds: cluster.tenantIds || [],
+            suggestedModule: cluster.suggestedModule || null,
+        };
+        const draft = (await generateProposalDraft(draftInput)) || buildTemplateDraft(draftInput);
         const proposal = await mainDb.featureProposal.create({
             data: {
                 clusterId: cluster.id,

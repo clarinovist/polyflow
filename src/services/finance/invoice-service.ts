@@ -13,8 +13,10 @@ import {
 import { checkOverdueSalesInvoices } from './invoice-overdue-service';
 
 export class InvoiceService {
-    static async generateInvoiceNumber(): Promise<string> {
-        return generateInvoiceNumber();
+    static async generateInvoiceNumber(
+        refDate?: Date,
+    ): Promise<string> {
+        return generateInvoiceNumber(refDate);
     }
 
     static async createInvoice(data: CreateInvoiceValues, userId: string) {
@@ -39,8 +41,9 @@ export class InvoiceService {
     static async createDraftInvoiceFromOrder(
         salesOrderId: string,
         userId: string,
+        opts?: { invoiceDate?: Date },
     ) {
-        return createDraftInvoiceFromOrder(salesOrderId, userId);
+        return createDraftInvoiceFromOrder(salesOrderId, userId, opts);
     }
 
     static async checkOverdueSalesInvoices() {

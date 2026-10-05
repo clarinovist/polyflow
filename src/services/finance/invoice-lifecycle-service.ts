@@ -24,6 +24,7 @@ import {
     calculateInvoiceRounding,
     invoiceAmountsForPolicy,
 } from '@/lib/finance/invoice-rounding';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
 /**
  * Calculate sales invoice total from actual delivered/shipped quantities (not SO ordered qty).
@@ -158,9 +159,12 @@ function monthToRoman(month: number): string {
     return ROMAN_MONTHS[month - 1];
 }
 
-export async function generateInvoiceNumber(): Promise<string> {
-    const now = new Date();
-    const suffix = `/INV/${monthToRoman(now.getMonth() + 1)}/${now.getFullYear()}`;
+export async function generateInvoiceNumber(refDate?: Date): Promise<string> {
+    // Nomor mengikuti bulan dokumen (mendukung backdate koreksi, mis. .../IX/2026).
+    const ref = refDate ?? new Date();
+    const refYear = Number(toBusinessDateString(ref).slice(0, 4));
+    const refMonth = Number(toBusinessDateString(ref).slice(5, 7));
+    const suffix = `/INV/${monthToRoman(refMonth)}/${refYear}`;
 
     // Max sequence, bukan latest createdAt — nomor dari sumber luar (backfill
     // OB, import) bisa punya createdAt terbaru dengan seq kecil dan bikin
@@ -190,10 +194,11 @@ const INVOICE_NUMBER_MAX_ATTEMPTS = 3;
  */
 export async function createInvoiceWithNumberRetry<T>(
     create: (invoiceNumber: string) => Promise<T>,
+    refDate?: Date,
 ): Promise<T> {
     let lastError: unknown;
     for (let attempt = 0; attempt < INVOICE_NUMBER_MAX_ATTEMPTS; attempt++) {
-        const invoiceNumber = await generateInvoiceNumber();
+        const invoiceNumber = await generateInvoiceNumber(refDate);
         try {
             return await create(invoiceNumber);
         } catch (error) {
@@ -461,6 +466,7 @@ export async function updateInvoiceStatus(
 export async function createDraftInvoiceFromOrder(
     salesOrderId: string,
     userId: string,
+    opts?: { invoiceDate?: Date },
 ) {
     const salesOrder = await prisma.salesOrder.findUnique({
         where: { id: salesOrderId },
@@ -477,8 +483,10 @@ export async function createDraftInvoiceFromOrder(
         return;
     }
 
-    return createInvoiceWithNumberRetry((num) =>
-        invoiceWriter().$transaction(async (tx) => {
+    const draftInvoiceDate = opts?.invoiceDate ?? new Date();
+    return createInvoiceWithNumberRetry(
+        (num) =>
+            invoiceWriter().$transaction(async (tx) => {
             // Serialize draft/supplementary generation and lock invoices against payment/approval.
             await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${salesOrderId} FOR UPDATE`;
             const freshOrder = await tx.salesOrder.findUnique({
@@ -568,7 +576,7 @@ export async function createDraftInvoiceFromOrder(
             const amounts = calculateInvoiceRounding(remaining);
             const termOfPaymentDays =
                 salesOrder.customer?.paymentTermDays ?? 30;
-            const invoiceDate = new Date();
+            const invoiceDate = draftInvoiceDate;
             const supplementary = invoices.length > 0;
             return persistNewInvoice(
                 tx,
