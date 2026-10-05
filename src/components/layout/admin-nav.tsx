@@ -13,6 +13,7 @@ import {
     HelpCircle,
     BarChart3,
     Gauge,
+    Lightbulb,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -44,6 +45,7 @@ const adminLinks = [
     { title: 'System Health', href: '/admin/system-health', icon: Activity },
     { title: 'Performance', href: '/admin/performance', icon: Gauge },
     { title: 'Help / Virtual CS', href: '/admin/help', icon: HelpCircle },
+    { title: 'Usulan Fitur', href: '/admin/proposals', icon: Lightbulb },
 ];
 
 export function AdminNav({ user }: AdminNavProps) {

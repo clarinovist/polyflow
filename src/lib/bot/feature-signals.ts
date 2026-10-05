@@ -139,7 +139,19 @@ export async function upsertFeatureSignal(input: FeatureSignalInput) {
     }
 }
 
-async function maybePropose(mainDb: any, cluster: any) {
+type ProposalStore = Pick<import("@prisma/client").PrismaClient, "featureProposal" | "featureSignalCluster">;
+
+type SignalClusterRow = {
+    id: string;
+    uniqueUsers: number;
+    canonicalRequest: string;
+    tenantIds: string[];
+    suggestedModule: string | null;
+    sampleRequests: string[];
+    status: string;
+};
+
+async function maybePropose(mainDb: ProposalStore, cluster: SignalClusterRow) {
     try {
         if (!cluster || cluster.uniqueUsers < FEATURE_CANDIDATE_MIN_USERS) return null;
         if (cluster.status !== "OPEN" && cluster.status !== "CANDIDATE") return null;
