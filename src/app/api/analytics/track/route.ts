@@ -6,10 +6,53 @@ import { resolveFeatureFromPath } from '@/lib/analytics/feature-registry';
 import { canAccessWorkspace, WorkspaceKey } from '@/lib/auth/access-policy';
 import { z } from 'zod';
 
+const VALID_WORKSPACES: readonly string[] = [
+    'admin',
+    'dashboard',
+    'warehouse',
+    'production',
+    'finance',
+    'sales',
+    'purchasing',
+    'hrd',
+    'maklon',
+    'distribution',
+];
+
+const EVENT_TYPES = [
+    'FEATURE_VIEW',
+    'MOBILE_TASK_STARTED',
+    'MOBILE_TASK_COMPLETED',
+    'MOBILE_TASK_FAILED',
+] as const;
+
+const EVENT_SOURCES = ['WEB', 'MOBILE_WEB'] as const;
+
 const trackSchema = z.object({
     pathname: z.string().min(1).max(500),
     sessionId: z.string().max(100).optional(),
+    eventType: z.enum(EVENT_TYPES).optional(),
+    source: z.enum(EVENT_SOURCES).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
 });
+
+// Telemetry must never become a PII sink: keep flat scalars only.
+function sanitizeTelemetryMetadata(input: unknown): Record<string, string | number | boolean> | undefined {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+    const out: Record<string, string | number | boolean> = {};
+    let kept = 0;
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+        if (kept >= 20 || key.length > 64) continue;
+        if (typeof value === 'string') {
+            out[key] = value.slice(0, 500);
+            kept++;
+        } else if (typeof value === 'number' || typeof value === 'boolean') {
+            out[key] = value;
+            kept++;
+        }
+    }
+    return kept > 0 ? out : undefined;
+}
 
 // Short-window in-memory deduplication cache
 const recentEventsCache = new Map<string, number>();
@@ -91,30 +134,39 @@ export async function POST(req: NextRequest) {
         }
 
         const { pathname, sessionId: rawSessionId } = parseResult.data;
+        const nestedMeta =
+            parseResult.data.metadata && typeof parseResult.data.metadata === 'object'
+                ? (parseResult.data.metadata as Record<string, unknown>)
+                : undefined;
+        const eventType = parseResult.data.eventType
+            ?? (typeof nestedMeta?.eventType === 'string' && (EVENT_TYPES as readonly string[]).includes(nestedMeta.eventType)
+                ? (nestedMeta.eventType as (typeof EVENT_TYPES)[number])
+                : 'FEATURE_VIEW');
+        const source = parseResult.data.source
+            ?? (typeof nestedMeta?.source === 'string' && (EVENT_SOURCES as readonly string[]).includes(nestedMeta.source)
+                ? (nestedMeta.source as (typeof EVENT_SOURCES)[number])
+                : 'WEB');
+        const cleanMetadata = sanitizeTelemetryMetadata(parseResult.data.metadata);
 
-        // Server-derived feature resolution
+        // Server-derived feature resolution.
+        // Unmapped paths are recorded (not rejected) so new pages surface
+        // in analytics within a day instead of staying invisible forever.
         const resolved = resolveFeatureFromPath(pathname);
+        let featureKey: string;
+        let moduleKey: string;
+        let unmappedPath: string | undefined;
         if (!resolved) {
-            return NextResponse.json(
-                { error: 'Pathname is not in the tracked feature registry' },
-                { status: 400 },
-            );
+            const firstSegment = pathname.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] ?? '';
+            moduleKey = VALID_WORKSPACES.includes(firstSegment) ? firstSegment : 'unmapped';
+            featureKey = 'unmapped';
+            unmappedPath = pathname.slice(0, 500);
+        } else {
+            featureKey = resolved.featureKey;
+            moduleKey = resolved.moduleKey;
         }
 
-        const { featureKey, moduleKey } = resolved;
-
         // Authorization check for workspace-gated modules
-        const validWorkspaces = [
-            'admin',
-            'dashboard',
-            'warehouse',
-            'production',
-            'finance',
-            'sales',
-            'purchasing',
-            'hrd',
-            'maklon',
-        ];
+        const validWorkspaces = VALID_WORKSPACES;
         if (validWorkspaces.includes(moduleKey)) {
             if (!canAccessWorkspace(session.user, moduleKey as WorkspaceKey, pathname)) {
                 return NextResponse.json(
@@ -125,8 +177,6 @@ export async function POST(req: NextRequest) {
         }
 
         const sessionId = (rawSessionId || 'session-default').slice(0, 100);
-        const eventType = 'FEATURE_VIEW';
-        const source = 'WEB';
 
         // Atomic in-memory deduplication check
         const dedupKey = `${tenantId}:${userId}:${featureKey}:${sessionId}`;
@@ -148,10 +198,13 @@ export async function POST(req: NextRequest) {
                 eventType,
                 source,
                 sessionId,
+                ...(unmappedPath || cleanMetadata
+                    ? { metadata: { ...(cleanMetadata ?? {}), ...(unmappedPath ? { unmappedPath } : {}) } }
+                    : {}),
             },
         });
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, ...(unmappedPath ? { unmapped: true } : {}) });
     } catch (error) {
         console.error('[UsageAnalyticsIngestion] Error tracking event:', error);
         return NextResponse.json(

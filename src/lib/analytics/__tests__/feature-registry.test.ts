@@ -99,6 +99,54 @@ describe('Feature Registry', () => {
         expect(resolveFeatureFromPath('/unknown-path/foo/bar')).toBeNull();
     });
 
+    it('resolves mobile portal routes per module', () => {
+        expect(resolveFeatureFromPath('/production/mobile/tasks')).toEqual({
+            featureKey: 'production.mobile.tasks',
+            moduleKey: 'production',
+            label: 'Tugas Mobile Produksi',
+        });
+        expect(resolveFeatureFromPath('/production/mobile/tasks/new')).toEqual({
+            featureKey: 'production.mobile.tasks',
+            moduleKey: 'production',
+            label: 'Tugas Mobile Produksi',
+        });
+        expect(resolveFeatureFromPath('/finance/mobile/insights')).toEqual({
+            featureKey: 'finance.mobile.insights',
+            moduleKey: 'finance',
+            label: 'Insight Mobile Finance',
+        });
+        expect(resolveFeatureFromPath('/mobile')).toEqual({
+            featureKey: 'mobile.hub',
+            moduleKey: 'mobile',
+            label: 'Pemilih Portal Mobile',
+        });
+    });
+
+    it('resolves HRD alerts and piece rates', () => {
+        expect(resolveFeatureFromPath('/hrd/alerts')?.featureKey).toBe('hrd.alerts');
+        expect(resolveFeatureFromPath('/hrd/piece-rates')?.featureKey).toBe('hrd.piece-rates');
+    });
+
+    it('resolves sales reports individually', () => {
+        expect(resolveFeatureFromPath('/sales/reports/margin')?.featureKey).toBe('sales.reports.margin');
+        expect(resolveFeatureFromPath('/sales/pipeline')?.featureKey).toBe('sales.pipeline');
+        expect(resolveFeatureFromPath('/sales/orders/so-1/edit')?.featureKey).toBe('sales.orders.edit');
+    });
+
+    it('resolves finance operations and edit pages', () => {
+        expect(resolveFeatureFromPath('/finance/returns')?.featureKey).toBe('finance.returns.list');
+        expect(resolveFeatureFromPath('/finance/returns/r-9')?.featureKey).toBe('finance.returns.detail');
+        expect(resolveFeatureFromPath('/finance/rekap-piutang')?.featureKey).toBe('finance.rekap.piutang');
+        expect(resolveFeatureFromPath('/finance/journals/j-1/edit')?.featureKey).toBe('finance.journals.edit');
+    });
+
+    it('resolves production operations and maklon/distribution', () => {
+        expect(resolveFeatureFromPath('/production/daily-report')?.featureKey).toBe('production.daily-report');
+        expect(resolveFeatureFromPath('/production/runs/run-7')?.featureKey).toBe('production.runs.detail');
+        expect(resolveFeatureFromPath('/warehouse/maklon/receipts')?.featureKey).toBe('warehouse.maklon.receipts');
+        expect(resolveFeatureFromPath('/distribution')?.featureKey).toBe('distribution.overview');
+    });
+
     it('has no duplicate feature keys in the registry', () => {
         const features = getAllRegisteredFeatures();
         const keys = features.map((f) => f.featureKey);

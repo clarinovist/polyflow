@@ -66,11 +66,9 @@ export async function trackMobileTaskEvent(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 pathname,
-                metadata: {
-                    ...sanitized,
-                    eventType,
-                    source: 'MOBILE_WEB',
-                },
+                eventType,
+                source: 'MOBILE_WEB',
+                metadata: sanitized,
             }),
         });
     } catch {

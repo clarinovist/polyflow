@@ -122,10 +122,11 @@ describe('Analytics Track API Route Hardened', () => {
         expect(res.status).toBe(403);
     });
 
-    it('returns 400 when pathname is unregistered or invalid', async () => {
+    it('records unregistered pathnames as unmapped instead of rejecting', async () => {
         vi.mocked(auth).mockResolvedValue({
             user: { id: 'user-1' },
         } as never);
+        vi.mocked(prisma.usageEvent.create).mockResolvedValue({ id: 'evt-1' } as never);
 
         const req = new NextRequest('http://localhost:3000/api/analytics/track', {
             method: 'POST',
@@ -133,7 +134,98 @@ describe('Analytics Track API Route Hardened', () => {
         });
 
         const res = await POST(req);
-        expect(res.status).toBe(400);
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ success: true, unmapped: true });
+        expect(prisma.usageEvent.create).toHaveBeenCalledWith({
+            data: {
+                tenantId: 'tenant-test-123',
+                userId: 'user-1',
+                featureKey: 'unmapped',
+                moduleKey: 'unmapped',
+                eventType: 'FEATURE_VIEW',
+                source: 'WEB',
+                sessionId: 'session-default',
+                metadata: { unmappedPath: '/unknown-path/foo' },
+            },
+        });
+    });
+
+    it('keeps the workspace gate for unmapped paths under a known module', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-1' },
+        } as never);
+        vi.mocked(canAccessWorkspace).mockReturnValue(false);
+
+        const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({ pathname: '/sales/some-future-page' }),
+        });
+
+        const res = await POST(req);
+        expect(res.status).toBe(403);
+    });
+
+    it('honors mobile task eventType and source', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-1' },
+        } as never);
+        vi.mocked(prisma.usageEvent.create).mockResolvedValue({ id: 'evt-1' } as never);
+
+        const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                pathname: '/production/mobile/tasks',
+                eventType: 'MOBILE_TASK_COMPLETED',
+                source: 'MOBILE_WEB',
+                metadata: { portalId: 'production', taskType: 'opname', durationMs: 1200 },
+            }),
+        });
+
+        const res = await POST(req);
+        expect(res.status).toBe(200);
+        expect(prisma.usageEvent.create).toHaveBeenCalledWith({
+            data: {
+                tenantId: 'tenant-test-123',
+                userId: 'user-1',
+                featureKey: 'production.mobile.tasks',
+                moduleKey: 'production',
+                eventType: 'MOBILE_TASK_COMPLETED',
+                source: 'MOBILE_WEB',
+                sessionId: 'session-default',
+                metadata: { portalId: 'production', taskType: 'opname', durationMs: 1200 },
+            },
+        });
+    });
+
+    it('supports legacy nested eventType/source and sanitizes metadata', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'user-1' },
+        } as never);
+        vi.mocked(prisma.usageEvent.create).mockResolvedValue({ id: 'evt-1' } as never);
+
+        const req = new NextRequest('http://localhost:3000/api/analytics/track', {
+            method: 'POST',
+            body: JSON.stringify({
+                pathname: '/hrd/mobile/attendance',
+                metadata: {
+                    eventType: 'MOBILE_TASK_STARTED',
+                    source: 'MOBILE_WEB',
+                    nested: { evil: true },
+                    big: 'x'.repeat(600),
+                },
+            }),
+        });
+
+        const res = await POST(req);
+        expect(res.status).toBe(200);
+        const call = vi.mocked(prisma.usageEvent.create).mock.calls[0][0] as { data: Record<string, unknown> };
+        expect(call.data.eventType).toBe('MOBILE_TASK_STARTED');
+        expect(call.data.source).toBe('MOBILE_WEB');
+        expect(call.data.metadata).toEqual({
+            eventType: 'MOBILE_TASK_STARTED',
+            source: 'MOBILE_WEB',
+            big: 'x'.repeat(500),
+        });
     });
 
     it('returns 403 when user lacks workspace access for the feature module', async () => {
