@@ -14,6 +14,8 @@ import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import { headers } from 'next/headers';
+import { getMainPrisma } from '@/lib/core/prisma';
+import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
 
 export default async function WarehouseLayout({
     children,
@@ -87,6 +89,25 @@ export default async function WarehouseLayout({
         redirect(getPreferredWorkspaceLanding('warehouse', permissions));
     }
 
+    const tenantId = session.user.tenantId;
+    const currentTenant = tenantId
+        ? await getMainPrisma().tenant.findUnique({
+              where: { id: tenantId },
+              select: { id: true, name: true },
+          })
+        : null;
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> =
+        [];
+    try {
+        workspaces = await getCentralWorkspaceOptions(
+            session.user.globalAccountId,
+        );
+    } catch {
+        // Workspace switching is optional navigation; the current tenant
+        // remains usable even if MAIN membership listing is unavailable.
+        workspaces = [];
+    }
+
     // Mobile paths use dedicated mobile chrome layout — bypass desktop sidebar/header
     if (pathname.startsWith('/warehouse/mobile')) {
         return <>{children}</>;
@@ -96,7 +117,13 @@ export default async function WarehouseLayout({
         <div className="min-h-screen bg-background">
             <SkipToMainContent />
             {/* Dedicated Warehouse Sidebar */}
-            <WarehouseSidebar user={user} permissions={permissions} />
+            <WarehouseSidebar
+                user={user}
+                permissions={permissions}
+                currentTenantId={currentTenant?.id}
+                currentTenantName={currentTenant?.name}
+                workspaces={workspaces}
+            />
 
             <SidebarSpacer className="flex min-h-screen flex-col">
                 {/* Simplified Header for Utility (Clock, Context) */}
