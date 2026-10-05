@@ -50,8 +50,22 @@ describe("InvoiceService", () => {
       "so-1",
       "user-1",
     );
-    expect(createDraftInvoiceFromOrder).toHaveBeenCalledWith("so-1", "user-1");
+    expect(createDraftInvoiceFromOrder).toHaveBeenCalledWith(
+      "so-1",
+      "user-1",
+      undefined,
+    );
     expect(result).toEqual({ id: "inv-2" });
+  });
+
+  it("forwards invoiceDate opt to createDraftInvoiceFromOrder", async () => {
+    const invoiceDate = new Date("2026-09-30T00:00:00.000Z");
+    await InvoiceService.createDraftInvoiceFromOrder("so-1", "user-1", {
+      invoiceDate,
+    });
+    expect(createDraftInvoiceFromOrder).toHaveBeenCalledWith("so-1", "user-1", {
+      invoiceDate,
+    });
   });
 
   it("delegates checkOverdueSalesInvoices", async () => {
