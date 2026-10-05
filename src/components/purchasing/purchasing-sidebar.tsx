@@ -15,6 +15,8 @@ import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { purchasingSidebarLabels } from '@/lib/labels';
 import { filterNavGroups } from '@/lib/auth/permission-match';
+import { TenantSwitcher } from '@/components/layout/tenant-switcher';
+import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 
 interface PurchasingSidebarProps {
     user: {
@@ -24,6 +26,9 @@ interface PurchasingSidebarProps {
         image?: string | null;
     };
     permissions?: string[] | 'ALL';
+    currentTenantId?: string;
+    currentTenantName?: string;
+    workspaces?: CentralWorkspaceOption[];
 }
 
 const purchasingLinks = [
@@ -97,6 +102,9 @@ const purchasingLinks = [
 export function PurchasingSidebar({
     user,
     permissions,
+    currentTenantId,
+    currentTenantName,
+    workspaces = [],
 }: PurchasingSidebarProps) {
     const filteredGroups = filterNavGroups(purchasingLinks, permissions);
     return (
@@ -105,7 +113,16 @@ export function PurchasingSidebar({
             portalName="Portal Pembelian"
             accentColor="purple"
         >
-            <div className="px-3 mb-2">
+            {currentTenantName && (
+                <div className="px-3 pt-3">
+                    <TenantSwitcher
+                        currentTenantId={currentTenantId}
+                        currentTenantName={currentTenantName}
+                        workspaces={workspaces}
+                    />
+                </div>
+            )}
+            <div className="px-3 mb-2 mt-2">
                 <AdminBackButton />
             </div>
             {filteredGroups.map((group) => (

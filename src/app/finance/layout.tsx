@@ -13,6 +13,8 @@ import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import { headers } from 'next/headers';
+import { getMainPrisma } from '@/lib/core/prisma';
+import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
 
 export default async function FinanceLayout({
     children,
@@ -50,6 +52,25 @@ export default async function FinanceLayout({
             permissions === 'ALL' ? sessionAllowed : (permissions as string[]),
     };
 
+    const tenantId = session.user.tenantId;
+    const currentTenant = tenantId
+        ? await getMainPrisma().tenant.findUnique({
+              where: { id: tenantId },
+              select: { id: true, name: true },
+          })
+        : null;
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> =
+        [];
+    try {
+        workspaces = await getCentralWorkspaceOptions(
+            session.user.globalAccountId,
+        );
+    } catch {
+        // Workspace switching is optional navigation; the current tenant
+        // remains usable even if MAIN membership listing is unavailable.
+        workspaces = [];
+    }
+
     if (!canAccessWorkspace(userForPolicy, 'finance', pathname)) {
         redirect('/dashboard?error=Unauthorized');
     }
@@ -82,7 +103,13 @@ export default async function FinanceLayout({
     return (
         <div className="min-h-screen bg-background print:bg-white">
             <SkipToMainContent />
-            <FinanceSidebar user={session.user} permissions={permissions} />
+            <FinanceSidebar
+                user={session.user}
+                permissions={permissions}
+                currentTenantId={currentTenant?.id}
+                currentTenantName={currentTenant?.name}
+                workspaces={workspaces}
+            />
             <SidebarSpacer>
                 <main id="main-content" tabIndex={-1} className="min-h-screen">
                     <div className="p-4 md:p-6 lg:p-8">

@@ -19,6 +19,8 @@ import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { productionSidebarLabels } from '@/lib/labels';
 import { filterNavGroups } from '@/lib/auth/permission-match';
+import { TenantSwitcher } from '@/components/layout/tenant-switcher';
+import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 
 interface ProductionSidebarProps {
     user: {
@@ -28,6 +30,9 @@ interface ProductionSidebarProps {
         image?: string | null;
     };
     permissions?: string[] | 'ALL';
+    currentTenantId?: string;
+    currentTenantName?: string;
+    workspaces?: CentralWorkspaceOption[];
 }
 
 export const productionLinks: Pick<
@@ -191,6 +196,9 @@ export function getProductionNavGroups(permissions?: string[] | 'ALL') {
 export function ProductionSidebar({
     user,
     permissions,
+    currentTenantId,
+    currentTenantName,
+    workspaces = [],
 }: ProductionSidebarProps) {
     const filteredGroups = getProductionNavGroups(permissions);
     return (
@@ -199,7 +207,16 @@ export function ProductionSidebar({
             portalName="Produksi"
             accentColor="emerald"
         >
-            <div className="px-3 mb-2">
+            {currentTenantName && (
+                <div className="px-3 pt-3">
+                    <TenantSwitcher
+                        currentTenantId={currentTenantId}
+                        currentTenantName={currentTenantName}
+                        workspaces={workspaces}
+                    />
+                </div>
+            )}
+            <div className="px-3 mb-2 mt-2">
                 <AdminBackButton />
             </div>
             {filteredGroups.map((group) => (

@@ -12,6 +12,8 @@ import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import { headers } from 'next/headers';
+import { getMainPrisma } from '@/lib/core/prisma';
+import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
 
 export default async function DistributionLayout({
     children,
@@ -49,6 +51,25 @@ export default async function DistributionLayout({
             permissions === 'ALL' ? sessionAllowed : (permissions as string[]),
     };
 
+    const tenantId = session.user.tenantId;
+    const currentTenant = tenantId
+        ? await getMainPrisma().tenant.findUnique({
+              where: { id: tenantId },
+              select: { id: true, name: true },
+          })
+        : null;
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> =
+        [];
+    try {
+        workspaces = await getCentralWorkspaceOptions(
+            session.user.globalAccountId,
+        );
+    } catch {
+        // Workspace switching is optional navigation; the current tenant
+        // remains usable even if MAIN membership listing is unavailable.
+        workspaces = [];
+    }
+
     if (!canAccessWorkspace(userForPolicy, 'distribution', pathname)) {
         redirect('/dashboard?error=Unauthorized');
     }
@@ -76,7 +97,13 @@ export default async function DistributionLayout({
 
     return (
         <div className="min-h-screen bg-background">
-            <DistributionSidebar user={session.user} permissions={permissions} />
+            <DistributionSidebar
+                user={session.user}
+                permissions={permissions}
+                currentTenantId={currentTenant?.id}
+                currentTenantName={currentTenant?.name}
+                workspaces={workspaces}
+            />
             <SidebarSpacer>
                 <main className="min-h-screen">
                     <div className="p-4 md:p-6 lg:p-8">

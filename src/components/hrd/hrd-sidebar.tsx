@@ -18,6 +18,8 @@ import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { hrdSidebarLabels } from '@/lib/labels';
 import { filterNavGroups } from '@/lib/auth/permission-match';
+import { TenantSwitcher } from '@/components/layout/tenant-switcher';
+import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 
 interface HrdSidebarProps {
     user: {
@@ -27,6 +29,9 @@ interface HrdSidebarProps {
         image?: string | null;
     };
     permissions?: string[] | 'ALL';
+    currentTenantId?: string;
+    currentTenantName?: string;
+    workspaces?: CentralWorkspaceOption[];
 }
 
 const hrdLinks = [
@@ -108,7 +113,13 @@ const hrdLinks = [
     },
 ];
 
-export function HrdSidebar({ user, permissions }: HrdSidebarProps) {
+export function HrdSidebar({
+    user,
+    permissions,
+    currentTenantId,
+    currentTenantName,
+    workspaces = [],
+}: HrdSidebarProps) {
     const filteredGroups = filterNavGroups(hrdLinks, permissions);
     return (
         <PortalSidebarBase
@@ -116,7 +127,16 @@ export function HrdSidebar({ user, permissions }: HrdSidebarProps) {
             portalName="Portal HRD"
             accentColor="rose"
         >
-            <div className="px-3 mb-2">
+            {currentTenantName && (
+                <div className="px-3 pt-3">
+                    <TenantSwitcher
+                        currentTenantId={currentTenantId}
+                        currentTenantName={currentTenantName}
+                        workspaces={workspaces}
+                    />
+                </div>
+            )}
+            <div className="px-3 mb-2 mt-2">
                 <AdminBackButton />
             </div>
             {filteredGroups.map((group) => (

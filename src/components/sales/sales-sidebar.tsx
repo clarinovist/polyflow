@@ -27,6 +27,8 @@ import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { salesSidebarLabels } from '@/lib/labels';
 import { filterNavGroups } from '@/lib/auth/permission-match';
+import { TenantSwitcher } from '@/components/layout/tenant-switcher';
+import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 import Link from 'next/link';
 
 interface SalesSidebarProps {
@@ -37,6 +39,9 @@ interface SalesSidebarProps {
         image?: string | null;
     };
     permissions?: string[] | 'ALL';
+    currentTenantId?: string;
+    currentTenantName?: string;
+    workspaces?: CentralWorkspaceOption[];
 }
 
 export const salesLinks = [
@@ -188,7 +193,13 @@ export const salesLinks = [
     },
 ];
 
-export function SalesSidebar({ user, permissions }: SalesSidebarProps) {
+export function SalesSidebar({
+    user,
+    permissions,
+    currentTenantId,
+    currentTenantName,
+    workspaces = [],
+}: SalesSidebarProps) {
     const filteredGroups = filterNavGroups(salesLinks, permissions);
     return (
         <PortalSidebarBase
@@ -198,7 +209,16 @@ export function SalesSidebar({ user, permissions }: SalesSidebarProps) {
             assistantSlots
             assistantSlotPrefix="sales"
         >
-            <div className="px-3 mb-2">
+            {currentTenantName && (
+                <div className="px-3 pt-3">
+                    <TenantSwitcher
+                        currentTenantId={currentTenantId}
+                        currentTenantName={currentTenantName}
+                        workspaces={workspaces}
+                    />
+                </div>
+            )}
+            <div className="px-3 mb-2 mt-2">
                 <AdminBackButton />
             </div>
             {filteredGroups.map((group) => (

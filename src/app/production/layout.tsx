@@ -14,6 +14,8 @@ import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { getMyPermissions } from '@/actions/admin/permissions';
 import { headers } from 'next/headers';
+import { getMainPrisma } from '@/lib/core/prisma';
+import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
 
 export default async function ProductionLayout({
     children,
@@ -58,6 +60,25 @@ export default async function ProductionLayout({
             permissions === 'ALL' ? sessionAllowed : (permissions as string[]),
     };
 
+    const tenantId = session.user.tenantId;
+    const currentTenant = tenantId
+        ? await getMainPrisma().tenant.findUnique({
+              where: { id: tenantId },
+              select: { id: true, name: true },
+          })
+        : null;
+    let workspaces: Awaited<ReturnType<typeof getCentralWorkspaceOptions>> =
+        [];
+    try {
+        workspaces = await getCentralWorkspaceOptions(
+            session.user.globalAccountId,
+        );
+    } catch {
+        // Workspace switching is optional navigation; the current tenant
+        // remains usable even if MAIN membership listing is unavailable.
+        workspaces = [];
+    }
+
     if (!canAccessWorkspace(userForPolicy, 'production', pathname)) {
         redirect('/dashboard');
     }
@@ -91,7 +112,13 @@ export default async function ProductionLayout({
     return (
         <div className="min-h-screen bg-background">
             <SkipToMainContent />
-            <ProductionSidebar user={user} permissions={permissions} />
+            <ProductionSidebar
+                user={user}
+                permissions={permissions}
+                currentTenantId={currentTenant?.id}
+                currentTenantName={currentTenant?.name}
+                workspaces={workspaces}
+            />
 
             <SidebarSpacer className="flex min-h-screen flex-col">
                 <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
