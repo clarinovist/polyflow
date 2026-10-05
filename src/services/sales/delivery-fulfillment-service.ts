@@ -407,7 +407,7 @@ export async function commitDeliveryShipment(
             }
 
             // 3b. Commit memakai Tanggal Surat Jalan (mendukung backdate koreksi).
-            const commitDate = doRecord.deliveryDate;
+            const commitDate = doRecord.deliveryDate ?? new Date();
             if (!(await isPeriodOpen(commitDate, tx))) {
                 throw new BusinessRuleError(
                     'Periode jurnal untuk Tanggal Surat Jalan sudah ditutup atau belum tersedia. Periksa periode buku sebelum melanjutkan.',

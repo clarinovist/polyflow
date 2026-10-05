@@ -48,6 +48,9 @@ vi.mock("@/lib/core/prisma", () => ({ getTenantDbFromContext: () => prisma,
     stockMovement: {
       create: vi.fn(),
     },
+    fiscalPeriod: {
+      findUnique: vi.fn().mockResolvedValue({ status: 'OPEN' }),
+    },
     $transaction: vi.fn((callback, _opts) => callback(prisma)),
   },
 }));
@@ -122,6 +125,7 @@ function makeDeliveryOrder(overrides: Record<string, unknown> = {}) {
     orderNumber: "DO-2026-0001",
     salesOrderId: "so-1",
     sourceLocationId: "loc-1",
+    deliveryDate: new Date(),
     status: DeliveryStatus.PENDING,
     loadVerifiedAt: new Date("2026-07-22T00:00:00.000Z"),
     items: [
@@ -185,6 +189,69 @@ describe("createDeliveryOrderFromSalesOrder", () => {
     );
     expect(InventoryCoreService.validateAndLockStock).not.toHaveBeenCalled();
     expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+  });
+
+  it("stores backdated deliveryDate normalized to WIB midnight (koreksi September)", async () => {
+    const so = makeSalesOrder();
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(so as never);
+    vi.mocked(prisma.deliveryOrder.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.deliveryOrder.create).mockResolvedValue({
+      id: "do-new",
+      status: DeliveryStatus.PENDING,
+    } as never);
+
+    await createDeliveryOrderFromSalesOrder({
+      salesOrderId: "so-1",
+      sourceLocationId: "loc-1",
+      userId: "user-1",
+      deliveryDate: new Date("2026-09-30T10:00:00.000Z"),
+    });
+
+    // 30 Sep 10:00 UTC = 30 Sep 17:00 WIB → dinormalisasi ke 30 Sep 00:00 WIB
+    expect(prisma.deliveryOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          deliveryDate: new Date("2026-09-29T17:00:00.000Z"),
+        }),
+      })
+    );
+  });
+
+  it("rejects future deliveryDate", async () => {
+    const so = makeSalesOrder();
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(so as never);
+    vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await expect(
+      createDeliveryOrderFromSalesOrder({
+        salesOrderId: "so-1",
+        sourceLocationId: "loc-1",
+        userId: "user-1",
+        deliveryDate: tomorrow,
+      })
+    ).rejects.toThrow(/melebihi hari ini/);
+    expect(prisma.deliveryOrder.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects backdate when journal period is closed", async () => {
+    const so = makeSalesOrder();
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(so as never);
+    vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.fiscalPeriod.findUnique).mockResolvedValueOnce({
+      status: "CLOSED",
+    } as never);
+
+    await expect(
+      createDeliveryOrderFromSalesOrder({
+        salesOrderId: "so-1",
+        sourceLocationId: "loc-1",
+        userId: "user-1",
+        deliveryDate: new Date("2026-09-15T00:00:00.000Z"),
+      })
+    ).rejects.toThrow(/Periode jurnal/);
+    expect(prisma.deliveryOrder.create).not.toHaveBeenCalled();
   });
 
   it("creates DO from IN_PRODUCTION SO (Melindo MTO use case)", async () => {
@@ -405,7 +472,11 @@ describe("commitDeliveryShipment", () => {
         data: expect.objectContaining({ status: SalesOrderStatus.SHIPPED }),
       })
     );
-    expect(InvoiceService.createDraftInvoiceFromOrder).toHaveBeenCalledWith("so-1", "user-1");
+    expect(InvoiceService.createDraftInvoiceFromOrder).toHaveBeenCalledWith(
+      "so-1",
+      "user-1",
+      expect.objectContaining({ invoiceDate: expect.any(Date) }),
+    );
     expect(result.success).toBe(true);
   });
 
