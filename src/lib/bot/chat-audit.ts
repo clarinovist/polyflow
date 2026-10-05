@@ -171,5 +171,24 @@ export async function logVirtualCsEvent(
         /* best effort */
     }
 
+    // Feature-request signals — additive, never blocks chat response.
+    // Explicit asks route here so help clusters stay focused on how-to questions.
+    try {
+        const { sanitizeQuestion } = await import("./help-sanitizer");
+        const { isFeatureRequest, upsertFeatureSignal } = await import("./feature-signals");
+        if (isFeatureRequest(input.question)) {
+            const sanitized = sanitizeQuestion(input.question);
+            upsertFeatureSignal({
+                question: input.question.slice(0, 500),
+                redactedSample: sanitized,
+                userId: input.userId,
+                tenantId: input.tenantId,
+                signalKind: "explicit_request",
+            }).catch(() => {});
+        }
+    } catch {
+        /* best effort */
+    }
+
     return interactionId;
 }

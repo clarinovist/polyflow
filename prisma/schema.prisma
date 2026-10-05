@@ -4311,6 +4311,69 @@ model HelpLearningDraft {
   @@index([clusterId])
 }
 
+// ─── Phase 4: Feature request pipeline ─────────────────────
+// Signals of unmet needs from assistant conversations. Mirrors the
+// help-learning pattern: cluster -> proposal draft -> super-admin review.
+// No automation writes business data; proposals are documents only.
+
+enum FeatureSignalStatus {
+  OPEN
+  CANDIDATE
+  PROPOSED
+  IGNORED
+}
+
+enum FeatureProposalStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  BUILT
+  SHIPPED
+}
+
+model FeatureSignalCluster {
+  id               String              @id @default(cuid())
+  canonicalRequest String
+  normalizedKey    String              @unique // normalized canonical for dedup
+  signalKind       String              @default("explicit_request") // explicit_request | workaround_loop | unanswered_repeat
+  hitCount         Int                 @default(1)
+  uniqueUsers      Int                 @default(1)
+  sampleUserIds    String[]            @default([]) // capped, for unique-user threshold
+  tenantIds        String[]            @default([]) // capped, for blast-radius estimate
+  suggestedModule  String? // sales | warehouse | ...
+  sampleRequests   String[] // redacted, max 5
+  status           FeatureSignalStatus @default(OPEN)
+  lastSeenAt       DateTime            @default(now())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  proposals FeatureProposal[]
+
+  @@index([status, uniqueUsers])
+  @@index([lastSeenAt])
+}
+
+model FeatureProposal {
+  id             String                @id @default(cuid())
+  clusterId      String?
+  title          String
+  problemMd      String                @db.Text
+  evidenceMd     String                @default("") @db.Text
+  impactedModules String[]             @default([])
+  requesterCount Int                   @default(0)
+  status         FeatureProposalStatus @default(PENDING_REVIEW)
+  decidedBy      String?
+  decisionNote   String?               @db.Text
+  decidedAt      DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  cluster FeatureSignalCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([clusterId])
+}
+
 // ─── Phase 2: Conversation persistence ─────────────────────────
 
 enum HelpConversationStatus {

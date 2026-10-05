@@ -25,7 +25,7 @@ function canonicalizeQuestion(q: string): string {
     return q.trim().slice(0, 200);
 }
 
-function suggestModule(question: string): string | null {
+export function suggestModule(question: string): string | null {
     const lower = question.toLowerCase();
     if (
         /(sales|so\b|order|invoice|faktur|customer|pelanggan|pengiriman|surat jalan|sj\b)/.test(

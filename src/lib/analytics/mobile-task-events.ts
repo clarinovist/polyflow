@@ -68,7 +68,11 @@ export async function trackMobileTaskEvent(
                 pathname,
                 eventType,
                 source: 'MOBILE_WEB',
-                metadata: sanitized,
+                metadata: {
+                    ...sanitized,
+                    eventType,
+                    source: 'MOBILE_WEB',
+                },
             }),
         });
     } catch {
