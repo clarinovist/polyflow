@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
+import { isBackdatedEntry } from '@/lib/production/shift-label';
 
 function ExecutionScrapCell({
     execution,
@@ -530,6 +531,16 @@ export function OrderOverviewTab({
                                                                   )
                                                                 : 'berjalan'}
                                                         </span>
+                                                        {isBackdatedEntry(exec) &&
+                                                            exec.createdAt && (
+                                                                <span
+                                                                    className="block text-[10px] text-muted-foreground"
+                                                                    title={`Masuk laporan tanggal ${format(new Date(exec.startTime), 'd MMM', { locale: idLocale })}`}
+                                                                >
+                                                                    Dicatat{' '}
+                                                                    {format(new Date(exec.createdAt), 'd MMM HH:mm', { locale: idLocale })}
+                                                                </span>
+                                                            )}
                                                         {exec.status ===
                                                             'VOIDED' && (
                                                             <span className="text-[10px] font-bold text-destructive uppercase tracking-tighter">

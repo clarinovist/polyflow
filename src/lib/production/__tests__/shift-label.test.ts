@@ -28,3 +28,27 @@ describe('formatShiftOptionLabel', () => {
         expect(a).not.toBe(b);
     });
 });
+
+describe('isBackdatedEntry', () => {
+    it('true bila input dan produksi beda tanggal WIB', async () => {
+        const { isBackdatedEntry } = await import('../shift-label');
+        expect(
+            isBackdatedEntry({
+                createdAt: new Date('2026-10-03T22:05:00Z'),
+                startTime: new Date('2026-10-02T17:00:00Z'),
+                endTime: new Date('2026-10-02T17:00:00Z'),
+            }),
+        ).toBe(true);
+    });
+
+    it('false bila hari yang sama atau tanpa createdAt', async () => {
+        const { isBackdatedEntry } = await import('../shift-label');
+        expect(
+            isBackdatedEntry({
+                createdAt: new Date('2026-10-03T07:14:00Z'),
+                startTime: new Date('2026-10-03T07:14:00Z'),
+            }),
+        ).toBe(false);
+        expect(isBackdatedEntry({ createdAt: null, startTime: new Date() })).toBe(false);
+    });
+});

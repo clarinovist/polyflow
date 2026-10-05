@@ -29,6 +29,7 @@ import {
     Scissors,
 } from 'lucide-react';
 import { formatWIB } from '@/lib/utils/timezone';
+import { isBackdatedEntry } from '@/lib/production/shift-label';
 import { cn } from '@/lib/utils/utils';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import {
@@ -121,14 +122,9 @@ function getGroupAnomalies(
 }
 
 function renderRecordedNote(exec: ExecutionData) {
-    if (!exec.createdAt) return null;
+    if (!isBackdatedEntry(exec)) return null;
     const ref = exec.startTime ?? exec.endTime;
-    if (!ref) return null;
-    if (
-        formatWIB(exec.createdAt, 'yyyy-MM-dd') ===
-        formatWIB(ref, 'yyyy-MM-dd')
-    )
-        return null;
+    if (!ref || !exec.createdAt) return null;
     const recorded = formatWIB(exec.createdAt, 'dd MMM HH:mm');
     const bucket = formatWIB(ref, 'dd MMM');
     return (
