@@ -82,6 +82,28 @@ describe('requireAuth', () => {
 
         // Act & Assert
         await expect(requireAuth()).rejects.toThrow('REDIRECT');
+        // Initial lookup + one retry before concluding the session is stale
+        expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it('should recover when the first lookup transiently misses', async () => {
+        // Arrange — simulates a transient misroute under concurrent load:
+        // the row exists, the first lookup just missed it.
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        const mockSession = { user: { id: 'user-123', role: 'SALES' } };
+
+        vi.mocked(auth).mockResolvedValue(mockSession as any);
+        vi.mocked(prisma.user.findUnique)
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce({ id: 'user-123' } as any);
+
+        // Act
+        const result = await requireAuth();
+
+        // Assert — session preserved, no logout redirect
+        expect(result).toEqual(mockSession);
+        expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
     });
 
     it('should return session when user is valid', async () => {

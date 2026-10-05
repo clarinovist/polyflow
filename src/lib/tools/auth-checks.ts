@@ -81,13 +81,42 @@ export async function requireAuth() {
             { requireLocalBinding },
         );
     }
-    const user = await (tenant?.tenantDb || prisma).user.findUnique({
+    let user = await (tenant?.tenantDb || prisma).user.findUnique({
         where: { id: session.user.id },
         select: { id: true },
     });
 
     if (!user) {
+        // A single lookup miss must never destroy a valid session: under
+        // concurrent load a transient misroute can momentarily miss an
+        // existing row, and signing out on it traps the user in a
+        // login → logout loop they cannot recover from (Oct 2026, mobile).
+        // Retry once with a freshly resolved client, and only treat a
+        // confirmed miss as a stale session.
+        console.error('[requireAuth] User lookup miss, retrying once', {
+            userId: session.user.id,
+            tenantId: tenant?.tenantId ?? null,
+            subdomain: tenant?.subdomain ?? null,
+        });
+        const retryTenant = needsTenantValidation
+            ? await resolveTenantDb()
+            : null;
+        user = await (retryTenant?.tenantDb || prisma).user.findUnique({
+            where: { id: session.user.id },
+            select: { id: true },
+        });
+    }
+
+    if (!user) {
         // Stale session, force logout via client-side page
+        console.error(
+            '[requireAuth] User lookup confirmed miss, redirecting to /logout',
+            {
+                userId: session.user.id,
+                tenantId: tenant?.tenantId ?? null,
+                subdomain: tenant?.subdomain ?? null,
+            },
+        );
         redirect('/logout');
     }
 
