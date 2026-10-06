@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const maintenanceSparePartSchema = z.object({
+  productVariantId: z.string().min(1).optional(),
+  sourceLocationId: z.string().min(1).optional(),
   name: z.string().min(1, 'Nama spare part wajib diisi').max(200),
   spec: z.string().max(300).optional(),
   quantity: z.coerce.number().positive('Jumlah harus positif'),

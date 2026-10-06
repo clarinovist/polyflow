@@ -40,13 +40,26 @@ async function requireExecutor(order: { createdById: string }, userId: string, s
 export const getMaintenanceFormData = withTenant(async function getMaintenanceFormData() {
   return safeAction(async () => {
     await requireAuth();
-    const machines = await prisma.machine.findMany({
-      where: { status: { not: 'INACTIVE' as never } },
-      select: { id: true, name: true, code: true, status: true },
-      orderBy: { code: 'asc' },
-      take: 200,
-    }).catch(() => []);
-    return serializeData({ machines });
+    const [machines, spareCatalog, locations] = await Promise.all([
+      prisma.machine.findMany({
+        where: { status: { not: 'INACTIVE' as never } },
+        select: { id: true, name: true, code: true, status: true },
+        orderBy: { code: 'asc' },
+        take: 200,
+      }).catch(() => []),
+      prisma.productVariant.findMany({
+        where: { archivedAt: null, product: { productType: 'OPERATIONAL' } },
+        select: { id: true, name: true, skuCode: true },
+        orderBy: { name: 'asc' },
+        take: 300,
+      }).catch(() => []),
+      prisma.location.findMany({
+        select: { id: true, name: true, slug: true },
+        orderBy: { name: 'asc' },
+        take: 100,
+      }).catch(() => []),
+    ]);
+    return serializeData({ machines, spareCatalog, locations });
   });
 });
 

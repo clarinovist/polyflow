@@ -107,6 +107,18 @@ export const productionLinks: Pick<
                 href: '/production/maintenance',
                 icon: Wrench,
                 label: 'Maintenance',
+                children: [
+                    {
+                        href: '/production/maintenance',
+                        icon: Files,
+                        label: 'Daftar',
+                    },
+                    {
+                        href: '/production/maintenance/stock',
+                        icon: Boxes,
+                        label: 'Stok Spare Part',
+                    },
+                ],
             },
             {
                 href: '/kiosk',

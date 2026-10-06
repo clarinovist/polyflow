@@ -547,6 +547,7 @@ model ProductVariant {
   qualityCheckParameters QualityCheckParameter[]
   additionalMaterialRequests AdditionalMaterialRequest[]
   materialOrderItems         MaterialOrderItem[]
+  maintenanceSparePartNeeds  MaintenanceSparePartNeed[]
   materialOrders             MaterialOrder[]           @relation("MaterialOrderOutput")
 
   @@index([archivedAt])
@@ -4915,9 +4916,12 @@ model MaintenanceSparePartNeed {
   quantity             Decimal  @db.Decimal(15, 4)
   note                 String?  @db.Text
   fulfilled            Boolean  @default(false)
+  productVariantId     String?
+  sourceLocationId     String?
   createdAt            DateTime @default(now())
 
   request MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
 
   @@index([maintenanceRequestId])
 }

@@ -1,4 +1,6 @@
-import { MaintenanceStatus, Prisma } from '@prisma/client';
+import { MaintenanceStatus, MovementType, Prisma } from '@prisma/client';
+import { InventoryCoreService } from '@/services/inventory/core-service';
+import { AccountingService } from '@/services/accounting/accounting-service';
 import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import type { CreateMaintenanceRequestValues } from '@/lib/schemas/maintenance';
@@ -41,7 +43,7 @@ export class MaintenanceService {
           createdById: userId,
           status: MaintenanceStatus.DRAFT,
           clientRequestId: data.clientRequestId,
-          spareParts: { create: data.spareParts.map((s) => ({ name: s.name, spec: s.spec, quantity: s.quantity, note: s.note })) },
+          spareParts: { create: data.spareParts.map((s) => ({ name: s.name, spec: s.spec, quantity: s.quantity, note: s.note, productVariantId: s.productVariantId, sourceLocationId: s.sourceLocationId })) },
         },
         include: { spareParts: true },
       });
@@ -137,6 +139,42 @@ export class MaintenanceService {
       const current = await tx.maintenanceRequest.findUnique({ where: { id }, select: { status: true, downtimeId: true } });
       if (!current) throw new NotFoundError('Maintenance Request', id);
       if (current.status !== MaintenanceStatus.IN_PROGRESS) throw new BusinessRuleError('Hanya IN_PROGRESS yang bisa diselesaikan.', { id }, 'STALE_STATUS');
+      const needs = await tx.maintenanceSparePartNeed.findMany({ where: { maintenanceRequestId: id } });
+      const order = await tx.maintenanceRequest.findUniqueOrThrow({ where: { id }, select: { orderNumber: true } });
+      for (const need of needs.filter((n) => fulfilledIds.includes(n.id) && n.productVariantId)) {
+        const qty = Number(need.quantity);
+        let locId = need.sourceLocationId;
+        if (!locId) {
+          const candidates = await tx.inventory.findMany({
+            where: { productVariantId: need.productVariantId as string, quantity: { gte: qty } },
+            orderBy: { location: { name: 'asc' } },
+            select: { locationId: true },
+            take: 1,
+          });
+          locId = candidates[0]?.locationId;
+          if (!locId) throw new BusinessRuleError('Stok ' + need.name + ' tidak mencukupi di lokasi mana pun. Stok masuk dulu atau lepas centang.', { needId: need.id }, 'INSUFFICIENT_SPAREPART_STOCK');
+        }
+        await InventoryCoreService.validateAndLockStock(tx, locId as string, need.productVariantId as string, qty);
+        const inv = await tx.inventory.findUnique({
+          where: { locationId_productVariantId: { locationId: locId as string, productVariantId: need.productVariantId as string } },
+          select: { averageCost: true },
+        });
+        const unitCost = inv?.averageCost ? Number(inv.averageCost) : 0;
+        await InventoryCoreService.deductStock(tx, locId as string, need.productVariantId as string, qty);
+        const movement = await tx.stockMovement.create({
+          data: {
+            type: MovementType.OUT,
+            productVariantId: need.productVariantId as string,
+            fromLocationId: locId as string,
+            toLocationId: null,
+            quantity: qty,
+            cost: unitCost,
+            reference: 'MAINT-' + order.orderNumber + ' NEED:' + need.id,
+            createdById: actorId,
+          },
+        });
+        await AccountingService.recordInventoryMovement(movement, tx);
+      }
       if (fulfilledIds.length) {
         await tx.maintenanceSparePartNeed.updateMany({ where: { id: { in: fulfilledIds }, maintenanceRequestId: id }, data: { fulfilled: true } });
       }

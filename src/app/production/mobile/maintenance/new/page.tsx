@@ -13,7 +13,7 @@ export default async function NewMaintenancePage() {
     <div className="space-y-4">
       <MobileSectionHeader title="Lapor Kerusakan" level={1} />
       <p className="text-sm text-muted-foreground">Kirim laporan, Kepala Pabrik menunjuk teknisi. Spare part cukup tulis kebutuhan — dibeli saat butuh.</p>
-      <MaintenanceForm machines={res.data.machines} />
+      <MaintenanceForm machines={res.data.machines} spareCatalog={res.data.spareCatalog} locations={res.data.locations} />
     </div>
   );
 }

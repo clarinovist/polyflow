@@ -364,6 +364,14 @@ const productionNavItems: NavItem[] = [
         owner: 'production',
     },
     {
+        id: 'prod-sparepart-stock',
+        label: 'Stok Spare Part',
+        href: '/production/maintenance/stock',
+        workspace: 'production',
+        section: 'lantai',
+        owner: 'production',
+    },
+    {
         id: 'prod-mrp',
         label: 'MRP',
         href: '/production/mrp',

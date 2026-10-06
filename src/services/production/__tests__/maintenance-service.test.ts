@@ -6,14 +6,22 @@ import { logActivity } from '@/lib/tools/audit';
 vi.mock('@/lib/core/prisma', () => {
   const db: any = {
     maintenanceRequest: { findUnique: vi.fn(), findFirst: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
-    maintenanceSparePartNeed: { updateMany: vi.fn() },
+    maintenanceSparePartNeed: { findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn() },
     machineDowntime: { create: vi.fn(), updateMany: vi.fn() },
+    inventory: { findMany: vi.fn(), findUnique: vi.fn() },
+    stockMovement: { create: vi.fn() },
     $transaction: vi.fn(),
   };
   db.$transaction.mockImplementation(async (cb: any) => cb(db));
   return { prisma: db };
 });
 vi.mock('@/lib/tools/audit', () => ({ logActivity: vi.fn() }));
+vi.mock('@/services/inventory/core-service', () => ({
+  InventoryCoreService: { validateAndLockStock: vi.fn(), deductStock: vi.fn() },
+}));
+vi.mock('@/services/accounting/accounting-service', () => ({
+  AccountingService: { recordInventoryMovement: vi.fn() },
+}));
 
 const input: any = {
   machineId: 'mc-1',
@@ -53,9 +61,23 @@ describe('MaintenanceService', () => {
   it('complete tutup downtime + tandai spare part', async () => {
     (prisma.maintenanceRequest.findUnique as any).mockResolvedValue({ status: 'IN_PROGRESS', downtimeId: 'dt1' });
     (prisma.maintenanceRequest.updateMany as any).mockResolvedValue({ count: 1 });
-    (prisma.maintenanceRequest.findUniqueOrThrow as any).mockResolvedValue({ id: 'mt1' });
+    (prisma.maintenanceRequest.findUniqueOrThrow as any).mockResolvedValue({ id: 'mt1', orderNumber: 'MT-1' });
     await MaintenanceService.complete('mt1', 'tek', 'Ganti bearing, normal kembali', ['sp1']);
     expect(prisma.machineDowntime.updateMany).toHaveBeenCalled();
     expect(prisma.maintenanceSparePartNeed.updateMany).toHaveBeenCalled();
+  });
+  it('complete keluarkan part ter-link dari stok + jurnal', async () => {
+    (prisma.maintenanceRequest.findUnique as any).mockResolvedValue({ status: 'IN_PROGRESS', downtimeId: null });
+    (prisma.maintenanceSparePartNeed.findMany as any).mockResolvedValue([
+      { id: 'sp1', productVariantId: 'v-sp', sourceLocationId: 'loc-1', quantity: { toString: () => '2' }, name: 'Bearing' },
+    ]);
+    (prisma.maintenanceRequest.findUniqueOrThrow as any).mockResolvedValue({ id: 'mt1', orderNumber: 'MT-1' });
+    (prisma.inventory.findUnique as any).mockResolvedValue({ averageCost: { toString: () => '50000' } });
+    (prisma.maintenanceRequest.updateMany as any).mockResolvedValue({ count: 1 });
+    const { InventoryCoreService } = await import('@/services/inventory/core-service');
+    const { AccountingService } = await import('@/services/accounting/accounting-service');
+    await MaintenanceService.complete('mt1', 'tek', 'Ganti bearing', ['sp1']);
+    expect(InventoryCoreService.deductStock).toHaveBeenCalled();
+    expect(AccountingService.recordInventoryMovement).toHaveBeenCalled();
   });
 });
