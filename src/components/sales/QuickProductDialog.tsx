@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +29,7 @@ interface QuickProductDialogProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     trigger?: React.ReactNode;
+    defaultProductType?: string;
 }
 
 function generateSkuFromName(name: string): string {
@@ -49,6 +50,7 @@ export function QuickProductDialog({
     open: controlledOpen,
     onOpenChange: controlledOnOpenChange,
     trigger,
+    defaultProductType = 'FINISHED_GOOD',
 }: QuickProductDialogProps) {
     const [localOpen, setLocalOpen] = useState(false);
     const open = controlledOpen !== undefined ? controlledOpen : localOpen;
@@ -59,7 +61,11 @@ export function QuickProductDialog({
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState('');
     const [sellPrice, setSellPrice] = useState('');
-    const [productType, setProductType] = useState('FINISHED_GOOD');
+    const [productType, setProductType] = useState(defaultProductType);
+
+    useEffect(() => {
+        if (open) setProductType(defaultProductType);
+    }, [open, defaultProductType]);
 
     const generatedSku = name ? generateSkuFromName(name) : '';
 
@@ -140,7 +146,7 @@ export function QuickProductDialog({
                         setOpen(false);
                         setName('');
                         setSellPrice('');
-                        setProductType('FINISHED_GOOD');
+                        setProductType(defaultProductType);
                         onProductCreated(serialized);
                     } else {
                         toast.success(
@@ -149,7 +155,7 @@ export function QuickProductDialog({
                         setOpen(false);
                         setName('');
                         setSellPrice('');
-                        setProductType('FINISHED_GOOD');
+                        setProductType(defaultProductType);
                     }
                 }
             } else {
@@ -193,6 +199,9 @@ export function QuickProductDialog({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="SERVICE">
+                                    Jasa Maklon (Service)
+                                </SelectItem>
                                 <SelectItem value="FINISHED_GOOD">
                                     Finished Good
                                 </SelectItem>

@@ -320,11 +320,11 @@ export function SalesOrderForm({
 
         // Filter by ProductType based on OrderType
         if (selectedOrderType === 'MAKLON_JASA') {
-            baseProducts = products.filter(
+            baseProducts = allProducts.filter(
                 (p) => p.product.productType === ProductType.SERVICE,
             );
         } else {
-            baseProducts = products.filter(
+            baseProducts = allProducts.filter(
                 (p) => p.product.productType !== ProductType.SERVICE,
             );
         }
@@ -1487,6 +1487,11 @@ export function SalesOrderForm({
 
             {/* Quick Add Product Dialog */}
             <QuickProductDialog
+                defaultProductType={
+                    selectedOrderType === 'MAKLON_JASA'
+                        ? 'SERVICE'
+                        : 'FINISHED_GOOD'
+                }
                 open={quickAddIndex !== null}
                 onOpenChange={(open) => {
                     if (!open) setQuickAddIndex(null);
