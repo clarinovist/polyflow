@@ -348,6 +348,22 @@ const productionNavItems: NavItem[] = [
         owner: 'production',
     },
     {
+        id: 'prod-material-orders',
+        label: 'Material Order',
+        href: '/production/material-orders',
+        workspace: 'production',
+        section: 'perencanaan',
+        owner: 'production',
+    },
+    {
+        id: 'prod-maintenance',
+        label: 'Maintenance',
+        href: '/production/maintenance',
+        workspace: 'production',
+        section: 'lantai',
+        owner: 'production',
+    },
+    {
         id: 'prod-mrp',
         label: 'MRP',
         href: '/production/mrp',

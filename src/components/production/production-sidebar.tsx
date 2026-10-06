@@ -13,6 +13,7 @@ import {
     Calendar,
     TrendingUp,
     Files,
+    Wrench,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -69,6 +70,11 @@ export const productionLinks: Pick<
                 icon: Calendar,
                 label: productionSidebarLabels.productionSchedule,
             },
+            {
+                href: '/production/material-orders',
+                icon: ClipboardCheck,
+                label: 'Material Order',
+            },
         ],
     },
     {
@@ -96,6 +102,11 @@ export const productionLinks: Pick<
                 href: '/production/machines',
                 icon: Factory,
                 label: productionSidebarLabels.machineBoard,
+            },
+            {
+                href: '/production/maintenance',
+                icon: Wrench,
+                label: 'Maintenance',
             },
             {
                 href: '/kiosk',
