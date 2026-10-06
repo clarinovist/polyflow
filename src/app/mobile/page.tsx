@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Layers, ChevronRight } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { Metadata } from 'next';
+import { PwaInstallCard } from '@/components/mobile';
 
 export const metadata: Metadata = {
     title: 'Pilih Portal Mobile | PolyFlow',
@@ -111,6 +112,7 @@ export default async function MobileSelectorPage() {
                     })}
                 </div>
 
+                <PwaInstallCard />
                 <p className="text-center text-xs text-slate-500 pt-4">
                     Membutuhkan fitur back-office desktop? Gunakan peramban
                     komputer/laptop.

@@ -2,7 +2,9 @@
     "name": "PolyFlow ERP",
     "short_name": "PolyFlow",
     "description": "Advanced Plastic Converting ERP System",
-    "start_url": "/dashboard",
+    "start_url": "/mobile",
+    "id": "/mobile",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#09090b",
@@ -17,7 +19,7 @@
             "src": "/icon-512.png",
             "sizes": "512x512",
             "type": "image/png",
-            "purpose": "any"
+            "purpose": "any maskable"
         }
     ]
 }

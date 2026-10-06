@@ -105,6 +105,8 @@ model User {
   barterSettlementsCreated       BarterSettlement[]               @relation("BarterSettlementCreatedBy")
   barterSettlementsVoided        BarterSettlement[]               @relation("BarterSettlementVoidedBy")
   reviewedAdditionalMaterialRequests AdditionalMaterialRequest[]   @relation("AdditionalMaterialRequestReviewer")
+  createdMaterialOrders            MaterialOrder[]
+  reviewedMaterialOrders           MaterialOrder[]                @relation("MaterialOrderReviewer")
 }
 
 model UserRole {
@@ -542,6 +544,8 @@ model ProductVariant {
   productionRuns         ProductionRun[]
   qualityCheckParameters QualityCheckParameter[]
   additionalMaterialRequests AdditionalMaterialRequest[]
+  materialOrderItems         MaterialOrderItem[]
+  materialOrders             MaterialOrder[]           @relation("MaterialOrderOutput")
 
   @@index([archivedAt])
 }
@@ -614,6 +618,7 @@ model Bom {
   items            BomItem[]
   ProductionOrder  ProductionOrder[]
   routeSteps       ProductionRouteStep[]
+  materialOrders   MaterialOrder[]
 
   @@index([isActive])
   @@index([productVariantId, isActive, isDefault])
@@ -4791,4 +4796,61 @@ model TelegramAuditLog {
   @@index([tenantId, createdAt])
   @@index([action, createdAt])
   @@index([userId])
+}
+
+// ==========================================
+// MATERIAL ORDER generik tenant-wide (pilot HD: F-HD UNGU -> HD UNGU KW).
+// orderType/divisi sebagai data (HD, dst), bukan modul hardcoded.
+// ==========================================
+enum MaterialOrderStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model MaterialOrder {
+  id               String              @id @default(uuid())
+  orderNumber      String              @unique
+  orderType        String              @default("HD")
+  orderDate        DateTime            @default(now())
+  bomId            String?
+  outputVariantId  String?
+  plannedQuantity  Decimal?            @db.Decimal(15, 4)
+  status           MaterialOrderStatus @default(DRAFT)
+  notes            String?             @db.Text
+  createdById      String
+  approvedById     String?
+  approvedAt       DateTime?
+  rejectionReason  String?             @db.Text
+  materialIssueId  String?             @unique
+  clientRequestId  String              @unique
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  createdBy     User                  @relation(fields: [createdById], references: [id])
+  approvedBy    User?                 @relation("MaterialOrderReviewer", fields: [approvedById], references: [id], onDelete: SetNull)
+  bom           Bom?                  @relation(fields: [bomId], references: [id], onDelete: SetNull)
+  outputVariant ProductVariant?       @relation("MaterialOrderOutput", fields: [outputVariantId], references: [id], onDelete: SetNull)
+  items         MaterialOrderItem[]
+
+  @@index([status, orderDate])
+  @@index([orderType, status])
+  @@index([createdById])
+}
+
+model MaterialOrderItem {
+  id               String         @id @default(uuid())
+  materialOrderId  String
+  productVariantId String
+  quantity         Decimal        @db.Decimal(15, 4)
+  zakQuantity      Decimal?       @db.Decimal(15, 4)
+  note             String?        @db.Text
+  createdAt        DateTime       @default(now())
+
+  materialOrder  MaterialOrder  @relation(fields: [materialOrderId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+
+  @@index([materialOrderId])
+  @@index([productVariantId])
 }

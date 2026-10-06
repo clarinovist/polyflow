@@ -57,13 +57,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
     viewportFit: 'cover',
     themeColor: '#09090b',
 };
 
 import { SessionProvider } from '@/components/auth/SessionProvider';
 import SessionTimeoutHandler from '@/components/auth/SessionTimeoutHandler';
+import { PwaRegister } from '@/components/layout/pwa-register';
 import { AutoChangelogBanner } from '@/components/layout/auto-changelog-banner';
 import { PolyflowChatWidget } from '@/components/support/polyflow-chat-widget';
 import { FeatureUsageTracker } from '@/components/analytics/feature-usage-tracker';
@@ -82,6 +82,7 @@ export default function RootLayout({
                 <SessionProvider>
                     <ThemeProvider>
                         <SidebarCollapseProvider>
+                            <PwaRegister />
                             <FeatureUsageTracker />
                             {children}
                             <AutoChangelogBanner />
