@@ -172,6 +172,8 @@ export function UsersTab({
     const [convertTarget, setConvertTarget] = useState<UserData | null>(null);
     const [convertPassword, setConvertPassword] = useState('');
     const [convertConfirm, setConvertConfirm] = useState('');
+    const [showConvertPassword, setShowConvertPassword] = useState(false);
+    const [showConvertConfirm, setShowConvertConfirm] = useState(false);
 
     const fetchUsers = async () => {
         const result = await getUsers();
@@ -437,6 +439,8 @@ export function UsersTab({
             setConvertTarget(null);
             setConvertPassword('');
             setConvertConfirm('');
+            setShowConvertPassword(false);
+            setShowConvertConfirm(false);
             fetchUsers();
         } else {
             toast.error(result.error || 'Gagal mengonversi akun');
@@ -1358,8 +1362,11 @@ export function UsersTab({
                         <Dialog
                             open={!!convertTarget}
                             onOpenChange={(open) => {
-                                if (!open && !isSubmitting)
+                                if (!open && !isSubmitting) {
                                     setConvertTarget(null);
+                                    setShowConvertPassword(false);
+                                    setShowConvertConfirm(false);
+                                }
                             }}
                         >
                             <DialogContent>
@@ -1388,34 +1395,89 @@ export function UsersTab({
                                         <Label htmlFor="convert-password">
                                             Kata sandi baru (min. 6 karakter)
                                         </Label>
-                                        <Input
-                                            id="convert-password"
-                                            type="password"
-                                            placeholder="••••••••"
-                                            value={convertPassword}
-                                            onChange={(e) =>
-                                                setConvertPassword(
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                id="convert-password"
+                                                type={
+                                                    showConvertPassword
+                                                        ? 'text'
+                                                        : 'password'
+                                                }
+                                                placeholder="••••••••"
+                                                value={convertPassword}
+                                                onChange={(e) =>
+                                                    setConvertPassword(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="pr-10"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setShowConvertPassword(
+                                                        !showConvertPassword,
+                                                    )
+                                                }
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                aria-label={
+                                                    showConvertPassword
+                                                        ? 'Sembunyikan kata sandi'
+                                                        : 'Tampilkan kata sandi'
+                                                }
+                                            >
+                                                {showConvertPassword ? (
+                                                    <EyeOff className="h-4 w-4" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" />
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="convert-confirm">
                                             Konfirmasi kata sandi baru
                                         </Label>
-                                        <Input
-                                            id="convert-confirm"
-                                            type="password"
-                                            placeholder="••••••••"
-                                            value={convertConfirm}
-                                            onChange={(e) =>
-                                                setConvertConfirm(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            disabled={!convertPassword}
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                id="convert-confirm"
+                                                type={
+                                                    showConvertConfirm
+                                                        ? 'text'
+                                                        : 'password'
+                                                }
+                                                placeholder="••••••••"
+                                                value={convertConfirm}
+                                                onChange={(e) =>
+                                                    setConvertConfirm(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="pr-10"
+                                                disabled={!convertPassword}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setShowConvertConfirm(
+                                                        !showConvertConfirm,
+                                                    )
+                                                }
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                disabled={!convertPassword}
+                                                aria-label={
+                                                    showConvertConfirm
+                                                        ? 'Sembunyikan konfirmasi kata sandi'
+                                                        : 'Tampilkan konfirmasi kata sandi'
+                                                }
+                                            >
+                                                {showConvertConfirm ? (
+                                                    <EyeOff className="h-4 w-4" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" />
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <DialogFooter>
