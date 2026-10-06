@@ -107,6 +107,8 @@ model User {
   reviewedAdditionalMaterialRequests AdditionalMaterialRequest[]   @relation("AdditionalMaterialRequestReviewer")
   createdMaterialOrders            MaterialOrder[]
   reviewedMaterialOrders           MaterialOrder[]                @relation("MaterialOrderReviewer")
+  createdMaintenanceRequests       MaintenanceRequest[]
+  reviewedMaintenanceRequests      MaintenanceRequest[]           @relation("MaintenanceRequestReviewer")
 }
 
 model UserRole {
@@ -702,6 +704,7 @@ model Machine {
   ProductionOrder     ProductionOrder[]
   operators           MachineOperator[]
   processCapabilities MachineProcessCapability[]
+  maintenanceRequests  MaintenanceRequest[]
 }
 
 model Batch {
@@ -4853,4 +4856,68 @@ model MaterialOrderItem {
 
   @@index([materialOrderId])
   @@index([productVariantId])
+}
+
+// ==========================================
+// MAINTENANCE generik (lapor -> approve -> kerjakan -> selesai).
+// Spare part hanya catatan kebutuhan (dibeli saat butuh), bukan stok.
+// ==========================================
+enum MaintenanceStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum MaintenanceUrgency {
+  LOW
+  NORMAL
+  URGENT
+}
+
+model MaintenanceRequest {
+  id              String             @id @default(uuid())
+  orderNumber     String             @unique
+  machineId       String
+  complaint       String             @db.Text
+  urgency         MaintenanceUrgency @default(NORMAL)
+  status          MaintenanceStatus  @default(DRAFT)
+  createdById     String
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?            @db.Text
+  assigneeName    String?
+  machineStopped  Boolean            @default(false)
+  downtimeId      String?            @unique
+  completionNote  String?            @db.Text
+  completedAt     DateTime?
+  clientRequestId String             @unique
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  createdBy  User                  @relation(fields: [createdById], references: [id])
+  approvedBy User?                 @relation("MaintenanceRequestReviewer", fields: [approvedById], references: [id], onDelete: SetNull)
+  machine    Machine               @relation(fields: [machineId], references: [id])
+  spareParts MaintenanceSparePartNeed[]
+
+  @@index([status, createdAt])
+  @@index([machineId, status])
+}
+
+model MaintenanceSparePartNeed {
+  id                   String   @id @default(uuid())
+  maintenanceRequestId String
+  name                 String
+  spec                 String?
+  quantity             Decimal  @db.Decimal(15, 4)
+  note                 String?  @db.Text
+  fulfilled            Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  request MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+
+  @@index([maintenanceRequestId])
 }
