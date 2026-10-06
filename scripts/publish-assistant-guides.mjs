@@ -29,6 +29,11 @@ const allowedSlugs = [
     'cara-retur-penjualan-dan-kredit-finance',
     'cara-retur-dan-potong-tagihan',
 ];
+const octoberGapsSlugs = [
+    'cara-penjurnalan-barter',
+    'cara-edit-jatuh-tempo-invoice-sales',
+    'tanggal-efektif-finalisasi-opname',
+];
 const resolutionSlugs = [
     'invoice-purchase-draft-dan-approval',
     'posting-kredit-retur-belum-tersedia',
@@ -36,7 +41,7 @@ const resolutionSlugs = [
     'pembayaran-tagihan-dan-petty-cash',
 ];
 function validate(guides) {
-    const reviewed = Array.isArray(guides) && guides.some(g => resolutionSlugs.includes(g.slug)) ? resolutionSlugs : allowedSlugs;
+    const reviewed = Array.isArray(guides) && guides.some(g => resolutionSlugs.includes(g.slug)) ? resolutionSlugs : Array.isArray(guides) && guides.some(g => octoberGapsSlugs.includes(g.slug)) ? octoberGapsSlugs : allowedSlugs;
     if (
         !Array.isArray(guides) ||
         guides.length !== reviewed.length ||
