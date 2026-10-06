@@ -24,6 +24,7 @@ import { isTenantAdmin } from '@/lib/auth/roles';
 import { unassignAllCustomersFromUser } from '@/services/sales/customer-assignment-service';
 import { createTenantInvitationService } from '@/services/auth/tenant-invitation-service';
 import { CentralIdentityService } from '@/services/auth/central-identity-service';
+import { assertConvertibleToLocal } from '@/services/auth/central-to-local-service';
 import { buildTenantOrigin } from '@/lib/auth/tenant-origin';
 import { isCentralSsoConfigured } from '@/lib/auth/central-oidc-config';
 
@@ -335,6 +336,112 @@ export const revokeUserCentralMembership = withTenant(
                 details: 'Akses login pusat pengguna dicabut.',
             }).catch(() => undefined);
             invalidatePermissionsCache({ userId });
+            revalidatePath('/dashboard/settings');
+            return { success: true as const };
+        });
+    },
+);
+
+const ConvertToLocalSchema = z.object({
+    userId: z.string().min(1, 'User id wajib diisi'),
+    newPassword: z.string().min(6, 'Password baru minimal 6 karakter'),
+});
+
+/**
+ * Konversi eksplisit akun CENTRAL yang sudah dicabut menjadi akun lokal.
+ * Revoke Google sengaja mempertahankan authMode CENTRAL agar password lama
+ * tidak hidup lagi sebagai fallback; satu-satunya jalan ke password lokal
+ * adalah aksi ini dengan password BARU (hash baru, versi sesi diputar).
+ * Menolak bila membership masih ACTIVE atau masih ada undangan PENDING.
+ */
+export const convertCentralUserToLocal = withTenant(
+    async function convertCentralUserToLocal(input: {
+        userId: string;
+        newPassword: string;
+    }) {
+        return safeAction(async () => {
+            const session = await checkAdmin();
+            const actorId = getActorId(session);
+            const tenantId = getTenantIdFromContext();
+            const tenantDb = getTenantDbFromContext();
+            if (!tenantId || !tenantDb) {
+                throw new BusinessRuleError('Konteks tenant tidak tersedia.');
+            }
+            const data = ConvertToLocalSchema.parse(input);
+            const target = await tenantDb.user.findUnique({
+                where: { id: data.userId },
+                select: {
+                    id: true,
+                    email: true,
+                    authMode: true,
+                    centralAccountId: true,
+                    isSuperAdmin: true,
+                },
+            });
+            if (!target)
+                throw new BusinessRuleError('Pengguna tidak ditemukan.');
+            const mainDb = getMainPrisma();
+            const [membership, pendingInvite] = await Promise.all([
+                target.centralAccountId
+                    ? mainDb.tenantMembership.findUnique({
+                          where: {
+                              globalAccountId_tenantId: {
+                                  globalAccountId: target.centralAccountId,
+                                  tenantId,
+                              },
+                          },
+                          select: { status: true },
+                      })
+                    : Promise.resolve(null),
+                mainDb.tenantInvitation.findFirst({
+                    where: {
+                        tenantId,
+                        tenantUserId: data.userId,
+                        status: 'PENDING',
+                        expiresAt: { gt: new Date() },
+                    },
+                    select: { id: true },
+                }),
+            ]);
+            assertConvertibleToLocal(
+                {
+                    id: target.id,
+                    authMode: target.authMode,
+                    centralAccountId: target.centralAccountId,
+                    isSuperAdmin: target.isSuperAdmin,
+                },
+                {
+                    membershipStatus:
+                        (membership?.status as
+                            | 'PENDING'
+                            | 'ACTIVE'
+                            | 'REVOKED'
+                            | null) ?? null,
+                    hasPendingInvitation: !!pendingInvite,
+                },
+            );
+            const passwordHash = await bcrypt.hash(data.newPassword, 10);
+            await tenantDb.user.update({
+                where: { id: target.id },
+                data: {
+                    password: passwordHash,
+                    authMode: 'LOCAL',
+                    centralAccountId: null,
+                    tokenVersion: { increment: 1 },
+                    centralAuthVersion: { increment: 1 },
+                },
+            });
+            // Audit pelengkap; konversi sudah komit. Kegagalan audit tidak
+            // boleh reported sebagai gagal dan memicu retry buta (password
+            // sudah terganti — retry akan meminta password baru lagi).
+            await logActivity({
+                userId: actorId,
+                action: 'CENTRAL_CONVERTED_TO_LOCAL',
+                entityType: 'User',
+                entityId: target.id,
+                details: `Akun pusat ${target.email} dikonversi menjadi akun lokal (akses Google sudah dicabut).`,
+            }).catch(() => undefined);
+            invalidatePermissionsCache({ userId: target.id });
             revalidatePath('/dashboard/settings');
             return { success: true as const };
         });

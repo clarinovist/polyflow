@@ -12,6 +12,7 @@ import {
     inviteUserToCentralLogin,
     revokeUserCentralMembership,
     cancelUserCentralInvitation,
+    convertCentralUserToLocal,
     CreateUserInput,
     UpdateUserInput,
 } from '@/actions/admin/users';
@@ -168,6 +169,9 @@ export function UsersTab({
     const [deactivateTarget, setDeactivateTarget] = useState<UserData | null>(
         null,
     );
+    const [convertTarget, setConvertTarget] = useState<UserData | null>(null);
+    const [convertPassword, setConvertPassword] = useState('');
+    const [convertConfirm, setConvertConfirm] = useState('');
 
     const fetchUsers = async () => {
         const result = await getUsers();
@@ -407,6 +411,35 @@ export function UsersTab({
             fetchUsers();
         } else {
             toast.error(result.error || 'Gagal mencabut login Google');
+        }
+        setIsSubmitting(false);
+    };
+
+    const handleConvertToLocal = async () => {
+        if (!convertTarget) return;
+        if (convertPassword.length < 6) {
+            toast.error('Kata sandi baru minimal 6 karakter');
+            return;
+        }
+        if (convertPassword !== convertConfirm) {
+            toast.error('Konfirmasi kata sandi tidak cocok');
+            return;
+        }
+        setIsSubmitting(true);
+        const result = await convertCentralUserToLocal({
+            userId: convertTarget.id,
+            newPassword: convertPassword,
+        });
+        if (result.success) {
+            toast.success(
+                `Akun ${convertTarget.email} dijadikan akun lokal.`,
+            );
+            setConvertTarget(null);
+            setConvertPassword('');
+            setConvertConfirm('');
+            fetchUsers();
+        } else {
+            toast.error(result.error || 'Gagal mengonversi akun');
         }
         setIsSubmitting(false);
     };
@@ -923,6 +956,38 @@ export function UsersTab({
                                                             <KeyRound className="h-4 w-4" />
                                                         </Button>
                                                     ) : null}
+                                                    {centralSsoEnabled &&
+                                                        user.authMode ===
+                                                            'CENTRAL' &&
+                                                        user.centralMembershipStatus !==
+                                                            'ACTIVE' &&
+                                                        user.centralInvitationStatus !==
+                                                            'PENDING' && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8"
+                                                                onClick={() => {
+                                                                    setConvertTarget(
+                                                                        user,
+                                                                    );
+                                                                    setConvertPassword(
+                                                                        '',
+                                                                    );
+                                                                    setConvertConfirm(
+                                                                        '',
+                                                                    );
+                                                                }}
+                                                                disabled={
+                                                                    isSubmitting ||
+                                                                    invitationPending ||
+                                                                    !user.isActive
+                                                                }
+                                                                title="Konversi akun Google yang dicabut menjadi akun lokal dengan password baru"
+                                                            >
+                                                                Jadikan lokal
+                                                            </Button>
+                                                        )}
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -1288,6 +1353,93 @@ export function UsersTab({
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
+
+                        {/* Convert CENTRAL (revoked) to LOCAL Dialog */}
+                        <Dialog
+                            open={!!convertTarget}
+                            onOpenChange={(open) => {
+                                if (!open && !isSubmitting)
+                                    setConvertTarget(null);
+                            }}
+                        >
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        Jadikan akun lokal
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        Akun{' '}
+                                        <strong>
+                                            {convertTarget?.name ||
+                                                convertTarget?.email}
+                                        </strong>{' '}
+                                        ({convertTarget?.email}) akses
+                                        Google-nya sudah dicabut dan tidak
+                                        bisa di-set password dari form edit
+                                        biasa. Konversi ini memutus
+                                        keterhubungan akun pusat dan mengikat
+                                        password baru. Sesi lama diputus; audit
+                                        dicatat. Tidak bisa dibatalkan ke
+                                        password lama.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="convert-password">
+                                            Kata sandi baru (min. 6 karakter)
+                                        </Label>
+                                        <Input
+                                            id="convert-password"
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={convertPassword}
+                                            onChange={(e) =>
+                                                setConvertPassword(
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="convert-confirm">
+                                            Konfirmasi kata sandi baru
+                                        </Label>
+                                        <Input
+                                            id="convert-confirm"
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={convertConfirm}
+                                            onChange={(e) =>
+                                                setConvertConfirm(
+                                                    e.target.value,
+                                                )
+                                            }
+                                            disabled={!convertPassword}
+                                        />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() =>
+                                            setConvertTarget(null)
+                                        }
+                                        disabled={isSubmitting}
+                                    >
+                                        Batal
+                                    </Button>
+                                    <Button
+                                        onClick={handleConvertToLocal}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting && (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        )}
+                                        Konversi + set password
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </>
                 )}
             </CardContent>
