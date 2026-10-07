@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
+import { snapshotFixture } from '@/lib/finance/__tests__/invoice-snapshot-fixture';
 import {
     correctSalesInvoiceDate,
     type CorrectionDb,
@@ -28,6 +29,27 @@ function invoice(overrides: Record<string, unknown> = {}) {
         payments: [{ id: 'payment' }],
         priceAdjustments: [],
         returnAllocations: [],
+        returnBasisLines: [{
+            id: 'basis', sourceItemId: 'item', productVariantId: 'a',
+            quantity: new Prisma.Decimal(80), netAmount: new Prisma.Decimal('7668480'),
+            taxAmount: new Prisma.Decimal(0), discountAmount: new Prisma.Decimal(0),
+            sourceJournalId: 'journal-id',
+            sourceEvidence: { version: 1, capturedAtInvoiceCreation: true },
+        }],
+        commercialSnapshot: snapshotFixture({
+            orderNumber: 'SO-2026-0219',
+            commercialTotal: '7668480.00',
+            shippingAmount: '0.00',
+            taxAmount: '0.00',
+            items: [{
+                ...snapshotFixture().items[0],
+                netAmount: '7668480.00',
+                taxAmount: '0.00',
+                totalAmount: '7668480.00',
+            }],
+        }),
+        roundingAmount: new Prisma.Decimal('20'),
+        salesOrderId: 'so-id',
         ...overrides,
     };
 }
@@ -39,8 +61,8 @@ function journal(overrides: Record<string, unknown> = {}) {
         description: 'Sales Invoice #13/INV/X/2026',
         updatedAt: new Date('2026-10-06T07:47:21.444Z'),
         lines: [
-            { debit: new Prisma.Decimal('7668500'), credit: new Prisma.Decimal(0) },
-            { debit: new Prisma.Decimal(0), credit: new Prisma.Decimal('7668500') },
+            { account: { type: 'ASSET' }, debit: new Prisma.Decimal('7668500'), credit: new Prisma.Decimal(0) },
+            { account: { type: 'OPERATING_REVENUE' }, debit: new Prisma.Decimal(0), credit: new Prisma.Decimal('7668500') },
         ],
         ...overrides,
     };
@@ -63,6 +85,10 @@ function fixture(invoiceRow = invoice(), journalRow = journal()) {
             findUnique: vi.fn().mockResolvedValue({ status: 'OPEN' }),
         },
         auditLog: { create: vi.fn().mockResolvedValue({}) },
+        invoiceReturnBasisLine: {
+            deleteMany: vi.fn().mockResolvedValue({ count: invoiceRow.returnBasisLines.length }),
+            createMany: vi.fn().mockResolvedValue({ count: invoiceRow.returnBasisLines.length }),
+        },
     };
     const db = {
         $transaction: vi.fn(async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
@@ -98,6 +124,9 @@ describe('correctSalesInvoiceDate', () => {
         const { tx, db } = fixture();
         const result = await correctSalesInvoiceDate(db, input({ execute: true }));
         expect(result.changed).toBe(true);
+        expect(tx.invoiceReturnBasisLine.deleteMany).toHaveBeenCalledWith({
+            where: { invoiceId: 'invoice-id' },
+        });
         expect(tx.invoice.updateMany).toHaveBeenCalledWith({
             where: { id: 'invoice-id', updatedAt: invoice().updatedAt },
             data: { invoiceDate: WIB_OCT_6, dueDate: WIB_OCT_7, invoiceNumber: '13/INV/X/2026' },
@@ -105,6 +134,9 @@ describe('correctSalesInvoiceDate', () => {
         expect(tx.journalEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({
             data: expect.objectContaining({ entryDate: WIB_OCT_6 }),
         }));
+        expect(tx.invoiceReturnBasisLine.createMany).toHaveBeenCalledWith({
+            data: [expect.objectContaining({ invoiceId: 'invoice-id', sourceItemId: 'item' })],
+        });
         expect(tx.auditLog.create).toHaveBeenCalledOnce();
     });
 
@@ -114,6 +146,15 @@ describe('correctSalesInvoiceDate', () => {
             invoiceDate: new Date('2026-10-06T17:00:00.000Z'),
             dueDate: new Date('2026-10-07T17:00:00.000Z'), status: 'UNPAID',
             totalAmount: new Prisma.Decimal('23153000'), paidAmount: new Prisma.Decimal(0),
+            roundingAmount: new Prisma.Decimal(0),
+            commercialSnapshot: snapshotFixture({
+                orderNumber: 'SO-2026-0280', commercialTotal: '23153000.00',
+                shippingAmount: '0.00', taxAmount: '0.00',
+                items: [{
+                    ...snapshotFixture().items[0],
+                    netAmount: '23153000.00', taxAmount: '0.00', totalAmount: '23153000.00',
+                }],
+            }),
             payments: [], salesOrder: { orderNumber: 'SO-2026-0280' },
         });
         const maklonJournal = journal({
@@ -121,8 +162,8 @@ describe('correctSalesInvoiceDate', () => {
             entryDate: new Date('2026-10-06T17:00:00.000Z'),
             reference: '15/INV/X/2026', description: 'Sales Invoice #15/INV/X/2026',
             lines: [
-                { debit: new Prisma.Decimal('23153000'), credit: new Prisma.Decimal(0) },
-                { debit: new Prisma.Decimal(0), credit: new Prisma.Decimal('23153000') },
+                { account: { type: 'ASSET' }, debit: new Prisma.Decimal('23153000'), credit: new Prisma.Decimal(0) },
+                { account: { type: 'OPERATING_REVENUE' }, debit: new Prisma.Decimal(0), credit: new Prisma.Decimal('23153000') },
             ],
         });
         const { tx, db } = fixture(maklon, maklonJournal);

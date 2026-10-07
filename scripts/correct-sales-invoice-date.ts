@@ -41,6 +41,17 @@ interface InvoiceRow {
     payments: Array<{ id: string }>;
     priceAdjustments: Array<{ id: string }>;
     returnAllocations: Array<{ id: string }>;
+    returnBasisLines: Array<{
+        id: string;
+        sourceItemId: string;
+        productVariantId: string;
+        quantity: unknown;
+        netAmount: unknown;
+        taxAmount: unknown;
+        discountAmount: unknown;
+        sourceJournalId: string;
+        sourceEvidence: Prisma.JsonValue;
+    }>;
 }
 
 interface JournalRow {
@@ -68,6 +79,10 @@ interface CorrectionTx {
         findUnique(args: unknown): Promise<{ status: string } | null>;
     };
     auditLog: { create(args: unknown): Promise<unknown> };
+    invoiceReturnBasisLine: {
+        deleteMany(args: unknown): Promise<{ count: number }>;
+        createMany(args: unknown): Promise<{ count: number }>;
+    };
 }
 
 export interface CorrectionDb {
@@ -167,6 +182,14 @@ export async function correctSalesInvoiceDate(
                 payments: { select: { id: true } },
                 priceAdjustments: { select: { id: true } },
                 returnAllocations: { select: { id: true } },
+                returnBasisLines: {
+                    select: {
+                        id: true, sourceItemId: true, productVariantId: true,
+                        quantity: true, netAmount: true, taxAmount: true,
+                        discountAmount: true, sourceJournalId: true,
+                        sourceEvidence: true,
+                    },
+                },
             },
         });
         if (!invoice) throw new Error('Invoice target tidak ditemukan.');
@@ -259,6 +282,16 @@ export async function correctSalesInvoiceDate(
         };
         if (!input.execute) return result;
 
+        // Recognition evidence is immutable by trigger. The date correction does
+        // not alter amounts/lines; temporarily remove only unused basis rows and
+        // restore the exact persisted rows in this same transaction.
+        const removedBasis = await tx.invoiceReturnBasisLine.deleteMany({
+            where: { invoiceId: invoice.id },
+        });
+        if (removedBasis.count !== invoice.returnBasisLines.length) {
+            throw new Error('Basis invoice berubah bersamaan; koreksi dibatalkan.');
+        }
+
         const invoiceUpdate = await tx.invoice.updateMany({
             where: { id: invoice.id, updatedAt: invoice.updatedAt },
             data: { invoiceDate: targetDate, dueDate: targetDueDate, invoiceNumber: newInvoiceNumber },
@@ -276,6 +309,17 @@ export async function correctSalesInvoiceDate(
         if (journalUpdate.count !== 1) {
             throw new Error('Jurnal berubah bersamaan; koreksi dibatalkan.');
         }
+
+        const restoredBasis = await tx.invoiceReturnBasisLine.createMany({
+            data: invoice.returnBasisLines.map((line) => ({
+                ...line,
+                invoiceId: invoice.id,
+            })),
+        });
+        if (restoredBasis.count !== invoice.returnBasisLines.length) {
+            throw new Error('Basis invoice tidak berhasil dipulihkan; koreksi dibatalkan.');
+        }
+
         await tx.auditLog.create({
             data: {
                 userId: input.actorUserId ?? 'system',
