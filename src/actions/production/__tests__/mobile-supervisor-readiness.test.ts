@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getProductionSupervisorOverview, getMobileTeamAttendance } from '../mobile-supervisor';
 const m = vi.hoisted(() => ({ orders: vi.fn(), count: vi.fn(), output: vi.fn(), downtime: vi.fn(), qc: vi.fn(), employees: vi.fn(), attendance: vi.fn(), shifts: vi.fn(), auth: vi.fn() }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
+vi.mock('@/lib/mobile/mobile-portal-access', () => ({
+    requireMobilePortalAccess: vi.fn().mockResolvedValue({}),
+}));
 vi.mock('@/lib/tools/auth-checks', () => ({ requireAuth: m.auth }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: {
     productionOrder: { findMany: m.orders, count: m.count }, productionExecution: { aggregate: m.output }, machineDowntime: { findMany: m.downtime }, qualityInspection: { count: m.qc },
