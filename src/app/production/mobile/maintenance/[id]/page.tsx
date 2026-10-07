@@ -16,6 +16,7 @@ import {
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MaintenanceActions } from './actions';
+import { canUseMobilePortalCapability } from '@/lib/mobile/mobile-portal-access';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Detail Maintenance Mobile | PolyFlow' };
@@ -31,6 +32,15 @@ export default async function MobileMaintenanceDetailPage({
         return <MobileReadError title="Detail maintenance belum tersedia" />;
     }
     const order = result.data;
+    const canDecideOnMobile = await canUseMobilePortalCapability(
+        'production-supervisor',
+        'feature:mobile-maintenance-approval',
+    );
+    const viewer = {
+        ...order.viewer,
+        canApprove: order.viewer.canApprove && canDecideOnMobile,
+        canReject: order.viewer.canReject && canDecideOnMobile,
+    };
 
     return (
         <div className="space-y-4">
@@ -63,7 +73,8 @@ export default async function MobileMaintenanceDetailPage({
                     <div>
                         <p className="font-semibold">Mesin berhenti</p>
                         <p className="mt-1 text-sm">
-                            Prioritaskan pekerjaan ini agar operasi dapat dilanjutkan.
+                            Prioritaskan pekerjaan ini agar operasi dapat
+                            dilanjutkan.
                         </p>
                     </div>
                 </div>
@@ -71,13 +82,17 @@ export default async function MobileMaintenanceDetailPage({
 
             <Card className="gap-4 py-4">
                 <CardHeader className="px-4">
-                    <CardTitle className="text-base">Informasi pekerjaan</CardTitle>
+                    <CardTitle className="text-base">
+                        Informasi pekerjaan
+                    </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 px-4 text-sm">
                     <div className="flex items-start gap-3">
                         <UserRound className="mt-0.5 h-4 w-4 text-muted-foreground" />
                         <div>
-                            <p className="text-xs text-muted-foreground">Pelapor</p>
+                            <p className="text-xs text-muted-foreground">
+                                Pelapor
+                            </p>
                             <p className="font-medium">
                                 {order.createdBy?.name || 'Pengguna'}
                             </p>
@@ -86,16 +101,22 @@ export default async function MobileMaintenanceDetailPage({
                     <div className="flex items-start gap-3">
                         <UserRound className="mt-0.5 h-4 w-4 text-muted-foreground" />
                         <div>
-                            <p className="text-xs text-muted-foreground">Teknisi</p>
+                            <p className="text-xs text-muted-foreground">
+                                Teknisi
+                            </p>
                             <p className="font-medium">
-                                {order.assignee?.name || order.assigneeName || 'Belum ditentukan'}
+                                {order.assignee?.name ||
+                                    order.assigneeName ||
+                                    'Belum ditentukan'}
                             </p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
                         <Clock3 className="mt-0.5 h-4 w-4 text-muted-foreground" />
                         <div>
-                            <p className="text-xs text-muted-foreground">Dilaporkan</p>
+                            <p className="text-xs text-muted-foreground">
+                                Dilaporkan
+                            </p>
                             <p className="font-medium">
                                 {formatMaintenanceDate(order.createdAt)}
                             </p>
@@ -113,12 +134,18 @@ export default async function MobileMaintenanceDetailPage({
                     </CardHeader>
                     <CardContent className="space-y-2 px-4">
                         {order.spareParts.map((part) => (
-                            <div key={part.id} className="rounded-lg border p-3 text-sm">
+                            <div
+                                key={part.id}
+                                className="rounded-lg border p-3 text-sm"
+                            >
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <p className="font-medium">{part.name}</p>
+                                        <p className="font-medium">
+                                            {part.name}
+                                        </p>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            {part.spec || 'Tanpa spesifikasi'} · Qty {String(part.quantity)}
+                                            {part.spec || 'Tanpa spesifikasi'} ·
+                                            Qty {String(part.quantity)}
                                         </p>
                                     </div>
                                     <span className="text-xs font-medium">
@@ -160,7 +187,7 @@ export default async function MobileMaintenanceDetailPage({
             <MaintenanceActions
                 id={order.id}
                 status={order.status}
-                viewer={order.viewer}
+                viewer={viewer}
                 technicians={order.technicians}
                 spareParts={order.spareParts}
             />

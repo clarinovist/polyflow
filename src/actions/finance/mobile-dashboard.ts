@@ -6,11 +6,13 @@ import { Prisma } from '@prisma/client';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { requireFinanceAccess } from '@/lib/auth/finance-access';
 import { positiveSalesReceivableWhere } from '@/services/finance/sales-receivable-query';
+import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 
 export const getFinanceMobileOverview = withTenant(
     async function getFinanceMobileOverview() {
         return safeAction(async () => {
             await requireFinanceAccess();
+            await requireMobilePortalAccess('finance');
             const db = getTenantDbFromContext();
             if (!db) throw new BusinessRuleError('Konteks workspace finance tidak tersedia.');
             const now = new Date();

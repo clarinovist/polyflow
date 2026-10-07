@@ -48,8 +48,19 @@ LANGUAGE sql STABLE AS $$
           AND c."newInvoiceDate" = new_row."invoiceDate"
           AND c."oldDueDate" IS NOT DISTINCT FROM old_row."dueDate"
           AND c."newDueDate" = new_row."dueDate"
-          AND (to_jsonb(new_row) - ARRAY['invoiceNumber','invoiceDate','dueDate','updatedAt']) =
-              (to_jsonb(old_row) - ARRAY['invoiceNumber','invoiceDate','dueDate','updatedAt'])
+          AND new_row.id = old_row.id
+          AND new_row."salesOrderId" = old_row."salesOrderId"
+          AND new_row.status = old_row.status
+          AND new_row."totalAmount" = old_row."totalAmount"
+          AND new_row."roundingAmount" IS NOT DISTINCT FROM old_row."roundingAmount"
+          AND new_row."commercialSnapshot" IS NOT DISTINCT FROM old_row."commercialSnapshot"
+          AND new_row."paidAmount" = old_row."paidAmount"
+          AND new_row."creditedAmount" = old_row."creditedAmount"
+          AND new_row."priceAdjustmentAmount" = old_row."priceAdjustmentAmount"
+          AND new_row."remainingAmount" = old_row."remainingAmount"
+          AND new_row.notes IS NOT DISTINCT FROM old_row.notes
+          AND new_row."createdAt" = old_row."createdAt"
+          AND new_row."termOfPaymentDays" = old_row."termOfPaymentDays"
     );
 $$;
 

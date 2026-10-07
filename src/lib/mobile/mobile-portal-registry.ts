@@ -1,17 +1,13 @@
 /**
- * Mobile Portal Registry — source of truth for mobile portal definitions.
+ * Typed source of truth for mobile portal presentation and access metadata.
  *
- * Each portal represents a role-based operational surface on mobile.
- * Server discovery combines session, module entitlement, role/permission and
- * portal status. Route/action guards remain authoritative; this registry grants no access.
- *
- * Portal status:
- * - ACTIVE: live in production
- * - BETA: available for limited rollout
- * - PLANNED: defined but not yet implemented
- *
- * @see docs/plan/2026-07-28-mobile-scope-strategy.md §6.1
+ * The registry describes the contract; it does not authorize a request by
+ * itself. Proxy only consumes static paths, while selector/layout/action
+ * guards combine this metadata with fresh tenant and permission state.
  */
+
+import type { Role } from '@prisma/client';
+import type { ModuleKey } from '@/lib/modules/module-registry';
 
 export type MobilePortalId =
     | 'sales-field'
@@ -23,31 +19,60 @@ export type MobilePortalId =
     | 'hrd-supervisor'
     | 'maklon';
 
-type MobilePortalMode = 'EXECUTION' | 'SUPERVISION' | 'SELF_SERVICE';
-
+export type MobilePortalMode =
+    | 'EXECUTION'
+    | 'SUPERVISION'
+    | 'SELF_SERVICE'
+    | 'EXECUTIVE';
 export type MobilePortalStatus = 'ACTIVE' | 'BETA' | 'PLANNED';
+export type MobileMatchMode = 'ANY' | 'ALL';
+export type MobileAdminAccess = 'NONE' | 'READ_ONLY' | 'EXISTING_GUARDS';
+
+export const MOBILE_ACTION_CAPABILITIES = [
+    'feature:mobile-maintenance-approval',
+    'feature:mobile-purchasing-actions',
+    'feature:mobile-finance-actions',
+    'feature:mobile-hrd-actions',
+    'feature:mobile-marketing-actions',
+] as const;
+
+export type MobileActionCapability =
+    (typeof MOBILE_ACTION_CAPABILITIES)[number];
+
+export interface MobileNavigationDefinition {
+    id: string;
+    label: string;
+    path: string;
+}
+
+export interface MobilePortalResourceRule {
+    /** A rule applies when any of these roles is assigned to the user. */
+    roles: Role[];
+    excludedRoles?: Role[];
+    permissionRoots: string[];
+    match: MobileMatchMode;
+}
 
 export interface MobilePortalDefinition {
     id: MobilePortalId;
     title: string;
     description: string;
     path: string;
-    /** Module key from module-registry — used for entitlement check */
-    moduleKey: string;
+    moduleKey: ModuleKey;
     mode: MobilePortalMode;
     status: MobilePortalStatus;
-    /** Roles that can see this portal (checked via hasRole) */
-    roles: string[];
-    /** Permission resource root for this portal */
-    permissionRoot: string;
-    /** Icon name from lucide-react */
+    roles: Role[];
+    roleMatch: MobileMatchMode;
+    resourceRules: MobilePortalResourceRule[];
+    rolloutKey?: string;
+    adminAccess: MobileAdminAccess;
+    capabilities: MobileActionCapability[];
+    navigation: MobileNavigationDefinition[];
+    /** Icon name from lucide-react, resolved by the selector. */
     icon: string;
 }
 
-// ---------------------------------------------------------------------------
-// Registry — all known portals
-// ---------------------------------------------------------------------------
-export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
+export const MOBILE_PORTAL_REGISTRY = [
     {
         id: 'sales-field',
         title: 'Sales Field',
@@ -57,7 +82,27 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         mode: 'EXECUTION',
         status: 'ACTIVE',
         roles: ['SALES'],
-        permissionRoot: '/sales',
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['SALES'],
+                permissionRoots: ['/field/sales'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'NONE',
+        capabilities: [],
+        navigation: [
+            { id: 'home', label: 'Beranda', path: '/field/sales' },
+            {
+                id: 'customers',
+                label: 'Customer',
+                path: '/field/sales/customers',
+            },
+            { id: 'orders', label: 'Order', path: '/field/sales/orders' },
+            { id: 'visits', label: 'Kunjungan', path: '/field/sales/visits' },
+            { id: 'stock', label: 'Stok', path: '/field/sales/stock' },
+        ],
         icon: 'ShoppingBag',
     },
     {
@@ -69,7 +114,30 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         mode: 'EXECUTION',
         status: 'ACTIVE',
         roles: ['WAREHOUSE'],
-        permissionRoot: '/warehouse',
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['WAREHOUSE'],
+                permissionRoots: ['/warehouse/mobile'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'NONE',
+        capabilities: [],
+        navigation: [
+            { id: 'home', label: 'Beranda', path: '/warehouse/mobile' },
+            {
+                id: 'outgoing',
+                label: 'Muat',
+                path: '/warehouse/mobile/outgoing',
+            },
+            {
+                id: 'incoming',
+                label: 'Terima',
+                path: '/warehouse/mobile/incoming',
+            },
+            { id: 'opname', label: 'Opname', path: '/warehouse/mobile/opname' },
+        ],
         icon: 'Package',
     },
     {
@@ -81,7 +149,17 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         mode: 'EXECUTION',
         status: 'ACTIVE',
         roles: ['PRODUCTION'],
-        permissionRoot: '/kiosk',
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['PRODUCTION'],
+                permissionRoots: ['/kiosk', '/production'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'NONE',
+        capabilities: [],
+        navigation: [],
         icon: 'Factory',
     },
     {
@@ -92,10 +170,50 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         moduleKey: 'PRODUCTION',
         mode: 'SUPERVISION',
         status: 'ACTIVE',
-        // FACTORY_MANAGER (Kepala Pabrik) gets the read-only executive view;
-        // mutation CTAs stay limited to operational roles via server guards.
         roles: ['PRODUCTION', 'PLANNING', 'FACTORY_MANAGER'],
-        permissionRoot: '/production',
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['FACTORY_MANAGER'],
+                permissionRoots: [
+                    '/production/daily',
+                    '/warehouse/inventory',
+                    '/purchasing/requests',
+                    '/purchasing/orders',
+                ],
+                match: 'ALL',
+            },
+            {
+                // Operational roles own the production portal contract.
+                // FACTORY_MANAGER stays on the stricter rule above even when
+                // assigned an additional operational role.
+                roles: ['PRODUCTION', 'PLANNING'],
+                excludedRoles: ['FACTORY_MANAGER'],
+                permissionRoots: ['/production/mobile'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'EXISTING_GUARDS',
+        capabilities: ['feature:mobile-maintenance-approval'],
+        navigation: [
+            { id: 'home', label: 'Hari Ini', path: '/production/mobile' },
+            { id: 'tasks', label: 'SPK', path: '/production/mobile/tasks' },
+            {
+                id: 'attendance',
+                label: 'Absensi',
+                path: '/production/mobile/attendance',
+            },
+            {
+                id: 'maintenance',
+                label: 'Maintenance',
+                path: '/production/mobile/maintenance',
+            },
+            {
+                id: 'insights',
+                label: 'Insight',
+                path: '/production/mobile/insights',
+            },
+        ],
         icon: 'ClipboardCheck',
     },
     {
@@ -107,7 +225,25 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         mode: 'SUPERVISION',
         status: 'ACTIVE',
         roles: ['PROCUREMENT', 'PLANNING'],
-        permissionRoot: '/purchasing',
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['PROCUREMENT', 'PLANNING'],
+                permissionRoots: ['/purchasing/mobile'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'NONE',
+        capabilities: ['feature:mobile-purchasing-actions'],
+        navigation: [
+            { id: 'home', label: 'Hari Ini', path: '/purchasing/mobile' },
+            { id: 'tasks', label: 'Tugas', path: '/purchasing/mobile/tasks' },
+            {
+                id: 'insights',
+                label: 'Insight',
+                path: '/purchasing/mobile/insights',
+            },
+        ],
         icon: 'ShoppingCart',
     },
     {
@@ -119,7 +255,25 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         mode: 'SUPERVISION',
         status: 'ACTIVE',
         roles: ['FINANCE'],
-        permissionRoot: '/finance',
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['FINANCE'],
+                permissionRoots: ['/finance/mobile'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'NONE',
+        capabilities: ['feature:mobile-finance-actions'],
+        navigation: [
+            { id: 'home', label: 'Hari Ini', path: '/finance/mobile' },
+            { id: 'tasks', label: 'Tugas', path: '/finance/mobile/tasks' },
+            {
+                id: 'insights',
+                label: 'Insight',
+                path: '/finance/mobile/insights',
+            },
+        ],
         icon: 'Wallet',
     },
     {
@@ -131,7 +285,26 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         mode: 'SUPERVISION',
         status: 'ACTIVE',
         roles: ['HRD'],
-        permissionRoot: '/hrd',
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['HRD'],
+                permissionRoots: ['/hrd/mobile'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'NONE',
+        capabilities: ['feature:mobile-hrd-actions'],
+        navigation: [
+            { id: 'home', label: 'Hari Ini', path: '/hrd/mobile' },
+            {
+                id: 'attendance',
+                label: 'Absensi',
+                path: '/hrd/mobile/attendance',
+            },
+            { id: 'leave', label: 'Cuti', path: '/hrd/mobile/tasks' },
+            { id: 'insights', label: 'Insight', path: '/hrd/mobile/insights' },
+        ],
         icon: 'Users',
     },
     {
@@ -142,53 +315,69 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         moduleKey: 'MAKLON',
         mode: 'EXECUTION',
         status: 'PLANNED',
-        roles: ['WAREHOUSE'],
-        permissionRoot: '/maklon',
+        roles: ['PROCUREMENT', 'PLANNING', 'WAREHOUSE'],
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['PROCUREMENT', 'PLANNING', 'WAREHOUSE'],
+                permissionRoots: ['/maklon'],
+                match: 'ANY',
+            },
+        ],
+        adminAccess: 'NONE',
+        capabilities: [],
+        navigation: [
+            { id: 'home', label: 'Hari Ini', path: '/maklon/mobile' },
+            {
+                id: 'incoming',
+                label: 'Terima',
+                path: '/maklon/mobile/incoming',
+            },
+            { id: 'returns', label: 'Retur', path: '/maklon/mobile/returns' },
+            { id: 'qc', label: 'QC', path: '/maklon/mobile/qc' },
+        ],
         icon: 'Boxes',
     },
-];
+] as MobilePortalDefinition[];
 
-// ---------------------------------------------------------------------------
-// Legacy route aliases — maps old paths to canonical portal paths
-// ---------------------------------------------------------------------------
 export const MOBILE_ROUTE_ALIASES: Record<string, string> = {
     '/sales/mobile': '/field/sales',
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Get a portal definition by ID */
 export function getMobilePortalById(
     id: MobilePortalId,
 ): MobilePortalDefinition | undefined {
-    return MOBILE_PORTAL_REGISTRY.find((p) => p.id === id);
+    return MOBILE_PORTAL_REGISTRY.find((portal) => portal.id === id);
 }
 
-/** Get all portals with a given status */
 export function getMobilePortalsByStatus(
     status: MobilePortalStatus,
 ): MobilePortalDefinition[] {
-    return MOBILE_PORTAL_REGISTRY.filter((p) => p.status === status);
+    return MOBILE_PORTAL_REGISTRY.filter((portal) => portal.status === status);
 }
 
-/** Check if a path is a mobile portal canonical path */
-export function isMobilePortalPath(path: string): boolean {
-    return MOBILE_PORTAL_REGISTRY.some(
-        (p) => path === p.path || path.startsWith(`${p.path}/`),
-    );
-}
-
-/** Resolve a legacy alias path to canonical, or return the original path */
 export function resolveMobileAlias(path: string): string {
     const exact = MOBILE_ROUTE_ALIASES[path];
     if (exact) return exact;
-    // Check prefix aliases
     for (const [alias, canonical] of Object.entries(MOBILE_ROUTE_ALIASES)) {
         if (path.startsWith(`${alias}/`)) {
             return path.replace(alias, canonical);
         }
     }
     return path;
+}
+
+export function getMobilePortalByPath(
+    path: string,
+): MobilePortalDefinition | undefined {
+    const canonical = resolveMobileAlias(path);
+    return MOBILE_PORTAL_REGISTRY.find(
+        (portal) =>
+            canonical === portal.path ||
+            canonical.startsWith(`${portal.path}/`),
+    );
+}
+
+export function isMobilePortalPath(path: string): boolean {
+    return getMobilePortalByPath(path) !== undefined;
 }

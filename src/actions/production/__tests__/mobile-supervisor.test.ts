@@ -1,3 +1,5 @@
+vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess: vi.fn().mockResolvedValue({}) }));
+
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
     getProductionSupervisorOverview,
@@ -653,6 +655,14 @@ describe('quick SPK form mutation guard', () => {
 
     it('rejects FACTORY_MANAGER even with read access', async () => {
         session('FACTORY_MANAGER');
+        expect(await getMobileQuickSpkFormData()).toMatchObject({
+            success: false,
+        });
+        expect(prisma.bom.findMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects FACTORY_MANAGER with a secondary PRODUCTION role', async () => {
+        session('FACTORY_MANAGER', ['FACTORY_MANAGER', 'PRODUCTION']);
         expect(await getMobileQuickSpkFormData()).toMatchObject({
             success: false,
         });

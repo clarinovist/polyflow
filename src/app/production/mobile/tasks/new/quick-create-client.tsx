@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { quickCreateProductionOrder } from '@/actions/production/production-orders';
+import { quickCreateMobileProductionOrder } from '@/actions/production/mobile-quick-spk';
 import type { MobileQuickSpkFormData } from '@/actions/production/mobile-supervisor';
 
 function getCompatibleMachineFilter(category: string): (type: string) => boolean {
@@ -54,7 +54,7 @@ export function QuickCreateClient({
         if (submitting) return; // double-submit guard
         setSubmitting(true);
         try {
-            const result = await quickCreateProductionOrder({
+            const result = await quickCreateMobileProductionOrder({
                 bomId,
                 plannedQuantity: numQty,
                 machineId,

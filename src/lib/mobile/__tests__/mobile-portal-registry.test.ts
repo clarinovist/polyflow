@@ -3,6 +3,7 @@ import {
     MOBILE_PORTAL_REGISTRY,
     MOBILE_ROUTE_ALIASES,
     getMobilePortalById,
+    getMobilePortalByPath,
     getMobilePortalsByStatus,
     isMobilePortalPath,
     resolveMobileAlias,
@@ -23,15 +24,44 @@ describe('mobile-portal-registry', () => {
                 expect(portal.path).toMatch(/^\//);
                 expect(portal.moduleKey).toBeTruthy();
                 expect(portal.roles.length).toBeGreaterThan(0);
-                expect(portal.permissionRoot).toMatch(/^\//);
+                expect(portal.resourceRules.length).toBeGreaterThan(0);
+                expect(portal.navigation).toBeDefined();
             }
         });
 
-        it('production-supervisor is visible to FACTORY_MANAGER (read-only executive)', () => {
+        it('types production-supervisor resources and capability by role', () => {
             const portal = getMobilePortalById('production-supervisor');
             expect(portal!.roles).toContain('FACTORY_MANAGER');
             expect(portal!.roles).toContain('PRODUCTION');
             expect(portal!.roles).toContain('PLANNING');
+            expect(portal!.capabilities).toContain(
+                'feature:mobile-maintenance-approval',
+            );
+            expect(
+                portal!.resourceRules.find((rule) =>
+                    rule.roles.includes('FACTORY_MANAGER'),
+                ),
+            ).toMatchObject({
+                match: 'ALL',
+                permissionRoots: [
+                    '/production/daily',
+                    '/warehouse/inventory',
+                    '/purchasing/requests',
+                    '/purchasing/orders',
+                ],
+            });
+        });
+
+        it('keeps planned portals detached from rollout until their implementation batch', () => {
+            expect(getMobilePortalById('maklon')?.rolloutKey).toBeUndefined();
+        });
+
+        it('does not add rollout keys retroactively to ACTIVE portals', () => {
+            expect(
+                getMobilePortalsByStatus('ACTIVE').every(
+                    (portal) => portal.rolloutKey === undefined,
+                ),
+            ).toBe(true);
         });
 
         it('no duplicate IDs', () => {
@@ -104,11 +134,23 @@ describe('mobile-portal-registry', () => {
             ['/finance/mobile', true],
             ['/hrd/mobile', true],
             ['/maklon/mobile', true],
+            ['/sales/mobile/orders', true],
             ['/dashboard', false],
             ['/sales', false],
             ['/finance', false],
         ])('path "%s" → %s', (path, expected) => {
             expect(isMobilePortalPath(path)).toBe(expected);
+        });
+    });
+
+    describe('getMobilePortalByPath', () => {
+        it('resolves canonical and legacy deep links to one portal', () => {
+            expect(getMobilePortalByPath('/field/sales/orders')?.id).toBe(
+                'sales-field',
+            );
+            expect(getMobilePortalByPath('/sales/mobile/orders')?.id).toBe(
+                'sales-field',
+            );
         });
     });
 
