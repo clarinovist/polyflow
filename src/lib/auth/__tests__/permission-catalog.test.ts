@@ -64,17 +64,8 @@ describe('permission-catalog', () => {
   });
 
   describe('getFeatureCatalog', () => {
-    it('includes view-prices and explicit mobile action capabilities', () => {
-      expect(getFeatureCatalog().map((f) => f.key)).toEqual(
-        expect.arrayContaining([
-          'feature:view-prices',
-          'feature:mobile-maintenance-approval',
-          'feature:mobile-purchasing-actions',
-          'feature:mobile-finance-actions',
-          'feature:mobile-hrd-actions',
-          'feature:mobile-marketing-actions',
-        ]),
-      );
+    it('includes view-prices as a feature flag', () => {
+      expect(getFeatureCatalog().map((f) => f.key)).toContain('feature:view-prices');
     });
   });
 });

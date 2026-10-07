@@ -5,12 +5,10 @@ import { prisma } from '@/lib/core/prisma';
 import { safeAction } from '@/lib/errors/errors';
 import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { Prisma } from '@prisma/client';
-import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 
 export const getPurchasingMobileOverview = withTenant(async function getPurchasingMobileOverview() {
     return safeAction(async () => {
         await requirePurchasingAccess();
-        await requireMobilePortalAccess('purchasing');
         const [draftPoCount, waitingReceiptCount, recentPos, ap] = await Promise.all([
             prisma.purchaseOrder.count({ where: { status: 'DRAFT' } }),
             prisma.purchaseOrder.count({ where: { status: { in: ['SENT', 'PARTIAL_RECEIVED'] } } }),

@@ -13,20 +13,7 @@ export const metadata: Metadata = {
     title: 'Pilih Portal Mobile | PolyFlow',
 };
 
-const DENIAL_COPY: Record<string, string> = {
-    role: 'Portal itu tidak tersedia untuk role Anda.',
-    module: 'Modul portal tersebut sedang tidak aktif.',
-    resource: 'Izin portal tersebut sudah dicabut.',
-    rollout: 'Portal tersebut belum diaktifkan untuk tenant ini.',
-    feature: 'Kapabilitas aksi tersebut belum diaktifkan.',
-    planned: 'Portal tersebut masih dalam tahap perencanaan.',
-};
-
-export default async function MobileSelectorPage({
-    searchParams,
-}: {
-    searchParams?: Promise<{ reason?: string }>;
-} = {}) {
+export default async function MobileSelectorPage() {
     const session = await auth();
 
     if (!session) {
@@ -40,17 +27,15 @@ export default async function MobileSelectorPage({
         roles: (session.user as { roles?: string[] }).roles,
         image: session.user?.image,
         avatarUrl: (session.user as { avatarUrl?: string }).avatarUrl,
-        isSuperAdmin: (session.user as { isSuperAdmin?: boolean }).isSuperAdmin,
+        isSuperAdmin: (session.user as { isSuperAdmin?: boolean })
+            .isSuperAdmin,
     };
 
     const result = await getMyMobilePortals();
-    if (!result.success)
-        return <MobileReadError title="Pilihan portal belum tersedia" />;
+    if (!result.success) return <MobileReadError title="Pilihan portal belum tersedia" />;
     const portals = result.data;
-    const reason = (await searchParams)?.reason;
-    const denialMessage = reason ? DENIAL_COPY[reason] : undefined;
 
-    if (portals.length === 1 && !denialMessage) {
+    if (portals.length === 1) {
         redirect(portals[0].path);
     }
 
@@ -83,22 +68,9 @@ export default async function MobileSelectorPage({
                 </div>
 
                 <div className="space-y-3.5">
-                    {denialMessage && (
-                        <p
-                            role="alert"
-                            className="rounded-xl border border-amber-700/50 bg-amber-950/40 p-4 text-sm text-amber-100"
-                        >
-                            {denialMessage}
-                        </p>
-                    )}
                     {portals.length === 0 && (
-                        <p
-                            role="status"
-                            className="rounded-xl border border-slate-700 p-4 text-sm"
-                        >
-                            Belum ada portal mobile yang sesuai dengan izin dan
-                            modul aktif Anda. Gunakan desktop atau hubungi admin
-                            untuk memeriksa akses.
+                        <p role="status" className="rounded-xl border border-slate-700 p-4 text-sm">
+                            Belum ada portal mobile yang sesuai dengan izin dan modul aktif Anda. Gunakan desktop atau hubungi admin untuk memeriksa akses.
                         </p>
                     )}
                     {portals.map((portal) => {

@@ -1,5 +1,3 @@
-vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess: vi.fn().mockResolvedValue({}) }));
-
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { getHrdMobileOverview, getHrdMobileTeamAttendance } from '../mobile-dashboard';
 import { auth } from '@/auth';
@@ -30,12 +28,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 describe('HRD overview authorization and meaning', () => {
-    it('allows HRD to read the mobile overview', async () => {
-        session('HRD'); expect(await getHrdMobileOverview()).toMatchObject({ success: true });
-    });
-    it.each(['ADMIN', 'FINANCE'])('denies %s personal HRD mobile payload', async (role) => {
-        session(role); expect(await getHrdMobileOverview()).toMatchObject({ success: false });
-        expect(prisma.attendanceRecord.findMany).not.toHaveBeenCalled();
+    it.each(['HRD', 'ADMIN', 'FINANCE'])('allows existing HRD workspace role %s', async (role) => {
+        session(role); expect(await getHrdMobileOverview()).toMatchObject({ success: true });
     });
     it('allows an existing HRD secondary role', async () => {
         session('SALES', ['SALES', 'HRD']); expect(await getHrdMobileOverview()).toMatchObject({ success: true });

@@ -2,16 +2,15 @@ import React from 'react';
 import { LiveMobileConnectivity } from '@/components/mobile/LiveMobileConnectivity';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
-import { MobilePortalBottomNav } from '@/components/mobile';
-import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-access';
+import {
+    MobilePortalBottomNav,
+} from '@/components/mobile';
 
-export default async function HrdMobileLayout({
+export default function HrdMobileLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    await requireMobilePortalPageAccess('hrd-supervisor');
-
     return (
         <div className="min-h-screen bg-slate-50 pb-[calc(5rem+env(safe-area-inset-bottom))] dark:bg-slate-900">
             <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white/95 px-4 py-3 backdrop-blur dark:bg-slate-900/95 dark:border-slate-800">

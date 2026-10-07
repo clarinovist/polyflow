@@ -23,11 +23,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
-type MaintenanceDecisionAction = (
-    id: string,
-    value: string,
-) => Promise<ActionResult>;
-
 interface MaintenanceActionProps {
     id: string;
     status: string;
@@ -45,8 +40,6 @@ interface MaintenanceActionProps {
         fulfilled: boolean;
         productVariantId?: string | null;
     }>;
-    approveAction?: MaintenanceDecisionAction;
-    rejectAction?: MaintenanceDecisionAction;
 }
 
 type ActionResult = { success: boolean; error?: string };
@@ -66,8 +59,6 @@ export function MaintenanceActions({
     viewer,
     technicians,
     spareParts,
-    approveAction = approveMaintenanceRequest,
-    rejectAction = rejectMaintenanceRequest,
 }: MaintenanceActionProps) {
     const router = useRouter();
     const [note, setNote] = useState('');
@@ -193,7 +184,11 @@ export function MaintenanceActions({
                             onClick={() =>
                                 run(
                                     'approve',
-                                    () => approveAction(id, assigneeId),
+                                    () =>
+                                        approveMaintenanceRequest(
+                                            id,
+                                            assigneeId,
+                                        ),
                                     'Pekerjaan disetujui dan teknisi ditunjuk.',
                                 )
                             }
@@ -225,7 +220,7 @@ export function MaintenanceActions({
                             onClick={() =>
                                 run(
                                     'reject',
-                                    () => rejectAction(id, note),
+                                    () => rejectMaintenanceRequest(id, note),
                                     'Laporan ditolak.',
                                 )
                             }

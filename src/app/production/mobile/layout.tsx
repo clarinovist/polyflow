@@ -2,17 +2,20 @@ import React from 'react';
 import { auth } from '@/auth';
 import { LiveMobileConnectivity } from '@/components/mobile/LiveMobileConnectivity';
 import Link from 'next/link';
-import { ClipboardCheck, Plus } from 'lucide-react';
+import {
+    ClipboardCheck,
+    Plus,
+} from 'lucide-react';
 import { isMobileSupervisorOperator } from '@/lib/mobile/mobile-access-policy';
-import { MobilePortalBottomNav } from '@/components/mobile';
-import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-access';
+import {
+    MobilePortalBottomNav,
+} from '@/components/mobile';
 
 export default async function ProductionMobileLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    await requireMobilePortalPageAccess('production-supervisor');
     const session = await auth();
     const user = session?.user as
         | { role?: string; roles?: string[]; isSuperAdmin?: boolean }
@@ -25,9 +28,7 @@ export default async function ProductionMobileLayout({
                 <div className="flex items-center gap-2">
                     <ClipboardCheck className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                     <span className="font-semibold text-slate-900 dark:text-slate-100">
-                        {canOperate
-                            ? 'Supervisor Produksi'
-                            : 'Monitor Kepala Pabrik'}
+                        {canOperate ? 'Supervisor Produksi' : 'Monitor Kepala Pabrik'}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -51,11 +52,17 @@ export default async function ProductionMobileLayout({
 
             <LiveMobileConnectivity />
 
-            <main id="production-mobile-content" className="px-4 py-4 pb-16">
+            <main
+                id="production-mobile-content"
+                className="px-4 py-4 pb-16"
+            >
                 {children}
             </main>
 
-            <MobilePortalBottomNav portal="production" readOnly={!canOperate} />
+            <MobilePortalBottomNav
+                portal="production"
+                readOnly={!canOperate}
+            />
         </div>
     );
 }
