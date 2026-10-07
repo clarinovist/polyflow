@@ -32,6 +32,10 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
         children: [
             { key: '/sales/mobile', label: 'Mode Mobile (Legacy)' },
             { key: '/field/sales', label: 'Sales Field Mobile' },
+            {
+                key: '/field/marketing',
+                label: 'Marketing Supervisor Mobile',
+            },
             // /sales/quotations adalah redirect ke /sales/orders?status=QUOTATION.
             // Grant tanpa /sales/orders akan berujung redirect-loop-ish
             // (guard /sales/orders menolak). Selalu grant bareng /sales/orders.

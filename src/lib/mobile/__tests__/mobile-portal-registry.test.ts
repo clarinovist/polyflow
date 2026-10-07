@@ -77,6 +77,23 @@ describe('mobile-portal-registry', () => {
             ]);
         });
 
+        it('registers Marketing as a rollout-gated read-only supervisor beta', () => {
+            expect(getMobilePortalById('marketing-supervisor')).toMatchObject({
+                path: '/field/marketing',
+                moduleKey: 'SALES',
+                mode: 'SUPERVISION',
+                status: 'BETA',
+                roles: ['MARKETING'],
+                rolloutKey: 'mobile.portal.marketing.enabled',
+                adminAccess: 'READ_ONLY',
+            });
+            expect(
+                getMobilePortalById('marketing-supervisor')?.navigation.map(
+                    (item) => item.label,
+                ),
+            ).toEqual(['Hari Ini', 'Tim', 'Review', 'Insight']);
+        });
+
         it('keeps planned portals detached from rollout until their implementation batch', () => {
             expect(getMobilePortalById('maklon')?.rolloutKey).toBeUndefined();
         });
@@ -150,6 +167,8 @@ describe('mobile-portal-registry', () => {
         it.each([
             ['/field/sales', true],
             ['/field/sales/orders', true],
+            ['/field/marketing', true],
+            ['/field/marketing/reviews', true],
             ['/warehouse/mobile', true],
             ['/warehouse/mobile/incoming', true],
             ['/kiosk', true],

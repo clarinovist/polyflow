@@ -1,6 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FieldLayout from '../field/layout';
+import FieldSalesLayout from '../field/sales/layout';
 import SalesMobileLayout from '../sales/mobile/layout';
 import WarehouseMobileLayout from '../warehouse/mobile/layout';
 import MobileSelectorPage from '../mobile/page';
@@ -53,7 +54,7 @@ beforeEach(() => {
 });
 
 describe('mobile account menu integration', () => {
-    it.each([FieldLayout, SalesMobileLayout, WarehouseMobileLayout])('%s passes the authenticated tenant identity to the server-only menu', async (Layout) => {
+    it.each([FieldSalesLayout, SalesMobileLayout, WarehouseMobileLayout])('%s passes the authenticated tenant identity to the server-only menu', async (Layout) => {
         const tree = await Layout({ children: <p>Portal content</p> });
         expect(findAccountMenu(tree)?.user).toBe(user);
     });

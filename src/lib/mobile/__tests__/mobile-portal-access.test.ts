@@ -77,7 +77,10 @@ describe('mobile portal server guard', () => {
     it('reads only rollout keys declared by beta portals', async () => {
         await requireMobilePortalAccess('finance');
         expect(mocks.rollouts).toHaveBeenCalledWith(
-            ['mobile.portal.admin.enabled'],
+            [
+                'mobile.portal.admin.enabled',
+                'mobile.portal.marketing.enabled',
+            ],
             mocks.tenantDb.appSetting,
         );
     });
@@ -103,6 +106,30 @@ describe('mobile portal server guard', () => {
     it('denies a non-admin direct Admin Mobile request', async () => {
         mocks.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': true });
         await expect(requireMobilePortalAccess('admin')).rejects.toMatchObject({ reason: 'ROLE' });
+    });
+
+    it('allows Marketing only with the tenant rollout and denies Sales direct actions', async () => {
+        mocks.auth.mockResolvedValue({
+            user: { id: 'marketing', role: 'MARKETING' },
+        });
+        mocks.permissions.mockResolvedValue({
+            success: true,
+            data: ['/field/marketing'],
+        });
+        mocks.modules.mockResolvedValue(['CORE', 'SALES']);
+        mocks.rollouts.mockResolvedValue({
+            'mobile.portal.marketing.enabled': true,
+        });
+        await expect(
+            requireMobilePortalAccess('marketing-supervisor'),
+        ).resolves.toMatchObject({
+            portal: { id: 'marketing-supervisor' },
+        });
+
+        mocks.auth.mockResolvedValue({ user: { id: 'sales', role: 'SALES' } });
+        await expect(
+            requireMobilePortalAccess('marketing-supervisor'),
+        ).rejects.toMatchObject({ reason: 'ROLE' });
     });
 
     it('reports missing capability as false for server-rendered UI', async () => {

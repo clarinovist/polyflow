@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import SalesLoading from '../field/sales/loading';
 import SalesError from '../field/sales/error';
+import MarketingLoading from '../field/marketing/loading';
+import MarketingError from '../field/marketing/error';
 import WarehouseLoading from '../warehouse/mobile/loading';
 import WarehouseError from '../warehouse/mobile/error';
 import ProductionLoading from '../production/mobile/loading';
@@ -18,6 +20,7 @@ import { MobileDataFreshness } from '@/components/mobile';
 
 const routes = [
     ['sales', SalesLoading, SalesError],
+    ['marketing', MarketingLoading, MarketingError],
     ['warehouse', WarehouseLoading, WarehouseError],
     ['production', ProductionLoading, ProductionError],
     ['purchasing', PurchasingLoading, PurchasingError],

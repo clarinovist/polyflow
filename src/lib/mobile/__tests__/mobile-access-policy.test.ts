@@ -103,6 +103,8 @@ describe('mobile-access-policy', () => {
       ['/hrd/mobile/attendance', true],
       ['/mobile/admin', true],
       ['/mobile/admin/attention', true],
+      ['/field/marketing', true],
+      ['/field/marketing/reviews', true],
       ['/maklon/mobile', false],
       ['/dashboard', false],
       ['/finance', false],
@@ -258,6 +260,12 @@ describe('mobile-access-policy', () => {
       const portals = getAvailableMobilePortals({ role: 'FINANCE' });
       expect(portals).toHaveLength(1);
       expect(portals[0].id).toBe('finance');
+    });
+
+    it('keeps Marketing out of Sales Field and identifies its supervisor beta candidate', () => {
+      expect(getAvailableMobilePortals({ role: 'MARKETING' }).map((p) => p.id)).toEqual([
+        'marketing-supervisor',
+      ]);
     });
 
     it('returns portals for multi-role user', () => {

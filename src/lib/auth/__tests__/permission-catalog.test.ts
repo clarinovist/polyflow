@@ -43,6 +43,11 @@ describe('permission-catalog', () => {
     );
   });
 
+  it('includes the dedicated Marketing Supervisor mobile resource', () => {
+    const sales = PERMISSION_CATALOG.find((n) => n.key === '/sales');
+    expect(sales?.children?.map((n) => n.key)).toContain('/field/marketing');
+  });
+
   it('includes warehouse materials path for command-board split', () => {
     const warehouse = PERMISSION_CATALOG.find((n) => n.key === '/warehouse');
     const keys = warehouse?.children?.map((n) => n.key) ?? [];

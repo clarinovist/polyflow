@@ -11,6 +11,7 @@ import type { ModuleKey } from '@/lib/modules/module-registry';
 
 export type MobilePortalId =
     | 'sales-field'
+    | 'marketing-supervisor'
     | 'warehouse'
     | 'production-kiosk'
     | 'production-supervisor'
@@ -112,6 +113,42 @@ export const MOBILE_PORTAL_REGISTRY = [
             { id: 'stock', label: 'Stok', path: '/field/sales/stock' },
         ],
         icon: 'ShoppingBag',
+    },
+    {
+        id: 'marketing-supervisor',
+        title: 'Marketing Supervisor',
+        description: 'Target tim, antrean review, dan exception sales',
+        path: '/field/marketing',
+        moduleKey: 'SALES',
+        mode: 'SUPERVISION',
+        status: 'BETA',
+        roles: ['MARKETING'],
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['MARKETING'],
+                permissionRoots: ['/field/marketing'],
+                match: 'ANY',
+            },
+        ],
+        rolloutKey: 'mobile.portal.marketing.enabled',
+        adminAccess: 'READ_ONLY',
+        capabilities: ['feature:mobile-marketing-actions'],
+        navigation: [
+            { id: 'home', label: 'Hari Ini', path: '/field/marketing' },
+            { id: 'team', label: 'Tim', path: '/field/marketing/team' },
+            {
+                id: 'reviews',
+                label: 'Review',
+                path: '/field/marketing/reviews',
+            },
+            {
+                id: 'insights',
+                label: 'Insight',
+                path: '/field/marketing/insights',
+            },
+        ],
+        icon: 'ChartNoAxesCombined',
     },
     {
         id: 'warehouse',

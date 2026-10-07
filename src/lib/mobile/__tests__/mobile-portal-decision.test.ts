@@ -44,6 +44,40 @@ describe('mobile portal decision resolver', () => {
         );
     });
 
+    it('enforces Marketing rollout, role, resource, and ADMIN semantics', () => {
+        const base = {
+            activeModules: ['SALES'] as const,
+            permissions: ['/field/marketing'],
+            rollout: { 'mobile.portal.marketing.enabled': true },
+        };
+        expect(
+            getMobilePortalDecision(portal('marketing-supervisor'), {
+                ...base,
+                user: { role: 'MARKETING' },
+            }).allowed,
+        ).toBe(true);
+        expect(
+            getMobilePortalDecision(portal('marketing-supervisor'), {
+                ...base,
+                user: { role: 'MARKETING' },
+                rollout: { 'mobile.portal.marketing.enabled': false },
+            }),
+        ).toEqual({ allowed: false, reason: 'ROLLOUT' });
+        expect(
+            getMobilePortalDecision(portal('marketing-supervisor'), {
+                ...base,
+                user: { role: 'SALES' },
+            }),
+        ).toEqual({ allowed: false, reason: 'ROLE' });
+        expect(
+            getMobilePortalDecision(portal('marketing-supervisor'), {
+                ...base,
+                user: { role: 'ADMIN' },
+                permissions: 'ALL',
+            }).allowed,
+        ).toBe(true);
+    });
+
     it('fails closed when fresh resources are absent', () => {
         expect(
             getMobilePortalDecision(portal('finance'), {
