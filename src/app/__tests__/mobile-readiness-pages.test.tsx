@@ -18,8 +18,8 @@ import OrdersPage from '../field/sales/orders/page';
 import ReceivablesPage from '../field/sales/receivables/page';
 import SelectorPage from '../mobile/page';
 import { HrdAttendanceClient } from '../hrd/mobile/attendance/attendance-client';
-const m = vi.hoisted(() => ({ production: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
-vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production }));
+const m = vi.hoisted(() => ({ production: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
+vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production, getFactoryManagerExecutiveOverview: m.exec }));
 vi.mock('@/actions/production/alert-threshold-settings', () => ({ getProductionAlertThresholdsForPage: async () => ({ success: false }) }));
 vi.mock('@/actions/finance/mobile-dashboard', () => ({ getFinanceMobileOverview: m.finance }));
 vi.mock('@/actions/hrd/mobile-dashboard', () => ({ getHrdMobileOverview: m.hrd }));
@@ -36,7 +36,7 @@ vi.mock('../field/sales/receivables/ReceivablesListClient', () => ({ Receivables
 afterEach(cleanup);
 beforeEach(() => {
     vi.resetAllMocks();
-    for (const fn of [m.production, m.finance, m.hrd, m.purchasing, m.products, m.locations, m.orders, m.receivables, m.portals]) fn.mockResolvedValue({ success: false });
+    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.products, m.locations, m.orders, m.receivables, m.portals]) fn.mockResolvedValue({ success: false });
     m.auth.mockResolvedValue({ user: { id: 'synthetic', role: 'FINANCE' } });
 });
 describe('mobile read states', () => {

@@ -9,6 +9,9 @@ import PurchasingMobileLayout from '../purchasing/mobile/layout';
 
 let pathname = '/finance/mobile';
 vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
+vi.mock('@/auth', () => ({
+    auth: async () => ({ user: { id: 'synthetic', role: 'PRODUCTION' } }),
+}));
 vi.mock('next/link', () => ({
     default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
         <a {...props}>{children}</a>
@@ -54,12 +57,12 @@ describe('mobile portal bottom navigation safety', () => {
 
     it.each(layouts)(
         '%s reserves nav and safe-area space with touch-sized destinations',
-        (_name, Layout, navLabel, rootPath, mainId) => {
+        async (_name, Layout, navLabel, rootPath, mainId) => {
             pathname = rootPath;
             const { container } = render(
-                <Layout>
-                    <button type="button">Aksi terakhir</button>
-                </Layout>,
+                await Layout({
+                    children: <button type="button">Aksi terakhir</button>,
+                }),
             );
 
             const shell = container.firstElementChild;
@@ -88,12 +91,12 @@ describe('mobile portal bottom navigation safety', () => {
         },
     );
 
-    it('marks only the matching nested destination as current', () => {
+    it('marks only the matching nested destination as current', async () => {
         pathname = '/production/mobile/tasks/new';
         render(
-            <ProductionMobileLayout>
-                <p>Form SPK</p>
-            </ProductionMobileLayout>,
+            await ProductionMobileLayout({
+                children: <p>Form SPK</p>,
+            }),
         );
 
         const nav = screen.getByRole('navigation', {

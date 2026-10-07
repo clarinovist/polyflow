@@ -124,7 +124,7 @@ export default async function ProductionMobilePage() {
 
             {exec && (
                 <>
-                    <MobileSectionHeader title="Perlu Perhatian" level={1} />
+                    <MobileSectionHeader title="Perlu Perhatian" />
                     <div className="grid grid-cols-2 gap-3">
                         <MobileInsightCard
                             insight={{
@@ -176,7 +176,7 @@ export default async function ProductionMobilePage() {
                         />
                     </div>
 
-                    <MobileSectionHeader title="Kondisi Tim" level={1} />
+                    <MobileSectionHeader title="Kondisi Tim" />
                     <div className="grid grid-cols-2 gap-3">
                         <MobileInsightCard
                             insight={{
