@@ -16,13 +16,15 @@ export function MobileLoadingState({
 }: MobileLoadingStateProps) {
     return (
         <div
+            role="status"
+            aria-live="polite"
             className={cn(
                 'flex flex-col items-center justify-center py-12',
                 className,
             )}
         >
-            <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
-            <p className="text-xs text-muted-foreground mt-2">{message}</p>
+            <Loader2 aria-hidden="true" className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="mt-2 text-xs text-muted-foreground">{message}</p>
         </div>
     );
 }

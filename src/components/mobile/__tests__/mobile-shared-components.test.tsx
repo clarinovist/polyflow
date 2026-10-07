@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment jsdom
+
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import {
     MobileEmptyState,
     MobileLoadingState,
@@ -6,8 +10,22 @@ import {
     MobileSectionHeader,
     MobileTaskCard,
     MobileInsightCard,
+    MobileDataFreshness,
+    MobilePortalHeader,
+    MobilePortalShell,
+    MobileReadError,
 } from '../index';
 import type { MobileInsight } from '@/lib/mobile/types';
+
+vi.mock('next/navigation', () => ({
+    usePathname: () => '/finance/mobile',
+    useRouter: () => ({ refresh: vi.fn() }),
+}));
+vi.mock('next/link', () => ({
+    default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+        <a {...props}>{children}</a>
+    ),
+}));
 
 // These are server/client component shape tests.
 // We verify the exports exist and the components can be imported.
@@ -42,6 +60,34 @@ describe('Mobile shared components exports', () => {
     it('MobileInsightCard is exported', () => {
         expect(MobileInsightCard).toBeDefined();
         expect(typeof MobileInsightCard).toBe('function');
+    });
+
+    it.each([
+        MobileDataFreshness,
+        MobilePortalHeader,
+        MobilePortalShell,
+        MobileReadError,
+    ])('exports the Phase 2 shared primitive', (component) => {
+        expect(component).toBeDefined();
+        expect(typeof component).toBe('function');
+    });
+
+    it('renders a safe-area shell with a focusable main landmark', () => {
+        render(
+            <MobilePortalShell
+                contentId="test-mobile-content"
+                showConnectivity={false}
+                header={<MobilePortalHeader title="Portal Test" />}
+                bottomNavigation={<nav aria-label="Navigasi test" />}
+            >
+                <h1>Halaman test</h1>
+            </MobilePortalShell>,
+        );
+
+        expect(screen.getByRole('main').id).toBe('test-mobile-content');
+        expect(screen.getByRole('main').getAttribute('tabindex')).toBe('-1');
+        expect(screen.getByRole('link', { name: 'Lewati ke konten utama' }).getAttribute('href')).toBe('#test-mobile-content');
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     });
 });
 

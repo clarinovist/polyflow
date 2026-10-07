@@ -1,5 +1,6 @@
 import { WarehouseBottomNav } from '@/components/warehouse/mobile/WarehouseBottomNav';
 import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
+import { MobilePortalHeader, MobilePortalShell } from '@/components/mobile';
 import { auth } from '@/auth';
 import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 
@@ -12,14 +13,19 @@ export default async function WarehouseMobileLayout({
     const session = await auth();
 
     return (
-        <div className="min-h-screen bg-background">
-            <header className="sticky top-0 z-40 h-12 border-b border-border bg-background/95 backdrop-blur px-4 flex items-center justify-end">
-                <MobileAccountMenuServer user={session?.user} />
-            </header>
-            <main className="pb-[calc(4rem+env(safe-area-inset-bottom))]">
-                {children}
-            </main>
-            <WarehouseBottomNav />
-        </div>
+        <MobilePortalShell
+            contentId="warehouse-mobile-content"
+            className="bg-background dark:bg-background"
+            mainClassName="px-0 py-0"
+            header={
+                <MobilePortalHeader
+                    actions={<MobileAccountMenuServer user={session?.user} />}
+                    className="border-border bg-background/95 dark:border-border dark:bg-background/95"
+                />
+            }
+            bottomNavigation={<WarehouseBottomNav />}
+        >
+            {children}
+        </MobilePortalShell>
     );
 }

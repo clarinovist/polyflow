@@ -5,8 +5,10 @@ import { cn } from '@/lib/utils/utils';
 
 interface MobileErrorStateProps {
     title?: string;
-    message: string;
+    message?: string;
     onRetry?: () => void;
+    retryLabel?: string;
+    headingLevel?: 1 | 2 | 3;
     className?: string;
 }
 
@@ -16,33 +18,41 @@ interface MobileErrorStateProps {
  */
 export function MobileErrorState({
     title = 'Terjadi kesalahan',
-    message,
+    message = 'Data tidak tersedia saat ini. Coba muat ulang; angka kosong bukan berarti tidak ada transaksi.',
     onRetry,
+    retryLabel = 'Coba lagi',
+    headingLevel = 2,
     className,
 }: MobileErrorStateProps) {
+    const Heading = headingLevel === 1 ? 'h1' : headingLevel === 2 ? 'h2' : 'h3';
+
     return (
-        <div
+        <section
+            role="alert"
             className={cn(
-                'flex flex-col items-center justify-center py-12 px-6 text-center',
+                'flex flex-col items-center justify-center px-6 py-12 text-center',
                 className,
             )}
         >
-            <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-950/50 flex items-center justify-center mb-3">
-                <AlertTriangle className="h-6 w-6 text-red-500" />
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/50">
+                <AlertTriangle aria-hidden="true" className="h-6 w-6 text-red-500" />
             </div>
-            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-            <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+            <Heading className="text-sm font-semibold text-foreground">
+                {title}
+            </Heading>
+            <p className="mt-1 max-w-[280px] text-xs text-muted-foreground">
                 {message}
             </p>
             {onRetry && (
                 <button
+                    type="button"
                     onClick={onRetry}
-                    className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Coba lagi
+                    <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+                    {retryLabel}
                 </button>
             )}
-        </div>
+        </section>
     );
 }

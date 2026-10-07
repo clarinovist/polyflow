@@ -1,6 +1,7 @@
 import { FieldBottomNav } from '@/components/field/FieldBottomNav';
 import { FieldMobileFrame } from '@/components/field/FieldMobileFrame';
 import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
+import { MobilePortalHeader, MobilePortalShell } from '@/components/mobile';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { hasWorkspaceEntitlement } from '@/lib/auth/access-policy';
@@ -48,18 +49,27 @@ export default async function FieldLayout({
     const isMobile = isMobileUserAgent(userAgent);
 
     const content = (
-        <div className="min-h-screen bg-background">
-            <header className="sticky top-0 z-40 h-12 border-b border-border bg-background/95 backdrop-blur px-4 flex items-center justify-end">
-                <MobileAccountMenuServer
-                    user={session.user}
-                    accentColor="bg-emerald-600"
+        <MobilePortalShell
+            contentId="field-sales-content"
+            className="bg-background dark:bg-background"
+            mainClassName="px-0 py-0"
+            header={
+                <MobilePortalHeader
+                    actions={
+                        <MobileAccountMenuServer
+                            user={session.user}
+                            accentColor="bg-emerald-600"
+                        />
+                    }
+                    className="border-border bg-background/95 dark:border-border dark:bg-background/95"
                 />
-            </header>
-            <main className="pb-[calc(4rem+env(safe-area-inset-bottom))]">
-                {children}
-            </main>
-            <FieldBottomNav permissions={permissions} badges={badges} />
-        </div>
+            }
+            bottomNavigation={
+                <FieldBottomNav permissions={permissions} badges={badges} />
+            }
+        >
+            {children}
+        </MobilePortalShell>
     );
 
     if (isMobile) {
