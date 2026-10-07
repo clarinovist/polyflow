@@ -5,6 +5,7 @@ import { WarehouseMobileHomeClient } from './WarehouseMobileHomeClient';
 import { withTenantPage } from '@/lib/core/tenant';
 import { getWarehouseTodayKPIs } from '@/actions/dashboard/warehouse-kpi';
 import { getOpnameSessions } from '@/actions/inventory/opname';
+import { MobileReadError } from '@/components/mobile';
 
 const getData = withTenantPage(async () => {
     const [deliveryOrdersResult, receivablePOs, todayKPIs, opnameResult] =
@@ -15,10 +16,13 @@ const getData = withTenantPage(async () => {
             getOpnameSessions(),
         ]);
 
-    const allOrders =
-        deliveryOrdersResult.success && deliveryOrdersResult.data
-            ? serializeData(deliveryOrdersResult.data)
-            : [];
+    if (!deliveryOrdersResult.success || !opnameResult.success) {
+        return { success: false as const };
+    }
+
+    const allOrders = deliveryOrdersResult.data
+        ? serializeData(deliveryOrdersResult.data)
+        : [];
 
     const openOrders = (
         allOrders as {
@@ -33,13 +37,14 @@ const getData = withTenantPage(async () => {
     const loadingOrders = openOrders.filter((o) => o.status === 'LOADING');
     const pendingOrders = openOrders.filter((o) => o.status === 'PENDING');
 
-    const sessions =
-        opnameResult.success && opnameResult.data
-            ? (serializeData(opnameResult.data) as { status: string }[])
-            : [];
+    const sessions = opnameResult.data
+        ? (serializeData(opnameResult.data) as { status: string }[])
+        : [];
     const openOpnameCount = sessions.filter((s) => s.status === 'OPEN').length;
 
     return {
+        success: true as const,
+        data: {
         loadingCount: loadingOrders.length,
         pendingCount: pendingOrders.length,
         receivableCount: receivablePOs?.length ?? 0,
@@ -47,10 +52,14 @@ const getData = withTenantPage(async () => {
         shippedTodayCount: todayKPIs.shippedToday,
         receivedTodayCount: todayKPIs.receivedToday,
         recentLoading: loadingOrders.slice(0, 3),
+        },
     };
 });
 
 export default async function WarehouseMobilePage() {
-    const data = await getData();
-    return <WarehouseMobileHomeClient data={data} />;
+    const result = await getData();
+    if (!result.success) {
+        return <MobileReadError title="Ringkasan gudang belum tersedia" />;
+    }
+    return <WarehouseMobileHomeClient data={result.data} />;
 }

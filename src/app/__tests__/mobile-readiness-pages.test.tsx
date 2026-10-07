@@ -15,29 +15,53 @@ import PurchasingHome from '../purchasing/mobile/page';
 import PurchasingInsights from '../purchasing/mobile/insights/page';
 import PurchasingTasks from '../purchasing/mobile/tasks/page';
 import StockPage from '../field/sales/stock/page';
+import SalesHome from '../field/sales/page';
 import OrdersPage from '../field/sales/orders/page';
 import ReceivablesPage from '../field/sales/receivables/page';
 import SelectorPage from '../mobile/page';
 import { HrdAttendanceClient } from '../hrd/mobile/attendance/attendance-client';
-const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
+import WarehouseHome from '../warehouse/mobile/page';
+const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), followUps: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), deliveries: vi.fn(), opname: vi.fn(), warehouseKpis: vi.fn(), receivablePos: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
 vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production, getMobileSupervisorSpkList: m.spkList, getFactoryManagerExecutiveOverview: m.exec }));
 vi.mock('@/actions/production/alert-threshold-settings', () => ({ getProductionAlertThresholdsForPage: async () => ({ success: false }) }));
 vi.mock('@/actions/finance/mobile-dashboard', () => ({ getFinanceMobileOverview: m.finance }));
 vi.mock('@/actions/hrd/mobile-dashboard', () => ({ getHrdMobileOverview: m.hrd }));
 vi.mock('@/actions/purchasing/mobile-dashboard', () => ({ getPurchasingMobileOverview: m.purchasing }));
 vi.mock('@/actions/inventory/inventory', () => ({ getProductVariants: m.products, getLocations: m.locations }));
-vi.mock('@/actions/sales/field-actions', () => ({ getMyFieldSalesOrders: m.orders, getMyFieldReceivables: m.receivables }));
+vi.mock('@/actions/inventory/deliveries', () => ({ getOpenDeliveryOrders: m.deliveries }));
+vi.mock('@/actions/inventory/opname', () => ({ getOpnameSessions: m.opname }));
+vi.mock('@/actions/dashboard/warehouse-kpi', () => ({ getWarehouseTodayKPIs: m.warehouseKpis }));
+vi.mock('@/services/purchasing/purchase-service', () => ({ PurchaseService: { listReceivablePurchaseOrders: m.receivablePos } }));
+vi.mock('@/lib/core/tenant', () => ({
+    withTenantPage: (fn: unknown) => fn,
+    withTenant: (fn: unknown) => fn,
+}));
+vi.mock('@/actions/sales/field-actions', () => ({
+    getMyFieldPipelineStats: m.pipeline,
+    getMyFieldReceivables: m.receivables,
+    getMyFieldCustomers: m.customers,
+    getMyFieldComplianceStats: m.compliance,
+    getMyFollowUpsToday: m.followUps,
+    getMyFieldSalesOrders: m.orders,
+}));
+vi.mock('@/actions/sales/route-plans', () => ({ getTodayRoutePlan: m.routePlan }));
 vi.mock('@/actions/settings/mobile-portals', () => ({ getMyMobilePortals: m.portals }));
 vi.mock('@/auth', () => ({ auth: m.auth }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: m.refresh, push: m.push }), redirect: m.redirect }));
 vi.mock('@/components/layout/mobile-account-menu-server', () => ({ MobileAccountMenuServer: () => null }));
 vi.mock('@/components/ui/barcode-scanner', () => ({ BarcodeScanner: () => null }));
+vi.mock('@/components/sales/mobile/VisitSyncBanner', () => ({ VisitSyncBanner: () => null }));
+vi.mock('@/components/field/RouteTodaySection', () => ({ RouteTodaySection: () => null }));
+vi.mock('@/components/field/PipelineSummaryCard', () => ({ PipelineSummaryCard: () => null }));
+vi.mock('@/components/field/FollowUpTodaySection', () => ({ FollowUpTodaySection: () => null }));
 vi.mock('../field/sales/orders/OrderListClient', () => ({ OrderListClient: () => <p>Orders</p> }));
 vi.mock('../field/sales/receivables/ReceivablesListClient', () => ({ ReceivablesListClient: () => <p>Receivables</p> }));
 afterEach(cleanup);
 beforeEach(() => {
     vi.resetAllMocks();
-    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.products, m.locations, m.orders, m.receivables, m.portals]) fn.mockResolvedValue({ success: false });
+    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.pipeline, m.customers, m.compliance, m.followUps, m.routePlan, m.products, m.locations, m.orders, m.receivables, m.portals, m.deliveries, m.opname]) fn.mockResolvedValue({ success: false });
+    m.warehouseKpis.mockResolvedValue({ shippedToday: 0, receivedToday: 0 });
+    m.receivablePos.mockResolvedValue([]);
     m.auth.mockResolvedValue({ user: { id: 'synthetic', role: 'FINANCE' } });
 });
 describe('mobile read states', () => {
@@ -45,6 +69,22 @@ describe('mobile read states', () => {
         render(await Page()); expect(screen.getByRole('alert')).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: 'Coba lagi' })); expect(m.refresh).toHaveBeenCalled();
     });
+    it('keeps a failed Sales home read distinct from an empty dashboard', async () => {
+        render(await SalesHome());
+        expect(screen.getByRole('alert').textContent).toContain(
+            'Ringkasan sales lapangan belum tersedia',
+        );
+        expect(screen.queryByText(/Selamat/)).toBeNull();
+    });
+
+    it('keeps a failed warehouse read distinct from an empty dashboard', async () => {
+        render(await WarehouseHome());
+        expect(screen.getByRole('alert').textContent).toContain(
+            'Ringkasan gudang belum tersedia',
+        );
+        expect(screen.queryByText('Gudang Mobile')).toBeNull();
+    });
+
     it('hides quick SPK from Factory Manager even with a secondary production role', async () => {
         m.auth.mockResolvedValue({
             user: {

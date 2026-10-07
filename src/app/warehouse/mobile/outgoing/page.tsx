@@ -1,12 +1,14 @@
 import { getOpenDeliveryOrders } from '@/actions/inventory/deliveries';
 import { serializeData } from '@/lib/utils/utils';
 import { WarehouseOutgoingMobileClient } from './WarehouseOutgoingMobileClient';
+import { MobileReadError } from '@/components/mobile';
 
 export default async function WarehouseMobileOutgoingPage() {
     const result = await getOpenDeliveryOrders();
-    const openOrders = result.success && result.data
-        ? serializeData(result.data)
-        : [];
+    if (!result.success) {
+        return <MobileReadError title="Antrean muat belum tersedia" />;
+    }
+    const openOrders = result.data ? serializeData(result.data) : [];
 
     return <WarehouseOutgoingMobileClient orders={openOrders as {
         id: string;

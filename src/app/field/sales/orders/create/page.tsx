@@ -2,6 +2,7 @@ import { getMyFieldCustomers } from '@/actions/sales/field-actions';
 import { getLocations } from '@/actions/inventory/inventory';
 import { getProductVariants } from '@/actions/inventory/inventory';
 import { QuickOrderWizard } from './QuickOrderWizard';
+import { MobileReadError } from '@/components/mobile';
 
 export default async function SalesMobileOrderCreatePage(props: {
     searchParams: Promise<{ customer?: string }>;
@@ -13,12 +14,13 @@ export default async function SalesMobileOrderCreatePage(props: {
         getProductVariants(),
     ]);
 
-    const customers =
-        customersRes.success && customersRes.data ? customersRes.data : [];
-    const locations =
-        locationsRes.success && locationsRes.data ? locationsRes.data : [];
-    const products =
-        productsRes.success && productsRes.data ? productsRes.data : [];
+    if (!customersRes.success || !locationsRes.success || !productsRes.success) {
+        return <MobileReadError title="Form order belum tersedia" />;
+    }
+
+    const customers = customersRes.data ?? [];
+    const locations = locationsRes.data ?? [];
+    const products = productsRes.data ?? [];
 
     const serializedCustomers = customers.map((c) => ({
         id: c.id,

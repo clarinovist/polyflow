@@ -23,6 +23,7 @@ import { PipelineSummaryCard } from '@/components/field/PipelineSummaryCard';
 import { FollowUpTodaySection } from '@/components/field/FollowUpTodaySection';
 import { VisitSyncBanner } from '@/components/sales/mobile/VisitSyncBanner';
 import { formatRupiah } from '@/lib/utils/utils';
+import { MobileReadError } from '@/components/mobile';
 
 export default async function FieldSalesDashboardPage() {
     const session = await auth();
@@ -45,14 +46,21 @@ export default async function FieldSalesDashboardPage() {
         getMyFollowUpsToday(),
     ]);
 
-    const pipeline =
-        pipelineRes?.success && pipelineRes.data ? pipelineRes.data : null;
-    const invoices =
-        invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
-    const customers =
-        customersRes?.success && customersRes.data ? customersRes.data : [];
-    const rawRoutePlan =
-        routeRes?.success && routeRes.data ? routeRes.data : null;
+    if (
+        !pipelineRes.success ||
+        !invoicesRes.success ||
+        !customersRes.success ||
+        !routeRes.success ||
+        !complianceRes.success ||
+        !followUpsRes.success
+    ) {
+        return <MobileReadError title="Ringkasan sales lapangan belum tersedia" />;
+    }
+
+    const pipeline = pipelineRes.data ?? null;
+    const invoices = invoicesRes.data ?? [];
+    const customers = customersRes.data ?? [];
+    const rawRoutePlan = routeRes.data ?? null;
     // Normalize Date -> string for RouteTodaySection (expects string date)
     const routePlan = rawRoutePlan
         ? {
@@ -63,12 +71,8 @@ export default async function FieldSalesDashboardPage() {
                       : String(rawRoutePlan.date),
           }
         : null;
-    const compliance =
-        complianceRes?.success && complianceRes.data
-            ? complianceRes.data
-            : null;
-    const followUps =
-        followUpsRes?.success && followUpsRes.data ? followUpsRes.data : [];
+    const compliance = complianceRes.data ?? null;
+    const followUps = followUpsRes.data ?? [];
 
     const totalOutstanding = invoices.reduce(
         (sum, inv) => sum + (Number(inv.totalAmount) + Number(inv.priceAdjustmentAmount ?? 0) - Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0)),

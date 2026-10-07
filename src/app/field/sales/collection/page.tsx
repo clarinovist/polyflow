@@ -1,6 +1,7 @@
 import { getMyFieldReceivables } from '@/actions/sales/field-actions';
 import { getMyOverduePromisesAction } from '@/actions/sales/collection';
 import { CollectionListClient } from './CollectionListClient';
+import { MobileReadError } from '@/components/mobile';
 
 type InvoiceRow = {
     id: string;
@@ -48,12 +49,12 @@ export default async function SalesMobileCollectionPage({
         getMyOverduePromisesAction(),
     ]);
 
-    const invoices = (invoicesRes.success && invoicesRes.data
-        ? invoicesRes.data
-        : []) as unknown as InvoiceRow[];
-    const overduePromises = (promisesRes.success && promisesRes.data
-        ? promisesRes.data
-        : []) as unknown as PromiseRow[];
+    if (!invoicesRes.success || !promisesRes.success) {
+        return <MobileReadError title="Data penagihan belum tersedia" />;
+    }
+
+    const invoices = (invoicesRes.data ?? []) as unknown as InvoiceRow[];
+    const overduePromises = (promisesRes.data ?? []) as unknown as PromiseRow[];
 
     const serializedInvoices = invoices.map((inv) => ({
         id: inv.id,

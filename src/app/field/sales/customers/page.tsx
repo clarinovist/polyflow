@@ -1,13 +1,16 @@
 import { getMyFieldCustomers } from '@/actions/sales/field-actions';
 import { CustomerListClient } from './CustomerListClient';
+import { MobileReadError } from '@/components/mobile';
 
 export default async function SalesMobileCustomersPage(props: {
     searchParams: Promise<{ startVisit?: string }>;
 }) {
     const params = await props.searchParams;
     const customersRes = await getMyFieldCustomers();
-    const customers =
-        customersRes.success && customersRes.data ? customersRes.data : [];
+    if (!customersRes.success) {
+        return <MobileReadError title="Daftar customer belum tersedia" />;
+    }
+    const customers = customersRes.data ?? [];
 
     const serialized = customers.map((c) => ({
         id: c.id,
