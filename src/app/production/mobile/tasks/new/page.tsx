@@ -1,9 +1,22 @@
 import React from 'react';
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
 import { getMobileQuickSpkFormData } from '@/actions/production/mobile-supervisor';
+import { isMobileSupervisorOperator } from '@/lib/mobile/mobile-access-policy';
 import { MobileSectionHeader } from '@/components/mobile';
 import { QuickCreateClient } from './quick-create-client';
 
 export default async function QuickCreateSpkPage() {
+    const session = await auth();
+    const user = session?.user as
+        | { role?: string; roles?: string[]; isSuperAdmin?: boolean }
+        | undefined;
+    // Route-level guard: Kepala Pabrik is read-only — the server action
+    // below also rejects mutation access, this only avoids a dead-end page.
+    if (!isMobileSupervisorOperator(user)) {
+        redirect('/production/mobile');
+    }
+
     const res = await getMobileQuickSpkFormData();
     const data = res.success ? res.data : null;
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
     getProductionSupervisorOverview,
+    getFactoryManagerExecutiveOverview,
     getMobileSupervisorSpkList,
     getMobileQuickSpkFormData,
     getMobileTeamAttendance,
@@ -47,6 +48,15 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         machine: {
             findMany: vi.fn(),
+        },
+        productVariant: {
+            findMany: vi.fn(),
+        },
+        purchaseRequest: {
+            count: vi.fn(),
+        },
+        purchaseOrder: {
+            count: vi.fn(),
         },
     },
 }));
@@ -457,4 +467,170 @@ describe('getMobileTeamAttendance', () => {
             expect(res.data.noRecordCount).toBe(1);
         }
     });
+});
+
+
+describe('supervisor monitoring read access', () => {
+    function session(role: string, roles?: string[]) {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role, roles },
+        } as any);
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'u1',
+            isActive: true,
+        } as any);
+        vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.productionOrder.count).mockResolvedValue(0);
+        vi.mocked(prisma.productionExecution.aggregate).mockResolvedValue(
+            emptyExecAggregate() as any,
+        );
+        vi.mocked(prisma.machineDowntime.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.qualityInspection.count).mockResolvedValue(0);
+    });
+
+    it.each(['FACTORY_MANAGER', 'PRODUCTION', 'PLANNING', 'ADMIN'])(
+        'allows %s to read the production pulse',
+        async (role) => {
+            session(role);
+            expect(await getProductionSupervisorOverview()).toMatchObject({
+                success: true,
+            });
+        },
+    );
+
+    it.each(['SALES', 'WAREHOUSE', 'HRD', 'FINANCE'])(
+        'denies %s before any production read',
+        async (role) => {
+            session(role);
+            expect(await getProductionSupervisorOverview()).toMatchObject({
+                success: false,
+            });
+            expect(prisma.productionOrder.findMany).not.toHaveBeenCalled();
+        },
+    );
+
+    it('allows an existing FACTORY_MANAGER secondary role', async () => {
+        session('HRD', ['HRD', 'FACTORY_MANAGER']);
+        expect(await getProductionSupervisorOverview()).toMatchObject({
+            success: true,
+        });
+    });
+});
+
+describe('factory manager executive overview', () => {
+    function session(role: string, roles?: string[]) {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role, roles },
+        } as any);
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        session('FACTORY_MANAGER');
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'u1',
+            isActive: true,
+        } as any);
+        vi.mocked(prisma.productVariant.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.purchaseRequest.count).mockResolvedValue(0);
+        vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(0);
+        vi.mocked(prisma.employee.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([]);
+    });
+
+    it('returns stock, purchasing counts and team summary for FACTORY_MANAGER', async () => {
+        vi.mocked(prisma.employee.findMany).mockResolvedValue([
+            { id: 'e1' },
+            { id: 'e2' },
+            { id: 'e3' },
+        ] as any);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([
+            { employeeId: 'e1', status: 'PRESENT' },
+            { employeeId: 'e2', status: 'ABSENT' },
+        ] as any);
+        vi.mocked(prisma.purchaseRequest.count).mockResolvedValue(2 as any);
+        vi.mocked(prisma.purchaseOrder.count)
+            .mockResolvedValueOnce(1 as any)
+            .mockResolvedValueOnce(3 as any);
+
+        const result = await getFactoryManagerExecutiveOverview();
+        expect(result).toMatchObject({
+            success: true,
+            data: {
+                stock: { lowStockCount: 0, suggestedReorderCount: 0 },
+                purchasing: {
+                    openPrCount: 2,
+                    draftPoCount: 1,
+                    waitingReceiptCount: 3,
+                },
+                team: {
+                    totalEmployees: 3,
+                    presentCount: 1,
+                    absentCount: 1,
+                    onLeaveCount: 0,
+                    noRecordCount: 1,
+                },
+            },
+        });
+    });
+
+    it('never exposes amount or costing fields', async () => {
+        const result = await getFactoryManagerExecutiveOverview();
+        expect(result.success).toBe(true);
+        if (result.success) {
+            const json = JSON.stringify(result.data).toLowerCase();
+            expect(json).not.toMatch(
+                /amount|invoice|salary|payroll|costing|hpp|journal/,
+            );
+        }
+    });
+
+    it('denies SALES before any executive read', async () => {
+        session('SALES');
+        expect(await getFactoryManagerExecutiveOverview()).toMatchObject({
+            success: false,
+        });
+        expect(prisma.productVariant.findMany).not.toHaveBeenCalled();
+        expect(prisma.purchaseRequest.count).not.toHaveBeenCalled();
+    });
+});
+
+describe('quick SPK form mutation guard', () => {
+    function session(role: string, roles?: string[]) {
+        vi.mocked(auth).mockResolvedValue({
+            user: { id: 'u1', role, roles },
+        } as any);
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'u1',
+            isActive: true,
+        } as any);
+        vi.mocked(prisma.bom.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.machine.findMany).mockResolvedValue([]);
+    });
+
+    it('rejects FACTORY_MANAGER even with read access', async () => {
+        session('FACTORY_MANAGER');
+        expect(await getMobileQuickSpkFormData()).toMatchObject({
+            success: false,
+        });
+        expect(prisma.bom.findMany).not.toHaveBeenCalled();
+    });
+
+    it.each(['PRODUCTION', 'PLANNING', 'ADMIN'])(
+        'allows %s to load the quick SPK form',
+        async (role) => {
+            session(role);
+            expect(await getMobileQuickSpkFormData()).toMatchObject({
+                success: true,
+            });
+        },
+    );
 });

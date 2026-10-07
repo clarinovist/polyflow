@@ -92,7 +92,9 @@ export const MOBILE_PORTAL_REGISTRY: MobilePortalDefinition[] = [
         moduleKey: 'PRODUCTION',
         mode: 'SUPERVISION',
         status: 'ACTIVE',
-        roles: ['PRODUCTION', 'PLANNING'],
+        // FACTORY_MANAGER (Kepala Pabrik) gets the read-only executive view;
+        // mutation CTAs stay limited to operational roles via server guards.
+        roles: ['PRODUCTION', 'PLANNING', 'FACTORY_MANAGER'],
         permissionRoot: '/production',
         icon: 'ClipboardCheck',
     },

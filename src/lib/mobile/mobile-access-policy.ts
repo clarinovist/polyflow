@@ -1,5 +1,8 @@
-import { hasRole, getUserRoles } from '@/lib/auth/roles';
-import { isPathAllowedByResources } from '@/lib/auth/access-policy';
+import { hasRole, hasAnyRole, getUserRoles } from '@/lib/auth/roles';
+import {
+    isPathAllowedByResources,
+    hasWorkspaceResourceAccess,
+} from '@/lib/auth/access-policy';
 import { canSeeNavHref } from '@/lib/auth/permission-match';
 import {
     MOBILE_PORTAL_REGISTRY,
@@ -184,7 +187,12 @@ export function getAvailableMobilePortals(
             const permitted = portal.id === 'production-kiosk' ||
                 (portal.id === 'sales-field'
                     ? canSeeNavHref(portal.path, access.permissions, '/sales')
-                    : isPathAllowedByResources(portal.path, access.permissions));
+                    : portal.id === 'production-supervisor'
+                      ? // Workspace-level check: Kepala Pabrik holds nested
+                        // /production/* grants, never the plain '/production'
+                        // root, so a path-level check would hide the portal.
+                        hasWorkspaceResourceAccess(access.permissions, 'production')
+                      : isPathAllowedByResources(portal.path, access.permissions));
             if (!permitted) continue;
         }
 
@@ -234,6 +242,28 @@ export function getMobileHomeCtaKey(
     if (portals.length === 0) return null;
     if (portals.length === 1) return portals[0].id;
     return 'selector';
+}
+
+/**
+ * Mutation rights inside the production mobile portal (Buat SPK, quick SPK
+ * form, other execution affordances). FACTORY_MANAGER is deliberately
+ * excluded: the Kepala Pabrik surface is read-only executive monitoring.
+ * ADMIN keeps operational control.
+ */
+export function isMobileSupervisorOperator(
+    user:
+        | {
+              role?: string;
+              roles?: string[];
+              isSuperAdmin?: boolean;
+          }
+        | null
+        | undefined,
+): boolean {
+    return (
+        hasAnyRole(user, ['PRODUCTION', 'PLANNING', 'ADMIN']) ||
+        !!user?.isSuperAdmin
+    );
 }
 
 /**

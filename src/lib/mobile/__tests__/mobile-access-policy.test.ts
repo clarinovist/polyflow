@@ -299,3 +299,40 @@ describe('mobile-access-policy', () => {
     });
   });
 });
+
+
+describe('FACTORY_MANAGER portal discovery (Kepala Pabrik executive)', () => {
+  const fm = { role: 'FACTORY_MANAGER' };
+
+  it('returns production-supervisor when nested /production grants exist', () => {
+    const portals = getAvailableMobilePortals(fm, {
+      permissions: ['/production/daily', '/production/orders'],
+      activeModules: ['PRODUCTION'],
+    });
+    expect(portals.map((p) => p.id)).toEqual(['production-supervisor']);
+  });
+
+  it('returns production-supervisor for a plain /production grant', () => {
+    const portals = getAvailableMobilePortals(fm, {
+      permissions: ['/production'],
+      activeModules: ['PRODUCTION'],
+    });
+    expect(portals.map((p) => p.id)).toEqual(['production-supervisor']);
+  });
+
+  it('returns nothing without any /production resource', () => {
+    const portals = getAvailableMobilePortals(fm, {
+      permissions: [],
+      activeModules: ['PRODUCTION'],
+    });
+    expect(portals).toEqual([]);
+  });
+
+  it('does not add HRD Mobile without an HRD role', () => {
+    const portals = getAvailableMobilePortals(fm, {
+      permissions: ['ALL'],
+      activeModules: ['HRD', 'PRODUCTION'],
+    });
+    expect(portals.map((p) => p.id)).not.toContain('hrd-supervisor');
+  });
+});

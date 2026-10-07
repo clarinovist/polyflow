@@ -127,7 +127,30 @@ export interface MobileQuickSpkFormData {
     }>;
 }
 
+/**
+ * Read access to production mobile monitoring. FACTORY_MANAGER (Kepala
+ * Pabrik) joins here: the executive surface is monitoring-only.
+ */
 function assertSupervisorAccess(user: {
+    role?: string;
+    roles?: string[];
+    isSuperAdmin?: boolean;
+}) {
+    const allowed =
+        hasAnyRole(user, ['PRODUCTION', 'PLANNING', 'ADMIN', 'FACTORY_MANAGER']) ||
+        !!user.isSuperAdmin;
+    if (!allowed) {
+        throw new AuthorizationError(
+            'Hanya supervisor produksi, planning, kepala pabrik, atau admin yang dapat mengakses data ini.',
+        );
+    }
+}
+
+/**
+ * Mutation access (quick SPK form, execution affordances). FACTORY_MANAGER is
+ * deliberately excluded — read-only monitoring.
+ */
+function assertSupervisorMutationAccess(user: {
     role?: string;
     roles?: string[];
     isSuperAdmin?: boolean;
@@ -137,7 +160,7 @@ function assertSupervisorAccess(user: {
         !!user.isSuperAdmin;
     if (!allowed) {
         throw new AuthorizationError(
-            'Hanya supervisor produksi, planning, atau admin yang dapat mengakses data ini.',
+            'Hanya supervisor produksi, planning, atau admin yang dapat melakukan aksi ini.',
         );
     }
 }
@@ -402,7 +425,7 @@ export const getMobileQuickSpkFormData = withTenant(
     async function getMobileQuickSpkFormData() {
         return safeAction(async () => {
             const session = await requireAuth();
-            assertSupervisorAccess(session.user as never);
+            assertSupervisorMutationAccess(session.user as never);
 
             const [boms, machines] = await Promise.all([
                 prisma.bom
@@ -771,6 +794,181 @@ export const getMobileTeamAttendance = withTenant(
             };
 
             return serializeData(result);
+        });
+    },
+);
+
+export interface FactoryManagerExecutiveOverview {
+    generatedAt: string;
+    stock: {
+        lowStockCount: number;
+        suggestedReorderCount: number;
+    };
+    purchasing: {
+        openPrCount: number;
+        draftPoCount: number;
+        waitingReceiptCount: number;
+    };
+    team: {
+        totalEmployees: number;
+        presentCount: number;
+        absentCount: number;
+        onLeaveCount: number;
+        noRecordCount: number;
+    };
+}
+
+async function countLowStockVariants(): Promise<number> {
+    const variants = await prisma.productVariant.findMany({
+        where: { minStockAlert: { not: null }, archivedAt: null },
+        select: {
+            id: true,
+            minStockAlert: true,
+            inventories: {
+                select: {
+                    quantity: true,
+                    location: {
+                        select: {
+                            locationPurpose: true,
+                            locationType: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    return variants.filter((variant) => {
+        const total = variant.inventories
+            .filter(
+                (inv) =>
+                    !inv.location ||
+                    (inv.location.locationPurpose !== 'SCRAP' &&
+                        (inv.location.locationType as string) !== 'CUSTOMER_OWNED'),
+            )
+            .reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
+        const threshold = variant.minStockAlert?.toNumber() || 0;
+        return total < threshold;
+    }).length;
+}
+
+async function countSuggestedReorderVariants(): Promise<number> {
+    const variants = await prisma.productVariant.findMany({
+        where: { reorderPoint: { not: null }, archivedAt: null },
+        select: {
+            id: true,
+            reorderPoint: true,
+            inventories: { select: { quantity: true } },
+        },
+    });
+
+    return variants.filter((variant) => {
+        const total = variant.inventories.reduce(
+            (sum, inv) => sum + inv.quantity.toNumber(),
+            0,
+        );
+        const reorderPoint = variant.reorderPoint?.toNumber() || 0;
+        return total < reorderPoint;
+    }).length;
+}
+
+/**
+ * Executive read-only aggregate for the Kepala Pabrik surface: stock
+ * attention, purchasing document counts (never amounts), and team attendance
+ * summary. No costing/finance/payroll fields leave this action.
+ */
+export const getFactoryManagerExecutiveOverview = withTenant(
+    async function getFactoryManagerExecutiveOverview() {
+        return safeAction(async () => {
+            const session = await requireAuth();
+            assertSupervisorAccess(session.user as never);
+
+            const businessDate = toBusinessDateString(new Date());
+            const workDate = new Date(`${businessDate}T00:00:00.000Z`);
+            const employeeWhere = {
+                status: 'ACTIVE' as const,
+                role: { in: ['OPERATOR', 'HELPER', 'PACKER'] },
+            };
+
+            const [
+                lowStockCount,
+                suggestedReorderCount,
+                openPrCount,
+                draftPoCount,
+                waitingReceiptCount,
+                employees,
+                attendanceRecords,
+            ] = await Promise.all([
+                prisma.productVariant ? countLowStockVariants() : Promise.resolve(0),
+                prisma.productVariant ? countSuggestedReorderVariants() : Promise.resolve(0),
+                prisma.purchaseRequest
+                    ? prisma.purchaseRequest.count({ where: { status: 'OPEN' } })
+                    : Promise.resolve(0),
+                prisma.purchaseOrder
+                    ? prisma.purchaseOrder.count({ where: { status: 'DRAFT' } })
+                    : Promise.resolve(0),
+                prisma.purchaseOrder
+                    ? prisma.purchaseOrder.count({
+                          where: { status: { in: ['SENT', 'PARTIAL_RECEIVED'] } },
+                      })
+                    : Promise.resolve(0),
+                prisma.employee
+                    ? prisma.employee.findMany({
+                          where: employeeWhere,
+                          select: { id: true },
+                      })
+                    : Promise.resolve([] as any[]),
+                prisma.attendanceRecord
+                    ? prisma.attendanceRecord.findMany({
+                          where: { workDate, employee: employeeWhere },
+                          select: { employeeId: true, status: true },
+                      })
+                    : Promise.resolve([] as any[]),
+            ]);
+
+            // Latest record per employee; PRESENT wins ties (same rule as
+            // the getMobileTeamAttendance summary view).
+            const statusByEmployee = new Map<string, string>();
+            for (const rec of attendanceRecords as Array<{ employeeId: string; status: string }>) {
+                const existing = statusByEmployee.get(rec.employeeId);
+                if (!existing || (existing !== 'PRESENT' && rec.status === 'PRESENT')) {
+                    statusByEmployee.set(rec.employeeId, rec.status);
+                }
+            }
+
+            let presentCount = 0;
+            let absentCount = 0;
+            let onLeaveCount = 0;
+            let noRecordCount = 0;
+            for (const emp of employees as Array<{ id: string }>) {
+                const status = statusByEmployee.get(emp.id);
+                if (status === 'PRESENT') presentCount += 1;
+                else if (status === 'ABSENT') absentCount += 1;
+                else if (status === 'ON_LEAVE') onLeaveCount += 1;
+                else noRecordCount += 1;
+            }
+
+            const overview: FactoryManagerExecutiveOverview = {
+                generatedAt: new Date().toISOString(),
+                stock: {
+                    lowStockCount,
+                    suggestedReorderCount,
+                },
+                purchasing: {
+                    openPrCount,
+                    draftPoCount,
+                    waitingReceiptCount,
+                },
+                team: {
+                    totalEmployees: (employees as Array<{ id: string }>).length,
+                    presentCount,
+                    absentCount,
+                    onLeaveCount,
+                    noRecordCount,
+                },
+            };
+
+            return serializeData(overview);
         });
     },
 );

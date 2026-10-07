@@ -27,6 +27,13 @@ describe('mobile-portal-registry', () => {
             }
         });
 
+        it('production-supervisor is visible to FACTORY_MANAGER (read-only executive)', () => {
+            const portal = getMobilePortalById('production-supervisor');
+            expect(portal!.roles).toContain('FACTORY_MANAGER');
+            expect(portal!.roles).toContain('PRODUCTION');
+            expect(portal!.roles).toContain('PLANNING');
+        });
+
         it('no duplicate IDs', () => {
             const ids = MOBILE_PORTAL_REGISTRY.map((p) => p.id);
             expect(new Set(ids).size).toBe(ids.length);
