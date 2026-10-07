@@ -10,7 +10,7 @@ import { isMobileSupervisorOperator } from '@/lib/mobile/mobile-access-policy';
 import {
     MobilePortalBottomNav,
 } from '@/components/mobile';
-import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-access';
+import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 
 export default async function ProductionMobileLayout({
     children,

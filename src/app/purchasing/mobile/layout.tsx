@@ -5,7 +5,7 @@ import { ShoppingCart } from 'lucide-react';
 import {
     MobilePortalBottomNav,
 } from '@/components/mobile';
-import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-access';
+import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 
 export default async function PurchasingMobileLayout({
     children,

@@ -4,13 +4,13 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MobileMaintenanceDetailPage from '../page';
 import { getMaintenanceDetail } from '@/actions/production/maintenance';
-import { canUseMobilePortalCapability } from '@/lib/mobile/mobile-portal-access';
+import { resolveMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 
 vi.mock('@/actions/production/maintenance', () => ({
     getMaintenanceDetail: vi.fn(),
 }));
 vi.mock('@/lib/mobile/mobile-portal-access', () => ({
-    canUseMobilePortalCapability: vi.fn(),
+    resolveMobilePortalAccess: vi.fn(),
 }));
 vi.mock('../actions', () => ({
     MaintenanceActions: ({
@@ -32,7 +32,10 @@ vi.mock('next/link', () => ({
 }));
 
 beforeEach(() => {
-    vi.mocked(canUseMobilePortalCapability).mockReset().mockResolvedValue(false);
+    vi.mocked(resolveMobilePortalAccess).mockReset().mockResolvedValue({
+        allowed: false,
+        reason: 'FEATURE',
+    });
     vi.mocked(getMaintenanceDetail).mockReset().mockResolvedValue({
         success: true,
         data: {

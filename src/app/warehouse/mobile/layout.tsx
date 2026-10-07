@@ -1,7 +1,7 @@
 import { WarehouseBottomNav } from '@/components/warehouse/mobile/WarehouseBottomNav';
 import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
 import { auth } from '@/auth';
-import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-access';
+import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 
 export default async function WarehouseMobileLayout({
     children,

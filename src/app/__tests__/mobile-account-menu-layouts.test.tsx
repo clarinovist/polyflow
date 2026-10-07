@@ -11,7 +11,7 @@ vi.mock('@/auth', () => ({ auth: m.auth }));
 vi.mock('@/actions/admin/permissions', () => ({ getMyPermissions: m.permissions }));
 vi.mock('@/actions/inventory/inventory', () => ({ getDashboardStats: m.stats }));
 vi.mock('@/actions/settings/mobile-portals', () => ({ getMyMobilePortals: m.portals }));
-vi.mock('@/lib/mobile/mobile-portal-access', () => ({
+vi.mock('@/lib/mobile/mobile-portal-page-access', () => ({
     requireMobilePortalPageAccess: vi.fn().mockResolvedValue({}),
 }));
 vi.mock('@/lib/auth/access-policy', () => ({ hasWorkspaceEntitlement: () => true }));

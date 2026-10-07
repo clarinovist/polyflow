@@ -33,10 +33,9 @@ vi.mock('next/navigation', () => ({
 }));
 
 import {
-    canUseMobilePortalCapability,
+    resolveMobilePortalAccess,
     MobilePortalAccessError,
     requireMobilePortalAccess,
-    requireMobilePortalPageAccess,
 } from '../mobile-portal-access';
 
 describe('mobile portal server guard', () => {
@@ -97,11 +96,11 @@ describe('mobile portal server guard', () => {
         });
         mocks.modules.mockResolvedValue(['CORE', 'PRODUCTION']);
         await expect(
-            canUseMobilePortalCapability(
+            resolveMobilePortalAccess(
                 'production-supervisor',
                 'feature:mobile-maintenance-approval',
             ),
-        ).resolves.toBe(false);
+        ).resolves.toEqual({ allowed: false, reason: 'FEATURE' });
     });
 
     it('denies direct risky action when capability is missing', async () => {
@@ -126,12 +125,6 @@ describe('mobile portal server guard', () => {
         ).rejects.toMatchObject({ reason: 'FEATURE' });
     });
 
-    it('redirects page denial to the selector without a self-loop', async () => {
-        mocks.permissions.mockResolvedValue({ success: true, data: [] });
-        await expect(requireMobilePortalPageAccess('finance')).rejects.toThrow(
-            'redirect:/mobile?reason=resource',
-        );
-    });
 
     it('keeps impersonation sessions out of tenant mobile portals', async () => {
         mocks.auth.mockResolvedValue({

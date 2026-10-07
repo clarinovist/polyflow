@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const guard = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/mobile/mobile-portal-access', () => ({
+vi.mock('@/lib/mobile/mobile-portal-page-access', () => ({
     requireMobilePortalPageAccess: guard,
 }));
 

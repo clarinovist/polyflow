@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 import { auth } from '@/auth';
 import {
     getMyExplicitFeaturePermissions,
     getMyPermissions,
 } from '@/actions/admin/permissions';
-import { withTenantPage } from '@/lib/core/tenant';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { AuthorizationError } from '@/lib/errors/errors';
 import { getActiveModuleKeys } from '@/lib/modules/tenant-entitlements';
@@ -19,7 +19,6 @@ import {
     type MobilePortalDecision,
 } from '@/lib/mobile/mobile-portal-decision';
 import { readMobilePortalRollouts } from '@/services/settings/mobile-portal-rollout-service';
-import { cache } from 'react';
 
 export class MobilePortalAccessError extends AuthorizationError {
     public readonly reason: Exclude<
@@ -61,24 +60,6 @@ const readMobilePortalAccessContext = cache(async () => {
     if (!permissions.success) {
         return { success: false as const, reason: 'RESOURCE' as const };
     }
-    if (!featurePermissions.success) {
-        return {
-            success: true as const,
-            context: {
-                user: {
-                    ...session.user,
-                    isSuperAdmin:
-                        !!session.user.isSuperAdmin ||
-                        !!(session.user as { impersonatedBy?: string })
-                            .impersonatedBy,
-                },
-                permissions: permissions.data,
-                featurePermissions: [],
-                activeModules,
-                rollout,
-            },
-        };
-    }
 
     return {
         success: true as const,
@@ -91,14 +72,16 @@ const readMobilePortalAccessContext = cache(async () => {
                         .impersonatedBy,
             },
             permissions: permissions.data,
-            featurePermissions: featurePermissions.data,
+            featurePermissions: featurePermissions.success
+                ? featurePermissions.data
+                : [],
             activeModules,
             rollout,
         },
     };
 });
 
-async function resolveMobilePortalAccess(
+export async function resolveMobilePortalAccess(
     portalId: MobilePortalId,
     capability?: MobileActionCapability,
 ): Promise<MobilePortalDecision> {
@@ -116,63 +99,14 @@ async function resolveMobilePortalAccess(
     );
 }
 
-const resolveMobilePortalAccessWithTenant = withTenantPage(
-    resolveMobilePortalAccess as (
-        ...args: never[]
-    ) => Promise<MobilePortalDecision>,
-) as (
-    portalId: MobilePortalId,
-    capability?: MobileActionCapability,
-) => Promise<MobilePortalDecision>;
-
-async function getRequiredMobilePortalDecision(
-    portalId: MobilePortalId,
-    capability?: MobileActionCapability,
-): Promise<MobilePortalDecision> {
-    return resolveMobilePortalAccessWithTenant(portalId, capability);
-}
-
-export async function canUseMobilePortalCapability(
-    portalId: MobilePortalId,
-    capability: MobileActionCapability,
-): Promise<boolean> {
-    const decision = await getRequiredMobilePortalDecision(
-        portalId,
-        capability,
-    );
-    return decision.allowed;
-}
-
-/**
- * Final server-side action/DAL guard. It reads fresh tenant state and throws a
- * typed denial instead of trusting Proxy or UI visibility.
- */
 export async function requireMobilePortalAccess(
     portalId: MobilePortalId,
     capability?: MobileActionCapability,
 ): Promise<MobilePortalAccess> {
-    const decision = await getRequiredMobilePortalDecision(
-        portalId,
-        capability,
-    );
+    const decision = await resolveMobilePortalAccess(portalId, capability);
     if (!decision.allowed) {
         if (decision.reason === 'NO_SESSION') redirect('/login');
         throw new MobilePortalAccessError(decision.reason);
-    }
-    return {
-        portal: decision.portal,
-        capabilities: decision.capabilities,
-    };
-}
-
-/** Final layout/page guard with a loop-safe selector landing. */
-export async function requireMobilePortalPageAccess(
-    portalId: MobilePortalId,
-): Promise<MobilePortalAccess> {
-    const decision = await getRequiredMobilePortalDecision(portalId);
-    if (!decision.allowed) {
-        if (decision.reason === 'NO_SESSION') redirect('/login');
-        redirect(`/mobile?reason=${decision.reason.toLowerCase()}`);
     }
     return {
         portal: decision.portal,
