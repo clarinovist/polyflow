@@ -1508,6 +1508,7 @@ model Invoice {
   barterSettlements    BarterSettlement[]
   collectionActivities CollectionActivity[]
   remittanceItems      SalesRemittanceItem[]
+  dateCorrection       InvoiceDateCorrection?
 
   @@index([salesOrderId])
   @@index([status, createdAt, id])
@@ -1520,6 +1521,26 @@ model Invoice {
 enum InvoicePriceAdjustmentStatus {
   POSTED
   REVERSED
+}
+
+model InvoiceDateCorrection {
+  id               String   @id @default(uuid())
+  invoiceId        String   @unique
+  oldInvoiceNumber String
+  newInvoiceNumber String
+  oldInvoiceDate   DateTime
+  newInvoiceDate   DateTime
+  oldDueDate       DateTime?
+  newDueDate       DateTime
+  journalEntryId   String
+  oldJournalDate   DateTime
+  newJournalDate   DateTime
+  reason           String
+  correctedById    String
+  correctedAt      DateTime @default(now())
+  invoice          Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([correctedAt])
 }
 
 model InvoicePriceAdjustment {

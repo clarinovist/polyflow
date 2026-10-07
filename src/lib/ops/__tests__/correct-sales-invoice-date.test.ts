@@ -29,13 +29,6 @@ function invoice(overrides: Record<string, unknown> = {}) {
         payments: [{ id: 'payment' }],
         priceAdjustments: [],
         returnAllocations: [],
-        returnBasisLines: [{
-            id: 'basis', sourceItemId: 'item', productVariantId: 'a',
-            quantity: new Prisma.Decimal(80), netAmount: new Prisma.Decimal('7668480'),
-            taxAmount: new Prisma.Decimal(0), discountAmount: new Prisma.Decimal(0),
-            sourceJournalId: 'journal-id',
-            sourceEvidence: { version: 1, capturedAtInvoiceCreation: true },
-        }],
         commercialSnapshot: snapshotFixture({
             orderNumber: 'SO-2026-0219',
             commercialTotal: '7668480.00',
@@ -85,9 +78,9 @@ function fixture(invoiceRow = invoice(), journalRow = journal()) {
             findUnique: vi.fn().mockResolvedValue({ status: 'OPEN' }),
         },
         auditLog: { create: vi.fn().mockResolvedValue({}) },
-        invoiceReturnBasisLine: {
-            deleteMany: vi.fn().mockResolvedValue({ count: invoiceRow.returnBasisLines.length }),
-            createMany: vi.fn().mockResolvedValue({ count: invoiceRow.returnBasisLines.length }),
+        invoiceDateCorrection: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({}),
         },
     };
     const db = {
@@ -124,8 +117,11 @@ describe('correctSalesInvoiceDate', () => {
         const { tx, db } = fixture();
         const result = await correctSalesInvoiceDate(db, input({ execute: true }));
         expect(result.changed).toBe(true);
-        expect(tx.invoiceReturnBasisLine.deleteMany).toHaveBeenCalledWith({
-            where: { invoiceId: 'invoice-id' },
+        expect(tx.invoiceDateCorrection.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+                invoiceId: 'invoice-id', oldInvoiceDate: WIB_SEP_26,
+                newInvoiceDate: WIB_OCT_6, journalEntryId: 'journal-id',
+            }),
         });
         expect(tx.invoice.updateMany).toHaveBeenCalledWith({
             where: { id: 'invoice-id', updatedAt: invoice().updatedAt },
@@ -134,9 +130,6 @@ describe('correctSalesInvoiceDate', () => {
         expect(tx.journalEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({
             data: expect.objectContaining({ entryDate: WIB_OCT_6 }),
         }));
-        expect(tx.invoiceReturnBasisLine.createMany).toHaveBeenCalledWith({
-            data: [expect.objectContaining({ invoiceId: 'invoice-id', sourceItemId: 'item' })],
-        });
         expect(tx.auditLog.create).toHaveBeenCalledOnce();
     });
 
@@ -214,6 +207,13 @@ describe('correctSalesInvoiceDate', () => {
         const correctedInvoice = invoice({ invoiceDate: WIB_OCT_6, dueDate: WIB_OCT_7 });
         const correctedJournal = journal({ entryDate: WIB_OCT_6 });
         const { tx, db } = fixture(correctedInvoice, correctedJournal);
+        tx.invoiceDateCorrection.findUnique.mockResolvedValue({
+            invoiceId: 'invoice-id', oldInvoiceNumber: '13/INV/X/2026',
+            newInvoiceNumber: '13/INV/X/2026', oldInvoiceDate: WIB_SEP_26,
+            newInvoiceDate: WIB_OCT_6, oldDueDate: WIB_SEP_27,
+            newDueDate: WIB_OCT_7, journalEntryId: 'journal-id',
+            oldJournalDate: WIB_SEP_26, newJournalDate: WIB_OCT_6,
+        });
         const result = await correctSalesInvoiceDate(db, input({ execute: true }));
         expect(result.changed).toBe(false);
         expect(tx.invoice.updateMany).not.toHaveBeenCalled();
