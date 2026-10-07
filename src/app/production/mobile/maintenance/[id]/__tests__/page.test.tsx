@@ -4,13 +4,25 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MobileMaintenanceDetailPage from '../page';
 import { getMaintenanceDetail } from '@/actions/production/maintenance';
+import { canUseMobilePortalCapability } from '@/lib/mobile/mobile-portal-access';
 
 vi.mock('@/actions/production/maintenance', () => ({
     getMaintenanceDetail: vi.fn(),
 }));
+vi.mock('@/lib/mobile/mobile-portal-access', () => ({
+    canUseMobilePortalCapability: vi.fn(),
+}));
 vi.mock('../actions', () => ({
-    MaintenanceActions: ({ status }: { status: string }) => (
-        <div>Action panel {status}</div>
+    MaintenanceActions: ({
+        status,
+        viewer,
+    }: {
+        status: string;
+        viewer: { canApprove: boolean; canReject: boolean };
+    }) => (
+        <div>
+            Action panel {status} {viewer.canApprove ? 'approve' : 'read-only'}
+        </div>
     ),
 }));
 vi.mock('next/link', () => ({
@@ -20,6 +32,7 @@ vi.mock('next/link', () => ({
 }));
 
 beforeEach(() => {
+    vi.mocked(canUseMobilePortalCapability).mockReset().mockResolvedValue(false);
     vi.mocked(getMaintenanceDetail).mockReset().mockResolvedValue({
         success: true,
         data: {
@@ -62,7 +75,7 @@ describe('mobile maintenance detail route', () => {
         expect(getMaintenanceDetail).toHaveBeenCalledWith('mt-1');
         expect(screen.getByRole('heading', { name: 'MC-01 · Mesin Satu' })).toBeTruthy();
         expect(screen.getByText('Siap dikerjakan')).toBeTruthy();
-        expect(screen.getByText('Action panel APPROVED')).toBeTruthy();
+        expect(screen.getByText('Action panel APPROVED read-only')).toBeTruthy();
         expect(
             screen.getByRole('link', { name: /Antrean maintenance/ }).getAttribute('href'),
         ).toBe('/production/mobile/maintenance');

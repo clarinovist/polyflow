@@ -2,15 +2,18 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { safeAction, BusinessRuleError, AuthorizationError } from '@/lib/errors/errors';
 import { requireRole } from '@/lib/tools/auth-checks';
 import { parseBusinessDate, toBusinessDateString } from '@/lib/utils/timezone';
 import { Prisma } from '@prisma/client';
+import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
+import { hasRole } from '@/lib/auth/roles';
 
 export const getHrdMobileOverview = withTenant(async function getHrdMobileOverview() {
     return safeAction(async () => {
-        // Matches the existing HRD workspace policy; no implicit cross-role reads.
-        await requireRole(['HRD', 'ADMIN', 'FINANCE']);
+        const session = await requireRole(['HRD']);
+        if (!hasRole(session.user, 'HRD')) throw new AuthorizationError('HRD Mobile hanya tersedia untuk role HRD.');
+        await requireMobilePortalAccess('hrd-supervisor');
         const workDate = new Date(`${toBusinessDateString(new Date())}T00:00:00.000Z`);
         const [present, pendingLeaveCount, pendingLeaves, openPeriod] = await Promise.all([
             prisma.attendanceRecord.findMany({ where: { workDate, status: 'PRESENT' }, distinct: ['employeeId'], select: { employeeId: true } }),
@@ -69,7 +72,9 @@ export interface HrdMobileTeamAttendanceResult {
 
 export const getHrdMobileTeamAttendance = withTenant(async function getHrdMobileTeamAttendance(filters?: HrdMobileTeamAttendanceFilters) {
     return safeAction(async () => {
-        await requireRole(['HRD', 'ADMIN']);
+        const session = await requireRole(['HRD']);
+        if (!hasRole(session.user, 'HRD')) throw new AuthorizationError('HRD Mobile hanya tersedia untuk role HRD.');
+        await requireMobilePortalAccess('hrd-supervisor');
         const status = filters?.status || 'ALL';
         if (!['ALL', 'PRESENT', 'ABSENT', 'ON_LEAVE', 'NO_RECORD'].includes(status)) {
             throw new BusinessRuleError('Filter status absensi tidak valid.');

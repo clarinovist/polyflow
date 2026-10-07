@@ -10,12 +10,14 @@ import { isMobileSupervisorOperator } from '@/lib/mobile/mobile-access-policy';
 import {
     MobilePortalBottomNav,
 } from '@/components/mobile';
+import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-access';
 
 export default async function ProductionMobileLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    await requireMobilePortalPageAccess('production-supervisor');
     const session = await auth();
     const user = session?.user as
         | { role?: string; roles?: string[]; isSuperAdmin?: boolean }

@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { getMobileSupervisorSpkList } from '@/actions/production/mobile-supervisor';
 import { MobileSectionHeader } from '@/components/mobile';
 import { Plus } from 'lucide-react';
+import { isMobileSupervisorOperator } from '@/lib/mobile/mobile-access-policy';
+import { auth } from '@/auth';
 
 type SearchParams = {
     status?: string;
@@ -36,6 +38,8 @@ export default async function ProductionTasksPage({
     searchParams: Promise<SearchParams>;
 }) {
     const sp = await searchParams;
+    const session = await auth();
+    const canOperate = isMobileSupervisorOperator(session?.user);
     const response = await getMobileSupervisorSpkList({
         status: sp.status || 'ALL',
         q: sp.q?.trim() || undefined,
@@ -47,13 +51,15 @@ export default async function ProductionTasksPage({
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <MobileSectionHeader title="Tugas & Status SPK" level={1} />
-                <Link
-                    href="/production/mobile/tasks/new"
-                    className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
-                >
-                    <Plus className="h-4 w-4" />
-                    Buat SPK
-                </Link>
+                {canOperate && (
+                    <Link
+                        href="/production/mobile/tasks/new"
+                        className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Buat SPK
+                    </Link>
+                )}
             </div>
 
             {/* Quick filters */}

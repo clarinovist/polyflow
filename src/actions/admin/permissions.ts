@@ -495,6 +495,37 @@ export const getMyPermissions = withTenant(async function getMyPermissions() {
     });
 });
 
+async function readMyExplicitFeaturePermissions() {
+    const session = await auth();
+    if (!session?.user?.id) return [];
+
+    const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { isActive: true },
+    });
+    if (!currentUser?.isActive) return [];
+
+    const userRoles = getUserRoles(session.user) as Role[];
+    if (userRoles.length === 0) return [];
+
+    const permissions = await prisma.rolePermission.findMany({
+        where: {
+            role: { in: userRoles },
+            resource: { startsWith: 'feature:' },
+            canAccess: true,
+        },
+        select: { resource: true },
+    });
+
+    return [...new Set(permissions.map((permission) => permission.resource))];
+}
+
+export const getMyExplicitFeaturePermissions = withTenant(
+    async function getMyExplicitFeaturePermissions() {
+        return safeAction(readMyExplicitFeaturePermissions);
+    },
+);
+
 export const canViewPrices = withTenant(async function canViewPrices() {
     return safeAction(async () => {
         const session = await auth();
