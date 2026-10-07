@@ -25,10 +25,21 @@ vi.mock('@/components/warehouse/mobile/WarehouseBottomNav', () => ({ WarehouseBo
 
 function findAccountMenu(node: ReactNode): Record<string, unknown> | undefined {
     for (const child of Children.toArray(node)) {
-        if (!isValidElement<{ children?: ReactNode; user?: unknown }>(child)) continue;
+        if (!isValidElement<{
+            children?: ReactNode;
+            header?: ReactNode;
+            actions?: ReactNode;
+            user?: unknown;
+        }>(child)) continue;
         if (child.type === MobileAccountMenuServer) return child.props;
-        const result = findAccountMenu(child.props.children);
-        if (result) return result;
+        for (const nested of [
+            child.props.children,
+            child.props.header,
+            child.props.actions,
+        ]) {
+            const result = findAccountMenu(nested);
+            if (result) return result;
+        }
     }
 }
 
