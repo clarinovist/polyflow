@@ -96,6 +96,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/production/mrp', label: 'MRP' },
             { key: '/production/daily', label: 'SPK Aktif' },
             { key: '/production/machines', label: 'Papan Mesin' },
+            { key: '/production/maintenance', label: 'Maintenance' },
             { key: '/production/inventory', label: 'Stok Lantai' },
             { key: '/production/resources', label: 'Tim & Shift' },
             { key: '/production/history', label: 'Log Hasil' },

@@ -137,6 +137,13 @@ describe('Access Policy Helpers', () => {
       expect(
         canAccessWorkspace(factoryManager, 'production', '/production/mobile/insights'),
       ).toBe(true);
+      expect(
+        canAccessWorkspace(
+          factoryManager,
+          'production',
+          '/production/mobile/maintenance/request-1',
+        ),
+      ).toBe(true);
       // Nested grants may enter the workspace root to reach its preferred
       // permitted landing, but do not open mutation or arbitrary sub-routes.
       expect(canAccessWorkspace(factoryManager, 'production', '/production')).toBe(true);
@@ -261,6 +268,7 @@ describe('Access Policy Helpers', () => {
       '/production/orders',
       '/production/schedule',
       '/production/machines',
+      '/production/maintenance',
       '/production/inventory',
       '/production/history',
       '/production/daily-report',
@@ -290,6 +298,8 @@ describe('Access Policy Helpers', () => {
       for (const [workspace, path] of [
         ['production', '/production/daily-report'],
         ['production', '/production/output-report'],
+        ['production', '/production/maintenance'],
+        ['production', '/production/mobile/maintenance/request-1'],
         ['warehouse', '/warehouse/inventory'],
         ['purchasing', '/purchasing/requests'],
         ['dashboard', '/dashboard'],

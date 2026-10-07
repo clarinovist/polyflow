@@ -7,6 +7,7 @@ import {
     Home,
     TrendingUp,
     Users,
+    Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 
@@ -64,6 +65,11 @@ const portalConfig = {
                 label: 'Insight',
                 icon: TrendingUp,
             },
+            {
+                href: '/production/mobile/maintenance',
+                label: 'Maintenance',
+                icon: Wrench,
+            },
         ],
     },
     purchasing: {
@@ -114,7 +120,7 @@ export function MobilePortalBottomNav({
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                            'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 text-xs font-medium',
+                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-[11px] font-medium',
                             active
                                 ? config.activeClass
                                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400',

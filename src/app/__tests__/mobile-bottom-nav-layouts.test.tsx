@@ -91,27 +91,34 @@ describe('mobile portal bottom navigation safety', () => {
         },
     );
 
-    it('marks only the matching nested destination as current', async () => {
-        pathname = '/production/mobile/tasks/new';
-        render(
-            await ProductionMobileLayout({
-                children: <p>Form SPK</p>,
-            }),
-        );
-
-        const nav = screen.getByRole('navigation', {
-            name: 'Navigasi produksi mobile',
-        });
-        const currentLinks = screen
-            .getAllByRole('link')
-            .filter(
-                (link) =>
-                    link.closest('nav') === nav &&
-                    link.getAttribute('aria-current') === 'page',
+    it.each([
+        ['/production/mobile/tasks/new', '/production/mobile/tasks'],
+        [
+            '/production/mobile/maintenance/request-1',
+            '/production/mobile/maintenance',
+        ],
+    ])(
+        'marks only the matching nested destination as current for %s',
+        async (currentPath, expectedHref) => {
+            pathname = currentPath;
+            render(
+                await ProductionMobileLayout({
+                    children: <p>Halaman produksi</p>,
+                }),
             );
-        expect(currentLinks).toHaveLength(1);
-        expect(currentLinks[0].getAttribute('href')).toBe(
-            '/production/mobile/tasks',
-        );
-    });
+
+            const nav = screen.getByRole('navigation', {
+                name: 'Navigasi produksi mobile',
+            });
+            const currentLinks = screen
+                .getAllByRole('link')
+                .filter(
+                    (link) =>
+                        link.closest('nav') === nav &&
+                        link.getAttribute('aria-current') === 'page',
+                );
+            expect(currentLinks).toHaveLength(1);
+            expect(currentLinks[0].getAttribute('href')).toBe(expectedHref);
+        },
+    );
 });

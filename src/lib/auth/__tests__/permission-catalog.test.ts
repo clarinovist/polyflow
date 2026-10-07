@@ -49,6 +49,12 @@ describe('permission-catalog', () => {
     expect(keys).toContain('/warehouse/materials');
   });
 
+  it('includes maintenance as a configurable production resource', () => {
+    const production = PERMISSION_CATALOG.find((n) => n.key === '/production');
+    const keys = production?.children?.map((n) => n.key) ?? [];
+    expect(keys).toContain('/production/maintenance');
+  });
+
   describe('getModuleRoot', () => {
     it('extracts the first path segment', () => {
       expect(getModuleRoot('/warehouse/inventory/transfer')).toBe('/warehouse');

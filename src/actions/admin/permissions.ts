@@ -422,6 +422,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/production/orders',
         '/production/schedule',
         '/production/machines',
+        '/production/maintenance',
         '/production/inventory',
         '/production/history',
         '/production/daily-report',

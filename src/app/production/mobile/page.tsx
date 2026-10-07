@@ -1,4 +1,6 @@
 import React from 'react';
+import Link from 'next/link';
+import { Wrench } from 'lucide-react';
 import { auth } from '@/auth';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import {
@@ -44,18 +46,34 @@ export default async function ProductionMobilePage() {
 
     return (
         <div className="space-y-6">
+            <Link
+                href="/production/mobile/maintenance"
+                className="flex min-h-11 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200"
+            >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-700 text-white">
+                    <Wrench aria-hidden="true" className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">Maintenance mesin</span>
+                    <span className="block text-xs text-emerald-700 dark:text-emerald-300">
+                        Lapor gangguan atau buka antrean pekerjaan
+                    </span>
+                </span>
+                <span aria-hidden="true">→</span>
+            </Link>
+
             <div className="flex gap-2">
                 {canOperate && (
                     <a
                         href="/production/mobile/tasks/new"
-                        className="flex-1 rounded-lg bg-indigo-600 px-3 py-2.5 text-center text-sm font-bold text-white"
+                        className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-indigo-600 px-3 py-2.5 text-center text-sm font-bold text-white"
                     >
                         + Buat SPK Mendadak
                     </a>
                 )}
                 <a
                     href="/production/mobile/attendance"
-                    className="flex-1 rounded-lg border bg-white px-3 py-2.5 text-center text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg border bg-white px-3 py-2.5 text-center text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
                 >
                     Lihat Absensi Produksi
                 </a>

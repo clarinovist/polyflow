@@ -109,6 +109,7 @@ model User {
   reviewedMaterialOrders           MaterialOrder[]                @relation("MaterialOrderReviewer")
   createdMaintenanceRequests       MaintenanceRequest[]
   reviewedMaintenanceRequests      MaintenanceRequest[]           @relation("MaintenanceRequestReviewer")
+  assignedMaintenanceRequests      MaintenanceRequest[]           @relation("MaintenanceRequestAssignee")
 }
 
 model UserRole {
@@ -4888,6 +4889,7 @@ model MaintenanceRequest {
   status          MaintenanceStatus  @default(DRAFT)
   createdById     String
   approvedById    String?
+  assigneeId      String?
   approvedAt      DateTime?
   rejectionReason String?            @db.Text
   assigneeName    String?
@@ -4901,11 +4903,13 @@ model MaintenanceRequest {
 
   createdBy  User                  @relation(fields: [createdById], references: [id])
   approvedBy User?                 @relation("MaintenanceRequestReviewer", fields: [approvedById], references: [id], onDelete: SetNull)
+  assignee   User?                 @relation("MaintenanceRequestAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   machine    Machine               @relation(fields: [machineId], references: [id])
   spareParts MaintenanceSparePartNeed[]
 
   @@index([status, createdAt])
   @@index([machineId, status])
+  @@index([assigneeId, status])
 }
 
 model MaintenanceSparePartNeed {

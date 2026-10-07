@@ -317,10 +317,14 @@ export function canAccessWorkspace(
         '/production/mobile/attendance',
         '/production/mobile/insights',
     ];
+    const factoryManagerMobileMaintenance =
+        pathname === '/production/mobile/maintenance' ||
+        pathname?.startsWith('/production/mobile/maintenance/');
     if (
         workspace === 'production' &&
         !!pathname &&
-        factoryManagerMobileReadPaths.includes(pathname) &&
+        (factoryManagerMobileReadPaths.includes(pathname) ||
+            factoryManagerMobileMaintenance) &&
         allRoles.includes('FACTORY_MANAGER') &&
         hasWorkspaceResourceAccess(resources, 'production')
     ) {
