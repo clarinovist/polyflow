@@ -330,7 +330,7 @@ export async function commitDeliveryShipment(
     let salesOrderIdForInvoice = '';
     let doOrderNumber = '';
     let soOrderNumber = '';
-    let doDeliveryDate: Date | null = null;
+    let invoiceDateForDraft: Date | null = null;
     const result = await salesTransactionClient().$transaction(
         async (tx) => {
             // Serialize revision, receiving, and shipment on the SO before claiming the DO.
@@ -406,8 +406,11 @@ export async function commitDeliveryShipment(
                 );
             }
 
-            // 3b. Commit memakai Tanggal Surat Jalan (mendukung backdate koreksi).
+            // Tanggal operasional stok mengikuti Surat Jalan, sedangkan invoice
+            // baru mengikuti saat commit agar DO yang disiapkan lebih awal tidak
+            // memindahkan pendapatan ke periode yang salah.
             const commitDate = doRecord.deliveryDate ?? new Date();
+            const invoiceDate = new Date();
             if (!(await isPeriodOpen(commitDate, tx))) {
                 throw new BusinessRuleError(
                     'Periode jurnal untuk Tanggal Surat Jalan sudah ditutup atau belum tersedia. Periksa periode buku sebelum melanjutkan.',
@@ -635,7 +638,7 @@ export async function commitDeliveryShipment(
             salesOrderIdForInvoice = doRecord.salesOrderId;
             doOrderNumber = doRecord.orderNumber;
             soOrderNumber = doRecord.salesOrder.orderNumber;
-            doDeliveryDate = doRecord.deliveryDate;
+            invoiceDateForDraft = invoiceDate;
 
             await logActivity({
                 userId,
@@ -661,7 +664,7 @@ export async function commitDeliveryShipment(
             await InvoiceService.createDraftInvoiceFromOrder(
                 salesOrderIdForInvoice,
                 userId,
-                { invoiceDate: doDeliveryDate ?? new Date() },
+                { invoiceDate: invoiceDateForDraft ?? new Date() },
             );
             await logActivity({
                 userId,

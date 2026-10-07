@@ -54,7 +54,20 @@ vi.mock('@/actions/sales/price-list', () => ({ approvePriceAction: mocks.approve
 vi.mock('../ProductionStatusCard', () => ({ ProductionStatusCard: () => null }));
 vi.mock('@/components/shared/EntityStatusTimeline', () => ({ EntityStatusTimeline: () => null }));
 vi.mock('../ShipmentDialog', () => ({
-    ShipmentDialog: ({ isOpen }: { isOpen: boolean }) => isOpen ? <div role="dialog" aria-label="Synthetic shipment" /> : null,
+    ShipmentDialog: ({
+        isOpen,
+        defaultInvoiceDate,
+    }: {
+        isOpen: boolean;
+        defaultInvoiceDate?: string;
+    }) =>
+        isOpen ? (
+            <div
+                role="dialog"
+                aria-label="Synthetic shipment"
+                data-default-invoice-date={defaultInvoiceDate}
+            />
+        ) : null,
 }));
 vi.mock('../CreateDeliveryOrderDialog', () => ({
     CreateDeliveryOrderDialog: ({ triggerVariant }: { triggerVariant?: string }) => (
@@ -277,7 +290,8 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(screen.queryByRole('button', { name: 'Buat Surat Jalan' })).toBeNull();
         const menu = await openMoreActions();
         fireEvent.click(within(menu).getByRole('menuitem', { name: 'Tutup Order Jasa' }));
-        expect(await screen.findByRole('dialog', { name: 'Synthetic shipment' })).toBeTruthy();
+        const dialog = await screen.findByRole('dialog', { name: 'Synthetic shipment' });
+        expect(dialog.getAttribute('data-default-invoice-date')).toBe('2026-09-14');
     });
 
     it('keeps shipping guidance and warehouse navigation visible while details live in info', async () => {

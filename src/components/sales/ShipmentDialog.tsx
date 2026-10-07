@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Truck, AlertTriangle, Package } from 'lucide-react';
 import { salesLabels } from '@/lib/labels';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
 type OpenDeliveryOrderInfo = {
     id: string;
@@ -47,6 +48,7 @@ interface ShipmentDialogProps {
     onClose: () => void;
     /** Open DO (PENDING/LOADING) for this SO — if set, ship commits that DO */
     openDeliveryOrder?: OpenDeliveryOrderInfo | null;
+    defaultInvoiceDate?: string;
 }
 
 export function ShipmentDialog({
@@ -56,6 +58,7 @@ export function ShipmentDialog({
     isOpen,
     onClose,
     openDeliveryOrder = null,
+    defaultInvoiceDate,
 }: ShipmentDialogProps) {
     const [isPending, setIsPending] = useState(false);
     const router = useRouter();
@@ -66,6 +69,10 @@ export function ShipmentDialog({
             id: orderId,
             carrier: '',
             trackingNumber: '',
+            invoiceDate:
+                isMaklon && defaultInvoiceDate
+                    ? new Date(`${defaultInvoiceDate}T00:00:00`)
+                    : undefined,
         },
     });
 
@@ -168,6 +175,41 @@ export function ShipmentDialog({
                         onSubmit={form.handleSubmit(onSubmit)}
                         className="space-y-4 py-2"
                     >
+                        {isMaklon && (
+                            <FormField
+                                control={form.control}
+                                name="invoiceDate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Tanggal Invoice</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="date"
+                                                max={toBusinessDateString(new Date())}
+                                                value={
+                                                    field.value instanceof Date
+                                                        ? toBusinessDateString(field.value)
+                                                        : ''
+                                                }
+                                                onChange={(event) =>
+                                                    field.onChange(
+                                                        event.target.value
+                                                            ? new Date(`${event.target.value}T00:00:00`)
+                                                            : undefined,
+                                                    )
+                                                }
+                                                required
+                                            />
+                                        </FormControl>
+                                        <p className="text-xs text-muted-foreground">
+                                            Pilih tanggal jasa yang ditagihkan. Tanggal jurnal invoice mengikuti tanggal ini.
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
                         <FormField
                             control={form.control}
                             name="carrier"

@@ -601,6 +601,7 @@ export async function createDraftInvoiceFromOrder(
                 `Invoice ${num} for Order ${salesOrder.orderNumber} (base: ${remaining}, rounding: ${amounts.roundingAmount}, total: ${amounts.totalAmount})`,
             );
         }),
+        draftInvoiceDate,
     );
 }
 

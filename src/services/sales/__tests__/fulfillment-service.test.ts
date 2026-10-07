@@ -11,6 +11,9 @@ import { logActivity } from "@/lib/tools/audit";
 vi.mock("@/lib/core/prisma", () => ({ getTenantDbFromContext: () => prisma,
   prisma: {
     $queryRaw: vi.fn(),
+    fiscalPeriod: {
+      findUnique: vi.fn().mockResolvedValue({ status: "OPEN" }),
+    },
     salesOrder: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -257,6 +260,8 @@ describe("shipOrder", () => {
       status: SalesOrderStatus.CONFIRMED,
       orderType: SalesOrderType.MAKLON_JASA,
       sourceLocationId: "loc-1",
+      orderDate: new Date("2026-09-30T10:00:00.000Z"),
+      expectedDate: null,
       items: [serviceItem],
     } as never);
     vi.mocked(prisma.salesOrder.update).mockResolvedValue({} as never);
@@ -274,8 +279,75 @@ describe("shipOrder", () => {
     expect(createDraftInvoiceFromOrder).toHaveBeenCalledWith(
       "so-svc",
       "user-1",
+      { invoiceDate: new Date("2026-09-29T17:00:00.000Z") },
     );
     expect(createDeliveryOrderFromSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("uses the selected business date for a maklon service invoice", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-svc",
+      orderNumber: "SO-2026-0009",
+      status: SalesOrderStatus.READY_TO_SHIP,
+      orderType: SalesOrderType.MAKLON_JASA,
+      sourceLocationId: "loc-1",
+      items: [serviceItem],
+    } as never);
+    vi.mocked(prisma.salesOrder.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 0 } as never);
+
+    await shipOrder("so-svc", "user-1", {
+      invoiceDate: new Date("2026-09-30T10:00:00.000Z"),
+    });
+
+    expect(createDraftInvoiceFromOrder).toHaveBeenCalledWith(
+      "so-svc",
+      "user-1",
+      { invoiceDate: new Date("2026-09-29T17:00:00.000Z") },
+    );
+  });
+
+  it("rejects a future maklon invoice date before changing the order", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-svc",
+      orderNumber: "SO-2026-0009",
+      status: SalesOrderStatus.READY_TO_SHIP,
+      orderType: SalesOrderType.MAKLON_JASA,
+      sourceLocationId: "loc-1",
+      items: [serviceItem],
+    } as never);
+
+    await expect(
+      shipOrder("so-svc", "user-1", {
+        invoiceDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      }),
+    ).rejects.toThrow(/melebihi hari ini/);
+
+    expect(prisma.salesOrder.update).not.toHaveBeenCalled();
+    expect(createDraftInvoiceFromOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects a maklon invoice date in a closed fiscal period", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      id: "so-svc",
+      orderNumber: "SO-2026-0009",
+      status: SalesOrderStatus.READY_TO_SHIP,
+      orderType: SalesOrderType.MAKLON_JASA,
+      sourceLocationId: "loc-1",
+      items: [serviceItem],
+    } as never);
+    vi.mocked(prisma.fiscalPeriod.findUnique).mockResolvedValueOnce({
+      status: "CLOSED",
+    } as never);
+
+    await expect(
+      shipOrder("so-svc", "user-1", {
+        invoiceDate: new Date("2026-09-30T10:00:00.000Z"),
+      }),
+    ).rejects.toThrow(/Periode jurnal/);
+
+    expect(prisma.salesOrder.update).not.toHaveBeenCalled();
+    expect(createDraftInvoiceFromOrder).not.toHaveBeenCalled();
   });
 
   it("throws when multiple open delivery orders exist", async () => {

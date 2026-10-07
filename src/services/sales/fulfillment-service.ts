@@ -9,6 +9,8 @@ import {
 import { logActivity } from '@/lib/tools/audit';
 import { InvoiceService } from '@/services/finance/invoice-service';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
+import { normalizeToBusinessDay, toBusinessDateString } from '@/lib/utils/timezone';
+import { isPeriodOpen } from '@/services/accounting/periods-service';
 
 export async function markReadyToShip(id: string, userId: string) {
     const order = await prisma.salesOrder.findUnique({ where: { id } });
@@ -58,7 +60,11 @@ export async function markReadyToShip(id: string, userId: string) {
 export async function shipOrder(
     id: string,
     userId: string,
-    trackingInfo?: { trackingNumber?: string; carrier?: string },
+    trackingInfo?: {
+        trackingNumber?: string;
+        carrier?: string;
+        invoiceDate?: Date;
+    },
 ) {
     const { createDeliveryOrderFromSalesOrder, commitDeliveryShipment } =
         await import('./delivery-fulfillment-service');
@@ -97,8 +103,29 @@ export async function shipOrder(
                 item.productVariant.product.productType === ProductType.SERVICE,
         );
 
-    // Maklon jasa-only: no physical DO / stock — close SO + draft invoice (legacy behavior)
+    // Maklon jasa-only: no physical DO / stock — close SO + draft invoice.
     if (isMaklonServiceOnly) {
+        const invoiceDate = normalizeToBusinessDay(
+            trackingInfo?.invoiceDate ??
+                order.expectedDate ??
+                order.orderDate ??
+                new Date(),
+        );
+        if (
+            toBusinessDateString(invoiceDate) >
+            toBusinessDateString(new Date())
+        ) {
+            throw new BusinessRuleError(
+                'Tanggal invoice tidak boleh melebihi hari ini.',
+            );
+        }
+        if (!(await isPeriodOpen(invoiceDate))) {
+            throw new BusinessRuleError(
+                'Periode jurnal untuk tanggal invoice sudah ditutup atau belum tersedia.',
+                { invoiceDate },
+                'FISCAL_PERIOD_CLOSED',
+            );
+        }
         await prisma.salesOrder.update({
             where: { id },
             data: { status: SalesOrderStatus.SHIPPED },
@@ -111,7 +138,9 @@ export async function shipOrder(
             },
             data: { status: ReservationStatus.FULFILLED },
         });
-        await InvoiceService.createDraftInvoiceFromOrder(id, userId);
+        await InvoiceService.createDraftInvoiceFromOrder(id, userId, {
+            invoiceDate,
+        });
         await logActivity({
             userId,
             action: 'SHIP_SALES',

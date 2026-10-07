@@ -795,6 +795,23 @@ describe("invoice-lifecycle-service", () => {
       expect(createCall.data.totalAmount).toBe(1000);
     });
 
+    it("generates the invoice number in the selected document month", async () => {
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
+        mockSalesOrder as any,
+      );
+      vi.mocked(prisma.invoice.create).mockResolvedValue(mockInvoice as any);
+      const invoiceDate = new Date("2026-09-29T17:00:00.000Z");
+
+      await createDraftInvoiceFromOrder("so-1", "user-1", { invoiceDate });
+
+      expect(prisma.invoice.findMany).toHaveBeenCalledWith({
+        where: { invoiceNumber: { endsWith: "/INV/IX/2026" } },
+        select: { invoiceNumber: true },
+      });
+      const createCall = vi.mocked(prisma.invoice.create).mock.calls[0][0];
+      expect(createCall.data.invoiceDate).toEqual(invoiceDate);
+    });
+
     it("should log activity after creating draft invoice", async () => {
       // Arrange
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(

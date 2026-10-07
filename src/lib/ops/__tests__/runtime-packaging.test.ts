@@ -21,6 +21,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/scripts/provision-tenant.js',
             '/app/ops-dist/scripts/migrate-all-tenants.js',
             '/app/ops-dist/scripts/cleanup-performance-metrics.js',
+            '/app/ops-dist/scripts/correct-sales-invoice-date.js',
             '/app/scripts/audit-duplicate-production-voids.js',
             '/app/scripts/check-ob.js',
             '/app/scripts/repair-maklon-sales-order-locations.js',

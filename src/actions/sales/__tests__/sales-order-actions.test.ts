@@ -337,17 +337,23 @@ describe('sales order actions', () => {
             );
 
             // Act
+            const invoiceDate = new Date('2026-09-30T00:00:00.000Z');
             await shipSalesOrder({
                 id: 'so-1',
                 trackingNumber: 'RESI-1',
                 carrier: 'JNE',
+                invoiceDate,
             });
 
             // Assert
             expect(SalesService.shipOrder).toHaveBeenCalledWith(
                 'so-1',
                 'user-1',
-                { trackingNumber: 'RESI-1', carrier: 'JNE' },
+                {
+                    trackingNumber: 'RESI-1',
+                    carrier: 'JNE',
+                    invoiceDate,
+                },
             );
             expect(revalidatePath).toHaveBeenCalledWith('/warehouse/inventory');
         });
@@ -365,7 +371,11 @@ describe('sales order actions', () => {
             expect(SalesService.shipOrder).toHaveBeenCalledWith(
                 'so-1',
                 'user-1',
-                { trackingNumber: '', carrier: '' },
+                {
+                    trackingNumber: '',
+                    carrier: '',
+                    invoiceDate: undefined,
+                },
             );
             expect(dataOf(res)).toBe(true);
         });

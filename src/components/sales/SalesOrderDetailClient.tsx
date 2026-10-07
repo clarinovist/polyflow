@@ -83,6 +83,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { SalesOrderDetailClientProps } from './sales-order-types';
 import { CalendarClock } from 'lucide-react';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
 export function SalesOrderDetailClient({
     order,
@@ -1141,6 +1142,13 @@ export function SalesOrderDetailClient({
                 orderId={order.id}
                 orderNumber={order.orderNumber}
                 isMaklon={isMaklonOrder}
+                defaultInvoiceDate={
+                    isMaklonOrder
+                        ? toBusinessDateString(
+                              order.expectedDate ?? order.orderDate,
+                          )
+                        : undefined
+                }
                 isOpen={isShipDialogOpen}
                 onClose={() => setIsShipDialogOpen(false)}
                 openDeliveryOrder={

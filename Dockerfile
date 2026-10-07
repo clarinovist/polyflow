@@ -44,6 +44,7 @@ RUN npx tsc \
   scripts/provision-tenant.ts \
   scripts/migrate-all-tenants.ts \
   scripts/cleanup-performance-metrics.ts \
+  scripts/correct-sales-invoice-date.ts \
   --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck \
   --rootDir . --outDir /app/ops-dist
 
@@ -89,6 +90,7 @@ COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/scripts/provision-tenant.js \
   /app/ops-dist/scripts/migrate-all-tenants.js \
   /app/ops-dist/scripts/cleanup-performance-metrics.js \
+  /app/ops-dist/scripts/correct-sales-invoice-date.js \
   /app/scripts/audit-duplicate-production-voids.js \
   /app/scripts/check-ob.js \
   /app/scripts/repair-maklon-sales-order-locations.js \

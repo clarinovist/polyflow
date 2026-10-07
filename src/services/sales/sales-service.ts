@@ -67,7 +67,11 @@ export class SalesService {
     static async shipOrder(
         id: string,
         userId: string,
-        trackingInfo?: { trackingNumber?: string; carrier?: string },
+        trackingInfo?: {
+            trackingNumber?: string;
+            carrier?: string;
+            invoiceDate?: Date;
+        },
     ) {
         return shipOrder(id, userId, trackingInfo);
     }
