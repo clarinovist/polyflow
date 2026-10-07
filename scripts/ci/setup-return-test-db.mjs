@@ -48,6 +48,7 @@ const addedObjects = [
     'SalesReturnCreditMode',
     'InvoicePriceAdjustment',
     'InvoicePriceAdjustmentStatus',
+    'InvoiceDateCorrection',
     'ProductionOrderCustomer',
     'CustomerCreditNote',
     'CustomerCreditApplication',
@@ -74,6 +75,7 @@ const guards = [
     '20260922_spk_customers_quality',
     '20260922_customer_credit',
     '20260923_factory_trip_distance',
+    '20261007_invoice_date_correction',
 ]
     .map(migration)
     .join('\n');

@@ -20,7 +20,7 @@ export const actor = 'return-test-actor';
 export const date = new Date('2026-09-18T00:00:00+07:00');
 export async function resetReturnFixture(db: PrismaClient, withReceiptEvidence = true, returnedQuantity = 2) {
     await verifyReturnTestDatabase(db);
-    await db.$executeRaw`TRUNCATE "BarterSettlement", "BarterPartner", "PurchaseInvoice", "PurchaseOrder", "Supplier", "SalesReturnCreditAllocation", "SalesReturnCredit", "InvoiceReturnBasisLine", "SalesReturnItem", "SalesReturn", "AuditLog", "JournalLine", "JournalEntry", "Payment", "Invoice", "SalesOrder", "ProductVariant", "Product", "Location", "Customer", "Account", "FiscalPeriod", "SystemSequence", "User" CASCADE`;
+    await db.$executeRaw`TRUNCATE "BarterSettlement", "BarterPartner", "PurchaseInvoice", "PurchaseOrder", "Supplier", "SalesReturnCreditAllocation", "SalesReturnCredit", "InvoiceReturnBasisLine", "SalesReturnItem", "SalesReturn", "AuditLog", "JournalLine", "JournalEntry", "Payment", "InvoiceDateCorrection", "Invoice", "SalesOrder", "ProductVariant", "Product", "Location", "Customer", "Account", "FiscalPeriod", "SystemSequence", "User" CASCADE`;
     await db.user.create({data:{id:actor,email:'return-test@example.invalid',password:'fixture-not-a-real-account',role:'FINANCE'}});
     await db.customer.create({data:{id:'customer',name:'Synthetic Customer'}});
     await db.location.create({data:{id:'location',name:'Synthetic Returns',slug:'return-test'}});
