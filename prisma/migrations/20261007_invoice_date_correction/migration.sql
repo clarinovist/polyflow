@@ -33,37 +33,6 @@ CREATE TRIGGER invoice_date_correction_history
     BEFORE UPDATE OR DELETE ON "InvoiceDateCorrection"
     FOR EACH ROW EXECUTE FUNCTION guard_invoice_date_correction_history();
 
-CREATE OR REPLACE FUNCTION allow_audited_invoice_date_correction(
-    old_row "Invoice",
-    new_row "Invoice"
-) RETURNS boolean
-LANGUAGE sql STABLE AS $$
-    SELECT EXISTS (
-        SELECT 1
-        FROM "InvoiceDateCorrection" c
-        WHERE c."invoiceId" = old_row.id
-          AND c."oldInvoiceNumber" = old_row."invoiceNumber"
-          AND c."newInvoiceNumber" = new_row."invoiceNumber"
-          AND c."oldInvoiceDate" = old_row."invoiceDate"
-          AND c."newInvoiceDate" = new_row."invoiceDate"
-          AND c."oldDueDate" IS NOT DISTINCT FROM old_row."dueDate"
-          AND c."newDueDate" = new_row."dueDate"
-          AND new_row.id = old_row.id
-          AND new_row."salesOrderId" = old_row."salesOrderId"
-          AND new_row.status = old_row.status
-          AND new_row."totalAmount" = old_row."totalAmount"
-          AND new_row."roundingAmount" IS NOT DISTINCT FROM old_row."roundingAmount"
-          AND new_row."commercialSnapshot" IS NOT DISTINCT FROM old_row."commercialSnapshot"
-          AND new_row."paidAmount" = old_row."paidAmount"
-          AND new_row."creditedAmount" = old_row."creditedAmount"
-          AND new_row."priceAdjustmentAmount" = old_row."priceAdjustmentAmount"
-          AND new_row."remainingAmount" = old_row."remainingAmount"
-          AND new_row.notes IS NOT DISTINCT FROM old_row.notes
-          AND new_row."createdAt" = old_row."createdAt"
-          AND new_row."termOfPaymentDays" = old_row."termOfPaymentDays"
-    );
-$$;
-
 CREATE OR REPLACE FUNCTION guard_consumed_return_source() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE source_id text;
 BEGIN
@@ -97,7 +66,21 @@ BEGIN
    IF (NEW."totalAmount",NEW."roundingAmount",NEW."salesOrderId",NEW."invoiceDate") IS DISTINCT FROM (OLD."totalAmount",OLD."roundingAmount",OLD."salesOrderId",OLD."invoiceDate")
       AND EXISTS (SELECT 1 FROM "InvoiceReturnBasisLine" b WHERE b."invoiceId"=source_id)
       AND OLD.status<>'DRAFT'
-      AND NOT allow_audited_invoice_date_correction(OLD, NEW) THEN
+      AND NOT (
+        NEW."totalAmount" = OLD."totalAmount"
+        AND NEW."roundingAmount" IS NOT DISTINCT FROM OLD."roundingAmount"
+        AND NEW."salesOrderId" = OLD."salesOrderId"
+        AND EXISTS (
+          SELECT 1 FROM "InvoiceDateCorrection" c
+          WHERE c."invoiceId" = OLD.id
+            AND c."oldInvoiceNumber" = OLD."invoiceNumber"
+            AND c."newInvoiceNumber" = NEW."invoiceNumber"
+            AND c."oldInvoiceDate" = OLD."invoiceDate"
+            AND c."newInvoiceDate" = NEW."invoiceDate"
+            AND c."oldDueDate" IS NOT DISTINCT FROM OLD."dueDate"
+            AND c."newDueDate" = NEW."dueDate"
+        )
+      ) THEN
      RAISE EXCEPTION 'Recognized invoice basis cannot be rewritten';
    END IF;
  END IF;

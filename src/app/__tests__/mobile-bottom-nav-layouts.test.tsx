@@ -12,6 +12,9 @@ vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
 vi.mock('@/auth', () => ({
     auth: async () => ({ user: { id: 'synthetic', role: 'PRODUCTION' } }),
 }));
+vi.mock('@/lib/mobile/mobile-portal-access', () => ({
+    requireMobilePortalPageAccess: vi.fn().mockResolvedValue({}),
+}));
 vi.mock('next/link', () => ({
     default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
         <a {...props}>{children}</a>

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import ProductionHome from '../production/mobile/page';
 import ProductionInsights from '../production/mobile/insights/page';
+import ProductionTasks from '../production/mobile/tasks/page';
 import FinanceHome from '../finance/mobile/page';
 import FinanceInsights from '../finance/mobile/insights/page';
 import FinanceTasks from '../finance/mobile/tasks/page';
@@ -18,8 +19,8 @@ import OrdersPage from '../field/sales/orders/page';
 import ReceivablesPage from '../field/sales/receivables/page';
 import SelectorPage from '../mobile/page';
 import { HrdAttendanceClient } from '../hrd/mobile/attendance/attendance-client';
-const m = vi.hoisted(() => ({ production: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
-vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production, getFactoryManagerExecutiveOverview: m.exec }));
+const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
+vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production, getMobileSupervisorSpkList: m.spkList, getFactoryManagerExecutiveOverview: m.exec }));
 vi.mock('@/actions/production/alert-threshold-settings', () => ({ getProductionAlertThresholdsForPage: async () => ({ success: false }) }));
 vi.mock('@/actions/finance/mobile-dashboard', () => ({ getFinanceMobileOverview: m.finance }));
 vi.mock('@/actions/hrd/mobile-dashboard', () => ({ getHrdMobileOverview: m.hrd }));
@@ -44,6 +45,26 @@ describe('mobile read states', () => {
         render(await Page()); expect(screen.getByRole('alert')).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: 'Coba lagi' })); expect(m.refresh).toHaveBeenCalled();
     });
+    it('hides quick SPK from Factory Manager even with a secondary production role', async () => {
+        m.auth.mockResolvedValue({
+            user: {
+                id: 'manager',
+                role: 'FACTORY_MANAGER',
+                roles: ['FACTORY_MANAGER', 'PRODUCTION'],
+            },
+        });
+        m.spkList.mockResolvedValue({
+            success: true,
+            data: { items: [], total: 0 },
+        });
+        render(
+            await ProductionTasks({
+                searchParams: Promise.resolve({}),
+            }),
+        );
+        expect(screen.queryByText('Buat SPK')).toBeNull();
+    });
+
     it('renders useful invoice facts without a desktop dead-end link', async () => {
         m.finance.mockResolvedValue({ success: true, data: { recentInvoices: [{ id: 'inv', type: 'AP', invoiceNumber: 'SYNTHETIC', customerName: 'Example', dueDate: '2026-09-01T00:00:00Z', amount: 600, status: 'PARTIAL' }] } });
         render(await FinanceTasks()); expect(screen.getByText('Sisa tagihan')).toBeTruthy();
@@ -67,6 +88,21 @@ describe('mobile read states', () => {
     it('keeps no-portals on a terminal page instead of a redirect loop', async () => {
         m.portals.mockResolvedValue({ success: true, data: [] }); render(await SelectorPage());
         expect(screen.getByRole('status').textContent).toContain('Belum ada portal mobile'); expect(m.redirect).not.toHaveBeenCalled();
+    });
+
+    it('shows a direct-route denial without auto-redirecting the only remaining portal', async () => {
+        m.portals.mockResolvedValue({
+            success: true,
+            data: [{
+                id: 'finance', title: 'Finance Mobile', description: 'Ringkasan',
+                path: '/finance/mobile', icon: 'Wallet', status: 'ACTIVE',
+            }],
+        });
+        render(await SelectorPage({
+            searchParams: Promise.resolve({ reason: 'resource' }),
+        }));
+        expect(screen.getByRole('alert').textContent).toContain('dicabut');
+        expect(m.redirect).not.toHaveBeenCalled();
     });
     it('distinguishes absent and not-recorded and submits NO_RECORD as derived filter', () => {
         render(<HrdAttendanceClient initialFilters={{}} initialData={{ generatedAt: '', date: '2026-09-23', totalEmployees: 3, presentCount: 1, absentCount: 0, onLeaveCount: 0, noRecordCount: 2, shifts: [], records: [] }} />);

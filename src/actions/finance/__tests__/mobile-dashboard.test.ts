@@ -1,3 +1,5 @@
+vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess: vi.fn().mockResolvedValue({}) }));
+
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { Prisma } from '@prisma/client';
 import { getFinanceMobileOverview } from '../mobile-dashboard';
