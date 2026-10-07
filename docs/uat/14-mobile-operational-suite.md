@@ -208,9 +208,15 @@ boleh ditambahkan retroaktif. Untuk portal BETA baru, rollout AppSetting default
 ### Purchasing Mobile
 
 - [ ] PROCUREMENT/PLANNING yang sah mendapat portal sesuai module/resource.
-- [ ] Read-only baseline tidak menyalakan approval atau PO mutation.
-- [ ] `feature:mobile-purchasing-actions` disabled menolak direct action setelah capability tersedia.
+- [ ] PLANNING hanya melihat PR miliknya; PROCUREMENT melihat antrean PR tim.
+- [ ] Antrean memprioritaskan PR, draft PO, PO menunggu receipt, ETA terlewat, dan suggested reorder; PO selesai tidak masuk antrean.
+- [ ] Filter URL Semua/PR/Draft PO/Penerimaan/ETA/Reorder mempertahankan Back/Forward dan tepat satu state aktif.
 - [ ] Bounded list menampilkan `total` dan `returned` terpisah; total tidak disimpulkan dari sample 10.
+- [ ] Detail PR/PO/progres receipt memakai route mobile-safe dan DTO minimum; ID asing/tidak sesuai scope diperlakukan tidak ditemukan.
+- [ ] AP count tetap tersedia, tetapi nominal AP, total PO, harga satuan, dan subtotal tidak ada di payload tanpa `feature:view-prices`.
+- [ ] Suggested reorder hanya memakai stok internal eligible; customer-owned stock tidak dihitung.
+- [ ] Read-only baseline tidak menyalakan approval, PO mutation, goods receipt mutation, atau self-approval path.
+- [ ] `feature:mobile-purchasing-actions` disabled menolak direct action setelah capability tersedia.
 
 ### Finance Mobile privacy
 

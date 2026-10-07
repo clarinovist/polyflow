@@ -1,25 +1,36 @@
 import { getPurchasingMobileOverview } from '@/actions/purchasing/mobile-dashboard';
-import { MobileDataFreshness, MobileSectionHeader } from '@/components/mobile';
-import { MobileReadError } from '@/components/mobile/MobileReadError';
-import { formatRupiah } from '@/lib/utils/utils';
+import {
+    MobileDataFreshness,
+    MobileReadError,
+    MobileSectionHeader,
+} from '@/components/mobile';
+import {
+    PurchasingQueueFilters,
+    PurchasingTaskQueue,
+} from '../purchasing-mobile-view';
 
-export default async function PurchasingTasksPage() {
-    const response = await getPurchasingMobileOverview();
-    if (!response.success) return <MobileReadError title="Daftar PO belum tersedia" />;
-    const { generatedAt, recentOrders } = response.data;
+export default async function PurchasingTasksPage({
+    searchParams,
+}: {
+    searchParams?: Promise<{ filter?: string }>;
+} = {}) {
+    const filter = (await searchParams)?.filter;
+    const response = await getPurchasingMobileOverview(filter);
+    if (!response.success) {
+        return <MobileReadError title="Antrean purchasing belum tersedia" />;
+    }
+    const overview = response.data;
+
     return (
-        <div className="space-y-4">
-            <MobileSectionHeader title="Purchase Order Terbaru" level={1} />
-            <MobileDataFreshness generatedAt={generatedAt} />
-            <p className="text-sm text-muted-foreground">Maksimal 10 PO yang terakhir diperbarui, termasuk yang sudah selesai. Perubahan dan persetujuan tetap melalui desktop purchasing.</p>
-            {!recentOrders.length ? <p className="py-4 text-sm">Belum ada PO.</p> : recentOrders.map((po) => (
-                <article key={po.id} className="space-y-2 rounded-xl border bg-card p-4 [overflow-wrap:anywhere]">
-                    <h2 className="font-semibold">{po.poNumber}</h2>
-                    <p className="text-sm">{po.supplierName}</p>
-                    <p className="text-sm">Status: {po.status}</p>
-                    <p className="text-sm">Total: {po.totalAmount == null ? 'Belum tersedia' : formatRupiah(po.totalAmount)}</p>
-                </article>
-            ))}
+        <div className="min-w-0 space-y-5">
+            <MobileSectionHeader title="Antrean Purchasing" level={1} className="px-0" />
+            <MobileDataFreshness generatedAt={overview.generatedAt} />
+            <PurchasingQueueFilters current={overview.filter} />
+            <p className="text-sm text-muted-foreground">
+                Menampilkan {overview.queue.returned} dari {overview.queue.total} exception pada filter ini. Antrean dibatasi 10 item dan bersifat read-only.
+            </p>
+            <PurchasingTaskQueue items={overview.queue.items} />
+            <p className="text-xs text-muted-foreground">Approval PR, perubahan PO, dan penerimaan barang tetap melalui alur desktop/warehouse yang memiliki guard transaksi.</p>
         </div>
     );
 }

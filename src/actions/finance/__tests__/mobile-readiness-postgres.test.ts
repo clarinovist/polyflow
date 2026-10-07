@@ -14,7 +14,12 @@ vi.mock('@/services/accounting/account-resolver', () => ({ resolveAccount: async
 // Auth is tested separately; these contracts use real Prisma/SQL in the existing disposable CI DB.
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: async () => ({ user: { role: 'FINANCE' } }) }));
-vi.mock('@/lib/auth/purchasing-access', () => ({ requirePurchasingAccess: async () => ({ user: { role: 'PROCUREMENT' } }) }));
+vi.mock('@/lib/auth/purchasing-access', () => ({ requirePurchasingAccess: async () => ({ user: { id: 'procurement-test', role: 'PROCUREMENT' } }) }));
+vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess: async () => ({ portal: { id: 'purchasing' } }) }));
+vi.mock('@/actions/admin/permissions', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/actions/admin/permissions')>()),
+    getMyExplicitFeaturePermissions: async () => ({ success: true, data: ['feature:view-prices'] }),
+}));
 vi.mock('@/lib/tools/auth-checks', () => ({ requireRole: async () => ({}), requireAuth: async () => ({ user: { role: 'PRODUCTION' } }) }));
 const db = process.env.RETURN_CREDIT_TEST_DATABASE_URL ? returnTestClient(process.env.RETURN_CREDIT_TEST_DATABASE_URL) : null;
 const run = <T>(fn: () => Promise<T>) => tenantContext.run(db!, fn);

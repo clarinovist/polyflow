@@ -79,7 +79,7 @@ const portalConfig = {
             { href: '/purchasing/mobile', label: 'Hari Ini', icon: Home },
             {
                 href: '/purchasing/mobile/tasks',
-                label: 'Antrean PO',
+                label: 'Tugas',
                 icon: CheckSquare,
             },
             {
@@ -110,10 +110,19 @@ export function MobilePortalBottomNav({
             className="fixed right-0 bottom-0 left-0 z-50 flex min-h-16 border-t bg-white py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg dark:border-slate-800 dark:bg-slate-900"
         >
             {items.map((item) => {
+                const purchasingTaskDetail =
+                    portal === 'purchasing' &&
+                    item.href === '/purchasing/mobile/tasks' &&
+                    [
+                        '/purchasing/mobile/requests/',
+                        '/purchasing/mobile/orders/',
+                        '/purchasing/mobile/receipts/',
+                    ].some((prefix) => pathname.startsWith(prefix));
                 const active =
                     pathname === item.href ||
                     (item.href !== `/${portal}/mobile` &&
-                        pathname.startsWith(`${item.href}/`));
+                        pathname.startsWith(`${item.href}/`)) ||
+                    purchasingTaskDetail;
                 return (
                     <Link
                         key={item.href}

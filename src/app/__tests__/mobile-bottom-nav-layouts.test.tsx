@@ -95,6 +95,33 @@ describe('mobile portal bottom navigation safety', () => {
         },
     );
 
+    it.each([
+        '/purchasing/mobile/requests/pr-1',
+        '/purchasing/mobile/orders/po-1',
+        '/purchasing/mobile/receipts/po-1',
+    ])('keeps Purchasing detail %s under the Tugas destination', async (currentPath) => {
+        pathname = currentPath;
+        render(
+            await PurchasingMobileLayout({
+                children: <p>Detail purchasing</p>,
+            }),
+        );
+        const nav = screen.getByRole('navigation', {
+            name: 'Navigasi purchasing mobile',
+        });
+        const current = screen
+            .getAllByRole('link')
+            .filter(
+                (link) =>
+                    link.closest('nav') === nav &&
+                    link.getAttribute('aria-current') === 'page',
+            );
+        expect(current).toHaveLength(1);
+        expect(current[0].getAttribute('href')).toBe(
+            '/purchasing/mobile/tasks',
+        );
+    });
+
     it('keeps Production Insight and Maintenance discoverable', async () => {
         pathname = '/production/mobile';
         render(

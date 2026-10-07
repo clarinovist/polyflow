@@ -114,9 +114,34 @@ describe('mobile read states', () => {
         m.hrd.mockResolvedValue({ success: true, data: { highlights: { pendingLeaveCount: 35 }, pendingLeaves: [{ id: 'leave', employeeName: 'Example', leaveType: 'ANNUAL', startDate: '2026-09-01', endDate: '2026-09-02' }] } });
         render(await HrdTasks()); expect(screen.getByText(/35 pengajuan/)).toBeTruthy(); expect(screen.queryAllByRole('link')).toHaveLength(0);
     });
-    it('renders PO status and unknown total without desktop link', async () => {
-        m.purchasing.mockResolvedValue({ success: true, data: { recentOrders: [{ id: 'po', poNumber: 'SYNTHETIC PO', supplierName: 'Example', status: 'DRAFT', totalAmount: null }] } });
-        render(await PurchasingTasks()); expect(screen.getByText('Total: Belum tersedia')).toBeTruthy(); expect(screen.queryAllByRole('link')).toHaveLength(0);
+    it('renders an exception queue with mobile-safe detail links and no mutation control', async () => {
+        m.purchasing.mockResolvedValue({
+            success: true,
+            data: {
+                generatedAt: '2026-10-07T00:00:00.000Z',
+                filter: 'DRAFT_PO',
+                queue: {
+                    total: 1,
+                    returned: 1,
+                    items: [{
+                        id: 'po',
+                        kind: 'DRAFT_PO',
+                        title: 'SYNTHETIC PO',
+                        subtitle: 'Example',
+                        status: 'DRAFT',
+                        priority: 'NORMAL',
+                        href: '/purchasing/mobile/orders/po',
+                        sortAt: '2026-10-07T00:00:00.000Z',
+                    }],
+                },
+            },
+        });
+        render(await PurchasingTasks({
+            searchParams: Promise.resolve({ filter: 'DRAFT_PO' }),
+        }));
+        expect(screen.getByText(/Menampilkan 1 dari 1 exception/)).toBeTruthy();
+        expect(screen.getByRole('link', { name: /SYNTHETIC PO/ }).getAttribute('href')).toBe('/purchasing/mobile/orders/po');
+        expect(screen.queryByRole('button', { name: /approve|setuju|ubah/i })).toBeNull();
     });
     it('excludes customer-owned and hidden-location quantities from physical stock', async () => {
         m.products.mockResolvedValue({ success: true, data: [{ id: 'p', name: 'Variant', skuCode: 'SYNTH', primaryUnit: 'KG', product: { name: 'Product', productType: 'FINISHED_GOOD' }, inventories: [{ locationId: 'own', quantity: 5 }, { locationId: 'customer', quantity: 90 }, { locationId: 'hidden', quantity: 40 }] }] });
