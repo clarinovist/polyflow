@@ -12,7 +12,6 @@ import {
   getMobileHomeForUser,
   getMobileHomeCtaKey,
   getAvailableMobilePortals,
-  isMobileSupervisorOperator,
   resolveMobilePath,
 } from '../mobile-access-policy';
 
@@ -95,11 +94,6 @@ describe('mobile-access-policy', () => {
       ['/warehouse/mobile', true],
       ['/warehouse/mobile/outgoing', true],
       ['/warehouse/mobile/incoming', true],
-      ['/production/mobile', true],
-      ['/purchasing/mobile/tasks', true],
-      ['/finance/mobile', true],
-      ['/hrd/mobile/attendance', true],
-      ['/maklon/mobile', false],
       ['/dashboard', false],
       ['/finance', false],
       ['/finance/journals', false],
@@ -210,15 +204,6 @@ describe('mobile-access-policy', () => {
     });
   });
 
-  describe('isMobileSupervisorOperator', () => {
-    it('keeps FACTORY_MANAGER read-only even with a secondary PRODUCTION role', () => {
-      expect(isMobileSupervisorOperator({
-        role: 'FACTORY_MANAGER',
-        roles: ['FACTORY_MANAGER', 'PRODUCTION'],
-      })).toBe(false);
-    });
-  });
-
   // ── getAvailableMobilePortals ──────────────────────────────────────
   describe('getAvailableMobilePortals', () => {
     it('returns empty for ADMIN without ops roles', () => {
@@ -250,7 +235,7 @@ describe('mobile-access-policy', () => {
     });
     it('keeps legacy field aliases and hides unimplemented portals', () => {
       expect(getAvailableMobilePortals({ role: 'SALES' }, { permissions: ['/sales/mobile'], activeModules: ['SALES'] }).map(p => p.id)).toEqual(['sales-field']);
-      expect(getAvailableMobilePortals({ roles: ['ADMIN', 'WAREHOUSE'] }, { permissions: 'ALL', activeModules: ['INVENTORY', 'MAKLON'] })).toEqual([]);
+      expect(getAvailableMobilePortals({ roles: ['ADMIN', 'WAREHOUSE'] }, { permissions: 'ALL', activeModules: ['INVENTORY', 'MAKLON'] }).map(p => p.id)).toEqual(['warehouse']);
     });
   });
 
@@ -321,12 +306,7 @@ describe('FACTORY_MANAGER portal discovery (Kepala Pabrik executive)', () => {
 
   it('returns production-supervisor when nested /production grants exist', () => {
     const portals = getAvailableMobilePortals(fm, {
-      permissions: [
-        '/production/daily',
-        '/warehouse/inventory',
-        '/purchasing/requests',
-        '/purchasing/orders',
-      ],
+      permissions: ['/production/daily', '/production/orders'],
       activeModules: ['PRODUCTION'],
     });
     expect(portals.map((p) => p.id)).toEqual(['production-supervisor']);
@@ -341,7 +321,7 @@ describe('FACTORY_MANAGER portal discovery (Kepala Pabrik executive)', () => {
       permissions: ['/production'],
       activeModules: ['PRODUCTION'],
     });
-    expect(portals).toEqual([]);
+    expect(portals.map((p) => p.id)).toEqual(['production-supervisor']);
   });
 
   it('returns nothing without any /production resource', () => {

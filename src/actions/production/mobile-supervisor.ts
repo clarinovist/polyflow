@@ -16,7 +16,6 @@ import {
     hasWorkspaceResourceAccess,
     isPathAllowedByResources,
 } from '@/lib/auth/access-policy';
-import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 
 type TargetUnitMode = 'MIXED' | 'SINGLE' | 'NONE';
 
@@ -158,7 +157,7 @@ function assertSupervisorAccess(user: MobileSupervisorUser) {
 }
 
 function assertFactoryManagerExecutiveAccess(user: MobileSupervisorUser) {
-    if (hasRole(user, 'ADMIN')) return;
+    if (hasRole(user, 'ADMIN') || user.isSuperAdmin) return;
     if (!hasRole(user, 'FACTORY_MANAGER')) {
         throw new AuthorizationError(
             'Hanya kepala pabrik atau admin yang dapat melihat ringkasan eksekutif.',
@@ -192,11 +191,6 @@ function assertSupervisorMutationAccess(user: {
     roles?: string[];
     isSuperAdmin?: boolean;
 }) {
-    if (hasRole(user, 'FACTORY_MANAGER') && !hasRole(user, 'ADMIN')) {
-        throw new AuthorizationError(
-            'Kepala pabrik tidak dapat menjalankan mutasi produksi dari portal mobile.',
-        );
-    }
     const allowed =
         hasAnyRole(user, ['PRODUCTION', 'PLANNING', 'ADMIN']) ||
         !!user.isSuperAdmin;
@@ -212,7 +206,6 @@ export const getProductionSupervisorOverview = withTenant(
         return safeAction(async () => {
             const session = await requireAuth();
             assertSupervisorAccess(session.user as never);
-            await requireMobilePortalAccess('production-supervisor');
 
             const now = new Date();
             const todayStr = toBusinessDateString(now);
@@ -546,7 +539,6 @@ export const getMobileTeamAttendance = withTenant(
         return safeAction(async () => {
             const session = await requireAuth();
             assertSupervisorAccess(session.user as never);
-            await requireMobilePortalAccess('production-supervisor');
 
             if (filters?.status && !['ALL', 'PRESENT', 'ABSENT', 'ON_LEAVE', 'NO_RECORD'].includes(filters.status)) {
                 throw new BusinessRuleError('Filter status absensi tidak valid.');
@@ -928,7 +920,6 @@ export const getFactoryManagerExecutiveOverview = withTenant(
             assertFactoryManagerExecutiveAccess(
                 session.user as MobileSupervisorUser,
             );
-            await requireMobilePortalAccess('production-supervisor');
 
             const businessDate = toBusinessDateString(new Date());
             const workDate = new Date(`${businessDate}T00:00:00.000Z`);

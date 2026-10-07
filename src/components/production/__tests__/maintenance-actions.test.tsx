@@ -92,28 +92,6 @@ describe('MaintenanceActions', () => {
         );
     });
 
-    it('uses injected decision actions for a mobile caller', async () => {
-        const approveAction = vi.fn().mockResolvedValue({ success: true });
-        render(
-            <MaintenanceActions
-                id="mt-1"
-                status="PENDING"
-                viewer={{ ...noActions, canApprove: true }}
-                technicians={[{ id: 'tech-1', name: 'Teknisi Satu' }]}
-                spareParts={[]}
-                approveAction={approveAction}
-            />,
-        );
-        fireEvent.change(screen.getByLabelText('Teknisi pelaksana'), {
-            target: { value: 'tech-1' },
-        });
-        fireEvent.click(screen.getByRole('button', { name: 'Setujui & tugaskan' }));
-        await waitFor(() =>
-            expect(approveAction).toHaveBeenCalledWith('mt-1', 'tech-1'),
-        );
-        expect(approveMaintenanceRequest).not.toHaveBeenCalled();
-    });
-
     it('hides privileged actions when the viewer cannot act', () => {
         render(
             <MaintenanceActions

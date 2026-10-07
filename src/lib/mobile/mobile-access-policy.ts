@@ -1,14 +1,13 @@
-import { hasRole, hasAnyRole } from '@/lib/auth/roles';
+import { hasRole, hasAnyRole, getUserRoles } from '@/lib/auth/roles';
+import {
+    isPathAllowedByResources,
+    hasWorkspaceResourceAccess,
+} from '@/lib/auth/access-policy';
+import { canSeeNavHref } from '@/lib/auth/permission-match';
 import {
     MOBILE_PORTAL_REGISTRY,
     MOBILE_ROUTE_ALIASES,
 } from '@/lib/mobile/mobile-portal-registry';
-import { getMobileAllowlistPrefixes } from '@/lib/mobile/mobile-static-policy';
-import {
-    getAvailableMobilePortals as resolveAvailableMobilePortals,
-    type MobilePortalDecisionContext,
-    type MobilePortalInfo,
-} from '@/lib/mobile/mobile-portal-decision';
 
 // ---------------------------------------------------------------------------
 // Mobile UA detection — same regex as existing sales redirect
@@ -38,12 +37,25 @@ export function isMobilePublicPath(pathname: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Allowlisted operational surfaces — canonical prefixes are derived from the
-// registry. Public/auth paths and operational API paths remain separate lists.
+// Allowlisted operational surfaces — only these prefixes are accessible on
+// mobile (after RBAC).
 // ---------------------------------------------------------------------------
+const MOBILE_ALLOWLIST_PREFIXES = [
+    '/mobile',
+    '/field',
+    '/sales/mobile',
+    '/kiosk',
+    '/my',
+    '/warehouse/mobile',
+    '/production/mobile',
+    '/purchasing/mobile',
+    '/finance/mobile',
+    '/hrd/mobile',
+];
+
 export function isMobileAllowlistedPath(pathname: string): boolean {
-    return getMobileAllowlistPrefixes().some(
-        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    return MOBILE_ALLOWLIST_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
     );
 }
 
@@ -125,42 +137,86 @@ export function isMobileBypassAllowed(
 // ---------------------------------------------------------------------------
 // Multi-role Available Portals & Home Redirect
 // ---------------------------------------------------------------------------
-export type { MobilePortalInfo } from '@/lib/mobile/mobile-portal-decision';
+export interface MobilePortalInfo {
+    id: string;
+    title: string;
+    description: string;
+    path: string;
+    icon: string;
+    status: string;
+}
 
 /**
- * Compatibility wrapper for optimistic role-only callers and verified server
- * discovery. New authorization code should call the pure resolver directly.
+ * Resolve which portals a user can access.
+ * Without access context this returns role candidates only (middleware hint).
+ * Server discovery supplies current permissions and tenant modules before navigation.
+ * PLANNED portals are never navigable; ACTIVE/BETA status is the rollout control.
  */
 export function getAvailableMobilePortals(
-    user: MobilePortalDecisionContext['user'],
-    access?: Omit<MobilePortalDecisionContext, 'user'>,
+    user:
+        | {
+              role?: string;
+              roles?: string[];
+              isSuperAdmin?: boolean;
+          }
+        | null
+        | undefined,
+    access?: { permissions: string[] | 'ALL'; activeModules: readonly string[] },
 ): MobilePortalInfo[] {
-    if (access) return resolveAvailableMobilePortals({ user, ...access });
-    if (!user || user.isSuperAdmin || hasRole(user, 'ADMIN')) return [];
+    if (!user) return [];
+    const roles = getUserRoles(user);
+    const isAdmin = hasRole(user, 'ADMIN') || !!user.isSuperAdmin;
 
-    const roles = [user.role, ...(user.roles ?? [])]
-        .filter(Boolean)
-        .map((role) => String(role).toUpperCase());
-    return MOBILE_PORTAL_REGISTRY.flatMap((portal) => {
-        if (portal.status === 'PLANNED') return [];
-        if (portal.id === 'sales-field' && roles.includes('MARKETING')) {
-            return [];
+    const portals: MobilePortalInfo[] = [];
+
+    for (const portal of MOBILE_PORTAL_REGISTRY) {
+        if (portal.status === 'PLANNED') continue;
+        if (portal.status === 'BETA' && !isAdmin) continue;
+
+        if (
+            portal.id === 'sales-field' &&
+            roles.includes('MARKETING')
+        ) {
+            continue;
         }
-        if (!portal.roles.some((role) => roles.includes(role))) return [];
-        return [
-            {
-                id: portal.id,
-                title: portal.title,
-                description: portal.description,
-                path: portal.path,
-                icon: portal.icon,
-                status: portal.status,
-                mode: portal.mode,
-                capabilities: [],
-                navigation: portal.navigation,
-            },
-        ];
-    });
+
+        const hasMatchingRole = portal.roles.some((r) => roles.includes(r));
+        if (!hasMatchingRole) continue;
+        if (access) {
+            if (!access.activeModules.includes(portal.moduleKey)) continue;
+            const permitted = portal.id === 'production-kiosk' ||
+                (portal.id === 'sales-field'
+                    ? canSeeNavHref(portal.path, access.permissions, '/sales')
+                    : portal.id === 'production-supervisor'
+                      ? // Workspace-level check: Kepala Pabrik holds nested
+                        // /production/* grants, never the plain '/production'
+                        // root, so a path-level check would hide the portal.
+                        hasWorkspaceResourceAccess(access.permissions, 'production')
+                      : isPathAllowedByResources(portal.path, access.permissions));
+            if (!permitted) continue;
+        }
+
+        const factoryManagerReadOnly =
+            portal.id === 'production-supervisor' &&
+            roles.includes('FACTORY_MANAGER') &&
+            !roles.some((role) =>
+                ['PRODUCTION', 'PLANNING', 'ADMIN'].includes(role),
+            );
+        portals.push({
+            id: portal.id,
+            title: factoryManagerReadOnly
+                ? 'Monitor Kepala Pabrik'
+                : portal.title,
+            description: factoryManagerReadOnly
+                ? 'Pantau output, downtime, QC, stok, purchasing, dan tim'
+                : portal.description,
+            path: portal.path,
+            icon: portal.icon,
+            status: portal.status,
+        });
+    }
+
+    return portals;
 }
 
 export function getMobileHomeForUser(
@@ -214,9 +270,6 @@ export function isMobileSupervisorOperator(
         | null
         | undefined,
 ): boolean {
-    if (hasRole(user, 'FACTORY_MANAGER') && !hasRole(user, 'ADMIN')) {
-        return false;
-    }
     return (
         hasAnyRole(user, ['PRODUCTION', 'PLANNING', 'ADMIN']) ||
         !!user?.isSuperAdmin

@@ -285,32 +285,6 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
 
 const FEATURE_CATALOG: PermissionNode[] = [
     { key: 'feature:view-prices', label: 'Lihat Harga', isFeature: true },
-    {
-        key: 'feature:mobile-maintenance-approval',
-        label: 'Aksi Approval Maintenance Mobile',
-        description: 'Setujui atau tolak maintenance dari portal mobile.',
-        isFeature: true,
-    },
-    {
-        key: 'feature:mobile-purchasing-actions',
-        label: 'Aksi Purchasing Mobile',
-        isFeature: true,
-    },
-    {
-        key: 'feature:mobile-finance-actions',
-        label: 'Aksi Finance Mobile',
-        isFeature: true,
-    },
-    {
-        key: 'feature:mobile-hrd-actions',
-        label: 'Aksi HRD Mobile',
-        isFeature: true,
-    },
-    {
-        key: 'feature:mobile-marketing-actions',
-        label: 'Aksi Marketing Mobile',
-        isFeature: true,
-    },
 ];
 
 /** Flattens the tree (module + nested); does not include feature flags. */

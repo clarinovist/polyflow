@@ -1,14 +1,12 @@
 import { WarehouseBottomNav } from '@/components/warehouse/mobile/WarehouseBottomNav';
 import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
 import { auth } from '@/auth';
-import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-access';
 
 export default async function WarehouseMobileLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    await requireMobilePortalPageAccess('warehouse');
     const session = await auth();
 
     return (
