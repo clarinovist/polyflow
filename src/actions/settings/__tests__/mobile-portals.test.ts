@@ -53,8 +53,8 @@ describe('verified mobile discovery action', () => {
         expect(m.rollouts).toHaveBeenCalledTimes(1);
         expect(m.rollouts).toHaveBeenCalledWith(
             [
-                'mobile.portal.admin.enabled',
                 'mobile.portal.marketing.enabled',
+                'mobile.portal.admin.enabled',
             ],
             m.tenantDb.appSetting,
         );

@@ -78,8 +78,8 @@ describe('mobile portal server guard', () => {
         await requireMobilePortalAccess('finance');
         expect(mocks.rollouts).toHaveBeenCalledWith(
             [
-                'mobile.portal.admin.enabled',
                 'mobile.portal.marketing.enabled',
+                'mobile.portal.admin.enabled',
             ],
             mocks.tenantDb.appSetting,
         );
