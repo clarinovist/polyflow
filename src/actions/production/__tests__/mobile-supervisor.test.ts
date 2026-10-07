@@ -473,7 +473,15 @@ describe('getMobileTeamAttendance', () => {
 describe('supervisor monitoring read access', () => {
     function session(role: string, roles?: string[]) {
         vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role, roles },
+            user: {
+                id: 'u1',
+                role,
+                roles,
+                allowedResources:
+                    role === 'FACTORY_MANAGER' || roles?.includes('FACTORY_MANAGER')
+                        ? ['/production/daily']
+                        : [],
+            },
         } as any);
     }
 
@@ -524,7 +532,20 @@ describe('supervisor monitoring read access', () => {
 describe('factory manager executive overview', () => {
     function session(role: string, roles?: string[]) {
         vi.mocked(auth).mockResolvedValue({
-            user: { id: 'u1', role, roles },
+            user: {
+                id: 'u1',
+                role,
+                roles,
+                allowedResources:
+                    role === 'FACTORY_MANAGER' || roles?.includes('FACTORY_MANAGER')
+                        ? [
+                              '/production/daily',
+                              '/warehouse/inventory',
+                              '/purchasing/requests',
+                              '/purchasing/orders',
+                          ]
+                        : [],
+            },
         } as any);
     }
 
@@ -576,6 +597,20 @@ describe('factory manager executive overview', () => {
                 },
             },
         });
+    });
+
+    it('denies FACTORY_MANAGER when any executive resource grant is missing', async () => {
+        vi.mocked(auth).mockResolvedValue({
+            user: {
+                id: 'u1',
+                role: 'FACTORY_MANAGER',
+                allowedResources: ['/production/daily'],
+            },
+        } as any);
+        expect(await getFactoryManagerExecutiveOverview()).toMatchObject({
+            success: false,
+        });
+        expect(prisma.productVariant.findMany).not.toHaveBeenCalled();
     });
 
     it('never exposes amount or costing fields', async () => {

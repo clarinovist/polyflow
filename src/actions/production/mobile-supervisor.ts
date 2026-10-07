@@ -11,7 +11,11 @@ import {
     toBusinessDateString,
     parseBusinessDate,
 } from '@/lib/utils/timezone';
-import { hasAnyRole } from '@/lib/auth/roles';
+import { hasAnyRole, hasRole } from '@/lib/auth/roles';
+import {
+    hasWorkspaceResourceAccess,
+    isPathAllowedByResources,
+} from '@/lib/auth/access-policy';
 
 type TargetUnitMode = 'MIXED' | 'SINGLE' | 'NONE';
 
@@ -131,17 +135,49 @@ export interface MobileQuickSpkFormData {
  * Read access to production mobile monitoring. FACTORY_MANAGER (Kepala
  * Pabrik) joins here: the executive surface is monitoring-only.
  */
-function assertSupervisorAccess(user: {
+type MobileSupervisorUser = {
     role?: string;
     roles?: string[];
     isSuperAdmin?: boolean;
-}) {
-    const allowed =
-        hasAnyRole(user, ['PRODUCTION', 'PLANNING', 'ADMIN', 'FACTORY_MANAGER']) ||
+    allowedResources?: string[] | 'ALL';
+};
+
+function assertSupervisorAccess(user: MobileSupervisorUser) {
+    const operational =
+        hasAnyRole(user, ['PRODUCTION', 'PLANNING', 'ADMIN']) ||
         !!user.isSuperAdmin;
-    if (!allowed) {
+    const factoryManager =
+        hasRole(user, 'FACTORY_MANAGER') &&
+        hasWorkspaceResourceAccess(user.allowedResources, 'production');
+    if (!operational && !factoryManager) {
         throw new AuthorizationError(
-            'Hanya supervisor produksi, planning, kepala pabrik, atau admin yang dapat mengakses data ini.',
+            'Hanya supervisor produksi, planning, kepala pabrik berizin, atau admin yang dapat mengakses data ini.',
+        );
+    }
+}
+
+function assertFactoryManagerExecutiveAccess(user: MobileSupervisorUser) {
+    if (hasRole(user, 'ADMIN') || user.isSuperAdmin) return;
+    if (!hasRole(user, 'FACTORY_MANAGER')) {
+        throw new AuthorizationError(
+            'Hanya kepala pabrik atau admin yang dapat melihat ringkasan eksekutif.',
+        );
+    }
+
+    const requiredResources = [
+        '/production/daily',
+        '/warehouse/inventory',
+        '/purchasing/requests',
+        '/purchasing/orders',
+    ];
+    if (
+        requiredResources.some(
+            (resource) =>
+                !isPathAllowedByResources(resource, user.allowedResources),
+        )
+    ) {
+        throw new AuthorizationError(
+            'Izin monitoring eksekutif kepala pabrik belum lengkap.',
         );
     }
 }
@@ -881,7 +917,9 @@ export const getFactoryManagerExecutiveOverview = withTenant(
     async function getFactoryManagerExecutiveOverview() {
         return safeAction(async () => {
             const session = await requireAuth();
-            assertSupervisorAccess(session.user as never);
+            assertFactoryManagerExecutiveAccess(
+                session.user as MobileSupervisorUser,
+            );
 
             const businessDate = toBusinessDateString(new Date());
             const workDate = new Date(`${businessDate}T00:00:00.000Z`);
