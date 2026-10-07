@@ -85,16 +85,25 @@ const portalConfig = {
     },
 } as const;
 
-export function MobilePortalBottomNav({ portal }: { portal: Portal }) {
+export function MobilePortalBottomNav({
+    portal,
+    readOnly = false,
+}: {
+    portal: Portal;
+    readOnly?: boolean;
+}) {
     const pathname = usePathname();
     const config = portalConfig[portal];
+    const items = readOnly && portal === 'production'
+        ? config.items.filter((item) => item.href !== '/production/mobile/tasks')
+        : config.items;
 
     return (
         <nav
             aria-label={config.label}
             className="fixed right-0 bottom-0 left-0 z-50 flex min-h-16 border-t bg-white py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg dark:border-slate-800 dark:bg-slate-900"
         >
-            {config.items.map((item) => {
+            {items.map((item) => {
                 const active =
                     pathname === item.href ||
                     (item.href !== `/${portal}/mobile` &&

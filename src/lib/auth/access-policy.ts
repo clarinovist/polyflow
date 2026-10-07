@@ -309,6 +309,24 @@ export function canAccessWorkspace(
         return false;
     }
 
+    // Kepala Pabrik may enter the read-only mobile monitor when any nested
+    // /production resource is granted. Keep the desktop production root and
+    // ungranted sub-routes closed (including costing).
+    const factoryManagerMobileReadPaths = [
+        '/production/mobile',
+        '/production/mobile/attendance',
+        '/production/mobile/insights',
+    ];
+    if (
+        workspace === 'production' &&
+        !!pathname &&
+        factoryManagerMobileReadPaths.includes(pathname) &&
+        allRoles.includes('FACTORY_MANAGER') &&
+        hasWorkspaceResourceAccess(resources, 'production')
+    ) {
+        return true;
+    }
+
     // 4. Role policy for this workspace
     const policyRoles = WORKSPACE_ACCESS_POLICY[workspace];
     if (policyRoles?.some((r) => allRoles.includes(r))) {

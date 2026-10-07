@@ -196,10 +196,20 @@ export function getAvailableMobilePortals(
             if (!permitted) continue;
         }
 
+        const factoryManagerReadOnly =
+            portal.id === 'production-supervisor' &&
+            roles.includes('FACTORY_MANAGER') &&
+            !roles.some((role) =>
+                ['PRODUCTION', 'PLANNING', 'ADMIN'].includes(role),
+            );
         portals.push({
             id: portal.id,
-            title: portal.title,
-            description: portal.description,
+            title: factoryManagerReadOnly
+                ? 'Monitor Kepala Pabrik'
+                : portal.title,
+            description: factoryManagerReadOnly
+                ? 'Pantau output, downtime, QC, stok, purchasing, dan tim'
+                : portal.description,
             path: portal.path,
             icon: portal.icon,
             status: portal.status,

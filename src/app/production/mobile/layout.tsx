@@ -59,7 +59,10 @@ export default async function ProductionMobileLayout({
                 {children}
             </main>
 
-            <MobilePortalBottomNav portal="production" />
+            <MobilePortalBottomNav
+                portal="production"
+                readOnly={!canOperate}
+            />
         </div>
     );
 }

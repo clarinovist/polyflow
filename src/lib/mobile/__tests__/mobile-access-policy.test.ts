@@ -310,6 +310,10 @@ describe('FACTORY_MANAGER portal discovery (Kepala Pabrik executive)', () => {
       activeModules: ['PRODUCTION'],
     });
     expect(portals.map((p) => p.id)).toEqual(['production-supervisor']);
+    expect(portals[0]).toMatchObject({
+      title: 'Monitor Kepala Pabrik',
+      description: expect.stringContaining('downtime'),
+    });
   });
 
   it('returns production-supervisor for a plain /production grant', () => {

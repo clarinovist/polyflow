@@ -119,6 +119,46 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(financeUser, 'warehouse')).toBe(false);
     });
 
+    it('allows FACTORY_MANAGER only into the read-only production mobile monitor with nested grants', () => {
+      const factoryManager = {
+        role: 'FACTORY_MANAGER',
+        allowedResources: ['/production/daily', '/production/orders'],
+      };
+      expect(
+        canAccessWorkspace(factoryManager, 'production', '/production/mobile'),
+      ).toBe(true);
+      expect(
+        canAccessWorkspace(
+          factoryManager,
+          'production',
+          '/production/mobile/attendance',
+        ),
+      ).toBe(true);
+      expect(
+        canAccessWorkspace(factoryManager, 'production', '/production/mobile/insights'),
+      ).toBe(true);
+      // Nested grants may enter the workspace root to reach its preferred
+      // permitted landing, but do not open mutation or arbitrary sub-routes.
+      expect(canAccessWorkspace(factoryManager, 'production', '/production')).toBe(true);
+      expect(
+        canAccessWorkspace(factoryManager, 'production', '/production/mobile/tasks'),
+      ).toBe(false);
+      expect(
+        canAccessWorkspace(factoryManager, 'production', '/production/costing'),
+      ).toBe(false);
+      expect(canAccessWorkspace(factoryManager, 'finance', '/finance')).toBe(false);
+    });
+
+    it('denies FACTORY_MANAGER production mobile without production grants', () => {
+      expect(
+        canAccessWorkspace(
+          { role: 'FACTORY_MANAGER', allowedResources: [] },
+          'production',
+          '/production/mobile',
+        ),
+      ).toBe(false);
+    });
+
     it('denies Sales users from hrd workspace', () => {
       const salesUser = { role: 'SALES' };
       expect(canAccessWorkspace(salesUser, 'hrd')).toBe(false);
