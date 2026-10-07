@@ -13,7 +13,11 @@ import {
     isDowntimeCritical,
 } from '@/lib/production/alert-thresholds';
 import { isMobileSupervisorOperator } from '@/lib/mobile/mobile-access-policy';
-import { MobileInsightCard, MobileSectionHeader } from '@/components/mobile';
+import {
+    MobileDataFreshness,
+    MobileInsightCard,
+    MobileSectionHeader,
+} from '@/components/mobile';
 
 export default async function ProductionMobilePage() {
     const session = await auth();
@@ -80,6 +84,7 @@ export default async function ProductionMobilePage() {
             </div>
 
             <MobileSectionHeader title="Pulse Shift Hari Ini" level={1} />
+            <MobileDataFreshness generatedAt={overview.generatedAt} />
 
             <div className="grid grid-cols-2 gap-3">
                 <MobileInsightCard

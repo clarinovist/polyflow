@@ -120,14 +120,14 @@ export function MobilePortalBottomNav({
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-[11px] font-medium',
+                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-[10px] font-medium min-[360px]:text-[11px]',
                             active
                                 ? config.activeClass
                                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400',
                         )}
                     >
                         <item.icon aria-hidden="true" className="h-5 w-5" />
-                        <span>{item.label}</span>
+                        <span className="max-w-full truncate">{item.label}</span>
                     </Link>
                 );
             })}

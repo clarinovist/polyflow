@@ -86,7 +86,7 @@ export function MobileInsightCard({ insight, className }: MobileInsightCardProps
 
     if (insight.href) {
         return (
-            <Link href={insight.href} className="block">
+            <Link href={insight.href} className="block min-h-11">
                 {content}
             </Link>
         );

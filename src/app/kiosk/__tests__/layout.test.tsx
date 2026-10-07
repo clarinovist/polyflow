@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { mockRedirect, mockGetActiveExecutions, mockHasWorkspaceEntitlement } =
@@ -56,6 +58,17 @@ describe('KioskLayout guard', () => {
         await KioskLayout({ children: null });
 
         expect(mockRedirect).not.toHaveBeenCalledWith('/login');
+    });
+
+    it('keeps the kiosk focus shell without supervisor bottom navigation', () => {
+        const source = readFileSync(
+            join(process.cwd(), 'src/app/kiosk/layout.tsx'),
+            'utf8',
+        );
+        expect(source).toContain('KioskIdleShell');
+        expect(source).not.toContain('MobilePortalBottomNav');
+        expect(source).not.toContain('WarehouseBottomNav');
+        expect(source).not.toContain('FieldBottomNav');
     });
 
     it('still enforces the production entitlement gate', async () => {

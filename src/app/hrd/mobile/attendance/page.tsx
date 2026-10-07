@@ -1,6 +1,6 @@
 import React from 'react';
 import { getHrdMobileTeamAttendance, type HrdMobileTeamAttendanceFilters } from '@/actions/hrd/mobile-dashboard';
-import { MobileSectionHeader } from '@/components/mobile';
+import { MobileDataFreshness, MobileSectionHeader } from '@/components/mobile';
 import { HrdAttendanceClient } from './attendance-client';
 
 type SearchParams = {
@@ -29,6 +29,7 @@ export default async function HrdAttendancePage({
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Rekap Absensi Karyawan" level={1} />
+            {data && <MobileDataFreshness generatedAt={data.generatedAt} />}
             <p className="text-xs text-slate-500">
                 View-only HRD — filter tanggal, shift, status. Koreksi tetap via
                 desktop HRD.

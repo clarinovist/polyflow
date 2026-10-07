@@ -74,6 +74,7 @@ describe('mobile portal bottom navigation safety', () => {
             );
             const main = screen.getByRole('main');
             expect(main.id).toBe(mainId);
+            expect(main.getAttribute('tabindex')).toBe('-1');
             const nav = screen.getByRole('navigation', { name: navLabel });
             expect(nav.className).toContain(
                 'pb-[calc(0.5rem+env(safe-area-inset-bottom))]',
@@ -93,6 +94,25 @@ describe('mobile portal bottom navigation safety', () => {
             expect(screen.getByRole('button', { name: 'Aksi terakhir' })).toBeTruthy();
         },
     );
+
+    it('keeps Production Insight and Maintenance discoverable', async () => {
+        pathname = '/production/mobile';
+        render(
+            await ProductionMobileLayout({
+                children: <p>Halaman produksi</p>,
+            }),
+        );
+
+        const nav = screen.getByRole('navigation', {
+            name: 'Navigasi produksi mobile',
+        });
+        expect(
+            screen.getByRole('link', { name: 'Insight' }).closest('nav'),
+        ).toBe(nav);
+        expect(
+            screen.getByRole('link', { name: 'Maintenance' }).closest('nav'),
+        ).toBe(nav);
+    });
 
     it.each([
         ['/production/mobile/tasks/new', '/production/mobile/tasks'],

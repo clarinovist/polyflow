@@ -1,16 +1,21 @@
 import React from 'react';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getHrdMobileOverview } from '@/actions/hrd/mobile-dashboard';
-import { MobileSectionHeader, MobileInsightCard } from '@/components/mobile';
+import {
+    MobileDataFreshness,
+    MobileSectionHeader,
+    MobileInsightCard,
+} from '@/components/mobile';
 
 export default async function HrdInsightsPage() {
     const response = await getHrdMobileOverview();
     if (!response.success) return <MobileReadError title="Insight HRD belum tersedia" />;
-    const { highlights } = response.data;
+    const { highlights, generatedAt } = response.data;
 
     return (
         <div className="space-y-6">
             <MobileSectionHeader title="HRD Insights" level={1} />
+            <MobileDataFreshness generatedAt={generatedAt} />
 
             <div className="grid grid-cols-1 gap-3">
                 <MobileInsightCard

@@ -1,7 +1,11 @@
 import React from 'react';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getPurchasingMobileOverview } from '@/actions/purchasing/mobile-dashboard';
-import { MobileInsightCard, MobileSectionHeader } from '@/components/mobile';
+import {
+    MobileDataFreshness,
+    MobileInsightCard,
+    MobileSectionHeader,
+} from '@/components/mobile';
 
 export default async function PurchasingMobilePage() {
     const response = await getPurchasingMobileOverview();
@@ -12,6 +16,7 @@ export default async function PurchasingMobilePage() {
     return (
         <div className="space-y-6">
             <MobileSectionHeader title="Purchasing Pulse Hari Ini" level={1} />
+            <MobileDataFreshness generatedAt={overview.generatedAt} />
 
             <div className="grid grid-cols-2 gap-3">
                 <MobileInsightCard

@@ -20,11 +20,11 @@ describe('FieldBottomNav', () => {
         const links = screen.getAllByRole('link');
         expect(links).toHaveLength(6);
         for (const link of links) expect(link.className).toContain('min-h-12');
-        expect(
-            screen.getByRole('link', { name: 'Order' }).getAttribute(
-                'aria-current',
-            ),
-        ).toBe('page');
+        const currentLinks = links.filter(
+            (link) => link.getAttribute('aria-current') === 'page',
+        );
+        expect(currentLinks).toHaveLength(1);
+        expect(currentLinks[0]).toBe(screen.getByRole('link', { name: 'Order' }));
         expect(screen.getByText('3')).toBeTruthy();
     });
 });

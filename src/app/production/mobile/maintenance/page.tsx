@@ -94,10 +94,7 @@ export default async function MobileMaintenancePage({
                     variant={!closed ? 'default' : 'outline'}
                     className={!closed ? 'min-h-11 flex-1 bg-emerald-700 hover:bg-emerald-800' : 'min-h-11 flex-1'}
                 >
-                    <Link
-                        href="/production/mobile/maintenance"
-                        aria-current={!closed ? 'page' : undefined}
-                    >
+                    <Link href="/production/mobile/maintenance">
                         <Wrench className="h-4 w-4" /> Terbuka
                     </Link>
                 </Button>
@@ -106,10 +103,7 @@ export default async function MobileMaintenancePage({
                     variant={closed ? 'default' : 'outline'}
                     className={closed ? 'min-h-11 flex-1 bg-emerald-700 hover:bg-emerald-800' : 'min-h-11 flex-1'}
                 >
-                    <Link
-                        href="/production/mobile/maintenance?view=history"
-                        aria-current={closed ? 'page' : undefined}
-                    >
+                    <Link href="/production/mobile/maintenance?view=history">
                         <History className="h-4 w-4" /> Riwayat
                     </Link>
                 </Button>
@@ -117,7 +111,6 @@ export default async function MobileMaintenancePage({
 
             <MobileSectionHeader
                 title={closed ? 'Riwayat pekerjaan' : 'Antrean aktif'}
-                level={1}
                 className="px-0"
             />
 
@@ -196,8 +189,11 @@ export default async function MobileMaintenancePage({
                 <Button asChild variant="outline" className="min-h-11 w-full">
                     <Link
                         href={
-                            '/production/maintenance?' +
-                            (closed ? 'queue=CLOSED' : 'queue=ACTIVE')
+                            '/device/desktop-required?from=' +
+                            encodeURIComponent(
+                                '/production/maintenance?' +
+                                    (closed ? 'queue=CLOSED' : 'queue=ACTIVE'),
+                            )
                         }
                     >
                         Lihat semua {total} laporan

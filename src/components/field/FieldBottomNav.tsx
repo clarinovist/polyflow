@@ -96,7 +96,7 @@ export function FieldBottomNav({ permissions, badges }: FieldBottomNavProps) {
                             href={tab.href}
                             aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'relative flex min-h-12 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
+                                'relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] transition-colors min-[360px]:text-xs',
                                 isActive
                                     ? 'text-primary font-medium'
                                     : 'text-muted-foreground active:text-primary',
@@ -110,7 +110,7 @@ export function FieldBottomNav({ permissions, badges }: FieldBottomNavProps) {
                                     </span>
                                 )}
                             </span>
-                            <span>{tab.label}</span>
+                            <span className="max-w-full truncate">{tab.label}</span>
                         </Link>
                     );
                 })}

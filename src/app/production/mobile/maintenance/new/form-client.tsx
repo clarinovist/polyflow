@@ -475,10 +475,13 @@ export function MaintenanceForm({
             </Button>
             {canManageSpareParts && (
                 <Link
-                    href="/production/maintenance/stock"
+                    href={
+                        '/device/desktop-required?from=' +
+                        encodeURIComponent('/production/maintenance/stock')
+                    }
                     className="flex min-h-11 items-center justify-center text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
                 >
-                    Kelola stok spare part
+                    Kelola stok spare part di desktop
                 </Link>
             )}
         </form>

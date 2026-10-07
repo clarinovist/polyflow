@@ -44,7 +44,7 @@ export function MobileTaskCard({
         <Link
             href={href}
             className={cn(
-                'flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/30 active:scale-[0.98] transition-all',
+                'flex min-h-11 items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/30 active:scale-[0.98]',
                 className,
             )}
         >

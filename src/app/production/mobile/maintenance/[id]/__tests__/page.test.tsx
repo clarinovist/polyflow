@@ -76,6 +76,7 @@ describe('mobile maintenance detail route', () => {
         );
 
         expect(getMaintenanceDetail).toHaveBeenCalledWith('mt-1');
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
         expect(screen.getByRole('heading', { name: 'MC-01 · Mesin Satu' })).toBeTruthy();
         expect(screen.getByText('Siap dikerjakan')).toBeTruthy();
         expect(screen.getByText('Action panel APPROVED read-only')).toBeTruthy();

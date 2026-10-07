@@ -1,5 +1,5 @@
 import { getFinanceMobileOverview } from '@/actions/finance/mobile-dashboard';
-import { MobileSectionHeader } from '@/components/mobile';
+import { MobileDataFreshness, MobileSectionHeader } from '@/components/mobile';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { formatRupiah } from '@/lib/utils/utils';
 import { formatWIB } from '@/lib/utils/timezone';
@@ -7,10 +7,11 @@ import { formatWIB } from '@/lib/utils/timezone';
 export default async function FinanceTasksPage() {
     const response = await getFinanceMobileOverview();
     if (!response.success) return <MobileReadError title="Daftar faktur belum tersedia" />;
-    const { recentInvoices } = response.data;
+    const { generatedAt, recentInvoices } = response.data;
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Faktur Jatuh Tempo" level={1} />
+            <MobileDataFreshness generatedAt={generatedAt} />
             <p className="text-sm text-muted-foreground">Maksimal 10 piutang dan 10 hutang dengan jatuh tempo paling awal. Ringkasan total mencakup semua faktur overdue. Pembayaran dan jurnal tetap melalui desktop finance.</p>
             {!recentInvoices.length ? <p className="py-4 text-sm">Tidak ada faktur overdue saat ini.</p> : (
                 <div className="space-y-3">

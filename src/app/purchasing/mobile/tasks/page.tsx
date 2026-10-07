@@ -1,15 +1,16 @@
 import { getPurchasingMobileOverview } from '@/actions/purchasing/mobile-dashboard';
-import { MobileSectionHeader } from '@/components/mobile';
+import { MobileDataFreshness, MobileSectionHeader } from '@/components/mobile';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { formatRupiah } from '@/lib/utils/utils';
 
 export default async function PurchasingTasksPage() {
     const response = await getPurchasingMobileOverview();
     if (!response.success) return <MobileReadError title="Daftar PO belum tersedia" />;
-    const { recentOrders } = response.data;
+    const { generatedAt, recentOrders } = response.data;
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Purchase Order Terbaru" level={1} />
+            <MobileDataFreshness generatedAt={generatedAt} />
             <p className="text-sm text-muted-foreground">Maksimal 10 PO yang terakhir diperbarui, termasuk yang sudah selesai. Perubahan dan persetujuan tetap melalui desktop purchasing.</p>
             {!recentOrders.length ? <p className="py-4 text-sm">Belum ada PO.</p> : recentOrders.map((po) => (
                 <article key={po.id} className="space-y-2 rounded-xl border bg-card p-4 [overflow-wrap:anywhere]">

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { getMobileTeamAttendance } from '@/actions/production/mobile-supervisor';
-import { MobileSectionHeader } from '@/components/mobile';
+import { MobileDataFreshness, MobileSectionHeader } from '@/components/mobile';
 import { AttendanceClient } from './attendance-client';
 
 type SearchParams = {
@@ -32,6 +32,7 @@ export default async function ProductionAttendancePage({
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Absensi Produksi Hari Ini" level={1} />
+            {data && <MobileDataFreshness generatedAt={data.generatedAt} />}
             <p className="text-xs text-slate-500">
                 View-only. Supervisor melihat jam masuk, jam pulang, status, dan
                 indikator terlambat. Koreksi absensi tetap via HRD desktop.

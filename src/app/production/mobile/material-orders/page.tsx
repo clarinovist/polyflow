@@ -18,7 +18,7 @@ export default async function MobileMaterialOrdersPage() {
       </div>
       <p className="text-sm text-muted-foreground">Antrean PENDING semua divisi. Klik untuk Setujui/Tolak 1 layar.</p>
       {rows.map((r) => (
-        <Link key={r.id} href={'/production/material-orders/' + r.id} className="block rounded-xl border bg-card p-4">
+        <Link key={r.id} href={'/device/desktop-required?from=' + encodeURIComponent('/production/material-orders/' + r.id)} className="block rounded-xl border bg-card p-4">
           <div className="font-semibold">{r.orderNumber} · {r.orderType}</div>
           <div className="text-sm">Status: {r.status} · {r.itemCount} item</div>
         </Link>

@@ -57,11 +57,11 @@ export function MaterialOrderForm({ data }: { data: { boms: BomOption[]; materia
       const submitted = await submitMaterialOrder(created.data.id);
       if (!submitted.success) {
         toast.error(submitted.error || 'Order dibuat tapi gagal submit');
-        router.push('/production/material-orders/' + created.data.id);
+        router.push('/device/desktop-required?from=' + encodeURIComponent('/production/material-orders/' + created.data.id));
         return;
       }
       toast.success('Terkirim ke Kepala Pabrik — ' + created.data.orderNumber);
-      router.push('/production/material-orders/' + created.data.id);
+      router.push('/device/desktop-required?from=' + encodeURIComponent('/production/material-orders/' + created.data.id));
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal mengirim order');

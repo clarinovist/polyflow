@@ -65,6 +65,7 @@ describe('mobile maintenance queue', () => {
         expect(
             screen.getByRole('link', { name: /MC-01/ }).getAttribute('href'),
         ).toBe('/production/mobile/maintenance/mt-1');
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     });
 
     it('loads closed work when the history tab is selected', async () => {
@@ -78,9 +79,7 @@ describe('mobile maintenance queue', () => {
             page: 1,
         });
         expect(
-            screen
-                .getByRole('link', { name: /Riwayat/ })
-                .getAttribute('aria-current'),
-        ).toBe('page');
+            screen.getByRole('link', { name: /Riwayat/ }).getAttribute('href'),
+        ).toBe('/production/mobile/maintenance?view=history');
     });
 });

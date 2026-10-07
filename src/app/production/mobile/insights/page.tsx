@@ -7,7 +7,11 @@ import {
     isDowntimeCritical,
     isScrapQuantityCritical,
 } from '@/lib/production/alert-thresholds';
-import { MobileSectionHeader, MobileInsightCard } from '@/components/mobile';
+import {
+    MobileDataFreshness,
+    MobileSectionHeader,
+    MobileInsightCard,
+} from '@/components/mobile';
 
 export default async function ProductionInsightsPage() {
     const [overviewRes, thresholdsRes] = await Promise.all([
@@ -33,6 +37,7 @@ export default async function ProductionInsightsPage() {
     return (
         <div className="space-y-6">
             <MobileSectionHeader title="Insight & KPI Produksi" level={1} />
+            <MobileDataFreshness generatedAt={overview.generatedAt} />
 
             <div className="grid grid-cols-1 gap-3">
                 <MobileInsightCard

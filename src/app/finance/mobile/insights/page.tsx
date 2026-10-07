@@ -1,16 +1,21 @@
 import React from 'react';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getFinanceMobileOverview } from '@/actions/finance/mobile-dashboard';
-import { MobileSectionHeader, MobileInsightCard } from '@/components/mobile';
+import {
+    MobileDataFreshness,
+    MobileSectionHeader,
+    MobileInsightCard,
+} from '@/components/mobile';
 
 export default async function FinanceInsightsPage() {
     const response = await getFinanceMobileOverview();
     if (!response.success) return <MobileReadError title="Insight finance belum tersedia" />;
-    const { highlights } = response.data;
+    const { highlights, generatedAt } = response.data;
 
     return (
         <div className="space-y-6">
             <MobileSectionHeader title="Finance Insights" level={1} />
+            <MobileDataFreshness generatedAt={generatedAt} />
 
             <div className="grid grid-cols-1 gap-3">
                 <MobileInsightCard

@@ -33,7 +33,12 @@ export default async function WarehouseMobileIncomingDetailPage({
 
     if (!po) {
         const receipt = await getGoodsReceipt(id);
-        if (receipt) redirect(`/warehouse/incoming/${id}`);
+        if (receipt) {
+            redirect(
+                '/device/desktop-required?from=' +
+                    encodeURIComponent(`/warehouse/incoming/${id}`),
+            );
+        }
         notFound();
     }
 

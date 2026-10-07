@@ -10,7 +10,9 @@ describe('live mobile connectivity', () => {
         render(<LiveMobileConnectivity />);
         expect(screen.queryByText('Tidak ada koneksi internet')).toBeNull();
         act(() => window.dispatchEvent(new Event('offline')));
-        expect(screen.getByText('Tidak ada koneksi internet')).toBeTruthy();
+        expect(screen.getByRole('status').textContent).toContain(
+            'Tidak ada koneksi internet',
+        );
         expect(screen.queryByText(/Terakhir diperbarui/)).toBeNull();
         act(() => window.dispatchEvent(new Event('online')));
         expect(screen.queryByText('Tidak ada koneksi internet')).toBeNull();
