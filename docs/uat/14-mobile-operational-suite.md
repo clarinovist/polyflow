@@ -102,7 +102,7 @@ akses desktop selama masa berlakunya; bypass bukan portal dan bukan grant capabi
 | R8 | PROCUREMENT | Candidate Purchasing Mobile `/purchasing/mobile` bila PURCHASING dan resource lolos. |
 | R9 | FINANCE | Candidate Finance Mobile `/finance/mobile` bila FINANCE dan resource lolos. |
 | R10 | HRD | Candidate HRD Mobile `/hrd/mobile` bila HRD dan resource lolos. |
-| R11 | FACTORY_MANAGER | Candidate Monitor Kepala Pabrik `/production/mobile` bila PRODUCTION dan resource Production lolos. Executive overview action CURRENT membutuhkan resource `/production/daily`, `/warehouse/inventory`, `/purchasing/orders`, dan `/hrd/attendance`; tanpa set lengkap tampil safe read failure, bukan data parsial palsu. Tidak mendapat quick-SPK/costing. |
+| R11 | FACTORY_MANAGER | Candidate Monitor Kepala Pabrik `/production/mobile` bila PRODUCTION dan resource Production lolos. Executive overview action CURRENT membutuhkan resource `/production/daily`, `/warehouse/inventory`, `/purchasing/requests`, dan `/purchasing/orders`; tanpa set lengkap tampil safe read failure, bukan data parsial palsu. Tidak mendapat quick-SPK/costing. |
 | R12 | FINANCE + HRD | Selector berisi Finance dan HRD bila kedua module/resource lolos. Akses satu portal tidak boleh menyiratkan akses portal lain. |
 | R13 | SALES + WAREHOUSE | Selector berisi Sales Field + Gudang bila kedua kontrak lolos. |
 | R14 | PRODUCTION + PLANNING | Selector dapat berisi Kiosk + Supervisor Produksi + Purchasing sesuai module/resource. |
