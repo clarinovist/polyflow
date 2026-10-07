@@ -52,6 +52,31 @@ describe('mobile-portal-registry', () => {
             });
         });
 
+        it('registers Admin Mobile as an opt-in beta with read-only navigation', () => {
+            expect(getMobilePortalById('admin')).toMatchObject({
+                path: '/mobile/admin',
+                status: 'BETA',
+                roles: ['ADMIN'],
+                roleMatch: 'ANY',
+                rolloutKey: 'mobile.portal.admin.enabled',
+                adminAccess: 'READ_ONLY',
+                capabilities: [],
+                dataDependencies: expect.arrayContaining([
+                    { moduleKey: 'PRODUCTION', permissionRoots: ['/production'], match: 'ANY' },
+                    { moduleKey: 'INVENTORY', permissionRoots: ['/warehouse/inventory'], match: 'ANY' },
+                    { moduleKey: 'PURCHASING', permissionRoots: ['/purchasing'], match: 'ANY' },
+                    { moduleKey: 'FINANCE', permissionRoots: ['/finance'], match: 'ANY' },
+                    { moduleKey: 'HRD', permissionRoots: ['/hrd'], match: 'ANY' },
+                ]),
+            });
+            expect(getMobilePortalById('admin')?.navigation.map((item) => item.path)).toEqual([
+                '/mobile/admin',
+                '/mobile/admin/attention',
+                '/mobile/admin/insights',
+                '/mobile',
+            ]);
+        });
+
         it('keeps planned portals detached from rollout until their implementation batch', () => {
             expect(getMobilePortalById('maklon')?.rolloutKey).toBeUndefined();
         });
@@ -133,6 +158,8 @@ describe('mobile-portal-registry', () => {
             ['/purchasing/mobile', true],
             ['/finance/mobile', true],
             ['/hrd/mobile', true],
+            ['/mobile/admin', true],
+            ['/mobile/admin/attention', true],
             ['/maklon/mobile', true],
             ['/sales/mobile/orders', true],
             ['/dashboard', false],

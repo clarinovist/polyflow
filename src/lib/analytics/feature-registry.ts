@@ -711,6 +711,13 @@ const FEATURE_REGISTRY: FeatureDefinition[] = [
 
     // ─── MOBILE PORTALS (P0: operator & lapangan) ──
     {
+        featureKey: 'dashboard.mobile_admin',
+        moduleKey: 'dashboard',
+        label: 'Admin Mobile Command Center',
+        pattern: /^\/mobile\/admin(?:\/.*)?$/,
+        priority: 100,
+    },
+    {
         featureKey: 'finance.mobile.tasks',
         moduleKey: 'finance',
         label: 'Tugas Mobile Finance',

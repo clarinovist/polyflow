@@ -15,6 +15,7 @@ vi.mock('@/lib/core/tenant', () => ({
 }));
 vi.mock('@/lib/core/prisma', () => ({
     getTenantDbFromContext: () => mocks.tenantDb,
+    getEntitlementsFromContext: () => undefined,
 }));
 vi.mock('@/actions/admin/permissions', () => ({
     getMyPermissions: mocks.permissions,
@@ -73,12 +74,35 @@ describe('mobile portal server guard', () => {
         });
     });
 
-    it('keeps rollout lookup empty for existing ACTIVE portals', async () => {
+    it('reads only rollout keys declared by beta portals', async () => {
         await requireMobilePortalAccess('finance');
         expect(mocks.rollouts).toHaveBeenCalledWith(
-            [],
+            ['mobile.portal.admin.enabled'],
             mocks.tenantDb.appSetting,
         );
+    });
+
+    it('enforces Admin Mobile rollout on direct access', async () => {
+        mocks.auth.mockResolvedValue({ user: { id: 'admin-1', role: 'ADMIN' } });
+        mocks.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+        mocks.modules.mockResolvedValue(['CORE', 'FINANCE']);
+        mocks.rollouts.mockResolvedValue({
+            'mobile.portal.admin.enabled': true,
+        });
+        await expect(requireMobilePortalAccess('admin')).resolves.toMatchObject({
+            portal: { id: 'admin' },
+            activeModules: ['CORE', 'FINANCE'],
+            permissions: 'ALL',
+        });
+        mocks.rollouts.mockResolvedValue({
+            'mobile.portal.admin.enabled': false,
+        });
+        await expect(requireMobilePortalAccess('admin')).rejects.toMatchObject({ reason: 'ROLLOUT' });
+    });
+
+    it('denies a non-admin direct Admin Mobile request', async () => {
+        mocks.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': true });
+        await expect(requireMobilePortalAccess('admin')).rejects.toMatchObject({ reason: 'ROLE' });
     });
 
     it('reports missing capability as false for server-rendered UI', async () => {
@@ -135,18 +159,29 @@ describe('mobile portal server guard', () => {
             },
         });
         await expect(requireMobilePortalAccess('finance')).rejects.toMatchObject({
-            reason: 'ROLE',
+            reason: 'DESKTOP_ONLY',
         });
     });
 
-    it('keeps Super Admin desktop-only', async () => {
+    it('keeps Super Admin desktop-only, including the Admin Mobile route', async () => {
         mocks.auth.mockResolvedValue({
             user: { id: 'super', isSuperAdmin: true },
         });
-        await expect(requireMobilePortalAccess('finance')).rejects.toEqual(
+        mocks.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': true });
+        await expect(requireMobilePortalAccess('admin')).rejects.toEqual(
             expect.objectContaining({
-                reason: 'ROLE',
+                reason: 'DESKTOP_ONLY',
             } satisfies Partial<MobilePortalAccessError>),
         );
+    });
+
+    it('keeps impersonation out of the Admin Mobile route', async () => {
+        mocks.auth.mockResolvedValue({
+            user: { id: 'tenant-admin', role: 'ADMIN', impersonatedBy: 'super-admin' },
+        });
+        mocks.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+        mocks.modules.mockResolvedValue(['CORE']);
+        mocks.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': true });
+        await expect(requireMobilePortalAccess('admin')).rejects.toMatchObject({ reason: 'DESKTOP_ONLY' });
     });
 });

@@ -19,23 +19,16 @@ export type MobileTaskEventType =
 export interface MobileTaskEventMetadata {
     portalId?: string;
     taskType?: string;
-    durationMs?: number;
-    online?: boolean;
-    retryCount?: number;
-    resultCategory?: string;
+    outcome?: string;
+    duration?: number;
 }
 
-/**
- * Sanitize metadata to ensure no sensitive data is sent.
- * Only allows known safe fields.
- */
+/** Only these non-business dimensions may leave a mobile task surface. */
 const ALLOWED_METADATA_KEYS = new Set([
     'portalId',
     'taskType',
-    'durationMs',
-    'online',
-    'retryCount',
-    'resultCategory',
+    'outcome',
+    'duration',
 ]);
 
 function sanitizeMetadata(
@@ -68,11 +61,7 @@ export async function trackMobileTaskEvent(
                 pathname,
                 eventType,
                 source: 'MOBILE_WEB',
-                metadata: {
-                    ...sanitized,
-                    eventType,
-                    source: 'MOBILE_WEB',
-                },
+                metadata: sanitized,
             }),
         });
     } catch {
@@ -83,15 +72,25 @@ export async function trackMobileTaskEvent(
 /**
  * Track task started.
  */
-export function trackTaskStarted(
+export async function trackTaskStarted(
     pathname: string,
     portalId: string,
     taskType: string,
 ): Promise<void> {
-    return trackMobileTaskEvent('MOBILE_TASK_STARTED', pathname, {
-        portalId,
-        taskType,
-    });
+    try {
+        await fetch('/api/analytics/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pathname,
+                eventType: 'MOBILE_TASK_STARTED',
+                source: 'MOBILE_WEB',
+                metadata: { portalId, taskType },
+            }),
+        });
+    } catch {
+        // Telemetry must never interrupt navigation.
+    }
 }
 
 /**
@@ -101,13 +100,13 @@ export function trackTaskCompleted(
     pathname: string,
     portalId: string,
     taskType: string,
-    durationMs: number,
+    duration: number,
 ): Promise<void> {
     return trackMobileTaskEvent('MOBILE_TASK_COMPLETED', pathname, {
         portalId,
         taskType,
-        durationMs,
-        resultCategory: 'SUCCESS',
+        duration,
+        outcome: 'SUCCESS',
     });
 }
 
@@ -123,6 +122,6 @@ export function trackTaskFailed(
     return trackMobileTaskEvent('MOBILE_TASK_FAILED', pathname, {
         portalId,
         taskType,
-        resultCategory: errorCategory,
+        outcome: errorCategory,
     });
 }

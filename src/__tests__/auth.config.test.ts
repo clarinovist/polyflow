@@ -344,6 +344,38 @@ describe('auth.config', () => {
             );
         });
 
+        it('should route tenant ADMIN mobile login through the verified selector', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const { getWorkspaceFromPath } = await import(
+                '@/lib/auth/access-policy'
+            );
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+            vi.mocked(getWorkspaceFromPath).mockReturnValue(null);
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                await authorizedCallback({
+                    auth: { user: { role: 'ADMIN' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/login'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (Linux; Android 10)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).toHaveBeenCalled();
+                const redirectUrl = mockRedirect.mock.calls[0][0];
+                expect(redirectUrl.pathname).toBe('/mobile');
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
         it('should redirect to login when accessing tenant workspace without auth', async () => {
             // Arrange
             const { authConfig } = await import('@/auth.config');
@@ -391,6 +423,37 @@ describe('auth.config', () => {
                 } as any);
 
                 // Resolve current permissions and modules at the server selector.
+                expect(mockRedirect).toHaveBeenCalled();
+                const redirectUrl = mockRedirect.mock.calls[0][0];
+                expect(redirectUrl.pathname).toBe('/mobile');
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
+        it('should soft-land tenant ADMIN on mobile /dashboard to the verified selector', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const { getWorkspaceFromPath } = await import('@/lib/auth/access-policy');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            vi.mocked(getWorkspaceFromPath).mockReturnValue('dashboard');
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                await authorizedCallback({
+                    auth: { user: { role: 'ADMIN' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/dashboard'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X)'],
+                        ]),
+                    },
+                } as any);
+
                 expect(mockRedirect).toHaveBeenCalled();
                 const redirectUrl = mockRedirect.mock.calls[0][0];
                 expect(redirectUrl.pathname).toBe('/mobile');
@@ -734,6 +797,33 @@ describe('auth.config', () => {
         });
 
         // === Mobile operational API gate ===
+
+        it('should allow mobile task telemetry API from an authenticated mobile portal', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                const result = await authorizedCallback({
+                    auth: { user: { role: 'ADMIN' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/api/analytics/track'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (Linux; Android 10)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).not.toHaveBeenCalled();
+                expect(result).toBe(true);
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
 
         it('should allow mobile user on /api/upload/attendance-photo (operational API)', async () => {
             const { authConfig } = await import('@/auth.config');

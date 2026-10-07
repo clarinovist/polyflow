@@ -1,4 +1,4 @@
-import { hasRole, hasAnyRole } from '@/lib/auth/roles';
+import { getUserRoles, hasRole, hasAnyRole } from '@/lib/auth/roles';
 import {
     MOBILE_PORTAL_REGISTRY,
     MOBILE_ROUTE_ALIASES,
@@ -94,6 +94,7 @@ export function shouldSoftLandDashboard(pathname: string): boolean {
 // blocked.
 // ---------------------------------------------------------------------------
 const MOBILE_OPERATIONAL_API_PATHS = [
+    '/api/analytics/track',
     '/api/upload/attendance-photo',
     '/api/upload/production-photo',
     '/api/upload/warehouse-attachment',
@@ -105,7 +106,7 @@ export function isMobileOperationalApiPath(pathname: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Bypass — only ADMIN (or superadmin / impersonation) may bypass mobile gate
+// Bypass — tenant ADMIN only; Super Admin and impersonation remain desktop-only
 // ---------------------------------------------------------------------------
 export function isMobileBypassAllowed(
     user:
@@ -113,12 +114,12 @@ export function isMobileBypassAllowed(
               role?: string;
               roles?: string[];
               isSuperAdmin?: boolean;
+              impersonatedBy?: string;
           }
         | null
         | undefined,
 ): boolean {
-    if (!user) return false;
-    if (user.isSuperAdmin) return true;
+    if (!user || user.isSuperAdmin || user.impersonatedBy) return false;
     return hasRole(user, 'ADMIN');
 }
 
@@ -136,13 +137,27 @@ export function getAvailableMobilePortals(
     access?: Omit<MobilePortalDecisionContext, 'user'>,
 ): MobilePortalInfo[] {
     if (access) return resolveAvailableMobilePortals({ user, ...access });
-    if (!user || user.isSuperAdmin || hasRole(user, 'ADMIN')) return [];
+    if (
+        !user ||
+        user.isSuperAdmin ||
+        !!(user as { impersonatedBy?: string }).impersonatedBy
+    ) {
+        return [];
+    }
 
-    const roles = [user.role, ...(user.roles ?? [])]
-        .filter(Boolean)
-        .map((role) => String(role).toUpperCase());
+    const roles = getUserRoles(user);
+    const isAdmin = roles.includes('ADMIN');
     return MOBILE_PORTAL_REGISTRY.flatMap((portal) => {
         if (portal.status === 'PLANNED') return [];
+        // Role-only discovery is only an optimistic candidate list. Tenant
+        // rollout/module/resource checks still run in the selector and route
+        // guards. ADMIN receives only explicitly declared admin portal entries.
+        if (
+            isAdmin &&
+            (!portal.roles.includes('ADMIN') || portal.adminAccess === 'NONE')
+        ) {
+            return [];
+        }
         if (portal.id === 'sales-field' && roles.includes('MARKETING')) {
             return [];
         }
@@ -168,6 +183,8 @@ export function getMobileHomeForUser(
         | {
               role?: string;
               roles?: string[];
+              isSuperAdmin?: boolean;
+              impersonatedBy?: string;
           }
         | null
         | undefined,
@@ -187,6 +204,8 @@ export function getMobileHomeCtaKey(
         | {
               role?: string;
               roles?: string[];
+              isSuperAdmin?: boolean;
+              impersonatedBy?: string;
           }
         | null
         | undefined,

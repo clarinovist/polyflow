@@ -101,6 +101,40 @@ describe('mobile portal decision resolver', () => {
         ).toEqual({ allowed: false, reason: 'PLANNED' });
     });
 
+    it('allows only ADMIN with the tenant rollout into Admin Mobile', () => {
+        const allowed = getMobilePortalDecision(portal('admin'), {
+            user: { role: 'ADMIN' },
+            activeModules: ['CORE'],
+            permissions: 'ALL',
+            rollout: { 'mobile.portal.admin.enabled': true },
+        });
+        expect(allowed.allowed).toBe(true);
+        expect(
+            getMobilePortalDecision(portal('admin'), {
+                user: { role: 'ADMIN' },
+                activeModules: ['CORE'],
+                permissions: 'ALL',
+                rollout: { 'mobile.portal.admin.enabled': false },
+            }),
+        ).toEqual({ allowed: false, reason: 'ROLLOUT' });
+        expect(
+            getMobilePortalDecision(portal('admin'), {
+                user: { role: 'FINANCE' },
+                activeModules: ['CORE'],
+                permissions: ['/dashboard'],
+                rollout: { 'mobile.portal.admin.enabled': true },
+            }),
+        ).toEqual({ allowed: false, reason: 'ROLE' });
+        expect(
+            getMobilePortalDecision(portal('admin'), {
+                user: { role: 'ADMIN', isSuperAdmin: true },
+                activeModules: ['CORE'],
+                permissions: 'ALL',
+                rollout: { 'mobile.portal.admin.enabled': true },
+            }),
+        ).toEqual({ allowed: false, reason: 'DESKTOP_ONLY' });
+    });
+
     it('allows ADMIN preview only when the portal declares admin access and fresh context exists', () => {
         expect(
             getMobilePortalDecision(portal('production-supervisor'), {

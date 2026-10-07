@@ -12,11 +12,14 @@ import {
     MOBILE_PORTAL_REGISTRY,
     getMobilePortalById,
     type MobileActionCapability,
+    type MobilePortalDependency,
     type MobilePortalId,
 } from '@/lib/mobile/mobile-portal-registry';
 import {
+    getAvailableMobilePortals,
     getMobilePortalDecision,
     type MobilePortalDecision,
+    type MobilePortalInfo,
 } from '@/lib/mobile/mobile-portal-decision';
 import { readMobilePortalRollouts } from '@/services/settings/mobile-portal-rollout-service';
 
@@ -35,6 +38,13 @@ export class MobilePortalAccessError extends AuthorizationError {
 export interface MobilePortalAccess {
     portal: Extract<MobilePortalDecision, { allowed: true }>['portal'];
     capabilities: MobileActionCapability[];
+}
+
+export interface MobilePortalAccessDetails extends MobilePortalAccess {
+    activeModules: Awaited<ReturnType<typeof getActiveModuleKeys>>;
+    permissions: readonly string[] | 'ALL';
+    availablePortals: MobilePortalInfo[];
+    dataDependencies: readonly MobilePortalDependency[];
 }
 
 const readMobilePortalAccessContext = cache(async () => {
@@ -81,35 +91,61 @@ const readMobilePortalAccessContext = cache(async () => {
     };
 });
 
+async function resolveMobilePortalAccessWithContext(
+    portalId: MobilePortalId,
+    capability?: MobileActionCapability,
+) {
+    const definition = getMobilePortalById(portalId);
+    if (!definition) {
+        return { decision: { allowed: false, reason: 'PLANNED' } as const };
+    }
+
+    const accessContext = await readMobilePortalAccessContext();
+    if (!accessContext.success) {
+        return {
+            decision: { allowed: false, reason: accessContext.reason } as const,
+        };
+    }
+    return {
+        decision: getMobilePortalDecision(
+            definition,
+            accessContext.context,
+            capability,
+        ),
+        context: accessContext.context,
+    };
+}
+
 export async function resolveMobilePortalAccess(
     portalId: MobilePortalId,
     capability?: MobileActionCapability,
 ): Promise<MobilePortalDecision> {
-    const definition = getMobilePortalById(portalId);
-    if (!definition) return { allowed: false, reason: 'PLANNED' };
-
-    const accessContext = await readMobilePortalAccessContext();
-    if (!accessContext.success) {
-        return { allowed: false, reason: accessContext.reason };
-    }
-    return getMobilePortalDecision(
-        definition,
-        accessContext.context,
-        capability,
-    );
+    return (await resolveMobilePortalAccessWithContext(portalId, capability))
+        .decision;
 }
 
 export async function requireMobilePortalAccess(
     portalId: MobilePortalId,
     capability?: MobileActionCapability,
-): Promise<MobilePortalAccess> {
-    const decision = await resolveMobilePortalAccess(portalId, capability);
-    if (!decision.allowed) {
-        if (decision.reason === 'NO_SESSION') redirect('/login');
-        throw new MobilePortalAccessError(decision.reason);
+): Promise<MobilePortalAccessDetails> {
+    const resolved = await resolveMobilePortalAccessWithContext(
+        portalId,
+        capability,
+    );
+    if (!resolved.decision.allowed) {
+        if (resolved.decision.reason === 'NO_SESSION') redirect('/login');
+        throw new MobilePortalAccessError(resolved.decision.reason);
     }
+    if (!resolved.context) {
+        throw new MobilePortalAccessError('RESOURCE');
+    }
+
     return {
-        portal: decision.portal,
-        capabilities: decision.capabilities,
+        portal: resolved.decision.portal,
+        capabilities: resolved.decision.capabilities,
+        activeModules: resolved.context.activeModules,
+        permissions: resolved.context.permissions,
+        availablePortals: getAvailableMobilePortals(resolved.context),
+        dataDependencies: getMobilePortalById(portalId)?.dataDependencies ?? [],
     };
 }

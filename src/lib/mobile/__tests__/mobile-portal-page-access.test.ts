@@ -26,6 +26,16 @@ describe('mobile portal page guard', () => {
         ).resolves.toMatchObject({ portal: { id: 'finance' } });
     });
 
+    it('redirects Super Admin and impersonation decisions to desktop-required', async () => {
+        resolveAccess.mockResolvedValue({
+            allowed: false,
+            reason: 'DESKTOP_ONLY',
+        });
+        await expect(requireMobilePortalPageAccess('admin')).rejects.toThrow(
+            'redirect:/device/desktop-required?from=%2Fdashboard',
+        );
+    });
+
     it('redirects denial to the selector without a self-loop', async () => {
         resolveAccess.mockResolvedValue({
             allowed: false,

@@ -59,6 +59,8 @@ describe('mobile-access-policy', () => {
   // ── isMobileOperationalApiPath ─────────────────────────────────────
   describe('isMobileOperationalApiPath', () => {
     it.each([
+      ['/api/analytics/track', true],
+      ['/api/analytics/track/extra', false],
       ['/api/upload/attendance-photo', true],
       ['/api/upload/attendance-photo/extra', false],
       ['/api/upload/production-photo', true],
@@ -99,6 +101,8 @@ describe('mobile-access-policy', () => {
       ['/purchasing/mobile/tasks', true],
       ['/finance/mobile', true],
       ['/hrd/mobile/attendance', true],
+      ['/mobile/admin', true],
+      ['/mobile/admin/attention', true],
       ['/maklon/mobile', false],
       ['/dashboard', false],
       ['/finance', false],
@@ -181,8 +185,14 @@ describe('mobile-access-policy', () => {
       expect(isMobileBypassAllowed({ roles: ['SALES', 'ADMIN'] })).toBe(true);
     });
 
-    it('isSuperAdmin → true', () => {
-      expect(isMobileBypassAllowed({ isSuperAdmin: true })).toBe(true);
+    it('keeps Super Admin and impersonation desktop-only', () => {
+      expect(isMobileBypassAllowed({ isSuperAdmin: true })).toBe(false);
+      expect(
+        isMobileBypassAllowed({
+          role: 'ADMIN',
+          impersonatedBy: 'super-admin',
+        }),
+      ).toBe(false);
     });
 
     it('SALES → false', () => {
@@ -221,8 +231,27 @@ describe('mobile-access-policy', () => {
 
   // ── getAvailableMobilePortals ──────────────────────────────────────
   describe('getAvailableMobilePortals', () => {
-    it('returns empty for ADMIN without ops roles', () => {
-      expect(getAvailableMobilePortals({ role: 'ADMIN' })).toEqual([]);
+    it('returns only the registry-declared Admin portal as an optimistic ADMIN candidate', () => {
+      expect(
+        getAvailableMobilePortals({ role: 'ADMIN' }).map((portal) => portal.id),
+      ).toEqual(['admin']);
+      expect(
+        getAvailableMobilePortals({ roles: ['ADMIN', 'WAREHOUSE'] }).map(
+          (portal) => portal.id,
+        ),
+      ).toEqual(['admin']);
+    });
+
+    it('keeps Super Admin and impersonation out of tenant mobile candidates', () => {
+      expect(
+        getAvailableMobilePortals({ role: 'ADMIN', isSuperAdmin: true }),
+      ).toEqual([]);
+      expect(
+        getAvailableMobilePortals({
+          role: 'ADMIN',
+          impersonatedBy: 'super-admin',
+        }),
+      ).toEqual([]);
     });
 
     it('returns finance portal for FINANCE user', () => {
@@ -264,8 +293,20 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeForUser({ role: 'FINANCE' })).toBe('/mobile');
     });
 
-    it('ADMIN (no specific home) → null', () => {
-      expect(getMobileHomeForUser({ role: 'ADMIN' })).toBeNull();
+    it('ADMIN → /mobile so verified selector/rollout remains the final gate', () => {
+      expect(getMobileHomeForUser({ role: 'ADMIN' })).toBe('/mobile');
+    });
+
+    it('Super Admin and impersonation remain desktop-only', () => {
+      expect(
+        getMobileHomeForUser({ role: 'ADMIN', isSuperAdmin: true }),
+      ).toBeNull();
+      expect(
+        getMobileHomeForUser({
+          role: 'ADMIN',
+          impersonatedBy: 'super-admin',
+        }),
+      ).toBeNull();
     });
 
     it('WAREHOUSE → /warehouse/mobile', () => {
@@ -287,6 +328,10 @@ describe('mobile-access-policy', () => {
       const user = { roles: ['WAREHOUSE', 'PRODUCTION'] };
       expect(getMobileHomeForUser(user)).toBe('/mobile');
       expect(getMobileHomeCtaKey(user)).toBe('selector');
+    });
+
+    it('single ADMIN role → admin candidate', () => {
+      expect(getMobileHomeCtaKey({ role: 'ADMIN' })).toBe('admin');
     });
 
     it('single SALES role → sales-field', () => {

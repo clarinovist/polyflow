@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 const DENIAL_COPY: Record<string, string> = {
+    desktop_only: 'Akun ini tetap menggunakan ruang kerja desktop.',
     role: 'Portal itu tidak tersedia untuk role Anda.',
     module: 'Modul portal tersebut sedang tidak aktif.',
     resource: 'Izin portal tersebut sudah dicabut.',

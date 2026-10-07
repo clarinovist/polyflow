@@ -17,6 +17,7 @@ export type MobilePortalId =
     | 'purchasing'
     | 'finance'
     | 'hrd-supervisor'
+    | 'admin'
     | 'maklon';
 
 export type MobilePortalMode =
@@ -53,6 +54,12 @@ export interface MobilePortalResourceRule {
     match: MobileMatchMode;
 }
 
+export interface MobilePortalDependency {
+    moduleKey: ModuleKey;
+    permissionRoots: string[];
+    match: MobileMatchMode;
+}
+
 export interface MobilePortalDefinition {
     id: MobilePortalId;
     title: string;
@@ -64,6 +71,7 @@ export interface MobilePortalDefinition {
     roles: Role[];
     roleMatch: MobileMatchMode;
     resourceRules: MobilePortalResourceRule[];
+    dataDependencies?: MobilePortalDependency[];
     rolloutKey?: string;
     adminAccess: MobileAdminAccess;
     capabilities: MobileActionCapability[];
@@ -306,6 +314,49 @@ export const MOBILE_PORTAL_REGISTRY = [
             { id: 'insights', label: 'Insight', path: '/hrd/mobile/insights' },
         ],
         icon: 'Users',
+    },
+    {
+        id: 'admin',
+        title: 'Admin Command Center',
+        description: 'Pantau pengecualian lintas modul tanpa mengubah data',
+        path: '/mobile/admin',
+        moduleKey: 'CORE',
+        mode: 'EXECUTIVE',
+        status: 'BETA',
+        roles: ['ADMIN'],
+        roleMatch: 'ANY',
+        resourceRules: [
+            {
+                roles: ['ADMIN'],
+                permissionRoots: ['/dashboard'],
+                match: 'ANY',
+            },
+        ],
+        dataDependencies: [
+            { moduleKey: 'PRODUCTION', permissionRoots: ['/production'], match: 'ANY' },
+            { moduleKey: 'INVENTORY', permissionRoots: ['/warehouse/inventory'], match: 'ANY' },
+            { moduleKey: 'PURCHASING', permissionRoots: ['/purchasing'], match: 'ANY' },
+            { moduleKey: 'FINANCE', permissionRoots: ['/finance'], match: 'ANY' },
+            { moduleKey: 'HRD', permissionRoots: ['/hrd'], match: 'ANY' },
+        ],
+        rolloutKey: 'mobile.portal.admin.enabled',
+        adminAccess: 'READ_ONLY',
+        capabilities: [],
+        navigation: [
+            { id: 'home', label: 'Hari Ini', path: '/mobile/admin' },
+            {
+                id: 'attention',
+                label: 'Perhatian',
+                path: '/mobile/admin/attention',
+            },
+            {
+                id: 'insights',
+                label: 'Insight',
+                path: '/mobile/admin/insights',
+            },
+            { id: 'portals', label: 'Portal', path: '/mobile' },
+        ],
+        icon: 'ShieldCheck',
     },
     {
         id: 'maklon',

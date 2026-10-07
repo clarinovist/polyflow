@@ -40,7 +40,13 @@ export const getMyMobilePortals = withTenant(
                 );
             }
             return getAvailableMobilePortals({
-                user: session.user,
+                user: {
+                    ...session.user,
+                    isSuperAdmin:
+                        !!session.user.isSuperAdmin ||
+                        !!(session.user as { impersonatedBy?: string })
+                            .impersonatedBy,
+                },
                 permissions: permissions.data,
                 featurePermissions: featurePermissions.success
                     ? featurePermissions.data

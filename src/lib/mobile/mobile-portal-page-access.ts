@@ -7,6 +7,12 @@ export async function requireMobilePortalPageAccess(portalId: MobilePortalId) {
     const decision = await resolveMobilePortalAccess(portalId);
     if (!decision.allowed) {
         if (decision.reason === 'NO_SESSION') redirect('/login');
+        if (decision.reason === 'DESKTOP_ONLY') {
+            redirect(
+                '/device/desktop-required?from=' +
+                    encodeURIComponent('/dashboard'),
+            );
+        }
         redirect('/mobile?reason=' + decision.reason.toLowerCase());
     }
     return {

@@ -115,6 +115,16 @@ describe('Feature Registry', () => {
             moduleKey: 'finance',
             label: 'Insight Mobile Finance',
         });
+        expect(resolveFeatureFromPath('/mobile/admin')).toEqual({
+            featureKey: 'dashboard.mobile_admin',
+            moduleKey: 'dashboard',
+            label: 'Admin Mobile Command Center',
+        });
+        expect(resolveFeatureFromPath('/mobile/admin/attention')).toEqual({
+            featureKey: 'dashboard.mobile_admin',
+            moduleKey: 'dashboard',
+            label: 'Admin Mobile Command Center',
+        });
         expect(resolveFeatureFromPath('/mobile')).toEqual({
             featureKey: 'mobile.hub',
             moduleKey: 'mobile',

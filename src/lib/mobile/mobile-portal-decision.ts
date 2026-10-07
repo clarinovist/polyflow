@@ -11,6 +11,7 @@ import {
 
 export type MobilePortalDecisionReason =
     | 'NO_SESSION'
+    | 'DESKTOP_ONLY'
     | 'ROLE'
     | 'MODULE'
     | 'RESOURCE'
@@ -36,6 +37,7 @@ export interface MobilePortalDecisionContext {
               role?: string;
               roles?: string[];
               isSuperAdmin?: boolean;
+              impersonatedBy?: string;
           }
         | null
         | undefined;
@@ -138,7 +140,9 @@ export function getMobilePortalDecision(
     capability?: MobileActionCapability,
 ): MobilePortalDecision {
     if (!context.user) return { allowed: false, reason: 'NO_SESSION' };
-    if (context.user.isSuperAdmin) return { allowed: false, reason: 'ROLE' };
+    if (context.user.isSuperAdmin || context.user.impersonatedBy) {
+        return { allowed: false, reason: 'DESKTOP_ONLY' };
+    }
     if (definition.status === 'PLANNED') {
         return { allowed: false, reason: 'PLANNED' };
     }

@@ -48,13 +48,33 @@ describe('verified mobile discovery action', () => {
             data: [expect.objectContaining({ id: 'finance', capabilities: [] })],
         });
     });
-    it('does not add rollout reads to ACTIVE existing portals', async () => {
+    it('reads the Admin beta rollout key without retrofitting existing portals', async () => {
         await getMyMobilePortals();
         expect(m.rollouts).toHaveBeenCalledTimes(1);
         expect(m.rollouts).toHaveBeenCalledWith(
-            [],
+            ['mobile.portal.admin.enabled'],
             m.tenantDb.appSetting,
         );
+    });
+    it('shows Admin Mobile only to ADMIN with the tenant flag enabled', async () => {
+        m.auth.mockResolvedValue({ user: { role: 'ADMIN' } });
+        m.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+        m.modules.mockResolvedValue(['CORE']);
+        m.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': true });
+        expect(await getMyMobilePortals()).toMatchObject({
+            success: true, data: [expect.objectContaining({ id: 'admin' })],
+        });
+        m.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': false });
+        expect(await getMyMobilePortals()).toMatchObject({ success: true, data: [] });
+    });
+    it('keeps Super Admin and impersonation sessions out of portal discovery', async () => {
+        m.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+        m.modules.mockResolvedValue(['CORE']);
+        m.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': true });
+        m.auth.mockResolvedValue({ user: { role: 'ADMIN', isSuperAdmin: true } });
+        expect(await getMyMobilePortals()).toMatchObject({ success: true, data: [] });
+        m.auth.mockResolvedValue({ user: { role: 'ADMIN', impersonatedBy: 'super-admin' } });
+        expect(await getMyMobilePortals()).toMatchObject({ success: true, data: [] });
     });
     it('rejects no session before permission lookup', async () => {
         m.auth.mockRejectedValue(new Error('No session')); expect(await getMyMobilePortals()).toMatchObject({ success: false }); expect(m.permissions).not.toHaveBeenCalled();
