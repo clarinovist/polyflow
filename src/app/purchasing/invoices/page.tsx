@@ -2,6 +2,7 @@ import React from 'react';
 import type { ComponentProps } from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseInvoiceTable } from '@/components/purchasing/orders/PurchaseInvoiceTable';
+import { PageHeader } from '@/components/ui/page-header';
 import { PurchaseRemittanceEntryPoint } from '@/components/purchasing/PurchaseRemittanceEntryPoint';
 import { Metadata } from 'next';
 
@@ -13,6 +14,7 @@ import {
     listPurchaseRemittancesAction,
 } from '@/actions/purchasing/purchase-remittance';
 import { getPaymentBanks } from '@/actions/finance/payment-banks-actions';
+import { canCreatePurchaseRemittance } from '@/lib/auth/purchasing-access';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 import { PURCHASE_INVOICE_SORTS } from '@/services/purchasing/invoices-service';
 import {
@@ -26,15 +28,15 @@ export const metadata: Metadata = {
 };
 
 const getInvoices = withTenant(
-    async (filters: Parameters<typeof PurchaseService.getPurchaseInvoicesPage>[0]) =>
-        PurchaseService.getPurchaseInvoicesPage(filters),
+    async (
+        filters: Parameters<typeof PurchaseService.getPurchaseInvoicesPage>[0],
+    ) => PurchaseService.getPurchaseInvoicesPage(filters),
 );
 
 function parseDateBounds(startDate?: string, endDate?: string) {
     const dateOnlyBounds = parsePurchasingDateBounds(startDate, endDate);
     return {
-        startDate:
-            dateOnlyBounds.startDate ?? parseIsoBoundary(startDate),
+        startDate: dateOnlyBounds.startDate ?? parseIsoBoundary(startDate),
         endDate: dateOnlyBounds.endDate ?? parseIsoBoundary(endDate),
     };
 }
@@ -75,69 +77,105 @@ export default async function PurchasingInvoicesPage({
         PURCHASE_INVOICE_SORTS,
         'invoiceDate',
     );
-    const invoicesPage = await getInvoices({
-        page: parsePurchasingPageParam(params.page),
-        pageSize: parsePurchasingPageParam(params.pageSize),
-        search: params.search,
-        status: initialStatus === 'OVERDUE' ? undefined : validStatus,
-        overdue: overdueMode || initialStatus === 'OVERDUE',
-        ...dateBounds,
-        ...sorting,
-    });
+    let invoicesPage: Awaited<ReturnType<typeof getInvoices>>;
+    try {
+        invoicesPage = await getInvoices({
+            page: parsePurchasingPageParam(params.page),
+            pageSize: parsePurchasingPageParam(params.pageSize),
+            search: params.search,
+            status: initialStatus === 'OVERDUE' ? undefined : validStatus,
+            overdue: overdueMode || initialStatus === 'OVERDUE',
+            ...dateBounds,
+            ...sorting,
+        });
+    } catch {
+        return (
+            <div className="space-y-4 p-4 md:p-6">
+                <h1 className="text-2xl font-bold md:text-3xl">
+                    Invoice Pembelian
+                </h1>
+                <p role="alert" className="text-destructive">
+                    Gagal memuat invoice pembelian.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Data tidak dianggap kosong. Muat ulang halaman untuk mencoba
+                    lagi.
+                </p>
+            </div>
+        );
+    }
 
     const serializedInvoices = serializeData(invoicesPage.items);
 
-    const [outstandingRes, remittancesRes, paymentBanksRes] = await Promise.all(
-        [
+    const [outstandingRes, remittancesRes, paymentBanksRes, canCreate] =
+        await Promise.all([
             listOutstandingPurchaseInvoicesAction().catch(() => null),
             listPurchaseRemittancesAction({}).catch(() => null),
             getPaymentBanks().catch(() => null),
-        ],
-    );
+            canCreatePurchaseRemittance(),
+        ]);
 
     type ActionRes<T = unknown> = { success?: boolean; data?: T };
-    const outstandingInvoices =
+    const outstandingInvoices: unknown[] =
         (outstandingRes as ActionRes)?.success &&
-        (outstandingRes as ActionRes).data
-            ? serializeData((outstandingRes as ActionRes).data)
+        Array.isArray((outstandingRes as ActionRes).data)
+            ? serializeData((outstandingRes as ActionRes).data as unknown[])
             : [];
-    const remittances =
+    const remittances: unknown[] =
         (remittancesRes as ActionRes)?.success &&
-        (remittancesRes as ActionRes).data
-            ? serializeData((remittancesRes as ActionRes).data)
+        Array.isArray((remittancesRes as ActionRes).data)
+            ? serializeData((remittancesRes as ActionRes).data as unknown[])
             : [];
-    const paymentBanks =
+    const paymentBanks: unknown[] =
         (paymentBanksRes as ActionRes)?.success &&
-        (paymentBanksRes as ActionRes).data
-            ? (paymentBanksRes as ActionRes).data
+        Array.isArray((paymentBanksRes as ActionRes).data)
+            ? ((paymentBanksRes as ActionRes).data as unknown[])
             : [];
+    const auxiliaryState = {
+        outstanding:
+            !outstandingRes || !(outstandingRes as ActionRes).success
+                ? ('error' as const)
+                : outstandingInvoices.length > 0
+                  ? ('ready' as const)
+                  : ('empty' as const),
+        remittances:
+            !remittancesRes || !(remittancesRes as ActionRes).success
+                ? ('error' as const)
+                : remittances.length > 0
+                  ? ('ready' as const)
+                  : ('empty' as const),
+        paymentBanks:
+            !paymentBanksRes || !(paymentBanksRes as ActionRes).success
+                ? ('error' as const)
+                : paymentBanks.length > 0
+                  ? ('ready' as const)
+                  : ('missing' as const),
+    };
 
     return (
-        <div className="flex flex-col gap-6 p-6">
-            <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Invoice Pembelian{overdueMode ? ' — Jatuh Tempo' : ''}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {overdueMode
-                            ? 'Filter: hanya invoice lewat jatuh tempo (today > dueDate & belum lunas).'
-                            : 'Kelola invoice pembelian supplier.'}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-6 p-4 md:p-6">
+            <PageHeader
+                title={`Invoice Pembelian${overdueMode ? ' — Jatuh Tempo' : ''}`}
+                description={
+                    overdueMode
+                        ? 'Hanya invoice lewat jatuh tempo dan belum lunas.'
+                        : 'Kelola tagihan supplier dan pengajuan pembayaran.'
+                }
+                actions={
                     <UrlTransactionDateFilter
                         defaultPreset="all"
                         presetTimeZone="Asia/Jakarta"
                         align="end"
                     />
-                </div>
-            </div>
+                }
+            />
 
             <PurchaseRemittanceEntryPoint
                 invoices={outstandingInvoices as never}
                 paymentBanks={paymentBanks as never}
                 initialRemittances={remittances as never}
+                canCreate={canCreate}
+                auxiliaryState={auxiliaryState}
             />
 
             <PurchaseInvoiceTable

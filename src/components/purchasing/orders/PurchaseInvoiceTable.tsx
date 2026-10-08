@@ -515,6 +515,26 @@ export function PurchaseInvoiceTable({
                     caption="Daftar invoice pembelian"
                     emptyMessage={purchasingLabels.emptyInvoices}
                     minWidth={780}
+                    serverPagination={
+                        pagination
+                            ? {
+                                  pageIndex: Math.max(pagination.page - 1, 0),
+                                  pageCount: pagination.totalPages,
+                                  totalCount: pagination.totalCount,
+                                  pageSize: pagination.pageSize,
+                                  pageSizeOptions: [25, 50, 100],
+                                  onPageChange: (pageIndex) =>
+                                      updateUrl({
+                                          page: String(pageIndex + 1),
+                                      }),
+                                  onPageSizeChange: (pageSize) =>
+                                      updateUrl({
+                                          page: '1',
+                                          pageSize: String(pageSize),
+                                      }),
+                              }
+                            : undefined
+                    }
                     renderMobileView={() =>
                         mobileTable.getRowModel().rows.length ? (
                             mobileTable.getRowModel().rows.map((row) => (
@@ -709,77 +729,6 @@ export function PurchaseInvoiceTable({
                     </div>
                 </DataTable>
             </div>
-
-            {pagination && (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm text-muted-foreground" role="status">
-                        Menampilkan {invoices.length} dari{' '}
-                        {pagination.totalCount} invoice
-                    </p>
-                    <div className="flex min-w-0 flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-2 text-sm">
-                            Baris
-                            <select
-                                aria-label="Jumlah baris per halaman"
-                                value={pagination.pageSize}
-                                onChange={(event) =>
-                                    updateUrl({
-                                        page: '1',
-                                        pageSize: event.target.value,
-                                    })
-                                }
-                                className="h-9 rounded-md border border-input bg-background px-2"
-                            >
-                                {[25, 50, 100].map((size) => (
-                                    <option key={size} value={size}>
-                                        {size}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <nav
-                            aria-label="Paginasi invoice pembelian"
-                            className="flex flex-wrap items-center gap-2"
-                        >
-                            <span className="text-sm text-muted-foreground">
-                                Halaman {pagination.page} dari{' '}
-                                {pagination.totalPages || 1}
-                            </span>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                aria-label="Halaman sebelumnya"
-                                disabled={pagination.page <= 1}
-                                onClick={() =>
-                                    updateUrl({
-                                        page: String(pagination.page - 1),
-                                    })
-                                }
-                            >
-                                Sebelumnya
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                aria-label="Halaman berikutnya"
-                                disabled={
-                                    pagination.totalPages === 0 ||
-                                    pagination.page >= pagination.totalPages
-                                }
-                                onClick={() =>
-                                    updateUrl({
-                                        page: String(pagination.page + 1),
-                                    })
-                                }
-                            >
-                                Berikutnya
-                            </Button>
-                        </nav>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -9,7 +9,7 @@ import { listPurchaseRemittancesAction } from '@/actions/purchasing/purchase-rem
 import { CreatePurchaseRemittanceDialog } from '@/components/purchasing/CreatePurchaseRemittanceDialog';
 import type { TenantPaymentBanks } from '@/lib/finance/payment-methods';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { AlertCircle, Plus, RefreshCw } from 'lucide-react';
 
 interface PurchaseInvoice {
     id: string;
@@ -82,28 +82,48 @@ function statusBadge(status: RemittanceRow['status']) {
     );
 }
 
+export interface PurchaseRemittanceAuxiliaryState {
+    outstanding: 'ready' | 'empty' | 'error';
+    remittances: 'ready' | 'empty' | 'error';
+    paymentBanks: 'ready' | 'missing' | 'error';
+}
+
 interface PurchaseRemittanceEntryPointProps {
     invoices: PurchaseInvoice[];
     paymentBanks?: TenantPaymentBanks;
     initialRemittances?: RemittanceRow[];
+    canCreate?: boolean;
+    auxiliaryState?: PurchaseRemittanceAuxiliaryState;
 }
 
 export function PurchaseRemittanceEntryPoint({
     invoices,
     paymentBanks = [],
     initialRemittances = [],
+    canCreate = false,
+    auxiliaryState = {
+        outstanding: invoices.length > 0 ? 'ready' : 'empty',
+        remittances: initialRemittances.length > 0 ? 'ready' : 'empty',
+        paymentBanks: paymentBanks.length > 0 ? 'ready' : 'missing',
+    },
 }: PurchaseRemittanceEntryPointProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [remittances, setRemittances] =
         useState<RemittanceRow[]>(initialRemittances);
-    const canSubmit = invoices.length > 0;
+    const canSubmit =
+        canCreate &&
+        auxiliaryState.outstanding === 'ready' &&
+        auxiliaryState.paymentBanks === 'ready' &&
+        invoices.length > 0;
 
     const refresh = useCallback(async () => {
         try {
             const res = await listPurchaseRemittancesAction({});
-            if (res?.success && res.data) {
-                setRemittances(res.data as unknown as RemittanceRow[]);
+            if (!res?.success) {
+                toast.error(res?.error || 'Gagal memuat ulang daftar setoran');
+                return;
             }
+            setRemittances((res.data ?? []) as unknown as RemittanceRow[]);
         } catch {
             toast.error('Gagal memuat ulang daftar setoran');
         }
@@ -111,6 +131,52 @@ export function PurchaseRemittanceEntryPoint({
 
     return (
         <div className="space-y-3">
+            {(auxiliaryState.outstanding === 'error' ||
+                auxiliaryState.remittances === 'error' ||
+                auxiliaryState.paymentBanks === 'error') && (
+                <div
+                    role="alert"
+                    className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm"
+                >
+                    <p className="flex items-center gap-2 font-medium text-destructive">
+                        <AlertCircle aria-hidden="true" className="h-4 w-4" />
+                        Panel pembayaran belum lengkap
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                        Layanan pendukung gagal dimuat. Daftar invoice tetap
+                        dapat digunakan, tetapi pengajuan pembayaran
+                        dinonaktifkan.
+                    </p>
+                    {auxiliaryState.remittances === 'error' && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => void refresh()}
+                        >
+                            <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                            Coba muat pengajuan lagi
+                        </Button>
+                    )}
+                </div>
+            )}
+            {auxiliaryState.paymentBanks === 'missing' && (
+                <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                    Rekening pembayaran belum dikonfigurasi. Hubungi Finance
+                    sebelum mengajukan pembayaran supplier.
+                </p>
+            )}
+            {auxiliaryState.outstanding === 'empty' && canCreate && (
+                <p className="text-sm text-muted-foreground">
+                    Tidak ada invoice yang memenuhi syarat pengajuan pembayaran.
+                </p>
+            )}
+            {auxiliaryState.remittances === 'empty' && (
+                <p className="text-sm text-muted-foreground">
+                    Belum ada pengajuan pembayaran supplier sebelumnya.
+                </p>
+            )}
             <div className="flex justify-end">
                 {canSubmit && (
                     <Button size="sm" onClick={() => setDialogOpen(true)}>

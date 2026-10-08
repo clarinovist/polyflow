@@ -22,6 +22,12 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { hasAnyRole } from '@/lib/auth/roles';
 import { BusinessRuleError } from '@/lib/errors/errors';
 
+const PURCHASE_REMITTANCE_CREATOR_ROLES = [
+    'ADMIN',
+    'PROCUREMENT',
+    'WAREHOUSE',
+] as const;
+
 /** ADMIN, PROCUREMENT, PLANNING, WAREHOUSE, or PRODUCTION — create purchase request. */
 export async function requirePurchasingCreator() {
     const session = await requireAuth();
@@ -42,9 +48,14 @@ export async function requirePurchasingCreator() {
 }
 
 /** ADMIN, PROCUREMENT, or WAREHOUSE — ajukan PurchaseRemittance (bukti bayar supplier). */
+export async function canCreatePurchaseRemittance() {
+    const session = await requireAuth();
+    return hasAnyRole(session.user, [...PURCHASE_REMITTANCE_CREATOR_ROLES]);
+}
+
 export async function requirePurchasingRemittanceCreator() {
     const session = await requireAuth();
-    if (!hasAnyRole(session.user, ['ADMIN', 'PROCUREMENT', 'WAREHOUSE'])) {
+    if (!hasAnyRole(session.user, [...PURCHASE_REMITTANCE_CREATOR_ROLES])) {
         throw new BusinessRuleError(
             'Unauthorized: Hanya admin, procurement, atau warehouse yang dapat mengajukan setoran pembayaran supplier.',
         );

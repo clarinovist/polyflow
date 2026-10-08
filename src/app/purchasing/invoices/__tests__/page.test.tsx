@@ -3,17 +3,21 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPurchaseInvoicesPage, purchaseInvoiceTable, dateFilter } = vi.hoisted(
-    () => ({
-        getPurchaseInvoicesPage: vi.fn(),
-        purchaseInvoiceTable: vi.fn(),
-        dateFilter: vi.fn(),
-    }),
-);
+const mocks = vi.hoisted(() => ({
+    getPurchaseInvoicesPage: vi.fn(),
+    purchaseInvoiceTable: vi.fn(),
+    remittanceEntry: vi.fn(),
+    dateFilter: vi.fn(),
+    outstanding: vi.fn(),
+    remittances: vi.fn(),
+    paymentBanks: vi.fn(),
+    canCreate: vi.fn(),
+}));
+const { getPurchaseInvoicesPage, purchaseInvoiceTable, dateFilter } = mocks;
 
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/services/purchasing/purchase-service', () => ({
-    PurchaseService: { getPurchaseInvoicesPage },
+    PurchaseService: { getPurchaseInvoicesPage: mocks.getPurchaseInvoicesPage },
 }));
 vi.mock('@/components/purchasing/orders/PurchaseInvoiceTable', () => ({
     PurchaseInvoiceTable: (props: unknown) => {
@@ -22,7 +26,10 @@ vi.mock('@/components/purchasing/orders/PurchaseInvoiceTable', () => ({
     },
 }));
 vi.mock('@/components/purchasing/PurchaseRemittanceEntryPoint', () => ({
-    PurchaseRemittanceEntryPoint: () => null,
+    PurchaseRemittanceEntryPoint: (props: unknown) => {
+        mocks.remittanceEntry(props);
+        return <div data-testid="remittance-entry" />;
+    },
 }));
 vi.mock('@/components/common/url-transaction-date-filter', () => ({
     UrlTransactionDateFilter: (props: unknown) => {
@@ -31,11 +38,14 @@ vi.mock('@/components/common/url-transaction-date-filter', () => ({
     },
 }));
 vi.mock('@/actions/purchasing/purchase-remittance', () => ({
-    listOutstandingPurchaseInvoicesAction: vi.fn().mockResolvedValue(null),
-    listPurchaseRemittancesAction: vi.fn().mockResolvedValue(null),
+    listOutstandingPurchaseInvoicesAction: mocks.outstanding,
+    listPurchaseRemittancesAction: mocks.remittances,
 }));
 vi.mock('@/actions/finance/payment-banks-actions', () => ({
-    getPaymentBanks: vi.fn().mockResolvedValue(null),
+    getPaymentBanks: mocks.paymentBanks,
+}));
+vi.mock('@/lib/auth/purchasing-access', () => ({
+    canCreatePurchaseRemittance: mocks.canCreate,
 }));
 
 import PurchasingInvoicesPage from '../page';
@@ -49,6 +59,10 @@ beforeEach(() => {
         totalCount: 0,
         totalPages: 0,
     });
+    mocks.outstanding.mockResolvedValue({ success: true, data: [] });
+    mocks.remittances.mockResolvedValue({ success: true, data: [] });
+    mocks.paymentBanks.mockResolvedValue({ success: true, data: [] });
+    mocks.canCreate.mockResolvedValue(true);
 });
 
 describe('purchasing invoices route', () => {
@@ -105,6 +119,56 @@ describe('purchasing invoices route', () => {
             expect.objectContaining({
                 startDate: new Date('2026-08-31T17:00:00.000Z'),
                 endDate: new Date('2026-09-12T16:59:59.999Z'),
+            }),
+        );
+    });
+
+    it('keeps the main list usable and marks every auxiliary failure honestly', async () => {
+        mocks.outstanding.mockRejectedValueOnce(new Error('down'));
+        mocks.remittances.mockResolvedValueOnce({
+            success: false,
+            error: 'remittance down',
+        });
+        mocks.paymentBanks.mockResolvedValueOnce({
+            success: false,
+            error: 'bank down',
+        });
+
+        render(
+            await PurchasingInvoicesPage({
+                searchParams: Promise.resolve({}),
+            }),
+        );
+
+        expect(purchaseInvoiceTable).toHaveBeenCalled();
+        expect(mocks.remittanceEntry).toHaveBeenCalledWith(
+            expect.objectContaining({
+                invoices: [],
+                paymentBanks: [],
+                initialRemittances: [],
+                canCreate: true,
+                auxiliaryState: {
+                    outstanding: 'error',
+                    remittances: 'error',
+                    paymentBanks: 'error',
+                },
+            }),
+        );
+    });
+
+    it('distinguishes missing bank configuration from an operational error', async () => {
+        render(
+            await PurchasingInvoicesPage({
+                searchParams: Promise.resolve({}),
+            }),
+        );
+        expect(mocks.remittanceEntry).toHaveBeenCalledWith(
+            expect.objectContaining({
+                auxiliaryState: expect.objectContaining({
+                    paymentBanks: 'missing',
+                    outstanding: 'empty',
+                    remittances: 'empty',
+                }),
             }),
         );
     });

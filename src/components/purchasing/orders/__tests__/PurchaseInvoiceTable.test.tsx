@@ -16,6 +16,8 @@ vi.mock('@/actions/finance/invoices', () => ({
 
 import { PurchaseInvoiceTable } from '../PurchaseInvoiceTable';
 
+Element.prototype.scrollIntoView = vi.fn();
+
 const invoices = [
     {
         id: 'inv-51',
@@ -72,11 +74,11 @@ describe('PurchaseInvoiceTable shared paged contract', () => {
                 .getByRole('link', { name: 'BILL-0051' })
                 .getAttribute('href'),
         ).toBe('/finance/invoices/purchase/inv-51');
-        expect(screen.getByText('Menampilkan 1 dari 75 invoice')).toBeTruthy();
+        expect(screen.getByRole('status').textContent).toContain(
+            'Menampilkan 51–75 dari 75',
+        );
         expect(
-            screen.getByRole('navigation', {
-                name: 'Paginasi invoice pembelian',
-            }),
+            screen.getByRole('navigation', { name: 'Paginasi tabel' }),
         ).toBeTruthy();
         expect(
             screen.getByRole('columnheader', { name: 'No. Invoice' })
