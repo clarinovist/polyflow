@@ -20,10 +20,17 @@ export function HrdAttendanceClient({
     initialFilters,
 }: {
     initialData: HrdMobileTeamAttendanceResult | null;
-    initialFilters: { date?: string; workShiftId?: string; status?: string; q?: string };
+    initialFilters: {
+        date?: string;
+        workShiftId?: string;
+        status?: string;
+        q?: string;
+    };
 }) {
     const router = useRouter();
-    const [date, setDate] = useState(initialFilters.date || initialData?.date || '');
+    const [date, setDate] = useState(
+        initialFilters.date || initialData?.date || '',
+    );
     const [shift, setShift] = useState(initialFilters.workShiftId || '');
     const [status, setStatus] = useState(initialFilters.status || 'ALL');
     const [q, setQ] = useState(initialFilters.q || '');
@@ -48,19 +55,35 @@ export function HrdAttendanceClient({
             <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
                     <div className="text-[10px] text-slate-500">Hadir</div>
-                    <div className="font-bold text-emerald-600">{data.presentCount}</div>
+                    <div className="font-bold text-emerald-600">
+                        {data.presentCount}
+                    </div>
                 </div>
                 <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
                     <div className="text-[10px] text-slate-500">Absen</div>
-                    <div className="font-bold text-red-600">{data.absentCount}</div>
+                    <div className="font-bold text-red-600">
+                        {data.absentCount}
+                    </div>
                 </div>
                 <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
                     <div className="text-[10px] text-slate-500">Cuti</div>
-                    <div className="font-bold text-amber-600">{data.onLeaveCount}</div>
+                    <div className="font-bold text-amber-600">
+                        {data.onLeaveCount}
+                    </div>
                 </div>
                 <div className="rounded-lg border bg-card p-2">
-                    <div className="text-xs text-muted-foreground">Belum tercatat</div>
+                    <div className="text-xs text-muted-foreground">
+                        Belum tercatat
+                    </div>
                     <div className="font-bold">{data.noRecordCount}</div>
+                </div>
+                <div className="rounded-lg border bg-card p-2">
+                    <div className="text-xs text-muted-foreground">
+                        Terlambat
+                    </div>
+                    <div className="font-bold text-red-600">
+                        {data.lateCount ?? 0}
+                    </div>
                 </div>
             </div>
 
@@ -99,6 +122,7 @@ export function HrdAttendanceClient({
                         <option value="ABSENT">Tidak Hadir</option>
                         <option value="ON_LEAVE">Cuti</option>
                         <option value="NO_RECORD">Belum Absen</option>
+                        <option value="LATE">Terlambat</option>
                     </select>
                     <input
                         type="text"
@@ -109,26 +133,49 @@ export function HrdAttendanceClient({
                         className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
                     />
                 </div>
-                <button onClick={apply} className="w-full rounded-md bg-violet-600 py-2 text-sm font-semibold text-white hover:bg-violet-700">
+                <button
+                    onClick={apply}
+                    className="w-full rounded-md bg-violet-600 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                >
                     Terapkan
                 </button>
             </div>
 
-            <p className="text-xs text-muted-foreground">Ringkasan mengikuti filter. Belum tercatat bukan berarti tidak hadir; shift mungkin belum dimulai.</p>
+            <p className="text-xs text-muted-foreground">
+                Menampilkan {data.returned ?? data.records.length} dari{' '}
+                {data.totalEmployees}. Belum tercatat bukan berarti tidak hadir;
+                shift mungkin belum dimulai. Status terlambat memakai jam mulai
+                shift dan grace period HRD.
+            </p>
             <div className="space-y-2">
-                {!data.records.length && <p className="text-sm">Tidak ada karyawan untuk filter ini.</p>}
+                {!data.records.length && (
+                    <p className="text-sm">
+                        Tidak ada karyawan untuk filter ini.
+                    </p>
+                )}
                 {data.records.map((r) => (
-                    <div key={r.employeeId} className="rounded-lg border bg-white p-3 dark:bg-slate-800 dark:border-slate-700">
+                    <div
+                        key={r.employeeId}
+                        className="rounded-lg border bg-white p-3 dark:bg-slate-800 dark:border-slate-700"
+                    >
                         <div className="flex justify-between gap-2">
                             <div>
                                 <div className="text-sm font-semibold">
-                                    {r.employeeName} {r.isLate ? <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700">Terlambat</span> : null}
+                                    {r.employeeName}{' '}
+                                    {r.isLate ? (
+                                        <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700">
+                                            Terlambat
+                                        </span>
+                                    ) : null}
                                 </div>
                                 <div className="text-[11px] text-slate-500">
-                                    {r.employeeCode} • {r.employeeRole} {r.shiftName ? `• ${r.shiftName}` : ''}
+                                    {r.employeeCode} • {r.employeeRole}{' '}
+                                    {r.shiftName ? `• ${r.shiftName}` : ''}
                                 </div>
                             </div>
-                            <span className={`h-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-red-100 text-red-700' : r.status === 'ON_LEAVE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                            <span
+                                className={`h-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-red-100 text-red-700' : r.status === 'ON_LEAVE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}
+                            >
                                 {r.status}
                             </span>
                         </div>

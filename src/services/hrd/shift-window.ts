@@ -21,6 +21,21 @@ export function isOvernightShift(startTime: string, endTime: string): boolean {
     return parseTime(startTime) > parseTime(endTime);
 }
 
+/** Compare a recorded clock-in with its canonical shift start in WIB. */
+export function isLateForShift(
+    clockInAt: Date,
+    workDate: string,
+    shiftStartTime: string,
+    graceMinutes: number,
+): boolean {
+    const match = /^(\d{2}):(\d{2})$/.exec(shiftStartTime);
+    if (!match) return false;
+    const shiftStart = new Date(
+        workDate + 'T' + match[1] + ':' + match[2] + ':00+07:00',
+    );
+    return clockInAt.getTime() > shiftStart.getTime() + graceMinutes * 60_000;
+}
+
 /**
  * Calculate planned hours from startTime/endTime strings.
  * Handles overnight shifts correctly.

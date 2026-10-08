@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isOvernightShift,
+  isLateForShift,
   calcPlannedHours,
   resolveWorkDate,
   calcActualHours,
@@ -17,6 +18,16 @@ describe('shift-window', () => {
     });
     it('returns false for 06:00→14:00', () => {
       expect(isOvernightShift('06:00', '14:00')).toBe(false);
+    });
+  });
+
+  describe('isLateForShift', () => {
+    it('uses the work-date shift start in WIB plus grace', () => {
+      expect(isLateForShift(new Date('2026-07-15T01:11:00Z'), '2026-07-15', '08:00', 10)).toBe(true);
+      expect(isLateForShift(new Date('2026-07-15T01:10:00Z'), '2026-07-15', '08:00', 10)).toBe(false);
+    });
+    it('keeps after-midnight overnight clock-ins attached to the prior work date', () => {
+      expect(isLateForShift(new Date('2026-07-15T18:30:00Z'), '2026-07-15', '20:00', 0)).toBe(true);
     });
   });
 

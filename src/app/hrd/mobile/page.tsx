@@ -9,8 +9,9 @@ import {
 
 export default async function HrdMobilePage() {
     const response = await getHrdMobileOverview();
-    if (!response.success) return <MobileReadError title="Ringkasan HRD belum tersedia" />;
-    const { highlights, generatedAt } = response.data;
+    if (!response.success)
+        return <MobileReadError title="Ringkasan HRD belum tersedia" />;
+    const { highlights, generatedAt, payrollReadiness } = response.data;
 
     return (
         <div className="space-y-6">
@@ -33,18 +34,61 @@ export default async function HrdMobilePage() {
                         label: 'Cuti Pending',
                         value: highlights.pendingLeaveCount,
                         unit: 'pengajuan',
-                        severity: highlights.pendingLeaveCount > 0 ? 'WARNING' : 'INFO',
+                        severity:
+                            highlights.pendingLeaveCount > 0
+                                ? 'WARNING'
+                                : 'INFO',
+                    }}
+                />
+                <MobileInsightCard
+                    insight={{
+                        key: 'employment-reminders',
+                        label: 'Kontrak/Probation',
+                        value: highlights.employmentReminderCount,
+                        unit: 'reminder',
+                        severity:
+                            highlights.employmentReminderCount > 0
+                                ? 'WARNING'
+                                : 'INFO',
                     }}
                 />
                 <MobileInsightCard
                     insight={{
                         key: 'payroll-period',
                         label: 'Payroll Period',
-                        value: highlights.openPayrollPeriodName ?? 'Belum Dibuka',
-                        severity: highlights.openPayrollPeriodName ? 'SUCCESS' : 'INFO',
+                        value:
+                            highlights.openPayrollPeriodName ?? 'Belum Dibuka',
+                        severity: highlights.openPayrollPeriodName
+                            ? 'SUCCESS'
+                            : 'INFO',
+                    }}
+                />
+                <MobileInsightCard
+                    insight={{
+                        key: 'hr-alerts',
+                        label: 'Alert HR Belum Dibaca',
+                        value: highlights.hrAlertCount,
+                        severity:
+                            highlights.hrAlertCount > 0 ? 'WARNING' : 'INFO',
                     }}
                 />
             </div>
+            <section
+                aria-labelledby="hrd-payroll-readiness"
+                className="rounded-xl border bg-card p-4"
+            >
+                <h2 id="hrd-payroll-readiness" className="font-semibold">
+                    Kesiapan payroll agregat
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {payrollReadiness
+                        ? `${payrollReadiness.counts.finalized + payrollReadiness.counts.paid}/${payrollReadiness.total} slip selesai review · ${payrollReadiness.counts.draft} draft`
+                        : 'Belum ada periode payroll terbuka.'}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Tanpa nama, rekening, atau nominal individual.
+                </p>
+            </section>
         </div>
     );
 }

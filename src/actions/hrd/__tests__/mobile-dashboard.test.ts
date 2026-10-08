@@ -10,7 +10,9 @@ vi.mock('next/navigation', () => ({ redirect: (path: string) => { throw new Erro
 vi.mock('@/lib/core/prisma', () => ({ prisma: {
     user: { findUnique: vi.fn() }, attendanceRecord: { findMany: vi.fn() },
     leaveRequest: { findMany: vi.fn(), count: vi.fn() }, payrollPeriod: { findFirst: vi.fn() },
-    employee: { findMany: vi.fn() }, workShift: { findMany: vi.fn() },
+    notification: { findMany: vi.fn() },
+    employee: { findMany: vi.fn(), count: vi.fn() }, workShift: { findMany: vi.fn() },
+    appSetting: { findMany: vi.fn() },
 } }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn, getTenantContext: () => ({ tenantId: 'test' }) }));
 function session(role: string, roles?: string[]) {
@@ -25,7 +27,10 @@ beforeEach(() => {
     vi.mocked(prisma.leaveRequest.findMany).mockResolvedValue([]);
     vi.mocked(prisma.leaveRequest.count).mockResolvedValue(0);
     vi.mocked(prisma.payrollPeriod.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.notification.findMany).mockResolvedValue([]);
     vi.mocked(prisma.employee.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.employee.count).mockResolvedValue(0);
+    vi.mocked(prisma.appSetting.findMany).mockResolvedValue([]);
     vi.mocked(prisma.workShift.findMany).mockResolvedValue([]);
 });
 afterEach(() => vi.useRealTimers());
@@ -70,7 +75,7 @@ describe('HRD team attendance', () => {
             { id: 'two', name: 'Synthetic Two', code: 'E2', role: 'OPERATOR' },
         ] as never);
         vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([
-            { id: 'a1', employeeId: 'one', status: 'PRESENT', workShift: { name: 'Shift' }, clockInAt: new Date('2026-09-23T00:00:00Z'), actualHours: null },
+            { id: 'a1', employeeId: 'one', status: 'PRESENT', workShift: { name: 'Shift', startTime: '06:00', endTime: '14:00' }, clockInAt: new Date('2026-09-23T00:00:00Z'), actualHours: null },
         ] as never);
     }
     it('filters NO_RECORD only after merging real attendance, never sends it to Prisma', async () => {
@@ -80,6 +85,9 @@ describe('HRD team attendance', () => {
         const args = vi.mocked(prisma.attendanceRecord.findMany).mock.calls[0][0];
         expect(args?.where).not.toHaveProperty('status');
         expect(args?.where?.workShiftId).toBe('shift');
+        expect(vi.mocked(prisma.employee.findMany).mock.calls[0][0]?.where).toMatchObject({
+            shiftAssignments: { some: { workShiftId: 'shift' } },
+        });
     });
     it('filters PRESENT and preserves distinct missing vs absent', async () => {
         employees();
