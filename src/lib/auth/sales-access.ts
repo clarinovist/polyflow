@@ -68,6 +68,11 @@ export async function requireSalesFinance() {
 }
 
 /** ADMIN or MARKETING — for assign/unassign customer, verifikasi prospek. */
+export async function canManageSalesPricing() {
+    const session = await requireAuth();
+    return hasAnyRole(session.user, ['ADMIN', 'MARKETING']);
+}
+
 export async function requireSalesManager() {
     const session = await requireAuth();
     if (!hasAnyRole(session.user, ['ADMIN', 'MARKETING'])) {

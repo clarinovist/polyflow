@@ -130,7 +130,7 @@ export function DataTablePagination({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-11 w-11 sm:h-8 sm:w-8"
                     aria-label="Halaman pertama"
                     onClick={onFirstPage}
                     disabled={!canPreviousPage}
@@ -141,7 +141,7 @@ export function DataTablePagination({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-11 w-11 sm:h-8 sm:w-8"
                     aria-label="Halaman sebelumnya"
                     onClick={onPreviousPage}
                     disabled={!canPreviousPage}
@@ -152,7 +152,7 @@ export function DataTablePagination({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-11 w-11 sm:h-8 sm:w-8"
                     aria-label="Halaman berikutnya"
                     onClick={onNextPage}
                     disabled={!canNextPage}
@@ -163,7 +163,7 @@ export function DataTablePagination({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-11 w-11 sm:h-8 sm:w-8"
                     aria-label="Halaman terakhir"
                     onClick={onLastPage}
                     disabled={!canNextPage}

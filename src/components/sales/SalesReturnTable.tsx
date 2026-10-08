@@ -153,7 +153,7 @@ export function SalesReturnTable({
                         aria-label={`Lihat Detail ${sr.returnNumber}`}
                         className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                        <Card className="overflow-hidden active:scale-[0.99] transition-transform">
+                        <Card className="overflow-hidden motion-safe:active:scale-[0.99] motion-safe:transition-transform">
                             <CardHeader className="p-4 pb-2">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-2">

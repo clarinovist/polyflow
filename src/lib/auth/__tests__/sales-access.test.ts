@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { requireSalesAccess, requireSalesApprover, requireSalesCancellationAccess, requireSalesFinance, requireSalesManager, requireDeliveryAccess } from "../sales-access";
+import { canManageSalesPricing, requireSalesAccess, requireSalesApprover, requireSalesCancellationAccess, requireSalesFinance, requireSalesManager, requireDeliveryAccess } from "../sales-access";
 import { BusinessRuleError } from "@/lib/errors/errors";
 
 vi.mock("@/lib/tools/auth-checks", () => ({
@@ -101,6 +101,15 @@ describe("sales-access helpers", () => {
     it("rejects SALES", async () => {
       vi.mocked(requireAuth).mockResolvedValue(mockSession("SALES"));
       await expect(requireSalesFinance()).rejects.toThrow(BusinessRuleError);
+    });
+  });
+
+  describe("canManageSalesPricing", () => {
+    it("uses the same ADMIN/MARKETING role decision without throwing on denial", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("MARKETING"));
+      await expect(canManageSalesPricing()).resolves.toBe(true);
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("SALES"));
+      await expect(canManageSalesPricing()).resolves.toBe(false);
     });
   });
 

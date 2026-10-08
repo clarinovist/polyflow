@@ -40,7 +40,10 @@ describe('DataTablePagination', () => {
         ] as const;
 
         for (const [name, handler] of controls) {
-            fireEvent.click(screen.getByRole('button', { name }));
+            const button = screen.getByRole('button', { name });
+            expect(button.className).toContain('h-11');
+            expect(button.className).toContain('w-11');
+            fireEvent.click(button);
             expect(handler).toHaveBeenCalledOnce();
         }
     });

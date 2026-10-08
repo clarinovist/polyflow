@@ -89,6 +89,7 @@ interface PurchaseInvoiceTableProps {
     overdueMode?: boolean;
     sort?: PurchaseInvoiceSort;
     direction?: PurchasingSortDirection;
+    canDelete?: boolean;
 }
 
 function ServerSortHeader({
@@ -152,6 +153,7 @@ export function PurchaseInvoiceTable({
     overdueMode,
     sort = 'invoiceDate',
     direction = 'desc',
+    canDelete = basePath.startsWith('/finance'),
 }: PurchaseInvoiceTableProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -162,7 +164,11 @@ export function PurchaseInvoiceTable({
     );
 
     useEffect(() => {
-        if (initialStatus) setStatusFilter(initialStatus);
+        setSearchTerm(initialSearch);
+    }, [initialSearch]);
+
+    useEffect(() => {
+        setStatusFilter(initialStatus || 'ALL');
     }, [initialStatus]);
 
     const updateUrl = useCallback(
@@ -445,56 +451,63 @@ export function PurchaseInvoiceTable({
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                        disabled={isDeleting === inv.id}
-                                        title="Hapus/Batal"
-                                        aria-label={`Hapus/Batal ${inv.invoiceNumber}`}
-                                    >
-                                        {isDeleting === inv.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Trash2 className="h-4 w-4" />
-                                        )}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Apakah Anda benar-benar yakin?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Tindakan ini akan menghapus invoice
-                                            pembelian{' '}
-                                            <strong>{inv.invoiceNumber}</strong>{' '}
-                                            secara permanen beserta jurnal
-                                            akuntansi terkait dari buku besar.
-                                            Tindakan ini tidak dapat dibatalkan.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            {actionLabels.cancel}
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() => handleDelete(inv.id)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            {canDelete && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            disabled={isDeleting === inv.id}
+                                            title="Hapus/Batal"
+                                            aria-label={`Hapus/Batal ${inv.invoiceNumber}`}
                                         >
-                                            Hapus Tagihan & Jurnal
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                                            {isDeleting === inv.id ? (
+                                                <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                                            ) : (
+                                                <Trash2 className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                                Apakah Anda benar-benar yakin?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Tindakan ini akan menghapus
+                                                invoice pembelian{' '}
+                                                <strong>
+                                                    {inv.invoiceNumber}
+                                                </strong>{' '}
+                                                secara permanen beserta jurnal
+                                                akuntansi terkait dari buku
+                                                besar. Tindakan ini tidak dapat
+                                                dibatalkan.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>
+                                                {actionLabels.cancel}
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() =>
+                                                    handleDelete(inv.id)
+                                                }
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                                Hapus Tagihan & Jurnal
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         </div>
                     );
                 },
             },
         ],
-        [basePath, isDeleting, pagination, sortHeader],
+        [basePath, canDelete, isDeleting, pagination, sortHeader],
     );
 
     const mobileTable = useReactTable({
@@ -502,18 +515,25 @@ export function PurchaseInvoiceTable({
         columns,
         getCoreRowModel: getCoreRowModel(),
     });
+    const emptyMessage =
+        searchTerm.trim() || statusFilter !== 'ALL' || overdueMode
+            ? 'Tidak ada invoice yang cocok dengan filter.'
+            : purchasingLabels.emptyInvoices;
 
     return (
         <div className="min-w-0 space-y-4">
             <div
                 data-sticky-table="true"
-                className="md:max-h-[65vh] md:overflow-auto [&_.overflow-x-auto]:overflow-visible [&_[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background"
+                role="region"
+                aria-label="Tabel invoice pembelian; geser horizontal untuk melihat semua kolom"
+                tabIndex={0}
+                className="max-w-full rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 md:max-h-[65vh] md:overflow-auto [&_.overflow-x-auto]:overflow-visible [&_[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background"
             >
                 <DataTable
                     columns={columns}
                     data={filteredInvoices}
                     caption="Daftar invoice pembelian"
-                    emptyMessage={purchasingLabels.emptyInvoices}
+                    emptyMessage={emptyMessage}
                     minWidth={780}
                     serverPagination={
                         pagination
@@ -664,7 +684,7 @@ export function PurchaseInvoiceTable({
                             ))
                         ) : (
                             <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                                {purchasingLabels.emptyInvoices}
+                                {emptyMessage}
                             </p>
                         )
                     }

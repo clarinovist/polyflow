@@ -40,6 +40,7 @@ import {
 type Props = {
     row: ProductPriceRowData;
     customers: CustomerOpt[];
+    canManage: boolean;
     defaultExpanded: boolean;
     onChanged: () => void;
 };
@@ -65,6 +66,7 @@ function deviationClass(pct: number | null): string {
 export function ProductPriceRow({
     row,
     customers,
+    canManage,
     defaultExpanded,
     onChanged,
 }: Props) {
@@ -142,16 +144,29 @@ export function ProductPriceRow({
 
     return (
         <>
-            <TableRow
-                className="cursor-pointer hover:bg-muted/40"
-                onClick={() => setExpanded((v) => !v)}
-            >
+            <TableRow className="hover:bg-muted/40">
                 <TableCell>
-                    {expanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11"
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? 'Tutup' : 'Buka'} rincian harga ${row.skuCode}`}
+                        onClick={() => setExpanded((value) => !value)}
+                    >
+                        {expanded ? (
+                            <ChevronDown
+                                aria-hidden="true"
+                                className="h-4 w-4 text-muted-foreground"
+                            />
+                        ) : (
+                            <ChevronRight
+                                aria-hidden="true"
+                                className="h-4 w-4 text-muted-foreground"
+                            />
+                        )}
+                    </Button>
                 </TableCell>
                 <TableCell className="font-mono text-xs">
                     {row.skuCode}
@@ -201,9 +216,11 @@ export function ProductPriceRow({
                                                     vs Dasar
                                                 </TableHead>
                                                 <TableHead>Status</TableHead>
-                                                <TableHead className="text-right">
-                                                    Aksi
-                                                </TableHead>
+                                                {canManage && (
+                                                    <TableHead className="text-right">
+                                                        Aksi
+                                                    </TableHead>
+                                                )}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -228,7 +245,8 @@ export function ProductPriceRow({
                                                             <Input
                                                                 type="number"
                                                                 min={0}
-                                                                className="w-28 h-8 text-right ml-auto"
+                                                                aria-label={`Harga untuk ${price.customerName}`}
+                                                                className="ml-auto h-11 w-28 text-right sm:h-8"
                                                                 value={
                                                                     editingPrice
                                                                 }
@@ -269,66 +287,70 @@ export function ProductPriceRow({
                                                                 : 'Nonaktif'}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-right">
-                                                        {editingId ===
-                                                        price.id ? (
-                                                            <div className="flex justify-end gap-1">
+                                                    {canManage && (
+                                                        <TableCell className="text-right">
+                                                            {editingId ===
+                                                            price.id ? (
+                                                                <div className="flex justify-end gap-1">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="default"
+                                                                        className="h-11 min-w-11 sm:h-8"
+                                                                        aria-label={`Simpan harga ${price.customerName}`}
+                                                                        disabled={
+                                                                            saving
+                                                                        }
+                                                                        onClick={() =>
+                                                                            handleSaveEdit(
+                                                                                price.customerId,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {saving ? (
+                                                                            <Loader2 className="h-3 w-3 motion-safe:animate-spin" />
+                                                                        ) : (
+                                                                            <Save className="h-3 w-3" />
+                                                                        )}
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        className="h-11 min-w-11 sm:h-8"
+                                                                        aria-label={`Batal edit harga ${price.customerName}`}
+                                                                        onClick={() => {
+                                                                            setEditingId(
+                                                                                null,
+                                                                            );
+                                                                            setEditingPrice(
+                                                                                '',
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </Button>
+                                                                </div>
+                                                            ) : (
                                                                 <Button
                                                                     size="sm"
-                                                                    variant="default"
-                                                                    className="h-7"
-                                                                    disabled={
-                                                                        saving
-                                                                    }
-                                                                    onClick={() =>
-                                                                        handleSaveEdit(
-                                                                            price.customerId,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    {saving ? (
-                                                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                                                    ) : (
-                                                                        <Save className="h-3 w-3" />
-                                                                    )}
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    className="h-7"
+                                                                    variant="outline"
+                                                                    className="h-11 sm:h-8"
                                                                     onClick={() => {
                                                                         setEditingId(
-                                                                            null,
+                                                                            price.id,
                                                                         );
                                                                         setEditingPrice(
-                                                                            '',
+                                                                            String(
+                                                                                price.unitPrice,
+                                                                            ),
                                                                         );
                                                                     }}
                                                                 >
-                                                                    <X className="h-3 w-3" />
+                                                                    <Pencil className="h-3 w-3 mr-1" />
+                                                                    Edit
                                                                 </Button>
-                                                            </div>
-                                                        ) : (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                className="h-7"
-                                                                onClick={() => {
-                                                                    setEditingId(
-                                                                        price.id,
-                                                                    );
-                                                                    setEditingPrice(
-                                                                        String(
-                                                                            price.unitPrice,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <Pencil className="h-3 w-3 mr-1" />
-                                                                Edit
-                                                            </Button>
-                                                        )}
-                                                    </TableCell>
+                                                            )}
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -336,7 +358,7 @@ export function ProductPriceRow({
                                 </div>
                             )}
 
-                            {addableCustomers.length > 0 && (
+                            {canManage && addableCustomers.length > 0 && (
                                 <div className="flex flex-wrap items-end gap-2 rounded border border-dashed p-2">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-medium text-muted-foreground">
@@ -346,7 +368,10 @@ export function ProductPriceRow({
                                             value={addingCustomerId}
                                             onValueChange={setAddingCustomerId}
                                         >
-                                            <SelectTrigger className="h-8 w-56">
+                                            <SelectTrigger
+                                                aria-label={`Customer untuk ${row.skuCode}`}
+                                                className="h-11 w-56 sm:h-8"
+                                            >
                                                 <SelectValue placeholder="Pilih customer" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -364,7 +389,8 @@ export function ProductPriceRow({
                                     <Input
                                         type="number"
                                         min={0}
-                                        className="h-8 w-32"
+                                        aria-label={`Harga baru untuk ${row.skuCode}`}
+                                        className="h-11 w-32 sm:h-8"
                                         placeholder="Harga"
                                         value={addingPrice}
                                         onChange={(e) =>
@@ -373,12 +399,12 @@ export function ProductPriceRow({
                                     />
                                     <Button
                                         size="sm"
-                                        className="h-8"
+                                        className="h-11 sm:h-8"
                                         disabled={saving}
                                         onClick={handleAddCustomerPrice}
                                     >
                                         {saving ? (
-                                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                            <Loader2 className="h-3 w-3 motion-safe:animate-spin mr-1" />
                                         ) : (
                                             <Plus className="h-3 w-3 mr-1" />
                                         )}

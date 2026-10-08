@@ -110,6 +110,10 @@ export function PurchaseRemittanceEntryPoint({
     const [dialogOpen, setDialogOpen] = useState(false);
     const [remittances, setRemittances] =
         useState<RemittanceRow[]>(initialRemittances);
+    const [remittanceState, setRemittanceState] = useState(
+        auxiliaryState.remittances,
+    );
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const canSubmit =
         canCreate &&
         auxiliaryState.outstanding === 'ready' &&
@@ -117,22 +121,29 @@ export function PurchaseRemittanceEntryPoint({
         invoices.length > 0;
 
     const refresh = useCallback(async () => {
+        setIsRefreshing(true);
         try {
             const res = await listPurchaseRemittancesAction({});
             if (!res?.success) {
+                setRemittanceState('error');
                 toast.error(res?.error || 'Gagal memuat ulang daftar setoran');
                 return;
             }
-            setRemittances((res.data ?? []) as unknown as RemittanceRow[]);
+            const next = (res.data ?? []) as unknown as RemittanceRow[];
+            setRemittances(next);
+            setRemittanceState(next.length > 0 ? 'ready' : 'empty');
         } catch {
+            setRemittanceState('error');
             toast.error('Gagal memuat ulang daftar setoran');
+        } finally {
+            setIsRefreshing(false);
         }
     }, []);
 
     return (
         <div className="space-y-3">
             {(auxiliaryState.outstanding === 'error' ||
-                auxiliaryState.remittances === 'error' ||
+                remittanceState === 'error' ||
                 auxiliaryState.paymentBanks === 'error') && (
                 <div
                     role="alert"
@@ -147,16 +158,22 @@ export function PurchaseRemittanceEntryPoint({
                         dapat digunakan, tetapi pengajuan pembayaran
                         dinonaktifkan.
                     </p>
-                    {auxiliaryState.remittances === 'error' && (
+                    {remittanceState === 'error' && (
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="mt-3"
+                            className="mt-3 min-h-11"
+                            disabled={isRefreshing}
                             onClick={() => void refresh()}
                         >
-                            <RefreshCw aria-hidden="true" className="h-4 w-4" />
-                            Coba muat pengajuan lagi
+                            <RefreshCw
+                                aria-hidden="true"
+                                className={`h-4 w-4 ${isRefreshing ? 'motion-safe:animate-spin' : ''}`}
+                            />
+                            {isRefreshing
+                                ? 'Memuat pengajuan…'
+                                : 'Coba muat pengajuan lagi'}
                         </Button>
                     )}
                 </div>
@@ -172,15 +189,19 @@ export function PurchaseRemittanceEntryPoint({
                     Tidak ada invoice yang memenuhi syarat pengajuan pembayaran.
                 </p>
             )}
-            {auxiliaryState.remittances === 'empty' && (
+            {remittanceState === 'empty' && (
                 <p className="text-sm text-muted-foreground">
                     Belum ada pengajuan pembayaran supplier sebelumnya.
                 </p>
             )}
             <div className="flex justify-end">
                 {canSubmit && (
-                    <Button size="sm" onClick={() => setDialogOpen(true)}>
-                        <Plus className="mr-2 h-3.5 w-3.5" />
+                    <Button
+                        size="sm"
+                        className="min-h-11"
+                        onClick={() => setDialogOpen(true)}
+                    >
+                        <Plus aria-hidden="true" className="mr-2 h-3.5 w-3.5" />
                         Ajukan Pembayaran Supplier
                     </Button>
                 )}

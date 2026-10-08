@@ -89,7 +89,13 @@ describe('PurchaseInvoiceTable shared paged contract', () => {
                 name: 'Urutkan berdasarkan No. Invoice',
             }),
         ).toBeTruthy();
-        expect(table.closest('[data-sticky-table="true"]')).toBeTruthy();
+        const scroller = table.closest('[data-sticky-table="true"]');
+        expect(scroller).toBeTruthy();
+        expect(scroller?.getAttribute('role')).toBe('region');
+        expect(scroller?.getAttribute('aria-label')).toMatch(
+            /geser horizontal/i,
+        );
+        expect(scroller?.getAttribute('tabindex')).toBe('0');
     });
 
     it('renders mobile invoice details, identical finance/purchasing links and delete confirmation', () => {
@@ -101,7 +107,18 @@ describe('PurchaseInvoiceTable shared paged contract', () => {
         expect(screen.getByRole('alertdialog')).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: 'Batal' }));
         rerender(<PurchaseInvoiceTable invoices={invoices} />);
-        expect(within(screen.getByRole('article')).getByRole('link', { name: 'BILL-0051' }).getAttribute('href')).toBe('/purchasing/orders/po-51');
+        const purchasingCard = within(screen.getByRole('article'));
+        expect(purchasingCard.getByRole('link', { name: 'BILL-0051' }).getAttribute('href')).toBe('/purchasing/orders/po-51');
+        expect(
+            purchasingCard.queryByRole('button', {
+                name: 'Hapus/Batal BILL-0051',
+            }),
+        ).toBeNull();
+        expect(
+            within(screen.getByRole('table')).queryByRole('button', {
+                name: 'Hapus/Batal BILL-0051',
+            }),
+        ).toBeNull();
     });
 
     it('preserves date filters while updating URL-backed pagination, filters, and sorting', () => {
@@ -141,5 +158,20 @@ describe('PurchaseInvoiceTable shared paged contract', () => {
         expect(push).toHaveBeenLastCalledWith(
             '/finance/invoices/purchase?page=1&pageSize=50&status=UNPAID&startDate=2026-09-01&endDate=2026-09-12&sort=totalAmount&direction=desc',
         );
+    });
+
+    it('distinguishes an empty register from no filtered result', () => {
+        const { rerender } = render(<PurchaseInvoiceTable invoices={[]} />);
+        expect(screen.getAllByText('Tidak ada invoice pembelian.').length).toBeGreaterThan(0);
+        rerender(
+            <PurchaseInvoiceTable
+                invoices={[]}
+                pagination={{ ...pagination, page: 1, totalCount: 0, totalPages: 0 }}
+                initialSearch="tidak-ada"
+            />,
+        );
+        expect(
+            screen.getAllByText('Tidak ada invoice yang cocok dengan filter.').length,
+        ).toBeGreaterThan(0);
     });
 });

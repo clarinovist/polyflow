@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import {
     Table,
     TableBody,
@@ -89,10 +92,18 @@ export function PriceListClient({
     initialPrices,
     customers,
     products,
+    priceError,
+    customerOptionsError,
+    productOptionsError,
+    canManage,
 }: {
     initialPrices: PriceListResult;
     customers: CustomerOpt[];
     products: ProductOpt[];
+    priceError?: string;
+    customerOptionsError?: string;
+    productOptionsError?: string;
+    canManage: boolean;
 }) {
     const [prices, setPrices] = useState<PriceListResult>(initialPrices);
     const [search, setSearch] = useState('');
@@ -101,11 +112,13 @@ export function PriceListClient({
     const [categoryFilter, setCategoryFilter] = useState('');
     const [onlyWithCustomPrice, setOnlyWithCustomPrice] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState(priceError);
     const [bulkOpen, setBulkOpen] = useState(false);
 
     const fetchPrices = useCallback(
         async (opts?: { page?: number }) => {
             setLoading(true);
+            setLoadError(undefined);
             try {
                 const result = await listPricesByProductAction({
                     search: search.trim() || undefined,
@@ -121,8 +134,14 @@ export function PriceListClient({
                 if (result.success && result.data) {
                     setPrices(result.data as unknown as PriceListResult);
                 } else if (!result.success) {
-                    toast.error(result.error || 'Gagal memuat price list');
+                    const message = result.error || 'Gagal memuat price list';
+                    setLoadError(message);
+                    toast.error(message);
                 }
+            } catch {
+                const message = 'Gagal memuat price list';
+                setLoadError(message);
+                toast.error(message);
             } finally {
                 setLoading(false);
             }
@@ -162,29 +181,75 @@ export function PriceListClient({
 
     return (
         <div className="space-y-4">
-            <PriceListFilters
-                search={search}
-                onSearchChange={setSearch}
-                customerFilter={customerFilter}
-                onCustomerFilterChange={setCustomerFilter}
-                productFilter={productFilter}
-                onProductFilterChange={setProductFilter}
-                categoryFilter={categoryFilter}
-                onCategoryFilterChange={setCategoryFilter}
-                onlyWithCustomPrice={onlyWithCustomPrice}
-                onOnlyWithCustomPriceChange={setOnlyWithCustomPrice}
-                customers={customers}
-                products={products}
-                totalLabel={totalLabel}
-                loading={loading}
-                onRefresh={() => fetchPrices()}
-                onOpenBulkAdjust={() => setBulkOpen(true)}
+            <ListToolbar
+                filters={
+                    <PriceListFilters
+                        search={search}
+                        onSearchChange={setSearch}
+                        customerFilter={customerFilter}
+                        onCustomerFilterChange={setCustomerFilter}
+                        productFilter={productFilter}
+                        onProductFilterChange={setProductFilter}
+                        categoryFilter={categoryFilter}
+                        onCategoryFilterChange={setCategoryFilter}
+                        onlyWithCustomPrice={onlyWithCustomPrice}
+                        onOnlyWithCustomPriceChange={setOnlyWithCustomPrice}
+                        customers={customers}
+                        products={products}
+                        totalLabel={totalLabel}
+                        loading={loading}
+                        onRefresh={() => fetchPrices()}
+                        onOpenBulkAdjust={() => setBulkOpen(true)}
+                        canManage={canManage}
+                    />
+                }
             />
+
+            {(customerOptionsError || productOptionsError) && (
+                <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                    Sebagian opsi filter belum dapat dimuat. Daftar harga tetap
+                    dapat digunakan, tetapi pilihan customer atau produk mungkin
+                    tidak lengkap.
+                </p>
+            )}
+            {loadError && (
+                <div
+                    role="alert"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm"
+                >
+                    <div>
+                        <p className="font-medium text-destructive">
+                            Gagal memuat price list.
+                        </p>
+                        <p className="text-muted-foreground">
+                            Data tidak dianggap kosong. Coba lagi tanpa mengubah
+                            filter.
+                        </p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        className="min-h-11"
+                        disabled={loading}
+                        onClick={() => void fetchPrices()}
+                    >
+                        {loading ? 'Memuat…' : 'Coba lagi'}
+                    </Button>
+                </div>
+            )}
 
             <Card>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto">
+                    <ResponsiveTable
+                        minWidth={760}
+                        role="region"
+                        aria-label="Tabel price list; geser horizontal untuk melihat seluruh perbandingan harga"
+                        tabIndex={0}
+                        className="mx-0 max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
                         <Table>
+                            <caption className="sr-only">
+                                Daftar harga produk per customer
+                            </caption>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-8" />
@@ -214,6 +279,7 @@ export function PriceListClient({
                                             key={`${row.variantId}-${expandMode}`}
                                             row={row}
                                             customers={customers}
+                                            canManage={canManage}
                                             defaultExpanded={
                                                 expandMode === 'search'
                                             }
@@ -223,46 +289,49 @@ export function PriceListClient({
                                 )}
                             </TableBody>
                         </Table>
+                    </ResponsiveTable>
+                    <div className="border-t p-3">
+                        <DataTablePagination
+                            pageIndex={Math.max(prices.page - 1, 0)}
+                            pageCount={prices.totalPages}
+                            canPreviousPage={prices.page > 1 && !loading}
+                            canNextPage={
+                                prices.page < prices.totalPages && !loading
+                            }
+                            onFirstPage={() => void fetchPrices({ page: 1 })}
+                            onPreviousPage={() =>
+                                void fetchPrices({ page: prices.page - 1 })
+                            }
+                            onNextPage={() =>
+                                void fetchPrices({ page: prices.page + 1 })
+                            }
+                            onLastPage={() =>
+                                void fetchPrices({ page: prices.totalPages })
+                            }
+                            rangeStart={
+                                prices.total === 0
+                                    ? 0
+                                    : (prices.page - 1) * prices.pageSize + 1
+                            }
+                            rangeEnd={Math.min(
+                                prices.page * prices.pageSize,
+                                prices.total,
+                            )}
+                            totalCount={prices.total}
+                        />
                     </div>
-                    {prices.totalPages > 1 && (
-                        <div className="flex items-center justify-between p-3 border-t">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={prices.page <= 1 || loading}
-                                onClick={() =>
-                                    fetchPrices({ page: prices.page - 1 })
-                                }
-                            >
-                                Sebelumnya
-                            </Button>
-                            <span className="text-xs text-muted-foreground">
-                                Hal {prices.page} / {prices.totalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={
-                                    prices.page >= prices.totalPages || loading
-                                }
-                                onClick={() =>
-                                    fetchPrices({ page: prices.page + 1 })
-                                }
-                            >
-                                Berikutnya
-                            </Button>
-                        </div>
-                    )}
                 </CardContent>
             </Card>
 
-            <BulkAdjustDialog
-                open={bulkOpen}
-                onOpenChange={setBulkOpen}
-                customers={customers}
-                products={products}
-                onApplied={() => fetchPrices({ page: 1 })}
-            />
+            {canManage && (
+                <BulkAdjustDialog
+                    open={bulkOpen}
+                    onOpenChange={setBulkOpen}
+                    customers={customers}
+                    products={products}
+                    onApplied={() => fetchPrices({ page: 1 })}
+                />
+            )}
         </div>
     );
 }

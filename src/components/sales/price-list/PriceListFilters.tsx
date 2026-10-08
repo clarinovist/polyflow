@@ -10,7 +10,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, Loader2, Settings2 } from 'lucide-react';
 import {
     PRODUCT_TYPE_OPTIONS,
@@ -36,6 +35,7 @@ type Props = {
     loading: boolean;
     onRefresh: () => void;
     onOpenBulkAdjust: () => void;
+    canManage: boolean;
 };
 
 export function PriceListFilters({
@@ -55,117 +55,138 @@ export function PriceListFilters({
     loading,
     onRefresh,
     onOpenBulkAdjust,
+    canManage,
 }: Props) {
     return (
-        <Card>
-            <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Filter</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-4">
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari produk / SKU / customer"
-                            value={search}
-                            onChange={(e) => onSearchChange(e.target.value)}
-                            className="pl-8"
-                        />
-                    </div>
-                    <Select
-                        value={customerFilter || '__all'}
-                        onValueChange={(v) =>
-                            onCustomerFilterChange(v === '__all' ? '' : v)
-                        }
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Semua customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__all">
-                                Semua customer
-                            </SelectItem>
-                            {customers.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                    {c.name} {c.code ? `(${c.code})` : ''}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select
-                        value={productFilter || '__all'}
-                        onValueChange={(v) =>
-                            onProductFilterChange(v === '__all' ? '' : v)
-                        }
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Semua produk" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__all">Semua produk</SelectItem>
-                            {products.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                    {productLabel(p)} ({p.skuCode})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select
-                        value={categoryFilter || '__all'}
-                        onValueChange={(v) =>
-                            onCategoryFilterChange(v === '__all' ? '' : v)
-                        }
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Kategori" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {PRODUCT_TYPE_OPTIONS.map((o) => (
-                                <SelectItem
-                                    key={o.value || '__all'}
-                                    value={o.value || '__all'}
-                                >
-                                    {o.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+        <div className="min-w-0 flex-1 space-y-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="relative">
+                    <Search
+                        aria-hidden="true"
+                        className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                    />
+                    <Input
+                        type="search"
+                        aria-label="Cari price list"
+                        placeholder="Cari produk / SKU / customer"
+                        value={search}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className="h-11 pl-9"
+                    />
                 </div>
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-4">
-                        <span className="text-xs text-muted-foreground">
-                            {totalLabel}
-                        </span>
-                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                            <Checkbox
-                                checked={onlyWithCustomPrice}
-                                onCheckedChange={(v) =>
-                                    onOnlyWithCustomPriceChange(v === true)
-                                }
+                <Select
+                    value={customerFilter || '__all'}
+                    onValueChange={(v) =>
+                        onCustomerFilterChange(v === '__all' ? '' : v)
+                    }
+                >
+                    <SelectTrigger
+                        aria-label="Filter customer price list"
+                        className="min-h-11 w-full"
+                    >
+                        <SelectValue placeholder="Semua customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="__all">Semua customer</SelectItem>
+                        {customers.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                                {c.name} {c.code ? `(${c.code})` : ''}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select
+                    value={productFilter || '__all'}
+                    onValueChange={(v) =>
+                        onProductFilterChange(v === '__all' ? '' : v)
+                    }
+                >
+                    <SelectTrigger
+                        aria-label="Filter produk price list"
+                        className="min-h-11 w-full"
+                    >
+                        <SelectValue placeholder="Semua produk" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="__all">Semua produk</SelectItem>
+                        {products.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                                {productLabel(p)} ({p.skuCode})
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select
+                    value={categoryFilter || '__all'}
+                    onValueChange={(v) =>
+                        onCategoryFilterChange(v === '__all' ? '' : v)
+                    }
+                >
+                    <SelectTrigger
+                        aria-label="Filter kategori price list"
+                        className="min-h-11 w-full"
+                    >
+                        <SelectValue placeholder="Kategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {PRODUCT_TYPE_OPTIONS.map((o) => (
+                            <SelectItem
+                                key={o.value || '__all'}
+                                value={o.value || '__all'}
+                            >
+                                {o.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-4">
+                    <span
+                        className="text-xs text-muted-foreground"
+                        role="status"
+                    >
+                        {totalLabel}
+                    </span>
+                    <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs">
+                        <Checkbox
+                            checked={onlyWithCustomPrice}
+                            onCheckedChange={(v) =>
+                                onOnlyWithCustomPriceChange(v === true)
+                            }
+                        />
+                        Hanya yang punya harga khusus
+                    </label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={onRefresh}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <Loader2
+                                aria-hidden="true"
+                                className="h-4 w-4 motion-safe:animate-spin"
                             />
-                            Hanya yang punya harga khusus
-                        </label>
-                    </div>
-                    <div className="flex gap-2">
+                        ) : null}
+                        {loading ? 'Memuat…' : 'Muat ulang'}
+                    </Button>
+                    {canManage && (
                         <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onRefresh}
-                            disabled={loading}
+                            className="min-h-11 max-w-full whitespace-normal"
+                            onClick={onOpenBulkAdjust}
                         >
-                            {loading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                'Refresh'
-                            )}
-                        </Button>
-                        <Button size="sm" onClick={onOpenBulkAdjust}>
-                            <Settings2 className="mr-1.5 h-4 w-4" />
+                            <Settings2
+                                aria-hidden="true"
+                                className="mr-1.5 h-4 w-4"
+                            />
                             Sesuaikan Harga Massal
                         </Button>
-                    </div>
+                    )}
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }

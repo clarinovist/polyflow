@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -121,6 +121,20 @@ describe('purchasing invoices route', () => {
                 endDate: new Date('2026-09-12T16:59:59.999Z'),
             }),
         );
+    });
+
+    it('shows a main query failure as an error instead of an empty register', async () => {
+        getPurchaseInvoicesPage.mockRejectedValueOnce(new Error('database down'));
+        render(
+            await PurchasingInvoicesPage({
+                searchParams: Promise.resolve({}),
+            }),
+        );
+        expect(screen.getByRole('alert').textContent).toContain(
+            'Gagal memuat invoice pembelian',
+        );
+        expect(purchaseInvoiceTable).not.toHaveBeenCalled();
+        expect(mocks.remittanceEntry).not.toHaveBeenCalled();
     });
 
     it('keeps the main list usable and marks every auxiliary failure honestly', async () => {

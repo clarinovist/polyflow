@@ -4,7 +4,10 @@ import { PageHeader } from '@/components/ui/page-header';
 import { serializeData } from '@/lib/utils/utils';
 import { PriceListClient } from '@/components/sales/price-list/PriceListClient';
 import { prisma } from '@/lib/core/prisma';
-import { requireSalesAccess } from '@/lib/auth/sales-access';
+import {
+    canManageSalesPricing,
+    requireSalesAccess,
+} from '@/lib/auth/sales-access';
 import { withTenant } from '@/lib/core/tenant';
 
 // Inline load to keep page self-contained; getProductVariants not reused for list
@@ -31,14 +34,19 @@ export default async function PriceListPage() {
     // Ensure auth guard runs in page (also enforced in actions)
     const Wrapped = withTenant(async function Wrapped() {
         await requireSalesAccess();
-        const [customersRes, pricesRes, products] = await Promise.all([
-            getCustomers(),
-            listPricesByProductAction({
-                page: 1,
-                pageSize: 50,
-            }),
-            getProductsForFilter(),
-        ]);
+        const [customersRes, pricesRes, productOptionsRes, canManage] =
+            await Promise.all([
+                getCustomers(),
+                listPricesByProductAction({
+                    page: 1,
+                    pageSize: 50,
+                }),
+                getProductsForFilter().then(
+                    (data) => ({ success: true as const, data }),
+                    () => ({ success: false as const, data: [] }),
+                ),
+                canManageSalesPricing(),
+            ]);
 
         const customers =
             customersRes.success && customersRes.data
@@ -64,12 +72,22 @@ export default async function PriceListPage() {
                       pageSize: number;
                       totalPages: number;
                   })
-                : { data: [], total: 0, page: 1, pageSize: 50, totalPages: 1 };
+                : { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
 
         return {
             customers,
             prices: serializeData(priceResult),
-            products: serializeData(products),
+            products: serializeData(productOptionsRes.data),
+            priceError: pricesRes.success
+                ? undefined
+                : pricesRes.error || 'Gagal memuat price list.',
+            customerOptionsError: customersRes.success
+                ? undefined
+                : customersRes.error || 'Gagal memuat opsi customer.',
+            productOptionsError: productOptionsRes.success
+                ? undefined
+                : 'Gagal memuat opsi produk.',
+            canManage,
         };
     });
 
@@ -89,6 +107,10 @@ export default async function PriceListPage() {
             skuCode: string;
             product: { name: string; productType: string };
         }[];
+        priceError?: string;
+        customerOptionsError?: string;
+        productOptionsError?: string;
+        canManage: boolean;
     };
     const payload: Payload =
         result &&
@@ -102,9 +124,13 @@ export default async function PriceListPage() {
                       total: 0,
                       page: 1,
                       pageSize: 50,
-                      totalPages: 1,
+                      totalPages: 0,
                   },
                   products: [],
+                  priceError: 'Gagal memuat price list.',
+                  customerOptionsError: 'Gagal memuat opsi customer.',
+                  productOptionsError: 'Gagal memuat opsi produk.',
+                  canManage: false,
               };
 
     return (
@@ -117,6 +143,10 @@ export default async function PriceListPage() {
                 initialPrices={payload.prices as never}
                 customers={payload.customers}
                 products={payload.products as never}
+                priceError={payload.priceError}
+                customerOptionsError={payload.customerOptionsError}
+                productOptionsError={payload.productOptionsError}
+                canManage={payload.canManage}
             />
         </div>
     );
