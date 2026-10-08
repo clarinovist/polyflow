@@ -8,6 +8,7 @@ interface OperationsSnapshot {
     generatedAt: string;
     status: 'healthy' | 'warning' | 'critical';
     releaseSha: string | null;
+    services: { web: string; worker: string; database: string };
     backup: {
         status: 'healthy' | 'warning' | 'critical';
         databaseCount: number;
@@ -35,6 +36,9 @@ function isOperationsSnapshot(value: unknown): value is OperationsSnapshot {
     const recovery = candidate.recovery;
     return Number.isFinite(generatedAt) && generatedAt <= Date.now() + 60_000 &&
         ['healthy', 'warning', 'critical'].includes(candidate.status ?? '') &&
+        ['healthy', 'unhealthy', 'running', 'exited', 'unknown'].includes(candidate.services?.web ?? '') &&
+        ['healthy', 'unhealthy', 'running', 'exited', 'unknown'].includes(candidate.services?.worker ?? '') &&
+        ['healthy', 'unhealthy', 'running', 'exited', 'unknown'].includes(candidate.services?.database ?? '') &&
         ['healthy', 'warning', 'critical'].includes(backup?.status ?? '') &&
         Number.isInteger(backup?.databaseCount) && (backup?.databaseCount ?? -1) >= 0 &&
         (backup?.latestAgeSeconds === null || (typeof backup?.latestAgeSeconds === 'number' && backup.latestAgeSeconds >= 0)) &&

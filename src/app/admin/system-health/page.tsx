@@ -49,6 +49,7 @@ interface SystemDiagnostics {
         data: null | {
             status: 'healthy' | 'warning' | 'critical';
             releaseSha: string | null;
+            services: { web: string; worker: string; database: string };
             backup: { status: string; databaseCount: number; latestAgeSeconds: number | null; assistantSources: number; lastJob: string };
             disk: { usedPercent: number; level: string };
             recovery: { rpoHours: number; rtoHours: number; lastRestoreDrill: { status: string; durationSeconds: number; databaseCount: number } };
@@ -245,6 +246,7 @@ export default function SystemHealthPage() {
                     <CardContent>
                         <div className="text-2xl font-bold">{operations.data?.backup.status ?? 'Tidak tersedia'}</div>
                         <p className="text-xs text-muted-foreground mt-1">{operations.data ? operations.data.backup.databaseCount + ' database · job ' + operations.data.backup.lastJob : 'Snapshot host belum tersedia'}</p>
+                        {operations.data && <p className="text-xs text-muted-foreground mt-1">Web {operations.data.services.web} · Worker {operations.data.services.worker}</p>}
                     </CardContent>
                 </Card>
                 <Card>
