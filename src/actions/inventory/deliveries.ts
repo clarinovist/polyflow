@@ -135,6 +135,48 @@ export const getDeliveryOrders = withTenant(
  * Minimal select for desktop/mobile outgoing pages.
  * Canonical ordering: LOADING first, then deliveryDate ascending.
  */
+/** Closed warehouse history in the requested period only. */
+export const getClosedDeliveryOrders = withTenant(
+    async function getClosedDeliveryOrders(dateRange: {
+        startDate: Date;
+        endDate: Date;
+    }) {
+        return safeAction(async () => {
+            return prisma.deliveryOrder.findMany({
+                where: {
+                    status: {
+                        notIn: [DeliveryStatus.PENDING, DeliveryStatus.LOADING],
+                    },
+                    deliveryDate: {
+                        gte: dateRange.startDate,
+                        lte: dateRange.endDate,
+                    },
+                },
+                orderBy: [
+                    { deliveryDate: 'desc' },
+                    { createdAt: 'desc' },
+                    { id: 'asc' },
+                ],
+                select: {
+                    id: true,
+                    orderNumber: true,
+                    salesOrderId: true,
+                    status: true,
+                    deliveryDate: true,
+                    carrier: true,
+                    salesOrder: {
+                        select: {
+                            orderNumber: true,
+                            customer: { select: { name: true } },
+                        },
+                    },
+                    sourceLocation: { select: { name: true } },
+                },
+            });
+        });
+    },
+);
+
 export const getOpenDeliveryOrders = withTenant(
     async function getOpenDeliveryOrders() {
         return safeAction(async () => {

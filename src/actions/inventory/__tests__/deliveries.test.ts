@@ -4,6 +4,7 @@ import {
     getDeliveryOrders,
     getDeliveryOrdersPage,
     getOpenDeliveryOrders,
+    getClosedDeliveryOrders,
     getOpenDeliveryOrderCount,
     getDeliveryOrderById,
     fetchDeliveryStockReadiness,
@@ -393,6 +394,29 @@ describe('getDeliveryOrdersPage', () => {
         const result = await getDeliveryOrdersPage(query);
         expect(result.success).toBe(false);
         expect(prisma.deliveryOrder.count).not.toHaveBeenCalled();
+    });
+});
+
+describe('getClosedDeliveryOrders', () => {
+    it('keeps active statuses out and applies the requested period in Prisma', async () => {
+        vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+        const range = {
+            startDate: new Date('2026-10-01T00:00:00Z'),
+            endDate: new Date('2026-10-31T23:59:59Z'),
+        };
+        const result = await getClosedDeliveryOrders(range);
+        expect(result.success).toBe(true);
+        expect(prisma.deliveryOrder.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: {
+                    status: { notIn: ['PENDING', 'LOADING'] },
+                    deliveryDate: {
+                        gte: range.startDate,
+                        lte: range.endDate,
+                    },
+                },
+            }),
+        );
     });
 });
 
