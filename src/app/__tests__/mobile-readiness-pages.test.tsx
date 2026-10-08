@@ -106,9 +106,19 @@ describe('mobile read states', () => {
     });
 
     it('renders useful invoice facts without a desktop dead-end link', async () => {
-        m.finance.mockResolvedValue({ success: true, data: { recentInvoices: [{ id: 'inv', type: 'AP', invoiceNumber: 'SYNTHETIC', customerName: 'Example', dueDate: '2026-09-01T00:00:00Z', amount: 600, status: 'PARTIAL' }] } });
-        render(await FinanceTasks()); expect(screen.getByText('Sisa tagihan')).toBeTruthy();
-        expect(screen.getByText(/Pembayaran dan jurnal tetap/)).toBeTruthy(); expect(screen.queryAllByRole('link')).toHaveLength(0);
+        m.finance.mockResolvedValue({
+            success: true,
+            data: {
+                generatedAt: '2026-10-07T00:00:00.000Z',
+                query: { type: 'AP', due: 'OVERDUE', bucket: 'ALL', page: 1 },
+                counts: { total: 1, returned: 1, ar: 0, ap: 1, hasNext: false, pageSizePerType: 10 },
+                invoices: [{ id: 'inv', type: 'AP', invoiceNumber: 'SYNTHETIC', partnerName: 'Example', invoiceDate: '2026-08-01T00:00:00Z', dueDate: '2026-09-01T00:00:00Z', remainingAmount: 600, status: 'PARTIAL', bucket: '1_30' }],
+            },
+        });
+        render(await FinanceTasks());
+        expect(screen.getByText('Sisa tagihan')).toBeTruthy();
+        expect(screen.getByText(/Pembayaran, posting jurnal/)).toBeTruthy();
+        expect(screen.getByRole('link', { name: /SYNTHETIC/ }).getAttribute('href')).toBe('/finance/mobile/invoices/ap/inv');
     });
     it('shows leaves inline and the full pending count', async () => {
         m.hrd.mockResolvedValue({ success: true, data: { highlights: { pendingLeaveCount: 35 }, pendingLeaves: [{ id: 'leave', employeeName: 'Example', leaveType: 'ANNUAL', startDate: '2026-09-01', endDate: '2026-09-02' }] } });

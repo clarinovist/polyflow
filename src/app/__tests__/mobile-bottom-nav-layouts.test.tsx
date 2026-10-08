@@ -95,6 +95,27 @@ describe('mobile portal bottom navigation safety', () => {
         },
     );
 
+    it('keeps Finance invoice detail under the Tugas destination', async () => {
+        pathname = '/finance/mobile/invoices/ar/invoice-1';
+        render(
+            await FinanceMobileLayout({
+                children: <p>Detail finance</p>,
+            }),
+        );
+        const nav = screen.getByRole('navigation', {
+            name: 'Navigasi finance mobile',
+        });
+        const current = screen
+            .getAllByRole('link')
+            .filter(
+                (link) =>
+                    link.closest('nav') === nav &&
+                    link.getAttribute('aria-current') === 'page',
+            );
+        expect(current).toHaveLength(1);
+        expect(current[0].getAttribute('href')).toBe('/finance/mobile/tasks');
+    });
+
     it.each([
         '/purchasing/mobile/requests/pr-1',
         '/purchasing/mobile/orders/po-1',

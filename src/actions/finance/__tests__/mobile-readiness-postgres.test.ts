@@ -46,11 +46,11 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
             { invoiceNumber: 'MOBILE-AP-CANCEL', purchaseOrderId: 'mobile-po', totalAmount: 900, status: 'CANCELLED', dueDate: past },
             { invoiceNumber: 'MOBILE-AP-FUTURE', purchaseOrderId: 'mobile-po', totalAmount: 500, status: 'UNPAID', dueDate: new Date('2099-01-01') },
         ] });
-        const result = await run(getFinanceMobileOverview);
-        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 13, overdueArAmount: 2087.8, overdueApCount: 2, overdueApAmount: 800 } } });
+        const result = await run(() => getFinanceMobileOverview({ due: 'OVERDUE' }));
+        expect(result).toMatchObject({ success: true, data: { counts: { ar: 13, ap: 2 }, highlights: { arAmount: 2087.8, apAmount: 800 } } });
         if (!result.success) throw new Error(result.error);
-        expect(result.data.recentInvoices.filter(i => i.type === 'AR')).toHaveLength(10);
-        expect(result.data.recentInvoices.filter(i => i.type === 'AP')).toHaveLength(2);
+        expect(result.data.invoices.filter(i => i.type === 'AR')).toHaveLength(10);
+        expect(result.data.invoices.filter(i => i.type === 'AP')).toHaveLength(2);
         expect(await run(getPurchasingMobileOverview)).toMatchObject({ success: true, data: { highlights: { overdueApCount: 2, overdueApAmount: 800 } } });
     });
     it('counts PRESENT people once, ignores future/absent records and derives NO_RECORD', async () => {

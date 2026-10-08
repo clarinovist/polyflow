@@ -1,69 +1,110 @@
 'use server';
 
-import { withTenant } from '@/lib/core/tenant';
-import { getTenantDbFromContext } from '@/lib/core/prisma';
-import { Prisma } from '@prisma/client';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { getMyExplicitFeaturePermissions } from '@/actions/admin/permissions';
 import { requireFinanceAccess } from '@/lib/auth/finance-access';
-import { positiveSalesReceivableWhere } from '@/services/finance/sales-receivable-query';
+import { getTenantDbFromContext } from '@/lib/core/prisma';
+import { withTenant } from '@/lib/core/tenant';
+import {
+    BusinessRuleError,
+    safeAction,
+    ValidationError,
+} from '@/lib/errors/errors';
 import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
+import {
+    FINANCE_MOBILE_BUCKETS,
+    FINANCE_MOBILE_DUE_FILTERS,
+    FINANCE_MOBILE_TYPES,
+    readFinanceMobileInvoiceDetail,
+    readFinanceMobileOverview,
+    type FinanceMobileBucket,
+    type FinanceMobileDueFilter,
+    type FinanceMobileType,
+} from '@/services/finance/mobile-finance-service';
+
+function includes<T extends string>(
+    values: readonly T[],
+    value: string | undefined,
+    fallback: T,
+): T {
+    return value && values.includes(value as T) ? (value as T) : fallback;
+}
+function page(value?: string): number {
+    const parsed = Number(value ?? '1');
+    return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= 10_000
+        ? parsed
+        : 1;
+}
+function id(value: string): string {
+    const parsed = value.trim();
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(parsed))
+        throw new ValidationError('ID invoice tidak valid.');
+    return parsed;
+}
+async function context() {
+    await requireFinanceAccess();
+    await requireMobilePortalAccess('finance');
+    const db = getTenantDbFromContext();
+    if (!db)
+        throw new BusinessRuleError(
+            'Konteks workspace finance tidak tersedia.',
+        );
+    const permissions = await getMyExplicitFeaturePermissions();
+    return {
+        db,
+        canViewAmounts:
+            permissions.success &&
+            permissions.data.includes('feature:view-prices'),
+    };
+}
 
 export const getFinanceMobileOverview = withTenant(
-    async function getFinanceMobileOverview() {
+    async function getFinanceMobileOverview(input?: {
+        type?: string;
+        due?: string;
+        bucket?: string;
+        page?: string;
+    }) {
         return safeAction(async () => {
-            await requireFinanceAccess();
-            await requireMobilePortalAccess('finance');
-            const db = getTenantDbFromContext();
-            if (!db) throw new BusinessRuleError('Konteks workspace finance tidak tersedia.');
-            const now = new Date();
-            // Totals and the bounded feed share one read snapshot, not a sample.
-            return db.$transaction(async (tx) => {
-                const arWhere: Prisma.InvoiceWhereInput = {
-                    ...positiveSalesReceivableWhere(), dueDate: { lt: now },
-                };
-                // Same net AP definition as AP aging: total less payments.
-                const apWhere: Prisma.PurchaseInvoiceWhereInput = {
-                    status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
-                    dueDate: { lt: now }, totalAmount: { gt: tx.purchaseInvoice.fields.paidAmount },
-                };
-                const [ar, ap, arInvoices, apInvoices, draftJournalCount, openReconCount] = await Promise.all([
-                    tx.invoice.aggregate({ where: arWhere, _count: true, _sum: { remainingAmount: true } }),
-                    tx.purchaseInvoice.aggregate({ where: apWhere, _count: true, _sum: { totalAmount: true, paidAmount: true } }),
-                    tx.invoice.findMany({ where: arWhere, take: 10, orderBy: [{ dueDate: 'asc' }, { id: 'asc' }], select: {
-                        id: true, invoiceNumber: true, dueDate: true, remainingAmount: true, status: true,
-                        salesOrder: { select: { customer: { select: { name: true } } } },
-                    } }),
-                    tx.purchaseInvoice.findMany({ where: apWhere, take: 10, orderBy: [{ dueDate: 'asc' }, { id: 'asc' }], select: {
-                        id: true, invoiceNumber: true, dueDate: true, totalAmount: true, paidAmount: true, status: true,
-                        purchaseOrder: { select: { supplier: { select: { name: true } } } },
-                    } }),
-                    tx.journalEntry.count({ where: { status: 'DRAFT' } }),
-                    tx.bankReconciliation.count({ where: { status: { in: ['DRAFT', 'IN_PROGRESS'] } } }),
-                ]);
-                const recentInvoices = [
-                    ...arInvoices.map((inv) => ({
-                        id: inv.id, invoiceNumber: inv.invoiceNumber || inv.id.substring(0, 8),
-                        customerName: inv.salesOrder?.customer?.name ?? 'Pelanggan', type: 'AR' as const,
-                        dueDate: inv.dueDate!.toISOString(), amount: Number(inv.remainingAmount), status: inv.status,
-                    })),
-                    ...apInvoices.map((inv) => ({
-                        id: inv.id, invoiceNumber: inv.invoiceNumber || inv.id.substring(0, 8),
-                        customerName: inv.purchaseOrder?.supplier?.name ?? 'Supplier', type: 'AP' as const,
-                        dueDate: inv.dueDate!.toISOString(), amount: Number(inv.totalAmount.minus(inv.paidAmount)), status: inv.status,
-                    })),
-                ].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.type.localeCompare(b.type) || a.id.localeCompare(b.id));
-                return {
-                    generatedAt: now.toISOString(),
-                    highlights: {
-                        overdueArCount: ar._count, overdueArAmount: Number(ar._sum.remainingAmount ?? 0),
-                        overdueApCount: ap._count,
-                        overdueApAmount: Number((ap._sum.totalAmount ?? new Prisma.Decimal(0)).minus(ap._sum.paidAmount ?? 0)),
-                        draftJournalCount, openReconCount,
-                    },
-                    // Up to ten of each type; AP never disappears behind ten AR.
-                    recentInvoices,
-                };
-            }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+            const ctx = await context();
+            return readFinanceMobileOverview(ctx.db, {
+                type: includes(
+                    FINANCE_MOBILE_TYPES,
+                    input?.type,
+                    'ALL',
+                ) as FinanceMobileType,
+                due: includes(
+                    FINANCE_MOBILE_DUE_FILTERS,
+                    input?.due,
+                    'ALL',
+                ) as FinanceMobileDueFilter,
+                bucket: includes(
+                    FINANCE_MOBILE_BUCKETS,
+                    input?.bucket,
+                    'ALL',
+                ) as FinanceMobileBucket,
+                page: page(input?.page),
+                canViewAmounts: ctx.canViewAmounts,
+            });
+        });
+    },
+);
+
+export const getFinanceMobileInvoiceDetail = withTenant(
+    async function getFinanceMobileInvoiceDetail(
+        type: string,
+        invoiceId: string,
+    ) {
+        return safeAction(async () => {
+            const parsedType = includes(['AR', 'AP'] as const, type, 'AR');
+            if (parsedType !== type)
+                throw new ValidationError('Jenis invoice tidak valid.');
+            const ctx = await context();
+            return readFinanceMobileInvoiceDetail(
+                ctx.db,
+                parsedType,
+                id(invoiceId),
+                ctx.canViewAmounts,
+            );
         });
     },
 );

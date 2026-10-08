@@ -2,13 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-    CheckSquare,
-    Home,
-    TrendingUp,
-    Users,
-    Wrench,
-} from 'lucide-react';
+import { CheckSquare, Home, TrendingUp, Users, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 
 type Portal = 'finance' | 'hrd' | 'production' | 'purchasing';
@@ -100,9 +94,12 @@ export function MobilePortalBottomNav({
 }) {
     const pathname = usePathname();
     const config = portalConfig[portal];
-    const items = readOnly && portal === 'production'
-        ? config.items.filter((item) => item.href !== '/production/mobile/tasks')
-        : config.items;
+    const items =
+        readOnly && portal === 'production'
+            ? config.items.filter(
+                  (item) => item.href !== '/production/mobile/tasks',
+              )
+            : config.items;
 
     return (
         <nav
@@ -110,19 +107,21 @@ export function MobilePortalBottomNav({
             className="fixed right-0 bottom-0 left-0 z-50 flex min-h-16 border-t bg-white py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg dark:border-slate-800 dark:bg-slate-900"
         >
             {items.map((item) => {
-                const purchasingTaskDetail =
-                    portal === 'purchasing' &&
-                    item.href === '/purchasing/mobile/tasks' &&
-                    [
-                        '/purchasing/mobile/requests/',
-                        '/purchasing/mobile/orders/',
-                        '/purchasing/mobile/receipts/',
-                    ].some((prefix) => pathname.startsWith(prefix));
+                const taskDetail =
+                    item.href === `/${portal}/mobile/tasks` &&
+                    (portal === 'purchasing'
+                        ? [
+                              '/purchasing/mobile/requests/',
+                              '/purchasing/mobile/orders/',
+                              '/purchasing/mobile/receipts/',
+                          ].some((prefix) => pathname.startsWith(prefix))
+                        : portal === 'finance' &&
+                          pathname.startsWith('/finance/mobile/invoices/'));
                 const active =
                     pathname === item.href ||
                     (item.href !== `/${portal}/mobile` &&
                         pathname.startsWith(`${item.href}/`)) ||
-                    purchasingTaskDetail;
+                    taskDetail;
                 return (
                     <Link
                         key={item.href}
@@ -136,7 +135,9 @@ export function MobilePortalBottomNav({
                         )}
                     >
                         <item.icon aria-hidden="true" className="h-5 w-5" />
-                        <span className="max-w-full truncate">{item.label}</span>
+                        <span className="max-w-full truncate">
+                            {item.label}
+                        </span>
                     </Link>
                 );
             })}

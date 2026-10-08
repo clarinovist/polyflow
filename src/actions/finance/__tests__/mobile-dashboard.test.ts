@@ -1,71 +1,25 @@
 vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess: vi.fn().mockResolvedValue({}) }));
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 import { getFinanceMobileOverview } from '../mobile-dashboard';
 
-const mocks = vi.hoisted(() => ({
-    guard: vi.fn(), transaction: vi.fn(), tenantDb: vi.fn(),
-    arAggregate: vi.fn(), apAggregate: vi.fn(), arList: vi.fn(), apList: vi.fn(),
-    journals: vi.fn(), reconciliations: vi.fn(),
-}));
-vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: mocks.guard }));
-vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
-vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: mocks.tenantDb }));
-const d = (n: number) => new Prisma.Decimal(n);
-const tx = {
-    invoice: { aggregate: mocks.arAggregate, findMany: mocks.arList },
-    purchaseInvoice: { aggregate: mocks.apAggregate, findMany: mocks.apList, fields: { paidAmount: 'paidAmount-field' } },
-    journalEntry: { count: mocks.journals }, bankReconciliation: { count: mocks.reconciliations },
-};
-describe('getFinanceMobileOverview', () => {
-    beforeEach(() => {
-        vi.resetAllMocks();
-        mocks.guard.mockResolvedValue({ user: { role: 'FINANCE' } });
-        mocks.tenantDb.mockReturnValue({ $transaction: mocks.transaction });
-        mocks.transaction.mockImplementation((fn) => fn(tx));
-        mocks.arAggregate.mockResolvedValue({ _count: 0, _sum: { remainingAmount: null } });
-        mocks.apAggregate.mockResolvedValue({ _count: 0, _sum: { totalAmount: null, paidAmount: null } });
-        mocks.arList.mockResolvedValue([]); mocks.apList.mockResolvedValue([]);
-        mocks.journals.mockResolvedValue(0); mocks.reconciliations.mockResolvedValue(0);
-    });
-    it('returns a genuine empty overview in one repeatable read snapshot', async () => {
-        const result = await getFinanceMobileOverview();
-        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 0, overdueApAmount: 0 }, recentInvoices: [] } });
-        expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'RepeatableRead' });
-    });
-    it('uses full aggregates and net amounts, independent of the limited list', async () => {
-        mocks.arAggregate.mockResolvedValue({ _count: 35, _sum: { remainingAmount: d(3500) } });
-        mocks.apAggregate.mockResolvedValue({ _count: 22, _sum: { totalAmount: d(22000), paidAmount: d(4000) } });
-        mocks.apList.mockResolvedValue([{ id: 'ap', invoiceNumber: 'AP', dueDate: new Date('2026-01-01'), totalAmount: d(1000), paidAmount: d(400), status: 'PARTIAL', purchaseOrder: null }]);
-        const result = await getFinanceMobileOverview();
-        expect(result).toMatchObject({ success: true, data: { highlights: { overdueArCount: 35, overdueArAmount: 3500, overdueApCount: 22, overdueApAmount: 18000 }, recentInvoices: [{ amount: 600, type: 'AP' }] } });
-        expect(mocks.apAggregate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] }, totalAmount: { gt: 'paidAmount-field' } }) }));
-        expect(mocks.arAggregate.mock.calls[0][0].where.remainingAmount).toEqual({ gt: 0 });
-        expect(mocks.arAggregate.mock.calls[0][0]).not.toHaveProperty('take');
-    });
-    it('keeps both AR and AP and orders by due date rather than concatenation', async () => {
-        mocks.arList.mockResolvedValue(Array.from({ length: 10 }, (_, i) => ({ id: `ar-${i}`, invoiceNumber: null, dueDate: new Date('2026-02-01'), remainingAmount: d(80), status: 'PARTIAL', salesOrder: null })));
-        mocks.apList.mockResolvedValue([{ id: 'ap', invoiceNumber: 'AP', dueDate: new Date('2026-01-01'), totalAmount: d(1000), paidAmount: d(400), status: 'PARTIAL', purchaseOrder: { supplier: { name: 'Synthetic supplier' } } }]);
-        const result = await getFinanceMobileOverview();
-        expect(result.success).toBe(true);
-        if (!result.success) return;
-        expect(result.data.recentInvoices).toHaveLength(11);
-        expect(result.data.recentInvoices[0]).toMatchObject({ type: 'AP', amount: 600 });
-        expect(result.data.recentInvoices[1]).toMatchObject({ type: 'AR', amount: 80 });
-    });
-    it('does not turn a failed query into a zero-success dashboard', async () => {
-        mocks.arAggregate.mockRejectedValue(new Error('Synthetic read failure'));
-        expect(await getFinanceMobileOverview()).toMatchObject({ success: false });
-    });
-    it('fails closed without an explicit tenant DB', async () => {
-        mocks.tenantDb.mockReturnValue(undefined);
-        expect(await getFinanceMobileOverview()).toMatchObject({ success: false });
-        expect(mocks.transaction).not.toHaveBeenCalled();
-    });
-    it('checks access before starting any query', async () => {
-        mocks.guard.mockRejectedValue(new Error('Denied'));
-        expect(await getFinanceMobileOverview()).toMatchObject({ success: false });
-        expect(mocks.transaction).not.toHaveBeenCalled();
-    });
+const mocks=vi.hoisted(()=>({guard:vi.fn(),features:vi.fn(),transaction:vi.fn(),tenantDb:vi.fn(),arAggregate:vi.fn(),apAggregate:vi.fn(),arList:vi.fn(),apList:vi.fn(),journals:vi.fn(),reconciliations:vi.fn(),fiscal:vi.fn(),payroll:vi.fn()}));
+vi.mock('@/lib/auth/finance-access',()=>({requireFinanceAccess:mocks.guard}));
+vi.mock('@/actions/admin/permissions',()=>({getMyExplicitFeaturePermissions:mocks.features}));
+vi.mock('@/lib/core/tenant',()=>({withTenant:(fn:unknown)=>fn}));
+vi.mock('@/lib/core/prisma',()=>({getTenantDbFromContext:mocks.tenantDb}));
+const d=(n:number)=>new Prisma.Decimal(n);
+const tx={invoice:{aggregate:mocks.arAggregate,findMany:mocks.arList},purchaseInvoice:{aggregate:mocks.apAggregate,findMany:mocks.apList,fields:{paidAmount:'paidAmount-field'}},journalEntry:{count:mocks.journals},bankReconciliation:{count:mocks.reconciliations},fiscalPeriod:{findUnique:mocks.fiscal},payrollPeriod:{findUnique:mocks.payroll}};
+
+describe('getFinanceMobileOverview',()=>{
+ beforeEach(()=>{vi.resetAllMocks();mocks.guard.mockResolvedValue({user:{role:'FINANCE'}});mocks.features.mockResolvedValue({success:true,data:['feature:view-prices']});mocks.tenantDb.mockReturnValue({$transaction:mocks.transaction});mocks.transaction.mockImplementation(fn=>fn(tx));mocks.arAggregate.mockResolvedValue({_count:0,_sum:{remainingAmount:null}});mocks.apAggregate.mockResolvedValue({_count:0,_sum:{totalAmount:null,paidAmount:null}});mocks.arList.mockResolvedValue([]);mocks.apList.mockResolvedValue([]);mocks.journals.mockResolvedValue(0);mocks.reconciliations.mockResolvedValue(0);mocks.fiscal.mockResolvedValue(null);mocks.payroll.mockResolvedValue(null);});
+ it('returns total and page in one repeatable-read snapshot',async()=>{const result=await getFinanceMobileOverview();expect(result).toMatchObject({success:true,data:{counts:{total:0,returned:0,ar:0,ap:0,hasNext:false},invoices:[],readiness:{fiscalPeriod:null,payroll:null}}});expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function),{isolationLevel:'RepeatableRead'});});
+ it('uses canonical full aggregates and net amounts independent of bounded rows',async()=>{mocks.arAggregate.mockResolvedValue({_count:35,_sum:{remainingAmount:d(3500)}});mocks.apAggregate.mockResolvedValue({_count:22,_sum:{totalAmount:d(22000),paidAmount:d(4000)}});mocks.apList.mockResolvedValue([{id:'ap',invoiceNumber:'AP',invoiceDate:new Date('2025-12-01'),dueDate:new Date('2026-01-01'),totalAmount:d(1000),paidAmount:d(400),status:'PARTIAL',purchaseOrder:null}]);const result=await getFinanceMobileOverview({due:'OVERDUE'});expect(result).toMatchObject({success:true,data:{counts:{total:57,returned:1},highlights:{arAmount:3500,apAmount:18000},invoices:[{remainingAmount:600,type:'AP'}]}});expect(mocks.apAggregate).toHaveBeenCalledWith(expect.objectContaining({where:{AND:expect.arrayContaining([expect.objectContaining({totalAmount:{gt:'paidAmount-field'}})])}}));expect(mocks.arAggregate.mock.calls[0][0]).not.toHaveProperty('take');});
+ it('keeps AR and AP pages distinct and deterministically merged',async()=>{mocks.arList.mockResolvedValue([{id:'ar',invoiceNumber:'AR',invoiceDate:new Date('2026-01-01'),dueDate:new Date('2026-02-01'),remainingAmount:d(80),status:'PARTIAL',salesOrder:null,collectionActivities:[]}]);mocks.apList.mockResolvedValue([{id:'ap',invoiceNumber:'AP',invoiceDate:new Date('2025-12-01'),dueDate:new Date('2026-01-01'),totalAmount:d(1000),paidAmount:d(400),status:'PARTIAL',purchaseOrder:{supplier:{name:'Synthetic supplier'}}}]);const result=await getFinanceMobileOverview();expect(result.success).toBe(true);if(!result.success)return;expect(result.data.invoices).toHaveLength(2);expect(result.data.invoices[0]).toMatchObject({type:'AP',remainingAmount:600});expect(result.data.invoices[1]).toMatchObject({type:'AR',remainingAmount:80});});
+ it('omits every amount query and DTO field without canonical permission',async()=>{mocks.features.mockResolvedValue({success:true,data:[]});mocks.arAggregate.mockResolvedValue({_count:1});mocks.apAggregate.mockResolvedValue({_count:1});mocks.arList.mockResolvedValue([{id:'ar',invoiceNumber:'AR',invoiceDate:new Date(),dueDate:null,status:'UNPAID',salesOrder:null,collectionActivities:[]}]);const result=await getFinanceMobileOverview();expect(result.success).toBe(true);if(!result.success)return;expect(result.data.highlights).not.toHaveProperty('arAmount');expect(result.data.invoices[0]).not.toHaveProperty('remainingAmount');expect(mocks.arAggregate.mock.calls[0][0]).not.toHaveProperty('_sum');expect(mocks.arList.mock.calls[0][0].select).not.toHaveProperty('remainingAmount');});
+ it('returns only aggregate payroll readiness',async()=>{mocks.payroll.mockResolvedValue({year:2026,month:10,status:'OPEN',payslips:[{status:'DRAFT'},{status:'FINALIZED'},{status:'PAID'}]});const result=await getFinanceMobileOverview();expect(result).toMatchObject({success:true,data:{readiness:{payroll:{total:3,counts:{draft:1,finalized:1,paid:1}}}}});expect(JSON.stringify(result)).not.toMatch(/employee|netPay|name/);});
+ it('returns only the latest safe AR follow-up fields',async()=>{mocks.arList.mockResolvedValue([{id:'ar',invoiceNumber:'AR',invoiceDate:new Date('2026-01-01'),dueDate:new Date('2026-02-01'),remainingAmount:d(80),status:'PARTIAL',salesOrder:null,collectionActivities:[{type:'CALL',activityDate:new Date('2026-02-02'),promisedDate:new Date('2026-02-05'),user:{name:'Collector'}}]}]);const result=await getFinanceMobileOverview({type:'AR'});expect(result).toMatchObject({success:true,data:{invoices:[{followUp:{type:'CALL',ownerName:'Collector',promisedDate:'2026-02-05T00:00:00.000Z'}}]}});expect(mocks.arList.mock.calls[0][0].select.collectionActivities.select).toEqual({type:true,activityDate:true,promisedDate:true,user:{select:{name:true}}});});
+ it('does not turn a failed query into zero success',async()=>{mocks.arAggregate.mockRejectedValue(new Error('Synthetic read failure'));expect(await getFinanceMobileOverview()).toMatchObject({success:false});});
+ it('fails closed before querying without tenant context or access',async()=>{mocks.tenantDb.mockReturnValue(undefined);expect(await getFinanceMobileOverview()).toMatchObject({success:false});expect(mocks.transaction).not.toHaveBeenCalled();mocks.guard.mockRejectedValue(new Error('Denied'));expect(await getFinanceMobileOverview()).toMatchObject({success:false});expect(mocks.transaction).not.toHaveBeenCalled();});
 });
