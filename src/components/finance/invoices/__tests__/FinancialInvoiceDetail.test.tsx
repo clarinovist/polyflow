@@ -131,7 +131,7 @@ describe('FinancialInvoiceDetail — Reference Order navigation', () => {
     ])('links the reference SO by ID for $status invoices', ({ orderNumber, ...overrides }) => {
         render(<FinancialInvoiceDetail invoice={makeInvoice(overrides)} />);
 
-        const reference = screen.getByText('Reference Order').parentElement!;
+        const reference = screen.getByText('Referensi Pesanan').parentElement!;
         const link = within(reference).getByRole('link', { name: orderNumber });
         expect(link.getAttribute('href')).toBe('/sales/orders/so-1');
     });
@@ -139,7 +139,7 @@ describe('FinancialInvoiceDetail — Reference Order navigation', () => {
     it('shows N/A without a link when the SO relation is missing', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ salesOrder: null })} />);
 
-        const reference = screen.getByText('Reference Order').parentElement!;
+        const reference = screen.getByText('Referensi Pesanan').parentElement!;
         expect(within(reference).getByText('N/A')).toBeDefined();
         expect(within(reference).queryByRole('link')).toBeNull();
     });
@@ -147,9 +147,56 @@ describe('FinancialInvoiceDetail — Reference Order navigation', () => {
     it('keeps the SO number as text when its ID is unavailable', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ salesOrderId: undefined })} />);
 
-        const reference = screen.getByText('Reference Order').parentElement!;
+        const reference = screen.getByText('Referensi Pesanan').parentElement!;
         expect(within(reference).getByText('SO-0001')).toBeDefined();
         expect(within(reference).queryByRole('link')).toBeNull();
+    });
+});
+
+describe('FinancialInvoiceDetail — command center layout', () => {
+    it('surfaces invoice identity, summary, and one primary action per state', () => {
+        const view = render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({
+                    status: 'DRAFT',
+                    paidAmount: 200000,
+                    creditedAmount: 100000,
+                })}
+            />,
+        );
+        expect(
+            screen.getByRole('heading', { level: 1 }).textContent,
+        ).toBe('INV/2026/0001');
+        const summary = screen.getByRole('region', {
+            name: 'Ringkasan invoice',
+        });
+        expect(summary).toBeDefined();
+        expect(within(summary).getByText('Total Invoice')).toBeDefined();
+        expect(within(summary).getByText('Sudah Dibayar')).toBeDefined();
+        expect(within(summary).getByText('Kredit Retur')).toBeDefined();
+        expect(within(summary).getByText('Sisa Tagihan')).toBeDefined();
+        let actions = screen.getByRole('group', { name: 'Aksi invoice' });
+        expect(
+            actions.querySelectorAll('[data-variant="default"]'),
+        ).toHaveLength(1);
+
+        view.rerender(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({ status: 'UNPAID' })}
+            />,
+        );
+        actions = screen.getByRole('group', { name: 'Aksi invoice' });
+        expect(
+            actions.querySelectorAll('[data-variant="default"]'),
+        ).toHaveLength(1);
+
+        view.rerender(
+            <FinancialInvoiceDetail invoice={makeInvoice({ status: 'PAID' })} />,
+        );
+        actions = screen.getByRole('group', { name: 'Aksi invoice' });
+        expect(
+            actions.querySelectorAll('[data-variant="default"]'),
+        ).toHaveLength(0);
     });
 });
 
@@ -165,12 +212,12 @@ describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
         rerender(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'PARTIAL', creditedAmount: 200000 })} />);
         fireEvent.click(screen.getByRole('button', { name: 'Catat Pembayaran' }));
         expect(screen.getByLabelText('Jumlah')).toHaveProperty('value', '800000');
-        expect(screen.getByText('Remaining Balance').parentElement?.textContent).toContain('800.000');
+        expect(screen.getAllByText('Sisa Tagihan').at(-1)?.parentElement?.textContent).toContain('800.000');
     });
     it('shows price adjustment separately and offers only adjusted cash remaining', () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'PARTIAL', paidAmount: 200000, creditedAmount: 100000, priceAdjustmentAmount: -100000 })} />);
         expect(screen.getByText('Penyesuaian harga').parentElement?.textContent).toContain('100.000');
-        expect(screen.getByText('Remaining Balance').parentElement?.textContent).toContain('600.000');
+        expect(screen.getAllByText('Sisa Tagihan').at(-1)?.parentElement?.textContent).toContain('600.000');
         fireEvent.click(screen.getByRole('button', { name: 'Catat Pembayaran' }));
         expect(screen.getByLabelText('Jumlah')).toHaveProperty('value', '600000');
     });
@@ -246,7 +293,7 @@ describe('FinancialInvoiceDetail — Konfirmasi Invoice button', () => {
         expect(within(reference).getByText('Variant A').parentElement?.textContent).toContain('234.567');
         expect(screen.getByText('Total invoice tersimpan').parentElement?.textContent).toContain('1.000.500');
         expect(screen.getByText('Pembulatan').parentElement?.textContent).toContain('500');
-        expect(screen.getByText('Remaining Balance').parentElement?.textContent).toContain('600.500');
+        expect(screen.getAllByText('Sisa Tagihan').at(-1)?.parentElement?.textContent).toContain('600.500');
         fireEvent.click(screen.getByRole('button', { name: 'Catat Pembayaran' }));
         expect(screen.getByLabelText('Jumlah')).toHaveProperty('value', '600500');
     });
@@ -502,23 +549,38 @@ describe('FinancialInvoiceDetail — Catat Pembayaran button', () => {
         expect(sentDate.toISOString().split('T')[0]).toBe('2026-08-01');
     });
 
-    it('updated note says status & pembayaran bisa dari halaman ini, not read-only only', () => {
+    it('keeps operational guidance separate from the audit trail', async () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice({ status: 'UNPAID' })} />);
         expect(
-            screen.getByText(/Status invoice dan pembayaran sudah bisa dikelola/i),
+            screen.getByText(/Status invoice dan pembayaran dikelola dari halaman ini/i),
         ).toBeDefined();
+        const audit = screen.getByRole('tab', { name: 'Audit Status' });
+        expect(audit.getAttribute('aria-selected')).toBe('false');
+        fireEvent.mouseDown(audit, { button: 0 });
+        await waitFor(() =>
+            expect(audit.getAttribute('aria-selected')).toBe('true'),
+        );
+        expect(screen.getByTestId('timeline')).toBeDefined();
         expect(
             screen.queryByText(/This is a read-only financial view/i),
         ).toBeNull();
     });
 
-    it('print buttons still exist', () => {
+    it('keeps print actions inside the document menu', async () => {
         render(<FinancialInvoiceDetail invoice={makeInvoice()} />);
+        fireEvent.keyDown(
+            screen.getByRole('button', { name: 'Cetak & Dokumen' }),
+            { key: 'Enter' },
+        );
+        const menu = await screen.findByRole('menu');
         expect(
-            screen.getByRole('button', { name: /Cetak Dot Matrix/i }),
+            within(menu).getByRole('menuitem', { name: 'Cetak Dot Matrix' }),
         ).toBeDefined();
-        // ESC/P link containing text
-        expect(screen.getByText(/ESC\/P/i)).toBeDefined();
+        expect(
+            within(menu).getByRole('menuitem', {
+                name: 'ESC/P (Dot Matrix)',
+            }),
+        ).toBeDefined();
     });
 });
 

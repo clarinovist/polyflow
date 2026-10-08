@@ -1,8 +1,5 @@
 import { getInvoiceById } from '@/actions/finance/invoice';
 import { FinancialInvoiceDetail } from '@/components/finance/invoices/FinancialInvoiceDetail';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
 import type { ComponentProps } from 'react';
@@ -34,24 +31,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
     }
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="outline" size="sm" asChild>
-                    <Link href="/finance/invoices/sales">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Kembali ke Daftar
-                    </Link>
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        Invoice Detail
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Financial View
-                    </p>
-                </div>
-            </div>
-
+        <div className="space-y-6 p-6">
             <FinancialInvoiceDetail
                 invoice={
                     invoice as unknown as ComponentProps<
@@ -59,6 +39,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
                     >['invoice']
                 }
                 companyConfig={companyConfig}
+                basePath="/finance/invoices/sales"
             />
         </div>
     );

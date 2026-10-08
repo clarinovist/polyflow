@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatRupiah } from '@/lib/utils/utils';
@@ -13,9 +14,9 @@ import {
 } from '@/lib/utils/production-units';
 import { InvoiceStatus, Invoice } from '@prisma/client';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import {
-    AlertCircle,
-    Printer,
+    ArrowLeft,
     CheckCircle,
     CreditCard,
     CalendarClock,
@@ -29,6 +30,9 @@ import { updateInvoiceStatus } from '@/actions/finance/invoice';
 import { recordCustomerPayment } from '@/actions/finance/finance';
 import { InvoicePriceAdjustment } from './InvoicePriceAdjustment';
 import { EditSalesInvoiceDueDateDialog } from './EditSalesInvoiceDueDateDialog';
+import { FinancialInvoiceSummary } from './FinancialInvoiceSummary';
+import { FinancialInvoicePrintActions } from './FinancialInvoicePrintActions';
+import { FinancialInvoiceActivityTabs } from './FinancialInvoiceActivityTabs';
 import {
     Dialog,
     DialogContent,
@@ -83,12 +87,14 @@ interface FinancialInvoiceDetailProps {
     };
     companyConfig?: CompanyConfig;
     paymentBanks?: TenantPaymentBanks;
+    basePath?: string;
 }
 
 export function FinancialInvoiceDetail({
     invoice,
     companyConfig,
     paymentBanks = [],
+    basePath = '/finance/invoices/sales',
 }: FinancialInvoiceDetailProps) {
     const router = useRouter();
     const [showPreview, setShowPreview] = React.useState(false);
@@ -200,8 +206,11 @@ export function FinancialInvoiceDetail({
 
     const getStatusBadge = (status: InvoiceStatus) => {
         const styles: Record<string, string> = {
+            DRAFT: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
             UNPAID: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
             PAID: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+            PARTIAL:
+                'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
             PARTIALLY_PAID:
                 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
             OVERDUE:
@@ -209,64 +218,105 @@ export function FinancialInvoiceDetail({
             CANCELLED:
                 'bg-red-50 text-red-500 dark:bg-red-950/30 dark:text-red-400',
         };
+        const labels: Record<string, string> = {
+            DRAFT: 'Draf',
+            UNPAID: 'Belum Dibayar',
+            PARTIAL: 'Sebagian Dibayar',
+            PARTIALLY_PAID: 'Sebagian Dibayar',
+            PAID: 'Lunas',
+            OVERDUE: 'Lewat Jatuh Tempo',
+            CANCELLED: 'Dibatalkan',
+        };
         return (
             <Badge variant="secondary" className={styles[status]}>
-                {status.replace(/_/g, ' ')}
+                {labels[status] || status.replace(/_/g, ' ')}
             </Badge>
         );
     };
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-end flex-wrap gap-2">
-                {!['DRAFT','CANCELLED'].includes(invoice.status) && <InvoicePriceAdjustment invoiceId={invoice.id} />}
-                {invoice.status === 'DRAFT' && (
-                    <button
-                        onClick={handleConfirmInvoice}
-                        disabled={isUpdating}
-                        className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                        <CheckCircle className="h-4 w-4" />
-                        {isUpdating ? 'Memproses...' : 'Konfirmasi Invoice'}
-                    </button>
-                )}
-                {invoice.status !== 'PAID' &&
-                    invoice.status !== 'CANCELLED' && (
-                        <>
-                            <button
+            <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0 space-y-3">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={basePath}>
+                            <ArrowLeft className="h-4 w-4" />
+                            Kembali ke Daftar
+                        </Link>
+                    </Button>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="break-words text-2xl font-bold tracking-tight sm:text-3xl">
+                                {invoice.invoiceNumber}
+                            </h1>
+                            {getStatusBadge(invoice.status)}
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            {salesOrder?.customer?.name || 'Customer tidak tersedia'}
+                            {' · '}
+                            Invoice {format(new Date(invoice.invoiceDate), 'd MMMM yyyy', { locale: id })}
+                            {' · '}
+                            Jatuh tempo{' '}
+                            {invoice.dueDate
+                                ? format(new Date(invoice.dueDate), 'd MMMM yyyy', { locale: id })
+                                : 'belum ditentukan'}
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    role="group"
+                    aria-label="Aksi invoice"
+                    className="flex flex-wrap items-center gap-2 xl:max-w-[58%] xl:justify-end [&_button]:min-h-11 [&_a]:min-h-11"
+                >
+                    {invoice.status === 'DRAFT' && (
+                        <Button
+                            onClick={handleConfirmInvoice}
+                            disabled={isUpdating}
+                            className="bg-sky-600 text-white hover:bg-sky-700"
+                        >
+                            <CheckCircle className="h-4 w-4" />
+                            {isUpdating ? 'Memproses...' : 'Konfirmasi Invoice'}
+                        </Button>
+                    )}
+                    {invoice.status !== 'PAID' &&
+                        invoice.status !== 'CANCELLED' && (
+                            <Button
+                                variant={
+                                    invoice.status === 'DRAFT'
+                                        ? 'outline'
+                                        : 'default'
+                                }
                                 onClick={() => {
-                                    setPaymentAmount(Math.max(0, remainingAmount));
+                                    setPaymentAmount(
+                                        Math.max(0, remainingAmount),
+                                    );
                                     setIsPaymentDialogOpen(true);
                                 }}
-                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium transition-colors"
                             >
                                 <CreditCard className="h-4 w-4" />
                                 Catat Pembayaran
-                            </button>
-                            <button
+                            </Button>
+                        )}
+                    {!['DRAFT', 'CANCELLED'].includes(invoice.status) && (
+                        <InvoicePriceAdjustment invoiceId={invoice.id} />
+                    )}
+                    {invoice.status !== 'PAID' &&
+                        invoice.status !== 'CANCELLED' && (
+                            <Button
+                                variant="outline"
                                 onClick={() => setIsDueDateDialogOpen(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors border"
                             >
                                 <CalendarClock className="h-4 w-4" />
                                 Edit Jatuh Tempo
-                            </button>
-                        </>
-                    )}
-                <button
-                    onClick={() => setShowPreview(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors"
-                >
-                    <Printer className="h-4 w-4" />
-                    Cetak Dot Matrix
-                </button>
-                <a
-                    href={`/api/print/invoice?id=${invoice.id}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition-colors"
-                >
-                    <Printer className="h-4 w-4" />
-                    ESC/P (Dot Matrix)
-                </a>
-            </div>
+                            </Button>
+                        )}
+                    <FinancialInvoicePrintActions
+                        invoiceId={invoice.id}
+                        onPreview={() => setShowPreview(true)}
+                    />
+                </div>
+            </header>
 
             {/* Payment Dialog */}
             <Dialog
@@ -355,54 +405,60 @@ export function FinancialInvoiceDetail({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <FinancialInvoiceSummary
+                totalAmount={Number(invoice.totalAmount)}
+                paidAmount={Number(invoice.paidAmount)}
+                creditedAmount={Number(invoice.creditedAmount ?? 0)}
+                priceAdjustmentAmount={Number(
+                    invoice.priceAdjustmentAmount ?? 0,
+                )}
+                remainingAmount={remainingAmount}
+            />
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Invoice Information
+                            Informasi Invoice
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold">
-                                    {invoice.invoiceNumber}
-                                </span>
-                                {salesOrder?.orderType === 'MAKLON_JASA' && (
-                                    <Badge
-                                        variant="outline"
-                                        className="bg-purple-50 text-purple-700 border-purple-200"
-                                    >
-                                        Maklon Service
-                                    </Badge>
-                                )}
-                                {salesOrder?.entrySource ===
-                                    'EMERGENCY_DISPATCH' && (
-                                    <Badge
-                                        variant="outline"
-                                        className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30"
-                                    >
-                                        Pesanan Dadakan
-                                    </Badge>
-                                )}
-                            </div>
-                            {getStatusBadge(invoice.status)}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {salesOrder?.orderType === 'MAKLON_JASA' && (
+                                <Badge
+                                    variant="outline"
+                                    className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800/50 dark:bg-purple-950/30 dark:text-purple-300"
+                                >
+                                    Jasa Maklon
+                                </Badge>
+                            )}
+                            {salesOrder?.entrySource ===
+                                'EMERGENCY_DISPATCH' && (
+                                <Badge
+                                    variant="outline"
+                                    className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/30 dark:bg-amber-950/20 dark:text-amber-400"
+                                >
+                                    Pesanan Dadakan
+                                </Badge>
+                            )}
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <p className="text-muted-foreground">
-                                    Invoice Date
+                                    Tanggal Invoice
                                 </p>
                                 <p className="font-medium">
                                     {format(
                                         new Date(invoice.invoiceDate),
-                                        'PP',
+                                        'd MMMM yyyy',
+                                        { locale: id },
                                     )}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">
-                                    Due Date
+                                    Jatuh Tempo
                                 </p>
                                 <p
                                     className={
@@ -414,14 +470,15 @@ export function FinancialInvoiceDetail({
                                     {invoice.dueDate
                                         ? format(
                                               new Date(invoice.dueDate),
-                                              'PP',
+                                              'd MMMM yyyy',
+                                              { locale: id },
                                           )
                                         : '-'}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">
-                                    Customer
+                                    Pelanggan
                                 </p>
                                 <p className="font-medium">
                                     {salesOrder?.customer?.name || 'N/A'}
@@ -429,7 +486,7 @@ export function FinancialInvoiceDetail({
                             </div>
                             <div>
                                 <p className="text-muted-foreground">
-                                    Reference Order
+                                    Referensi Pesanan
                                 </p>
                                 {salesOrder?.orderNumber && invoice.salesOrderId ? (
                                     <Link
@@ -457,23 +514,22 @@ export function FinancialInvoiceDetail({
                         </div>
                         {!salesOrder && (
                             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                Sales order reference is missing for this
-                                invoice. Financial totals are still shown using
-                                invoice data.
+                                Referensi Sales Order tidak tersedia. Total
+                                finansial tetap mengikuti data invoice tersimpan.
                             </div>
                         )}
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="lg:sticky lg:top-6 lg:self-start xl:top-40">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Payment Summary
+                            Rincian Saldo
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-center py-1">
-                            <span>Total Amount</span>
+                            <span>Total Invoice</span>
                             <span className="font-bold text-lg">
                                 {formatRupiah(Number(invoice.totalAmount))}
                             </span>
@@ -481,7 +537,7 @@ export function FinancialInvoiceDetail({
                         <Separator />
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">
-                                Paid Amount
+                                Sudah Dibayar
                             </span>
                             <span className="font-medium text-emerald-600">
                                 {formatRupiah(Number(invoice.paidAmount))}
@@ -494,7 +550,7 @@ export function FinancialInvoiceDetail({
                         </div>}
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">
-                                Remaining Balance
+                                Sisa Tagihan
                             </span>
                             <span className="font-medium text-red-600">
                                 {formatRupiah(remainingAmount)}
@@ -662,16 +718,14 @@ export function FinancialInvoiceDetail({
                 </Card>
             )}
 
-            <EntityStatusTimeline entityType="Invoice" entityId={invoice.id} />
-
-            <div className="flex items-center gap-2 p-4 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg text-sm">
-                <AlertCircle className="h-4 w-4" />
-                <p>
-                    Status invoice dan pembayaran sudah bisa dikelola dari
-                    halaman ini. Untuk edit item atau mengelola pengiriman,
-                    switch ke Sales module.
-                </p>
-            </div>
+            <FinancialInvoiceActivityTabs
+                audit={
+                    <EntityStatusTimeline
+                        entityType="Invoice"
+                        entityId={invoice.id}
+                    />
+                }
+            />
 
             <PrintPreviewModal
                 open={showPreview}
