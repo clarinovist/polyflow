@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     updateDeliveryItemNotes,
     getDeliveryOrders,
+    getDeliveryOrdersPage,
+    buildDeliveryListWhere,
     getOpenDeliveryOrders,
     getOpenDeliveryOrderCount,
     getDeliveryOrderById,
@@ -18,7 +20,10 @@ import {
     requireWarehouseResourcePermission,
     requireAuth,
 } from '@/lib/tools/auth-checks';
-import { requireSalesApprover } from '@/lib/auth/sales-access';
+import {
+    requireDeliveryAccess,
+    requireSalesApprover,
+} from '@/lib/auth/sales-access';
 import { logActivity } from '@/lib/tools/audit';
 
 const mockGetDeliveryStockReadiness = vi.fn();
@@ -48,6 +53,7 @@ vi.mock('@/lib/core/prisma', () => ({
             findUnique: vi.fn(),
             findMany: vi.fn(),
             count: vi.fn(),
+            groupBy: vi.fn(),
             update: vi.fn(),
         },
         deliveryOrderItem: {
@@ -56,7 +62,19 @@ vi.mock('@/lib/core/prisma', () => ({
         performanceMetric: {
             create: vi.fn().mockResolvedValue({}),
         },
-        $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+        $transaction: vi.fn((input: unknown) =>
+            typeof input === 'function'
+                ? input({
+                      deliveryOrder: {
+                          count: vi.mocked(prisma.deliveryOrder.count),
+                          findMany: vi.mocked(prisma.deliveryOrder.findMany),
+                          groupBy: vi.mocked(prisma.deliveryOrder.groupBy),
+                      },
+                      customer: { findMany: vi.fn().mockResolvedValue([]) },
+                      location: { findMany: vi.fn().mockResolvedValue([]) },
+                  })
+                : Promise.all(input as Promise<unknown>[]),
+        ),
     },
 }));
 
@@ -66,6 +84,7 @@ vi.mock('@/lib/tools/auth-checks', () => ({
 }));
 
 vi.mock('@/lib/auth/sales-access', () => ({
+    requireDeliveryAccess: vi.fn(),
     requireSalesApprover: vi.fn(),
 }));
 
@@ -285,6 +304,95 @@ describe('getDeliveryOrders', () => {
 
         // Assert
         expect(result.success).toBe(true);
+    });
+});
+
+describe('getDeliveryOrdersPage', () => {
+    const query = {
+        startDate: new Date('2026-10-01T00:00:00Z'),
+        endDate: new Date('2026-10-31T23:59:59Z'),
+        search: 'SJ-01',
+        workflowGroup: 'needs_action' as const,
+        customerId: 'customer-1',
+        sourceLocationId: 'location-1',
+        page: 4,
+        pageSize: 50,
+        sort: 'orderNumber' as const,
+        direction: 'asc' as const,
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireDeliveryAccess).mockResolvedValue({
+            user: { id: 'sales-user' },
+        } as never);
+        vi.mocked(prisma.deliveryOrder.count).mockResolvedValue(51);
+        vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([
+            { id: 'do-51', status: 'PENDING' },
+        ] as never);
+        vi.mocked(prisma.deliveryOrder.groupBy).mockResolvedValue([
+            { status: 'PENDING', _count: { _all: 7 } },
+            { status: 'DELIVERED', _count: { _all: 3 } },
+        ] as never);
+    });
+
+    it('composes every non-status filter as AND over the period-or-open base scope', () => {
+        const where = buildDeliveryListWhere(query);
+        expect(where.AND).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ OR: expect.any(Array) }),
+                { salesOrder: { is: { customerId: 'customer-1' } } },
+                { sourceLocationId: 'location-1' },
+                { status: { in: ['PENDING', 'LOADING'] } },
+            ]),
+        );
+        const countWhere = buildDeliveryListWhere(query, {
+            includeStatus: false,
+        });
+        expect(countWhere.AND).not.toContainEqual(
+            expect.objectContaining({ status: expect.anything() }),
+        );
+    });
+
+    it('normalizes an out-of-range page and returns full-scope raw counts', async () => {
+        const result = await getDeliveryOrdersPage(query);
+        expect(requireDeliveryAccess).toHaveBeenCalledOnce();
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.data.meta).toMatchObject({
+            page: 2,
+            pageSize: 50,
+            total: 51,
+            totalPages: 2,
+            sort: 'orderNumber',
+            direction: 'asc',
+        });
+        expect(result.data.statusCounts.PENDING).toBe(7);
+        expect(result.data.statusCounts.DELIVERED).toBe(3);
+        expect(result.data.statusCounts.CANCELLED).toBe(0);
+        expect(result.data.scope.includesOpenDraftsOutsidePeriod).toBe(true);
+        expect(prisma.deliveryOrder.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                skip: 50,
+                take: 50,
+                orderBy: [{ orderNumber: 'asc' }, { id: 'asc' }],
+            }),
+        );
+        const findWhere = vi.mocked(prisma.deliveryOrder.findMany).mock
+            .calls[0][0]?.where;
+        const countWhere = vi.mocked(prisma.deliveryOrder.count).mock
+            .calls[0][0]?.where;
+        expect(findWhere).toEqual(buildDeliveryListWhere(query));
+        expect(countWhere).toEqual(buildDeliveryListWhere(query));
+    });
+
+    it('fails closed before querying when Sales read access is denied', async () => {
+        vi.mocked(requireDeliveryAccess).mockRejectedValue(
+            new Error('Unauthorized'),
+        );
+        const result = await getDeliveryOrdersPage(query);
+        expect(result.success).toBe(false);
+        expect(prisma.deliveryOrder.count).not.toHaveBeenCalled();
     });
 });
 

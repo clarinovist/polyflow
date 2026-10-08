@@ -1,0 +1,11 @@
+// @vitest-environment jsdom
+import React from 'react';import {render,screen} from '@testing-library/react';import {beforeEach,describe,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({query:vi.fn(),cap:vi.fn(),redirect:vi.fn(),controls:vi.fn()}));
+vi.mock('next/navigation',()=>({redirect:m.redirect}));vi.mock('@/actions/inventory/deliveries',()=>({getDeliveryOrdersPage:m.query}));vi.mock('@/lib/tools/auth-checks',()=>({canAccessWarehouseResource:m.cap}));vi.mock('@/components/sales/DeliveryWorkbenchControls',()=>({DeliveryWorkbenchControls:(p:unknown)=>{m.controls(p);return <div data-testid="controls"/>}}));vi.mock('@/components/sales/CreateDeliveryOrderDialog',()=>({CreateDeliveryOrderDialog:()=> <button>Buat Surat Jalan</button>}));vi.mock('next/link',()=>({default:({children,href,...p}:React.ComponentProps<'a'>)=><a href={href} {...p}>{children}</a>}));
+import Page from '../page';
+const data={items:[],meta:{page:1,pageSize:50,total:0,totalPages:0,sort:'priority',direction:'desc'},statusCounts:{PENDING:0,LOADING:0,SHIPPED:0,IN_TRANSIT:0,ARRIVED:0,DELIVERED:0,RETURNED:0,CANCELLED:0},filterOptions:{customers:[],locations:[]},scope:{includesOpenDraftsOutsidePeriod:true}};
+describe('Sales deliveries page',()=>{beforeEach(()=>{vi.clearAllMocks();m.cap.mockResolvedValue(true);m.query.mockResolvedValue({success:true,data});});
+ it('does not turn query failure into empty data',async()=>{m.query.mockResolvedValue({success:false,error:'DB gagal',code:'INTERNAL_ERROR'});render(await Page({searchParams:Promise.resolve({})}));expect(screen.getByRole('alert').textContent).toContain('DB gagal');expect(screen.queryByTestId('controls')).toBeNull();});
+ it('hides both warehouse-dependent actions when capability is denied',async()=>{m.cap.mockResolvedValue(false);render(await Page({searchParams:Promise.resolve({})}));expect(screen.queryByText('Portal Gudang')).toBeNull();expect(screen.queryByText('Buat Surat Jalan')).toBeNull();});
+ it('passes page result and capabilities when allowed',async()=>{render(await Page({searchParams:Promise.resolve({q:'SJ'})}));expect(m.query).toHaveBeenCalledWith(expect.objectContaining({search:'SJ',page:1,pageSize:50}));expect(screen.getByText('Portal Gudang')).toBeTruthy();expect(m.controls).toHaveBeenCalledWith(expect.objectContaining({rows:[],meta:data.meta}));});
+});
