@@ -12,7 +12,7 @@ describe('super-admin diagnostics route', () => {
   it('returns a degraded safe envelope when the host snapshot is unavailable', async () => {
     mocks.auth.mockResolvedValue({ user: { isSuperAdmin: true } });
     vi.stubEnv('OPERATIONS_SNAPSHOT_PATH', '/definitely/missing/operations.json');
-    const { GET } = await import('../route'); const response = await GET() as { data: Record<string, unknown> };
+    const { GET } = await import('../route'); const response = await GET() as unknown as { data: Record<string, unknown> };
     expect(response.data.status).toBe('DEGRADED');
     expect(response.data.operations).toEqual({ available: false, stale: true, data: null });
     expect(JSON.stringify(response.data)).not.toContain('DATABASE_URL'); vi.unstubAllEnvs();
