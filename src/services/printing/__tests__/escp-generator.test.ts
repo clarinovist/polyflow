@@ -26,6 +26,7 @@ function baseData(overrides: Partial<EscpInvoiceData> = {}): EscpInvoiceData {
                 qty: 100,
                 unit: 'pcs',
                 unitPrice: 5000,
+                discountPercent: 0,
                 lineTotal: 500000,
             },
             {
@@ -33,6 +34,7 @@ function baseData(overrides: Partial<EscpInvoiceData> = {}): EscpInvoiceData {
                 qty: 50,
                 unit: 'roll',
                 unitPrice: 20000,
+                discountPercent: 0,
                 lineTotal: 1000000,
             },
             {
@@ -40,6 +42,7 @@ function baseData(overrides: Partial<EscpInvoiceData> = {}): EscpInvoiceData {
                 qty: 20,
                 unit: 'kg',
                 unitPrice: 30000,
+                discountPercent: 0,
                 lineTotal: 600000,
             },
         ],
@@ -93,6 +96,34 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));
     });
 
+    it('prints each item discount percentage instead of a hardcoded zero', () => {
+        const data = baseData({
+            items: [
+                {
+                    name: 'Barang Diskon',
+                    qty: 10,
+                    unit: 'pcs',
+                    unitPrice: 10000,
+                    discountPercent: 7.5,
+                    lineTotal: 92500,
+                },
+            ],
+            subtotal: 100000,
+            discountAmount: 7500,
+            grandTotal: 92500,
+            remainingBalance: 92500,
+            totalQty: 10,
+        });
+
+        const row = textLines(generateEscpInvoice(data))
+            .map((line) => line.text)
+            .find((line) => line.includes('Barang Diskon'));
+
+        expect(row).toBeDefined();
+        expect(row).toContain('7,5%');
+        expect(row).toContain('92.500,00');
+    });
+
     it('fits a baseline invoice (no diskon/PPN/ongkir) within the configured page length', () => {
         const bytes = generateEscpInvoice(baseData());
         expect(countLines(bytes)).toBeLessThanOrEqual(pageLengthLines(bytes));
@@ -138,6 +169,7 @@ describe('generateEscpInvoice — page length overflow (dot matrix 2nd page bug)
         expect(text).toContain('ONGKOS KIRIM :');
         expect(text).toContain('Hormat kami,');
         expect(text).toContain(data.signerName);
+        expect(text).toContain('0%');
         // The footer note can wrap across two physical lines at the
         // narrower 90-column layout (it fit on one line at the old
         // 108-column width) — reconstruct wrapped text from the parsed
@@ -515,6 +547,7 @@ describe('generateEscpInvoice — printed width', () => {
                             qty: 1,
                             unit: 'pcs',
                             unitPrice: 1000,
+                            discountPercent: 0,
                             lineTotal: 1000,
                         },
                     ],

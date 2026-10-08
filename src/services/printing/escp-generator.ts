@@ -177,6 +177,7 @@ interface EscpInvoiceItem {
     qty: number;
     unit: string;
     unitPrice: number;
+    discountPercent: number;
     lineTotal: number;
 }
 
@@ -338,7 +339,13 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
                     pad(item.qty.toString(), cols.qty, 'right') +
                     pad(item.unit, cols.unit, 'center') +
                     pad(formatRupiah(item.unitPrice), cols.price, 'right') +
-                    pad('0', cols.disc, 'right') +
+                    pad(
+                        `${item.discountPercent.toLocaleString('id-ID', {
+                            maximumFractionDigits: 2,
+                        })}%`,
+                        cols.disc,
+                        'right',
+                    ) +
                     pad(formatRupiah(item.lineTotal), cols.total, 'right'),
             ),
         );

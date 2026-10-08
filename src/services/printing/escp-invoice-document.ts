@@ -88,6 +88,7 @@ export async function buildInvoiceDocument(
             qty: Number(item.quantity || 0),
             unit: item.productVariant?.primaryUnit || 'pcs',
             unitPrice: Number(item.unitPrice || 0),
+            discountPercent: Number(item.discountPercent || 0),
             lineTotal: Number(item.subtotal || 0),
         })),
         subtotal: rawSubtotal,

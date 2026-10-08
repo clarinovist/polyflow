@@ -25,7 +25,26 @@ describe('ESC/P invoice persisted rounding mapping', () => {
             commercialSnapshot: snapshotFixture(), salesOrder: { items: [{ quantity: 999, subtotal: 99999 }] } });
         await buildInvoiceDocument('test');
         expect(generate).toHaveBeenCalledWith(expect.objectContaining({ totalQty: 80, taxAmount: 80, shippingCost: 20,
-            items: [expect.objectContaining({ name: 'Original A', qty: 80, lineTotal: 880 })] }));
+            items: [expect.objectContaining({ name: 'Original A', qty: 80, discountPercent: 0, lineTotal: 880 })] }));
+    });
+    it('maps item discount percentage from the immutable snapshot', async () => {
+        db.invoice.findUnique.mockResolvedValue({
+            invoiceNumber: 'INV-DISCOUNT', invoiceDate: new Date(), totalAmount: 90, paidAmount: 0,
+            commercialSnapshot: snapshotFixture({
+                items: [{
+                    ...snapshotFixture().items[0], discountPercent: 10,
+                    discountAmount: '10.00', netAmount: '90.00', taxAmount: '0.00', totalAmount: '90.00',
+                }],
+                discountAmount: '10.00', taxAmount: '0.00', shippingAmount: '0.00', commercialTotal: '90.00',
+            }),
+            salesOrder: { items: [] },
+        });
+
+        await buildInvoiceDocument('test');
+
+        expect(generate).toHaveBeenCalledWith(expect.objectContaining({
+            items: [expect.objectContaining({ discountPercent: 10 })],
+        }));
     });
     it('maps net receivable after return credit without changing payment or gross', async () => {
         db.invoice.findUnique.mockResolvedValue({ invoiceNumber: 'INV-TEST', invoiceDate: new Date(), totalAmount: 1000, paidAmount: 200, creditedAmount: 300, priceAdjustmentAmount: 50, commercialSnapshot: snapshotFixture(), salesOrder: { items: [] } });
