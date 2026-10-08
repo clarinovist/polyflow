@@ -3,7 +3,6 @@ import {
     updateDeliveryItemNotes,
     getDeliveryOrders,
     getDeliveryOrdersPage,
-    buildDeliveryListWhere,
     getOpenDeliveryOrders,
     getOpenDeliveryOrderCount,
     getDeliveryOrderById,
@@ -25,6 +24,7 @@ import {
     requireSalesApprover,
 } from '@/lib/auth/sales-access';
 import { logActivity } from '@/lib/tools/audit';
+import { buildDeliveryListWhere } from '@/services/sales/delivery-list-service';
 
 const mockGetDeliveryStockReadiness = vi.fn();
 vi.mock('@/services/sales/delivery-fulfillment-service', () => ({
