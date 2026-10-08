@@ -84,7 +84,11 @@ describe('PriceListClient workbench', () => {
         expect(screen.getByRole('combobox', { name: 'Filter customer price list' })).toBeTruthy();
         expect(screen.getByRole('combobox', { name: 'Filter produk price list' })).toBeTruthy();
         expect(screen.getByRole('combobox', { name: 'Filter kategori price list' })).toBeTruthy();
-        expect(screen.getByRole('table', { name: 'Daftar harga produk per customer' })).toBeTruthy();
+        expect(
+            screen.getByRole('table', {
+                name: 'Daftar harga produk per customer',
+            }).className,
+        ).toContain('text-foreground');
         const region = screen.getByRole('region', { name: /geser horizontal/i });
         expect(region.getAttribute('tabindex')).toBe('0');
         expect(screen.getAllByRole('status').some((node) => node.textContent?.includes('Menampilkan 1–50 dari 51'))).toBe(true);
@@ -93,6 +97,9 @@ describe('PriceListClient workbench', () => {
         expect(document.activeElement).toBe(disclosure);
         fireEvent.click(disclosure);
         expect(screen.getByRole('button', { name: 'Tutup rincian harga SKU-LONG-0001' })).toBeTruthy();
+        expect(screen.getByText('SKU-LONG-0001').closest('tr')?.className).toContain(
+            'text-foreground',
+        );
     });
 
     it('fails closed for write controls when pricing capability is false', () => {

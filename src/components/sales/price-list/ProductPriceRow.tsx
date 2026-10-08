@@ -144,7 +144,7 @@ export function ProductPriceRow({
 
     return (
         <>
-            <TableRow className="hover:bg-muted/40">
+            <TableRow className="text-foreground hover:bg-muted/40">
                 <TableCell>
                     <Button
                         type="button"
@@ -204,7 +204,7 @@ export function ProductPriceRow({
                                     Belum ada harga khusus untuk SKU ini.
                                 </p>
                             ) : (
-                                <div className="rounded border bg-background overflow-x-auto">
+                                <div className="overflow-x-auto rounded border bg-background text-foreground">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
