@@ -71,6 +71,7 @@ export function OpnameReadinessSummary({
 
             {isOpen && (
                 <div
+                    id="opname-readiness-warning"
                     role="status"
                     className={
                         'flex items-start gap-3 rounded-xl border p-4 text-sm ' +

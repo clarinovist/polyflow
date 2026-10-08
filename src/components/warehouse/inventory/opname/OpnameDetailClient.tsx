@@ -294,6 +294,11 @@ export function OpnameDetailClient({
                             className="bg-emerald-600 text-white hover:bg-emerald-700"
                             onClick={() => setFinalizeDialogOpen(true)}
                             disabled={isFinalizing}
+                            aria-describedby={
+                                uncountedCount > 0 || varianceCount > 0
+                                    ? 'opname-readiness-warning'
+                                    : undefined
+                            }
                         >
                             {isFinalizing ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
