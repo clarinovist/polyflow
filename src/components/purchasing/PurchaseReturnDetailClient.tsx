@@ -13,7 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { ArrowLeft, CheckCircle, PackageCheck, Ban } from 'lucide-react';
+import { id } from 'date-fns/locale';
+import { CheckCircle, PackageCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -22,9 +23,12 @@ import {
     completePurchaseReturnAction,
     cancelPurchaseReturnAction,
 } from '@/actions/purchasing/purchase-returns';
-import Link from 'next/link';
 import { getStatusLabel, purchasingLabels, formLabels } from '@/lib/labels';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
+import { ReturnDetailHeader } from '@/components/workflow-detail/ReturnDetailHeader';
+import { ReturnSummaryGrid } from '@/components/workflow-detail/ReturnSummaryGrid';
+import { ReturnProgress } from '@/components/workflow-detail/ReturnProgress';
+import { ReturnActivityTabs } from '@/components/workflow-detail/ReturnActivityTabs';
 
 // View shape of a returned line item (only the fields this component reads)
 type ReturnDetailItem = {
@@ -90,20 +94,31 @@ export function PurchaseReturnDetailClient({
     const handleAction = async (
         actionFn: (id: string) => Promise<unknown>,
         actionName: string,
-    ) => {
+    ): Promise<boolean> => {
         setActionLoading(actionName);
         try {
-            await actionFn(purchaseReturn.id);
+            const result = (await actionFn(purchaseReturn.id)) as
+                | { success: boolean; error?: string }
+                | undefined;
+            if (result && !result.success) {
+                toast.error(result.error ?? 'Gagal memproses retur pembelian.');
+                return false;
+            }
+            const normalizedAction = actionName.toUpperCase();
             const actionText =
-                actionName === 'CONFIRM'
+                normalizedAction === 'CONFIRM'
                     ? 'dikonfirmasi'
-                    : actionName === 'COMPLETE'
+                    : normalizedAction === 'COMPLETE'
                       ? 'diselesaikan'
-                      : 'diproses';
+                      : normalizedAction === 'CANCEL'
+                        ? 'dibatalkan'
+                        : 'diproses';
             toast.success(`Retur Pembelian berhasil ${actionText}`);
             router.refresh();
+            return true;
         } catch {
             toast.error('Gagal memproses retur pembelian. Silakan coba lagi.');
+            return false;
         } finally {
             setActionLoading(null);
         }
@@ -111,18 +126,23 @@ export function PurchaseReturnDetailClient({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <Button variant="ghost" asChild>
-                    <Link href={basePath}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Kembali ke Retur
-                    </Link>
-                </Button>
-
-                <div className="flex gap-2">
-                    {purchaseReturn.status === 'DRAFT' && (
+            <ReturnDetailHeader
+                backHref={basePath}
+                title={purchaseReturn.returnNumber}
+                subtitle={
+                    'Retur pembelian · ' +
+                    (purchaseReturn.returnDate
+                        ? format(
+                              new Date(purchaseReturn.returnDate),
+                              'd MMMM yyyy',
+                              { locale: id },
+                          )
+                        : 'Tanggal tidak tersedia')
+                }
+                statusBadge={getStatusBadge(purchaseReturn.status)}
+                primaryAction={
+                    purchaseReturn.status === 'DRAFT' ? (
                         <Button
-                            variant="default"
                             onClick={() =>
                                 handleAction(
                                     confirmPurchaseReturnAction,
@@ -131,41 +151,27 @@ export function PurchaseReturnDetailClient({
                             }
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Confirm' ? (
-                                'Memproses...'
-                            ) : (
-                                <>
-                                    <CheckCircle className="mr-2 h-4 w-4" />{' '}
-                                    Konfirmasi Retur
-                                </>
-                            )}
+                            <CheckCircle className="h-4 w-4" />
+                            {actionLoading === 'Confirm'
+                                ? 'Memproses...'
+                                : 'Konfirmasi Retur'}
                         </Button>
-                    )}
-
-                    {purchaseReturn.status === 'CONFIRMED' && (
+                    ) : purchaseReturn.status === 'CONFIRMED' ? (
                         <Button
-                            variant="default"
-                            className="bg-blue-600 hover:bg-blue-700"
+                            className="bg-blue-600 text-white hover:bg-blue-700"
                             onClick={() =>
                                 handleAction(shipPurchaseReturnAction, 'Ship')
                             }
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Ship' ? (
-                                'Memproses...'
-                            ) : (
-                                <>
-                                    <PackageCheck className="mr-2 h-4 w-4" />{' '}
-                                    Kirim Item
-                                </>
-                            )}
+                            <PackageCheck className="h-4 w-4" />
+                            {actionLoading === 'Ship'
+                                ? 'Memproses...'
+                                : 'Kirim Item'}
                         </Button>
-                    )}
-
-                    {purchaseReturn.status === 'SHIPPED' && (
+                    ) : purchaseReturn.status === 'SHIPPED' ? (
                         <Button
-                            variant="default"
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-emerald-600 text-white hover:bg-emerald-700"
                             onClick={() =>
                                 handleAction(
                                     completePurchaseReturnAction,
@@ -174,64 +180,51 @@ export function PurchaseReturnDetailClient({
                             }
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Complete' ? (
-                                'Memproses...'
-                            ) : (
-                                <>
-                                    <CheckCircle className="mr-2 h-4 w-4" />{' '}
-                                    Selesaikan Retur
-                                </>
-                            )}
+                            <CheckCircle className="h-4 w-4" />
+                            {actionLoading === 'Complete'
+                                ? 'Memproses...'
+                                : 'Selesaikan Retur'}
                         </Button>
-                    )}
+                    ) : undefined
+                }
+                canCancel={
+                    purchaseReturn.status === 'DRAFT' ||
+                    purchaseReturn.status === 'CONFIRMED'
+                }
+                isLoading={!!actionLoading}
+                onCancel={() =>
+                    handleAction(cancelPurchaseReturnAction, 'Cancel')
+                }
+            />
 
-                    {(purchaseReturn.status === 'DRAFT' ||
-                        purchaseReturn.status === 'CONFIRMED') && (
-                        <Button
-                            variant="destructive"
-                            onClick={() =>
-                                handleAction(
-                                    cancelPurchaseReturnAction,
-                                    'Cancel',
-                                )
-                            }
-                            disabled={!!actionLoading}
-                        >
-                            {actionLoading === 'Cancel' ? (
-                                'Memproses...'
-                            ) : (
-                                <>
-                                    <Ban className="mr-2 h-4 w-4" /> Batalkan
-                                    Retur
-                                </>
-                            )}
-                        </Button>
-                    )}
-                </div>
-            </div>
+            <ReturnSummaryGrid
+                partyLabel="Supplier"
+                partyName={purchaseReturn.supplier?.name || 'Tidak Diketahui'}
+                sourceLabel="Referensi PO"
+                sourceNumber={
+                    purchaseReturn.purchaseOrder?.orderNumber ||
+                    'Tidak tersedia'
+                }
+                locationName={
+                    purchaseReturn.sourceLocation?.name || 'Tidak Diketahui'
+                }
+                itemCount={purchaseReturn.items.length}
+                totalAmount={
+                    purchaseReturn.totalAmount == null
+                        ? null
+                        : Number(purchaseReturn.totalAmount)
+                }
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <ReturnProgress status={purchaseReturn.status} direction="outbound" />
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <Card className="min-w-0 md:col-span-2">
                     <CardHeader>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <CardTitle className="text-2xl">
-                                    {purchaseReturn.returnNumber}
-                                </CardTitle>
-                                <CardDescription>
-                                    Diretur pada{' '}
-                                    {purchaseReturn.returnDate
-                                        ? format(
-                                              new Date(
-                                                  purchaseReturn.returnDate,
-                                              ),
-                                              'PPP',
-                                          )
-                                        : '-'}
-                                </CardDescription>
-                            </div>
-                            {getStatusBadge(purchaseReturn.status)}
-                        </div>
+                        <CardTitle>Detail Retur Pembelian</CardTitle>
+                        <CardDescription>
+                            Barang, kondisi, alasan, dan nilai dokumen retur.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
@@ -303,7 +296,7 @@ export function PurchaseReturnDetailClient({
                                 aria-label="Item retur pembelian"
                                 tabIndex={0}
                             >
-                                <table className="w-full text-sm">
+                                <table className="w-full min-w-[700px] text-sm">
                                     <thead className="bg-muted/50">
                                         <tr>
                                             <th className="px-4 py-3 text-left font-medium">
@@ -398,12 +391,7 @@ export function PurchaseReturnDetailClient({
                     </CardContent>
                 </Card>
 
-                <div className="space-y-6">
-                    <EntityStatusTimeline
-                        entityType="PurchaseReturn"
-                        entityId={purchaseReturn.id}
-                    />
-
+                <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start xl:top-40">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-sm">Ringkasan</CardTitle>
@@ -414,7 +402,7 @@ export function PurchaseReturnDetailClient({
                                     Dibuat Oleh
                                 </span>
                                 <span className="font-medium">
-                                    {purchaseReturn.createdBy?.name || 'System'}
+                                    {purchaseReturn.createdBy?.name || 'Sistem'}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b">
@@ -442,28 +430,42 @@ export function PurchaseReturnDetailClient({
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-muted/30 border-dashed">
-                        <CardContent className="p-4 text-xs text-muted-foreground space-y-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-sm">
+                                Dampak Pemrosesan
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm text-muted-foreground">
                             <p>
-                                <strong>DRAFT:</strong> Status awal. Dapat
-                                diedit atau dibatalkan.
+                                Item dikirim kembali ke supplier setelah retur
+                                dikonfirmasi.
                             </p>
                             <p>
-                                <strong>CONFIRMED:</strong> Siap untuk
-                                mengirimkan item fisik.
-                            </p>
-                            <p>
-                                <strong>SHIPPED:</strong> Item dikembalikan ke
-                                supplier. Jurnal otomatis dibuat untuk debit
-                                note.
-                            </p>
-                            <p>
-                                <strong>COMPLETED:</strong> Siklus selesai.
+                                Penyelesaian dokumen mengikuti proses nota debit
+                                dan jurnal yang berlaku.
                             </p>
                         </CardContent>
                     </Card>
-                </div>
+                </aside>
             </div>
+
+            <ReturnActivityTabs
+                guidance={
+                    <>
+                        <p><strong>Draf:</strong> Retur dapat diperiksa dan dibatalkan.</p>
+                        <p><strong>Dikonfirmasi:</strong> Barang siap dikirim kembali ke supplier.</p>
+                        <p><strong>Dikirim:</strong> Barang sudah keluar menuju supplier.</p>
+                        <p><strong>Selesai:</strong> Siklus retur dan dokumen terkait berakhir.</p>
+                    </>
+                }
+                audit={
+                    <EntityStatusTimeline
+                        entityType="PurchaseReturn"
+                        entityId={purchaseReturn.id}
+                    />
+                }
+            />
         </div>
     );
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 import { PurchaseOrderDetailClient } from '../orders/PurchaseOrderDetailClient';
@@ -10,7 +10,7 @@ import { makePurchaseOrder, makePurchaseReturn, makeSalesReturn, makePurchaseInv
 
 // Keep complete components and UI primitives real; no backend/network in layout tests.
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
-vi.mock('@/components/shared/EntityStatusTimeline', () => ({ EntityStatusTimeline: () => null }));
+vi.mock('@/components/shared/EntityStatusTimeline', () => ({ EntityStatusTimeline: () => <div>Audit Retur</div> }));
 vi.mock('@/actions/purchasing/purchasing', () => ({ updatePurchaseOrderStatus: vi.fn(), createPurchaseInvoice: vi.fn(), deletePurchaseOrder: vi.fn() }));
 vi.mock('@/actions/purchasing/purchase-returns', () => ({ confirmPurchaseReturnAction: vi.fn(), shipPurchaseReturnAction: vi.fn(), completePurchaseReturnAction: vi.fn(), cancelPurchaseReturnAction: vi.fn() }));
 vi.mock('@/actions/sales/sales-returns', () => ({ confirmSalesReturnAction: vi.fn(), receiveSalesReturnAction: vi.fn(), completeSalesReturnAction: vi.fn(), cancelSalesReturnAction: vi.fn() }));
@@ -76,6 +76,26 @@ describe('PO table column alignment', () => {
 });
 
 describe('return detail table layout', () => {
+    it.each(['sales', 'purchase'] as const)('uses the shared command center and progressive audit for %s returns', async kind => {
+        render(kind === 'sales' ? <SalesReturnDetailClient salesReturn={makeSalesReturn()} /> : <PurchaseReturnDetailClient purchaseReturn={makePurchaseReturn()} />);
+        expect(screen.getByRole('region', { name: 'Ringkasan retur' })).toBeTruthy();
+        expect(screen.getByRole('region', { name: 'Proses Retur' })).toBeTruthy();
+        const actions = screen.getByRole('group', { name: 'Aksi retur' });
+        expect(actions.querySelectorAll('[data-variant="default"]')).toHaveLength(1);
+        const audit = screen.getByRole('tab', { name: 'Audit Status' });
+        expect(audit.getAttribute('aria-selected')).toBe('false');
+        fireEvent.mouseDown(audit, { button: 0 });
+        await waitFor(() => expect(audit.getAttribute('aria-selected')).toBe('true'));
+        expect(screen.getByText('Audit Retur')).toBeTruthy();
+    });
+
+    it.each(['sales', 'purchase'] as const)('keeps cancellation in the overflow menu for %s returns', async kind => {
+        render(kind === 'sales' ? <SalesReturnDetailClient salesReturn={makeSalesReturn()} /> : <PurchaseReturnDetailClient purchaseReturn={makePurchaseReturn()} />);
+        expect(screen.queryByRole('button', { name: 'Batalkan Retur' })).toBeNull();
+        fireEvent.keyDown(screen.getByRole('button', { name: 'Lainnya' }), { key: 'Enter' });
+        expect(await screen.findByRole('menuitem', { name: 'Batalkan Retur' })).toBeTruthy();
+    });
+
     it.each(['sales', 'purchase'] as const)('preserves %s return amounts in a keyboard-scrollable region', kind => {
         render(kind === 'sales' ? <SalesReturnDetailClient salesReturn={makeSalesReturn()} /> : <PurchaseReturnDetailClient purchaseReturn={makePurchaseReturn()} />);
         const table = screen.getByRole<HTMLTableElement>('table');

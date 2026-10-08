@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ComponentProps } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ confirm: vi.fn(), complete: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), success: vi.fn(), error: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
@@ -14,10 +14,22 @@ const draft = { id: 'synthetic', returnNumber: 'SR-TEST', status: 'DRAFT', retur
 
 describe('Sales return operational controls', () => {
     beforeEach(() => { vi.clearAllMocks(); mocks.confirm.mockResolvedValue({ success: true }); });
-    it('keeps actions wrapped within the mobile detail header', () => {
+    it('keeps actions wrapped within the responsive command header', () => {
         render(<SalesReturnDetailClient salesReturn={draft} currentUserRole="SALES" />);
-        expect(screen.getByRole('button', { name: 'Konfirmasi Retur' }).parentElement?.className).toContain('flex-wrap');
-        expect(screen.getByRole('button', { name: 'Konfirmasi Retur' }).parentElement?.parentElement?.className).toContain('flex-wrap');
+        const actions = screen.getByRole('group', { name: 'Aksi retur' });
+        expect(actions.className).toContain('flex-wrap');
+        expect(
+            within(actions).getByRole('button', { name: 'Konfirmasi Retur' }),
+        ).toBeDefined();
+        expect(
+            actions.querySelectorAll('[data-variant="default"]'),
+        ).toHaveLength(1);
+        expect(
+            screen.getByRole('region', { name: 'Ringkasan retur' }),
+        ).toBeDefined();
+        expect(
+            screen.getByRole('region', { name: 'Proses Retur' }),
+        ).toBeDefined();
     });
     it('confirms Draft through the existing action then refreshes', async () => {
         render(<SalesReturnDetailClient salesReturn={draft} currentUserRole="SALES" />);
@@ -48,6 +60,36 @@ describe('Sales return operational controls', () => {
         expect(!!screen.queryByRole('button', { name: 'Terima Item' })).toBe(status === 'CONFIRMED');
         expect(!!screen.queryByRole('button', { name: 'Selesaikan Retur' })).toBe(status === 'RECEIVED');
     });
+    it('keeps audit behind progressive disclosure', async () => {
+        render(<SalesReturnDetailClient salesReturn={draft} />);
+        const audit = screen.getByRole('tab', { name: 'Audit Status' });
+        expect(audit.getAttribute('aria-selected')).toBe('false');
+        fireEvent.mouseDown(audit, { button: 0 });
+        await waitFor(() =>
+            expect(audit.getAttribute('aria-selected')).toBe('true'),
+        );
+    });
+
+    it('keeps cancellation behind an explicit confirmation', async () => {
+        mocks.cancel.mockResolvedValue({ success: true });
+        render(<SalesReturnDetailClient salesReturn={draft} />);
+        fireEvent.keyDown(screen.getByRole('button', { name: 'Lainnya' }), {
+            key: 'Enter',
+        });
+        const menu = await screen.findByRole('menu');
+        fireEvent.click(
+            within(menu).getByRole('menuitem', { name: 'Batalkan Retur' }),
+        );
+        expect(mocks.cancel).not.toHaveBeenCalled();
+        const dialog = await screen.findByRole('alertdialog');
+        fireEvent.click(
+            within(dialog).getByRole('button', { name: 'Batalkan Retur' }),
+        );
+        await waitFor(() =>
+            expect(mocks.cancel).toHaveBeenCalledWith('synthetic'),
+        );
+    });
+
     it('preserves portal-aware back navigation', () => {
         render(<SalesReturnDetailClient salesReturn={draft} basePath="/alternate/returns" />);
         expect(screen.getByRole('link', { name: 'Kembali' }).getAttribute('href')).toBe('/alternate/returns');
