@@ -37,6 +37,7 @@ vi.mock('@/actions/dashboard/mobile-admin', () => ({
 vi.mock('@/lib/mobile/mobile-portal-page-access', () => ({ requireMobilePortalPageAccess: m.guard }));
 vi.mock('@/lib/analytics/mobile-task-events', () => ({
     trackTaskStarted: m.taskStarted,
+    trackMobilePageView: vi.fn(),
 }));
 vi.mock('next/navigation', () => ({ usePathname: () => pathname, useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock('next/link', () => ({ default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a {...props}>{children}</a> }));
