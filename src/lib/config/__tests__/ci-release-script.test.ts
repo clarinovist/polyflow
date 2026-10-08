@@ -13,8 +13,13 @@ const image = `ghcr.io/fixture/app@sha256:${'b'.repeat(64)}`;
 const workerImage = `ghcr.io/fixture/assistant-worker@sha256:${'c'.repeat(64)}`;
 interface Command { name: string; args: string[]; image?: string; workerImage?: string }
 
+type Override = Partial<Record<
+    'DEPLOY_SHA' | 'DEPLOY_IMAGE' | 'ASSISTANT_WORKER_DEPLOY_IMAGE' | 'PUBLIC_HEALTH_URL' |
+    'FAIL_AT' | 'UNHEALTHY_CONTAINER' | 'MISMATCH_CONTAINER', string
+>>;
+
 // Stub only external tools; execute the actual workflow's Bash and environment wiring.
-function run(overrides: Partial<Record<'DEPLOY_SHA' | 'DEPLOY_IMAGE' | 'ASSISTANT_WORKER_DEPLOY_IMAGE' | 'FAIL_AT', string>> = {}) {
+function run(overrides: Override = {}) {
     if (!script) throw new Error('Missing deployment script');
     const home = mkdtempSync(join(tmpdir(), 'ci-release-script-'));
     const bin = join(home, 'bin');
@@ -28,9 +33,16 @@ const args=process.argv.slice(2);
 appendFileSync(process.env.CALL_LOG, JSON.stringify({name,args,image:process.env.POLYFLOW_IMAGE,workerImage:process.env.ASSISTANT_WORKER_IMAGE})+'\\n');
 if (name+' '+args.join(' ')===process.env.FAIL_AT) process.exit(17);
 if (name==='docker' && args[0]==='login') process.stdin.resume();
-if (name==='docker' && args[0]==='inspect') console.log('healthy');
+if (name==='docker' && args[0]==='inspect') {
+    const container=args.at(-1);
+    if (args.includes('{{.Config.Image}}')) {
+        const expected=container==='polyflow-app' ? process.env.POLYFLOW_IMAGE : process.env.ASSISTANT_WORKER_IMAGE;
+        console.log(container===process.env.MISMATCH_CONTAINER ? 'sha256:mismatch' : expected);
+    } else console.log(container===process.env.UNHEALTHY_CONTAINER ? 'unhealthy' : 'healthy');
+}
+if (name==='curl') console.log('healthy');
 `;
-    for (const name of ['git', 'docker']) {
+    for (const name of ['git', 'docker', 'curl', 'sleep']) {
         writeFileSync(join(bin, name), stub);
         chmodSync(join(bin, name), 0o700);
     }
@@ -38,6 +50,7 @@ if (name==='docker' && args[0]==='inspect') console.log('healthy');
         const result = spawnSync('bash', ['-c', script], { encoding: 'utf8', env: {
             NODE_ENV: 'test', PATH: `${bin}:${process.env.PATH}`, HOME: home, CALL_LOG: log,
             DEPLOY_SHA: 'a'.repeat(40), DEPLOY_IMAGE: image, ASSISTANT_WORKER_DEPLOY_IMAGE: workerImage,
+            PUBLIC_HEALTH_URL: 'https://fixture.invalid/api/health',
             REGISTRY_USER: 'fixture', CR_PAT: 'fixture-only',
             ...overrides,
         } });
@@ -58,6 +71,10 @@ describe('release shell contract', () => {
             'docker compose up -d --no-deps --no-build assistant-worker',
             'docker inspect --format {{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}} polyflow-assistant-worker',
             'docker compose up -d --no-deps --no-build polyflow',
+            'docker inspect --format {{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}} polyflow-app',
+            'docker inspect --format {{.Config.Image}} polyflow-app',
+            'docker inspect --format {{.Config.Image}} polyflow-assistant-worker',
+            'curl --fail --silent --show-error --max-time 15 https://fixture.invalid/api/health',
         ]);
         const web = calls.filter(call => call.args.includes('polyflow'));
         const worker = calls.filter(call => call.args.includes('assistant-worker'));
@@ -89,11 +106,30 @@ describe('release shell contract', () => {
 
     it.each([{ DEPLOY_SHA: 'main;command' }, { DEPLOY_IMAGE: 'ghcr.io/fixture/app:latest' }, { DEPLOY_IMAGE: `${image};command` },
         { ASSISTANT_WORKER_DEPLOY_IMAGE: 'ghcr.io/fixture/assistant-worker:latest' },
-        { ASSISTANT_WORKER_DEPLOY_IMAGE: `${workerImage};command` }])(
+        { ASSISTANT_WORKER_DEPLOY_IMAGE: `${workerImage};command` },
+        { PUBLIC_HEALTH_URL: 'http://fixture.invalid/api/health' },
+        { PUBLIC_HEALTH_URL: 'https://fixture.invalid/api/health;command' }])(
         'rejects malformed release identifiers before any remote operation (%j)', values => {
             const { result, calls } = run(values);
             expect(result.status).not.toBe(0);
             expect(calls).toEqual([]);
         },
     );
+
+    it.each(['polyflow-assistant-worker', 'polyflow-app'])('fails closed when %s is unhealthy', container => {
+        const { result } = run({ UNHEALTHY_CONTAINER: container });
+        expect(result.status).not.toBe(0);
+    });
+
+    it.each(['polyflow-assistant-worker', 'polyflow-app'])('fails closed when %s does not use the tested image', container => {
+        const { result } = run({ MISMATCH_CONTAINER: container });
+        expect(result.status).not.toBe(0);
+    });
+
+    it('fails when the public HTTPS smoke check fails', () => {
+        const failure = 'curl --fail --silent --show-error --max-time 15 https://fixture.invalid/api/health';
+        const { result, calls } = run({ FAIL_AT: failure });
+        expect(result.status).toBe(17);
+        expect([calls.at(-1)?.name, ...calls.at(-1)!.args].join(' ')).toBe(failure);
+    });
 });

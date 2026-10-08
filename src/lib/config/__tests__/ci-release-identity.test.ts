@@ -109,12 +109,22 @@ describe('SHA-safe deployment wiring', () => {
         expect(remote?.with?.envs).toContain('DEPLOY_SHA');
         expect(remote?.with?.envs).toContain('DEPLOY_IMAGE');
         expect(remote?.with?.envs).toContain('ASSISTANT_WORKER_DEPLOY_IMAGE');
+        expect(remote?.with?.envs).toContain('PUBLIC_HEALTH_URL');
         expect(remote?.with?.script).toContain('git checkout --detach "$DEPLOY_SHA"');
         expect(remote?.with?.script).toContain('export POLYFLOW_IMAGE="$DEPLOY_IMAGE"');
         expect(remote?.with?.script).toContain('export ASSISTANT_WORKER_IMAGE="$ASSISTANT_WORKER_DEPLOY_IMAGE"');
         expect(remote?.with?.script).toContain('docker compose up -d --no-deps --no-build polyflow');
+        expect(remote?.with?.script).toContain(`docker inspect --format '{{.Config.Image}}' polyflow-app`);
+        expect(remote?.with?.script).toContain(`docker inspect --format '{{.Config.Image}}' polyflow-assistant-worker`);
+        expect(remote?.with?.script).toContain('curl --fail --silent --show-error --max-time 15 "$PUBLIC_HEALTH_URL"');
         expect(remote?.with?.script).not.toMatch(/reset --hard|docker rm|image prune|docker build|npm /);
-        const compose = load(readFileSync('docker-compose.yml', 'utf8')) as unknown as { services: { polyflow: { image: string } } };
+        const compose = load(readFileSync('docker-compose.yml', 'utf8')) as unknown as { services: Record<string, {
+            image: string; healthcheck?: { test: string[] }; depends_on?: Record<string, { condition: string }>
+        }> };
         expect(compose.services.polyflow.image).toMatch(/^\$\{POLYFLOW_IMAGE:-.*:latest\}$/);
+        expect(compose.services.db.healthcheck?.test.join(' ')).toContain('pg_isready');
+        expect(compose.services.polyflow.healthcheck?.test.join(' ')).toContain('/api/health');
+        expect(compose.services.polyflow.depends_on?.db.condition).toBe('service_healthy');
+        expect(compose.services['assistant-worker'].depends_on?.db.condition).toBe('service_healthy');
     });
 });

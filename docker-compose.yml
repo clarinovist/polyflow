@@ -19,9 +19,16 @@ services:
       - ASSISTANT_WORKER_TOKEN=${ASSISTANT_WORKER_TOKEN:?Set ASSISTANT_WORKER_TOKEN in .env}
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
       assistant-worker:
         condition: service_healthy
+    healthcheck:
+      # Readiness: route verifies the web process and its tenant-aware DB connection.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health',{headers:{host:'polyflow.uk'}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
     volumes:
       # Persist pre-migration DB snapshots (survives container recreate).
       # Host dir must be owned by uid 1001 (nextjs) so the app can write.
@@ -60,7 +67,8 @@ services:
       - assistant_durable_data:/data
       - /opt/backups/polyflow-assistant:/backups
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3010/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -95,6 +103,12 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER:-polyflow}\" -d \"$${POSTGRES_DB:-polyflow}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
 volumes:
   postgres_data:

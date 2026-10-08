@@ -478,12 +478,13 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: CR_PAT,DEPLOY_SHA,DEPLOY_IMAGE,ASSISTANT_WORKER_DEPLOY_IMAGE,REGISTRY_USER
+          envs: CR_PAT,DEPLOY_SHA,DEPLOY_IMAGE,ASSISTANT_WORKER_DEPLOY_IMAGE,PUBLIC_HEALTH_URL,REGISTRY_USER
           script: |
             set -eu
             [[ "$DEPLOY_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
             [[ "$DEPLOY_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]] || exit 1
             [[ "$ASSISTANT_WORKER_DEPLOY_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]] || exit 1
+            [[ "$PUBLIC_HEALTH_URL" =~ ^https://[a-z0-9.-]+/api/health$ ]] || exit 1
             cd ~/polyflow
             git diff --quiet
             git diff --cached --quiet
@@ -501,11 +502,21 @@ jobs:
               sleep 2
             done
             docker compose up -d --no-deps --no-build polyflow
+            for attempt in $(seq 1 60); do
+              status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' polyflow-app)
+              [ "$status" = healthy ] && break
+              [ "$attempt" -eq 60 ] && { docker inspect --format '{{json .State}}' polyflow-app; exit 1; }
+              sleep 2
+            done
+            [ "$(docker inspect --format '{{.Config.Image}}' polyflow-app)" = "$DEPLOY_IMAGE" ]
+            [ "$(docker inspect --format '{{.Config.Image}}' polyflow-assistant-worker)" = "$ASSISTANT_WORKER_DEPLOY_IMAGE" ]
+            curl --fail --silent --show-error --max-time 15 "$PUBLIC_HEALTH_URL"
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
           DEPLOY_SHA: ${{ github.sha }}
           DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}
           ASSISTANT_WORKER_DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.build-and-push.outputs.worker-digest }}
+          PUBLIC_HEALTH_URL: https://polyflow.uk/api/health
           REGISTRY_USER: ${{ github.actor }}
 
   # Status rilis: merah bila gate gagal/cancelled/skip di luar rencana.
