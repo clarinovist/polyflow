@@ -88,7 +88,7 @@ describe('PriceListClient workbench', () => {
             screen.getByRole('table', {
                 name: 'Daftar harga produk per customer',
             }).className,
-        ).toContain('text-foreground');
+        ).toContain('dark:text-white');
         const region = screen.getByRole('region', { name: /geser horizontal/i });
         expect(region.getAttribute('tabindex')).toBe('0');
         expect(screen.getAllByRole('status').some((node) => node.textContent?.includes('Menampilkan 1–50 dari 51'))).toBe(true);
@@ -98,7 +98,7 @@ describe('PriceListClient workbench', () => {
         fireEvent.click(disclosure);
         expect(screen.getByRole('button', { name: 'Tutup rincian harga SKU-LONG-0001' })).toBeTruthy();
         expect(screen.getByText('SKU-LONG-0001').closest('tr')?.className).toContain(
-            'text-foreground',
+            'dark:[&>td]:!text-white',
         );
     });
 

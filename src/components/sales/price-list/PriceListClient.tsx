@@ -246,7 +246,7 @@ export function PriceListClient({
                         tabIndex={0}
                         className="mx-0 max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     >
-                        <Table className="text-foreground">
+                        <Table className="text-foreground dark:text-white">
                             <caption className="sr-only">
                                 Daftar harga produk per customer
                             </caption>
