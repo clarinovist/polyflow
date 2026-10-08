@@ -179,7 +179,10 @@ export function DeliveryWorkbenchControls({
                                 onChange={(event) => {
                                     const value = event.target.value;
                                     setStartDate(value);
-                                    navigate({ startDate: value || undefined });
+                                    navigate({
+                                        startDate: value || undefined,
+                                        endDate: endDate || undefined,
+                                    });
                                 }}
                                 className="h-11 w-auto"
                             />
@@ -193,7 +196,10 @@ export function DeliveryWorkbenchControls({
                                 onChange={(event) => {
                                     const value = event.target.value;
                                     setEndDate(value);
-                                    navigate({ endDate: value || undefined });
+                                    navigate({
+                                        startDate: startDate || undefined,
+                                        endDate: value || undefined,
+                                    });
                                 }}
                                 className="h-11 w-auto"
                             />

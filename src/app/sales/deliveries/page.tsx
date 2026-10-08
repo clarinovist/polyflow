@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Warehouse, Plus } from 'lucide-react';
+import { format } from 'date-fns';
 import { getDeliveryOrdersPage } from '@/actions/inventory/deliveries';
 import { DeliveryWorkbenchControls } from '@/components/sales/DeliveryWorkbenchControls';
 import { CreateDeliveryOrderDialog } from '@/components/sales/CreateDeliveryOrderDialog';
@@ -98,10 +99,8 @@ export default async function SalesDeliveriesPage({
                 group={parsed.query.workflowGroup}
                 status={parsed.query.status}
                 initialSearch={parsed.query.search}
-                initialStartDate={parsed.query.startDate
-                    .toISOString()
-                    .slice(0, 10)}
-                initialEndDate={parsed.query.endDate.toISOString().slice(0, 10)}
+                initialStartDate={format(parsed.query.startDate, 'yyyy-MM-dd')}
+                initialEndDate={format(parsed.query.endDate, 'yyyy-MM-dd')}
                 customer={parsed.query.customerId}
                 location={parsed.query.sourceLocationId}
                 rows={
