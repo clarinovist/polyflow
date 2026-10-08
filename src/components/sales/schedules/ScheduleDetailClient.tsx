@@ -22,6 +22,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import type { ScheduleStatus, TripStatus } from '@prisma/client';
 import {
@@ -71,6 +81,12 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     const [tripChoice, setTripChoice] = useState('');
     const [plannedWeight, setPlannedWeight] = useState('');
     const [isActionLoading, setIsActionLoading] = useState(false);
+    const [deleteScheduleOpen, setDeleteScheduleOpen] = useState(false);
+    const [removeTripTarget, setRemoveTripTarget] = useState<{
+        id: string;
+        plate: string;
+    } | null>(null);
+    const [removeStopId, setRemoveStopId] = useState<string | null>(null);
     const [showAddSO, setShowAddSO] = useState(false);
     const [assignTripStopId, setAssignTripStopId] = useState('');
     const [assignTripId, setAssignTripId] = useState('');
@@ -186,12 +202,6 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     };
 
     const handleDeleteSchedule = async () => {
-        if (
-            !window.confirm(
-                'Apakah Anda yakin ingin menghapus jadwal pengiriman ini? Semua data trip dan rencana kirim di dalamnya akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.',
-            )
-        )
-            return;
         setIsActionLoading(true);
         try {
             const result = await deleteDeliverySchedule(schedule.id);
@@ -200,6 +210,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 return;
             }
             toast.success('Jadwal pengiriman berhasil dihapus.');
+            setDeleteScheduleOpen(false);
             router.push('/sales/delivery-schedules');
         } catch {
             toast.error('Gagal menghapus jadwal.');
@@ -299,13 +310,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
         }
     };
 
-    const handleRemoveTrip = async (tripId: string, plate: string) => {
-        if (
-            !window.confirm(
-                `Yakin hapus trip "${plate}"? Stop akan dikembalikan ke "Belum diatur".`,
-            )
-        )
-            return;
+    const handleRemoveTrip = async (tripId: string) => {
         setIsActionLoading(true);
         try {
             const result = await removeVehicleFromSchedule(tripId);
@@ -314,6 +319,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 return;
             }
             toast.success('Trip berhasil dihapus.');
+            setRemoveTripTarget(null);
             router.refresh();
         } catch {
             toast.error('Gagal menghapus trip.');
@@ -350,7 +356,6 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     };
 
     const handleRemoveStop = async (stopId: string) => {
-        if (!window.confirm('Yakin menghapus SO dari rencana?')) return;
         setIsActionLoading(true);
         try {
             const result = await removeOrderFromSchedule(stopId);
@@ -359,6 +364,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 return;
             }
             toast.success('Berhasil dihapus.');
+            setRemoveStopId(null);
             router.refresh();
         } catch {
             toast.error('Gagal menghapus.');
@@ -475,7 +481,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                    onSelect={handleDeleteSchedule}
+                                    onSelect={() => setDeleteScheduleOpen(true)}
                                     disabled={isActionLoading}
                                     variant="destructive"
                                     className="min-h-11"
@@ -489,6 +495,108 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 </div>
             </header>
 
+            <AlertDialog
+                open={deleteScheduleOpen}
+                onOpenChange={(open) => {
+                    if (!isActionLoading) setDeleteScheduleOpen(open);
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus jadwal pengiriman?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Semua trip dan rencana kirim di dalam{' '}
+                            {schedule.scheduleNumber} akan ikut terhapus.
+                            Tindakan ini tidak dapat dibatalkan.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isActionLoading}>
+                            Kembali
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isActionLoading}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                void handleDeleteSchedule();
+                            }}
+                        >
+                            Hapus Jadwal
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
+                open={removeTripTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open && !isActionLoading) setRemoveTripTarget(null);
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus trip?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Trip {removeTripTarget?.plate || 'ini'} akan dihapus.
+                            Stop di dalamnya akan dikembalikan ke status belum
+                            diatur.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isActionLoading}>
+                            Kembali
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isActionLoading || !removeTripTarget}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                if (removeTripTarget) {
+                                    void handleRemoveTrip(removeTripTarget.id);
+                                }
+                            }}
+                        >
+                            Hapus Trip
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
+                open={removeStopId !== null}
+                onOpenChange={(open) => {
+                    if (!open && !isActionLoading) setRemoveStopId(null);
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus rencana pengiriman?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Pesanan akan dikeluarkan dari jadwal ini. Dokumen
+                            pesanan asal tidak ikut dihapus.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isActionLoading}>
+                            Kembali
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isActionLoading || !removeStopId}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                if (removeStopId) {
+                                    void handleRemoveStop(removeStopId);
+                                }
+                            }}
+                        >
+                            Hapus Rencana
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {/* Summary Cards */}
             <ScheduleSummary
                 allStops={allStops}
@@ -497,12 +605,28 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 trips={trips}
             />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList
-                    aria-label="Tampilan jadwal kirim"
-                    className="h-auto w-full justify-start gap-1 overflow-x-auto sm:w-auto"
-                >
-                    <TabsTrigger value="plan" className="min-h-11">
+            <section
+                aria-labelledby="schedule-workspace-title"
+                className="space-y-3"
+            >
+                <div>
+                    <h2
+                        id="schedule-workspace-title"
+                        className="text-lg font-semibold"
+                    >
+                        Ruang Kerja Jadwal
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Rencana, penugasan trip, dan audit dipisahkan agar mudah
+                        dipindai.
+                    </p>
+                </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList
+                        aria-label="Tampilan jadwal kirim"
+                        className="h-auto w-full justify-start gap-1 overflow-x-auto sm:w-auto"
+                    >
+                        <TabsTrigger value="plan" className="min-h-11">
                         Rencana Kirim
                     </TabsTrigger>
                     <TabsTrigger value="trips" className="min-h-11">
@@ -511,8 +635,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                     <TabsTrigger value="history" className="min-h-11">
                         Riwayat
                     </TabsTrigger>
-                </TabsList>
-                <TabsContent value="plan" className="mt-4">
+                    </TabsList>
+                    <TabsContent value="plan" className="mt-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-base flex items-center gap-2">
@@ -651,7 +775,9 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                 setAssignTripStopId={setAssignTripStopId}
                                 setAssignTripId={setAssignTripId}
                                 handleAssignToTrip={handleAssignToTrip}
-                                handleRemoveStop={handleRemoveStop}
+                                handleRemoveStop={async (stopId) => {
+                                    setRemoveStopId(stopId);
+                                }}
                                 onViewTrip={(tripId) => {
                                     setFocusedTripId(tripId);
                                     setActiveTab('trips');
@@ -743,9 +869,17 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                                                             handleTripStatus={
                                                                 handleTripStatus
                                                             }
-                                                            handleRemoveTrip={
-                                                                handleRemoveTrip
-                                                            }
+                                                            handleRemoveTrip={async (
+                                                                tripId,
+                                                                plate,
+                                                            ) => {
+                                                                setRemoveTripTarget(
+                                                                    {
+                                                                        id: tripId,
+                                                                        plate,
+                                                                    },
+                                                                );
+                                                            }}
                                                             handleGenerateDO={
                                                                 handleGenerateDO
                                                             }
@@ -760,13 +894,14 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                         </CardContent>
                     </Card>
                 </TabsContent>
-                <TabsContent value="history" className="mt-4">
-                    <EntityStatusTimeline
-                        entityType="DeliverySchedule"
-                        entityId={schedule.id}
-                    />
-                </TabsContent>
-            </Tabs>
+                    <TabsContent value="history" className="mt-4">
+                        <EntityStatusTimeline
+                            entityType="DeliverySchedule"
+                            entityId={schedule.id}
+                        />
+                    </TabsContent>
+                </Tabs>
+            </section>
         </div>
     );
 }

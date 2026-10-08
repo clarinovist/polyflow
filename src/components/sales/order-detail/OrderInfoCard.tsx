@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { salesLabels, formLabels } from '@/lib/labels';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { formatRupiah } from '@/lib/utils/utils';
 import {
     getEnteredQuantityDisplay,
@@ -106,7 +107,9 @@ export function OrderInfoCard({
                         </h3>
                         <p>
                             {order.expectedDate
-                                ? format(new Date(order.expectedDate), 'PPP')
+                                ? format(new Date(order.expectedDate), 'PPP', {
+                                      locale: id,
+                                  })
                                 : '-'}
                         </p>
                     </div>
@@ -131,7 +134,9 @@ export function OrderInfoCard({
                                             : ''
                                     }
                                 >
-                                    {format(followUpDate, 'PPP')}
+                                    {format(followUpDate, 'PPP', {
+                                        locale: id,
+                                    })}
                                 </p>
                                 {isFollowUpOverdue && (
                                     <Badge variant="destructive">

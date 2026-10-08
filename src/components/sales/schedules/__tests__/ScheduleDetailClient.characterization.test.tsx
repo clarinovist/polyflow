@@ -91,7 +91,6 @@ function delivery(): NonNullable<Stop['deliveryOrder']> {
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
 beforeEach(() => {
     vi.resetAllMocks();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
     mocks.vehicles.mockResolvedValue({ success: true, data: [vehicle] });
     mocks.orders.mockResolvedValue({ success: true, data: [order, nonKgOrder] });
@@ -138,9 +137,12 @@ function tripCard() {
     tab('Trip & Armada');
     return within(screen.getByRole('article'));
 }
-async function deleteSchedule() {
+async function openDeleteScheduleDialog() {
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Opsi jadwal' }), { button: 0, ctrlKey: false });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Hapus Jadwal' }));
+    return screen.findByRole('alertdialog', {
+        name: 'Hapus jadwal pengiriman?',
+    });
 }
 function deferred<T>() {
     let resolve!: (value: T) => void;
@@ -155,6 +157,14 @@ describe('ScheduleDetailClient characterization', () => {
         expect(
             screen.getByRole('region', { name: 'Ringkasan jadwal kirim' }),
         ).toBeTruthy();
+        expect(
+            screen.getByRole('heading', { name: 'Ruang Kerja Jadwal' }),
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('region', {
+                name: 'Rencana pengiriman terjadwal',
+            }).getAttribute('tabindex'),
+        ).toBe('0');
         const actions = screen.getByRole('group', {
             name: 'Aksi jadwal kirim',
         });
@@ -288,15 +298,24 @@ describe('ScheduleDetailClient characterization', () => {
 
     it('removes stops/trips by their IDs only after confirmation and preserves refresh semantics', async () => {
         await mount();
-        vi.mocked(window.confirm).mockReturnValueOnce(false);
         fireEvent.click(within(stopRow()).getByRole('button', { name: /Hapus rencana/ }));
+        let dialog = await screen.findByRole('alertdialog', {
+            name: 'Hapus rencana pengiriman?',
+        });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Kembali' }));
         expect(mocks.removeStop).not.toHaveBeenCalled();
         fireEvent.click(within(stopRow()).getByRole('button', { name: /Hapus rencana/ }));
+        dialog = await screen.findByRole('alertdialog', {
+            name: 'Hapus rencana pengiriman?',
+        });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Hapus Rencana' }));
         await waitFor(() => expect(mocks.removeStop).toHaveBeenCalledWith('fixture-stop'));
         await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
         fireEvent.click(tripCard().getByRole('button', { name: /Hapus trip/ }));
+        dialog = await screen.findByRole('alertdialog', { name: 'Hapus trip?' });
+        expect(dialog.textContent).toContain('SYNTHETIC-01');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Hapus Trip' }));
         await waitFor(() => expect(mocks.removeTrip).toHaveBeenCalledWith('fixture-trip'));
-        expect(window.confirm).toHaveBeenLastCalledWith('Yakin hapus trip "SYNTHETIC-01"? Stop akan dikembalikan ke "Belum diatur".');
         await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(2));
     });
 
@@ -434,13 +453,14 @@ describe('ScheduleDetailClient characterization', () => {
         expect(screen.getByText(/Belum ada trip. Buat trip/)).toBeTruthy();
         expect(screen.getByRole('link', { name: 'Kembali' }).getAttribute('href')).toBe('/sales/delivery-schedules');
         expect(screen.getByText('0 kg')).toBeTruthy();
-        vi.mocked(window.confirm).mockReturnValueOnce(false);
-        await deleteSchedule();
+        let dialog = await openDeleteScheduleDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Kembali' }));
         expect(mocks.removeSchedule).not.toHaveBeenCalled();
-        await deleteSchedule();
+        dialog = await openDeleteScheduleDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Hapus Jadwal' }));
         await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Synthetic delete rejected'));
         expect(mocks.push).not.toHaveBeenCalled();
-        await deleteSchedule();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Hapus Jadwal' }));
         await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/sales/delivery-schedules'));
         expect(mocks.removeSchedule).toHaveBeenLastCalledWith('fixture-schedule');
         expect(mocks.refresh).not.toHaveBeenCalled();

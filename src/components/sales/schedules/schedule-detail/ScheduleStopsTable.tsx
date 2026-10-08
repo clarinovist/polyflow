@@ -65,8 +65,14 @@ export function ScheduleStopsTable({
         );
     }
     return (
-        <Table className="[&_tbody_td]:align-top">
-            <TableHeader>
+        <div
+            role="region"
+            aria-label="Rencana pengiriman terjadwal"
+            tabIndex={0}
+            className="overflow-x-auto rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_[data-slot=table-container]]:overflow-visible"
+        >
+            <Table className="min-w-[760px] [&_tbody_td]:align-top">
+                <TableHeader>
                 <TableRow>
                     <TableHead>Pesanan / Pelanggan</TableHead>
                     <TableHead>Trip / Tanggal</TableHead>
@@ -262,6 +268,7 @@ export function ScheduleStopsTable({
                                     <Button
                                         variant="ghost"
                                         size="icon"
+                                        className="min-h-11 min-w-11"
                                         aria-label={`Hapus rencana ${reference}`}
                                         onClick={() =>
                                             handleRemoveStop(stop.id)
@@ -276,6 +283,7 @@ export function ScheduleStopsTable({
                     );
                 })}
             </TableBody>
-        </Table>
+            </Table>
+        </div>
     );
 }

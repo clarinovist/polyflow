@@ -192,6 +192,15 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(actions.compareDocumentPosition(screen.getByText('Siapkan Jadwal Kirim atau Surat Jalan.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
+    it('localizes expected and follow-up dates in order detail context', () => {
+        renderOrder({
+            expectedDate: new Date('2026-10-02T00:00:00.000Z'),
+            nextFollowUpDate: new Date('2026-10-03T00:00:00.000Z'),
+        });
+        expect(screen.getByText('2 Oktober 2026')).toBeTruthy();
+        expect(screen.getByText('3 Oktober 2026')).toBeTruthy();
+    });
+
     it('surfaces the order summary, lifecycle guidance, and progressive audit disclosure', async () => {
         renderOrder({ status: 'READY_TO_SHIP' });
         expect(

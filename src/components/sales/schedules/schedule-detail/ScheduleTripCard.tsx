@@ -96,11 +96,14 @@ export function ScheduleTripCard({
                         <Button
                             size="icon"
                             variant="ghost"
+                            className="min-h-11 min-w-11"
                             aria-label={`Hapus trip ${plate}`}
                             onClick={() =>
                                 handleRemoveTrip(
                                     trip.id,
-                                    trip.vehicle?.plateNumber || trip.externalPlate || 'Trip',
+                                    trip.vehicle?.plateNumber ||
+                                        trip.externalPlate ||
+                                        'Trip',
                                 )
                             }
                             disabled={isActionLoading}
@@ -198,9 +201,12 @@ export function ScheduleTripCard({
                 </p>
             )}
 
-            <TripDistancePanel key={`${trip.id}-${trip.mileage?.odometerStart ?? ''}-${trip.mileage?.odometerEnd ?? ''}`} trip={trip} />
+            <TripDistancePanel
+                key={`${trip.id}-${trip.mileage?.odometerStart ?? ''}-${trip.mileage?.odometerEnd ?? ''}`}
+                trip={trip}
+            />
 
-            <div className="mt-auto flex flex-wrap gap-2 pt-4">
+            <div className="mt-auto flex flex-wrap gap-2 pt-4 [&_button]:min-h-11">
                 {trip.status === 'PLANNED' && (
                     <Button
                         size="sm"
