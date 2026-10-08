@@ -408,3 +408,28 @@ ke PostgreSQL terisolasi, masing-masing mempunyai 178 migration selesai dan 173/
 publik. Health probe aplikasi terhadap hasil restore berhasil. Total durasi 84 detik, dengan
 restore dan verifikasi per database 24/28/24 detik. Angka ini adalah baseline teknis pada host
 saat ini, bukan RTO yang sudah disetujui owner.
+
+## Disaster recovery objectives and backup monitoring
+
+Initial owner-review targets, based on the October 2026 drills:
+
+| Scope | Initial RPO target | Initial RTO target | Evidence |
+| --- | ---: | ---: | --- |
+| Main and active-tenant PostgreSQL databases | 24 hours | 2 hours | Local release restore: 84 seconds; offsite daily-backup restore: 111 seconds for three databases |
+| Durable assistant SQLite state | 24 hours | 2 hours | Consistent snapshot tooling exists; scheduled/offsite recovery evidence remains required |
+| Application images and deployment configuration | Last tested release | 1 hour | Immutable image deployment and health-gated rollout are active |
+
+The targets include operational diagnosis and access time, not only database restore runtime. They
+remain provisional until the owner accepts the permitted data-loss and downtime windows.
+
+The scheduled PostgreSQL backup job must now exit non-zero if any configured R2 upload fails. Local
+backup files are retained on that failure so monitoring can alert without sacrificing the recovery
+artifact. Operations should alert when the daily job exits non-zero or when no successful completion
+has been recorded for more than 26 hours. Disk warning/critical thresholds are provisionally 80% and
+90%; current utilization was 42% during the drill.
+
+Offsite drill baseline, 8 October 2026: the newest complete three-database set was listed and
+downloaded from R2, each gzip stream passed integrity validation, all databases restored into an
+internal Docker network, 178 completed migrations and 173/174 public tables were verified, and the
+application health probe succeeded. Total duration was 111 seconds. No production database was used
+as a restore target and all temporary resources were removed.

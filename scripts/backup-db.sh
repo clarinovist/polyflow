@@ -19,6 +19,7 @@ R2_RETENTION_DAYS="${R2_RETENTION_DAYS:-90}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 TARGET="all"
 DRY_RUN=0
+OFFSITE_UPLOAD_FAILURES=0
 
 usage() {
   cat <<'EOF'
@@ -93,7 +94,8 @@ backup_one_db() {
        --quiet 2>/dev/null; then
       log "R2 upload complete: $r2_key"
     else
-      log "WARNING: R2 upload failed (local backup still exists)"
+      OFFSITE_UPLOAD_FAILURES=$((OFFSITE_UPLOAD_FAILURES + 1))
+      log "ERROR: R2 upload failed (local backup retained)" >&2
     fi
   fi
 }
@@ -199,6 +201,10 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
       fi
     fi
   fi
+fi
+
+if [[ "$OFFSITE_UPLOAD_FAILURES" -gt 0 ]]; then
+  fail "Offsite upload failed for $OFFSITE_UPLOAD_FAILURES database(s); local backups were retained"
 fi
 
 log "Backup script finished successfully"
