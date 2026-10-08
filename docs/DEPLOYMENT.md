@@ -402,3 +402,9 @@ migration/tabel, durasi, dan status health; URL database, credential, nama tenan
 tidak dicetak. Kegagalan restore, migration status, invariant, atau health membuat drill gagal.
 Setelah selesai, pastikan tidak ada resource berlabel `polyflow.restore-drill` yang tertinggal
 dan layanan produksi tetap healthy.
+
+Baseline drill 8 Oktober 2026: tiga database dari satu set backup release berhasil dipulihkan
+ke PostgreSQL terisolasi, masing-masing mempunyai 178 migration selesai dan 173/173/174 tabel
+publik. Health probe aplikasi terhadap hasil restore berhasil. Total durasi 84 detik, dengan
+restore dan verifikasi per database 24/28/24 detik. Angka ini adalah baseline teknis pada host
+saat ini, bukan RTO yang sudah disetujui owner.
