@@ -2,6 +2,9 @@ import type { ComponentProps } from 'react';
 import { getSalesOrders, getSalesOrderStats } from '@/actions/sales/sales';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ListResultSummary } from '@/components/ui/list-result-summary';
 import {
     Plus,
     ShoppingCart,
@@ -192,7 +195,22 @@ export default async function SalesPage({
         (customer) => customer.id === params.customer,
     );
 
-    const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
+    if (!ordersRes.success) {
+        return (
+            <div className="space-y-4 p-4 md:p-6">
+                <h1 className="text-2xl font-bold md:text-3xl">
+                    {salesLabels.salesOrders}
+                </h1>
+                <p role="alert" className="text-destructive">
+                    {ordersRes.error || 'Gagal memuat sales order.'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Data tidak dianggap kosong.
+                </p>
+            </div>
+        );
+    }
+    const orders = ordersRes.data ?? [];
     const stats =
         statsRes.success && statsRes.data
             ? statsRes.data
@@ -308,46 +326,44 @@ export default async function SalesPage({
     // Single list + dropdown filters only
     return (
         <div className="flex min-w-0 max-w-full flex-col space-y-6 p-4 sm:p-6">
-            <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                <div className="min-w-0">
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {salesLabels.salesOrders}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {salesLabels.salesOrdersDesc}
-                    </p>
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <ContextualHelp
-                        title="Panduan SO"
-                        prefillQuestion="Cara membuat Sales Order di Polyflow?"
-                        links={[
-                            {
-                                title: 'Cara Buat Sales Order',
-                                slug: 'cara-buat-sales-order',
-                            },
-                            {
-                                title: 'Cara Confirm SO Stok Kurang',
-                                slug: 'cara-confirm-so-stok-kurang',
-                            },
-                            {
-                                title: 'Jadwal Kirim & Surat Jalan',
-                                slug: 'cara-jadwal-kirim-dan-surat-jalan',
-                            },
-                        ]}
-                    />
-                    <UrlTransactionDateFilter
-                        defaultPreset={params.customer ? 'all' : 'this_month'}
-                        presetTimeZone="Asia/Jakarta"
-                    />
-                    <Button asChild>
-                        <Link href="/sales/orders/create">
-                            <Plus className="mr-2 h-4 w-4" />
-                            {salesLabels.newSalesOrder}
-                        </Link>
-                    </Button>
-                </div>
-            </div>
+            <PageHeader
+                title={salesLabels.salesOrders}
+                description={salesLabels.salesOrdersDesc}
+                actions={
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <ContextualHelp
+                            title="Panduan SO"
+                            prefillQuestion="Cara membuat Sales Order di Polyflow?"
+                            links={[
+                                {
+                                    title: 'Cara Buat Sales Order',
+                                    slug: 'cara-buat-sales-order',
+                                },
+                                {
+                                    title: 'Cara Confirm SO Stok Kurang',
+                                    slug: 'cara-confirm-so-stok-kurang',
+                                },
+                                {
+                                    title: 'Jadwal Kirim & Surat Jalan',
+                                    slug: 'cara-jadwal-kirim-dan-surat-jalan',
+                                },
+                            ]}
+                        />
+                        <UrlTransactionDateFilter
+                            defaultPreset={
+                                params.customer ? 'all' : 'this_month'
+                            }
+                            presetTimeZone="Asia/Jakarta"
+                        />
+                        <Button asChild>
+                            <Link href="/sales/orders/create">
+                                <Plus className="mr-2 h-4 w-4" />
+                                {salesLabels.newSalesOrder}
+                            </Link>
+                        </Button>
+                    </div>
+                }
+            />
 
             {/* P0 fix: period hint + pipeline omzet — original request "kalau semua terkonversi" */}
             {params.customer && !hasExplicitDateRange ? (
@@ -494,9 +510,18 @@ export default async function SalesPage({
                                 </span>
                             </span>
                         </div>
-                        <Suspense>
-                            <SalesOrderFilters customers={customers} />
-                        </Suspense>
+                        <ListToolbar
+                            filters={
+                                <Suspense>
+                                    <SalesOrderFilters customers={customers} />
+                                </Suspense>
+                            }
+                        />
+                        <ListResultSummary
+                            start={displayedCount > 0 ? 1 : 0}
+                            end={displayedCount}
+                            total={displayedCount}
+                        />
                     </div>
                 </CardHeader>
                 <CardContent className="min-w-0 px-3 sm:px-6">
