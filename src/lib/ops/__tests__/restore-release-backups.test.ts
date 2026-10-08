@@ -68,8 +68,9 @@ describe('isolated release restore drill contract', () => {
 
     it('verifies restore, migration status, structural invariants, and app health without logging URLs', async () => {
         const source = await import('node:fs/promises').then(({ readFile }) => readFile(script, 'utf8'));
-        expect(source).toContain(`"$APP_IMAGE" sh -c 'exec pg_restore "$@"'`);
-        expect(source).toContain("sh -c 'exec node node_modules/prisma/build/index.js migrate status'");
+        expect(source).toContain('pg_isready -h 127.0.0.1');
+        expect(source).toContain('--entrypoint pg_restore');
+        expect(source).toContain('--entrypoint node');
         expect(source).toContain('migrate status');
         expect(source).toContain('failed structural invariants');
         expect(source).toContain('--network "$NETWORK"');

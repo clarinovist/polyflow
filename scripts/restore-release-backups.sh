@@ -84,7 +84,7 @@ docker run -d --name "$DB_CONTAINER" \
 DB_STARTED=1
 
 for attempt in $(seq 1 60); do
-  if docker exec "$DB_CONTAINER" pg_isready -U postgres -d postgres >/dev/null 2>&1; then break; fi
+  if docker exec "$DB_CONTAINER" pg_isready -h 127.0.0.1 -U postgres -d postgres >/dev/null 2>&1; then break; fi
   [[ "$attempt" -lt 60 ]] || fail "Disposable PostgreSQL did not become ready"
   sleep 1
 done
@@ -99,8 +99,8 @@ for ((index=0; index<EXPECTED_DATABASES; index++)); do
   docker run --rm --network "$NETWORK" \
     --label polyflow.restore-drill="$RUN_ID" \
     --mount "type=bind,src=$BACKUP_DIR,dst=/backups,readonly" \
-    "$APP_IMAGE" sh -c 'exec pg_restore "$@"' sh \
-    -h "$DB_CONTAINER" -U postgres -d "$database" \
+    --entrypoint pg_restore \
+    "$APP_IMAGE" -h "$DB_CONTAINER" -U postgres -d "$database" \
     --exit-on-error --no-owner --no-privileges "/backups/$backup_name"
 
   failed_migrations=$(docker exec "$DB_CONTAINER" psql -h 127.0.0.1 -U postgres -d "$database" -At \
@@ -116,7 +116,8 @@ for ((index=0; index<EXPECTED_DATABASES; index++)); do
   docker run --rm --network "$NETWORK" \
     --label polyflow.restore-drill="$RUN_ID" \
     -e DATABASE_URL="$database_url" \
-    "$APP_IMAGE" sh -c 'exec node node_modules/prisma/build/index.js migrate status' >/dev/null
+    --entrypoint node \
+    "$APP_IMAGE" node_modules/prisma/build/index.js migrate status >/dev/null
   duration=$(( $(date +%s) - restore_started ))
   log "Database #$ordinal verified migrations=$migration_count tables=$table_count duration_seconds=$duration"
 done
