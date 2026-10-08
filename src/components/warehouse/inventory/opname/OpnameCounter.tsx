@@ -196,30 +196,37 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                             <Eye className="h-4 w-4 text-primary" />
                         )}
                         <div className="flex flex-col">
-                            <span className="font-medium">Blind Mode</span>
-                            <span className="text-[10px] text-muted-foreground font-normal">
-                                Hide system quantities to ensure unbiased
-                                counting
+                            <span className="font-medium">Mode Buta</span>
+                            <span className="text-xs text-muted-foreground font-normal">
+                                Sembunyikan jumlah sistem agar hitung fisik tidak bias
                             </span>
                         </div>
                     </Label>
                 </div>
             </div>
 
-            <div className="border border-border/50 rounded-lg overflow-hidden">
-                <Table>
+            <p className="text-xs text-muted-foreground md:hidden">
+                Geser tabel ke samping untuk melihat seluruh kolom.
+            </p>
+            <div
+                className="overflow-x-auto rounded-lg border border-border/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_[data-slot=table-container]]:overflow-visible"
+                role="region"
+                aria-label="Perhitungan fisik stock opname"
+                tabIndex={0}
+            >
+                <Table className="min-w-[820px]">
                     <TableHeader className="bg-muted/30">
                         <TableRow className="hover:bg-transparent">
-                            <TableHead className="w-[300px]">Product</TableHead>
+                            <TableHead className="w-[300px]">Produk</TableHead>
                             <TableHead>SKU</TableHead>
-                            <TableHead>Unit</TableHead>
+                            <TableHead>Satuan</TableHead>
                             <TableHead className="text-right">
                                 {warehouseComponentLabels.expectedQty}
                             </TableHead>
                             <TableHead className="w-[180px] text-right">
                                 {warehouseComponentLabels.actualQty}
                             </TableHead>
-                            <TableHead className="w-[200px]">Notes</TableHead>
+                            <TableHead className="w-[200px]">Catatan</TableHead>
                             <TableHead className="w-[80px]">Rincian</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -366,7 +373,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                 onClick={() => autosaveFlush()}
                                 className="text-[10px] text-red-600 underline"
                             >
-                                Gagal autosave, tap untuk coba lagi
+                                Gagal menyimpan otomatis, tekan untuk mencoba lagi
                             </button>
                         )}
                     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Card,
@@ -13,6 +13,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
     CheckCircle2,
     AlertTriangle,
     Calculator,
@@ -20,6 +36,9 @@ import {
     Plus,
     Loader2,
     Search,
+    MoreHorizontal,
+    Paperclip,
+    History,
 } from 'lucide-react';
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
@@ -31,7 +50,6 @@ import {
 } from '@/actions/inventory/opname';
 import { getProductVariants } from '@/actions/production/boms';
 import Link from 'next/link';
-import { Trash2 } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -44,6 +62,7 @@ import { warehouseComponentLabels } from '@/lib/labels';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { formatWibDate } from '@/lib/utils/timezone';
 import { FinalizeOpnameDialog } from './FinalizeOpnameDialog';
+import { OpnameReadinessSummary } from './OpnameReadinessSummary';
 import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
@@ -92,6 +111,9 @@ export function OpnameDetailClient({
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const moreActionsRef = useRef<HTMLButtonElement>(null);
     const router = useRouter();
 
     // Add Item dialog
@@ -110,19 +132,27 @@ export function OpnameDetailClient({
 
     // Fetch all variants when dialog opens
     useEffect(() => {
-        if (addDialogOpen && allVariants.length === 0) {
-            getProductVariants()
-                .then((result) => {
-                    if (result.success && result.data) {
-                        setAllVariants(
-                            result.data as unknown as typeof allVariants,
-                        );
-                    } else {
-                        toast.error('Gagal memuat varian produk');
-                    }
-                })
-                .catch(() => toast.error('Gagal memuat varian produk'));
-        }
+        if (!addDialogOpen || allVariants.length > 0) return;
+        let cancelled = false;
+
+        getProductVariants()
+            .then((result) => {
+                if (cancelled) return;
+                if (result.success && result.data) {
+                    setAllVariants(
+                        result.data as unknown as typeof allVariants,
+                    );
+                } else {
+                    toast.error('Gagal memuat varian produk');
+                }
+            })
+            .catch(() => {
+                if (!cancelled) toast.error('Gagal memuat varian produk');
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [addDialogOpen, allVariants.length]);
 
     // Items already in this session — deduplication is handled server-side via addItemToOpname validation
@@ -183,130 +213,171 @@ export function OpnameDetailClient({
         }
     };
 
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            const result = await deleteOpnameSession(session.id);
+            if (result.success) {
+                toast.success('Sesi berhasil dihapus');
+                setDeleteDialogOpen(false);
+                router.push(basePath);
+            } else {
+                toast.error(result.error || 'Gagal menghapus sesi');
+            }
+        } catch {
+            toast.error('Gagal menghapus sesi');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const isOpen = session.status === 'OPEN';
+    const countedCount = session.items.filter(
+        (item) => item.countedQuantity !== null,
+    ).length;
+    const varianceCount = session.items.filter(
+        (item) =>
+            item.countedQuantity !== null &&
+            Number(item.countedQuantity) !== Number(item.systemQuantity),
+    ).length;
+    const uncountedCount = session.items.length - countedCount;
 
     return (
         <div className="space-y-6 pt-2 pb-8">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-                <Link
-                    href={basePath}
-                    className="hover:text-foreground transition-colors flex items-center gap-1"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                    Kembali ke Daftar Opname
-                </Link>
-                <span>/</span>
-                <span className="text-foreground font-medium">
-                    {session.opnameNumber || 'New Session'}
-                </span>
-            </div>
-
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-4 mb-2">
-                        <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                            {session.opnameNumber
-                                ? `${session.opnameNumber} - `
-                                : ''}
-                            {session.location?.name || 'Unknown Location'}
-                        </h2>
-                        <Badge
-                            variant={isOpen ? 'secondary' : 'outline'}
-                            className={
-                                isOpen
-                                    ? 'bg-primary/10 text-primary border-transparent'
-                                    : 'border-emerald-500/30 text-emerald-600 bg-emerald-500/5'
-                            }
-                        >
-                            {session.status}
-                        </Badge>
+            <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0 space-y-3">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={basePath}>
+                            <ArrowLeft className="h-4 w-4" />
+                            Kembali ke Daftar Opname
+                        </Link>
+                    </Button>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="break-words text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                                {session.opnameNumber || 'Stock Opname'}
+                            </h1>
+                            <Badge
+                                variant={isOpen ? 'secondary' : 'outline'}
+                                className={
+                                    isOpen
+                                        ? 'border-transparent bg-primary/10 text-primary'
+                                        : 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600'
+                                }
+                            >
+                                {isOpen ? 'Sedang Berjalan' : 'Selesai'}
+                            </Badge>
+                        </div>
+                        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                            <span>{session.location?.name || 'Lokasi belum tersedia'}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{session.remarks || 'Tanpa catatan'}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>Dibuat oleh {session.createdBy?.name || 'Sistem'}</span>
+                            {session.effectiveDate && (
+                                <>
+                                    <span aria-hidden="true">·</span>
+                                    <span>Efektif {formatWibDate(session.effectiveDate)}</span>
+                                </>
+                            )}
+                        </p>
                     </div>
-                    <p className="text-muted-foreground flex items-center gap-2">
-                        {session.remarks || 'No Remarks'}
-                        <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                        Created by {session.createdBy?.name || 'System'}
-                        {session.effectiveDate && (
-                            <>
-                                <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                                Efektif {formatWibDate(session.effectiveDate)}
-                            </>
-                        )}
-                    </p>
                 </div>
 
                 {isOpen && (
-                    <div className="flex gap-2">
+                    <div
+                        role="group"
+                        aria-label="Aksi stock opname"
+                        className="flex flex-wrap items-center gap-2 [&_button]:min-h-11"
+                    >
                         <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setAddDialogOpen(true)}
-                            title="Add item not in system inventory"
-                        >
-                            <Plus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={async () => {
-                                if (
-                                    confirm(
-                                        'Yakin ingin menghapus sesi ini? Tindakan ini tidak dapat dibatalkan.',
-                                    )
-                                ) {
-                                    const result = await deleteOpnameSession(
-                                        session.id,
-                                    );
-                                    if (result.success) {
-                                        toast.success('Sesi berhasil dihapus');
-                                        router.push(basePath);
-                                    } else {
-                                        toast.error(result.error);
-                                    }
-                                }
-                            }}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="default"
-                            className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-900/10"
+                            className="bg-emerald-600 text-white hover:bg-emerald-700"
                             onClick={() => setFinalizeDialogOpen(true)}
                             disabled={isFinalizing}
                         >
                             {isFinalizing ? (
-                                <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                <CheckCircle2 className="h-4 w-4" />
                             )}
                             {warehouseComponentLabels.finalizeOpname}
                         </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    ref={moreActionsRef}
+                                    variant="outline"
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    Lainnya
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                align="end"
+                                className="min-w-56"
+                                onCloseAutoFocus={(event) => {
+                                    if (deleteDialogOpen) event.preventDefault();
+                                }}
+                            >
+                                <DropdownMenuItem
+                                    className="min-h-11"
+                                    onSelect={() => setAddDialogOpen(true)}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Tambah Item
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    variant="destructive"
+                                    className="min-h-11"
+                                    onSelect={() => setDeleteDialogOpen(true)}
+                                >
+                                    Hapus Sesi
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 )}
-            </div>
+            </header>
+
+            <OpnameReadinessSummary
+                locationName={session.location?.name || 'Lokasi belum tersedia'}
+                itemCount={session.items.length}
+                countedCount={countedCount}
+                varianceCount={varianceCount}
+                attachmentCount={safeAttachments.length}
+                isOpen={isOpen}
+            />
 
             <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
                 className="w-full"
             >
-                <TabsList className="grid w-full md:w-[400px] grid-cols-2">
-                    <TabsTrigger value="count">
+                <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-4">
+                    <TabsTrigger value="count" className="min-h-11">
                         <Calculator className="mr-2 h-4 w-4" />
-                        Count Sheet
+                        Hitung Fisik
                     </TabsTrigger>
-                    <TabsTrigger value="variance">
+                    <TabsTrigger value="variance" className="min-h-11">
                         <AlertTriangle className="mr-2 h-4 w-4" />
-                        Variance Report
+                        Selisih ({varianceCount})
+                    </TabsTrigger>
+                    <TabsTrigger value="evidence" className="min-h-11">
+                        <Paperclip className="mr-2 h-4 w-4" />
+                        Bukti ({safeAttachments.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="audit" className="min-h-11">
+                        <History className="mr-2 h-4 w-4" />
+                        Audit Status
                     </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="count" className="mt-6">
                     <Card className="border-border/50 shadow-sm">
                         <CardHeader>
-                            <CardTitle>Physical Count</CardTitle>
+                            <CardTitle>Perhitungan Fisik</CardTitle>
                             <CardDescription>
-                                Enter the actual quantities found in the
-                                warehouse.
+                                Masukkan jumlah aktual yang ditemukan di gudang.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 sm:p-6">
@@ -321,10 +392,10 @@ export function OpnameDetailClient({
                 <TabsContent value="variance" className="mt-6">
                     <Card className="border-border/50 shadow-sm">
                         <CardHeader>
-                            <CardTitle>Variance Analysis</CardTitle>
+                            <CardTitle>Analisis Selisih</CardTitle>
                             <CardDescription>
-                                Review discrepancies between system record and
-                                physical count.
+                                Tinjau perbedaan antara catatan sistem dan hasil
+                                hitung fisik.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -332,36 +403,76 @@ export function OpnameDetailClient({
                         </CardContent>
                     </Card>
                 </TabsContent>
+
+                <TabsContent value="evidence" className="mt-6">
+                    <Card className="border-border/50 shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-base">
+                                Bukti Opname
+                            </CardTitle>
+                            <CardDescription>
+                                Foto kondisi area/rak, item selisih, atau berita
+                                acara — opsional.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <WarehouseAttachmentPanel
+                                entityId={session.id}
+                                entityLabel={session.opnameNumber || 'Opname'}
+                                entityType="stockOpnameId"
+                                checkpoint="OPNAME"
+                                attachments={safeAttachments.filter(
+                                    (attachment) =>
+                                        attachment.checkpoint === 'OPNAME',
+                                )}
+                                disabled={!isOpen}
+                                onAttachmentChange={() => router.refresh()}
+                            />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="audit" className="mt-6">
+                    <EntityStatusTimeline
+                        entityType="StockOpname"
+                        entityId={session.id}
+                    />
+                </TabsContent>
             </Tabs>
 
-            {/* Bukti Opname — optional */}
-            <Card className="border-border/50 shadow-sm">
-                <CardHeader>
-                    <CardTitle className="text-base">Bukti Opname</CardTitle>
-                    <CardDescription>
-                        Foto kondisi area/rak, item variance, atau berita acara
-                        — opsional
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <WarehouseAttachmentPanel
-                        entityId={session.id}
-                        entityLabel={session.opnameNumber || 'Opname'}
-                        entityType="stockOpnameId"
-                        checkpoint="OPNAME"
-                        attachments={safeAttachments.filter(
-                            (a) => a.checkpoint === 'OPNAME',
-                        )}
-                        disabled={!isOpen}
-                        onAttachmentChange={() => router.refresh()}
-                    />
-                </CardContent>
-            </Card>
-
-            <EntityStatusTimeline
-                entityType="StockOpname"
-                entityId={session.id}
-            />
+            <AlertDialog
+                open={deleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isDeleting) setDeleteDialogOpen(open);
+                }}
+            >
+                <AlertDialogContent
+                    onCloseAutoFocus={(event) => {
+                        event.preventDefault();
+                        moreActionsRef.current?.focus();
+                    }}
+                >
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus sesi stock opname?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Sesi {session.opnameNumber || 'ini'} akan dihapus
+                            secara permanen. Tindakan ini tidak dapat dibatalkan.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>
+                            Kembali
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isDeleting}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={handleDelete}
+                        >
+                            {isDeleting ? 'Menghapus…' : 'Hapus Sesi'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Add Item Dialog */}
             <FinalizeOpnameDialog
@@ -369,9 +480,7 @@ export function OpnameDetailClient({
                 onOpenChange={setFinalizeDialogOpen}
                 onConfirm={handleFinalize}
                 isSubmitting={isFinalizing}
-                uncountedItems={session.items.filter(
-                    (item) => item.countedQuantity === null,
-                ).length}
+                uncountedItems={uncountedCount}
             />
 
             <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -379,19 +488,19 @@ export function OpnameDetailClient({
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Plus className="h-5 w-5" />
-                            Add Item to Opname
+                            Tambah Item ke Opname
                         </DialogTitle>
                         <DialogDescription>
-                            Search and add items found physically but not yet in
-                            the inventory system for this location. The item
-                            will be added with a system quantity of 0.
+                            Cari dan tambahkan item yang ditemukan secara
+                            fisik tetapi belum ada pada sesi ini. Kuantitas
+                            sistem awal item tambahan adalah 0.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 mt-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by name, SKU, or product..."
+                                placeholder="Cari nama, SKU, atau produk..."
                                 className="pl-9"
                                 value={productSearch}
                                 onChange={(e) =>
@@ -406,7 +515,7 @@ export function OpnameDetailClient({
                                     {allVariants.length === 0 ? (
                                         <div className="flex items-center justify-center gap-2">
                                             <Loader2 className="h-4 w-4 animate-spin" />
-                                            Loading products...
+                                            Memuat produk...
                                         </div>
                                     ) : (
                                         'Tidak ada produk ditemukan'
@@ -414,12 +523,14 @@ export function OpnameDetailClient({
                                 </div>
                             ) : (
                                 filteredVariants.map((variant) => (
-                                    <div
+                                    <button
                                         key={variant.id}
-                                        className="p-3 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors"
+                                        type="button"
+                                        className="flex min-h-11 w-full items-center justify-between p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                                         onClick={() =>
                                             handleAddItem(variant.id)
                                         }
+                                        disabled={isAddingItem}
                                     >
                                         <div className="flex flex-col min-w-0">
                                             <span className="font-medium text-sm truncate">
@@ -443,7 +554,7 @@ export function OpnameDetailClient({
                                                 <Plus className="h-4 w-4 text-muted-foreground" />
                                             )}
                                         </div>
-                                    </div>
+                                    </button>
                                 ))
                             )}
                         </div>

@@ -25,17 +25,11 @@ interface OpnameVarianceProps {
 }
 
 export function OpnameVariance({ items }: OpnameVarianceProps) {
-    // Filter to show only items with variance or specific interest?
-    // For now show all, sorted by variance magnitude?
-
     const safeItems = items || [];
     const itemsWithVariance = safeItems.map((item) => {
         const sys = Number(item.systemQuantity);
         const count =
-            item.countedQuantity !== null ? Number(item.countedQuantity) : sys; // assume no variance if not counted?
-        // Actually if not counted, we should probably warn. But lets handle null as 0 if user intends 0, or equal if skipped.
-        // For report sake, let's treat null as "Not Counted" (Variance 0 or N/A)
-
+            item.countedQuantity !== null ? Number(item.countedQuantity) : sys;
         const delta = item.countedQuantity !== null ? count - sys : 0;
         const status =
             item.countedQuantity === null
@@ -53,16 +47,16 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex gap-4">
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 border rounded-lg">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                        Total Items
+            <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                    <div className="text-sm text-muted-foreground">
+                        Total Item
                     </div>
                     <div className="text-2xl font-bold">{safeItems.length}</div>
                 </div>
-                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800/50 rounded-lg">
-                    <div className="text-sm text-orange-600 dark:text-orange-400">
-                        Items with Variance
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800/50 dark:bg-orange-900/20">
+                    <div className="text-sm text-orange-700 dark:text-orange-400">
+                        Item Berselisih
                     </div>
                     <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
                         {totalVarianceItems}
@@ -70,11 +64,19 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                 </div>
             </div>
 
-            <div className="border rounded-md">
-                <Table>
+            <p className="text-xs text-muted-foreground md:hidden">
+                Geser tabel ke samping untuk melihat seluruh rincian.
+            </p>
+            <div
+                className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_[data-slot=table-container]]:overflow-visible"
+                role="region"
+                aria-label="Rincian selisih stock opname"
+                tabIndex={0}
+            >
+                <Table className="min-w-[680px]">
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[300px]">Product</TableHead>
+                            <TableHead className="w-[300px]">Produk</TableHead>
                             <TableHead className="text-right">
                                 {warehouseComponentLabels.expectedQty}
                             </TableHead>
@@ -124,12 +126,12 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                                             variant="outline"
                                             className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20"
                                         >
-                                            Match
+                                            Sesuai
                                         </Badge>
                                     )}
                                     {item.status === 'VARIANCE' && (
                                         <Badge variant="destructive">
-                                            Variance
+                                            Berselisih
                                         </Badge>
                                     )}
                                     {item.status === 'PENDING' && (
@@ -137,7 +139,7 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                                             variant="secondary"
                                             className="text-slate-500 dark:text-slate-400"
                                         >
-                                            Pending
+                                            Belum Dihitung
                                         </Badge>
                                     )}
                                 </TableCell>
