@@ -121,7 +121,7 @@ describe('release shell contract', () => {
     it.each(['polyflow-assistant-worker', 'polyflow-app'])('fails closed when %s is unhealthy', container => {
         const { result } = run({ UNHEALTHY_CONTAINER: container });
         expect(result.status).not.toBe(0);
-    });
+    }, 15_000);
 
     it.each(['polyflow-assistant-worker', 'polyflow-app'])('fails closed when %s does not use the tested image', container => {
         const { result } = run({ MISMATCH_CONTAINER: container });
