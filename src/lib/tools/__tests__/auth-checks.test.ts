@@ -7,6 +7,8 @@ import {
     requireWarehouseStockRole,
     requireMaterialPathRole,
     requireWarehouseResourcePermission,
+    canAccessWarehouseResource,
+    resolveWarehouseResourceCapability,
 } from '../auth-checks';
 import { Role } from '@prisma/client';
 import { AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
@@ -493,12 +495,14 @@ describe('requireWarehouseResourcePermission', () => {
         vi.clearAllMocks();
     });
 
-    it('allows ADMIN without querying roles', async () => {
+    it('allows ADMIN from fresh DB state without querying roles', async () => {
         const { auth } = await import('@/auth');
         const { prisma } = await import('@/lib/core/prisma');
         const mockSession = { user: { id: 'admin-1', role: 'ADMIN' } };
         vi.mocked(auth).mockResolvedValue(mockSession as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'admin-1' } as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'admin-1', role: 'ADMIN', isActive: true,
+        } as any);
 
         const result = await requireWarehouseResourcePermission('/warehouse/incoming');
         expect(result).toEqual(mockSession);
@@ -657,6 +661,65 @@ describe('requireWarehouseResourcePermission', () => {
 
         const result = await requireWarehouseResourcePermission('/anything/goes');
         expect(result).toEqual(mockSession);
+    });
+
+    it('keeps can/require decisions in parity for exact, parent, ALL, and denial', async () => {
+        const { auth } = await import('@/auth');
+        const { prisma } = await import('@/lib/core/prisma');
+        const session = { user: { id: 'user-parity', role: 'STAFF' } };
+        vi.mocked(auth).mockResolvedValue(session as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'user-parity', role: 'STAFF', isActive: true,
+        } as any);
+        vi.mocked(prisma.userRole.findMany).mockResolvedValue([
+            { role: 'SALES' }, { role: 'WAREHOUSE' },
+        ] as any);
+
+        for (const resources of [
+            ['/warehouse/outgoing'], ['/warehouse'], ['ALL'],
+        ]) {
+            vi.mocked(prisma.rolePermission.findMany).mockResolvedValue(
+                resources.map((resource) => ({ resource })) as any,
+            );
+            await expect(
+                canAccessWarehouseResource('/warehouse/outgoing'),
+            ).resolves.toBe(true);
+            await expect(
+                requireWarehouseResourcePermission('/warehouse/outgoing'),
+            ).resolves.toEqual(session);
+        }
+
+        vi.mocked(prisma.rolePermission.findMany).mockResolvedValue([
+            { resource: '/warehouse/incoming' },
+        ] as any);
+        await expect(
+            canAccessWarehouseResource('/warehouse/outgoing'),
+        ).resolves.toBe(false);
+        await expect(
+            requireWarehouseResourcePermission('/warehouse/outgoing'),
+        ).rejects.toThrow(AuthorizationError);
+    });
+
+    it('distinguishes expected denial from an operational DB failure', async () => {
+        const { prisma } = await import('@/lib/core/prisma');
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'inactive', role: 'STAFF', isActive: false,
+        } as any);
+        await expect(
+            resolveWarehouseResourceCapability(
+                'inactive',
+                '/warehouse/outgoing',
+            ),
+        ).resolves.toEqual({
+            allowed: false, reason: 'INACTIVE_OR_MISSING',
+        });
+
+        vi.mocked(prisma.user.findUnique).mockRejectedValue(
+            new Error('database unavailable'),
+        );
+        await expect(
+            resolveWarehouseResourceCapability('user', '/warehouse/outgoing'),
+        ).rejects.toThrow('database unavailable');
     });
 
     it('deduplicates resources from multiple roles', async () => {

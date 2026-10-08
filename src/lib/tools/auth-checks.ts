@@ -81,11 +81,9 @@ export async function requireAuth() {
             { requireLocalBinding },
         );
     }
-    const sessionTenantId = (session.user as { tenantId?: string })
-        .tenantId;
-    const sessionSubdomain = (
-        session.user as { tenantSubdomain?: string }
-    ).tenantSubdomain;
+    const sessionTenantId = (session.user as { tenantId?: string }).tenantId;
+    const sessionSubdomain = (session.user as { tenantSubdomain?: string })
+        .tenantSubdomain;
     if (!tenant && (sessionTenantId || session.user.globalAccountId)) {
         // Fail closed: this session belongs to a tenant, but the request
         // carries no tenant context (e.g. root/www domain). Never fall back
@@ -239,72 +237,80 @@ export async function requireMaterialPathRole(
     return session;
 }
 
+export type WarehouseResourceCapability =
+    | { allowed: true }
+    | {
+          allowed: false;
+          reason: 'INACTIVE_OR_MISSING' | 'NO_ROLE' | 'NO_PERMISSION';
+      };
+
 /**
- * Server-side resource permission check for warehouse mutations.
- * Verifies the user's `allowedResources` includes the given resource path
- * (hierarchical: `/warehouse` covers `/warehouse/incoming`).
- * ADMIN role always passes. Users with `ALL` resources always pass.
- * Throws AuthorizationError if denied.
+ * Resolve access from fresh DB state. Expected denial is data; operational DB
+ * failures throw so a caller cannot silently turn an outage into `false`.
  */
-export async function requireWarehouseResourcePermission(resourcePath: string) {
-    const session = await requireAuth();
-    const sessionUser = session.user;
-
-    // ADMIN role in session always passes
-    if (hasAnyRole(sessionUser, ['ADMIN'])) {
-        return session;
-    }
-
-    // Query fresh user permissions from DB to avoid stale JWT snapshot issues
+export async function resolveWarehouseResourceCapability(
+    userId: string,
+    resourcePath: string,
+): Promise<WarehouseResourceCapability> {
     const dbUser = await prisma.user.findUnique({
-        where: { id: sessionUser.id },
+        where: { id: userId },
         select: { id: true, role: true, isActive: true },
     });
 
     if (!dbUser || !dbUser.isActive) {
-        throw new AuthorizationError(
-            'User account tidak aktif atau tidak ditemukan.',
-        );
+        return { allowed: false, reason: 'INACTIVE_OR_MISSING' };
     }
+    if (dbUser.role === 'ADMIN') return { allowed: true };
 
-    if (dbUser.role === 'ADMIN') {
-        return session;
-    }
-
-    // Aggregate allowedResources from ALL assigned roles (same logic as auth.ts)
     const userRoles = await prisma.userRole.findMany({
-        where: { userId: sessionUser.id },
+        where: { userId },
         select: { role: true },
     });
-    const roleNames = userRoles.map((r) => r.role);
+    const roleNames = Array.from(new Set(userRoles.map((row) => row.role)));
+    if (roleNames.length === 0) return { allowed: false, reason: 'NO_ROLE' };
 
-    if (roleNames.length === 0) {
-        throw new AuthorizationError(
-            `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
-        );
-    }
-
-    const perms = await prisma.rolePermission.findMany({
+    const permissions = await prisma.rolePermission.findMany({
         where: { role: { in: roleNames }, canAccess: true },
         select: { resource: true },
     });
-    const resourceList = Array.from(new Set(perms.map((p) => p.resource)));
+    const resources = Array.from(
+        new Set(permissions.map((permission) => permission.resource)),
+    );
+    const allowed = resources.some(
+        (resource) =>
+            resource === 'ALL' ||
+            resource === resourcePath ||
+            resourcePath.startsWith(`${resource}/`),
+    );
 
-    if (resourceList.length === 0) {
+    return allowed
+        ? { allowed: true }
+        : { allowed: false, reason: 'NO_PERMISSION' };
+}
+
+/** Expected denials return false; operational failures remain visible. */
+export async function canAccessWarehouseResource(resourcePath: string) {
+    const session = await requireAuth();
+    const capability = await resolveWarehouseResourceCapability(
+        session.user.id,
+        resourcePath,
+    );
+    return capability.allowed;
+}
+
+/** Mutation guard backed by the same resolver as capability rendering. */
+export async function requireWarehouseResourcePermission(resourcePath: string) {
+    const session = await requireAuth();
+    const capability = await resolveWarehouseResourceCapability(
+        session.user.id,
+        resourcePath,
+    );
+
+    if (!capability.allowed) {
         throw new AuthorizationError(
-            `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
-        );
-    }
-
-    const hasAccess = resourceList.some((allowed) => {
-        if (allowed === 'ALL' || allowed === resourcePath) return true;
-        if (resourcePath.startsWith(allowed + '/')) return true;
-        return false;
-    });
-
-    if (!hasAccess) {
-        throw new AuthorizationError(
-            `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
+            capability.reason === 'INACTIVE_OR_MISSING'
+                ? 'User account tidak aktif atau tidak ditemukan.'
+                : `Anda tidak memiliki izin untuk melakukan operasi ini (${resourcePath}).`,
         );
     }
 
