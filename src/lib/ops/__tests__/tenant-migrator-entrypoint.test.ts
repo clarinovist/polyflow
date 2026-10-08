@@ -22,6 +22,10 @@ function createHarness() {
     const node = join(bin, 'node');
     writeFileSync(node, '#!/bin/sh\n' +
         'case "$1" in\n' +
+        '  scripts/backup-release-databases.js)\n' +
+        '    [ "$#" = 1 ] || exit 89\n' +
+        '    echo backup >> "$TEST_CALLS"\n' +
+        '    exit "$TEST_BACKUP_STATUS" ;;\n' +
         '  node_modules/prisma/build/index.js)\n' +
         '    [ "$#" = 3 ] && [ "$2" = migrate ] && [ "$3" = deploy ] || exit 90\n' +
         '    echo main-migration >> "$TEST_CALLS"\n' +
@@ -37,13 +41,6 @@ function createHarness() {
         '  *) exit 93 ;;\n' +
         'esac\n');
     chmodSync(node, 0o700);
-    const pgDump = join(bin, 'pg_dump');
-    writeFileSync(pgDump, '#!/bin/sh\n' +
-        'echo backup >> "$TEST_CALLS"\n' +
-        '[ "$TEST_BACKUP_STATUS" = 0 ] || exit "$TEST_BACKUP_STATUS"\n' +
-        'while [ "$#" -gt 0 ]; do if [ "$1" = -f ]; then shift; printf fixture > "$1"; exit 0; fi; shift; done\n' +
-        'exit 94\n');
-    chmodSync(pgDump, 0o700);
     const rm = join(bin, 'rm');
     writeFileSync(rm, '#!/bin/sh\nexit 0\n');
     chmodSync(rm, 0o700);
@@ -87,9 +84,8 @@ describe('runtime and release migration entrypoints (fake commands only)', () =>
 
     it('fails before migrations when the snapshot fails', () => {
         const result = run(migrator, { TEST_BACKUP_STATUS: '16' });
-        expect(result.status).toBe(1);
+        expect(result.status).toBe(16);
         expect(result.calls).toEqual(['backup']);
-        expect(result.stderr).toContain('release migrations were not started');
     });
 
     it('does not start tenant migrations when the main migration fails', () => {

@@ -22,11 +22,10 @@ describe('Docker build resource policy', () => {
         const migrator = readFileSync(new URL('../../../../release-migrate.sh', import.meta.url), 'utf8');
         expect(entrypoint).toContain('exec node server.js');
         expect(entrypoint).not.toMatch(/prisma|migrat|pg_dump|SKIP_MIGRATIONS/);
-        expect(migrator).toContain('pg_dump "$DATABASE_URL" -F c -f "$BACKUP_FILE"');
-        expect(migrator).toContain('[ ! -s "$BACKUP_FILE" ]');
+        expect(migrator).toContain('node scripts/backup-release-databases.js');
         expect(migrator).toContain('node node_modules/prisma/build/index.js migrate deploy');
         expect(migrator).toContain('node scripts/migrate-all-tenants.js');
-        expect(migrator.indexOf('pg_dump')).toBeLessThan(migrator.indexOf('migrate deploy'));
+        expect(migrator.indexOf('backup-release-databases.js')).toBeLessThan(migrator.indexOf('migrate deploy'));
         expect(migrator.indexOf('migrate deploy')).toBeLessThan(migrator.indexOf('migrate-all-tenants.js'));
         expect(dockerfile).toContain('COPY --chown=nextjs:nodejs entrypoint.sh release-migrate.sh ./');
     });

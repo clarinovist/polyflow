@@ -43,6 +43,7 @@ RUN npx tsc \
   prisma/fix-coa.ts \
   scripts/provision-tenant.ts \
   scripts/migrate-all-tenants.ts \
+  scripts/backup-release-databases.ts \
   scripts/cleanup-performance-metrics.ts \
   scripts/correct-sales-invoice-date.ts \
   --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck \
@@ -89,6 +90,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/scripts/provision-tenant.js \
   /app/ops-dist/scripts/migrate-all-tenants.js \
+  /app/ops-dist/scripts/backup-release-databases.js \
   /app/ops-dist/scripts/cleanup-performance-metrics.js \
   /app/ops-dist/scripts/correct-sales-invoice-date.js \
   /app/scripts/audit-duplicate-production-voids.js \
@@ -98,6 +100,7 @@ COPY --from=builder --chown=nextjs:nodejs \
   ./scripts/
 COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/src/lib/ops/tenant-migrations.js \
+  /app/ops-dist/src/lib/ops/release-database-backups.js \
   /app/ops-dist/src/lib/ops/performance-metrics-cleanup.js \
   ./src/lib/ops/
 

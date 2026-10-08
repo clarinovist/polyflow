@@ -20,6 +20,7 @@ describe('standalone operational tooling packaging', () => {
         expect(sourcesFor('./scripts/')).toEqual([
             '/app/ops-dist/scripts/provision-tenant.js',
             '/app/ops-dist/scripts/migrate-all-tenants.js',
+            '/app/ops-dist/scripts/backup-release-databases.js',
             '/app/ops-dist/scripts/cleanup-performance-metrics.js',
             '/app/ops-dist/scripts/correct-sales-invoice-date.js',
             '/app/scripts/audit-duplicate-production-voids.js',
@@ -39,6 +40,7 @@ describe('standalone operational tooling packaging', () => {
     it('ships the shared cores beside their original relative CLI imports', () => {
         expect(sourcesFor('./src/lib/ops/')).toEqual([
             '/app/ops-dist/src/lib/ops/tenant-migrations.js',
+            '/app/ops-dist/src/lib/ops/release-database-backups.js',
             '/app/ops-dist/src/lib/ops/performance-metrics-cleanup.js',
         ]);
         expect(dockerfile).toContain('--rootDir . --outDir /app/ops-dist');
