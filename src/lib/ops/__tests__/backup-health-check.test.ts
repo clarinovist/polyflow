@@ -38,4 +38,10 @@ describe('production backup health check', () => {
         const f = await fixture(2); await Promise.all([1, 2, 3].map((n) => writeFile(join(f.db, n + '.sql.gz'), 'fixture')));
         const result = await run(f); expect(result.code).toBe(1); expect(result.output).toContain('assistant_backup_missing');
     });
+    it('reports a newer scheduled failure marker', async () => {
+        const f = await fixture(); await Promise.all([1, 2, 3].map((n) => writeFile(join(f.db, n + '.sql.gz'), 'fixture')));
+        await writeFile(join(f.db, '.last-failure'), 'database_backup_failed\n');
+        const result = await run(f); expect(result.code).toBe(1); expect(result.output).toContain('scheduled_backup_failed');
+        expect(result.output).not.toContain('database_backup_failed');
+    });
 });

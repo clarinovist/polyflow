@@ -7,6 +7,8 @@ MAX_AGE_SECONDS="${MAX_AGE_SECONDS:-93600}"
 DISK_WARNING_PERCENT="${DISK_WARNING_PERCENT:-80}"
 DISK_CRITICAL_PERCENT="${DISK_CRITICAL_PERCENT:-90}"
 EXPECTED_DATABASES="${EXPECTED_DATABASES:-3}"
+SUCCESS_MARKER="${SUCCESS_MARKER:-$DB_BACKUP_DIR/.last-success}"
+FAILURE_MARKER="${FAILURE_MARKER:-$DB_BACKUP_DIR/.last-failure}"
 NOW=$(date +%s)
 ISSUES=()
 is_positive_integer() { [[ "$1" =~ ^[1-9][0-9]*$ ]]; }
@@ -24,6 +26,9 @@ latest_age() {
   (( newest > 0 )) || return 1
   echo $((NOW-newest))
 }
+if [[ -f "$FAILURE_MARKER" && ( ! -f "$SUCCESS_MARKER" || "$FAILURE_MARKER" -nt "$SUCCESS_MARKER" ) ]]; then
+  ISSUES+=("scheduled_backup_failed")
+fi
 recent_db_count=0
 while IFS= read -r file; do
   mtime=$(file_mtime "$file") || continue
