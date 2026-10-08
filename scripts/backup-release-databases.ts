@@ -33,7 +33,8 @@ const defaults: ReleaseBackupCliDependencies = {
 export async function runReleaseBackupCli(
     dependencies: ReleaseBackupCliDependencies = defaults,
 ): Promise<number> {
-    await mkdir(dependencies.backupDir, { recursive: true });
+    try { await mkdir(dependencies.backupDir, { recursive: true }); }
+    catch { dependencies.error('[database #0] BACKUP_FAILED'); return 1; }
     const stamp = dependencies.now().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
     const result = await backupReleaseDatabases({
         mainDatabaseUrl: dependencies.mainDatabaseUrl,

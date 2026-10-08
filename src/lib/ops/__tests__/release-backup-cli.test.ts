@@ -38,6 +38,15 @@ describe('release backup CLI', () => {
             .not.toContain('postgresql://');
     });
 
+    it('fails closed when the backup directory is unavailable', async () => {
+        const { backupDir, dependencies } = setup();
+        rmSync(backupDir, { recursive: true });
+        writeFileSync(backupDir, 'not-a-directory');
+        expect(await runReleaseBackupCli(dependencies)).toBe(1);
+        expect(dependencies.execute).not.toHaveBeenCalled();
+        expect(dependencies.error).toHaveBeenCalledWith('[database #0] BACKUP_FAILED');
+    });
+
     it('removes an unreadable dump and fails closed', async () => {
         const { backupDir, dependencies } = setup();
         dependencies.execute.mockImplementation(async (file, args) => {
