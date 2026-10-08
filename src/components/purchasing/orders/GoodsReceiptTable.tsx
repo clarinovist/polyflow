@@ -15,6 +15,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { getStatusLabel, purchasingLabels } from '@/lib/labels';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 type ReceiptWithRelations = {
     id: string;
@@ -251,16 +252,130 @@ export function GoodsReceiptTable({
         [basePath],
     );
 
+    const renderMobileView = (mobileReceipts: ReceiptWithRelations[]) => (
+        <div
+            aria-label="Daftar penerimaan barang mobile"
+            className="space-y-3"
+        >
+            {mobileReceipts.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    {searchTerm
+                        ? 'Penerimaan tidak ditemukan. Ubah kata pencarian.'
+                        : purchasingLabels.emptyReceipts}
+                </div>
+            ) : (
+                mobileReceipts.map((receipt) => {
+                    const entityName =
+                        receipt.purchaseOrder?.supplier.name ??
+                        receipt.customer?.name ??
+                        'Maklon Tidak Diketahui';
+
+                    return (
+                        <Card key={receipt.id} className="gap-3 overflow-hidden py-4">
+                            <CardHeader className="gap-2 px-4">
+                                <div className="flex min-w-0 items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <Link
+                                            href={`${basePath}/${receipt.id}`}
+                                            aria-label={`Lihat detail penerimaan ${receipt.receiptNumber}`}
+                                            className="block break-all rounded-sm font-mono text-sm font-semibold text-emerald-700 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-300"
+                                        >
+                                            {receipt.receiptNumber}
+                                        </Link>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {format(
+                                                new Date(receipt.receivedDate),
+                                                'dd MMM yyyy',
+                                            )}
+                                        </p>
+                                    </div>
+                                    <Badge variant="secondary" className="shrink-0">
+                                        {receipt._count.items} item
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-3 px-4 text-sm">
+                                <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                                    <div className="min-w-0">
+                                        <dt className="text-xs font-medium text-muted-foreground">
+                                            Supplier / Customer
+                                        </dt>
+                                        <dd className="break-words font-medium">
+                                            {entityName}
+                                        </dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <dt className="text-xs font-medium text-muted-foreground">
+                                            Lokasi
+                                        </dt>
+                                        <dd className="break-words">
+                                            {receipt.location.name}
+                                        </dd>
+                                    </div>
+                                </dl>
+                                <div className="flex flex-wrap items-center gap-2 border-t pt-3 text-xs text-muted-foreground">
+                                    {receipt.purchaseOrder ? (
+                                        <>
+                                            <span className="break-all font-mono">
+                                                PO: {receipt.purchaseOrder.orderNumber}
+                                            </span>
+                                            <span aria-hidden="true">•</span>
+                                            <span>
+                                                {getStatusLabel(
+                                                    receipt.purchaseOrder.status,
+                                                    'purchasing',
+                                                )}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <span>Maklon</span>
+                                    )}
+                                </div>
+                                <details className="rounded-md border px-3 py-2">
+                                    <summary className="min-h-11 cursor-pointer select-none py-2 text-sm font-medium">
+                                        Lihat item diterima
+                                    </summary>
+                                    <ul className="space-y-2 border-t pt-3">
+                                        {receipt.items.map((item) => (
+                                            <li
+                                                key={item.id}
+                                                className="flex min-w-0 items-start justify-between gap-3 text-sm"
+                                            >
+                                                <span className="min-w-0 break-words">
+                                                    {item.productVariant.name}
+                                                    <span className="block break-all text-xs text-muted-foreground">
+                                                        {item.productVariant.skuCode}
+                                                    </span>
+                                                </span>
+                                                <span className="shrink-0 font-medium">
+                                                    {item.receivedQty}{' '}
+                                                    {item.productVariant.primaryUnit}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </details>
+                            </CardContent>
+                        </Card>
+                    );
+                })
+            )}
+        </div>
+    );
+
     return (
         <DataTable
             columns={columns}
             data={filteredReceipts}
             emptyMessage={purchasingLabels.emptyReceipts}
             minWidth={750}
+            caption="Daftar penerimaan barang"
+            renderMobileView={renderMobileView}
         >
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
+                    aria-label="Cari penerimaan barang"
                     placeholder="Cari No. Penerimaan, PO, atau customer..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
