@@ -68,6 +68,7 @@ describe('release shell contract', () => {
             `git checkout --detach ${'a'.repeat(40)}`,
             'docker login ghcr.io -u fixture --password-stdin',
             'docker compose pull assistant-worker polyflow',
+            'docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow',
             'docker compose up -d --no-deps --no-build assistant-worker',
             'docker inspect --format {{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}} polyflow-assistant-worker',
             'docker compose up -d --no-deps --no-build polyflow',
@@ -89,6 +90,7 @@ describe('release shell contract', () => {
         'git diff --quiet', 'git diff --cached --quiet', 'git fetch origin main',
         `git checkout --detach ${'a'.repeat(40)}`, 'docker login ghcr.io -u fixture --password-stdin',
         'docker compose pull assistant-worker polyflow',
+        'docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow',
         'docker compose up -d --no-deps --no-build assistant-worker',
     ])('does not recreate the web container after %s fails', failure => {
         const { result, calls } = run({ FAIL_AT: failure });

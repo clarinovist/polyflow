@@ -17,6 +17,20 @@ describe('Docker build resource policy', () => {
         expect(runner).toContain('ENTRYPOINT ["./entrypoint.sh"]');
     });
 
+    it('keeps normal web startup free of database migrations and packages a release migrator', () => {
+        const entrypoint = readFileSync(new URL('../../../../entrypoint.sh', import.meta.url), 'utf8');
+        const migrator = readFileSync(new URL('../../../../release-migrate.sh', import.meta.url), 'utf8');
+        expect(entrypoint).toContain('exec node server.js');
+        expect(entrypoint).not.toMatch(/prisma|migrat|pg_dump|SKIP_MIGRATIONS/);
+        expect(migrator).toContain('pg_dump "$DATABASE_URL" -F c -f "$BACKUP_FILE"');
+        expect(migrator).toContain('[ ! -s "$BACKUP_FILE" ]');
+        expect(migrator).toContain('node node_modules/prisma/build/index.js migrate deploy');
+        expect(migrator).toContain('node scripts/migrate-all-tenants.js');
+        expect(migrator.indexOf('pg_dump')).toBeLessThan(migrator.indexOf('migrate deploy'));
+        expect(migrator.indexOf('migrate deploy')).toBeLessThan(migrator.indexOf('migrate-all-tenants.js'));
+        expect(dockerfile).toContain('COPY --chown=nextjs:nodejs entrypoint.sh release-migrate.sh ./');
+    });
+
     it('retains Next build typechecking instead of masking errors to avoid OOM', () => {
         expect((nextConfig as { typescript?: { ignoreBuildErrors?: boolean } }).typescript?.ignoreBuildErrors).not.toBe(true);
     });

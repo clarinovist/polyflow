@@ -113,6 +113,7 @@ describe('SHA-safe deployment wiring', () => {
         expect(remote?.with?.script).toContain('git checkout --detach "$DEPLOY_SHA"');
         expect(remote?.with?.script).toContain('export POLYFLOW_IMAGE="$DEPLOY_IMAGE"');
         expect(remote?.with?.script).toContain('export ASSISTANT_WORKER_IMAGE="$ASSISTANT_WORKER_DEPLOY_IMAGE"');
+        expect(remote?.with?.script).toContain('docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow');
         expect(remote?.with?.script).toContain('docker compose up -d --no-deps --no-build polyflow');
         expect(remote?.with?.script).toContain(`docker inspect --format '{{.Config.Image}}' polyflow-app`);
         expect(remote?.with?.script).toContain(`docker inspect --format '{{.Config.Image}}' polyflow-assistant-worker`);

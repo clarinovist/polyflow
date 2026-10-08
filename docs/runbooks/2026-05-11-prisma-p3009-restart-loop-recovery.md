@@ -2,7 +2,9 @@
 
 Date: 2026-05-11
 Owner: Platform / Backend
-Scope: polyflow-app restart loop caused by Prisma migration state conflict
+Scope: historical polyflow-app restart loop caused by Prisma migration state conflict
+
+> Historical recovery reference: current releases run migrations once in an ephemeral release container before recreating runtime services. Normal web startup no longer runs migrations, and `SKIP_MIGRATIONS` is retired. If the one-shot migration fails, stop the release and keep the previous runtime active; do not apply the old restart-loop containment steps.
 
 ## Incident Pattern
 

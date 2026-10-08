@@ -1,33 +1,5 @@
 #!/bin/sh
-set -e
+set -eu
 
-if [ "${SKIP_MIGRATIONS}" = "1" ] || [ "${SKIP_MIGRATIONS}" = "true" ]; then
-	echo "Skipping Prisma migrations (SKIP_MIGRATIONS=${SKIP_MIGRATIONS})"
-else
-	echo "Creating Database Snapshot before migrations..."
-	if [ -n "$DATABASE_URL" ]; then
-		BACKUP_DIR="/app/backups"
-		mkdir -p "$BACKUP_DIR" 2>/dev/null || BACKUP_DIR="/tmp/backups" && mkdir -p "$BACKUP_DIR" 2>/dev/null || true
-		TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-		if pg_dump "$DATABASE_URL" -F c -f "$BACKUP_DIR/db_snapshot_$TIMESTAMP.dump"; then
-			echo "Database snapshot created: $BACKUP_DIR/db_snapshot_$TIMESTAMP.dump"
-		else
-			echo "Backup failed, continuing anyway..."
-		fi
-		
-		# Keep only 5 latest backups
-		ls -t "$BACKUP_DIR"/db_snapshot_*.dump 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
-	else
-		echo "DATABASE_URL not found, skipping pre-migration snapshot"
-	fi
-
-	echo "Running Prisma migrations..."
-	node node_modules/prisma/build/index.js migrate deploy
-    
-	echo "Running Tenant migrations..."
-	node scripts/migrate-all-tenants.js
-fi
-
-# Start the application
 echo "Starting application..."
-node server.js
+exec node server.js

@@ -63,12 +63,15 @@ describe('standalone operational tooling packaging', () => {
         ]);
     });
 
-    it('uses installed Prisma at startup without an implicit package download', () => {
+    it('uses installed Prisma only in the release migrator without an implicit package download', () => {
         const entrypoint = readFileSync(path.join(root, 'entrypoint.sh'), 'utf8');
-        expect(entrypoint).toContain('set -e');
-        expect(entrypoint).toContain('node node_modules/prisma/build/index.js migrate deploy');
-        expect(entrypoint).not.toMatch(/\bnpx\b/);
-        expect(entrypoint.indexOf('node scripts/migrate-all-tenants.js'))
-            .toBeLessThan(entrypoint.indexOf('node server.js'));
+        const migrator = readFileSync(path.join(root, 'release-migrate.sh'), 'utf8');
+        expect(entrypoint).toContain('exec node server.js');
+        expect(entrypoint).not.toMatch(/prisma|migrat|pg_dump|SKIP_MIGRATIONS/);
+        expect(migrator).toContain('set -eu');
+        expect(migrator).toContain('node node_modules/prisma/build/index.js migrate deploy');
+        expect(migrator).not.toMatch(/\bnpx\b/);
+        expect(migrator.indexOf('node node_modules/prisma/build/index.js migrate deploy'))
+            .toBeLessThan(migrator.indexOf('node scripts/migrate-all-tenants.js'));
     });
 });

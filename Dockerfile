@@ -112,9 +112,9 @@ COPY --from=builder /app/node_modules/@prisma/debug ./node_modules/@prisma/debug
 COPY --from=builder /app/node_modules/@prisma/fetch-engine ./node_modules/@prisma/fetch-engine
 COPY --from=builder /app/node_modules/@prisma/get-platform ./node_modules/@prisma/get-platform
 
-# Copy entrypoint script
-COPY --chown=nextjs:nodejs entrypoint.sh ./
-RUN chmod +x entrypoint.sh
+# Copy runtime and one-shot release entrypoints.
+COPY --chown=nextjs:nodejs entrypoint.sh release-migrate.sh ./
+RUN chmod +x entrypoint.sh release-migrate.sh
 
 # Retain the existing seed entrypoints and the seedCoA helper dependency.
 COPY --from=builder --chown=nextjs:nodejs \

@@ -29,9 +29,7 @@ Source of truth: `.env.example`
 
 ## Migration Control
 
-| Variable          | Required | Description                                           | Default |
-| ----------------- | -------- | ----------------------------------------------------- | ------- |
-| `SKIP_MIGRATIONS` | No       | Set to `1` to skip auto-migrations on container start | `0`     |
+Production migrations run once in the release workflow from the tested immutable web image. Normal web startup does not run or skip migrations through an environment flag.
 
 ## AI / LLM (Optional)
 

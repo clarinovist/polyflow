@@ -494,6 +494,9 @@ jobs:
             export ASSISTANT_WORKER_IMAGE="$ASSISTANT_WORKER_DEPLOY_IMAGE"
             printf '%s' "$CR_PAT" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
             docker compose pull assistant-worker polyflow
+            # Run schema changes exactly once from the tested immutable web image.
+            # Existing runtime containers remain untouched if this fails.
+            docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow
             docker compose up -d --no-deps --no-build assistant-worker
             for attempt in $(seq 1 30); do
               status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' polyflow-assistant-worker)
