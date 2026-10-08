@@ -9,12 +9,14 @@ import CommissionReportPage from '@/app/sales/reports/commission/page';
 import { SalesInvoicesShell } from '../SalesInvoicesShell';
 
 const mocks = vi.hoisted(() => ({
-    deliveries: vi.fn(), performance: vi.fn(), margin: vi.fn(),
+    deliveries: vi.fn(), capability: vi.fn(), performance: vi.fn(), margin: vi.fn(),
     performanceClient: vi.fn(), marginClient: vi.fn(), commissionClient: vi.fn(),
     invoiceTable: vi.fn(),
     session: { data: { user: { role: 'SALES' } } },
 }));
-vi.mock('@/actions/inventory/deliveries', () => ({ getDeliveryOrders: mocks.deliveries }));
+vi.mock('@/actions/inventory/deliveries', () => ({ getDeliveryOrdersPage: mocks.deliveries }));
+vi.mock('@/lib/tools/auth-checks', () => ({ canAccessWarehouseResource: mocks.capability }));
+vi.mock('@/components/sales/DeliveryWorkbenchControls', () => ({ DeliveryWorkbenchControls: () => <div>Delivery table</div> }));
 vi.mock('@/actions/sales/sales-reports', () => ({ getSalesPerformanceReport: mocks.performance }));
 vi.mock('@/actions/sales/margin-report', () => ({ getSalesMarginReport: mocks.margin }));
 vi.mock('@/components/sales/DeliveryOrderTable', () => ({ DeliveryOrderTable: () => <div>Delivery table</div> }));
@@ -32,7 +34,8 @@ const params = () => Promise.resolve(dates);
 beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
-    mocks.deliveries.mockResolvedValue({ success: true, data: [] });
+    mocks.capability.mockResolvedValue(true);
+    mocks.deliveries.mockResolvedValue({ success: true, data: { items: [], meta: { page: 1, pageSize: 50, total: 0, totalPages: 0, sort: 'priority', direction: 'desc' }, statusCounts: { PENDING: 0, LOADING: 0, SHIPPED: 0, IN_TRANSIT: 0, ARRIVED: 0, DELIVERED: 0, RETURNED: 0, CANCELLED: 0 }, filterOptions: { customers: [], locations: [] }, scope: { includesOpenDraftsOutsidePeriod: true } } });
     mocks.performance.mockResolvedValue({ success: true, data: { rows: [], summary: {} } });
     mocks.margin.mockResolvedValue({ success: true, data: { summary: { ordersWithIncompleteHpp: 2 } } });
     mocks.session.data.user.role = 'SALES';
@@ -44,16 +47,15 @@ async function openInfo(name: string) {
 }
 
 describe('compact Sales help rollout', () => {
-    it('keeps the warehouse link visible and explains draft stock/date behavior only on request', async () => {
+    it('keeps capability actions visible and explains open-draft scope', async () => {
         render(await SalesDeliveriesPage({ searchParams: params() }));
-        expect(screen.getByRole('link', { name: 'Buka Portal Gudang →' }).getAttribute('href')).toBe('/warehouse/outgoing');
+        expect(screen.getByRole('link', { name: /Portal Gudang/ }).getAttribute('href')).toBe('/warehouse/outgoing');
         expect(screen.getByRole('button', { name: 'Buat Surat Jalan' })).toBeTruthy();
-        expect(screen.queryByText(/stok belum dipotong/)).toBeNull();
-        const text = await openInfo('Info Surat Jalan');
-        expect(text).toContain('PENDING / LOADING');
-        expect(text).toContain('stok belum dipotong');
-        expect(text).toContain('tidak hilang meski di luar filter bulan');
-        expect(mocks.deliveries).toHaveBeenCalledWith({ startDate: new Date(dates.startDate), endDate: new Date(dates.endDate) });
+        expect(screen.getByText(/PENDING\/LOADING tetap disertakan/)).toBeTruthy();
+        expect(mocks.deliveries).toHaveBeenCalledWith(expect.objectContaining({
+            startDate: new Date(dates.startDate),
+            endDate: new Date(dates.endDate),
+        }));
     });
 
     it('keeps report period visible and retains the SO revenue definition in help', async () => {
