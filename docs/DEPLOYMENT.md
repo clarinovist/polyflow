@@ -433,3 +433,21 @@ downloaded from R2, each gzip stream passed integrity validation, all databases 
 internal Docker network, 178 completed migrations and 173/174 public tables were verified, and the
 application health probe succeeded. Total duration was 111 seconds. No production database was used
 as a restore target and all temporary resources were removed.
+
+### Scheduled backup and capacity monitoring
+
+Production runs the PostgreSQL backup at 02:00 WIB. Schedule the assistant snapshot immediately
+after it, followed by the health/alert check, so a non-zero backup result and stale artifacts remain
+visible in separate logs:
+
+```cron
+10 2 * * * docker exec polyflow-assistant-worker node scripts/backup-assistant-sqlite.mjs >> /home/sekolahdesain/logs/polyflow-assistant-backup.log 2>&1
+20 2 * * * /usr/bin/python3 /home/sekolahdesain/polyflow/scripts/run-backup-health-alert.py >> /home/sekolahdesain/logs/polyflow-backup-health.log 2>&1
+*/30 * * * * /usr/bin/python3 /home/sekolahdesain/polyflow/scripts/run-backup-health-alert.py >> /home/sekolahdesain/logs/polyflow-backup-health.log 2>&1
+```
+
+The health check requires a complete PostgreSQL set newer than 26 hours, requires a recent assistant
+snapshot only when durable SQLite files exist, and emits warning/critical disk signals at 80%/90%.
+The alert wrapper sends only sanitized categories to the existing PolyFlow operations channel and
+uses a six-hour per-issue cooldown. A healthy empty assistant store is valid; it does not fabricate
+a backup artifact.
