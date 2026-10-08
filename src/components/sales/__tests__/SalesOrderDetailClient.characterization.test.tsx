@@ -192,9 +192,41 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(actions.compareDocumentPosition(screen.getByText('Siapkan Jadwal Kirim atau Surat Jalan.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it('keeps shipping primary once production is no longer the next action', () => {
+    it('surfaces the order summary, lifecycle guidance, and progressive audit disclosure', async () => {
+        renderOrder({ status: 'READY_TO_SHIP' });
+        expect(
+            screen.getByRole('region', { name: 'Ringkasan pesanan' }),
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('region', { name: 'Proses Pesanan' }),
+        ).toBeTruthy();
+        expect(
+            screen.getByText('Buat atau buka Surat Jalan untuk proses gudang.'),
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('tab', { name: 'Operasional' }).getAttribute(
+                'aria-selected',
+            ),
+        ).toBe('true');
+        const auditTab = screen.getByRole('tab', { name: 'Audit Status' });
+        expect(auditTab.getAttribute('aria-selected')).toBe('false');
+        fireEvent.mouseDown(auditTab, { button: 0 });
+        await waitFor(() =>
+            expect(auditTab.getAttribute('aria-selected')).toBe('true'),
+        );
+    });
+
+    it('keeps one primary workflow action once production is no longer the next action', () => {
         const view = renderOrder({ status: 'READY_TO_SHIP' });
-        expect(screen.getByRole('button', { name: 'Buat Surat Jalan' }).getAttribute('data-variant')).toBe('default');
+        const actions = screen.getByRole('group', { name: 'Aksi pesanan' });
+        expect(
+            within(actions)
+                .getByRole('button', { name: 'Buat Surat Jalan' })
+                .getAttribute('data-variant'),
+        ).toBe('default');
+        expect(
+            actions.querySelectorAll('[data-variant="default"]'),
+        ).toHaveLength(1);
         view.rerender(<SalesOrderDetailClient order={order({
             status: 'IN_PRODUCTION',
             deliveryOrders: [{ id: 'fixture-do', orderNumber: 'SJ-FIXTURE', status: 'PENDING', totalCharge: 0 }],
@@ -203,6 +235,28 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(link?.getAttribute('data-variant')).toBe('outline');
         expect(link?.getAttribute('href')).toBe('/sales/deliveries/fixture-do');
     });
+
+    it.each([
+        { status: 'QUOTATION', priceStatus: null, expected: 1 },
+        { status: 'QUOTATION_SENT', priceStatus: null, expected: 1 },
+        { status: 'DRAFT', priceStatus: 'PENDING', expected: 1 },
+        { status: 'IN_PRODUCTION', priceStatus: null, expected: 1 },
+        { status: 'READY_TO_SHIP', priceStatus: null, expected: 1 },
+        { status: 'SHIPPED', priceStatus: null, expected: 1 },
+        { status: 'DELIVERED', priceStatus: null, expected: 1 },
+        { status: 'CANCELLED', priceStatus: null, expected: 0 },
+    ] as const)(
+        'keeps at most one primary action for $status',
+        ({ status, priceStatus, expected }) => {
+            renderOrder({ status, priceStatus });
+            const actions = screen.getByRole('group', {
+                name: 'Aksi pesanan',
+            });
+            expect(
+                actions.querySelectorAll('[data-variant="default"]'),
+            ).toHaveLength(expected);
+        },
+    );
 
     it('compacts only the empty invoice state without removing its explanation', () => {
         const view = renderOrder();
@@ -398,7 +452,9 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(screen.getByRole('button', { name: 'Buat Invoice' })).toHaveProperty('disabled', false);
         view.rerender(<SalesOrderDetailClient order={order({ status: 'DELIVERED', customerId: null, customer: null })} />);
         isDisabled(screen.getByRole('button', { name: 'Buat Invoice' }));
-        expect(screen.getByText('Legacy Internal Stock Build')).toBeTruthy();
+        expect(
+            screen.getAllByText('Legacy Internal Stock Build').length,
+        ).toBeGreaterThanOrEqual(1);
         expect(mocks.invoice).not.toHaveBeenCalled();
         view.rerender(<SalesOrderDetailClient order={order({ status: 'DELIVERED', invoices: [draftInvoice()] })} />);
         expect(screen.queryByRole('button', { name: 'Buat Invoice' })).toBeNull();

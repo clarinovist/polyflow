@@ -1,15 +1,13 @@
 import { CalendarDays, MapPin, PackageCheck, Truck } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { WorkflowSummaryGrid } from '@/components/workflow-detail/WorkflowSummaryGrid';
 import type { DeliveryOrderDetailData } from './types';
 
 interface DeliverySummaryGridProps {
     order: DeliveryOrderDetailData;
     isLoadVerified: boolean;
 }
-
-const summaryItemClass =
-    'min-w-0 rounded-xl border bg-card px-4 py-3 text-card-foreground shadow-sm';
 
 export function DeliverySummaryGrid({
     order,
@@ -22,73 +20,64 @@ export function DeliverySummaryGrid({
         'Alamat belum tersedia';
 
     return (
-        <section
-            aria-label="Ringkasan pengiriman"
-            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-        >
-            <div className={summaryItemClass}>
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <MapPin className="h-4 w-4" /> Tujuan
-                </div>
-                <p className="mt-2 font-semibold">
-                    {order.salesOrder?.customer?.name ||
-                        'Customer belum tersedia'}
-                </p>
-                <p
-                    className="mt-1 line-clamp-2 text-sm text-muted-foreground"
-                    title={destination}
-                >
-                    {destination}
-                </p>
-            </div>
-            <div className={summaryItemClass}>
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" /> Jadwal
-                </div>
-                <p className="mt-2 font-semibold">
-                    {format(new Date(order.deliveryDate), 'd MMMM yyyy', {
-                        locale: id,
-                    })}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    Dari{' '}
-                    {order.sourceLocation?.name ||
-                        'gudang belum ditentukan'}
-                </p>
-            </div>
-            <div className={summaryItemClass}>
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Truck className="h-4 w-4" /> Armada
-                </div>
-                <p className="mt-2 font-semibold">
-                    {order.vehicle
-                        ? order.vehicle.plateNumber + ' — ' + order.vehicle.name
-                        : 'Belum ditentukan'}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    {order.vehicle?.driverName || 'Sopir belum ditentukan'}
-                </p>
-            </div>
-            <div className={summaryItemClass}>
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <PackageCheck className="h-4 w-4" /> Muatan
-                </div>
-                <p className="mt-2 font-semibold">
-                    {order.items?.length ?? 0} varian
-                    {order.estimatedWeightKg
-                        ? ' · ' +
-                          Number(order.estimatedWeightKg).toLocaleString(
-                              'id-ID',
-                          ) +
-                          ' kg'
-                        : ''}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    {isLoadVerified
+        <WorkflowSummaryGrid
+            label="Ringkasan pengiriman"
+            items={[
+                {
+                    label: 'Tujuan',
+                    icon: <MapPin className="h-4 w-4" />,
+                    value:
+                        order.salesOrder?.customer?.name ||
+                        'Customer belum tersedia',
+                    detail: (
+                        <p className="line-clamp-2" title={destination}>
+                            {destination}
+                        </p>
+                    ),
+                },
+                {
+                    label: 'Jadwal',
+                    icon: <CalendarDays className="h-4 w-4" />,
+                    value: format(
+                        new Date(order.deliveryDate),
+                        'd MMMM yyyy',
+                        { locale: id },
+                    ),
+                    detail:
+                        'Dari ' +
+                        (order.sourceLocation?.name ||
+                            'gudang belum ditentukan'),
+                },
+                {
+                    label: 'Armada',
+                    icon: <Truck className="h-4 w-4" />,
+                    value: order.vehicle
+                        ? order.vehicle.plateNumber +
+                          ' — ' +
+                          order.vehicle.name
+                        : 'Belum ditentukan',
+                    detail:
+                        order.vehicle?.driverName ||
+                        'Sopir belum ditentukan',
+                },
+                {
+                    label: 'Muatan',
+                    icon: <PackageCheck className="h-4 w-4" />,
+                    value:
+                        (order.items?.length ?? 0) +
+                        ' varian' +
+                        (order.estimatedWeightKg
+                            ? ' · ' +
+                              Number(
+                                  order.estimatedWeightKg,
+                              ).toLocaleString('id-ID') +
+                              ' kg'
+                            : ''),
+                    detail: isLoadVerified
                         ? 'Verifikasi muat terkunci'
-                        : 'Verifikasi muat belum dikunci'}
-                </p>
-            </div>
-        </section>
+                        : 'Verifikasi muat belum dikunci',
+                },
+            ]}
+        />
     );
 }

@@ -2,6 +2,9 @@
 
 import { OrderInfoCard } from './order-detail/OrderInfoCard';
 import { OrderSidebar } from './order-detail/OrderSidebar';
+import { SalesOrderSummaryGrid } from './order-detail/SalesOrderSummaryGrid';
+import { SalesOrderProgress } from './order-detail/SalesOrderProgress';
+import { SalesOrderActivityTabs } from './order-detail/SalesOrderActivityTabs';
 import { InvoiceDialog } from './order-detail/InvoiceDialog';
 import { FollowUpDialog } from './order-detail/FollowUpDialog';
 import { RejectQuotationDialog } from './order-detail/RejectQuotationDialog';
@@ -167,6 +170,41 @@ export function SalesOrderDetailClient({
             order.status,
         );
     const showDelete = !warehouseMode && order.status === 'DRAFT';
+    const workflowGuidance = (() => {
+        switch (order.status) {
+            case 'QUOTATION':
+                return 'Kirim penawaran atau catat hasil keputusan pelanggan.';
+            case 'QUOTATION_SENT':
+                return followUpDate
+                    ? 'Tindak lanjuti penawaran sesuai jadwal yang tercatat.'
+                    : 'Jadwalkan tindak lanjut atau catat keputusan pelanggan.';
+            case 'QUOTATION_REJECTED':
+            case 'QUOTATION_EXPIRED':
+                return 'Penawaran ditutup. Buka kembali hanya jika proses dilanjutkan.';
+            case 'DRAFT':
+                return isLegacyInternalOrder
+                    ? 'Pesanan internal lama tidak dapat dikonfirmasi dari halaman ini.'
+                    : 'Periksa item dan harga, lalu konfirmasi pesanan.';
+            case 'CONFIRMED':
+                return isMaklonOrder
+                    ? 'Pesanan jasa siap diproses ke produksi.'
+                    : 'Siapkan jadwal kirim atau Surat Jalan.';
+            case 'IN_PRODUCTION':
+                return 'Pantau pemenuhan produksi sebelum melanjutkan pengiriman.';
+            case 'READY_TO_SHIP':
+                return isMaklonOrder
+                    ? 'Selesaikan alur jasa melalui tindakan lanjutan.'
+                    : 'Buat atau buka Surat Jalan untuk proses gudang.';
+            case 'SHIPPED':
+                return 'Pantau pengiriman, lalu tandai diterima saat serah-terima selesai.';
+            case 'DELIVERED':
+                return order.invoices.length === 0
+                    ? 'Pengiriman selesai. Buat invoice bila penagihan diperlukan.'
+                    : 'Pesanan selesai dan dokumen terkait tersedia.';
+            default:
+                return 'Alur pesanan telah ditutup.';
+        }
+    })();
 
     const handleAction = async (
         action: string,
@@ -531,7 +569,7 @@ export function SalesOrderDetailClient({
             )}
 
             {/* Identity gets the full width; actions must never squeeze the order number. */}
-            <header className="min-w-0 space-y-4">
+            <header className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20 xl:flex-row xl:items-start xl:justify-between">
                 <div className="space-y-3">
                     <Button variant="outline" size="sm" asChild>
                         <Link href={basePath}>
@@ -578,11 +616,21 @@ export function SalesOrderDetailClient({
                 <div
                     role="group"
                     aria-label="Aksi pesanan"
-                    className="grid grid-cols-2 gap-2 border-t pt-4 sm:flex sm:flex-wrap sm:items-center [&_button]:min-h-11 [&_a]:min-h-11 [&_button]:max-w-full [&_a]:max-w-full [&_button]:whitespace-normal [&_a]:whitespace-normal [&_button]:h-auto [&_a]:h-auto"
+                    className="grid grid-cols-2 gap-2 border-t pt-4 sm:flex sm:flex-wrap sm:items-center xl:max-w-[58%] xl:justify-end xl:border-t-0 xl:pt-0 [&_button]:min-h-11 [&_a]:min-h-11 [&_button]:max-w-full [&_a]:max-w-full [&_button]:whitespace-normal [&_a]:whitespace-normal [&_button]:h-auto [&_a]:h-auto"
                 >
                     {/* ── Quotation-phase actions ── */}
                     {order.status === 'QUOTATION' && (
                         <>
+                            <Button
+                                onClick={() =>
+                                    handleAction('dikirim', sendQuotationOrder)
+                                }
+                                disabled={isLoading}
+                                className="bg-sky-600 text-white hover:bg-sky-700"
+                            >
+                                <Send className="mr-2 h-4 w-4" /> Kirim
+                                Penawaran
+                            </Button>
                             <Button
                                 variant="outline"
                                 onClick={() => setIsFollowUpDialogOpen(true)}
@@ -592,16 +640,7 @@ export function SalesOrderDetailClient({
                                 Jadwalkan Follow-up
                             </Button>
                             <Button
-                                onClick={() =>
-                                    handleAction('dikirim', sendQuotationOrder)
-                                }
-                                disabled={isLoading}
-                                className="bg-sky-600 hover:bg-sky-700 text-white"
-                            >
-                                <Send className="mr-2 h-4 w-4" /> Kirim
-                                Penawaran
-                            </Button>
-                            <Button
+                                variant="outline"
                                 onClick={() =>
                                     handleAction(
                                         'diterima → draft',
@@ -613,9 +652,10 @@ export function SalesOrderDetailClient({
                                 <CheckCircle className="mr-2 h-4 w-4" /> Terima
                             </Button>
                             <Button
-                                variant="destructive"
+                                variant="outline"
                                 onClick={() => setIsRejectDialogOpen(true)}
                                 disabled={isLoading}
+                                className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800/50 dark:text-red-400"
                             >
                                 Tolak
                             </Button>
@@ -625,14 +665,6 @@ export function SalesOrderDetailClient({
                     {order.status === 'QUOTATION_SENT' && (
                         <>
                             <Button
-                                variant="outline"
-                                onClick={() => setIsFollowUpDialogOpen(true)}
-                                disabled={isLoading}
-                            >
-                                <CalendarClock className="mr-2 h-4 w-4" />
-                                Jadwalkan Follow-up
-                            </Button>
-                            <Button
                                 onClick={() =>
                                     handleAction(
                                         'diterima → draft',
@@ -644,9 +676,18 @@ export function SalesOrderDetailClient({
                                 <CheckCircle className="mr-2 h-4 w-4" /> Terima
                             </Button>
                             <Button
-                                variant="destructive"
+                                variant="outline"
+                                onClick={() => setIsFollowUpDialogOpen(true)}
+                                disabled={isLoading}
+                            >
+                                <CalendarClock className="mr-2 h-4 w-4" />
+                                Jadwalkan Follow-up
+                            </Button>
+                            <Button
+                                variant="outline"
                                 onClick={() => setIsRejectDialogOpen(true)}
                                 disabled={isLoading}
+                                className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800/50 dark:text-red-400"
                             >
                                 Tolak
                             </Button>
@@ -655,7 +696,6 @@ export function SalesOrderDetailClient({
 
                     {order.status === 'QUOTATION_REJECTED' && (
                         <Button
-                            variant="outline"
                             onClick={() =>
                                 handleAction(
                                     'dibuka kembali',
@@ -670,7 +710,6 @@ export function SalesOrderDetailClient({
 
                     {order.status === 'QUOTATION_EXPIRED' && (
                         <Button
-                            variant="outline"
                             onClick={() =>
                                 handleAction(
                                     'dibuka kembali',
@@ -687,9 +726,10 @@ export function SalesOrderDetailClient({
                     {!warehouseMode && priceStatus === 'PENDING' && (
                         <>
                             <Button
+                                variant="outline"
                                 onClick={handleApprovePrice}
                                 disabled={isLoading}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800/50 dark:text-emerald-400"
                             >
                                 <CheckCircle className="mr-2 h-4 w-4" /> Approve
                                 Harga
@@ -842,6 +882,11 @@ export function SalesOrderDetailClient({
                             {!warehouseMode && order.invoices.length === 0 && (
                                 <>
                                     <Button
+                                        variant={
+                                            order.status === 'DELIVERED'
+                                                ? 'default'
+                                                : 'outline'
+                                        }
                                         onClick={() => {
                                             setTermDays(
                                                 order.customer
@@ -892,8 +937,7 @@ export function SalesOrderDetailClient({
                                     (i) => i.status === 'DRAFT',
                                 ) && (
                                     <Button
-                                        variant="outline"
-                                        className="border-sky-600 text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/30"
+                                        className="bg-sky-600 text-white hover:bg-sky-700"
                                         asChild
                                     >
                                         <Link
@@ -1001,6 +1045,18 @@ export function SalesOrderDetailClient({
                         )}
                 </div>
             </header>
+
+            <SalesOrderSummaryGrid
+                order={order}
+                customerLabel={customerLabel}
+                warehouseMode={warehouseMode}
+                isMaklonOrder={isMaklonOrder}
+            />
+
+            <SalesOrderProgress
+                order={order}
+                guidance={workflowGuidance}
+            />
 
             <AlertDialog
                 open={confirmation !== null}
@@ -1128,14 +1184,21 @@ export function SalesOrderDetailClient({
                 />
 
                 {/* Sidebar Info (Invoices / Movements / Production) */}
-                <OrderSidebar
-                    order={order}
-                    warehouseMode={warehouseMode}
-                    isMaklonOrder={isMaklonOrder}
-                    currentUserRole={currentUserRole}
-                    canPlan={canPlan}
-                />
+                <aside className="min-w-0 lg:sticky lg:top-6 lg:self-start xl:top-40">
+                    <OrderSidebar
+                        order={order}
+                        warehouseMode={warehouseMode}
+                        currentUserRole={currentUserRole}
+                        canPlan={canPlan}
+                    />
+                </aside>
             </div>
+
+            <SalesOrderActivityTabs
+                order={order}
+                isMaklonOrder={isMaklonOrder}
+            />
+
             {/* MRP Simulation Dialog */}
 
             <ShipmentDialog
