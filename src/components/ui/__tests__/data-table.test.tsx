@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { DataTable } from '../data-table';
 
@@ -85,6 +85,60 @@ describe('DataTable accessibility foundations', () => {
         expect(within(table).getByText('Bravo')).toBeTruthy();
         expect(within(cards).queryByText('Charlie')).toBeNull();
         expect(within(cards).getByText('Bravo')).toBeTruthy();
+    });
+
+    it('supports opt-in server pagination without slicing the supplied page', () => {
+        const onPageChange = vi.fn();
+        const onPageSizeChange = vi.fn();
+        render(
+            <DataTable
+                columns={columns}
+                data={data.slice(0, 2)}
+                renderMobileView={renderCards}
+                serverPagination={{
+                    pageIndex: 1,
+                    pageCount: 3,
+                    totalCount: 7,
+                    pageSize: 2,
+                    onPageChange,
+                    onPageSizeChange,
+                    pageSizeOptions: [2, 4],
+                }}
+            />,
+        );
+
+        expect(screen.getByRole('status').textContent).toContain(
+            'Menampilkan 3–4 dari 7',
+        );
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Halaman berikutnya' }),
+        );
+        expect(onPageChange).toHaveBeenCalledWith(2);
+        expect(screen.getByRole('table').textContent).toContain('Charlie');
+        expect(screen.getByRole('list').textContent).toContain('Alpha');
+    });
+
+    it('keeps server-supplied row order when manual sorting is enabled', () => {
+        const onSortingChange = vi.fn();
+        render(
+            <DataTable
+                columns={columns}
+                data={data}
+                manualSorting
+                sorting={[{ id: 'name', desc: false }]}
+                onSortingChange={onSortingChange}
+            />,
+        );
+        const bodyText = screen.getByRole('table').textContent ?? '';
+        expect(bodyText.indexOf('Charlie')).toBeLessThan(
+            bodyText.indexOf('Alpha'),
+        );
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Urutkan berdasarkan Nama' }),
+        );
+        expect(onSortingChange).toHaveBeenCalledWith([
+            { id: 'name', desc: true },
+        ]);
     });
 
     it('uses a button for sorting and exposes sort state on the column header', () => {

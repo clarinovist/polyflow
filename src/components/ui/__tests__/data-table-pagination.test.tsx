@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DataTablePagination } from '../data-table-pagination';
 
+Element.prototype.scrollIntoView = vi.fn();
+
 describe('DataTablePagination', () => {
     it('names the pagination region and every navigation control', () => {
         const onFirstPage = vi.fn();
@@ -59,6 +61,57 @@ describe('DataTablePagination', () => {
 
         expect(screen.getByText('Tidak ada halaman')).toBeTruthy();
         expect(screen.queryByText('Halaman 1 dari 0')).toBeNull();
+    });
+
+    it('renders result range and optional page-size controls', () => {
+        const onPageSizeChange = vi.fn();
+        render(
+            <DataTablePagination
+                pageIndex={1}
+                pageCount={3}
+                canPreviousPage
+                canNextPage
+                onFirstPage={vi.fn()}
+                onPreviousPage={vi.fn()}
+                onNextPage={vi.fn()}
+                onLastPage={vi.fn()}
+                rangeStart={26}
+                rangeEnd={50}
+                totalCount={63}
+                pageSize={25}
+                onPageSizeChange={onPageSizeChange}
+            />,
+        );
+
+        expect(screen.getByRole('status').textContent).toBe(
+            'Menampilkan 26–50 dari 63',
+        );
+        fireEvent.click(
+            screen.getByRole('combobox', { name: 'Jumlah baris per halaman' }),
+        );
+        fireEvent.click(screen.getByRole('option', { name: '100' }));
+        expect(onPageSizeChange).toHaveBeenCalledWith(100);
+    });
+
+    it('announces a zero-result range without an impossible one-based start', () => {
+        render(
+            <DataTablePagination
+                pageIndex={0}
+                pageCount={0}
+                canPreviousPage={false}
+                canNextPage={false}
+                onFirstPage={vi.fn()}
+                onPreviousPage={vi.fn()}
+                onNextPage={vi.fn()}
+                onLastPage={vi.fn()}
+                rangeStart={0}
+                rangeEnd={0}
+                totalCount={0}
+            />,
+        );
+        expect(screen.getByRole('status').textContent).toBe(
+            'Menampilkan 0–0 dari 0',
+        );
     });
 
     it('disables controls that cannot navigate and shows selection context', () => {

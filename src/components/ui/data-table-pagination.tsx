@@ -8,6 +8,14 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 interface DataTablePaginationProps {
     pageIndex: number;
@@ -20,6 +28,13 @@ interface DataTablePaginationProps {
     onLastPage: () => void;
     selectedRowCount?: number;
     totalRowCount?: number;
+    /** Optional result range, independent from selection context. */
+    rangeStart?: number;
+    rangeEnd?: number;
+    totalCount?: number;
+    pageSize?: number;
+    pageSizeOptions?: readonly number[];
+    onPageSizeChange?: (pageSize: number) => void;
 }
 
 export function DataTablePagination({
@@ -33,6 +48,12 @@ export function DataTablePagination({
     onLastPage,
     selectedRowCount,
     totalRowCount,
+    rangeStart,
+    rangeEnd,
+    totalCount,
+    pageSize,
+    pageSizeOptions = [25, 50, 100],
+    onPageSizeChange,
 }: DataTablePaginationProps) {
     const showSelection =
         selectedRowCount !== undefined && totalRowCount !== undefined;
@@ -40,20 +61,68 @@ export function DataTablePagination({
         pageCount > 0
             ? `Halaman ${pageIndex + 1} dari ${pageCount}`
             : 'Tidak ada halaman';
+    const showRange =
+        rangeStart !== undefined &&
+        rangeEnd !== undefined &&
+        totalCount !== undefined;
+    const safeRangeStart = totalCount === 0 ? 0 : Math.max(rangeStart ?? 0, 1);
+    const safeRangeEnd = Math.min(Math.max(rangeEnd ?? 0, 0), totalCount ?? 0);
+    const showPageSize =
+        pageSize !== undefined && onPageSizeChange !== undefined;
 
     return (
         <nav
             aria-label="Paginasi tabel"
-            className="flex items-center justify-between px-2"
+            className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between"
         >
-            {showSelection && (
-                <div className="text-muted-foreground text-sm">
-                    {selectedRowCount} dari {totalRowCount} baris dipilih
-                </div>
-            )}
-            <div
-                className={`flex items-center gap-2 ${showSelection ? '' : 'ml-auto'}`}
-            >
+            <div className="flex flex-wrap items-center gap-4">
+                {showSelection && (
+                    <div className="text-muted-foreground text-sm">
+                        {selectedRowCount} dari {totalRowCount} baris dipilih
+                    </div>
+                )}
+                {showRange && (
+                    <p className="text-sm text-muted-foreground" role="status">
+                        Menampilkan {safeRangeStart}–{safeRangeEnd} dari{' '}
+                        {totalCount}
+                    </p>
+                )}
+                {showPageSize && (
+                    <div className="flex items-center gap-2">
+                        <Label
+                            htmlFor="data-table-page-size"
+                            className="text-sm text-muted-foreground"
+                        >
+                            Baris per halaman
+                        </Label>
+                        <Select
+                            value={String(pageSize)}
+                            onValueChange={(value) =>
+                                onPageSizeChange(Number(value))
+                            }
+                        >
+                            <SelectTrigger
+                                id="data-table-page-size"
+                                className="h-9 w-[82px]"
+                                aria-label="Jumlah baris per halaman"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {pageSizeOptions.map((option) => (
+                                    <SelectItem
+                                        key={option}
+                                        value={String(option)}
+                                    >
+                                        {option}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
                 <span className="text-muted-foreground text-sm">
                     {pageStatus}
                 </span>

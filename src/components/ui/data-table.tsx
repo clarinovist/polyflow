@@ -43,6 +43,20 @@ interface DataTableProps<TData, TValue> {
     minWidth?: number;
     renderMobileView?: (data: TData[]) => React.ReactNode;
     caption?: React.ReactNode;
+    /** Opt-in controlled/server sorting. Data is rendered in the supplied order. */
+    manualSorting?: boolean;
+    sorting?: SortingState;
+    onSortingChange?: (sorting: SortingState) => void;
+    /** Opt-in controlled/server pagination metadata and callbacks. */
+    serverPagination?: {
+        pageIndex: number;
+        pageCount: number;
+        totalCount: number;
+        pageSize: number;
+        onPageChange: (pageIndex: number) => void;
+        onPageSizeChange?: (pageSize: number) => void;
+        pageSizeOptions?: readonly number[];
+    };
 }
 
 export function DataTable<TData, TValue>({
@@ -62,8 +76,14 @@ export function DataTable<TData, TValue>({
     minWidth = 800,
     renderMobileView,
     caption,
+    manualSorting = false,
+    sorting: controlledSorting,
+    onSortingChange,
+    serverPagination,
 }: DataTableProps<TData, TValue>) {
-    const [sorting, setSorting] = useState<SortingState>([]);
+    const [internalSorting, setInternalSorting] = useState<SortingState>([]);
+    const sorting = controlledSorting ?? internalSorting;
+    const handleSortingChange = onSortingChange ?? setInternalSorting;
     const [rowSelection, setRowSelection] = useState({});
     const [internalSearch, setInternalSearch] = useState('');
 
@@ -77,13 +97,17 @@ export function DataTable<TData, TValue>({
             sorting,
             ...(enableRowSelection ? { rowSelection } : {}),
         },
-        onSortingChange: setSorting,
+        onSortingChange: (updater) =>
+            handleSortingChange(
+                typeof updater === 'function' ? updater(sorting) : updater,
+            ),
+        manualSorting,
         ...(enableRowSelection
             ? { onRowSelectionChange: setRowSelection }
             : {}),
         getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        ...(enablePagination
+        ...(!manualSorting ? { getSortedRowModel: getSortedRowModel() } : {}),
+        ...(enablePagination && !serverPagination
             ? { getPaginationRowModel: getPaginationRowModel() }
             : {}),
         ...(enableRowSelection ? { enableRowSelection: true } : {}),
@@ -222,18 +246,76 @@ export function DataTable<TData, TValue>({
                 </div>
             )}
 
-            {enablePagination && (
+            {(enablePagination || serverPagination) && (
                 <DataTablePagination
-                    pageIndex={table.getState().pagination.pageIndex}
-                    pageCount={table.getPageCount()}
-                    canPreviousPage={table.getCanPreviousPage()}
-                    canNextPage={table.getCanNextPage()}
-                    onFirstPage={() => table.setPageIndex(0)}
-                    onPreviousPage={() => table.previousPage()}
-                    onNextPage={() => table.nextPage()}
-                    onLastPage={() =>
-                        table.setPageIndex(Math.max(table.getPageCount() - 1, 0))
+                    pageIndex={
+                        serverPagination?.pageIndex ??
+                        table.getState().pagination.pageIndex
                     }
+                    pageCount={
+                        serverPagination?.pageCount ?? table.getPageCount()
+                    }
+                    canPreviousPage={
+                        serverPagination
+                            ? serverPagination.pageIndex > 0
+                            : table.getCanPreviousPage()
+                    }
+                    canNextPage={
+                        serverPagination
+                            ? serverPagination.pageIndex + 1 <
+                              serverPagination.pageCount
+                            : table.getCanNextPage()
+                    }
+                    onFirstPage={() =>
+                        serverPagination
+                            ? serverPagination.onPageChange(0)
+                            : table.setPageIndex(0)
+                    }
+                    onPreviousPage={() =>
+                        serverPagination
+                            ? serverPagination.onPageChange(
+                                  Math.max(serverPagination.pageIndex - 1, 0),
+                              )
+                            : table.previousPage()
+                    }
+                    onNextPage={() =>
+                        serverPagination
+                            ? serverPagination.onPageChange(
+                                  serverPagination.pageIndex + 1,
+                              )
+                            : table.nextPage()
+                    }
+                    onLastPage={() =>
+                        serverPagination
+                            ? serverPagination.onPageChange(
+                                  Math.max(serverPagination.pageCount - 1, 0),
+                              )
+                            : table.setPageIndex(
+                                  Math.max(table.getPageCount() - 1, 0),
+                              )
+                    }
+                    rangeStart={
+                        serverPagination
+                            ? serverPagination.totalCount === 0
+                                ? 0
+                                : serverPagination.pageIndex *
+                                      serverPagination.pageSize +
+                                  1
+                            : undefined
+                    }
+                    rangeEnd={
+                        serverPagination
+                            ? Math.min(
+                                  (serverPagination.pageIndex + 1) *
+                                      serverPagination.pageSize,
+                                  serverPagination.totalCount,
+                              )
+                            : undefined
+                    }
+                    totalCount={serverPagination?.totalCount}
+                    pageSize={serverPagination?.pageSize}
+                    pageSizeOptions={serverPagination?.pageSizeOptions}
+                    onPageSizeChange={serverPagination?.onPageSizeChange}
                     selectedRowCount={
                         enableRowSelection
                             ? table.getFilteredSelectedRowModel().rows.length
