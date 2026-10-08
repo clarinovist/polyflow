@@ -96,7 +96,10 @@ for ((index=0; index<EXPECTED_DATABASES; index++)); do
   restore_started=$(date +%s)
   log "Restoring database #$ordinal..."
   docker exec "$DB_CONTAINER" createdb -h 127.0.0.1 -U postgres "$database"
-  docker exec "$DB_CONTAINER" pg_restore -h 127.0.0.1 -U postgres -d "$database" \
+  docker run --rm --network "$NETWORK" \
+    --label polyflow.restore-drill="$RUN_ID" \
+    --mount "type=bind,src=$BACKUP_DIR,dst=/backups,readonly" \
+    "$APP_IMAGE" pg_restore -h "$DB_CONTAINER" -U postgres -d "$database" \
     --exit-on-error --no-owner --no-privileges "/backups/$backup_name"
 
   failed_migrations=$(docker exec "$DB_CONTAINER" psql -h 127.0.0.1 -U postgres -d "$database" -At \
