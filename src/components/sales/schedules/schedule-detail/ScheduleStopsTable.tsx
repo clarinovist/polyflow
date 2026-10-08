@@ -65,12 +65,16 @@ export function ScheduleStopsTable({
         );
     }
     return (
-        <div
-            role="region"
-            aria-label="Rencana pengiriman terjadwal"
-            tabIndex={0}
-            className="overflow-x-auto rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_[data-slot=table-container]]:overflow-visible"
-        >
+        <div className="space-y-2">
+            <p className="text-xs text-muted-foreground lg:hidden">
+                Geser tabel untuk melihat seluruh kolom.
+            </p>
+            <div
+                role="region"
+                aria-label="Rencana pengiriman terjadwal"
+                tabIndex={0}
+                className="overflow-x-auto rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_[data-slot=table-container]]:overflow-visible"
+            >
             <Table className="min-w-[760px] [&_tbody_td]:align-top">
                 <TableHeader>
                 <TableRow>
@@ -284,6 +288,7 @@ export function ScheduleStopsTable({
                 })}
             </TableBody>
             </Table>
+            </div>
         </div>
     );
 }

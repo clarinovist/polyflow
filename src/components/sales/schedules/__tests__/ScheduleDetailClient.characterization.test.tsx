@@ -165,6 +165,14 @@ describe('ScheduleDetailClient characterization', () => {
                 name: 'Rencana pengiriman terjadwal',
             }).getAttribute('tabindex'),
         ).toBe('0');
+        expect(
+            screen.getByText('Geser tabel untuk melihat seluruh kolom.'),
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('button', { name: 'Tambah SO' }).getAttribute(
+                'data-variant',
+            ),
+        ).toBe('outline');
         const actions = screen.getByRole('group', {
             name: 'Aksi jadwal kirim',
         });

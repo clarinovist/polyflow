@@ -413,7 +413,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
         <div className="mx-auto w-full max-w-screen-2xl space-y-5 p-4 md:p-6">
             <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0 space-y-3">
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm" asChild className="min-h-11">
                         <Link href="/sales/delivery-schedules">
                             <ArrowLeft className="h-4 w-4" />
                             Kembali
@@ -645,6 +645,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                             {isEditable && (
                                 <Button
                                     size="sm"
+                                    variant="outline"
+                                    className="min-h-11"
                                     onClick={() => setShowAddSO(!showAddSO)}
                                 >
                                     <Plus className="h-3 w-3 mr-1" /> Tambah SO

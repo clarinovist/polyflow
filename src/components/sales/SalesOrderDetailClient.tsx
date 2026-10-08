@@ -571,7 +571,7 @@ export function SalesOrderDetailClient({
             {/* Identity gets the full width; actions must never squeeze the order number. */}
             <header className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20 xl:flex-row xl:items-start xl:justify-between">
                 <div className="space-y-3">
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm" asChild className="min-h-11">
                         <Link href={basePath}>
                             <ArrowLeft className="mr-2 h-4 w-4" />{' '}
                             {actionLabels.back}

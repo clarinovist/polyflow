@@ -469,7 +469,7 @@ export function DeliveryOrderDetail({
             <header className="space-y-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="min-w-0 space-y-3">
-                        <Button variant="outline" size="sm" asChild>
+                        <Button variant="outline" size="sm" asChild className="min-h-11">
                             <Link href={basePath}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 {actionLabels.back}
