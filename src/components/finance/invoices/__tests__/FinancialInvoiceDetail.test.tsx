@@ -64,6 +64,14 @@ vi.mock('@/lib/utils/production-units', () => ({
     getEnteredUnitPriceDisplay: () => ({ price: 100000, unit: 'pcs' }),
 }));
 
+vi.mock('../EditDraftSalesInvoiceDateDialog', () => ({
+    EditDraftSalesInvoiceDateDialog: ({ invoice }: any) => (
+        <div data-testid="edit-invoice-date-dialog">
+            Edit Tanggal Invoice Dialog — {invoice.invoiceNumber}
+        </div>
+    ),
+}));
+
 vi.mock('../EditSalesInvoiceDueDateDialog', () => ({
     EditSalesInvoiceDueDateDialog: ({ invoice }: any) => (
         <div data-testid="edit-due-dialog">
@@ -581,6 +589,41 @@ describe('FinancialInvoiceDetail — Catat Pembayaran button', () => {
                 name: 'ESC/P (Dot Matrix)',
             }),
         ).toBeDefined();
+    });
+});
+
+describe('FinancialInvoiceDetail — admin draft invoice date', () => {
+    it('shows and opens Edit Tanggal Invoice only for an allowed admin DRAFT view', async () => {
+        render(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({ status: 'DRAFT' })}
+                canEditInvoiceDate
+            />,
+        );
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Edit Tanggal Invoice' }),
+        );
+        expect(
+            await screen.findByTestId('edit-invoice-date-dialog'),
+        ).toBeDefined();
+    });
+
+    it('hides Edit Tanggal Invoice without admin permission or after recognition', () => {
+        const view = render(
+            <FinancialInvoiceDetail invoice={makeInvoice({ status: 'DRAFT' })} />,
+        );
+        expect(
+            screen.queryByRole('button', { name: 'Edit Tanggal Invoice' }),
+        ).toBeNull();
+        view.rerender(
+            <FinancialInvoiceDetail
+                invoice={makeInvoice({ status: 'UNPAID' })}
+                canEditInvoiceDate
+            />,
+        );
+        expect(
+            screen.queryByRole('button', { name: 'Edit Tanggal Invoice' }),
+        ).toBeNull();
     });
 });
 

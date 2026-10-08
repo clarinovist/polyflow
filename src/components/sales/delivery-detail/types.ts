@@ -40,6 +40,7 @@ export interface DeliveryOrderDetailData {
     receivedBy?: string | null;
     loadVerifiedAt?: string | Date | null;
     loadVerifiedById?: string | null;
+    stockCommittedAt?: string | Date | null;
     loadingStartedAt?: string | Date | null;
     estimatedWeightKg?: number | null;
     appliedRateType?: string | null;

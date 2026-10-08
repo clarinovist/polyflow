@@ -64,6 +64,7 @@ export async function shipOrder(
         trackingNumber?: string;
         carrier?: string;
         invoiceDate?: Date;
+        actualShipmentDate?: Date;
     },
 ) {
     const { createDeliveryOrderFromSalesOrder, commitDeliveryShipment } =
@@ -95,6 +96,18 @@ export async function shipOrder(
             'Source location is required before shipping. Please edit the order and select a warehouse.',
             { orderId: id },
         );
+
+    const actualShipmentDate = normalizeToBusinessDay(
+        trackingInfo?.actualShipmentDate ?? new Date(),
+    );
+    if (
+        toBusinessDateString(actualShipmentDate) >
+        toBusinessDateString(new Date())
+    ) {
+        throw new BusinessRuleError(
+            'Tanggal penyerahan aktual tidak boleh melebihi hari ini.',
+        );
+    }
 
     const isMaklonServiceOnly =
         order.orderType === 'MAKLON_JASA' &&
@@ -171,7 +184,10 @@ export async function shipOrder(
 
     if (openDos.length === 1) {
         // Commit existing DO
-        await commitDeliveryShipment(openDos[0].id, userId, trackingInfo);
+        await commitDeliveryShipment(openDos[0].id, userId, {
+            ...trackingInfo,
+            actualShipmentDate,
+        });
         return { doNumber: openDos[0].orderNumber, created: false };
     }
 
@@ -182,9 +198,13 @@ export async function shipOrder(
         userId,
         carrier: trackingInfo?.carrier,
         trackingNumber: trackingInfo?.trackingNumber,
+        deliveryDate: actualShipmentDate,
     });
 
-    await commitDeliveryShipment(doRecord.id, userId, trackingInfo);
+    await commitDeliveryShipment(doRecord.id, userId, {
+        ...trackingInfo,
+        actualShipmentDate,
+    });
     return { doNumber: doRecord.orderNumber, created: true };
 }
 

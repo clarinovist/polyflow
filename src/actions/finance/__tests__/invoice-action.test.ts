@@ -25,6 +25,7 @@ vi.mock('next/cache', () => ({
 
 vi.mock('@/lib/auth/finance-access', () => ({
     requireFinanceAccess: vi.fn(),
+    requireFinanceAdmin: vi.fn().mockResolvedValue({ user: { id: 'admin-1' } }),
     requireFinanceMutation: vi.fn().mockResolvedValue({ user: { id: 'user-1' } }),
     requireFinanceReadCrossPortal: vi.fn(),
 }));
@@ -36,6 +37,7 @@ vi.mock('@/lib/utils/utils', () => ({
 vi.mock('@/services/finance/invoice-service', () => ({
     InvoiceService: {
         createInvoice: vi.fn(),
+        updateDraftSalesInvoiceDate: vi.fn(),
         updateStatus: vi.fn(),
         updateSalesInvoiceDueDate: vi.fn(),
     },
@@ -45,7 +47,10 @@ const AUTH_MOCK_ID = 'd290f1ee-6c54-4b01-90e6-d701748f0851';
 
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceService } from '@/services/finance/invoice-service';
-import { requireFinanceMutation } from '@/lib/auth/finance-access';
+import {
+    requireFinanceAdmin,
+    requireFinanceMutation,
+} from '@/lib/auth/finance-access';
 
 describe('updateInvoiceStatus action — error forwarding (regression fix 2026-08-05)', () => {
     beforeEach(() => {
@@ -123,6 +128,52 @@ describe('updateInvoiceStatus action — error forwarding (regression fix 2026-0
 
         // Assert
         expect(result.success).toBe(true);
+    });
+});
+
+describe('updateDraftSalesInvoiceDate action', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireFinanceAdmin).mockResolvedValue({
+            user: { id: AUTH_MOCK_ID },
+        } as any);
+    });
+
+    it('requires admin and passes validated business dates to the service', async () => {
+        vi.mocked(InvoiceService.updateDraftSalesInvoiceDate).mockResolvedValue({
+            id: 'inv-1', invoiceNumber: '1/INV/X/2026',
+        } as never);
+        const { updateDraftSalesInvoiceDate } = await import('../invoice');
+        const result = await updateDraftSalesInvoiceDate('inv-1', {
+            invoiceDate: '2026-10-05',
+            expectedInvoiceDate: '2026-09-28',
+            expectedInvoiceNumber: '4/INV/IX/2026',
+            reason: 'Barang diambil pelanggan',
+        });
+        expect(result.success).toBe(true);
+        expect(requireFinanceAdmin).toHaveBeenCalled();
+        expect(InvoiceService.updateDraftSalesInvoiceDate).toHaveBeenCalledWith(
+            'inv-1',
+            expect.objectContaining({
+                invoiceDate: expect.any(Date),
+                expectedInvoiceDate: expect.any(Date),
+                expectedInvoiceNumber: '4/INV/IX/2026',
+                reason: 'Barang diambil pelanggan',
+            }),
+            AUTH_MOCK_ID,
+        );
+    });
+
+    it('rejects a short reason before calling the service', async () => {
+        const { updateDraftSalesInvoiceDate } = await import('../invoice');
+        const result = await updateDraftSalesInvoiceDate('inv-1', {
+            invoiceDate: '2026-10-05',
+            expectedInvoiceDate: '2026-09-28',
+            expectedInvoiceNumber: '4/INV/IX/2026',
+            reason: 'x',
+        });
+        expect(result.success).toBe(false);
+        expect(InvoiceService.updateDraftSalesInvoiceDate).not.toHaveBeenCalled();
     });
 });
 

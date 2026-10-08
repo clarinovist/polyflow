@@ -73,6 +73,7 @@ export function ShipmentDialog({
                 isMaklon && defaultInvoiceDate
                     ? new Date(`${defaultInvoiceDate}T00:00:00`)
                     : undefined,
+            actualShipmentDate: isMaklon ? undefined : new Date(),
         },
     });
 
@@ -175,6 +176,50 @@ export function ShipmentDialog({
                         onSubmit={form.handleSubmit(onSubmit)}
                         className="space-y-4 py-2"
                     >
+                        {!isMaklon && (
+                            <FormField
+                                control={form.control}
+                                name="actualShipmentDate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            Tanggal Penyerahan Aktual
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="date"
+                                                max={toBusinessDateString(
+                                                    new Date(),
+                                                )}
+                                                value={
+                                                    field.value instanceof Date
+                                                        ? toBusinessDateString(
+                                                              field.value,
+                                                          )
+                                                        : ''
+                                                }
+                                                onChange={(event) =>
+                                                    field.onChange(
+                                                        event.target.value
+                                                            ? new Date(
+                                                                  `${event.target.value}T00:00:00`,
+                                                              )
+                                                            : undefined,
+                                                    )
+                                                }
+                                                required
+                                            />
+                                        </FormControl>
+                                        <p className="text-xs text-muted-foreground">
+                                            Dipakai untuk pengeluaran stok,
+                                            invoice draft, dan jurnal.
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
                         {isMaklon && (
                             <FormField
                                 control={form.control}

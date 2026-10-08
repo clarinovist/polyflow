@@ -71,6 +71,7 @@ export class SalesService {
             trackingNumber?: string;
             carrier?: string;
             invoiceDate?: Date;
+            actualShipmentDate?: Date;
         },
     ) {
         return shipOrder(id, userId, trackingInfo);

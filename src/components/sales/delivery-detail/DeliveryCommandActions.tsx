@@ -21,7 +21,10 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { salesLabels } from '@/lib/labels';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 import type { DeliveryOrderDetailData } from './types';
 import { DeliveryPrintActions } from './DeliveryPrintActions';
 
@@ -39,7 +42,10 @@ interface DeliveryCommandActionsProps {
     >;
     bundleHref: (invoiceId: string) => string;
     setShowPreview: (open: boolean) => void;
-    onStatusChange: (status: string) => Promise<void>;
+    onStatusChange: (
+        status: string,
+        actualShipmentDate?: string,
+    ) => Promise<void>;
     onReverseShipment: (reason: string) => Promise<void>;
 }
 
@@ -58,6 +64,9 @@ export function DeliveryCommandActions({
 }: DeliveryCommandActionsProps) {
     const [dialog, setDialog] = useState<DeliveryDialog>(null);
     const [reverseReason, setReverseReason] = useState('');
+    const [actualShipmentDate, setActualShipmentDate] = useState(() =>
+        toBusinessDateString(new Date()),
+    );
     const [isReversing, setIsReversing] = useState(false);
 
     const canCancel = ['PENDING', 'LOADING'].includes(order.status);
@@ -83,7 +92,10 @@ export function DeliveryCommandActions({
     };
 
     const submitStatus = (status: string) => async () => {
-        await onStatusChange(status);
+        await onStatusChange(
+            status,
+            status === 'SHIPPED' ? actualShipmentDate : undefined,
+        );
         setDialog(null);
     };
 
@@ -172,9 +184,36 @@ export function DeliveryCommandActions({
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>{salesLabels.tandaiDikirim}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {salesLabels.tandaiDikirimConfirm} Invoice draft akan
-                            dibuat otomatis.
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p>
+                                    {salesLabels.tandaiDikirimConfirm} Invoice
+                                    draft akan dibuat otomatis.
+                                </p>
+                                <div className="space-y-1.5 text-left">
+                                    <Label htmlFor="actual-shipment-date">
+                                        Tanggal Penyerahan Aktual
+                                    </Label>
+                                    <Input
+                                        id="actual-shipment-date"
+                                        type="date"
+                                        value={actualShipmentDate}
+                                        max={toBusinessDateString(new Date())}
+                                        onChange={(event) =>
+                                            setActualShipmentDate(
+                                                event.target.value,
+                                            )
+                                        }
+                                        required
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Tanggal ini dipakai untuk pengeluaran
+                                        stok, invoice draft, dan jurnal. Tanggal
+                                        Surat Jalan tetap sebagai tanggal dokumen
+                                        yang disiapkan.
+                                    </p>
+                                </div>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -182,7 +221,9 @@ export function DeliveryCommandActions({
                         <AlertDialogAction
                             onClick={submitStatus('SHIPPED')}
                             className="bg-emerald-600 hover:bg-emerald-700"
-                            disabled={!canShip || isLoading}
+                            disabled={
+                                !canShip || isLoading || !actualShipmentDate
+                            }
                         >
                             Ya, {salesLabels.tandaiDikirim}
                         </AlertDialogAction>

@@ -194,6 +194,7 @@ vi.mock('@/services/finance/aging-service', () => ({
 vi.mock('@/services/finance/invoice-service', () => ({
     InvoiceService: {
         createInvoice: vi.fn().mockResolvedValue({ id: 'inv1' }),
+        updateDraftSalesInvoiceDate: vi.fn().mockResolvedValue({ id: 'inv1' }),
         updateStatus: vi.fn().mockResolvedValue(undefined),
     },
 }));
@@ -561,6 +562,32 @@ describe('Pass 2: invoice.ts', () => {
         setupAuth('SALES');
         const { createInvoice } = await import('../invoice');
         await expectDenied(() => createInvoice({} as any));
+    });
+
+    it('updateDraftSalesInvoiceDate: FINANCE denied (ADMIN only)', async () => {
+        setupAuth('FINANCE');
+        const { updateDraftSalesInvoiceDate } = await import('../invoice');
+        await expectDenied(() =>
+            updateDraftSalesInvoiceDate('inv1', {
+                invoiceDate: '2026-10-05',
+                expectedInvoiceDate: '2026-09-30',
+                expectedInvoiceNumber: '1/INV/IX/2026',
+                reason: 'Tanggal pengambilan aktual',
+            }),
+        );
+    });
+
+    it('updateDraftSalesInvoiceDate: ADMIN allowed', async () => {
+        setupAuth('ADMIN');
+        const { updateDraftSalesInvoiceDate } = await import('../invoice');
+        await expectAllowed(() =>
+            updateDraftSalesInvoiceDate('inv1', {
+                invoiceDate: '2026-10-05',
+                expectedInvoiceDate: '2026-09-30',
+                expectedInvoiceNumber: '1/INV/IX/2026',
+                reason: 'Tanggal pengambilan aktual',
+            }),
+        );
     });
 
     it('getOutstandingInvoicesByCustomerId: SALES allowed (cross-portal)', async () => {

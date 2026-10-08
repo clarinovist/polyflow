@@ -3,6 +3,8 @@ import { FinancialInvoiceDetail } from '@/components/finance/invoices/FinancialI
 import { notFound } from 'next/navigation';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
 import type { ComponentProps } from 'react';
+import { auth } from '@/auth';
+import { hasRole } from '@/lib/auth/roles';
 
 interface PageProps {
     params: Promise<{
@@ -12,9 +14,10 @@ interface PageProps {
 
 export default async function FinancialInvoicePage({ params }: PageProps) {
     const { id } = await params;
-    const [invoiceResult, companyConfig] = await Promise.all([
+    const [invoiceResult, companyConfig, session] = await Promise.all([
         getInvoiceById(id),
         getCompanyConfigWithOverridesAsync(),
+        auth(),
     ]);
 
     if (!invoiceResult.success) {
@@ -40,6 +43,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
                 }
                 companyConfig={companyConfig}
                 basePath="/finance/invoices/sales"
+                canEditInvoiceDate={hasRole(session?.user, 'ADMIN')}
             />
         </div>
     );

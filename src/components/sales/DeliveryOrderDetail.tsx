@@ -44,6 +44,7 @@ import {
     type StockReadinessLine,
 } from '@/components/sales/StockReadinessBanner';
 import { attachDeliveryPhoto } from '@/actions/sales/delivery-photos';
+import { shipDeliveryOrder } from '@/actions/inventory/delivery-shipment';
 import {
     NEXT_STEP_LABELS,
     getDeliveryStatusLabel,
@@ -201,10 +202,19 @@ export function DeliveryOrderDetail({
         }
     };
 
-    const handleStatusChange = async (newStatus: string) => {
+    const handleStatusChange = async (
+        newStatus: string,
+        actualShipmentDate?: string,
+    ) => {
         setIsLoading(true);
         try {
-            const result = await updateDeliveryStatus(order.id, newStatus);
+            const result =
+                newStatus === 'SHIPPED'
+                    ? await shipDeliveryOrder({
+                          deliveryOrderId: order.id,
+                          actualShipmentDate: actualShipmentDate ?? '',
+                      })
+                    : await updateDeliveryStatus(order.id, newStatus);
             if (result.success) {
                 if (result.data?.invoicePending)
                     toast.warning(

@@ -57,8 +57,8 @@ interface CreateDeliveryOrderParams {
     destinationAddress?: string;
     /**
      * Optional backdate bisnis (akan dinormalisasi ke WIB-midnight).
-     * Default = sekarang. Dipakai sebagai deliveryDate DO dan diwariskan ke
-     * tanggal commit stok + draft invoice (kasus koreksi September).
+     * Default = sekarang. Hanya menjadi tanggal dokumen/rencana DO; tanggal
+     * commit stok dan invoice ditentukan saat penyerahan aktual.
      */
     deliveryDate?: Date;
     plannedItems?: Array<{
@@ -324,8 +324,18 @@ export async function createDeliveryOrderFromSalesOrder(
 export async function commitDeliveryShipment(
     deliveryOrderId: string,
     userId: string,
-    opts?: { trackingNumber?: string; carrier?: string },
+    opts?: {
+        trackingNumber?: string;
+        carrier?: string;
+        actualShipmentDate?: Date;
+    },
 ) {
+    const selectedShipmentDate = opts?.actualShipmentDate;
+    if (!selectedShipmentDate) {
+        throw new BusinessRuleError(
+            'Tanggal penyerahan aktual wajib dipilih sebelum barang dikirim.',
+        );
+    }
     // ponytail: timeout increased from default 15s to 30s — DO with 10+ items was hitting 15040ms (P2028). If 20+ items still timeout, split to 2-phase: stock phase in tx, invoice phase outside.
     let salesOrderIdForInvoice = '';
     let doOrderNumber = '';
@@ -406,15 +416,23 @@ export async function commitDeliveryShipment(
                 );
             }
 
-            // Tanggal operasional stok mengikuti Surat Jalan, sedangkan invoice
-            // baru mengikuti saat commit agar DO yang disiapkan lebih awal tidak
-            // memindahkan pendapatan ke periode yang salah.
-            const commitDate = doRecord.deliveryDate ?? new Date();
-            const invoiceDate = new Date();
-            if (!(await isPeriodOpen(commitDate, tx))) {
+            // deliveryDate adalah tanggal dokumen/rencana Surat Jalan. Pengeluaran
+            // stok dan invoice mengikuti tanggal penyerahan aktual agar DO yang
+            // disiapkan lebih awal tidak memindahkan transaksi ke periode lama.
+            const actualShipmentDate =
+                normalizeToBusinessDay(selectedShipmentDate);
+            if (
+                toBusinessDateString(actualShipmentDate) >
+                toBusinessDateString(new Date())
+            ) {
                 throw new BusinessRuleError(
-                    'Periode jurnal untuk Tanggal Surat Jalan sudah ditutup atau belum tersedia. Periksa periode buku sebelum melanjutkan.',
-                    { deliveryDate: commitDate },
+                    'Tanggal penyerahan aktual tidak boleh melebihi hari ini.',
+                );
+            }
+            if (!(await isPeriodOpen(actualShipmentDate, tx))) {
+                throw new BusinessRuleError(
+                    'Periode jurnal untuk tanggal penyerahan aktual sudah ditutup atau belum tersedia. Periksa periode buku sebelum melanjutkan.',
+                    { actualShipmentDate },
                     'FISCAL_PERIOD_CLOSED',
                 );
             }
@@ -559,7 +577,7 @@ export async function commitDeliveryShipment(
                         salesOrderId: doRecord.salesOrderId,
                         createdById: userId,
                         reference: `Shipment for ${doRecord.salesOrder.orderNumber} via ${doRecord.orderNumber}`,
-                        createdAt: commitDate,
+                        createdAt: actualShipmentDate,
                     },
                 });
                 await AccountingService.recordInventoryMovement(movement, tx);
@@ -573,7 +591,7 @@ export async function commitDeliveryShipment(
                 },
                 data: {
                     status: DeliveryStatus.SHIPPED,
-                    stockCommittedAt: commitDate,
+                    stockCommittedAt: actualShipmentDate,
                     stockCommittedById: userId,
                     ...(opts?.trackingNumber && {
                         trackingNumber: opts.trackingNumber,
@@ -638,7 +656,7 @@ export async function commitDeliveryShipment(
             salesOrderIdForInvoice = doRecord.salesOrderId;
             doOrderNumber = doRecord.orderNumber;
             soOrderNumber = doRecord.salesOrder.orderNumber;
-            invoiceDateForDraft = invoiceDate;
+            invoiceDateForDraft = actualShipmentDate;
 
             await logActivity({
                 userId,
@@ -646,8 +664,15 @@ export async function commitDeliveryShipment(
                 entityType: 'DeliveryOrder',
                 entityId: deliveryOrderId,
                 details:
-                    `DO ${doRecord.orderNumber} committed: stock OUT for ${stockLines.length} items, ` +
-                    `SO ${doRecord.salesOrder.orderNumber} → ${nextOrderStatus}.`,
+                    `DO ${doRecord.orderNumber} committed on ${toBusinessDateString(actualShipmentDate)}: ` +
+                    `stock OUT for ${stockLines.length} items, SO ${doRecord.salesOrder.orderNumber} → ${nextOrderStatus}.`,
+                changes: {
+                    deliveryDocumentDate: toBusinessDateString(
+                        doRecord.deliveryDate,
+                    ),
+                    actualShipmentDate:
+                        toBusinessDateString(actualShipmentDate),
+                },
                 fromStatus: doRecord.status as string,
                 toStatus: 'SHIPPED',
                 tx,

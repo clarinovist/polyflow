@@ -7,6 +7,7 @@ import {
   createInvoice,
   updateInvoiceStatus,
   createDraftInvoiceFromOrder,
+  updateDraftSalesInvoiceDate,
   calculateSalesInvoiceTotalFromDelivered,
   updateSalesInvoiceDueDate,
 } from "../invoice-lifecycle-service";
@@ -37,12 +38,14 @@ vi.mock("@/lib/core/prisma", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    auditLog: { create: vi.fn() },
     payment: { aggregate: vi.fn() },
     salesOrder: {
       findUnique: vi.fn(),
     },
     journalEntry: {
       findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
       updateMany: vi.fn(),
     },
   },
@@ -1005,6 +1008,85 @@ describe("invoice-lifecycle-service", () => {
       const expectedDueDate = new Date(2026, 5, 24 + 30);
       expect(createCall.data.dueDate).toEqual(expectedDueDate);
     });
+  });
+});
+
+describe("updateDraftSalesInvoiceDate", () => {
+  const draft = {
+    id: 'inv-1',
+    invoiceNumber: '4/INV/IX/2026',
+    invoiceDate: new Date('2026-09-27T17:00:00.000Z'),
+    dueDate: new Date('2026-10-27T17:00:00.000Z'),
+    termOfPaymentDays: 30,
+    status: InvoiceStatus.DRAFT,
+    paidAmount: new Prisma.Decimal(0),
+    creditedAmount: new Prisma.Decimal(0),
+    priceAdjustmentAmount: new Prisma.Decimal(0),
+    payments: [], priceAdjustments: [], returnAllocations: [],
+    customerCreditApplications: [], barterSettlements: [], remittanceItems: [],
+    dateCorrection: null,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(draft as never);
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.invoice.update).mockResolvedValue({
+      ...draft, invoiceNumber: '1/INV/X/2026',
+    } as never);
+    vi.mocked(prisma.journalEntry.findMany).mockResolvedValue([{
+      id: 'journal-1', status: JournalStatus.DRAFT,
+      entryDate: draft.invoiceDate,
+    }] as never);
+    vi.mocked(prisma.journalEntry.update).mockResolvedValue({} as never);
+  });
+
+  it("atomically synchronizes a cross-month draft date, number, due date, journal, and audit", async () => {
+    const target = new Date('2026-10-04T17:00:00.000Z');
+    await updateDraftSalesInvoiceDate('inv-1', {
+      invoiceDate: target, expectedInvoiceDate: draft.invoiceDate,
+      expectedInvoiceNumber: draft.invoiceNumber, reason: 'Barang diambil pelanggan',
+    }, 'admin-1');
+
+    expect(prisma.invoice.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'inv-1', status: InvoiceStatus.DRAFT },
+      data: expect.objectContaining({ invoiceNumber: '1/INV/X/2026' }),
+    }));
+    expect(prisma.journalEntry.update).toHaveBeenCalledWith({
+      where: { id: 'journal-1' },
+      data: expect.objectContaining({
+        reference: '1/INV/X/2026',
+        description: 'Sales Invoice #1/INV/X/2026',
+      }),
+    });
+    expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'UPDATE_DRAFT_SALES_INVOICE_DATE',
+      entityId: 'inv-1', tx: prisma,
+    }));
+  });
+
+  it("rejects a draft with downstream transactions before any write", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      ...draft, payments: [{ id: 'payment-1' }],
+    } as never);
+    await expect(updateDraftSalesInvoiceDate('inv-1', {
+      invoiceDate: new Date('2026-10-04T17:00:00.000Z'),
+      expectedInvoiceDate: draft.invoiceDate,
+      expectedInvoiceNumber: draft.invoiceNumber, reason: 'Barang diambil pelanggan',
+    }, 'admin-1')).rejects.toThrow(/transaksi turunan/);
+    expect(prisma.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a recognized invoice before any write", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      ...draft, status: InvoiceStatus.UNPAID,
+    } as never);
+    await expect(updateDraftSalesInvoiceDate('inv-1', {
+      invoiceDate: new Date('2026-10-04T17:00:00.000Z'),
+      expectedInvoiceDate: draft.invoiceDate,
+      expectedInvoiceNumber: draft.invoiceNumber, reason: 'Barang diambil pelanggan',
+    }, 'admin-1')).rejects.toThrow(/masih DRAFT/);
+    expect(prisma.invoice.update).not.toHaveBeenCalled();
   });
 });
 

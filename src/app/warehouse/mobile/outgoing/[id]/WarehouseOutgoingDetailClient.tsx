@@ -32,6 +32,8 @@ import {
     correctDeliveryQtyToVerified,
 } from '@/actions/inventory/deliveries';
 import { toast } from 'sonner';
+import { shipDeliveryOrder } from '@/actions/inventory/delivery-shipment';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 import {
     getEnteredQuantityDisplay,
     type EnteredQuantitySnapshot,
@@ -129,6 +131,9 @@ export function WarehouseOutgoingDetailClient({
     const router = useRouter();
     const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
     const [shipConfirmOpen, setShipConfirmOpen] = useState(false);
+    const [actualShipmentDate, setActualShipmentDate] = useState(() =>
+        toBusinessDateString(new Date()),
+    );
     const [correctConfirmOpen, setCorrectConfirmOpen] = useState(false);
     const [verifyDraft, setVerifyDraft] = useState<Record<string, string>>(
         () => {
@@ -357,7 +362,10 @@ export function WarehouseOutgoingDetailClient({
         setShipConfirmOpen(false);
         setLoadingAction('shipping');
         try {
-            const result = await updateDeliveryStatus(order.id, 'SHIPPED');
+            const result = await shipDeliveryOrder({
+                deliveryOrderId: order.id,
+                actualShipmentDate,
+            });
             if (result.success) {
                 if (result.data?.invoicePending)
                     toast.warning(
@@ -720,9 +728,34 @@ export function WarehouseOutgoingDetailClient({
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Kirim Surat Jalan?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Stok gudang akan terpotong dan draft invoice akan
-                            dibuat/diperbarui. Pastikan qty fisik sudah benar.
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p>
+                                    Stok gudang akan terpotong dan draft invoice
+                                    akan dibuat/diperbarui. Pastikan qty fisik
+                                    sudah benar.
+                                </p>
+                                <label className="block space-y-1.5 text-left">
+                                    <span className="text-sm font-medium text-foreground">
+                                        Tanggal Penyerahan Aktual
+                                    </span>
+                                    <Input
+                                        type="date"
+                                        value={actualShipmentDate}
+                                        max={toBusinessDateString(new Date())}
+                                        onChange={(event) =>
+                                            setActualShipmentDate(
+                                                event.target.value,
+                                            )
+                                        }
+                                        required
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                        Dipakai untuk stok, invoice draft, dan
+                                        jurnal.
+                                    </span>
+                                </label>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -731,7 +764,7 @@ export function WarehouseOutgoingDetailClient({
                         </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleShip}
-                            disabled={isLoadingAction}
+                            disabled={isLoadingAction || !actualShipmentDate}
                             className="bg-emerald-600 hover:bg-emerald-700"
                         >
                             {loadingAction === 'shipping' ? (

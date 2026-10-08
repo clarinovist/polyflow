@@ -20,6 +20,7 @@ import {
     CheckCircle,
     CreditCard,
     CalendarClock,
+    CalendarDays,
 } from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
@@ -30,6 +31,7 @@ import { updateInvoiceStatus } from '@/actions/finance/invoice';
 import { recordCustomerPayment } from '@/actions/finance/finance';
 import { InvoicePriceAdjustment } from './InvoicePriceAdjustment';
 import { EditSalesInvoiceDueDateDialog } from './EditSalesInvoiceDueDateDialog';
+import { EditDraftSalesInvoiceDateDialog } from './EditDraftSalesInvoiceDateDialog';
 import { FinancialInvoiceSummary } from './FinancialInvoiceSummary';
 import { FinancialInvoicePrintActions } from './FinancialInvoicePrintActions';
 import { FinancialInvoiceActivityTabs } from './FinancialInvoiceActivityTabs';
@@ -88,6 +90,7 @@ interface FinancialInvoiceDetailProps {
     companyConfig?: CompanyConfig;
     paymentBanks?: TenantPaymentBanks;
     basePath?: string;
+    canEditInvoiceDate?: boolean;
 }
 
 export function FinancialInvoiceDetail({
@@ -95,6 +98,7 @@ export function FinancialInvoiceDetail({
     companyConfig,
     paymentBanks = [],
     basePath = '/finance/invoices/sales',
+    canEditInvoiceDate = false,
 }: FinancialInvoiceDetailProps) {
     const router = useRouter();
     const [showPreview, setShowPreview] = React.useState(false);
@@ -114,6 +118,8 @@ export function FinancialInvoiceDetail({
         () => new Date().toISOString().split('T')[0],
     );
     const [isDueDateDialogOpen, setIsDueDateDialogOpen] = useState(false);
+    const [isInvoiceDateDialogOpen, setIsInvoiceDateDialogOpen] =
+        useState(false);
     const snapshotOrder = invoiceSnapshotOrder(invoice.commercialSnapshot);
     const legacyReferenceItems = snapshotOrder
         ? []
@@ -300,6 +306,15 @@ export function FinancialInvoiceDetail({
                         )}
                     {!['DRAFT', 'CANCELLED'].includes(invoice.status) && (
                         <InvoicePriceAdjustment invoiceId={invoice.id} />
+                    )}
+                    {canEditInvoiceDate && invoice.status === 'DRAFT' && (
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsInvoiceDateDialogOpen(true)}
+                        >
+                            <CalendarDays className="h-4 w-4" />
+                            Edit Tanggal Invoice
+                        </Button>
                     )}
                     {invoice.status !== 'PAID' &&
                         invoice.status !== 'CANCELLED' && (
@@ -773,6 +788,20 @@ export function FinancialInvoiceDetail({
                     companyConfig={companyConfig}
                 />
             </PrintPreviewModal>
+
+            {isInvoiceDateDialogOpen && (
+                <EditDraftSalesInvoiceDateDialog
+                    open={isInvoiceDateDialogOpen}
+                    onOpenChange={setIsInvoiceDateDialogOpen}
+                    invoice={{
+                        id: invoice.id,
+                        invoiceNumber: invoice.invoiceNumber,
+                        invoiceDate: invoice.invoiceDate,
+                        dueDate: invoice.dueDate,
+                        termOfPaymentDays: invoice.termOfPaymentDays,
+                    }}
+                />
+            )}
 
             {isDueDateDialogOpen && (
                 <EditSalesInvoiceDueDateDialog

@@ -24,7 +24,7 @@ import {
     calculateInvoiceRounding,
     invoiceAmountsForPolicy,
 } from '@/lib/finance/invoice-rounding';
-import { toBusinessDateString } from '@/lib/utils/timezone';
+import { normalizeToBusinessDay, toBusinessDateString } from '@/lib/utils/timezone';
 
 /**
  * Calculate sales invoice total from actual delivered/shipped quantities (not SO ordered qty).
@@ -602,6 +602,181 @@ export async function createDraftInvoiceFromOrder(
             );
         }),
         draftInvoiceDate,
+    );
+}
+
+
+function invoiceMonthSuffix(date: Date): string {
+    const day = toBusinessDateString(date);
+    const year = Number(day.slice(0, 4));
+    const month = Number(day.slice(5, 7));
+    return `/INV/${monthToRoman(month)}/${year}`;
+}
+
+async function nextInvoiceNumberForDate(
+    tx: Prisma.TransactionClient,
+    date: Date,
+): Promise<string> {
+    const suffix = invoiceMonthSuffix(date);
+    const rows = await tx.invoice.findMany({
+        where: { invoiceNumber: { endsWith: suffix } },
+        select: { invoiceNumber: true },
+    });
+    const maxSequence = rows.reduce((max, row) => {
+        const sequence = Number.parseInt(row.invoiceNumber.split('/')[0], 10);
+        return Number.isFinite(sequence) ? Math.max(max, sequence) : max;
+    }, 0);
+    return `${maxSequence + 1}${suffix}`;
+}
+
+export async function updateDraftSalesInvoiceDate(
+    id: string,
+    data: {
+        invoiceDate: Date;
+        expectedInvoiceDate: Date;
+        expectedInvoiceNumber: string;
+        reason: string;
+    },
+    userId: string,
+) {
+    const targetDate = normalizeToBusinessDay(data.invoiceDate);
+    if (toBusinessDateString(targetDate) > toBusinessDateString(new Date())) {
+        throw new BusinessRuleError(
+            'Tanggal invoice tidak boleh melebihi hari ini.',
+        );
+    }
+    const reason = data.reason.trim();
+    if (reason.length < 5 || reason.length > 500) {
+        throw new BusinessRuleError(
+            'Alasan perubahan wajib 5 sampai 500 karakter.',
+        );
+    }
+
+    return invoiceWriter().$transaction(
+        async (tx) => {
+            await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${id} FOR UPDATE`;
+            const invoice = await tx.invoice.findUnique({
+                where: { id },
+                include: {
+                    payments: { select: { id: true } },
+                    priceAdjustments: { select: { id: true } },
+                    returnAllocations: { select: { id: true } },
+                    customerCreditApplications: { select: { id: true } },
+                    barterSettlements: { select: { id: true } },
+                    remittanceItems: { select: { id: true } },
+                    dateCorrection: { select: { id: true } },
+                },
+            });
+            if (!invoice) throw new NotFoundError('Invoice', id);
+            if (invoice.status !== InvoiceStatus.DRAFT) {
+                throw new BusinessRuleError(
+                    'Tanggal invoice hanya dapat diubah saat invoice masih DRAFT.',
+                );
+            }
+            if (
+                invoice.payments.length ||
+                invoice.priceAdjustments.length ||
+                invoice.returnAllocations.length ||
+                invoice.customerCreditApplications.length ||
+                invoice.barterSettlements.length ||
+                invoice.remittanceItems.length ||
+                invoice.dateCorrection ||
+                !invoice.paidAmount.isZero() ||
+                !invoice.creditedAmount.isZero() ||
+                !invoice.priceAdjustmentAmount.isZero()
+            ) {
+                throw new BusinessRuleError(
+                    'Invoice memiliki transaksi turunan dan tanggalnya tidak dapat diubah.',
+                );
+            }
+            if (
+                invoice.invoiceNumber !== data.expectedInvoiceNumber ||
+                toBusinessDateString(invoice.invoiceDate) !==
+                    toBusinessDateString(data.expectedInvoiceDate)
+            ) {
+                throw new BusinessRuleError(
+                    'Invoice telah berubah. Muat ulang sebelum mencoba lagi.',
+                );
+            }
+
+            const { requireOpenJournalPeriod } =
+                await import('./sales-recognition-service');
+            await requireOpenJournalPeriod(tx, targetDate);
+            await tx.$queryRaw`SELECT id FROM "JournalEntry" WHERE "referenceType" = 'SALES_INVOICE' AND "referenceId" = ${id} AND status <> 'VOIDED' FOR UPDATE`;
+            const journals = await tx.journalEntry.findMany({
+                where: {
+                    referenceType: 'SALES_INVOICE',
+                    referenceId: id,
+                    status: { not: 'VOIDED' },
+                },
+                select: { id: true, status: true, entryDate: true },
+            });
+            if (journals.length !== 1 || journals[0].status !== 'DRAFT') {
+                throw new BusinessRuleError(
+                    'Invoice harus memiliki tepat satu jurnal DRAFT sebelum tanggal dapat diubah.',
+                );
+            }
+
+            const oldDate = invoice.invoiceDate;
+            const oldDueDate = invoice.dueDate;
+            const targetDueDate = addDays(
+                targetDate,
+                invoice.termOfPaymentDays,
+            );
+            const sameMonth =
+                invoiceMonthSuffix(oldDate) === invoiceMonthSuffix(targetDate);
+            const newInvoiceNumber = sameMonth
+                ? invoice.invoiceNumber
+                : await nextInvoiceNumberForDate(tx, targetDate);
+
+            const updated = await tx.invoice.update({
+                where: { id, status: InvoiceStatus.DRAFT },
+                data: {
+                    invoiceDate: targetDate,
+                    dueDate: targetDueDate,
+                    invoiceNumber: newInvoiceNumber,
+                },
+            });
+            await tx.journalEntry.update({
+                where: { id: journals[0].id },
+                data: {
+                    entryDate: targetDate,
+                    reference: newInvoiceNumber,
+                    description: `Sales Invoice #${newInvoiceNumber}`,
+                },
+            });
+            await logActivity({
+                userId,
+                action: 'UPDATE_DRAFT_SALES_INVOICE_DATE',
+                entityType: 'Invoice',
+                entityId: id,
+                details: `Tanggal invoice draft diubah dari ${toBusinessDateString(oldDate)} menjadi ${toBusinessDateString(targetDate)}. Alasan: ${reason}`,
+                changes: {
+                    invoiceDate: {
+                        from: toBusinessDateString(oldDate),
+                        to: toBusinessDateString(targetDate),
+                    },
+                    invoiceNumber: {
+                        from: invoice.invoiceNumber,
+                        to: newInvoiceNumber,
+                    },
+                    dueDate: {
+                        from: oldDueDate
+                            ? toBusinessDateString(oldDueDate)
+                            : null,
+                        to: toBusinessDateString(targetDueDate),
+                    },
+                    journalEntryDate: {
+                        from: toBusinessDateString(journals[0].entryDate),
+                        to: toBusinessDateString(targetDate),
+                    },
+                    reason,
+                },
+                tx,
+            });
+            return updated;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 }
 

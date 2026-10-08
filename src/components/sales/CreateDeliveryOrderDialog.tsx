@@ -624,10 +624,10 @@ export function CreateDeliveryOrderDialog({
                             onChange={(e) => setDeliveryDate(e.target.value)}
                         />
                         <p className="text-xs text-muted-foreground">
-                            Default hari ini. Untuk koreksi (mis. September),
-                            pilih tanggalnya — stok, jurnal, dan nomor invoice
-                            ikut bulan tanggal ini. Tidak bisa melebihi hari
-                            ini dan periode jurnal harus masih buka.
+                            Default hari ini sebagai tanggal dokumen/rencana.
+                            Tanggal stok, invoice, dan jurnal akan dipilih saat
+                            barang benar-benar diserahkan. Tidak bisa melebihi
+                            hari ini dan periode jurnal harus masih buka.
                         </p>
                     </div>
 

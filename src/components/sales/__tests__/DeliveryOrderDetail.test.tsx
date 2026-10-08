@@ -31,6 +31,10 @@ vi.mock('@/actions/inventory/deliveries', () => ({
         mockUpdateDeliveryStatus(...args),
 }));
 
+vi.mock('@/actions/inventory/delivery-shipment', () => ({
+    shipDeliveryOrder: vi.fn(),
+}));
+
 vi.mock('@/actions/sales/delivery-photos', () => ({
     attachDeliveryPhoto: vi.fn(),
 }));

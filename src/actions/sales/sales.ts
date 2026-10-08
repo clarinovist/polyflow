@@ -193,6 +193,7 @@ export const shipSalesOrder = withTenant(async function shipSalesOrder(data: {
     trackingNumber?: string;
     carrier?: string;
     invoiceDate?: Date | string;
+    actualShipmentDate?: Date | string;
 }) {
     return safeAction(async () => {
         const session = await requireSalesAccess();
@@ -201,6 +202,7 @@ export const shipSalesOrder = withTenant(async function shipSalesOrder(data: {
             trackingNumber: validatedData.trackingNumber,
             carrier: validatedData.carrier,
             invoiceDate: validatedData.invoiceDate,
+            actualShipmentDate: validatedData.actualShipmentDate,
         });
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${validatedData.id}`);

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 import {
     requireFinanceAccess,
+    requireFinanceAdmin,
     requireFinanceMutation,
     requireFinanceReadCrossPortal,
 } from '@/lib/auth/finance-access';
@@ -359,6 +360,56 @@ export const getOutstandingInvoicesByCustomerId = withTenant(
                 },
             });
             return serializeData(invoices);
+        });
+    },
+);
+
+export const updateDraftSalesInvoiceDate = withTenant(
+    async function updateDraftSalesInvoiceDate(
+        id: string,
+        data: {
+            invoiceDate: string;
+            expectedInvoiceDate: string;
+            expectedInvoiceNumber: string;
+            reason: string;
+        },
+    ) {
+        return safeAction(async () => {
+            const session = await requireFinanceAdmin();
+            const reason = data.reason.trim();
+            if (!id.trim() || !data.expectedInvoiceNumber.trim()) {
+                throw new ValidationError('Invoice target tidak valid.');
+            }
+            if (reason.length < 5 || reason.length > 500) {
+                throw new ValidationError(
+                    'Alasan perubahan wajib 5 sampai 500 karakter.',
+                );
+            }
+            let invoiceDate: Date;
+            let expectedInvoiceDate: Date;
+            try {
+                invoiceDate = getWibDayBounds(data.invoiceDate).startOfDay;
+                expectedInvoiceDate = getWibDayBounds(
+                    data.expectedInvoiceDate,
+                ).startOfDay;
+            } catch {
+                throw new ValidationError('Tanggal invoice tidak valid.');
+            }
+            const updated =
+                await InvoiceService.updateDraftSalesInvoiceDate(
+                    id,
+                    {
+                        invoiceDate,
+                        expectedInvoiceDate,
+                        expectedInvoiceNumber: data.expectedInvoiceNumber,
+                        reason,
+                    },
+                    session.user.id,
+                );
+            revalidatePath('/finance/invoices/sales');
+            revalidatePath(`/finance/invoices/sales/${id}`);
+            revalidatePath('/sales/orders');
+            return serializeData(updated);
         });
     },
 );

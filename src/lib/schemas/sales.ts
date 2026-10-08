@@ -131,6 +131,8 @@ export const shipSalesOrderSchema = z.object({
     carrier: z.string().optional().transform(sanitizeHtml),
     /** Tanggal invoice untuk penutupan MAKLON_JASA tanpa Surat Jalan fisik. */
     invoiceDate: z.coerce.date().optional(),
+    /** Tanggal barang benar-benar diserahkan untuk pengiriman fisik. */
+    actualShipmentDate: z.coerce.date().optional(),
 });
 export const createManualDeliveryOrderSchema = z.object({
     salesOrderId: z.string().min(1, 'Sales Order is required'),

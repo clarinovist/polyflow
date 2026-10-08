@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
     notes: vi.fn(),
     readiness: vi.fn(),
     status: vi.fn(),
+    ship: vi.fn(),
     reverse: vi.fn(),
     attach: vi.fn(),
     compress: vi.fn(),
@@ -44,6 +45,9 @@ vi.mock('@/actions/inventory/deliveries', () => ({
     fetchDeliveryStockReadiness: mocks.readiness,
     updateDeliveryStatus: mocks.status,
     reverseDeliveryShipment: mocks.reverse,
+}));
+vi.mock('@/actions/inventory/delivery-shipment', () => ({
+    shipDeliveryOrder: mocks.ship,
 }));
 vi.mock('@/actions/sales/delivery-photos', () => ({
     attachDeliveryPhoto: mocks.attach,
@@ -178,6 +182,7 @@ beforeEach(() => {
         mocks.quantity,
         mocks.notes,
         mocks.status,
+        mocks.ship,
         mocks.reverse,
         mocks.attach,
     ]) {
@@ -337,11 +342,19 @@ describe('DeliveryOrderDetail characterization', () => {
             expect.objectContaining({ isVerified: true, canEdit: false }),
         );
         fireEvent.click(button(salesLabels.tandaiDikirim));
-        expect(mocks.status).not.toHaveBeenCalled();
+        expect(mocks.ship).not.toHaveBeenCalled();
+        const actualDate = screen.getByLabelText(
+            'Tanggal Penyerahan Aktual',
+        ) as HTMLInputElement;
+        fireEvent.change(actualDate, { target: { value: '2026-08-02' } });
         fireEvent.click(button(`Ya, ${salesLabels.tandaiDikirim}`));
         await waitFor(() =>
-            expect(mocks.status).toHaveBeenCalledWith(order.id, 'SHIPPED'),
+            expect(mocks.ship).toHaveBeenCalledWith({
+                deliveryOrderId: order.id,
+                actualShipmentDate: '2026-08-02',
+            }),
         );
+        expect(mocks.status).not.toHaveBeenCalledWith(order.id, 'SHIPPED');
         await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
         expect(mocks.success).toHaveBeenCalledWith(
             'Status berhasil diubah ke Dikirim',

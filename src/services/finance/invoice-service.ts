@@ -7,6 +7,7 @@ import {
     createDraftInvoiceFromOrder,
     createInvoice,
     generateInvoiceNumber,
+    updateDraftSalesInvoiceDate,
     updateInvoiceStatus,
     updateSalesInvoiceDueDate,
 } from './invoice-lifecycle-service';
@@ -25,6 +26,19 @@ export class InvoiceService {
 
     static async updateStatus(data: UpdateInvoiceStatusValues, userId: string) {
         return updateInvoiceStatus(data, userId);
+    }
+
+    static async updateDraftSalesInvoiceDate(
+        id: string,
+        data: {
+            invoiceDate: Date;
+            expectedInvoiceDate: Date;
+            expectedInvoiceNumber: string;
+            reason: string;
+        },
+        userId: string,
+    ) {
+        return updateDraftSalesInvoiceDate(id, data, userId);
     }
 
     static async updateSalesInvoiceDueDate(

@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, MapPin, Scale, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { salesLabels } from '@/lib/labels';
 
 interface DeliveryInformationCardProps {
     order: DeliveryOrderDetailData;
@@ -42,12 +41,28 @@ export function DeliveryInformationCard({
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                         <Calendar className="h-4 w-4" />{' '}
-                        {salesLabels.deliveryDate}
+                        Tanggal Surat Jalan
                     </p>
                     <p className="font-medium text-sm">
                         {format(new Date(order.deliveryDate), 'd MMMM yyyy', { locale: id })}
                     </p>
                 </div>
+
+                {order.stockCommittedAt && (
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Calendar className="h-4 w-4" /> Tanggal
+                            Penyerahan Aktual
+                        </p>
+                        <p className="font-medium text-sm">
+                            {format(
+                                new Date(order.stockCommittedAt),
+                                'd MMMM yyyy',
+                                { locale: id },
+                            )}
+                        </p>
+                    </div>
+                )}
 
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">

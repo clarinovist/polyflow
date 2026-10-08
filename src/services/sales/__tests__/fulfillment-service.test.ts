@@ -392,6 +392,7 @@ describe("shipOrder", () => {
     expect(commitDeliveryShipment).toHaveBeenCalledWith("do-1", "user-1", {
       carrier: "JNE",
       trackingNumber: "T1",
+      actualShipmentDate: expect.any(Date),
     });
     expect(createDeliveryOrderFromSalesOrder).not.toHaveBeenCalled();
   });
@@ -424,7 +425,7 @@ describe("shipOrder", () => {
     expect(commitDeliveryShipment).toHaveBeenCalledWith(
       "do-new",
       "user-1",
-      undefined,
+      { actualShipmentDate: expect.any(Date) },
     );
   });
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createDeliveryOrderFromSalesOrder,
-  commitDeliveryShipment,
+  commitDeliveryShipment as commitDeliveryShipmentService,
   getDeliveryStockReadiness,
 } from "../delivery-fulfillment-service";
 import { prisma } from "@/lib/core/prisma";
@@ -118,6 +118,15 @@ function makeSalesOrder(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+const commitDeliveryShipment = (
+  deliveryOrderId: string,
+  userId: string,
+  opts: { trackingNumber?: string; carrier?: string; actualShipmentDate?: Date } = {},
+) => commitDeliveryShipmentService(deliveryOrderId, userId, {
+  actualShipmentDate: new Date('2026-07-21T17:00:00.000Z'),
+  ...opts,
+});
 
 function makeDeliveryOrder(overrides: Record<string, unknown> = {}) {
   return {
@@ -480,7 +489,7 @@ describe("commitDeliveryShipment", () => {
     expect(result.success).toBe(true);
   });
 
-  it("uses the commit time for a new invoice instead of a backdated DO date", async () => {
+  it("uses the selected actual shipment date for stock and invoice instead of the prepared DO date", async () => {
     const doRecord = makeDeliveryOrder({
       status: DeliveryStatus.PENDING,
       deliveryDate: new Date("2026-09-25T17:00:00.000Z"),
@@ -497,17 +506,53 @@ describe("commitDeliveryShipment", () => {
     vi.mocked(InvoiceService.createDraftInvoiceFromOrder).mockResolvedValue({} as never);
     vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 0 } as never);
 
-    await commitDeliveryShipment("do-1", "user-1");
+    const actualShipmentDate = new Date("2026-10-05T17:00:00.000Z");
+    await commitDeliveryShipment("do-1", "user-1", {
+      actualShipmentDate,
+    });
 
     expect(InvoiceService.createDraftInvoiceFromOrder).toHaveBeenCalledWith(
       "so-1",
       "user-1",
-      expect.objectContaining({ invoiceDate: expect.any(Date) }),
+      { invoiceDate: actualShipmentDate },
     );
-    const invoiceDate = vi.mocked(InvoiceService.createDraftInvoiceFromOrder)
-      .mock.calls[0][2]?.invoiceDate;
-    expect(invoiceDate).toBeInstanceOf(Date);
-    expect(invoiceDate).not.toEqual(doRecord.deliveryDate);
+    for (const call of vi.mocked(prisma.stockMovement.create).mock.calls) {
+      expect(call[0].data.createdAt).toEqual(actualShipmentDate);
+    }
+    expect(prisma.deliveryOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stockCommittedAt: actualShipmentDate,
+        }),
+      }),
+    );
+    expect(actualShipmentDate).not.toEqual(doRecord.deliveryDate);
+  });
+
+  it("rejects a closed period for the actual shipment date before stock changes", async () => {
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(
+      makeDeliveryOrder() as never,
+    );
+    vi.mocked(prisma.fiscalPeriod.findUnique).mockResolvedValueOnce({
+      status: 'CLOSED',
+    } as never);
+    await expect(
+      commitDeliveryShipment("do-1", "user-1"),
+    ).rejects.toThrow(/Periode jurnal/);
+    expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a future actual shipment date before stock changes", async () => {
+    vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(
+      makeDeliveryOrder() as never,
+    );
+    await expect(
+      commitDeliveryShipment("do-1", "user-1", {
+        actualShipmentDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      }),
+    ).rejects.toThrow(/melebihi hari ini/);
+    expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+    expect(InvoiceService.createDraftInvoiceFromOrder).not.toHaveBeenCalled();
   });
 
   it("also commits LOADING DO", async () => {

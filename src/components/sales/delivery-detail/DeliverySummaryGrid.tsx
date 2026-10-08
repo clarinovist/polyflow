@@ -36,7 +36,7 @@ export function DeliverySummaryGrid({
                     ),
                 },
                 {
-                    label: 'Jadwal',
+                    label: 'Tanggal Surat Jalan',
                     icon: <CalendarDays className="h-4 w-4" />,
                     value: format(
                         new Date(order.deliveryDate),
@@ -48,6 +48,20 @@ export function DeliverySummaryGrid({
                         (order.sourceLocation?.name ||
                             'gudang belum ditentukan'),
                 },
+                ...(order.stockCommittedAt
+                    ? [
+                          {
+                              label: 'Penyerahan Aktual',
+                              icon: <PackageCheck className="h-4 w-4" />,
+                              value: format(
+                                  new Date(order.stockCommittedAt),
+                                  'd MMMM yyyy',
+                                  { locale: id },
+                              ),
+                              detail: 'Tanggal stok dan invoice draft',
+                          },
+                      ]
+                    : []),
                 {
                     label: 'Armada',
                     icon: <Truck className="h-4 w-4" />,
