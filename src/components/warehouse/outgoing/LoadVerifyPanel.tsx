@@ -301,8 +301,16 @@ export function LoadVerifyPanel({
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
+                <p className="mb-2 text-xs text-muted-foreground lg:hidden">
+                    Geser tabel untuk melihat seluruh kolom verifikasi.
+                </p>
+                <div
+                    role="region"
+                    aria-label="Verifikasi muat per item"
+                    tabIndex={0}
+                    className="overflow-x-auto rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                    <table className="w-full min-w-[680px] text-sm">
                         <thead className="bg-muted/50 border-b">
                             <tr>
                                 <th className="h-10 px-4 text-left font-medium">
@@ -412,8 +420,8 @@ export function LoadVerifyPanel({
                 </div>
 
                 {canEdit && (
-                    <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center gap-2">
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between [&_button]:min-h-11">
+                        <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 type="button"
                                 size="sm"
@@ -445,7 +453,7 @@ export function LoadVerifyPanel({
                                     : 'Koreksi Perintah ke Qty Fisik'}
                             </Button>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 type="button"
                                 size="sm"

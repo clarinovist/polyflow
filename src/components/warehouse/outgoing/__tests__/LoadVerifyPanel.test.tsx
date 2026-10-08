@@ -77,6 +77,15 @@ describe('LoadVerifyPanel — satuan BAL vs KG', () => {
         // Assert — bukan "125.00 KG" polos, harus tampil qty dalam BAL + konversi KG
         expect(screen.getByText(/5 BAL/)).toBeTruthy();
         expect(screen.getByText(/125.*KG/)).toBeTruthy();
+        expect(
+            screen.getByRole('region', { name: 'Verifikasi muat per item' })
+                .getAttribute('tabindex'),
+        ).toBe('0');
+        expect(
+            screen.getByText(
+                'Geser tabel untuk melihat seluruh kolom verifikasi.',
+            ),
+        ).toBeTruthy();
     });
 
     it('status "Sesuai" saat operator isi qty fisik dalam BAL sesuai perintah (bukan Selisih palsu)', () => {
