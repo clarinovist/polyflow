@@ -151,6 +151,16 @@ function button(name: string) {
     return screen.getByRole('button', { name }) as HTMLButtonElement;
 }
 
+async function openMoreActions() {
+    fireEvent.keyDown(button('Lainnya'), { key: 'Enter' });
+    return screen.findByRole('menu');
+}
+
+async function openDocuments() {
+    fireEvent.keyDown(button('Cetak & Dokumen'), { key: 'Enter' });
+    return screen.findByRole('menu');
+}
+
 beforeEach(() => {
     vi.resetAllMocks();
     vi.stubGlobal(
@@ -181,7 +191,7 @@ afterEach(() => {
 });
 
 describe('DeliveryOrderDetail characterization', () => {
-    it('keeps sales-only controls separate from warehouse navigation without hiding fleet or timeline', () => {
+    it('keeps sales-only controls separate from warehouse navigation without hiding fleet or progress', async () => {
         const order = makeOrder({
             status: 'SHIPPED',
             vehicle: {
@@ -191,15 +201,21 @@ describe('DeliveryOrderDetail characterization', () => {
             },
         });
         const { rerender } = render(<DeliveryOrderDetail order={order} />);
-        expect(button('Retur')).toBeDefined();
+        let menu = await openMoreActions();
+        expect(within(menu).getByRole('menuitem', { name: 'Retur' })).toBeDefined();
+        fireEvent.keyDown(menu, { key: 'Escape' });
         expect(button('Edit pricing')).toBeDefined();
         expect(
             screen
                 .getByRole('link', { name: 'SO-FIXTURE' })
                 .getAttribute('href'),
         ).toBe('/sales/orders/fixture-so');
-        expect(screen.getByText('TEST-01 — Fixture truck')).toBeDefined();
-        expect(screen.getByText('Status tercapai: Dikirim')).toBeDefined();
+        expect(
+            screen.getAllByText('TEST-01 — Fixture truck').length,
+        ).toBeGreaterThanOrEqual(1);
+        expect(
+            screen.getAllByText('Status tercapai: Dikirim').length,
+        ).toBeGreaterThanOrEqual(1);
         rerender(
             <DeliveryOrderDetail
                 order={order}
@@ -208,12 +224,12 @@ describe('DeliveryOrderDetail characterization', () => {
             />,
         );
         expect(
-            screen.queryByRole('button', { name: 'Retur' }),
-        ).toBeNull();
-        expect(
             screen.queryByRole('button', { name: 'Edit pricing' }),
         ).toBeNull();
-        expect(button('Batalkan Pengiriman')).toBeDefined();
+        menu = await openMoreActions();
+        expect(within(menu).queryByRole('menuitem', { name: 'Retur' })).toBeNull();
+        expect(within(menu).getByRole('menuitem', { name: 'Batalkan Pengiriman' })).toBeDefined();
+        fireEvent.keyDown(menu, { key: 'Escape' });
         expect(
             screen
                 .getByRole('link', { name: 'SO-FIXTURE' })
@@ -222,7 +238,71 @@ describe('DeliveryOrderDetail characterization', () => {
         expect(
             screen.getByRole('link', { name: 'Kembali' }).getAttribute('href'),
         ).toBe('/warehouse/outgoing');
-        expect(screen.getByText('TEST-01 — Fixture truck')).toBeDefined();
+        expect(
+            screen.getAllByText('TEST-01 — Fixture truck').length,
+        ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('surfaces the command-center hierarchy and keeps audit behind progressive disclosure', async () => {
+        render(<DeliveryOrderDetail order={makeOrder({ status: 'IN_TRANSIT' })} />);
+        const actions = screen.getByRole('group', {
+            name: 'Aksi surat jalan',
+        });
+        expect(actions).toBeDefined();
+        expect(
+            actions.querySelectorAll('[data-variant="default"]'),
+        ).toHaveLength(1);
+        expect(
+            screen.getByRole('region', { name: 'Ringkasan pengiriman' }),
+        ).toBeDefined();
+        expect(
+            screen.getByRole('region', { name: 'Proses Pengiriman' }),
+        ).toBeDefined();
+        expect(
+            screen.getByRole('region', { name: 'Item pengiriman' }).tabIndex,
+        ).toBe(0);
+        expect(
+            screen
+                .getByRole('tab', { name: 'Bukti Pengiriman' })
+                .getAttribute('aria-selected'),
+        ).toBe('true');
+        const auditTab = screen.getByRole('tab', {
+            name: 'Audit Status',
+        });
+        expect(auditTab.getAttribute('aria-selected')).toBe('false');
+        fireEvent.mouseDown(auditTab, { button: 0 });
+        await waitFor(() =>
+            expect(auditTab.getAttribute('aria-selected')).toBe('true'),
+        );
+        expect(screen.getByText('Stok: Sudah dipotong')).toBeDefined();
+    });
+
+    it('keeps cancellation and return actions behind their confirmations', async () => {
+        const order = makeOrder({ status: 'PENDING' });
+        const view = render(<DeliveryOrderDetail order={order} />);
+        let menu = await openMoreActions();
+        fireEvent.click(
+            within(menu).getByRole('menuitem', {
+                name: 'Batalkan Surat Jalan',
+            }),
+        );
+        expect(mocks.status).not.toHaveBeenCalled();
+        fireEvent.click(button('Ya, Batalkan'));
+        await waitFor(() =>
+            expect(mocks.status).toHaveBeenCalledWith(order.id, 'CANCELLED'),
+        );
+
+        mocks.status.mockClear();
+        view.rerender(
+            <DeliveryOrderDetail order={{ ...order, status: 'IN_TRANSIT' }} />,
+        );
+        menu = await openMoreActions();
+        fireEvent.click(within(menu).getByRole('menuitem', { name: 'Retur' }));
+        expect(mocks.status).not.toHaveBeenCalled();
+        fireEvent.click(button('Ya, Tandai Retur'));
+        await waitFor(() =>
+            expect(mocks.status).toHaveBeenCalledWith(order.id, 'RETURNED'),
+        );
     });
 
     it('requires locked load verification and explicit confirmation before shipping', async () => {
@@ -376,10 +456,12 @@ describe('DeliveryOrderDetail characterization', () => {
         expect(mocks.notes).not.toHaveBeenCalled();
     });
 
-    it('offers reversal only for SHIPPED without POD or paid/partial invoice', () => {
+    it('offers reversal only for SHIPPED without POD or paid/partial invoice', async () => {
         const order = makeOrder({ status: 'SHIPPED' });
         const { rerender } = render(<DeliveryOrderDetail order={order} />);
-        expect(button('Batalkan Pengiriman')).toBeDefined();
+        let menu = await openMoreActions();
+        expect(within(menu).getByRole('menuitem', { name: 'Batalkan Pengiriman' })).toBeDefined();
+        fireEvent.keyDown(menu, { key: 'Escape' });
         for (const blocked of [
             { ...order, status: 'IN_TRANSIT' },
             { ...order, proofOfDeliveryAt: '2026-08-01' },
@@ -393,11 +475,16 @@ describe('DeliveryOrderDetail characterization', () => {
             })),
         ]) {
             rerender(<DeliveryOrderDetail order={blocked} />);
-            expect(
-                screen.queryByRole('button', {
-                    name: 'Batalkan Pengiriman',
-                }),
-            ).toBeNull();
+            const trigger = screen.queryByRole('button', { name: 'Lainnya' });
+            if (trigger) {
+                menu = await openMoreActions();
+                expect(
+                    within(menu).queryByRole('menuitem', {
+                        name: 'Batalkan Pengiriman',
+                    }),
+                ).toBeNull();
+                fireEvent.keyDown(menu, { key: 'Escape' });
+            }
         }
         rerender(
             <DeliveryOrderDetail
@@ -415,7 +502,8 @@ describe('DeliveryOrderDetail characterization', () => {
                 }}
             />,
         );
-        expect(button('Batalkan Pengiriman')).toBeDefined();
+        menu = await openMoreActions();
+        expect(within(menu).getByRole('menuitem', { name: 'Batalkan Pengiriman' })).toBeDefined();
     });
 
     it('validates reversal reason length, sends the untrimmed reason and surfaces server failure', async () => {
@@ -426,7 +514,8 @@ describe('DeliveryOrderDetail characterization', () => {
         render(
             <DeliveryOrderDetail order={makeOrder({ status: 'SHIPPED' })} />,
         );
-        fireEvent.click(button('Batalkan Pengiriman'));
+        let menu = await openMoreActions();
+        fireEvent.click(within(menu).getByRole('menuitem', { name: 'Batalkan Pengiriman' }));
         const reason = screen.getByPlaceholderText(
             'Alasan pembatalan (wajib, min. 5 karakter)',
         );
@@ -444,7 +533,8 @@ describe('DeliveryOrderDetail characterization', () => {
             reason: '  fixture reason  ',
         });
         expect(mocks.refresh).not.toHaveBeenCalled();
-        fireEvent.click(button('Batalkan Pengiriman'));
+        menu = await openMoreActions();
+        fireEvent.click(within(menu).getByRole('menuitem', { name: 'Batalkan Pengiriman' }));
         expect(
             (
                 screen.getByPlaceholderText(
@@ -454,7 +544,7 @@ describe('DeliveryOrderDetail characterization', () => {
         ).toBe('');
     });
 
-    it('preserves print preview props and ordered SJ/invoice bundle links', () => {
+    it('preserves print preview props and ordered SJ/invoice bundle links', async () => {
         const order = makeOrder({
             status: 'CANCELLED',
             salesOrder: {
@@ -462,19 +552,20 @@ describe('DeliveryOrderDetail characterization', () => {
             },
         });
         const { rerender } = render(<DeliveryOrderDetail order={order} />);
+        let menu = await openDocuments();
         expect(
-            screen
-                .getByRole('link', { name: 'ESC/P (Dot Matrix)' })
+            within(menu)
+                .getByRole('menuitem', { name: 'ESC/P (Dot Matrix)' })
                 .getAttribute('href'),
         ).toBe('/api/print/delivery?id=fixture-do');
         expect(
-            screen
-                .getByRole('link', { name: 'ESC/P: SJ + Invoice' })
+            within(menu)
+                .getByRole('menuitem', { name: 'ESC/P: SJ + Invoice' })
                 .getAttribute('href'),
         ).toBe(
             '/api/print/bundle?doc=delivery:fixture-do&doc=invoice:invoice-one',
         );
-        fireEvent.click(button('Cetak Surat Jalan'));
+        fireEvent.click(within(menu).getByRole('menuitem', { name: 'Cetak Surat Jalan' }));
         expect(mocks.preview).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 open: true,
@@ -503,21 +594,25 @@ describe('DeliveryOrderDetail characterization', () => {
                 }}
             />,
         );
-        const select = screen.getByRole('combobox', {
-            name: 'Cetak ESC/P surat jalan bersama invoice',
-        }) as HTMLSelectElement;
+        menu = await openDocuments();
         expect(
-            Array.from(select.options).map((option) => [
-                option.value,
-                option.text,
-            ]),
-        ).toEqual([
-            ['', 'ESC/P: SJ + Invoice…'],
-            ['invoice-one', 'INV-ONE'],
-            ['invoice-two', 'INV-TWO'],
-        ]);
-        fireEvent.change(select, { target: { value: '' } });
-        expect(select.value).toBe('');
+            within(menu)
+                .getByRole('menuitem', {
+                    name: 'Cetak ESC/P surat jalan dengan INV-ONE',
+                })
+                .getAttribute('href'),
+        ).toBe(
+            '/api/print/bundle?doc=delivery:fixture-do&doc=invoice:invoice-one',
+        );
+        expect(
+            within(menu)
+                .getByRole('menuitem', {
+                    name: 'Cetak ESC/P surat jalan dengan INV-TWO',
+                })
+                .getAttribute('href'),
+        ).toBe(
+            '/api/print/bundle?doc=delivery:fixture-do&doc=invoice:invoice-two',
+        );
     });
 
     it('uploads POD through the retained file ref, compresses then attaches metadata and resets receiver', async () => {
@@ -532,7 +627,7 @@ describe('DeliveryOrderDetail characterization', () => {
         const { container } = render(
             <DeliveryOrderDetail order={makeOrder({ status: 'ARRIVED' })} />,
         );
-        const uploadButton = button('Upload Bukti Terima');
+        const uploadButton = button('Unggah Bukti Terima');
         expect(uploadButton.disabled).toBe(true);
         const receiver = screen.getByPlaceholderText(
             'Nama penerima',

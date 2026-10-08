@@ -8,8 +8,11 @@ import { DeliveryInformationCard } from './delivery-detail/DeliveryInformationCa
 import { DeliveryFleetCard } from './delivery-detail/DeliveryFleetCard';
 import { DeliveryPhotosCard } from './delivery-detail/DeliveryPhotosCard';
 import { DeliveryOperationalEvidenceCard } from './delivery-detail/DeliveryOperationalEvidenceCard';
-import { DeliveryPrintActions } from './delivery-detail/DeliveryPrintActions';
 import { DeliveryPrintPreview } from './delivery-detail/DeliveryPrintPreview';
+import { DeliveryCommandActions } from './delivery-detail/DeliveryCommandActions';
+import { DeliverySummaryGrid } from './delivery-detail/DeliverySummaryGrid';
+import { DeliveryReadinessCard } from './delivery-detail/DeliveryReadinessCard';
+import { DeliveryActivityTabs } from './delivery-detail/DeliveryActivityTabs';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -21,22 +24,10 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    ArrowLeft,
-    Truck,
-    MapPin,
-    CheckCircle2,
-    Clock,
-    Check,
-    Package,
-    CheckCircle,
-    XCircle,
-    RotateCcw,
-} from 'lucide-react';
+import { ArrowLeft, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
@@ -63,7 +54,6 @@ import { toast } from 'sonner';
 import { type CompanyConfig } from '@/lib/config/company';
 import { compressImageForUpload } from '@/lib/media/compress-image';
 import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
-import { Textarea } from '@/components/ui/textarea';
 import type { AttachmentItem } from '@/components/warehouse/WarehouseAttachmentPanel';
 
 export type { DeliveryOrderDetailData } from './delivery-detail/types';
@@ -125,8 +115,6 @@ export function DeliveryOrderDetail({
         order.status === 'SHIPPED' &&
         !order.proofOfDeliveryAt &&
         !hasPaidInvoice;
-    const [reverseReason, setReverseReason] = useState('');
-    const [isReversing, setIsReversing] = useState(false);
 
     const loadVersion = items
         .map((item) => `${item.id}:${item.quantity}:${item.verifiedQuantity}`)
@@ -236,30 +224,26 @@ export function DeliveryOrderDetail({
         }
     };
 
-    const handleReverseShipment = async () => {
-        if (reverseReason.trim().length < 5) {
+    const handleReverseShipment = async (reason: string) => {
+        if (reason.trim().length < 5) {
             toast.error('Alasan wajib diisi, minimal 5 karakter');
             return;
         }
-        setIsReversing(true);
         try {
             const result = await reverseDeliveryShipment({
                 deliveryOrderId: order.id,
-                reason: reverseReason,
+                reason,
             });
             if (result.success) {
                 toast.success(
                     'Pengiriman dibatalkan — stok & invoice dikembalikan.',
                 );
-                setReverseReason('');
                 router.refresh();
             } else {
                 toast.error(result.error || 'Gagal membatalkan pengiriman.');
             }
         } catch (_error) {
             toast.error('Gagal membatalkan pengiriman.');
-        } finally {
-            setIsReversing(false);
         }
     };
 
@@ -393,13 +377,32 @@ export function DeliveryOrderDetail({
     };
 
     const statusSteps = [
-        { status: 'PENDING', icon: Clock, label: 'Pesanan Terkonfirmasi' },
-        { status: 'LOADING', icon: Package, label: 'Sedang Dimuat' },
-        { status: 'SHIPPED', icon: Truck, label: 'Dikirim' },
-        { status: 'IN_TRANSIT', icon: MapPin, label: 'Dalam Perjalanan' },
-        { status: 'ARRIVED', icon: CheckCircle, label: 'Sampai Tujuan' },
-        { status: 'DELIVERED', icon: CheckCircle2, label: 'Diterima' },
+        { status: 'PENDING', label: 'Pesanan Terkonfirmasi' },
+        { status: 'LOADING', label: 'Sedang Dimuat' },
+        { status: 'SHIPPED', label: 'Dikirim' },
+        { status: 'IN_TRANSIT', label: 'Dalam Perjalanan' },
+        { status: 'ARRIVED', label: 'Sampai Tujuan' },
+        { status: 'DELIVERED', label: 'Diterima' },
     ];
+    const showOperationalEvidence =
+        safeAttachments.length > 0 ||
+        [
+            'PENDING',
+            'LOADING',
+            'SHIPPED',
+            'IN_TRANSIT',
+            'ARRIVED',
+            'DELIVERED',
+        ].includes(order.status);
+    const stockStatusLabel = ['SHIPPED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED'].includes(
+        order.status,
+    )
+        ? 'Stok: Sudah dipotong'
+        : order.status === 'RETURNED'
+          ? 'Stok: Periksa proses retur'
+          : order.status === 'CANCELLED'
+            ? 'Stok: Tidak dipotong'
+            : 'Stok: Belum dipotong';
 
     const currentStatusIndex = statusSteps.findIndex(
         (s) => s.status === order.status,
@@ -407,21 +410,6 @@ export function DeliveryOrderDetail({
 
     return (
         <div className="space-y-6">
-            {canEditQty && !warehouseMode && (
-                <div className="flex flex-wrap items-center gap-3">
-                    <DeliveryRevisionDialog
-                        deliveryOrderId={order.id}
-                        onSaved={() => {
-                            setEditingQty(false);
-                            setStockReadiness(null);
-                        }}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                        Jumlah atau barang berbeda? Revisi SO dan SJ bersama
-                        sebelum verifikasi muatan.
-                    </p>
-                </div>
-            )}
             {/* Qty exceeds SO residual — guided notification dialog */}
             <AlertDialog
                 open={!!qtyMismatchNotice}
@@ -478,326 +466,117 @@ export function DeliveryOrderDetail({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            <div className="flex items-center gap-4">
-                <Button variant="outline" size="sm" asChild>
-                    <Link href={basePath}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />{' '}
-                        {actionLabels.back}
-                    </Link>
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {salesLabels.deliveryOrder} {order.orderNumber}
-                    </h1>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        {getStatusBadge(order.status)}
-                        {isLoadVerified && canEditQty && (
-                            <Badge
-                                variant="secondary"
-                                className="bg-green-100 text-green-800"
-                            >
-                                Muat terverifikasi
-                            </Badge>
-                        )}
-                        {nextStep && nextStep.to !== 'SHIPPED' && (
-                            <Button
-                                size="sm"
-                                className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
-                                onClick={() => handleStatusChange(nextStep.to)}
-                                disabled={isLoading}
-                            >
-                                <Check className="mr-1 h-3.5 w-3.5" />{' '}
-                                {nextStep.label}
-                            </Button>
-                        )}
-                        {/* Tandai Dikirim — requires load verification + confirm dialog */}
-                        {nextStep && nextStep.to === 'SHIPPED' && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        size="sm"
-                                        className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
-                                        disabled={isLoading || !canShip}
-                                        title={
-                                            !canShip
-                                                ? 'Kunci verifikasi muat dulu'
-                                                : undefined
-                                        }
-                                    >
-                                        <Check className="mr-1 h-3.5 w-3.5" />{' '}
-                                        {salesLabels.tandaiDikirim}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            {salesLabels.tandaiDikirim}?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            {salesLabels.tandaiDikirimConfirm}{' '}
-                                            Invoice draft akan dibuat otomatis.
-                                            {!canShip && (
-                                                <span className="block mt-2 text-amber-700 dark:text-amber-300">
-                                                    Verifikasi muat belum
-                                                    dikunci — lengkapi panel
-                                                    Verifikasi Muat dulu.
-                                                </span>
-                                            )}
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Batal
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                handleStatusChange('SHIPPED')
-                                            }
-                                            className="bg-green-600 hover:bg-green-700"
-                                            disabled={!canShip}
-                                        >
-                                            Ya, {salesLabels.tandaiDikirim}
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
-                        {/* Secondary: Cancel */}
-                        {['PENDING', 'LOADING'].includes(order.status) && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                                    >
-                                        <XCircle className="mr-1 h-3.5 w-3.5" />{' '}
-                                        Batalkan
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Batalkan Delivery Order?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            DO {order.orderNumber} akan
-                                            dibatalkan. Tindakan ini tidak dapat
-                                            diurungkan.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Batal
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                handleStatusChange('CANCELLED')
-                                            }
-                                            className="bg-red-600 hover:bg-red-700"
-                                        >
-                                            Ya, Batalkan
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
-                        {/* Secondary: Return — hide in warehouse floor mode */}
-                        {!warehouseMode &&
-                            ['SHIPPED', 'IN_TRANSIT', 'ARRIVED'].includes(
-                                order.status,
-                            ) && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-7 px-2 text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
-                                        >
-                                            <RotateCcw className="mr-1 h-3.5 w-3.5" />{' '}
-                                            Retur
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>
-                                                Tandai sebagai Retur?
-                                            </AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                DO {order.orderNumber} akan
-                                                ditandai RETURNED. Pastikan
-                                                barang sudah kembali.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>
-                                                Batal
-                                            </AlertDialogCancel>
-                                            <AlertDialogAction
-                                                onClick={() =>
-                                                    handleStatusChange(
-                                                        'RETURNED',
-                                                    )
-                                                }
-                                                className="bg-orange-600 hover:bg-orange-700"
-                                            >
-                                                Ya, Tandai Retur
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            )}
-                        {/* Batalkan Pengiriman — reverse a SHIPPED DO: stock, invoice
-                            & reservations flow back atomically. Blue, not red — this
-                            is a valid correction, not an emergency (§4.2 plan). */}
-                        {canReverseShipment && (
-                            <AlertDialog
-                                onOpenChange={(open) => {
-                                    if (!open) setReverseReason('');
-                                }}
-                            >
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                                    >
-                                        <RotateCcw className="mr-1 h-3.5 w-3.5" />{' '}
-                                        Batalkan Pengiriman
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Batalkan Pengiriman DO{' '}
-                                            {order.orderNumber}?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription asChild>
-                                            <div className="space-y-2">
-                                                <p>
-                                                    Stok akan dikembalikan ke{' '}
-                                                    {order.sourceLocation
-                                                        ?.name ?? 'lokasi asal'}
-                                                    , invoice draft/belum
-                                                    dibayar untuk SO{' '}
-                                                    {
-                                                        order.salesOrder
-                                                            ?.orderNumber
-                                                    }{' '}
-                                                    akan dibatalkan, dan SO
-                                                    kembali ke status siap
-                                                    kirim. Tindakan ini tidak
-                                                    dapat diurungkan.
-                                                </p>
-                                                <Textarea
-                                                    placeholder="Alasan pembatalan (wajib, min. 5 karakter)"
-                                                    value={reverseReason}
-                                                    onChange={(e) =>
-                                                        setReverseReason(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    className="text-sm"
-                                                />
-                                            </div>
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Batal
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                handleReverseShipment()
-                                            }
-                                            className="bg-blue-600 hover:bg-blue-700"
-                                            disabled={
-                                                isReversing ||
-                                                reverseReason.trim().length < 5
-                                            }
-                                        >
-                                            Ya, Batalkan Pengiriman
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
-                        <span className="text-muted-foreground text-sm">
-                            Terkait dengan{' '}
-                            <Link
-                                href={
-                                    warehouseMode
-                                        ? `/warehouse/outgoing/orders/${order.salesOrderId}`
-                                        : `/sales/orders/${order.salesOrderId}`
-                                }
-                                className="text-blue-600 dark:text-blue-400 hover:underline"
-                            >
-                                {order.salesOrder?.orderNumber}
+            <header className="space-y-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0 space-y-3">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={basePath}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                {actionLabels.back}
                             </Link>
-                        </span>
-                        <DeliveryPrintActions
-                            order={order}
-                            invoices={invoices}
-                            bundleHref={bundleHref}
-                            setShowPreview={setShowPreview}
-                        />
+                        </Button>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h1 className="break-words text-2xl font-bold tracking-tight sm:text-3xl">
+                                    {salesLabels.deliveryOrder}{' '}
+                                    {order.orderNumber}
+                                </h1>
+                                {getStatusBadge(order.status)}
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                <Badge variant="outline">
+                                    {stockStatusLabel}
+                                </Badge>
+                                {isLoadVerified && (
+                                    <Badge
+                                        variant="outline"
+                                        className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                                    >
+                                        Muat terverifikasi
+                                    </Badge>
+                                )}
+                                <span>
+                                    Terkait dengan{' '}
+                                    <Link
+                                        href={
+                                            warehouseMode
+                                                ? `/warehouse/outgoing/orders/${order.salesOrderId}`
+                                                : `/sales/orders/${order.salesOrderId}`
+                                        }
+                                        className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                                    >
+                                        {order.salesOrder?.orderNumber}
+                                    </Link>
+                                </span>
+                            </div>
+                        </div>
                     </div>
+                    <DeliveryCommandActions
+                        order={order}
+                        warehouseMode={warehouseMode}
+                        nextStep={nextStep}
+                        canShip={canShip}
+                        canReverseShipment={canReverseShipment}
+                        isLoading={isLoading}
+                        invoices={invoices}
+                        bundleHref={bundleHref}
+                        setShowPreview={setShowPreview}
+                        onStatusChange={handleStatusChange}
+                        onReverseShipment={handleReverseShipment}
+                    />
                 </div>
-            </div>
+            </header>
 
-            {/* Status explainer */}
-            {canEditQty && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-                    <p className="font-medium">{salesLabels.sjDraft}</p>
-                    <p className="text-xs mt-1 text-muted-foreground dark:text-amber-200/80">
-                        {salesLabels.sjPendingBanner}
+            {canEditQty && !warehouseMode && (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/20 px-4 py-3">
+                    <DeliveryRevisionDialog
+                        deliveryOrderId={order.id}
+                        onSaved={() => {
+                            setEditingQty(false);
+                            setStockReadiness(null);
+                        }}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                        Jumlah atau barang berbeda? Revisi SO dan SJ bersama
+                        sebelum verifikasi muatan.
                     </p>
                 </div>
             )}
-            {order.status === 'SHIPPED' && (
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-200">
-                    <p className="font-medium">{salesLabels.sjShipped}</p>
-                    <p className="text-xs mt-1 text-muted-foreground dark:text-emerald-200/80">
-                        {salesLabels.sjShippedBanner}
-                    </p>
-                </div>
-            )}
 
-            {/* Stock Readiness Banner — soft warning for PENDING/LOADING DOs */}
             {stockReadiness && stockReadiness.length > 0 && (
-                <StockReadinessBanner lines={stockReadiness} />
+                <StockReadinessBanner lines={stockReadiness} compact />
             )}
 
-            {/* Tracking Banner — only while en route (not yet arrived) */}
             {(order.status === 'SHIPPED' || order.status === 'IN_TRANSIT') && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-4 rounded-lg flex items-start gap-4">
-                    <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
-                        <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
+                    <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900">
+                        <Truck className="h-5 w-5 text-blue-700 dark:text-blue-300" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-blue-900 dark:text-blue-300">
-                            Pengiriman dalam Perjalanan
-                        </h3>
-                        <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                            {order.carrier
-                                ? `${order.carrier}`
-                                : 'Informasi kurir tersedia.'}
+                        <h2 className="font-semibold">Pengiriman dalam Perjalanan</h2>
+                        <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">
+                            {order.carrier || 'Informasi kurir tersedia.'}
                             {order.trackingNumber && (
-                                <>
-                                    {' '}
-                                    No. Resi:{' '}
-                                    <span className="font-mono font-bold">
-                                        {order.trackingNumber}
-                                    </span>
-                                </>
+                                <> · No. Resi: <span className="font-mono font-bold">{order.trackingNumber}</span></>
                             )}
                         </p>
                     </div>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-6">
+            <DeliverySummaryGrid
+                order={order}
+                isLoadVerified={isLoadVerified}
+            />
+
+            <DeliveryProgressTimeline
+                order={order}
+                statusSteps={statusSteps}
+                currentStatusIndex={currentStatusIndex}
+            />
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
+                <div className="min-w-0 space-y-6">
                     <DeliveryItemsCard
                         items={items}
                         canEditQty={canEditQty}
@@ -830,72 +609,67 @@ export function DeliveryOrderDetail({
                             canEdit={!isLoadVerified}
                         />
                     )}
-
-                    <DeliveryProgressTimeline
-                        order={order}
-                        statusSteps={statusSteps}
-                        currentStatusIndex={currentStatusIndex}
-                    />
                 </div>
 
-                <div className="space-y-6">
+                <aside className="min-w-0 space-y-6 lg:sticky lg:top-6 lg:self-start xl:top-40">
+                    <DeliveryReadinessCard
+                        order={order}
+                        isLoadVerified={isLoadVerified}
+                        attachments={safeAttachments}
+                    />
                     <DeliveryInformationCard order={order} />
-
+                    <DeliveryFleetCard
+                        order={order}
+                        warehouseMode={warehouseMode}
+                    />
                     {order.notes && (
                         <Card>
                             <CardHeader>
                                 <CardTitle>{formLabels.notes}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm border-l-2 border-yellow-400 dark:border-yellow-500 pl-3 italic">
+                                <p className="border-l-2 border-yellow-400 pl-3 text-sm italic dark:border-yellow-500">
                                     {order.notes}
                                 </p>
                             </CardContent>
                         </Card>
                     )}
-
-                    {/* Fleet & Pricing Card */}
-                    <DeliveryFleetCard
-                        order={order}
-                        warehouseMode={warehouseMode}
-                    />
-                </div>
+                </aside>
             </div>
 
-            {/* Photos Section — legacy scalar fields, hidden when empty & unusable */}
-            {showLegacyPhotoCard && (
-                <DeliveryPhotosCard
-                    order={order}
-                    canUploadVehicle={canUploadVehicle}
-                    canUploadPOD={canUploadPOD}
-                    uploadingVehicle={uploadingVehicle}
-                    uploadingPOD={uploadingPOD}
-                    vehicleInputRef={vehicleInputRef}
-                    podInputRef={podInputRef}
-                    receivedByName={receivedByName}
-                    setReceivedByName={setReceivedByName}
-                    handlePhotoUpload={handlePhotoUpload}
-                />
-            )}
-
-            {/* Bukti Operasional — the live evidence store (WarehouseOperationalAttachment) */}
-            {(safeAttachments.length > 0 ||
-                order.status === 'PENDING' ||
-                order.status === 'LOADING' ||
-                order.status === 'SHIPPED' ||
-                order.status === 'IN_TRANSIT' ||
-                order.status === 'ARRIVED' ||
-                order.status === 'DELIVERED') && (
-                <DeliveryOperationalEvidenceCard
-                    order={order}
-                    safeAttachments={safeAttachments}
-                    router={router}
-                />
-            )}
-
-            <EntityStatusTimeline
-                entityType="DeliveryOrder"
-                entityId={order.id}
+            <DeliveryActivityTabs
+                hasEvidence={showLegacyPhotoCard || showOperationalEvidence}
+                evidence={
+                    <>
+                        {showLegacyPhotoCard && (
+                            <DeliveryPhotosCard
+                                order={order}
+                                canUploadVehicle={canUploadVehicle}
+                                canUploadPOD={canUploadPOD}
+                                uploadingVehicle={uploadingVehicle}
+                                uploadingPOD={uploadingPOD}
+                                vehicleInputRef={vehicleInputRef}
+                                podInputRef={podInputRef}
+                                receivedByName={receivedByName}
+                                setReceivedByName={setReceivedByName}
+                                handlePhotoUpload={handlePhotoUpload}
+                            />
+                        )}
+                        {showOperationalEvidence && (
+                            <DeliveryOperationalEvidenceCard
+                                order={order}
+                                safeAttachments={safeAttachments}
+                                router={router}
+                            />
+                        )}
+                    </>
+                }
+                audit={
+                    <EntityStatusTimeline
+                        entityType="DeliveryOrder"
+                        entityId={order.id}
+                    />
+                }
             />
 
             <DeliveryPrintPreview

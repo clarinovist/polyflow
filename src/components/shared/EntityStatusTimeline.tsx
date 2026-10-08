@@ -11,6 +11,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { getEntityStatusTimeline } from '@/actions/audit/entity-timeline';
 import type { StatusTimelineEntry } from '@/actions/audit/entity-timeline';
 
@@ -29,21 +30,39 @@ export function EntityStatusTimeline({
 }: EntityStatusTimelineProps) {
     const [entries, setEntries] = useState<StatusTimelineEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+    const [reloadToken, setReloadToken] = useState(0);
 
     useEffect(() => {
         let cancelled = false;
         (async () => {
             setLoading(true);
-            const result = await getEntityStatusTimeline(entityType, entityId);
-            if (!cancelled && result?.success && result.data) {
-                setEntries(result.data);
+            setError(false);
+            try {
+                const result = await getEntityStatusTimeline(
+                    entityType,
+                    entityId,
+                );
+                if (cancelled) return;
+                if (result?.success && result.data) {
+                    setEntries(result.data);
+                } else {
+                    setEntries([]);
+                    setError(true);
+                }
+            } catch {
+                if (!cancelled) {
+                    setEntries([]);
+                    setError(true);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
             }
-            if (!cancelled) setLoading(false);
         })();
         return () => {
             cancelled = true;
         };
-    }, [entityType, entityId]);
+    }, [entityType, entityId, reloadToken]);
 
     if (loading) {
         return (
@@ -54,6 +73,31 @@ export function EntityStatusTimeline({
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm text-muted-foreground">Memuat...</p>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    if (error) {
+        return (
+            <Card role="alert">
+                <CardHeader>
+                    <CardTitle className="text-base">{title}</CardTitle>
+                    <CardDescription>{description}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <p className="text-sm text-destructive">
+                        Riwayat status tidak dapat dimuat. Coba lagi tanpa
+                        meninggalkan halaman ini.
+                    </p>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setReloadToken((value) => value + 1)}
+                    >
+                        Coba lagi
+                    </Button>
                 </CardContent>
             </Card>
         );

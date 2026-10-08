@@ -46,9 +46,9 @@ export function DeliveryPhotosCard({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Vehicle Photo */}
                     <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground uppercase">
+                        <p className="text-sm font-medium text-muted-foreground">
                             Foto Truk Saat Muat
-                        </label>
+                        </p>
                         {order.vehiclePhotoUrl ? (
                             <div className="relative border rounded-lg overflow-hidden h-48">
                                 <Image
@@ -81,7 +81,7 @@ export function DeliveryPhotosCard({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full"
+                                    className="min-h-11 w-full"
                                     onClick={() =>
                                         vehicleInputRef.current?.click()
                                     }
@@ -89,10 +89,10 @@ export function DeliveryPhotosCard({
                                 >
                                     <Upload className="h-4 w-4 mr-2" />
                                     {uploadingVehicle
-                                        ? 'Mengupload...'
+                                        ? 'Mengunggah...'
                                         : order.vehiclePhotoUrl
                                           ? 'Ganti Foto Truk'
-                                          : 'Upload Foto Truk'}
+                                          : 'Unggah Foto Truk'}
                                 </Button>
                             </>
                         )}
@@ -100,9 +100,9 @@ export function DeliveryPhotosCard({
 
                     {/* Proof of Delivery */}
                     <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground uppercase">
+                        <p className="text-sm font-medium text-muted-foreground">
                             Bukti Terima
-                        </label>
+                        </p>
                         {order.proofOfDeliveryUrl ? (
                             <>
                                 <div className="relative border rounded-lg overflow-hidden h-48">
@@ -141,10 +141,14 @@ export function DeliveryPhotosCard({
                         {canUploadPOD && (
                             <>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-medium text-muted-foreground">
+                                    <label
+                                        htmlFor={`delivery-receiver-${order.id}`}
+                                        className="text-sm font-medium text-muted-foreground"
+                                    >
                                         Nama Penerima *
                                     </label>
                                     <input
+                                        id={`delivery-receiver-${order.id}`}
                                         type="text"
                                         value={receivedByName}
                                         onChange={(e) =>
@@ -171,7 +175,7 @@ export function DeliveryPhotosCard({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full"
+                                    className="min-h-11 w-full"
                                     onClick={() => podInputRef.current?.click()}
                                     disabled={
                                         uploadingPOD || !receivedByName.trim()
@@ -179,8 +183,8 @@ export function DeliveryPhotosCard({
                                 >
                                     <Upload className="h-4 w-4 mr-2" />
                                     {uploadingPOD
-                                        ? 'Mengupload...'
-                                        : 'Upload Bukti Terima'}
+                                        ? 'Mengunggah...'
+                                        : 'Unggah Bukti Terima'}
                                 </Button>
                             </>
                         )}

@@ -35,7 +35,7 @@ export function DeliveryFleetCard({
             <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             Kendaraan
                         </span>
                         <p className="font-medium">
@@ -45,7 +45,7 @@ export function DeliveryFleetCard({
                         </p>
                     </div>
                     <div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             Kepemilikan
                         </span>
                         <p className="font-medium">
@@ -57,7 +57,7 @@ export function DeliveryFleetCard({
                         </p>
                     </div>
                     <div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             Sopir
                         </span>
                         <p className="font-medium">
@@ -65,7 +65,7 @@ export function DeliveryFleetCard({
                         </p>
                     </div>
                     <div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             Rute
                         </span>
                         <p className="font-medium">
@@ -73,7 +73,7 @@ export function DeliveryFleetCard({
                         </p>
                     </div>
                     <div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             Tipe Tarif
                         </span>
                         <p className="font-medium">
@@ -85,8 +85,8 @@ export function DeliveryFleetCard({
                         </p>
                     </div>
                     <div>
-                        <span className="text-xs text-muted-foreground">
-                            Est. Berat
+                        <span className="text-sm text-muted-foreground">
+                            Estimasi Berat
                         </span>
                         <p className="font-medium">
                             {order.estimatedWeightKg
@@ -95,8 +95,8 @@ export function DeliveryFleetCard({
                         </p>
                     </div>
                     <div>
-                        <span className="text-xs text-muted-foreground">
-                            Biaya Ops / Rate
+                        <span className="text-sm text-muted-foreground">
+                            Biaya Operasional / Tarif
                         </span>
                         <p className="font-medium">
                             {order.appliedCostRate
@@ -109,8 +109,8 @@ export function DeliveryFleetCard({
                         </p>
                     </div>
                     <div>
-                        <span className="text-xs text-muted-foreground">
-                            Charge Customer / Rate
+                        <span className="text-sm text-muted-foreground">
+                            Tagihan Pelanggan / Tarif
                         </span>
                         <p className="font-medium">
                             {order.appliedChargeRate
@@ -126,8 +126,8 @@ export function DeliveryFleetCard({
                 {(order.totalCost != null || order.totalCharge != null) && (
                     <div className="border-t pt-3 grid grid-cols-2 gap-3 text-sm">
                         <div>
-                            <span className="text-xs text-muted-foreground">
-                                Total Biaya Ops
+                            <span className="text-sm text-muted-foreground">
+                                Total Biaya Operasional
                             </span>
                             <p className="font-semibold text-base">
                                 {order.totalCost != null
@@ -140,8 +140,8 @@ export function DeliveryFleetCard({
                             </p>
                         </div>
                         <div>
-                            <span className="text-xs text-muted-foreground">
-                                Total Charge Customer
+                            <span className="text-sm text-muted-foreground">
+                                Total Tagihan Pelanggan
                             </span>
                             <p className="font-semibold text-base text-emerald-600 dark:text-emerald-400">
                                 {order.totalCharge != null

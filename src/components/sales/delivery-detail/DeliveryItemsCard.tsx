@@ -83,8 +83,16 @@ export function DeliveryItemsCard({
                 )}
             </CardHeader>
             <CardContent>
-                <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
+                <p className="mb-2 text-xs text-muted-foreground md:hidden">
+                    Geser tabel ke samping untuk melihat seluruh rincian.
+                </p>
+                <div
+                    className="overflow-x-auto rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    role="region"
+                    aria-label="Item pengiriman"
+                    tabIndex={0}
+                >
+                    <table className="w-full min-w-[680px] text-sm">
                         <thead className="bg-muted/50 border-b">
                             <tr>
                                 <th className="h-10 px-4 text-left font-medium">

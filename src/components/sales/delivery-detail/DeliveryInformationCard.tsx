@@ -2,6 +2,7 @@ import type { DeliveryOrderDetailData } from './types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, MapPin, Scale, User } from 'lucide-react';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { salesLabels } from '@/lib/labels';
 
 interface DeliveryInformationCardProps {
@@ -18,9 +19,9 @@ export function DeliveryInformationCard({
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                        <User className="h-3 w-3" /> Customer
-                    </label>
+                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <User className="h-4 w-4" /> Pelanggan
+                    </p>
                     <p className="font-medium">
                         {order.salesOrder?.customer?.name || 'N/A'}
                     </p>
@@ -30,37 +31,37 @@ export function DeliveryInformationCard({
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> Asal Gudang
-                    </label>
+                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <MapPin className="h-4 w-4" /> Asal Gudang
+                    </p>
                     <p className="font-medium text-sm">
-                        {order.sourceLocation?.name}
+                        {order.sourceLocation?.name || '—'}
                     </p>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />{' '}
+                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4" />{' '}
                         {salesLabels.deliveryDate}
-                    </label>
+                    </p>
                     <p className="font-medium text-sm">
-                        {format(new Date(order.deliveryDate), 'PPP')}
+                        {format(new Date(order.deliveryDate), 'd MMMM yyyy', { locale: id })}
                     </p>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                        <User className="h-3 w-3" /> Disiapkan Oleh
-                    </label>
+                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <User className="h-4 w-4" /> Disiapkan Oleh
+                    </p>
                     <p className="font-medium text-sm">
                         {order.createdBy?.name || 'Sistem'}
                     </p>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> Alamat Tujuan
-                    </label>
+                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <MapPin className="h-4 w-4" /> Alamat Tujuan
+                    </p>
                     <p className="font-medium text-sm">
                         {order.destinationAddress ||
                             order.salesOrder?.customer?.shippingAddress ||
@@ -71,9 +72,9 @@ export function DeliveryInformationCard({
 
                 {order.estimatedWeightKg && (
                     <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                            <Scale className="h-3 w-3" /> Estimasi Berat
-                        </label>
+                        <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Scale className="h-4 w-4" /> Estimasi Berat
+                        </p>
                         <p className="font-medium text-sm">
                             {Number(order.estimatedWeightKg)} Kg
                         </p>
