@@ -20,7 +20,7 @@ vi.mock('@/actions/admin/permissions', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/actions/admin/permissions')>()),
     getMyExplicitFeaturePermissions: async () => ({ success: true, data: ['feature:view-prices'] }),
 }));
-vi.mock('@/lib/tools/auth-checks', () => ({ requireRole: async () => ({}), requireAuth: async () => ({ user: { role: 'PRODUCTION' } }) }));
+vi.mock('@/lib/tools/auth-checks', () => ({ requireRole: async (roles: string[]) => ({ user: { id: 'mobile-postgres-test', role: roles[0] } }), requireAuth: async () => ({ user: { id: 'mobile-postgres-test', role: 'PRODUCTION' } }) }));
 const db = process.env.RETURN_CREDIT_TEST_DATABASE_URL ? returnTestClient(process.env.RETURN_CREDIT_TEST_DATABASE_URL) : null;
 const run = <T>(fn: () => Promise<T>) => tenantContext.run(db!, fn);
 
