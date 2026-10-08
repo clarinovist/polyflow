@@ -379,3 +379,26 @@ docker compose up -d
     docker compose exec -T db psql -U polyflow -d polyflow -v ON_ERROR_STOP=1 -c \
       'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
     ```
+
+## Restore drill release database
+
+Jalankan restore drill hanya pada PostgreSQL sementara yang terisolasi. Script berikut tidak
+menggunakan koneksi database produksi sebagai target, tidak mem-publish port, memasang backup
+read-only, dan membersihkan container/network/volume sementara melalui trap.
+
+1. Catat jumlah database unik pada output backup release terbaru (main + tenant aktif).
+2. Ambil immutable digest image yang sedang berjalan dan jalankan dari host produksi:
+
+```bash
+APP_IMAGE='<registry/image@sha256:digest>' \
+EXPECTED_DATABASES='<jumlah dari release backup>' \
+BACKUP_DIR=/opt/backups/polyflow-premigration \
+./scripts/restore-release-backups.sh
+```
+
+`APP_IMAGE` wajib digest, bukan tag. Untuk menguji set tertentu, isi
+`BACKUP_STAMP=YYYYMMDDHHMMSS`. Hasil sukses hanya mencetak ordinal database, jumlah
+migration/tabel, durasi, dan status health; URL database, credential, nama tenant, serta isi row
+tidak dicetak. Kegagalan restore, migration status, invariant, atau health membuat drill gagal.
+Setelah selesai, pastikan tidak ada resource berlabel `polyflow.restore-drill` yang tertinggal
+dan layanan produksi tetap healthy.
