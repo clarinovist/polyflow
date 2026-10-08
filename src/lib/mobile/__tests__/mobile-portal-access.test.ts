@@ -6,7 +6,9 @@ const mocks = vi.hoisted(() => ({
     features: vi.fn(),
     modules: vi.fn(),
     rollouts: vi.fn(),
-    tenantDb: { appSetting: {} },
+    tenantDb: {
+        current: { appSetting: {} } as { appSetting: object } | undefined,
+    },
 }));
 
 vi.mock('@/auth', () => ({ auth: mocks.auth }));
@@ -14,7 +16,7 @@ vi.mock('@/lib/core/tenant', () => ({
     withTenantPage: (fn: unknown) => fn,
 }));
 vi.mock('@/lib/core/prisma', () => ({
-    getTenantDbFromContext: () => mocks.tenantDb,
+    getTenantDbFromContext: () => mocks.tenantDb.current,
     getEntitlementsFromContext: () => undefined,
 }));
 vi.mock('@/actions/admin/permissions', () => ({
@@ -42,6 +44,7 @@ import {
 describe('mobile portal server guard', () => {
     beforeEach(() => {
         vi.resetAllMocks();
+        mocks.tenantDb.current = { appSetting: {} };
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1', role: 'FINANCE' },
         });
@@ -67,6 +70,16 @@ describe('mobile portal server guard', () => {
         });
     });
 
+    it('distinguishes a missing tenant context from a revoked permission', async () => {
+        mocks.tenantDb.current = undefined;
+
+        await expect(resolveMobilePortalAccess('finance')).resolves.toEqual({
+            allowed: false,
+            reason: 'TENANT_CONTEXT',
+        });
+        expect(mocks.permissions).not.toHaveBeenCalled();
+    });
+
     it('denies when permission state cannot be refreshed', async () => {
         mocks.permissions.mockResolvedValue({ success: false });
         await expect(requireMobilePortalAccess('finance')).rejects.toMatchObject({
@@ -81,7 +94,7 @@ describe('mobile portal server guard', () => {
                 'mobile.portal.marketing.enabled',
                 'mobile.portal.admin.enabled',
             ],
-            mocks.tenantDb.appSetting,
+            mocks.tenantDb.current?.appSetting,
         );
     });
 

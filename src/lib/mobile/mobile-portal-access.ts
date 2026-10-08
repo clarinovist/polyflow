@@ -55,7 +55,10 @@ const readMobilePortalAccessContext = cache(async () => {
 
     const tenantDb = getTenantDbFromContext();
     if (!tenantDb) {
-        return { success: false as const, reason: 'RESOURCE' as const };
+        return {
+            success: false as const,
+            reason: 'TENANT_CONTEXT' as const,
+        };
     }
     const rolloutKeys = MOBILE_PORTAL_REGISTRY.flatMap((portal) =>
         portal.rolloutKey ? [portal.rolloutKey] : [],

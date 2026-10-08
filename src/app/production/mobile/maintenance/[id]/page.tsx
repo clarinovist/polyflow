@@ -16,7 +16,7 @@ import {
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MaintenanceActions } from './actions';
-import { resolveMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
+import { resolveMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Detail Maintenance Mobile | PolyFlow' };
@@ -32,7 +32,7 @@ export default async function MobileMaintenanceDetailPage({
         return <MobileReadError title="Detail maintenance belum tersedia" />;
     }
     const order = result.data;
-    const capabilityDecision = await resolveMobilePortalAccess(
+    const capabilityDecision = await resolveMobilePortalPageAccess(
         'production-supervisor',
         'feature:mobile-maintenance-approval',
     );

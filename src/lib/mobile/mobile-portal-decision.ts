@@ -14,6 +14,7 @@ export type MobilePortalDecisionReason =
     | 'DESKTOP_ONLY'
     | 'ROLE'
     | 'MODULE'
+    | 'TENANT_CONTEXT'
     | 'RESOURCE'
     | 'ROLLOUT'
     | 'FEATURE'

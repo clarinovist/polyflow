@@ -17,6 +17,8 @@ const DENIAL_COPY: Record<string, string> = {
     desktop_only: 'Akun ini tetap menggunakan ruang kerja desktop.',
     role: 'Portal itu tidak tersedia untuk role Anda.',
     module: 'Modul portal tersebut sedang tidak aktif.',
+    tenant_context:
+        'Konteks perusahaan belum tersedia. Muat ulang atau login kembali.',
     resource: 'Izin portal tersebut sudah dicabut.',
     rollout: 'Portal tersebut belum diaktifkan untuk tenant ini.',
     feature: 'Kapabilitas aksi tersebut belum diaktifkan.',
