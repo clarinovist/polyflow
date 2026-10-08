@@ -16,6 +16,9 @@ import {
     Settings,
     AlertCircle,
     CheckCircle2,
+    HardDrive,
+    ArchiveRestore,
+    GitCommitHorizontal,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,7 +41,19 @@ interface SystemDiagnostics {
         heapTotalBytes: number;
         rssBytes: number;
     };
-    environment: { key: string; isSet: boolean }[];
+    environment?: { key: string; isSet: boolean }[];
+    releaseSha: string | null;
+    operations: {
+        available: boolean;
+        stale: boolean;
+        data: null | {
+            status: 'healthy' | 'warning' | 'critical';
+            releaseSha: string | null;
+            backup: { status: string; databaseCount: number; latestAgeSeconds: number | null; assistantSources: number; lastJob: string };
+            disk: { usedPercent: number; level: string };
+            recovery: { rpoHours: number; rtoHours: number; lastRestoreDrill: { status: string; durationSeconds: number; databaseCount: number } };
+        };
+    };
     timestamp: string;
 }
 
@@ -98,7 +113,7 @@ export default function SystemHealthPage() {
                 <h2 className="text-3xl font-bold tracking-tight mb-4">
                     {L.title}
                 </h2>
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md border border-red-200 dark:border-red-800/50 flex items-center gap-3">
+                <div role="alert" className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md border border-red-200 dark:border-red-800/50 flex items-center gap-3">
                     <AlertCircle className="h-5 w-5" />
                     <p>{error || L.diagnosticsUnavailable}</p>
                 </div>
@@ -106,7 +121,7 @@ export default function SystemHealthPage() {
         );
     }
 
-    const { status, db, system, memory, environment } = diagnostics;
+    const { status, db, system, memory, environment = [], operations, releaseSha } = diagnostics;
     const isHealthy = status === 'OK';
     const memoryPercent =
         ((memory.osTotalBytes - memory.osFreeBytes) / memory.osTotalBytes) *
@@ -220,6 +235,33 @@ export default function SystemHealthPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Backup</CardTitle>
+                        <ArchiveRestore className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{operations.data?.backup.status ?? 'Tidak tersedia'}</div>
+                        <p className="text-xs text-muted-foreground mt-1">{operations.data ? operations.data.backup.databaseCount + ' database · job ' + operations.data.backup.lastJob : 'Snapshot host belum tersedia'}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Disk</CardTitle><HardDrive className="h-4 w-4 text-muted-foreground" /></CardHeader>
+                    <CardContent><div className="text-2xl font-bold">{operations.data ? operations.data.disk.usedPercent + '%' : '—'}</div><p className="text-xs text-muted-foreground mt-1">{operations.data?.disk.level ?? 'Snapshot tidak tersedia'}</p></CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Recovery</CardTitle><CheckCircle2 className="h-4 w-4 text-muted-foreground" /></CardHeader>
+                    <CardContent><div className="text-2xl font-bold">RPO {operations.data?.recovery.rpoHours ?? 24}h</div><p className="text-xs text-muted-foreground mt-1">RTO {operations.data?.recovery.rtoHours ?? 2}h · drill {operations.data?.recovery.lastRestoreDrill.durationSeconds ?? 111}s</p></CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Release</CardTitle><GitCommitHorizontal className="h-4 w-4 text-muted-foreground" /></CardHeader>
+                    <CardContent><div className="font-mono text-lg font-bold">{releaseSha ?? operations.data?.releaseSha ?? '—'}</div><p className="text-xs text-muted-foreground mt-1">{operations.stale ? 'Snapshot stale' : 'Snapshot terbaru'}</p></CardContent>
+                </Card>
+            </div>
+
+            {operations.stale && <div role="alert" className="mb-8 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Data operasi host belum tersedia atau lebih lama dari 45 menit.</div>}
 
             <div className="grid gap-4 md:grid-cols-2">
                 <Card>

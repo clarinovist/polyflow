@@ -16,6 +16,7 @@ services:
       - ASSISTANT_RUNTIME=${ASSISTANT_RUNTIME:-legacy}
       - ASSISTANT_WORKER_URL=http://assistant-worker:3010
       - ASSISTANT_WORKER_TOKEN=${ASSISTANT_WORKER_TOKEN:?Set ASSISTANT_WORKER_TOKEN in .env}
+      - OPERATIONS_SNAPSHOT_PATH=/app/operations/health.json
     depends_on:
       db:
         condition: service_healthy
@@ -32,6 +33,8 @@ services:
       # Persist pre-migration DB snapshots (survives container recreate).
       # Host dir must be owned by uid 1001 (nextjs) so the app can write.
       - /opt/backups/polyflow-premigration:/app/backups
+      # Sanitized host metrics only; never mount Docker socket or raw backup directories.
+      - /opt/polyflow-operations:/app/operations:ro
     networks:
       - default
       - ceritakita-network

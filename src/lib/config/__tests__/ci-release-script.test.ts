@@ -42,7 +42,7 @@ if (name==='docker' && args[0]==='inspect') {
 }
 if (name==='curl') console.log('healthy');
 `;
-    for (const name of ['git', 'docker', 'curl', 'sleep']) {
+    for (const name of ['git', 'docker', 'curl', 'sleep', 'sudo', 'python3']) {
         writeFileSync(join(bin, name), stub);
         chmodSync(join(bin, name), 0o700);
     }
@@ -66,6 +66,8 @@ describe('release shell contract', () => {
         expect(calls.map(call => [call.name, ...call.args].join(' '))).toEqual([
             'git diff --quiet', 'git diff --cached --quiet', 'git fetch origin main',
             `git checkout --detach ${'a'.repeat(40)}`,
+            'sudo install -d -m 0755 -o 501 -g 20 /opt/polyflow-operations',
+            'python3 scripts/write-operations-snapshot.py',
             'docker login ghcr.io -u fixture --password-stdin',
             'docker compose pull assistant-worker polyflow',
             'docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow',
@@ -88,7 +90,10 @@ describe('release shell contract', () => {
 
     it.each([
         'git diff --quiet', 'git diff --cached --quiet', 'git fetch origin main',
-        `git checkout --detach ${'a'.repeat(40)}`, 'docker login ghcr.io -u fixture --password-stdin',
+        `git checkout --detach ${'a'.repeat(40)}`,
+        'sudo install -d -m 0755 -o 501 -g 20 /opt/polyflow-operations',
+        'python3 scripts/write-operations-snapshot.py',
+        'docker login ghcr.io -u fixture --password-stdin',
         'docker compose pull assistant-worker polyflow',
         'docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow',
         'docker compose up -d --no-deps --no-build assistant-worker',

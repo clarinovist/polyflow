@@ -493,6 +493,8 @@ jobs:
             git checkout --detach "$DEPLOY_SHA"
             export POLYFLOW_IMAGE="$DEPLOY_IMAGE"
             export ASSISTANT_WORKER_IMAGE="$ASSISTANT_WORKER_DEPLOY_IMAGE"
+            sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /opt/polyflow-operations
+            python3 scripts/write-operations-snapshot.py
             printf '%s' "$CR_PAT" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
             docker compose pull assistant-worker polyflow
             # Run schema changes exactly once from the tested immutable web image.
