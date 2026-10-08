@@ -99,7 +99,8 @@ for ((index=0; index<EXPECTED_DATABASES; index++)); do
   docker run --rm --network "$NETWORK" \
     --label polyflow.restore-drill="$RUN_ID" \
     --mount "type=bind,src=$BACKUP_DIR,dst=/backups,readonly" \
-    "$APP_IMAGE" pg_restore -h "$DB_CONTAINER" -U postgres -d "$database" \
+    "$APP_IMAGE" sh -c 'exec pg_restore "$@"' sh \
+    -h "$DB_CONTAINER" -U postgres -d "$database" \
     --exit-on-error --no-owner --no-privileges "/backups/$backup_name"
 
   failed_migrations=$(docker exec "$DB_CONTAINER" psql -h 127.0.0.1 -U postgres -d "$database" -At \
@@ -115,7 +116,7 @@ for ((index=0; index<EXPECTED_DATABASES; index++)); do
   docker run --rm --network "$NETWORK" \
     --label polyflow.restore-drill="$RUN_ID" \
     -e DATABASE_URL="$database_url" \
-    "$APP_IMAGE" node node_modules/prisma/build/index.js migrate status >/dev/null
+    "$APP_IMAGE" sh -c 'exec node node_modules/prisma/build/index.js migrate status' >/dev/null
   duration=$(( $(date +%s) - restore_started ))
   log "Database #$ordinal verified migrations=$migration_count tables=$table_count duration_seconds=$duration"
 done
