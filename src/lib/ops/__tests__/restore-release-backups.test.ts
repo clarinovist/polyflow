@@ -68,7 +68,7 @@ describe('isolated release restore drill contract', () => {
 
     it('verifies restore, migration status, structural invariants, and app health without logging URLs', async () => {
         const source = await import('node:fs/promises').then(({ readFile }) => readFile(script, 'utf8'));
-        expect(source).toContain('docker exec -e PGHOST=/tmp "$DB_CONTAINER" pg_restore');
+        expect(source).toContain('docker exec "$DB_CONTAINER" pg_restore -h 127.0.0.1');
         expect(source).toContain('migrate status');
         expect(source).toContain('failed structural invariants');
         expect(source).toContain('--network "$NETWORK"');
