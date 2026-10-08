@@ -411,7 +411,7 @@ saat ini, bukan RTO yang sudah disetujui owner.
 
 ## Disaster recovery objectives and backup monitoring
 
-Initial owner-review targets, based on the October 2026 drills:
+Approved recovery objectives, accepted by the owner on 8 October 2026:
 
 | Scope | Initial RPO target | Initial RTO target | Evidence |
 | --- | ---: | ---: | --- |
@@ -419,14 +419,14 @@ Initial owner-review targets, based on the October 2026 drills:
 | Durable assistant SQLite state | 24 hours | 2 hours | Consistent snapshot tooling exists; scheduled/offsite recovery evidence remains required |
 | Application images and deployment configuration | Last tested release | 1 hour | Immutable image deployment and health-gated rollout are active |
 
-The targets include operational diagnosis and access time, not only database restore runtime. They
-remain provisional until the owner accepts the permitted data-loss and downtime windows.
+The targets include operational diagnosis and access time, not only database restore runtime.
+A breach requires incident escalation and a follow-up review of backup frequency or recovery capacity.
 
 The scheduled PostgreSQL backup job must now exit non-zero if any configured R2 upload fails. Local
 backup files are retained on that failure so monitoring can alert without sacrificing the recovery
 artifact. Operations should alert when the daily job exits non-zero or when no successful completion
-has been recorded for more than 26 hours. Disk warning/critical thresholds are provisionally 80% and
-90%; current utilization was 42% during the drill.
+has been recorded for more than 26 hours. Disk warning/critical thresholds are 80% and 90%;
+current utilization was 42% during the drill.
 
 Offsite drill baseline, 8 October 2026: the newest complete three-database set was listed and
 downloaded from R2, each gzip stream passed integrity validation, all databases restored into an
