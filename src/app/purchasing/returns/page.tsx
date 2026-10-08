@@ -21,8 +21,23 @@ export default async function PurchaseReturnsPage({
         search: params?.search,
         status: params?.status,
     });
-    const returns =
-        returnsRes.success && returnsRes.data ? returnsRes.data : [];
+    if (!returnsRes.success) {
+        return (
+            <div className="space-y-4 p-6">
+                <h1 className="text-3xl font-bold tracking-tight">
+                    {planningLabels.purchaseReturns}
+                </h1>
+                <p role="alert" className="text-destructive">
+                    {returnsRes.error || 'Gagal memuat retur pembelian.'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Muat ulang halaman untuk mencoba lagi.
+                </p>
+            </div>
+        );
+    }
+
+    const returns = returnsRes.data ?? [];
 
     // Serialize all Prisma objects for Client Components
     const serializedReturns = serializeData(returns);

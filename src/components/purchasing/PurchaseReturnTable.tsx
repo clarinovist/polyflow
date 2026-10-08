@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { PurchaseReturn, PurchaseReturnStatus, Supplier } from '@prisma/client';
 import { RotateCcw, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getStatusLabel, purchasingLabels, formLabels } from '@/lib/labels';
 
 type SerializedPurchaseReturn = Omit<PurchaseReturn, 'totalAmount'> & {
@@ -28,8 +28,6 @@ export function PurchaseReturnTable({
     initialData,
     basePath = '/purchasing/returns',
 }: PurchaseReturnTableProps) {
-    const router = useRouter();
-
     const getStatusColor = (status: PurchaseReturnStatus) => {
         switch (status) {
             case 'DRAFT':
@@ -61,9 +59,13 @@ export function PurchaseReturnTable({
                     <div>
                         <div className="flex items-center gap-2">
                             <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="font-medium">
+                            <Link
+                                href={`${basePath}/${row.original.id}`}
+                                aria-label={`Lihat Detail ${row.original.returnNumber}`}
+                                className="rounded-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
                                 {row.original.returnNumber}
-                            </span>
+                            </Link>
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5 ml-6">
                             {format(
@@ -127,22 +129,27 @@ export function PurchaseReturnTable({
                 ),
             },
         ],
-        [],
+        [basePath],
     );
 
     const renderMobileView = (returns: SerializedPurchaseReturn[]) => (
-        <>
+        <div
+            aria-label="Daftar retur pembelian mobile"
+            className="space-y-3"
+        >
             {returns.length === 0 ? (
                 <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
                     {purchasingLabels.emptyReturns}
                 </div>
             ) : (
                 returns.map((pr) => (
-                    <Card
+                    <Link
                         key={pr.id}
-                        className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-                        onClick={() => router.push(`${basePath}/${pr.id}`)}
+                        href={`${basePath}/${pr.id}`}
+                        aria-label={`Lihat Detail ${pr.returnNumber}`}
+                        className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
+                        <Card className="overflow-hidden motion-safe:active:scale-[0.99] motion-safe:transition-transform">
                         <CardHeader className="p-4 pb-2">
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-2">
@@ -212,10 +219,11 @@ export function PurchaseReturnTable({
                                 </div>
                             </div>
                         </CardContent>
-                    </Card>
+                        </Card>
+                    </Link>
                 ))
             )}
-        </>
+        </div>
     );
 
     return (
@@ -225,6 +233,7 @@ export function PurchaseReturnTable({
                 data={initialData}
                 emptyMessage={purchasingLabels.emptyReturns}
                 minWidth={720}
+                caption="Daftar retur pembelian"
                 renderMobileView={renderMobileView}
             />
         </div>
