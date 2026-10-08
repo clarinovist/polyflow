@@ -40,7 +40,7 @@ export function StatusFilterChips<T extends string>({
                     >
                         <span>{o.label}</span>
                         <span
-                            aria-label={o.count + ' hasil'}
+                            aria-hidden="true"
                             className="rounded-full bg-background/20 px-1.5 tabular-nums"
                         >
                             {o.count}

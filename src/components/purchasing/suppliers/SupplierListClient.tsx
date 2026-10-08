@@ -8,7 +8,9 @@ import { deleteSupplier } from '@/actions/purchasing/supplier';
 import { SupplierDialog } from './SupplierDialog';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { ListToolbar } from '@/components/ui/list-toolbar';
+import { StatusFilterChips } from '@/components/ui/status-filter-chips';
 import { Input } from '@/components/ui/input';
 import {
     Table,
@@ -91,59 +93,52 @@ export function SupplierListClient({ suppliers }: { suppliers: Supplier[] }) {
 
     return (
         <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Supplier
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Kelola penyedia bahan baku dan jasa Anda
-                    </p>
-                </div>
-                <SupplierDialog mode="create" />
-            </div>
+            <PageHeader
+                title="Supplier"
+                description="Kelola penyedia bahan baku dan jasa Anda"
+                actions={<SupplierDialog mode="create" />}
+            />
 
             <div className="space-y-3">
-                <div className="relative">
-                    <Search
-                        aria-hidden="true"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-                    />
-                    <Input
-                        aria-label="Cari supplier"
-                        placeholder="Cari nama, kode, atau telepon..."
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        className="pl-9 pr-9"
-                    />
-                    {search && (
-                        <button
-                            type="button"
-                            aria-label="Hapus pencarian"
-                            onClick={() => setSearch('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
-                    )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {filterButtons.map((option) => (
-                        <Button
-                            key={option.value}
-                            variant={
-                                filter === option.value ? 'default' : 'outline'
-                            }
-                            aria-pressed={filter === option.value}
-                            size="sm"
-                            onClick={() => setFilter(option.value)}
-                            className="h-7 text-xs"
-                        >
-                            {option.label}{' '}
-                            <span className="ml-1">({option.count})</span>
-                        </Button>
-                    ))}
-                </div>
+                <StatusFilterChips
+                    options={filterButtons.map((option) => ({
+                        value: option.value,
+                        label: `${option.label} (${option.count})`,
+                        count: option.count,
+                    }))}
+                    value={filter}
+                    onChange={setFilter}
+                    label="Filter status supplier"
+                />
+                <ListToolbar
+                    search={
+                        <div className="relative min-w-0 flex-1">
+                            <Search
+                                aria-hidden="true"
+                                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                            />
+                            <Input
+                                aria-label="Cari supplier"
+                                placeholder="Cari nama, kode, atau telepon..."
+                                value={search}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
+                                }
+                                className="pl-9 pr-9"
+                            />
+                            {search && (
+                                <button
+                                    type="button"
+                                    aria-label="Hapus pencarian"
+                                    onClick={() => setSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+                    }
+                />
                 <p className="text-sm text-muted-foreground" role="status">
                     Menampilkan {filtered.length} dari {suppliers.length}{' '}
                     supplier

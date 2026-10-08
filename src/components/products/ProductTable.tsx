@@ -26,7 +26,11 @@ import {
     ArchiveRestore,
 } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
-import { deleteVariant, archiveVariant, unarchiveVariant } from '@/actions/product';
+import {
+    deleteVariant,
+    archiveVariant,
+    unarchiveVariant,
+} from '@/actions/product';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
@@ -88,8 +92,14 @@ export function ProductTable({
     catalogPage,
     showPrices = false,
 }: ProductTableProps) {
-    const { items: variants, page, pageSize, total, pageCount, query } =
-        catalogPage;
+    const {
+        items: variants,
+        page,
+        pageSize,
+        total,
+        pageCount,
+        query,
+    } = catalogPage;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [variantToDelete, setVariantToDelete] =
         useState<ProductVariant | null>(null);
@@ -243,7 +253,10 @@ export function ProductTable({
                         <option value={100}>100</option>
                     </select>
                 </label>
-                <span className="text-xs text-muted-foreground" aria-live="polite">
+                <span
+                    className="text-xs text-muted-foreground"
+                    aria-live="polite"
+                >
                     Menampilkan {firstResult}–{lastResult} dari {total} varian
                 </span>
             </form>
@@ -275,430 +288,447 @@ export function ProductTable({
                         <TableCaption className="sr-only">
                             Daftar varian produk
                         </TableCaption>
-                            <TableHeader className="bg-muted/30">
-                                <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
-                                    <SortableTableHead
-                                        className="pl-6"
-                                        sortable
-                                        direction={sortDirection('name')}
-                                        onSort={() => handleSort('name')}
-                                    >
-                                        {productTableLabels.catalogItem}
-                                    </SortableTableHead>
-                                    <TableHead>
-                                        {productTableLabels.skuCode}
-                                    </TableHead>
-                                    <TableHead>
-                                        {productTableLabels.type}
-                                    </TableHead>
-                                    <TableHead>
-                                        {productTableLabels.unit}
-                                    </TableHead>
-                                    <SortableTableHead
-                                        className="text-right"
-                                        sortable
-                                        direction={sortDirection('stock')}
-                                        onSort={() => handleSort('stock')}
-                                    >
-                                        <div className="flex items-center justify-end gap-1">
-                                            <span>{productTableLabels.stockLevel}</span>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        aria-label="Informasi stok"
-                                                        className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                                                    >
-                                                        <Info
-                                                            aria-hidden="true"
-                                                            className="h-3.5 w-3.5"
-                                                        />
-                                                    </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p className="max-w-xs text-xs">
-                                                        {
-                                                            productTableLabels.stockLevelTooltip
-                                                        }
-                                                    </p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </div>
-                                    </SortableTableHead>
-                                    {showPrices && (
-                                        <>
-                                            <SortableTableHead
-                                                className="text-right whitespace-nowrap"
-                                                sortable
-                                                direction={sortDirection('currentCost')}
-                                                onSort={() => handleSort('currentCost')}
-                                            >
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <span>{productTableLabels.currentCost}</span>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <button
-                                                                type="button"
-                                                                aria-label="Informasi biaya saat ini"
-                                                                className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                                                            >
-                                                                <Info
-                                                                    aria-hidden="true"
-                                                                    className="h-3.5 w-3.5"
-                                                                />
-                                                            </button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p className="max-w-xs text-xs">
-                                                                {
-                                                                    productTableLabels.currentCostTooltip
-                                                                }
-                                                            </p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </div>
-                                            </SortableTableHead>
-                                            <SortableTableHead
-                                                className="text-right whitespace-nowrap"
-                                                sortable
-                                                direction={sortDirection('standardCost')}
-                                                onSort={() => handleSort('standardCost')}
-                                            >
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <span>{productTableLabels.standardCost}</span>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <button
-                                                                type="button"
-                                                                aria-label="Informasi biaya standar"
-                                                                className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                                                            >
-                                                                <Info
-                                                                    aria-hidden="true"
-                                                                    className="h-3.5 w-3.5"
-                                                                />
-                                                            </button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p className="max-w-xs text-xs">
-                                                                {
-                                                                    productTableLabels.standardCostTooltip
-                                                                }
-                                                            </p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </div>
-                                            </SortableTableHead>
-                                            <SortableTableHead
-                                                className="text-right whitespace-nowrap"
-                                                sortable
-                                                direction={sortDirection('buyPrice')}
-                                                onSort={() => handleSort('buyPrice')}
-                                            >
-                                                {productTableLabels.buyPrice}
-                                            </SortableTableHead>
-                                            <SortableTableHead
-                                                className="text-right whitespace-nowrap"
-                                                sortable
-                                                direction={sortDirection('price')}
-                                                onSort={() => handleSort('price')}
-                                            >
-                                                {productTableLabels.catalog}
-                                            </SortableTableHead>
-                                        </>
-                                    )}
-                                    <TableHead className="text-right pr-6">
-                                        {productTableLabels.actions}
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {variants.map((variant) => (
-                                    <TableRow
-                                        key={variant.id}
-                                        className="group border-white/5 hover:bg-primary/[0.02] transition-colors"
-                                    >
-                                        <TableCell className="pl-6 py-4">
-                                            <div className="flex flex-col">
-                                                <Link
-                                                    href={`/dashboard/products/${variant.productId}`}
-                                                    className="font-bold text-sm tracking-tight text-foreground truncate max-w-[300px] hover:text-primary transition-colors"
+                        <TableHeader className="bg-muted/30">
+                            <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
+                                <SortableTableHead
+                                    className="pl-6"
+                                    sortable
+                                    direction={sortDirection('name')}
+                                    onSort={() => handleSort('name')}
+                                >
+                                    {productTableLabels.catalogItem}
+                                </SortableTableHead>
+                                <TableHead>
+                                    {productTableLabels.skuCode}
+                                </TableHead>
+                                <TableHead>{productTableLabels.type}</TableHead>
+                                <TableHead>{productTableLabels.unit}</TableHead>
+                                <SortableTableHead
+                                    className="text-right"
+                                    sortable
+                                    direction={sortDirection('stock')}
+                                    onSort={() => handleSort('stock')}
+                                >
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span>
+                                            {productTableLabels.stockLevel}
+                                        </span>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Informasi stok"
+                                                    className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                                                 >
-                                                    {variant.name ||
-                                                        variant.productName}
-                                                </Link>
-                                                {variant.name &&
-                                                    variant.name !==
-                                                        variant.productName && (
-                                                        <span className="text-[11px] text-muted-foreground font-medium">
-                                                            {
-                                                                variant.productName
-                                                            }
-                                                        </span>
-                                                    )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-white/5">
-                                                {variant.skuCode}
-                                            </span>
-                                            {variant.archivedAt && (
-                                                <Badge
-                                                    variant="outline"
-                                                    className="ml-2 text-[9px] font-bold py-0 h-5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                                                >
+                                                    <Info
+                                                        aria-hidden="true"
+                                                        className="h-3.5 w-3.5"
+                                                    />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p className="max-w-xs text-xs">
                                                     {
-                                                        productTableLabels.archivedBadge
+                                                        productTableLabels.stockLevelTooltip
                                                     }
-                                                </Badge>
+                                                </p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                </SortableTableHead>
+                                {showPrices && (
+                                    <>
+                                        <SortableTableHead
+                                            className="text-right whitespace-nowrap"
+                                            sortable
+                                            direction={sortDirection(
+                                                'currentCost',
                                             )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={`text-[10px] font-bold py-0 h-5 border-transparent ${productTypeBadgeColors[variant.productType]}`}
-                                            >
-                                                {
-                                                    productTypeBadgeLabels[
-                                                        variant.productType
-                                                    ]
-                                                }
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="text-[11px] font-semibold text-muted-foreground">
-                                                {formatUnitLabel(
-                                                    variant.primaryUnit,
-                                                )}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex flex-col items-end">
-                                                <span
-                                                    className={`text-sm font-bold tracking-tight ${variant.stock <= (Number(variant.minStockAlert) || 0) ? 'text-red-500' : 'text-foreground'}`}
-                                                >
-                                                    {variant.stock.toFixed(2)}
+                                            onSort={() =>
+                                                handleSort('currentCost')
+                                            }
+                                        >
+                                            <div className="flex items-center justify-end gap-1">
+                                                <span>
+                                                    {
+                                                        productTableLabels.currentCost
+                                                    }
                                                 </span>
-                                                {variant.minStockAlert && (
-                                                    <span className="text-[9px] text-muted-foreground uppercase tracking-tighter">
-                                                        Min:{' '}
-                                                        {Number(
-                                                            variant.minStockAlert,
-                                                        )}
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            aria-label="Informasi biaya saat ini"
+                                                            className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                                        >
+                                                            <Info
+                                                                aria-hidden="true"
+                                                                className="h-3.5 w-3.5"
+                                                            />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs text-xs">
+                                                            {
+                                                                productTableLabels.currentCostTooltip
+                                                            }
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                        </SortableTableHead>
+                                        <SortableTableHead
+                                            className="text-right whitespace-nowrap"
+                                            sortable
+                                            direction={sortDirection(
+                                                'standardCost',
+                                            )}
+                                            onSort={() =>
+                                                handleSort('standardCost')
+                                            }
+                                        >
+                                            <div className="flex items-center justify-end gap-1">
+                                                <span>
+                                                    {
+                                                        productTableLabels.standardCost
+                                                    }
+                                                </span>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            aria-label="Informasi biaya standar"
+                                                            className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                                        >
+                                                            <Info
+                                                                aria-hidden="true"
+                                                                className="h-3.5 w-3.5"
+                                                            />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs text-xs">
+                                                            {
+                                                                productTableLabels.standardCostTooltip
+                                                            }
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                        </SortableTableHead>
+                                        <SortableTableHead
+                                            className="text-right whitespace-nowrap"
+                                            sortable
+                                            direction={sortDirection(
+                                                'buyPrice',
+                                            )}
+                                            onSort={() =>
+                                                handleSort('buyPrice')
+                                            }
+                                        >
+                                            {productTableLabels.buyPrice}
+                                        </SortableTableHead>
+                                        <SortableTableHead
+                                            className="text-right whitespace-nowrap"
+                                            sortable
+                                            direction={sortDirection('price')}
+                                            onSort={() => handleSort('price')}
+                                        >
+                                            {productTableLabels.catalog}
+                                        </SortableTableHead>
+                                    </>
+                                )}
+                                <TableHead className="text-right pr-6">
+                                    {productTableLabels.actions}
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {variants.map((variant) => (
+                                <TableRow
+                                    key={variant.id}
+                                    className="group border-white/5 hover:bg-primary/[0.02] transition-colors"
+                                >
+                                    <TableCell className="pl-6 py-4">
+                                        <div className="flex flex-col">
+                                            <Link
+                                                href={`/dashboard/products/${variant.productId}`}
+                                                className="font-bold text-sm tracking-tight text-foreground truncate max-w-[300px] hover:text-primary transition-colors"
+                                            >
+                                                {variant.name ||
+                                                    variant.productName}
+                                            </Link>
+                                            {variant.name &&
+                                                variant.name !==
+                                                    variant.productName && (
+                                                    <span className="text-[11px] text-muted-foreground font-medium">
+                                                        {variant.productName}
                                                     </span>
                                                 )}
-                                            </div>
-                                        </TableCell>
-                                        {showPrices && (
-                                            <>
-                                                <TableCell className="text-right font-medium text-sm tabular-nums">
-                                                    <div className="flex flex-col items-end">
-                                                        <span
-                                                            className={
-                                                                variant.currentCost
-                                                                    ? 'text-primary font-bold'
-                                                                    : 'text-muted-foreground'
-                                                            }
-                                                        >
-                                                            {variant.currentCost
-                                                                ? formatRupiah(
-                                                                      Number(
-                                                                          variant.currentCost,
-                                                                      ),
-                                                                  )
-                                                                : '-'}
-                                                        </span>
-                                                        {!variant.currentCost &&
-                                                        variant.standardCost ? (
-                                                            <span className="mt-1 text-[9px] text-muted-foreground">
-                                                                Biaya standar
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-medium text-sm tabular-nums">
-                                                    <div className="flex flex-col items-end">
-                                                        <span
-                                                            className={
-                                                                variant.standardCost
-                                                                    ? 'text-foreground font-bold'
-                                                                    : 'text-muted-foreground'
-                                                            }
-                                                        >
-                                                            {variant.standardCost
-                                                                ? formatRupiah(
-                                                                      Number(
-                                                                          variant.standardCost,
-                                                                      ),
-                                                                  )
-                                                                : '-'}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-medium text-sm tabular-nums">
-                                                    <div className="flex flex-col items-end">
-                                                        <span
-                                                            className={
-                                                                !variant.currentCost &&
-                                                                variant.buyPrice
-                                                                    ? 'text-foreground font-bold'
-                                                                    : 'text-muted-foreground'
-                                                            }
-                                                        >
-                                                            {variant.buyPrice
-                                                                ? formatRupiah(
-                                                                      Number(
-                                                                          variant.buyPrice,
-                                                                      ),
-                                                                  )
-                                                                : '-'}
-                                                        </span>
-                                                        {!variant.currentCost &&
-                                                            variant.buyPrice && (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="text-[8px] h-4 py-0 px-1 mt-1"
-                                                                >
-                                                                    BELI TERAKHIR
-                                                                </Badge>
-                                                            )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-medium text-xs tabular-nums">
-                                                    <div className="flex flex-col items-end">
-                                                        <span
-                                                            className={
-                                                                !variant.currentCost &&
-                                                                !variant.buyPrice
-                                                                    ? 'text-foreground font-bold'
-                                                                    : 'text-muted-foreground'
-                                                            }
-                                                        >
-                                                            {variant.price
-                                                                ? formatRupiah(
-                                                                      Number(
-                                                                          variant.price,
-                                                                      ),
-                                                                  )
-                                                                : '-'}
-                                                        </span>
-                                                        {!variant.currentCost &&
-                                                            !variant.buyPrice &&
-                                                            variant.price && (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="text-[8px] h-4 py-0 px-1 mt-1"
-                                                                >
-                                                                    KATALOG
-                                                                </Badge>
-                                                            )}
-                                                    </div>
-                                                </TableCell>
-                                            </>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-white/5">
+                                            {variant.skuCode}
+                                        </span>
+                                        {variant.archivedAt && (
+                                            <Badge
+                                                variant="outline"
+                                                className="ml-2 text-[9px] font-bold py-0 h-5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                            >
+                                                {
+                                                    productTableLabels.archivedBadge
+                                                }
+                                            </Badge>
                                         )}
-                                        <TableCell className="text-right pr-6">
-                                            <div className="flex justify-end gap-1 opacity-100 transition-opacity">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-11 w-11 transition-colors hover:bg-primary/10 hover:text-primary sm:h-8 sm:w-8"
-                                                    aria-label={actionName(
-                                                        'Edit',
-                                                        variant,
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge
+                                            variant="outline"
+                                            className={`text-[10px] font-bold py-0 h-5 border-transparent ${productTypeBadgeColors[variant.productType]}`}
+                                        >
+                                            {
+                                                productTypeBadgeLabels[
+                                                    variant.productType
+                                                ]
+                                            }
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="text-[11px] font-semibold text-muted-foreground">
+                                            {formatUnitLabel(
+                                                variant.primaryUnit,
+                                            )}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex flex-col items-end">
+                                            <span
+                                                className={`text-sm font-bold tracking-tight ${variant.stock <= (Number(variant.minStockAlert) || 0) ? 'text-red-500' : 'text-foreground'}`}
+                                            >
+                                                {variant.stock.toFixed(2)}
+                                            </span>
+                                            {variant.minStockAlert && (
+                                                <span className="text-[9px] text-muted-foreground uppercase tracking-tighter">
+                                                    Min:{' '}
+                                                    {Number(
+                                                        variant.minStockAlert,
                                                     )}
-                                                    onClick={() =>
-                                                        handleEditClick(
-                                                            variant.productId,
-                                                        )
-                                                    }
-                                                >
-                                                    <Edit aria-hidden="true" className="h-4 w-4" />
-                                                </Button>
-                                                {variant.archivedAt ? (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-11 w-11 transition-colors hover:bg-green-500/10 hover:text-green-600 sm:h-8 sm:w-8"
-                                                                aria-label={actionName(
-                                                                    'Pulihkan',
-                                                                    variant,
-                                                                )}
-                                                                onClick={() =>
-                                                                    handleUnarchive(
-                                                                        variant,
-                                                                    )
-                                                                }
+                                                </span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    {showPrices && (
+                                        <>
+                                            <TableCell className="text-right font-medium text-sm tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span
+                                                        className={
+                                                            variant.currentCost
+                                                                ? 'text-primary font-bold'
+                                                                : 'text-muted-foreground'
+                                                        }
+                                                    >
+                                                        {variant.currentCost
+                                                            ? formatRupiah(
+                                                                  Number(
+                                                                      variant.currentCost,
+                                                                  ),
+                                                              )
+                                                            : '-'}
+                                                    </span>
+                                                    {!variant.currentCost &&
+                                                    variant.standardCost ? (
+                                                        <span className="mt-1 text-[9px] text-muted-foreground">
+                                                            Biaya standar
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-sm tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span
+                                                        className={
+                                                            variant.standardCost
+                                                                ? 'text-foreground font-bold'
+                                                                : 'text-muted-foreground'
+                                                        }
+                                                    >
+                                                        {variant.standardCost
+                                                            ? formatRupiah(
+                                                                  Number(
+                                                                      variant.standardCost,
+                                                                  ),
+                                                              )
+                                                            : '-'}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-sm tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span
+                                                        className={
+                                                            !variant.currentCost &&
+                                                            variant.buyPrice
+                                                                ? 'text-foreground font-bold'
+                                                                : 'text-muted-foreground'
+                                                        }
+                                                    >
+                                                        {variant.buyPrice
+                                                            ? formatRupiah(
+                                                                  Number(
+                                                                      variant.buyPrice,
+                                                                  ),
+                                                              )
+                                                            : '-'}
+                                                    </span>
+                                                    {!variant.currentCost &&
+                                                        variant.buyPrice && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="text-[8px] h-4 py-0 px-1 mt-1"
                                                             >
-                                                                <ArchiveRestore
-                                                                    aria-hidden="true"
-                                                                    className="h-4 w-4"
-                                                                />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            {
-                                                                productTableLabels.unarchiveSku
-                                                            }
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                ) : (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-11 w-11 transition-colors hover:bg-amber-500/10 hover:text-amber-600 sm:h-8 sm:w-8"
-                                                                aria-label={actionName(
-                                                                    'Arsipkan',
-                                                                    variant,
-                                                                )}
-                                                                onClick={() =>
-                                                                    handleArchiveClick(
-                                                                        variant,
-                                                                    )
-                                                                }
+                                                                BELI TERAKHIR
+                                                            </Badge>
+                                                        )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-xs tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span
+                                                        className={
+                                                            !variant.currentCost &&
+                                                            !variant.buyPrice
+                                                                ? 'text-foreground font-bold'
+                                                                : 'text-muted-foreground'
+                                                        }
+                                                    >
+                                                        {variant.price
+                                                            ? formatRupiah(
+                                                                  Number(
+                                                                      variant.price,
+                                                                  ),
+                                                              )
+                                                            : '-'}
+                                                    </span>
+                                                    {!variant.currentCost &&
+                                                        !variant.buyPrice &&
+                                                        variant.price && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="text-[8px] h-4 py-0 px-1 mt-1"
                                                             >
-                                                                <Archive
-                                                                    aria-hidden="true"
-                                                                    className="h-4 w-4"
-                                                                />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            {
-                                                                productTableLabels.archiveSku
-                                                            }
-                                                        </TooltipContent>
-                                                    </Tooltip>
+                                                                KATALOG
+                                                            </Badge>
+                                                        )}
+                                                </div>
+                                            </TableCell>
+                                        </>
+                                    )}
+                                    <TableCell className="text-right pr-6">
+                                        <div className="flex justify-end gap-1 opacity-100 transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-11 w-11 transition-colors hover:bg-primary/10 hover:text-primary sm:h-8 sm:w-8"
+                                                aria-label={actionName(
+                                                    'Edit',
+                                                    variant,
                                                 )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-11 w-11 transition-colors hover:bg-red-500/10 hover:text-red-500 sm:h-8 sm:w-8"
-                                                    aria-label={actionName(
-                                                        'Hapus',
-                                                        variant,
-                                                    )}
-                                                    onClick={() =>
-                                                        handleDeleteClick(
-                                                            variant,
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2
-                                                        aria-hidden="true"
-                                                        className="h-4 w-4"
-                                                    />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </ResponsiveTable>
+                                                onClick={() =>
+                                                    handleEditClick(
+                                                        variant.productId,
+                                                    )
+                                                }
+                                            >
+                                                <Edit
+                                                    aria-hidden="true"
+                                                    className="h-4 w-4"
+                                                />
+                                            </Button>
+                                            {variant.archivedAt ? (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-11 w-11 transition-colors hover:bg-green-500/10 hover:text-green-600 sm:h-8 sm:w-8"
+                                                            aria-label={actionName(
+                                                                'Pulihkan',
+                                                                variant,
+                                                            )}
+                                                            onClick={() =>
+                                                                handleUnarchive(
+                                                                    variant,
+                                                                )
+                                                            }
+                                                        >
+                                                            <ArchiveRestore
+                                                                aria-hidden="true"
+                                                                className="h-4 w-4"
+                                                            />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        {
+                                                            productTableLabels.unarchiveSku
+                                                        }
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            ) : (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-11 w-11 transition-colors hover:bg-amber-500/10 hover:text-amber-600 sm:h-8 sm:w-8"
+                                                            aria-label={actionName(
+                                                                'Arsipkan',
+                                                                variant,
+                                                            )}
+                                                            onClick={() =>
+                                                                handleArchiveClick(
+                                                                    variant,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Archive
+                                                                aria-hidden="true"
+                                                                className="h-4 w-4"
+                                                            />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        {
+                                                            productTableLabels.archiveSku
+                                                        }
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-11 w-11 transition-colors hover:bg-red-500/10 hover:text-red-500 sm:h-8 sm:w-8"
+                                                aria-label={actionName(
+                                                    'Hapus',
+                                                    variant,
+                                                )}
+                                                onClick={() =>
+                                                    handleDeleteClick(variant)
+                                                }
+                                            >
+                                                <Trash2
+                                                    aria-hidden="true"
+                                                    className="h-4 w-4"
+                                                />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ResponsiveTable>
             )}
 
             <div className="max-w-full overflow-x-auto border-t border-white/5 px-4 py-3">
@@ -719,6 +749,9 @@ export function ProductTable({
                     onLastPage={() =>
                         router.push(buildCatalogUrl({ page: pageCount }))
                     }
+                    rangeStart={firstResult}
+                    rangeEnd={lastResult}
+                    totalCount={total}
                 />
             </div>
 
@@ -762,7 +795,10 @@ export function ProductTable({
             </Dialog>
 
             {/* Archive Confirmation Dialog */}
-            <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+            <Dialog
+                open={archiveDialogOpen}
+                onOpenChange={setArchiveDialogOpen}
+            >
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>

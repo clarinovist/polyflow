@@ -1,6 +1,11 @@
 'use client';
 
-import { useEffect, useState, type ComponentProps, type FormEvent } from 'react';
+import {
+    useEffect,
+    useState,
+    type ComponentProps,
+    type FormEvent,
+} from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -22,6 +27,9 @@ import { CustomerDialog } from '@/components/customers/CustomerDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { PageHeader } from '@/components/ui/page-header';
+import { ListToolbar } from '@/components/ui/list-toolbar';
+import { StatusFilterChips } from '@/components/ui/status-filter-chips';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -123,58 +131,70 @@ export default function CustomersPageClient({
 
     return (
         <div className="space-y-6 p-6">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {salesLabels.customers}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {salesLabels.customersDesc}
-                    </p>
-                </div>
-                <CustomerDialog mode="create" />
-            </div>
+            <PageHeader
+                title={salesLabels.customers}
+                description={salesLabels.customersDesc}
+                actions={<CustomerDialog mode="create" />}
+            />
 
             <div className="space-y-3">
-                <form
-                    role="search"
-                    onSubmit={submitSearch}
-                    className="flex gap-2"
-                >
-                    <div className="relative flex-1">
-                        <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-                        <Input
-                            type="search"
-                            name="q"
-                            aria-label="Cari customer"
-                            placeholder="Cari nama, kode, atau telepon..."
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            className="pl-9 pr-9"
-                        />
-                        {search && (
-                            <button
-                                type="button"
-                                aria-label="Hapus pencarian customer"
-                                onClick={() => {
-                                    setSearch('');
-                                    replaceQuery({
-                                        q: undefined,
-                                        page: undefined,
-                                    });
-                                }}
-                                className="text-muted-foreground hover:text-foreground absolute right-3 top-1/2 -translate-y-1/2"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        )}
-                    </div>
-                    <Button type="submit">Cari</Button>
-                </form>
-                <div
-                    className="flex flex-wrap gap-2"
-                    aria-label="Filter customer"
-                >
+                <StatusFilterChips
+                    options={FILTERS.map(({ label, value }) => ({
+                        label,
+                        value,
+                        count: value === pageData.filter ? pageData.total : 0,
+                    }))}
+                    value={pageData.filter}
+                    onChange={(value) =>
+                        replaceQuery({
+                            filter: value === 'all' ? undefined : value,
+                            page: undefined,
+                        })
+                    }
+                    label="Filter customer"
+                />
+                <ListToolbar
+                    search={
+                        <form
+                            role="search"
+                            onSubmit={submitSearch}
+                            className="flex gap-2"
+                        >
+                            <div className="relative flex-1">
+                                <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                                <Input
+                                    type="search"
+                                    name="q"
+                                    aria-label="Cari customer"
+                                    placeholder="Cari nama, kode, atau telepon..."
+                                    value={search}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
+                                    className="pl-9 pr-9"
+                                />
+                                {search && (
+                                    <button
+                                        type="button"
+                                        aria-label="Hapus pencarian customer"
+                                        onClick={() => {
+                                            setSearch('');
+                                            replaceQuery({
+                                                q: undefined,
+                                                page: undefined,
+                                            });
+                                        }}
+                                        className="text-muted-foreground hover:text-foreground absolute right-3 top-1/2 -translate-y-1/2"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                            <Button type="submit">Cari</Button>
+                        </form>
+                    }
+                />
+                <div className="hidden" aria-hidden="true">
                     {FILTERS.map(({ label, value }) => (
                         <Button
                             key={value}
@@ -205,32 +225,30 @@ export default function CustomersPageClient({
                 </p>
             )}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-muted-foreground text-sm" role="status">
-                    Menampilkan {firstResult}–{lastResult} dari {pageData.total}{' '}
-                    customer
-                </p>
-                <label className="flex items-center gap-2 text-sm">
-                    <span>Baris per halaman</span>
-                    <select
-                        aria-label="Jumlah customer per halaman"
-                        value={pageData.pageSize}
-                        onChange={(event) =>
-                            replaceQuery({
-                                pageSize: event.target.value,
-                                page: undefined,
-                            })
-                        }
-                        className="border-input bg-background h-9 rounded-md border px-2"
-                    >
-                        {[25, 50, 100].map((size) => (
-                            <option key={size} value={size}>
-                                {size}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            </div>
+            <p className="text-sm text-muted-foreground" role="status">
+                Menampilkan {firstResult}–{lastResult} dari {pageData.total}{' '}
+                customer
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+                <span>Baris per halaman</span>
+                <select
+                    aria-label="Jumlah customer per halaman"
+                    value={pageData.pageSize}
+                    onChange={(event) =>
+                        replaceQuery({
+                            pageSize: event.target.value,
+                            page: undefined,
+                        })
+                    }
+                    className="border-input bg-background h-9 rounded-md border px-2"
+                >
+                    {[25, 50, 100].map((size) => (
+                        <option key={size} value={size}>
+                            {size}
+                        </option>
+                    ))}
+                </select>
+            </label>
 
             <div className="hidden max-h-[calc(100vh-22rem)] overflow-auto rounded-md border md:block">
                 <Table>
@@ -482,6 +500,9 @@ export default function CustomersPageClient({
                 onLastPage={() =>
                     replaceQuery({ page: String(pageData.totalPages) })
                 }
+                rangeStart={firstResult}
+                rangeEnd={lastResult}
+                totalCount={pageData.total}
             />
 
             {editingCustomer && (
