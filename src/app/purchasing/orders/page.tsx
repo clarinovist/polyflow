@@ -2,6 +2,10 @@ import React, { type ComponentProps } from 'react';
 import { Metadata } from 'next';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseOrderTable } from '@/components/purchasing/orders/PurchaseOrderTable';
+import { PageHeader } from '@/components/ui/page-header';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
 import { serializeData } from '@/lib/utils/utils';
 import { withTenantPage } from '@/lib/core/tenant';
 import { PurchaseOrderStatus } from '@prisma/client';
@@ -15,8 +19,9 @@ import {
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 const getOrdersData = withTenantPage(
-    async (filters: Parameters<typeof PurchaseService.getPurchaseOrdersPage>[0]) =>
-        PurchaseService.getPurchaseOrdersPage(filters),
+    async (
+        filters: Parameters<typeof PurchaseService.getPurchaseOrdersPage>[0],
+    ) => PurchaseService.getPurchaseOrdersPage(filters),
 );
 
 export const metadata: Metadata = {
@@ -49,7 +54,9 @@ export default async function PurchaseOrdersPage(props: {
               : validStatuses;
 
     const search =
-        typeof searchParams.search === 'string' ? searchParams.search : undefined;
+        typeof searchParams.search === 'string'
+            ? searchParams.search
+            : undefined;
     const startDate =
         typeof searchParams.startDate === 'string'
             ? searchParams.startDate
@@ -67,39 +74,61 @@ export default async function PurchaseOrdersPage(props: {
         PURCHASE_ORDER_SORTS,
         'orderDate',
     );
-    const ordersPage = await getOrdersData({
-        page: parsePurchasingPageParam(
-            typeof searchParams.page === 'string' ? searchParams.page : undefined,
-        ),
-        pageSize: parsePurchasingPageParam(
-            typeof searchParams.pageSize === 'string'
-                ? searchParams.pageSize
-                : undefined,
-        ),
-        search,
-        status: statusFilter,
-        ...dateBounds,
-        ...sorting,
-    });
+    let ordersPage: Awaited<ReturnType<typeof getOrdersData>>;
+    try {
+        ordersPage = await getOrdersData({
+            page: parsePurchasingPageParam(
+                typeof searchParams.page === 'string'
+                    ? searchParams.page
+                    : undefined,
+            ),
+            pageSize: parsePurchasingPageParam(
+                typeof searchParams.pageSize === 'string'
+                    ? searchParams.pageSize
+                    : undefined,
+            ),
+            search,
+            status: statusFilter,
+            ...dateBounds,
+            ...sorting,
+        });
+    } catch {
+        return (
+            <div className="space-y-4 p-4 md:p-6">
+                <h1 className="text-2xl font-bold md:text-3xl">
+                    Order Pembelian (PO)
+                </h1>
+                <p role="alert" className="text-destructive">
+                    Gagal memuat order pembelian.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Data tidak dianggap kosong. Muat ulang halaman untuk mencoba
+                    lagi.
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div className="flex flex-col gap-6 p-6">
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            Order Pembelian (PO)
-                        </h1>
-                        <p className="text-muted-foreground">
-                            Kelola procurement dan pesanan supplier.
-                        </p>
-                    </div>
-                </div>
-            </div>
+        <div className="flex min-w-0 flex-col gap-6 p-4 md:p-6">
+            <PageHeader
+                title="Order Pembelian (PO)"
+                description="Kelola procurement dan pesanan supplier."
+                actions={
+                    <Button asChild>
+                        <Link href="/purchasing/orders/create">
+                            <Plus aria-hidden="true" className="h-4 w-4" />
+                            Buat PO
+                        </Link>
+                    </Button>
+                }
+            />
 
             <PurchaseOrderTable
                 orders={
-                    serializeData(ordersPage.items) as unknown as ComponentProps<
+                    serializeData(
+                        ordersPage.items,
+                    ) as unknown as ComponentProps<
                         typeof PurchaseOrderTable
                     >['orders']
                 }

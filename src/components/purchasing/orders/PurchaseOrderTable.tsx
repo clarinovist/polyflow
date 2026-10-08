@@ -26,6 +26,7 @@ import type {
 } from '@/lib/purchasing/paged-list';
 import type { PurchaseOrderSort } from '@/services/purchasing/orders-service';
 import { ClosePurchaseOrderDialog } from './ClosePurchaseOrderDialog';
+import { ListToolbar } from '@/components/ui/list-toolbar';
 
 type POWithRelations = {
     id: string;
@@ -144,10 +145,6 @@ export function PurchaseOrderTable({
             startDate: startDate || undefined,
             endDate: endDate || undefined,
         });
-    };
-
-    const goToPage = (page: number) => {
-        updateUrl({ page: String(page) });
     };
 
     const sortHeader = useCallback(
@@ -376,6 +373,26 @@ export function PurchaseOrderTable({
                     caption="Daftar order pembelian"
                     emptyMessage={purchasingLabels.emptyOrders}
                     minWidth={780}
+                    serverPagination={
+                        pagination
+                            ? {
+                                  pageIndex: Math.max(pagination.page - 1, 0),
+                                  pageCount: pagination.totalPages,
+                                  totalCount: pagination.totalCount,
+                                  pageSize: pagination.pageSize,
+                                  pageSizeOptions: [25, 50, 100],
+                                  onPageChange: (pageIndex) =>
+                                      updateUrl({
+                                          page: String(pageIndex + 1),
+                                      }),
+                                  onPageSizeChange: (pageSize) =>
+                                      updateUrl({
+                                          page: '1',
+                                          pageSize: String(pageSize),
+                                      }),
+                              }
+                            : undefined
+                    }
                     renderMobileView={(rows) => (
                         <ul aria-label="Daftar PO mobile" className="space-y-3">
                             {rows.length === 0 && (
@@ -429,7 +446,7 @@ export function PurchaseOrderTable({
                         </ul>
                     )}
                 >
-                    <div className="grid min-w-0 grid-cols-1 items-center gap-2 sm:flex sm:flex-wrap">
+                    <ListToolbar className="border-0 p-0">
                         <div className="relative min-w-0">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -491,72 +508,9 @@ export function PurchaseOrderTable({
                                 Buat PO
                             </Button>
                         </Link>
-                    </div>
+                    </ListToolbar>
                 </DataTable>
             </div>
-
-            {pagination && (
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm text-muted-foreground" role="status">
-                        Menampilkan {orders.length} dari {pagination.totalCount}{' '}
-                        order
-                    </p>
-                    <div className="flex min-w-0 flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-2 text-sm">
-                            Baris
-                            <select
-                                aria-label="Jumlah baris per halaman"
-                                value={pagination.pageSize}
-                                onChange={(event) =>
-                                    updateUrl({
-                                        page: '1',
-                                        pageSize: event.target.value,
-                                    })
-                                }
-                                className="h-9 rounded-md border border-input bg-background px-2"
-                            >
-                                {[25, 50, 100].map((size) => (
-                                    <option key={size} value={size}>
-                                        {size}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <nav
-                            aria-label="Paginasi order pembelian"
-                            className="flex min-w-0 flex-wrap items-center gap-2"
-                        >
-                            <span className="text-sm text-muted-foreground">
-                                Halaman {pagination.page} dari{' '}
-                                {pagination.totalPages || 1}
-                            </span>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                aria-label="Halaman sebelumnya"
-                                disabled={pagination.page <= 1}
-                                onClick={() => goToPage(pagination.page - 1)}
-                            >
-                                Sebelumnya
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                aria-label="Halaman berikutnya"
-                                disabled={
-                                    pagination.totalPages === 0 ||
-                                    pagination.page >= pagination.totalPages
-                                }
-                                onClick={() => goToPage(pagination.page + 1)}
-                            >
-                                Berikutnya
-                            </Button>
-                        </nav>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

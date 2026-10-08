@@ -16,6 +16,8 @@ vi.mock('@/actions/purchasing/close-purchase-order', () => ({ closePurchaseOrder
 
 import { PurchaseOrderTable } from '../PurchaseOrderTable';
 
+Element.prototype.scrollIntoView = vi.fn();
+
 const orders = [
     {
         id: 'po-51',
@@ -69,9 +71,11 @@ describe('PurchaseOrderTable paged list', () => {
             name: 'Daftar order pembelian',
         });
         expect(within(table).getByText('PO-2026-0051')).toBeTruthy();
-        expect(screen.getByText('Menampilkan 1 dari 101 order')).toBeTruthy();
         expect(
-            screen.getByRole('navigation', { name: 'Paginasi order pembelian' }),
+            screen.getByRole('status').textContent,
+        ).toContain('Menampilkan 51–100 dari 101');
+        expect(
+            screen.getByRole('navigation', { name: 'Paginasi tabel' }),
         ).toBeTruthy();
         expect(
             screen.getByRole('columnheader', { name: 'No. PO' }).getAttribute(
@@ -109,9 +113,10 @@ describe('PurchaseOrderTable paged list', () => {
             '/purchasing/orders?page=3&pageSize=50&status=SENT',
         );
 
-        fireEvent.change(screen.getByLabelText('Jumlah baris per halaman'), {
-            target: { value: '100' },
-        });
+        fireEvent.click(
+            screen.getByRole('combobox', { name: 'Jumlah baris per halaman' }),
+        );
+        fireEvent.click(screen.getByRole('option', { name: '100' }));
         expect(push).toHaveBeenLastCalledWith(
             '/purchasing/orders?page=1&pageSize=100&status=SENT',
         );
