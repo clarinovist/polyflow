@@ -1,12 +1,12 @@
-import { getDeliveryOrders } from '@/actions/inventory/deliveries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getClosedDeliveryOrders } from '@/actions/inventory/deliveries';
 import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
-import { serializeData } from '@/lib/utils/utils';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
+import { serializeData } from '@/lib/utils/utils';
 import { warehouseLabels } from '@/lib/labels';
 
 export default async function WarehouseOutgoingHistoryPage({
@@ -16,61 +16,59 @@ export default async function WarehouseOutgoingHistoryPage({
 }) {
     const params = await searchParams;
     const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
-
-    const checkStart = params?.startDate
+    const startDate = params.startDate
         ? parseISO(params.startDate)
-        : defaultStart;
-    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+        : startOfMonth(now);
+    const endDate = params.endDate ? parseISO(params.endDate) : endOfMonth(now);
+    const result = await getClosedDeliveryOrders({ startDate, endDate });
 
-    const result = await getDeliveryOrders({
-        startDate: checkStart,
-        endDate: checkEnd,
-    });
-
-    const orders =
-        result.success && result.data ? serializeData(result.data) : [];
-    const closedOrders = orders.filter(
-        (o: { status: string }) =>
-            o.status !== 'PENDING' && o.status !== 'LOADING',
-    );
-
-    return (
-        <div className="flex flex-col space-y-6 p-6">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href="/warehouse/outgoing">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Kembali
-                        </Link>
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            {warehouseLabels.outgoingHistory}
-                        </h1>
-                        <p className="text-muted-foreground">
-                            Pengiriman yang sudah selesai diproses gudang.
-                        </p>
-                    </div>
-                </div>
-                <UrlTransactionDateFilter defaultPreset="this_month" />
+    if (!result.success) {
+        return (
+            <div className="space-y-4 p-4 md:p-6">
+                <h1 className="text-2xl font-bold md:text-3xl">
+                    {warehouseLabels.outgoingHistory}
+                </h1>
+                <p role="alert" className="text-destructive">
+                    {result.error || 'Gagal memuat riwayat pengiriman.'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Data tidak dianggap kosong. Muat ulang halaman untuk mencoba
+                    lagi.
+                </p>
             </div>
+        );
+    }
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>
-                        Riwayat Pengiriman ({closedOrders.length})
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <DeliveryOrderTable
-                        initialData={closedOrders}
-                        basePath="/warehouse/outgoing"
-                        mode="history"
-                    />
-                </CardContent>
-            </Card>
+    const closedOrders = serializeData(result.data ?? []);
+    return (
+        <div className="flex min-w-0 flex-col gap-6 p-4 md:p-6">
+            <PageHeader
+                title={warehouseLabels.outgoingHistory}
+                description="Pengiriman berstatus tertutup pada periode terpilih; PENDING/LOADING tidak masuk riwayat."
+                actions={
+                    <>
+                        <Button variant="outline" asChild>
+                            <Link href="/warehouse/outgoing">
+                                <ArrowLeft
+                                    aria-hidden="true"
+                                    className="h-4 w-4"
+                                />
+                                Antrean aktif
+                            </Link>
+                        </Button>
+                        <UrlTransactionDateFilter defaultPreset="this_month" />
+                    </>
+                }
+            />
+            <p className="text-sm text-muted-foreground" role="status">
+                {closedOrders.length} pengiriman tertutup
+            </p>
+            <DeliveryOrderTable
+                initialData={closedOrders}
+                basePath="/warehouse/outgoing"
+                mode="history"
+                emptyMessage="Belum ada pengiriman tertutup pada periode ini."
+            />
         </div>
     );
 }
