@@ -95,16 +95,16 @@ for ((index=0; index<EXPECTED_DATABASES; index++)); do
   backup_name=$(basename "${BACKUP_FILES[$index]}")
   restore_started=$(date +%s)
   log "Restoring database #$ordinal..."
-  docker exec "$DB_CONTAINER" createdb -U postgres "$database"
-  docker exec "$DB_CONTAINER" pg_restore -U postgres -d "$database" \
+  docker exec -e PGHOST=/tmp "$DB_CONTAINER" createdb -U postgres "$database"
+  docker exec -e PGHOST=/tmp "$DB_CONTAINER" pg_restore -U postgres -d "$database" \
     --exit-on-error --no-owner --no-privileges "/backups/$backup_name"
 
-  failed_migrations=$(docker exec "$DB_CONTAINER" psql -U postgres -d "$database" -At \
+  failed_migrations=$(docker exec -e PGHOST=/tmp "$DB_CONTAINER" psql -U postgres -d "$database" -At \
     -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL;')
   [[ "$failed_migrations" == "0" ]] || fail "Database #$ordinal contains unfinished migrations"
-  migration_count=$(docker exec "$DB_CONTAINER" psql -U postgres -d "$database" -At \
+  migration_count=$(docker exec -e PGHOST=/tmp "$DB_CONTAINER" psql -U postgres -d "$database" -At \
     -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL;')
-  table_count=$(docker exec "$DB_CONTAINER" psql -U postgres -d "$database" -At \
+  table_count=$(docker exec -e PGHOST=/tmp "$DB_CONTAINER" psql -U postgres -d "$database" -At \
     -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM pg_tables WHERE schemaname = 'public';")
   [[ "$migration_count" -gt 0 && "$table_count" -gt 0 ]] || fail "Database #$ordinal failed structural invariants"
 
