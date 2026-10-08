@@ -2,6 +2,8 @@ import type { ComponentProps } from 'react';
 import { getPurchaseReturns } from '@/actions/purchasing/purchase-returns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { ListResultSummary } from '@/components/ui/list-result-summary';
 import { Plus, RotateCcw, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { PurchaseReturnTable } from '@/components/purchasing/PurchaseReturnTable';
@@ -56,24 +58,24 @@ export default async function PurchaseReturnsPage({
 
     return (
         <div className="flex flex-col space-y-6 p-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {planningLabels.purchaseReturns}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {planningLabels.purchaseReturnsDesc}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
+            <PageHeader
+                title={planningLabels.purchaseReturns}
+                description={planningLabels.purchaseReturnsDesc}
+                actions={
                     <Button asChild>
                         <Link href="/purchasing/returns/create">
-                            <Plus className="mr-2 h-4 w-4" />
+                            <Plus aria-hidden="true" className="h-4 w-4" />
                             {planningLabels.newPurchaseReturn}
                         </Link>
                     </Button>
-                </div>
-            </div>
+                }
+            />
+
+            <ListResultSummary
+                start={returns.length > 0 ? 1 : 0}
+                end={returns.length}
+                total={returns.length}
+            />
 
             {/* Summary Cards */}
             <div className="grid gap-4 md:grid-cols-4">

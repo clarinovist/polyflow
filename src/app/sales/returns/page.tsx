@@ -2,6 +2,8 @@ import type { ComponentProps } from 'react';
 import { getSalesReturns } from '@/actions/sales/sales-returns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
+import { ListResultSummary } from '@/components/ui/list-result-summary';
 import { salesLabels } from '@/lib/labels';
 import {
     Plus,
@@ -86,25 +88,28 @@ export default async function SalesReturnsPage({
 
     return (
         <div className="flex flex-col space-y-6 p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {salesLabels.salesReturns}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {salesLabels.salesReturnsDesc} • Periode: {periodLabel}
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <UrlTransactionDateFilter defaultPreset="this_month" />
-                    <Button asChild>
-                        <Link href="/sales/returns/create">
-                            <Plus className="mr-2 h-4 w-4" />
-                            {salesLabels.newSalesReturn}
-                        </Link>
-                    </Button>
-                </div>
-            </div>
+            <PageHeader
+                title={salesLabels.salesReturns}
+                description={`${salesLabels.salesReturnsDesc} • Periode: ${periodLabel}`}
+                actions={
+                    <>
+                        <UrlTransactionDateFilter defaultPreset="this_month" />
+                        <Button asChild>
+                            <Link href="/sales/returns/create">
+                                <Plus aria-hidden="true" className="h-4 w-4" />
+                                {salesLabels.newSalesReturn}
+                            </Link>
+                        </Button>
+                    </>
+                }
+            />
+
+            <ListResultSummary
+                start={returns.length > 0 ? 1 : 0}
+                end={returns.length}
+                total={returns.length}
+                hint={`Periode ${periodLabel}`}
+            />
 
             {/* P1: counts + total nilai */}
             <div className="grid gap-4 md:grid-cols-5">
