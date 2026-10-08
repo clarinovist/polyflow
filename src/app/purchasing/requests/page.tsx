@@ -7,6 +7,8 @@ import { purchasingLabels } from '@/lib/labels';
 import { PurchaseRequestStatus } from '@prisma/client';
 import { auth } from '@/auth';
 import { getUserRoles } from '@/lib/auth/roles';
+import { PageHeader } from '@/components/ui/page-header';
+import { ListResultSummary } from '@/components/ui/list-result-summary';
 
 export const metadata: Metadata = {
     title: 'Permintaan Pembelian',
@@ -50,25 +52,40 @@ export default async function PurchaseRequestsPage(props: {
         getSuppliers(),
     ]);
 
-    const requests =
-        requestsRes.success && requestsRes.data ? requestsRes.data : [];
+    if (!requestsRes.success) {
+        return (
+            <div className="space-y-4 p-4 md:p-6">
+                <h1 className="text-2xl font-bold md:text-3xl">
+                    {purchasingLabels.purchaseRequest}
+                </h1>
+                <p role="alert" className="text-destructive">
+                    {requestsRes.error || 'Gagal memuat permintaan pembelian.'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Data tidak dianggap kosong.
+                </p>
+            </div>
+        );
+    }
+    const requests = requestsRes.data ?? [];
     const suppliers =
         suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
 
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {purchasingLabels.purchaseRequest}
-                    </h1>
-                    {statusFilter && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Filter status: {statusFilter}
-                        </p>
-                    )}
-                </div>
-            </div>
+        <div className="flex-1 space-y-4 p-4 md:p-6">
+            <PageHeader
+                title={purchasingLabels.purchaseRequest}
+                description={
+                    statusFilter
+                        ? `Filter status: ${statusFilter}`
+                        : 'Kelola permintaan pembelian internal.'
+                }
+            />
+            <ListResultSummary
+                start={requests.length > 0 ? 1 : 0}
+                end={requests.length}
+                total={requests.length}
+            />
             <RequestList
                 requests={
                     requests as unknown as ComponentProps<
