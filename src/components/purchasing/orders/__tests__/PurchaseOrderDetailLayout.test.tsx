@@ -71,6 +71,16 @@ describe('Purchase order detail layout and existing action contracts', () => {
         expect(screen.getByText('Menunggu Review')).toBeTruthy();
         expect(screen.getByText('Dibuat pada 18 September 2026 oleh Synthetic Buyer')).toBeTruthy();
         expect(screen.getByRole('group', { name: 'Aksi pesanan pembelian' }).contains(heading)).toBe(false);
+        expect(
+            screen.getByRole('region', {
+                name: 'Ringkasan pesanan pembelian',
+            }),
+        ).toBeTruthy();
+        expect(screen.getByText('0 dari 1 item diterima penuh')).toBeTruthy();
+        expect(
+            screen.getByText('Belum ada penerimaan barang'),
+        ).toBeTruthy();
+        expect(screen.getByText('Audit Status')).toBeTruthy();
     });
 
     it.each(states)('preserves $status action availability and semantic navigation', (state) => {
@@ -105,6 +115,8 @@ describe('Purchase order detail layout and existing action contracts', () => {
         expect(screen.queryByRole('link', { name: 'Edit PO' })).toBeNull();
         expect(screen.queryByRole('columnheader', { name: 'Harga Satuan' })).toBeNull();
         expect(screen.queryByText('Total Keseluruhan')).toBeNull();
+        expect(screen.getByText('Harga disembunyikan di portal gudang')).toBeTruthy();
+        expect(screen.queryByText(/Rps/)).toBeNull();
     });
 
     it.each(['PLANNING', 'WAREHOUSE', 'FINANCE'])('preserves closure role restriction for %s', (role) => {

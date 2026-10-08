@@ -152,6 +152,17 @@ describe('ScheduleDetailClient characterization', () => {
     it('starts with compact plans, links to the correct trip, and loads history only when selected', async () => {
         await mount();
         expect(screen.getByRole('tab', { name: 'Rencana Kirim' }).getAttribute('aria-selected')).toBe('true');
+        expect(
+            screen.getByRole('region', { name: 'Ringkasan jadwal kirim' }),
+        ).toBeTruthy();
+        const actions = screen.getByRole('group', {
+            name: 'Aksi jadwal kirim',
+        });
+        expect(actions).toBeTruthy();
+        expect(
+            within(actions).getByRole('button', { name: 'Aktifkan Jadwal' })
+                .className,
+        ).toContain('order-first');
         expect(screen.queryByRole('article')).toBeNull();
         expect(mocks.timeline).not.toHaveBeenCalled();
         const details = screen.getByText('4 item · Lihat detail').closest('details');
@@ -370,10 +381,55 @@ describe('ScheduleDetailClient characterization', () => {
         expect(mocks.success).toHaveBeenCalledWith('Status diubah ke "Selesai".');
     });
 
+    it('summarizes external transport as assigned and flags a truly unassigned trip', async () => {
+        const view = await mount(
+            schedule({
+                vehicles: [
+                    trip({
+                        id: 'fixture-external',
+                        vehicleId: null,
+                        vehicle: null,
+                        transportMode: 'EXTERNAL_FLEET',
+                        externalProvider: 'Synthetic Logistics',
+                        externalPlate: 'EXT-SYNTHETIC',
+                    }),
+                ],
+            }),
+        );
+        expect(
+            screen.getByText('Semua trip memiliki penugasan armada'),
+        ).toBeTruthy();
+        expect(screen.queryByText(/trip tanpa penugasan armada/)).toBeNull();
+
+        view.rerender(
+            <ScheduleDetailClient
+                schedule={schedule({
+                    vehicles: [
+                        trip({
+                            id: 'fixture-unassigned',
+                            vehicleId: null,
+                            vehicle: null,
+                            externalProvider: null,
+                            externalPlate: null,
+                        }),
+                    ],
+                })}
+            />,
+        );
+        expect(screen.getByText('1 trip tanpa penugasan armada')).toBeTruthy();
+        expect(screen.getByRole('status').textContent).toContain(
+            '1 trip tanpa penugasan armada',
+        );
+    });
+
     it('keeps empty summaries/back link and confirms deletion before navigation, with errors staying on page', async () => {
         mocks.removeSchedule.mockResolvedValueOnce({ success: false, error: 'Synthetic delete rejected' }).mockResolvedValueOnce({ success: true });
         await mount(schedule({ vehicles: [] }));
-        expect(screen.getByText(/Belum ada SO yang dijadwalkan/)).toBeTruthy();
+        expect(
+            screen.getByText(
+                'Belum ada SO yang dijadwalkan. Klik Tambah SO untuk memulai.',
+            ),
+        ).toBeTruthy();
         tab('Trip & Armada');
         expect(screen.getByText(/Belum ada trip. Buat trip/)).toBeTruthy();
         expect(screen.getByRole('link', { name: 'Kembali' }).getAttribute('href')).toBe('/sales/delivery-schedules');

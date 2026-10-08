@@ -405,76 +405,89 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
 
     return (
         <div className="mx-auto w-full max-w-screen-2xl space-y-5 p-4 md:p-6">
-            {/* Header */}
-            <Button variant="ghost" size="sm" asChild className="-ml-3">
-                <Link href="/sales/delivery-schedules">
-                    <ArrowLeft className="mr-1 h-4 w-4" />
-                    Kembali
-                </Link>
-            </Button>
-            <div className="flex flex-wrap items-start gap-3">
-                <div className="min-w-0 flex-1 basis-64">
-                    <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
-                        Jadwal Kirim
-                        <Badge className={STATUS_STYLES[schedule.status] || ''}>
-                            {STATUS_LABELS[schedule.status]}
-                        </Badge>
-                    </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {schedule.scheduleNumber} ·{' '}
-                        {formatDate(schedule.weekStart)} —{' '}
-                        {formatDate(schedule.weekEnd)}
-                    </p>
+            <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0 space-y-3">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href="/sales/delivery-schedules">
+                            <ArrowLeft className="h-4 w-4" />
+                            Kembali
+                        </Link>
+                    </Button>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="text-2xl font-semibold tracking-tight">
+                                Jadwal Kirim
+                            </h1>
+                            <Badge className={STATUS_STYLES[schedule.status] || ''}>
+                                {STATUS_LABELS[schedule.status]}
+                            </Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            {schedule.scheduleNumber} ·{' '}
+                            {formatDate(schedule.weekStart)} —{' '}
+                            {formatDate(schedule.weekEnd)}
+                        </p>
+                    </div>
                 </div>
-                {isDRAFT && (
-                    <Button
-                        onClick={() => handleStatusChange('ACTIVE')}
-                        disabled={isActionLoading}
-                    >
-                        <CheckCircle className="h-4 w-4 mr-2" /> Aktifkan Jadwal
-                    </Button>
-                )}
-                {isEditable && !isDRAFT && (
-                    <Button
-                        onClick={() => handleStatusChange('CLOSED')}
-                        disabled={isActionLoading}
-                    >
-                        <CheckCircle className="h-4 w-4 mr-2" /> Tutup Minggu
-                    </Button>
-                )}
-                {schedule.status === 'CLOSED' && (
-                    <Button
-                        onClick={() => handleStatusChange('ACTIVE')}
-                        disabled={isActionLoading}
-                    >
-                        <CheckCircle className="h-4 w-4 mr-2" /> Buka Kembali
-                    </Button>
-                )}
-                {canDelete && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                aria-label="Opsi jadwal"
-                                disabled={isActionLoading}
-                            >
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onSelect={handleDeleteSchedule}
-                                disabled={isActionLoading}
-                                className="text-destructive"
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Hapus Jadwal
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-            </div>
+                <div
+                    role="group"
+                    aria-label="Aksi jadwal kirim"
+                    className="flex flex-wrap items-center gap-2 [&_button]:min-h-11"
+                >
+                    {isDRAFT && (
+                        <Button
+                            onClick={() => handleStatusChange('ACTIVE')}
+                            disabled={isActionLoading}
+                            className="order-first"
+                        >
+                            <CheckCircle className="h-4 w-4" /> Aktifkan Jadwal
+                        </Button>
+                    )}
+                    {isEditable && !isDRAFT && (
+                        <Button
+                            onClick={() => handleStatusChange('CLOSED')}
+                            disabled={isActionLoading}
+                            className="order-first"
+                        >
+                            <CheckCircle className="h-4 w-4" /> Tutup Minggu
+                        </Button>
+                    )}
+                    {schedule.status === 'CLOSED' && (
+                        <Button
+                            onClick={() => handleStatusChange('ACTIVE')}
+                            disabled={isActionLoading}
+                            className="order-first"
+                        >
+                            <CheckCircle className="h-4 w-4" /> Buka Kembali
+                        </Button>
+                    )}
+                    {canDelete && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    aria-label="Opsi jadwal"
+                                    disabled={isActionLoading}
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    Lainnya
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onSelect={handleDeleteSchedule}
+                                    disabled={isActionLoading}
+                                    variant="destructive"
+                                    className="min-h-11"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    Hapus Jadwal
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                </div>
+            </header>
 
             {/* Summary Cards */}
             <ScheduleSummary
@@ -489,9 +502,15 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                     aria-label="Tampilan jadwal kirim"
                     className="h-auto w-full justify-start gap-1 overflow-x-auto sm:w-auto"
                 >
-                    <TabsTrigger value="plan">Rencana Kirim</TabsTrigger>
-                    <TabsTrigger value="trips">Trip & Armada</TabsTrigger>
-                    <TabsTrigger value="history">Riwayat</TabsTrigger>
+                    <TabsTrigger value="plan" className="min-h-11">
+                        Rencana Kirim
+                    </TabsTrigger>
+                    <TabsTrigger value="trips" className="min-h-11">
+                        Trip & Armada
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="min-h-11">
+                        Riwayat
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="plan" className="mt-4">
                     <Card>

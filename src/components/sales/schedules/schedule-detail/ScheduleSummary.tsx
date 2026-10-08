@@ -1,4 +1,5 @@
-import { Card, CardContent } from '@/components/ui/card';
+import { ClipboardList, Gauge, PackageCheck, Truck } from 'lucide-react';
+import { WorkflowSummaryGrid } from '@/components/workflow-detail/WorkflowSummaryGrid';
 import type { Stop, Trip } from './types';
 
 interface ScheduleSummaryProps {
@@ -18,51 +19,87 @@ export function ScheduleSummary({
         (stop) => stop.plannedWeightKg == null,
     ).length;
     const hasWeight = allStops.some((stop) => stop.plannedWeightKg != null);
+    const missingAssignmentCount = trips.filter(
+        (trip) =>
+            !trip.vehicle &&
+            !trip.externalPlate &&
+            !trip.externalProvider,
+    ).length;
+
     return (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-                <CardContent className="pt-6">
-                    <p className="text-sm text-muted-foreground">
-                        Rencana Terjadwal
-                    </p>
-                    <p className="text-2xl font-bold">{allStops.length}</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardContent className="pt-6">
-                    <p className="text-sm text-muted-foreground">
-                        Total Berat Rencana
-                    </p>
-                    <p className="text-2xl font-bold">
-                        {allStops.length > 0 && !hasWeight
-                            ? 'Belum diisi'
-                            : `${totalPlannedKg.toLocaleString('id-ID')} kg`}
-                    </p>
-                    {missingWeightCount > 0 && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            {missingWeightCount} rencana belum memiliki berat
-                        </p>
-                    )}
-                </CardContent>
-            </Card>
-            <Card>
-                <CardContent className="pt-6">
-                    <p className="text-sm text-muted-foreground">
-                        Rencana Tanpa SJ
-                    </p>
-                    <p
-                        className={`text-2xl font-bold ${unlinkedCount > 0 ? 'text-orange-600' : ''}`}
-                    >
-                        {unlinkedCount}
-                    </p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardContent className="pt-6">
-                    <p className="text-sm text-muted-foreground">Trip</p>
-                    <p className="text-2xl font-bold">{trips.length}</p>
-                </CardContent>
-            </Card>
+        <div className="space-y-3">
+            <WorkflowSummaryGrid
+                label="Ringkasan jadwal kirim"
+                items={[
+                    {
+                        label: 'Rencana Terjadwal',
+                        icon: <ClipboardList className="h-4 w-4" />,
+                        value: allStops.length,
+                        detail:
+                            allStops.length > 0
+                                ? 'Stop pengiriman dalam minggu ini'
+                                : 'Belum ada SO yang dijadwalkan',
+                    },
+                    {
+                        label: 'Berat Rencana',
+                        icon: <Gauge className="h-4 w-4" />,
+                        value:
+                            allStops.length > 0 && !hasWeight
+                                ? 'Belum diisi'
+                                : totalPlannedKg.toLocaleString('id-ID') +
+                                  ' kg',
+                        detail:
+                            missingWeightCount > 0
+                                ? missingWeightCount +
+                                  ' rencana belum memiliki berat'
+                                : 'Semua berat tersedia',
+                    },
+                    {
+                        label: 'Tanpa Surat Jalan',
+                        icon: <PackageCheck className="h-4 w-4" />,
+                        value: unlinkedCount,
+                        detail:
+                            unlinkedCount > 0
+                                ? 'Perlu generate Surat Jalan'
+                                : 'Semua rencana sudah terhubung',
+                    },
+                    {
+                        label: 'Trip & Armada',
+                        icon: <Truck className="h-4 w-4" />,
+                        value: trips.length + ' trip',
+                        detail:
+                            missingAssignmentCount > 0
+                                ? missingAssignmentCount +
+                                  ' trip tanpa penugasan armada'
+                                : 'Semua trip memiliki penugasan armada',
+                    },
+                ]}
+            />
+
+            {(unlinkedCount > 0 ||
+                missingWeightCount > 0 ||
+                missingAssignmentCount > 0) && (
+                <div
+                    role="status"
+                    className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+                >
+                    <strong>Perlu perhatian:</strong>{' '}
+                    {[
+                        unlinkedCount > 0
+                            ? unlinkedCount + ' rencana tanpa Surat Jalan'
+                            : null,
+                        missingWeightCount > 0
+                            ? missingWeightCount + ' rencana tanpa berat'
+                            : null,
+                        missingAssignmentCount > 0
+                            ? missingAssignmentCount +
+                              ' trip tanpa penugasan armada'
+                            : null,
+                    ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                </div>
+            )}
         </div>
     );
 }

@@ -75,8 +75,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { EntityStatusTimeline } from '@/components/shared/EntityStatusTimeline';
 import { ClosePurchaseOrderDialog } from './ClosePurchaseOrderDialog';
+import { PurchaseOrderSummaryGrid } from './PurchaseOrderSummaryGrid';
+import { PurchaseOrderAuditDisclosure } from './PurchaseOrderAuditDisclosure';
 import {
     Select,
     SelectContent,
@@ -141,6 +142,9 @@ export function PurchaseOrderDetailClient({
                 Number(item.taxPercent || 0) > 0 || Number(item.taxAmount || 0) > 0,
         );
     const summaryColSpan = showDpp ? 5 : 4;
+    const fullyReceivedItems = order.items.filter(
+        (item) => Number(item.receivedQty) >= Number(item.quantity),
+    ).length;
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -265,7 +269,7 @@ export function PurchaseOrderDetailClient({
 
     return (
         <div className="space-y-6">
-            <header className="min-w-0 space-y-4">
+            <header className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20 xl:flex-row xl:items-start xl:justify-between">
                 <div className="space-y-3">
                     <Button variant="outline" size="sm" asChild>
                         <Link href={basePath}>
@@ -312,7 +316,7 @@ export function PurchaseOrderDetailClient({
                 <div
                     role="group"
                     aria-label="Aksi pesanan pembelian"
-                    className="grid grid-cols-2 gap-2 border-t pt-4 sm:flex sm:flex-wrap sm:items-center [&_button]:min-h-11 [&_a]:min-h-11 [&_button]:max-w-full [&_a]:max-w-full [&_button]:whitespace-normal [&_a]:whitespace-normal [&_button]:h-auto [&_a]:h-auto"
+                    className="grid grid-cols-2 gap-2 border-t pt-4 sm:flex sm:flex-wrap sm:items-center xl:max-w-[58%] xl:justify-end xl:border-t-0 xl:pt-0 [&_button]:min-h-11 [&_a]:min-h-11 [&_button]:max-w-full [&_a]:max-w-full [&_button]:whitespace-normal [&_a]:whitespace-normal [&_button]:h-auto [&_a]:h-auto"
                 >
                     {!warehouseMode && order.status === 'DRAFT' && (
                         <Button
@@ -615,6 +619,16 @@ export function PurchaseOrderDetailClient({
                 </div>
             </header>
 
+            <PurchaseOrderSummaryGrid
+                supplierName={order.supplier.name}
+                itemCount={order.items.length}
+                fullyReceivedItems={fullyReceivedItems}
+                receiptsCount={order.goodsReceipts.length}
+                invoicesCount={order.invoices.length}
+                totalAmount={Number(order.totalAmount ?? 0)}
+                warehouseMode={warehouseMode}
+            />
+
             <AlertDialog
                 open={deleteDialogOpen}
                 onOpenChange={setDeleteDialogOpen}
@@ -897,7 +911,7 @@ export function PurchaseOrderDetailClient({
                     )}
                 </div>
 
-                <div className="min-w-0 space-y-6 [&_p]:[overflow-wrap:anywhere]">
+                <aside className="min-w-0 space-y-6 lg:sticky lg:top-6 lg:self-start xl:top-40 [&_p]:[overflow-wrap:anywhere]">
                     <Card>
                         <CardHeader>
                             <CardTitle>Informasi Supplier</CardTitle>
@@ -1011,12 +1025,6 @@ export function PurchaseOrderDetailClient({
                         </CardContent>
                     </Card>
 
-                    <EntityStatusTimeline
-                        key={order.status}
-                        entityType="PurchaseOrder"
-                        entityId={order.id}
-                    />
-
                     {!warehouseMode && (
                         <Card
                             className={order.invoices.length === 0 ? 'gap-3 py-4' : undefined}
@@ -1080,8 +1088,13 @@ export function PurchaseOrderDetailClient({
                             </CardContent>
                         </Card>
                     )}
-                </div>
+                </aside>
             </div>
+
+            <PurchaseOrderAuditDisclosure
+                orderId={order.id}
+                status={order.status}
+            />
         </div>
     );
 }
