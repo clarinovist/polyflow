@@ -18,10 +18,16 @@ export default async function HrdMobileLayout({
     return (
         <MobilePortalShell
             contentId="hrd-mobile-content"
+            telemetryPortalId="hrd-supervisor"
             header={
                 <MobilePortalHeader
                     title="HRD Mobile"
-                    icon={<Users aria-hidden="true" className="h-5 w-5 text-violet-600 dark:text-violet-400" />}
+                    icon={
+                        <Users
+                            aria-hidden="true"
+                            className="h-5 w-5 text-violet-600 dark:text-violet-400"
+                        />
+                    }
                     actions={
                         <Link
                             href="/mobile"

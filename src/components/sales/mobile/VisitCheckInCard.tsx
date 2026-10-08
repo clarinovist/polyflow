@@ -17,7 +17,22 @@ import {
     fileToDataUrl,
 } from '@/lib/media/compress-image';
 import Link from 'next/link';
-import { startFieldVisitAction, completeFieldVisitAction } from '@/actions/sales/field-visit';
+import {
+    startFieldVisitAction,
+    completeFieldVisitAction,
+} from '@/actions/sales/field-visit';
+import {
+    trackMobileTaskEvent,
+    trackTaskCompleted,
+    trackTaskFailed,
+    trackTaskStarted,
+} from '@/lib/analytics/mobile-task-events';
+import {
+    activeVisitKey,
+    enqueueVisit,
+    type VisitQueuePartition,
+} from '@/lib/mobile/visit-offline-queue';
+import '@/lib/mobile/sales-visit-offline-command';
 
 type VisitCheckInCardProps = {
     customerId: string;
@@ -27,6 +42,7 @@ type VisitCheckInCardProps = {
     isOutsideRoute?: boolean;
     isProspect?: boolean;
     routePlanItemId?: string;
+    queuePartition: VisitQueuePartition;
 };
 
 type ActiveVisit = {
@@ -70,11 +86,12 @@ export function VisitCheckInCard({
     isOutsideRoute = false,
     isProspect = false,
     routePlanItemId,
+    queuePartition,
 }: VisitCheckInCardProps) {
     // Lazily load active visit on mount to avoid set-state-in-effect warning
     const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('active_visit');
+            const saved = localStorage.getItem(activeVisitKey(queuePartition));
             if (saved) {
                 const parsed = JSON.parse(saved) as ActiveVisit;
                 if (parsed.customerId === customerId) {
@@ -224,8 +241,12 @@ export function VisitCheckInCard({
     };
 
     const proceedCheckIn = async (visitData: ActiveVisit) => {
-        // Save to localStorage first (offline-first)
-        localStorage.setItem('active_visit', JSON.stringify(visitData));
+        void trackTaskStarted('/field/sales', 'sales-field', 'visit');
+        // Persist the active low-risk visit in its tenant+user partition.
+        localStorage.setItem(
+            activeVisitKey(queuePartition),
+            JSON.stringify(visitData),
+        );
         updateJourneyPlanStatus(customerId, 'VISITING');
 
         setActiveVisit(visitData);
@@ -235,7 +256,7 @@ export function VisitCheckInCard({
 
         // Best-effort server call
         try {
-            await startFieldVisitAction({
+            const result = await startFieldVisitAction({
                 customerId,
                 latitude: visitData.latitude,
                 longitude: visitData.longitude,
@@ -249,7 +270,21 @@ export function VisitCheckInCard({
                     ? extraReason || undefined
                     : undefined,
             });
+            if (!result.success) {
+                void trackTaskFailed(
+                    '/field/sales',
+                    'sales-field',
+                    'visit-checkin',
+                    'SERVER',
+                );
+            }
         } catch {
+            void trackTaskFailed(
+                '/field/sales',
+                'sales-field',
+                'visit-checkin',
+                'NETWORK',
+            );
             // Server call failed — will be synced later via VisitSyncBanner
         }
     };
@@ -308,26 +343,68 @@ export function VisitCheckInCard({
             routePlanItemId: routePlanItemId || undefined,
         };
 
-        // Save to logs (for sync banner to pick up)
-        const savedLogs = localStorage.getItem('visit_logs');
-        const logs = savedLogs ? JSON.parse(savedLogs) : [];
-        logs.unshift(log);
-        localStorage.setItem('visit_logs', JSON.stringify(logs));
+        // Queue checkout idempotently for the partitioned sync banner.
+        enqueueVisit(localStorage, queuePartition, log);
+        void trackMobileTaskEvent('MOBILE_SYNC_QUEUED', '/field/sales', {
+            portalId: 'sales-field',
+            taskType: 'visit',
+            outcome: 'CHECKOUT',
+        });
 
         // Clear active visit
-        localStorage.removeItem('active_visit');
+        localStorage.removeItem(activeVisitKey(queuePartition));
 
         // Mark journey plan as completed
         updateJourneyPlanStatus(customerId, 'COMPLETED');
 
         // Best-effort server checkout (route item → COMPLETED)
         try {
-            await completeFieldVisitAction({
+            const result = await completeFieldVisitAction({
                 clientVisitId,
                 notes,
                 photoUrl: photoUrl || undefined,
             });
+            if (result.success) {
+                enqueueVisit(localStorage, queuePartition, {
+                    ...log,
+                    synced: true,
+                    retryCount: 0,
+                });
+                void trackTaskCompleted(
+                    '/field/sales',
+                    'sales-field',
+                    'visit',
+                    durationSeconds * 1000,
+                );
+            } else {
+                void trackTaskFailed(
+                    '/field/sales',
+                    'sales-field',
+                    'visit',
+                    'SERVER',
+                );
+                void trackMobileTaskEvent(
+                    'MOBILE_SYNC_QUEUED',
+                    '/field/sales',
+                    {
+                        portalId: 'sales-field',
+                        taskType: 'visit',
+                        outcome: 'CHECKOUT',
+                    },
+                );
+            }
         } catch {
+            void trackTaskFailed(
+                '/field/sales',
+                'sales-field',
+                'visit',
+                'NETWORK',
+            );
+            void trackMobileTaskEvent('MOBILE_SYNC_QUEUED', '/field/sales', {
+                portalId: 'sales-field',
+                taskType: 'visit',
+                outcome: 'CHECKOUT',
+            });
             // Server call failed — will be synced later via VisitSyncBanner
         }
 

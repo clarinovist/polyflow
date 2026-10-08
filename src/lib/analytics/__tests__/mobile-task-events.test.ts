@@ -4,6 +4,9 @@ import {
     trackTaskStarted,
     trackTaskCompleted,
     trackTaskFailed,
+    trackMobilePageView,
+    trackTaskRetry,
+    sanitizeMobileTaskMetadata,
 } from '../mobile-task-events';
 
 // Mock fetch
@@ -105,6 +108,20 @@ describe('mobile-task-events', () => {
         const body = JSON.parse(opts.body);
         expect(body.eventType).toBe('MOBILE_TASK_FAILED');
         expect(body.metadata.outcome).toBe('network');
+    });
+
+    it('tracks page views and retries through the same safe caller', async () => {
+        await trackMobilePageView('/finance/mobile', 'finance');
+        await trackTaskRetry('/field/sales', 'sales-field', 'visit-sync');
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        const pageOpts = (mockFetch.mock.calls[0] as unknown[])[1] as { body: string };
+        const retryOpts = (mockFetch.mock.calls[1] as unknown[])[1] as { body: string };
+        expect(JSON.parse(pageOpts.body).eventType).toBe('MOBILE_PAGE_VIEW');
+        expect(JSON.parse(retryOpts.body).eventType).toBe('MOBILE_TASK_RETRY');
+    });
+
+    it('drops PII and invalid metadata types at the exported sanitizer boundary', () => {
+        expect(sanitizeMobileTaskMetadata({ portalId: 'sales-field', duration: 12, amount: 999, customer: 'private', notes: 'private', durationBad: -1 })).toEqual({ portalId: 'sales-field', duration: 12 });
     });
 
     it('does not throw on fetch failure', async () => {

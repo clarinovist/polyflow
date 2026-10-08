@@ -21,9 +21,14 @@ const VALID_WORKSPACES: readonly string[] = [
 
 const EVENT_TYPES = [
     'FEATURE_VIEW',
+    'MOBILE_PAGE_VIEW',
     'MOBILE_TASK_STARTED',
     'MOBILE_TASK_COMPLETED',
     'MOBILE_TASK_FAILED',
+    'MOBILE_TASK_RETRY',
+    'MOBILE_SYNC_QUEUED',
+    'MOBILE_SYNC_COMPLETED',
+    'MOBILE_SYNC_FAILED',
 ] as const;
 
 const EVENT_SOURCES = ['WEB', 'MOBILE_WEB'] as const;
@@ -36,15 +41,30 @@ const trackSchema = z.object({
     metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-// Telemetry must never become a PII sink: keep flat scalars only.
-function sanitizeTelemetryMetadata(input: unknown): Record<string, string | number | boolean> | undefined {
-    if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+const MOBILE_METADATA_KEYS = new Set([
+    'portalId',
+    'taskType',
+    'outcome',
+    'duration',
+]);
+
+// Mobile telemetry has an exact metadata allowlist; generic web events retain
+// the existing bounded scalar sanitizer for compatibility.
+function sanitizeTelemetryMetadata(
+    input: unknown,
+    source: (typeof EVENT_SOURCES)[number],
+): Record<string, string | number | boolean> | undefined {
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+        return undefined;
     const out: Record<string, string | number | boolean> = {};
     let kept = 0;
-    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(
+        input as Record<string, unknown>,
+    )) {
+        if (source === 'MOBILE_WEB' && !MOBILE_METADATA_KEYS.has(key)) continue;
         if (kept >= 20 || key.length > 64) continue;
         if (typeof value === 'string') {
-            out[key] = value.slice(0, 500);
+            out[key] = value.slice(0, source === 'MOBILE_WEB' ? 80 : 500);
             kept++;
         } else if (typeof value === 'number' || typeof value === 'boolean') {
             out[key] = value;
@@ -78,7 +98,10 @@ export async function POST(req: NextRequest) {
     try {
         const session = await auth();
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 },
+            );
         }
 
         const userId = session.user.id;
@@ -122,31 +145,45 @@ export async function POST(req: NextRequest) {
         try {
             bodyRaw = await req.json();
         } catch {
-            return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'Invalid JSON body' },
+                { status: 400 },
+            );
         }
 
         const parseResult = trackSchema.safeParse(bodyRaw);
         if (!parseResult.success) {
             return NextResponse.json(
-                { error: 'Invalid request payload', details: parseResult.error.format() },
+                {
+                    error: 'Invalid request payload',
+                    details: parseResult.error.format(),
+                },
                 { status: 400 },
             );
         }
 
         const { pathname, sessionId: rawSessionId } = parseResult.data;
         const nestedMeta =
-            parseResult.data.metadata && typeof parseResult.data.metadata === 'object'
+            parseResult.data.metadata &&
+            typeof parseResult.data.metadata === 'object'
                 ? (parseResult.data.metadata as Record<string, unknown>)
                 : undefined;
-        const eventType = parseResult.data.eventType
-            ?? (typeof nestedMeta?.eventType === 'string' && (EVENT_TYPES as readonly string[]).includes(nestedMeta.eventType)
+        const eventType =
+            parseResult.data.eventType ??
+            (typeof nestedMeta?.eventType === 'string' &&
+            (EVENT_TYPES as readonly string[]).includes(nestedMeta.eventType)
                 ? (nestedMeta.eventType as (typeof EVENT_TYPES)[number])
                 : 'FEATURE_VIEW');
-        const source = parseResult.data.source
-            ?? (typeof nestedMeta?.source === 'string' && (EVENT_SOURCES as readonly string[]).includes(nestedMeta.source)
+        const source =
+            parseResult.data.source ??
+            (typeof nestedMeta?.source === 'string' &&
+            (EVENT_SOURCES as readonly string[]).includes(nestedMeta.source)
                 ? (nestedMeta.source as (typeof EVENT_SOURCES)[number])
                 : 'WEB');
-        const cleanMetadata = sanitizeTelemetryMetadata(parseResult.data.metadata);
+        const cleanMetadata = sanitizeTelemetryMetadata(
+            parseResult.data.metadata,
+            source,
+        );
 
         // Server-derived feature resolution.
         // Unmapped paths are recorded (not rejected) so new pages surface
@@ -156,8 +193,15 @@ export async function POST(req: NextRequest) {
         let moduleKey: string;
         let unmappedPath: string | undefined;
         if (!resolved) {
-            const firstSegment = pathname.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] ?? '';
-            moduleKey = VALID_WORKSPACES.includes(firstSegment) ? firstSegment : 'unmapped';
+            const firstSegment =
+                pathname
+                    .split('?')[0]
+                    .split('#')[0]
+                    .split('/')
+                    .filter(Boolean)[0] ?? '';
+            moduleKey = VALID_WORKSPACES.includes(firstSegment)
+                ? firstSegment
+                : 'unmapped';
             featureKey = 'unmapped';
             unmappedPath = pathname.slice(0, 500);
         } else {
@@ -168,9 +212,17 @@ export async function POST(req: NextRequest) {
         // Authorization check for workspace-gated modules
         const validWorkspaces = VALID_WORKSPACES;
         if (validWorkspaces.includes(moduleKey)) {
-            if (!canAccessWorkspace(session.user, moduleKey as WorkspaceKey, pathname)) {
+            if (
+                !canAccessWorkspace(
+                    session.user,
+                    moduleKey as WorkspaceKey,
+                    pathname,
+                )
+            ) {
                 return NextResponse.json(
-                    { error: `Forbidden: user lacks access to module ${moduleKey}` },
+                    {
+                        error: `Forbidden: user lacks access to module ${moduleKey}`,
+                    },
                     { status: 403 },
                 );
             }
@@ -179,7 +231,7 @@ export async function POST(req: NextRequest) {
         const sessionId = (rawSessionId || 'session-default').slice(0, 100);
 
         // Atomic in-memory deduplication check
-        const dedupKey = `${tenantId}:${userId}:${featureKey}:${sessionId}`;
+        const dedupKey = `${tenantId}:${userId}:${featureKey}:${eventType}:${sessionId}`;
         const lastSeen = recentEventsCache.get(dedupKey);
 
         if (lastSeen && now - lastSeen < 3000) {
@@ -199,12 +251,20 @@ export async function POST(req: NextRequest) {
                 source,
                 sessionId,
                 ...(unmappedPath || cleanMetadata
-                    ? { metadata: { ...(cleanMetadata ?? {}), ...(unmappedPath ? { unmappedPath } : {}) } }
+                    ? {
+                          metadata: {
+                              ...(cleanMetadata ?? {}),
+                              ...(unmappedPath ? { unmappedPath } : {}),
+                          },
+                      }
                     : {}),
             },
         });
 
-        return NextResponse.json({ success: true, ...(unmappedPath ? { unmapped: true } : {}) });
+        return NextResponse.json({
+            success: true,
+            ...(unmappedPath ? { unmapped: true } : {}),
+        });
     } catch (error) {
         console.error('[UsageAnalyticsIngestion] Error tracking event:', error);
         return NextResponse.json(

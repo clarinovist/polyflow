@@ -4,13 +4,16 @@ import {
 } from '@/actions/sales/field-actions';
 import { getTodayRoutePlan } from '@/actions/sales/route-plans';
 import { getOutstandingInvoicesByCustomerId } from '@/actions/finance/invoice';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import { CustomerDetailClient } from './CustomerDetailClient';
 
 export default async function SalesMobileCustomerDetailPage(props: {
     params: Promise<{ id: string }>;
 }) {
     const { id } = await props.params;
+    const session = await auth();
+    if (!session?.user?.id || !session.user.tenantId) redirect('/login');
     const [customerRes, ordersRes, invoicesRes, routeRes] = await Promise.all([
         getFieldCustomerById(id),
         getMyFieldSalesOrders(),
@@ -24,8 +27,7 @@ export default async function SalesMobileCustomerDetailPage(props: {
         ordersRes?.success && ordersRes.data ? ordersRes.data : [];
     const invoices =
         invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
-    const routePlan =
-        routeRes?.success && routeRes.data ? routeRes.data : null;
+    const routePlan = routeRes?.success && routeRes.data ? routeRes.data : null;
 
     if (!customer) {
         notFound();
@@ -84,6 +86,10 @@ export default async function SalesMobileCustomerDetailPage(props: {
                 orderNumber: inv.salesOrder?.orderNumber || '',
             }))}
             routePlanItemId={routeItem?.id}
+            queuePartition={{
+                tenantId: session.user.tenantId,
+                userId: session.user.id,
+            }}
         />
     );
 }

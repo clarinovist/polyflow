@@ -15,6 +15,7 @@ export default async function WarehouseMobileLayout({
     return (
         <MobilePortalShell
             contentId="warehouse-mobile-content"
+            telemetryPortalId="warehouse"
             className="bg-background dark:bg-background"
             mainClassName="px-0 py-0"
             header={

@@ -29,6 +29,10 @@ export default async function FieldSalesDashboardPage() {
     const session = await auth();
     const userName =
         (session?.user as { name?: string })?.name?.split(' ')[0] ?? '';
+    const queuePartition =
+        session?.user?.id && session.user.tenantId
+            ? { tenantId: session.user.tenantId, userId: session.user.id }
+            : null;
 
     const [
         pipelineRes,
@@ -54,7 +58,9 @@ export default async function FieldSalesDashboardPage() {
         !complianceRes.success ||
         !followUpsRes.success
     ) {
-        return <MobileReadError title="Ringkasan sales lapangan belum tersedia" />;
+        return (
+            <MobileReadError title="Ringkasan sales lapangan belum tersedia" />
+        );
     }
 
     const pipeline = pipelineRes.data ?? null;
@@ -75,7 +81,12 @@ export default async function FieldSalesDashboardPage() {
     const followUps = followUpsRes.data ?? [];
 
     const totalOutstanding = invoices.reduce(
-        (sum, inv) => sum + (Number(inv.totalAmount) + Number(inv.priceAdjustmentAmount ?? 0) - Number(inv.paidAmount) - Number(inv.creditedAmount ?? 0)),
+        (sum, inv) =>
+            sum +
+            (Number(inv.totalAmount) +
+                Number(inv.priceAdjustmentAmount ?? 0) -
+                Number(inv.paidAmount) -
+                Number(inv.creditedAmount ?? 0)),
         0,
     );
 
@@ -118,7 +129,7 @@ export default async function FieldSalesDashboardPage() {
             </div>
 
             {/* Sync Banner */}
-            <VisitSyncBanner />
+            {queuePartition && <VisitSyncBanner partition={queuePartition} />}
 
             {/* Rute Hari Ini — Above fold priority */}
             <RouteTodaySection

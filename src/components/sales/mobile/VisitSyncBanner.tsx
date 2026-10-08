@@ -5,6 +5,17 @@ import { CloudLightning, Loader2, Check, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { syncVisitLogsAction } from '@/actions/sales/visits';
 import { toast } from 'sonner';
+import {
+    discardFailedVisits,
+    readVisitQueue,
+    writeVisitQueue,
+    type VisitQueuePartition,
+} from '@/lib/mobile/visit-offline-queue';
+import { executeQueuedVisit } from '@/lib/mobile/sales-visit-offline-command';
+import {
+    trackMobileTaskEvent,
+    trackTaskRetry,
+} from '@/lib/analytics/mobile-task-events';
 
 type VisitLog = {
     id: string;
@@ -28,16 +39,19 @@ type VisitLog = {
 
 const MAX_RETRIES = 3;
 
-export function VisitSyncBanner() {
+export function VisitSyncBanner({
+    partition,
+}: {
+    partition: VisitQueuePartition;
+}) {
     const [unsyncedLogs, setUnsyncedLogs] = useState<VisitLog[]>([]);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isOnline, setIsOnline] = useState(true);
     const [failedCount, setFailedCount] = useState(0);
 
     const checkUnsyncedLogs = useCallback(() => {
-        const saved = localStorage.getItem('visit_logs');
-        if (saved) {
-            const logs = JSON.parse(saved) as VisitLog[];
+        const logs = readVisitQueue(localStorage, partition) as VisitLog[];
+        if (logs.length) {
             const unsynced = logs.filter((log) => log.synced === false);
             const failed = logs.filter(
                 (log) =>
@@ -46,8 +60,11 @@ export function VisitSyncBanner() {
             );
             setUnsyncedLogs(unsynced);
             setFailedCount(failed.length);
+        } else {
+            setUnsyncedLogs([]);
+            setFailedCount(0);
         }
-    }, []);
+    }, [partition]);
 
     useEffect(() => {
         setIsOnline(navigator.onLine);
@@ -83,6 +100,7 @@ export function VisitSyncBanner() {
         }
 
         setIsSyncing(true);
+        void trackTaskRetry('/field/sales', 'sales-field', 'visit-sync');
         try {
             const payload = logsToSync.map((log) => ({
                 clientId: log.clientVisitId || log.id,
@@ -100,7 +118,10 @@ export function VisitSyncBanner() {
                 routePlanItemId: log.routePlanItemId || undefined,
             }));
 
-            const res = await syncVisitLogsAction(payload);
+            const res =
+                logsToSync.length === 1
+                    ? await executeQueuedVisit(logsToSync[0])
+                    : await syncVisitLogsAction(payload);
             if (res?.success && res.data?.results) {
                 // Per-item reconciliation
                 const serverResults = res.data.results as {
@@ -113,9 +134,11 @@ export function VisitSyncBanner() {
                     serverResults.map((r) => [r.clientVisitId, r]),
                 );
 
-                const saved = localStorage.getItem('visit_logs');
-                if (saved) {
-                    const logs = JSON.parse(saved) as VisitLog[];
+                const logs = readVisitQueue(
+                    localStorage,
+                    partition,
+                ) as VisitLog[];
+                if (logs.length) {
                     const updated = logs.map((log) => {
                         const clientVisitId = log.clientVisitId || log.id;
                         const serverResult = resultMap.get(clientVisitId);
@@ -131,7 +154,7 @@ export function VisitSyncBanner() {
                         }
                         return log;
                     });
-                    localStorage.setItem('visit_logs', JSON.stringify(updated));
+                    writeVisitQueue(localStorage, partition, updated);
                 }
 
                 const syncedCount = serverResults.filter(
@@ -141,16 +164,43 @@ export function VisitSyncBanner() {
                     (r) => !r.success,
                 ).length;
                 if (failedCount > 0) {
+                    void trackMobileTaskEvent(
+                        'MOBILE_SYNC_FAILED',
+                        '/field/sales',
+                        {
+                            portalId: 'sales-field',
+                            taskType: 'visit-sync',
+                            outcome: 'PARTIAL',
+                        },
+                    );
                     toast.warning(
                         `${syncedCount} sinkron, ${failedCount} gagal`,
                     );
                 } else {
+                    void trackMobileTaskEvent(
+                        'MOBILE_SYNC_COMPLETED',
+                        '/field/sales',
+                        {
+                            portalId: 'sales-field',
+                            taskType: 'visit-sync',
+                            outcome: 'SUCCESS',
+                        },
+                    );
                     toast.success(
                         `${syncedCount} kunjungan berhasil disinkronisasi!`,
                     );
                 }
                 checkUnsyncedLogs();
             } else {
+                void trackMobileTaskEvent(
+                    'MOBILE_SYNC_FAILED',
+                    '/field/sales',
+                    {
+                        portalId: 'sales-field',
+                        taskType: 'visit-sync',
+                        outcome: 'SERVER',
+                    },
+                );
                 markFailed(logsToSync);
                 toast.error(
                     (res as { error?: string })?.error ||
@@ -158,6 +208,11 @@ export function VisitSyncBanner() {
                 );
             }
         } catch (err) {
+            void trackMobileTaskEvent('MOBILE_SYNC_FAILED', '/field/sales', {
+                portalId: 'sales-field',
+                taskType: 'visit-sync',
+                outcome: 'NETWORK',
+            });
             console.error(err);
             markFailed(logsToSync);
             toast.error('Gagal terhubung ke server untuk sinkronisasi.');
@@ -167,9 +222,8 @@ export function VisitSyncBanner() {
     };
 
     const markFailed = (failedLogs: VisitLog[]) => {
-        const saved = localStorage.getItem('visit_logs');
-        if (saved) {
-            const logs = JSON.parse(saved) as VisitLog[];
+        const logs = readVisitQueue(localStorage, partition) as VisitLog[];
+        if (logs.length) {
             const failedIds = new Set(failedLogs.map((l) => l.id));
             const updated = logs.map((log) => {
                 if (failedIds.has(log.id)) {
@@ -177,15 +231,14 @@ export function VisitSyncBanner() {
                 }
                 return log;
             });
-            localStorage.setItem('visit_logs', JSON.stringify(updated));
+            writeVisitQueue(localStorage, partition, updated);
             checkUnsyncedLogs();
         }
     };
 
     const handleRetryFailed = () => {
-        const saved = localStorage.getItem('visit_logs');
-        if (saved) {
-            const logs = JSON.parse(saved) as VisitLog[];
+        const logs = readVisitQueue(localStorage, partition) as VisitLog[];
+        if (logs.length) {
             const retryable = logs.filter(
                 (log) =>
                     log.synced === false && (log.retryCount ?? 0) < MAX_RETRIES,
@@ -197,14 +250,11 @@ export function VisitSyncBanner() {
     };
 
     const handleClearFailed = () => {
-        const saved = localStorage.getItem('visit_logs');
-        if (saved) {
-            const logs = JSON.parse(saved) as VisitLog[];
-            const updated = logs.filter(
-                (log) =>
-                    log.synced !== false || (log.retryCount ?? 0) < MAX_RETRIES,
-            );
-            localStorage.setItem('visit_logs', JSON.stringify(updated));
+        if (!window.confirm('Hapus kunjungan yang gagal setelah batas retry?'))
+            return;
+        const logs = readVisitQueue(localStorage, partition) as VisitLog[];
+        if (logs.length) {
+            discardFailedVisits(localStorage, partition, MAX_RETRIES);
             checkUnsyncedLogs();
             toast.info(
                 'Data kunjungan gagal disinkronisasi telah dibersihkan.',

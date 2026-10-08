@@ -177,7 +177,7 @@ describe('Analytics Track API Route Hardened', () => {
                 pathname: '/production/mobile/tasks',
                 eventType: 'MOBILE_TASK_COMPLETED',
                 source: 'MOBILE_WEB',
-                metadata: { portalId: 'production', taskType: 'opname', durationMs: 1200 },
+                metadata: { portalId: 'production', taskType: 'opname', duration: 1200, durationMs: 1200, amount: 500 },
             }),
         });
 
@@ -192,7 +192,7 @@ describe('Analytics Track API Route Hardened', () => {
                 eventType: 'MOBILE_TASK_COMPLETED',
                 source: 'MOBILE_WEB',
                 sessionId: 'session-default',
-                metadata: { portalId: 'production', taskType: 'opname', durationMs: 1200 },
+                metadata: { portalId: 'production', taskType: 'opname', duration: 1200 },
             },
         });
     });
@@ -221,11 +221,7 @@ describe('Analytics Track API Route Hardened', () => {
         const call = vi.mocked(prisma.usageEvent.create).mock.calls[0][0] as { data: Record<string, unknown> };
         expect(call.data.eventType).toBe('MOBILE_TASK_STARTED');
         expect(call.data.source).toBe('MOBILE_WEB');
-        expect(call.data.metadata).toEqual({
-            eventType: 'MOBILE_TASK_STARTED',
-            source: 'MOBILE_WEB',
-            big: 'x'.repeat(500),
-        });
+        expect(call.data.metadata).toBeUndefined();
     });
 
     it('returns 403 when user lacks workspace access for the feature module', async () => {

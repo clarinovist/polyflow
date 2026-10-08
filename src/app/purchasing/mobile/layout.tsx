@@ -18,10 +18,16 @@ export default async function PurchasingMobileLayout({
     return (
         <MobilePortalShell
             contentId="purchasing-mobile-content"
+            telemetryPortalId="purchasing"
             header={
                 <MobilePortalHeader
                     title="Purchasing Mobile"
-                    icon={<ShoppingCart aria-hidden="true" className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+                    icon={
+                        <ShoppingCart
+                            aria-hidden="true"
+                            className="h-5 w-5 text-blue-600 dark:text-blue-400"
+                        />
+                    }
                     actions={
                         <Link
                             href="/mobile"

@@ -18,10 +18,16 @@ export default async function FinanceMobileLayout({
     return (
         <MobilePortalShell
             contentId="finance-mobile-content"
+            telemetryPortalId="finance"
             header={
                 <MobilePortalHeader
                     title="Finance Mobile"
-                    icon={<Wallet aria-hidden="true" className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />}
+                    icon={
+                        <Wallet
+                            aria-hidden="true"
+                            className="h-5 w-5 text-emerald-600 dark:text-emerald-400"
+                        />
+                    }
                     actions={
                         <Link
                             href="/mobile"

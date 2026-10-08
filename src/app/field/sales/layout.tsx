@@ -41,6 +41,7 @@ export default async function SalesFieldLayout({
     const content = (
         <MobilePortalShell
             contentId="field-sales-content"
+            telemetryPortalId="sales-field"
             className="bg-background dark:bg-background"
             mainClassName="px-0 py-0"
             header={

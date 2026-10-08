@@ -10,5 +10,6 @@ export { MobileSectionHeader } from './MobileSectionHeader';
 export { MobilePortalBottomNav } from './MobilePortalBottomNav';
 export { MobilePortalHeader } from './MobilePortalHeader';
 export { MobilePortalShell } from './MobilePortalShell';
+export { MobilePageTelemetry } from './MobilePageTelemetry';
 export { MobileReadError } from './MobileReadError';
 export { PwaInstallCard } from './PwaInstallCard';

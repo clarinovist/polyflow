@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils/utils';
 import { LiveMobileConnectivity } from './LiveMobileConnectivity';
+import { MobilePageTelemetry } from './MobilePageTelemetry';
 
 interface MobilePortalShellProps {
     children: ReactNode;
     header: ReactNode;
     bottomNavigation: ReactNode;
     contentId: string;
+    telemetryPortalId?: string;
     showConnectivity?: boolean;
     className?: string;
     mainClassName?: string;
@@ -18,6 +20,7 @@ export function MobilePortalShell({
     header,
     bottomNavigation,
     contentId,
+    telemetryPortalId,
     showConnectivity = true,
     className,
     mainClassName,
@@ -36,6 +39,9 @@ export function MobilePortalShell({
                 Lewati ke konten utama
             </a>
             {header}
+            {telemetryPortalId && (
+                <MobilePageTelemetry portalId={telemetryPortalId} />
+            )}
             {showConnectivity && <LiveMobileConnectivity />}
             <main
                 id={contentId}

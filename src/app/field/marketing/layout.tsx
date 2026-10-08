@@ -22,6 +22,7 @@ export default async function MarketingMobileLayout({
     const content = (
         <MobilePortalShell
             contentId="field-marketing-content"
+            telemetryPortalId="marketing-supervisor"
             className="bg-background dark:bg-background"
             header={
                 <MobilePortalHeader

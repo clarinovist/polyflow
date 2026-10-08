@@ -64,6 +64,7 @@ interface CustomerDetailClientProps {
     recentOrders: Order[];
     outstandingInvoices: Invoice[];
     routePlanItemId?: string;
+    queuePartition: { tenantId: string; userId: string };
 }
 
 export function CustomerDetailClient({
@@ -71,6 +72,7 @@ export function CustomerDetailClient({
     recentOrders,
     outstandingInvoices,
     routePlanItemId,
+    queuePartition,
 }: CustomerDetailClientProps) {
     const router = useRouter();
     const [isOutsideRoute, setIsOutsideRoute] = useState(false);
@@ -92,7 +94,12 @@ export function CustomerDetailClient({
     }, [customer.id]);
 
     const totalOutstanding = outstandingInvoices.reduce(
-        (sum, inv) => sum + (inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0)),
+        (sum, inv) =>
+            sum +
+            (inv.totalAmount +
+                Number(inv.priceAdjustmentAmount ?? 0) -
+                inv.paidAmount -
+                Number(inv.creditedAmount ?? 0)),
         0,
     );
 
@@ -173,6 +180,7 @@ export function CustomerDetailClient({
                 isOutsideRoute={isOutsideRoute}
                 isProspect={customer.lifecycleStatus === 'PROSPECT'}
                 routePlanItemId={routePlanItemId}
+                queuePartition={queuePartition}
             />
 
             {/* Address */}
@@ -262,7 +270,11 @@ export function CustomerDetailClient({
                 ) : (
                     <div className="space-y-2.5">
                         {outstandingInvoices.map((inv) => {
-                            const remaining = inv.totalAmount + Number(inv.priceAdjustmentAmount ?? 0) - inv.paidAmount - Number(inv.creditedAmount ?? 0);
+                            const remaining =
+                                inv.totalAmount +
+                                Number(inv.priceAdjustmentAmount ?? 0) -
+                                inv.paidAmount -
+                                Number(inv.creditedAmount ?? 0);
                             const isOverdue =
                                 inv.status === 'OVERDUE' ||
                                 (inv.dueDate &&
