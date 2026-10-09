@@ -6,7 +6,45 @@ import {
     ReservationStatus,
 } from '@prisma/client';
 import { InventoryWithRelations } from '@/types/inventory';
-import { isLowStockAlertLocation } from '@/lib/constants/locations';
+import {
+    isInventoryThresholdTriggered,
+    isLowStockAlertLocation,
+} from '@/lib/constants/locations';
+
+export type ExecutiveInventoryMetrics = {
+    totalValue: null;
+    valuationStatus: 'NOT_CONFIGURED';
+    lowStockCount: number;
+    totalItems: number;
+    trend?: number;
+};
+
+async function getCanonicalLowStockCount() {
+    const variants = await prisma.productVariant.findMany({
+        where: { minStockAlert: { not: null }, archivedAt: null },
+        select: {
+            minStockAlert: true,
+            inventories: {
+                select: {
+                    quantity: true,
+                    location: {
+                        select: {
+                            locationType: true,
+                            locationPurpose: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    return variants.filter((variant) =>
+        isInventoryThresholdTriggered(
+            variant.inventories,
+            variant.minStockAlert,
+        ),
+    ).length;
+}
 
 export class InventoryQueryService {
     static async getStats(filters?: {
@@ -214,6 +252,21 @@ export class InventoryQueryService {
         });
     }
 
+    static async getExecutiveMetrics(): Promise<ExecutiveInventoryMetrics> {
+        const [lowStockCount, totalItems] = await Promise.all([
+            getCanonicalLowStockCount(),
+            prisma.productVariant.count({ where: { archivedAt: null } }),
+        ]);
+
+        return {
+            totalValue: null,
+            valuationStatus: 'NOT_CONFIGURED',
+            lowStockCount,
+            totalItems,
+            trend: undefined,
+        };
+    }
+
     static async getDashboardStats() {
         const [productCount, inventory, lowStockVariants] = await Promise.all([
             prisma.product.count(),
@@ -235,10 +288,7 @@ export class InventoryQueryService {
             }),
             prisma.productVariant.findMany({
                 where: { minStockAlert: { not: null }, archivedAt: null },
-                select: {
-                    id: true,
-                    minStockAlert: true,
-                },
+                select: { id: true, minStockAlert: true },
             }),
         ]);
 

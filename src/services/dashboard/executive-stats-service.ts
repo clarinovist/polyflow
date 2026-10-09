@@ -1,550 +1,162 @@
-import { prisma } from '@/lib/core/prisma';
+import { getExecutiveSalesMetrics } from '@/services/sales/executive-metrics-service';
+import { getExecutivePurchasingMetrics } from '@/services/purchasing/executive-metrics-service';
 import {
-    InvoiceStatus,
-    ProductionStatus,
-    PurchaseInvoiceStatus,
-    PurchaseOrderStatus,
-    SalesOrderStatus,
-} from '@prisma/client';
-import { endOfMonth, startOfDay, startOfMonth } from 'date-fns';
-import { isInventoryThresholdTriggered } from '@/lib/constants/locations';
-import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
+    getExecutiveFinanceMetrics,
+    type ExecutiveFinanceMetrics,
+} from '@/services/finance/executive-metrics-service';
+import { getExecutiveProductionMetrics } from '@/services/production/executive-metrics-service';
+import { InventoryQueryService } from '@/services/inventory/query-service';
+import type { ModuleKey } from '@/lib/modules/module-registry';
 
-export interface ExecutiveStats {
-    sales: {
-        mtdRevenue: number;
-        activeOrders: number;
-        pendingInvoices: number;
-        trend?: number;
-    };
-    purchasing: {
-        mtdSpending: number;
-        pendingPOs: number;
-        trend?: number;
-    };
-    production: {
-        activeJobs: number;
-        delayedJobs: number; // Placeholder logic for now, or could be jobs past due date
-        completionRate: number; // Completed / eligible SPK count this month
-        totalScrapKg: number; // ScrapRecord + Execution Scrap
-        downtimeHours: number; // MachineDowntime duration
-        runningMachines: number; // Count of machines with IN_PROGRESS orders
-        totalMachines: number; // Count of ACTIVE machines
-        trend?: number;
-    };
-    inventory: {
-        /** NOT_CONFIGURED until Finance + Warehouse sign off the cost basis. */
-        totalValue: null;
-        valuationStatus: 'NOT_CONFIGURED';
-        lowStockCount: number;
-        totalItems: number;
-        trend?: number;
-    };
-    cashflow: {
-        overdueReceivables: number;
-        overduePayables: number;
-        invoicesDueThisWeek: number;
-    };
-    revenueTrendChart: { month: string; revenue: number }[];
-}
+export type ExecutiveSectionKey =
+    | 'sales'
+    | 'purchasing'
+    | 'production'
+    | 'inventory'
+    | 'finance';
+export type ExecutiveSectionState = 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN';
 
-function decimalToNumber(value: unknown): number {
-    if (value === null || value === undefined) return 0;
-    if (
-        typeof value === 'object' &&
-        'toNumber' in value &&
-        typeof (value as { toNumber: unknown }).toNumber === 'function'
-    ) {
-        return (value as { toNumber: () => number }).toNumber();
-    }
+type SalesSection = Awaited<ReturnType<typeof getExecutiveSalesMetrics>> & {
+    mtdRevenue: number;
+    pendingInvoices: number;
+    overdueReceivables: number;
+    invoicesDueThisWeek: number;
+    trend?: number;
+    revenueTrendChart: ExecutiveFinanceMetrics['revenueTrendChart'];
+};
+type PurchasingSection = Awaited<
+    ReturnType<typeof getExecutivePurchasingMetrics>
+> & {
+    mtdSpending: number;
+    overduePayables: number;
+    trend?: number;
+};
 
-    const numberValue = Number(value);
-    return Number.isFinite(numberValue) ? numberValue : 0;
+export type ExecutiveStats = {
+    generatedAt: string;
+    sections: Record<ExecutiveSectionKey, ExecutiveSectionState>;
+    sales: SalesSection | null;
+    purchasing: PurchasingSection | null;
+    production: Awaited<
+        ReturnType<typeof getExecutiveProductionMetrics>
+    > | null;
+    inventory: Awaited<
+        ReturnType<typeof InventoryQueryService.getExecutiveMetrics>
+    > | null;
+    finance: ExecutiveFinanceMetrics | null;
+};
+
+export type ExecutiveStatsOptions = {
+    sections?: readonly ExecutiveSectionKey[];
+    activeModules?: readonly string[];
+    now?: Date;
+};
+
+const ALL_SECTIONS: ExecutiveSectionKey[] = [
+    'sales',
+    'purchasing',
+    'production',
+    'inventory',
+    'finance',
+];
+const SECTION_MODULE: Record<ExecutiveSectionKey, ModuleKey> = {
+    sales: 'SALES',
+    purchasing: 'PURCHASING',
+    production: 'PRODUCTION',
+    inventory: 'INVENTORY',
+    finance: 'FINANCE',
+};
+
+function selectedSections(options: ExecutiveStatsOptions) {
+    const requested = new Set(options.sections ?? ALL_SECTIONS);
+    const active = options.activeModules
+        ? new Set(options.activeModules)
+        : undefined;
+    return ALL_SECTIONS.filter(
+        (key) =>
+            requested.has(key) && (!active || active.has(SECTION_MODULE[key])),
+    );
 }
 
 export class ExecutiveStatsService {
-    static async getExecutiveStats(): Promise<ExecutiveStats> {
-        const now = new Date();
-        // startOfDay(now) vs finance-dashboard.ts's plain `now` cutoff (Plan 4.2.C) is a known,
-        // deferred inconsistency — low impact, intentionally not unified here (see
-        // docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.C).
-        const startOfToday = startOfDay(now);
-        const startOfCurrentMonth = startOfMonth(now);
-        const endOfCurrentMonth = endOfMonth(now);
-
-        const startOfPreviousMonth = startOfMonth(
-            new Date(now.getFullYear(), now.getMonth() - 1, 1),
+    static async getExecutiveStats(
+        options: ExecutiveStatsOptions = {},
+    ): Promise<ExecutiveStats> {
+        const now = options.now ?? new Date();
+        const selected = selectedSections(options);
+        const needsFinance = selected.some((key) =>
+            ['sales', 'purchasing', 'finance'].includes(key),
         );
-        const endOfPreviousMonth = endOfMonth(
-            new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        const financePromise = needsFinance
+            ? getExecutiveFinanceMetrics(now)
+            : null;
+        const loaders: Partial<
+            Record<ExecutiveSectionKey, () => Promise<unknown>>
+        > = {
+            sales: async () => ({
+                ...(await getExecutiveSalesMetrics(now)),
+                ...salesFinanceSlice(await financePromise!),
+            }),
+            purchasing: async () => ({
+                ...(await getExecutivePurchasingMetrics()),
+                ...purchasingFinanceSlice(await financePromise!),
+            }),
+            production: () => getExecutiveProductionMetrics(now),
+            inventory: () => InventoryQueryService.getExecutiveMetrics(),
+            finance: () => financePromise!,
+        };
+        const settled = await Promise.allSettled(
+            selected.map((key) => loaders[key]!()),
         );
+        const values = new Map<ExecutiveSectionKey, unknown>();
+        const sections = Object.fromEntries(
+            ALL_SECTIONS.map((key) => [key, 'HIDDEN']),
+        ) as ExecutiveStats['sections'];
 
-        const { positiveSalesReceivableWhere } = await import('@/services/finance/sales-receivable-query');
-        const positiveBalance = await positiveSalesReceivableWhere();
-        const [
-            revenueAggMTD, // 0
-            revenueAggPrevMonth, // 1
-            spendingAggMTD, // 2
-            spendingAggPrevMonth, // 3
-            salesOrdersMTD, // 4
-            pendingInvoicesCount, // 5
-            pendingPOsCount, // 6
-            activeProductionCount, // 7
-            productionOrdersMonth, // 8
-            delayedJobsCount, // 9
-            activeMachinesCount, // 10
-            runningMachinesOrders, // 11
-            downtimeRecords, // 12
-            scrapRecordsAgg, // 13
-            executionScrapAgg, // 14
-            inventoryStatsAgg, // 15
-            overdueReceivablesAgg, // 16
-            overduePayablesAgg, // 17
-            invoicesDueThisWeekCount, // 18
-        ] = await prisma.$transaction([
-            // 0. Revenue MTD (GL: 4xxxx)
-            prisma.journalLine.aggregate({
-                where: {
-                    account: { code: { startsWith: '4' } },
-                    journalEntry: {
-                        status: 'POSTED',
-                        entryDate: {
-                            gte: startOfCurrentMonth,
-                            lte: endOfCurrentMonth,
-                        },
-                    },
-                },
-                _sum: { credit: true, debit: true },
-            }),
-            // 1. Revenue Previous Month (GL: 4xxxx)
-            prisma.journalLine.aggregate({
-                where: {
-                    account: { code: { startsWith: '4' } },
-                    journalEntry: {
-                        status: 'POSTED',
-                        entryDate: {
-                            gte: startOfPreviousMonth,
-                            lte: endOfPreviousMonth,
-                        },
-                    },
-                },
-                _sum: { credit: true, debit: true },
-            }),
-            // 2. Spending MTD (GL: 5xxxx, 6xxxx)
-            prisma.journalLine.aggregate({
-                where: {
-                    account: {
-                        OR: [
-                            { code: { startsWith: '5' } },
-                            { code: { startsWith: '6' } },
-                        ],
-                    },
-                    journalEntry: {
-                        status: 'POSTED',
-                        entryDate: {
-                            gte: startOfCurrentMonth,
-                            lte: endOfCurrentMonth,
-                        },
-                    },
-                },
-                _sum: { credit: true, debit: true },
-            }),
-            // 3. Spending Previous Month (GL: 5xxxx, 6xxxx)
-            prisma.journalLine.aggregate({
-                where: {
-                    account: {
-                        OR: [
-                            { code: { startsWith: '5' } },
-                            { code: { startsWith: '6' } },
-                        ],
-                    },
-                    journalEntry: {
-                        status: 'POSTED',
-                        entryDate: {
-                            gte: startOfPreviousMonth,
-                            lte: endOfPreviousMonth,
-                        },
-                    },
-                },
-                _sum: { credit: true, debit: true },
-            }),
-            // 4. Sales Orders MTD (for active count)
-            prisma.salesOrder.findMany({
-                where: {
-                    orderDate: {
-                        gte: startOfCurrentMonth,
-                        lte: endOfCurrentMonth,
-                    },
-                    status: {
-                        notIn: [
-                            SalesOrderStatus.CANCELLED,
-                            SalesOrderStatus.DRAFT,
-                            SalesOrderStatus.QUOTATION,
-                            SalesOrderStatus.QUOTATION_SENT,
-                            SalesOrderStatus.QUOTATION_REJECTED,
-                            SalesOrderStatus.QUOTATION_EXPIRED,
-                        ],
-                    },
-                },
-                select: { status: true },
-            }),
-            // 5. Pending Sales Invoices (belum lunas = UNPAID + PARTIAL + OVERDUE)
-            prisma.invoice.count({
-                where: {
-                    AND: [positiveBalance],
-                    status: {
-                        in: [
-                            InvoiceStatus.UNPAID,
-                            InvoiceStatus.PARTIAL,
-                            InvoiceStatus.OVERDUE,
-                        ],
-                    },
-                },
-            }),
-            // 6. Pending POs
-            prisma.purchaseOrder.count({
-                where: {
-                    status: {
-                        in: [
-                            PurchaseOrderStatus.DRAFT,
-                            PurchaseOrderStatus.SENT,
-                        ],
-                    },
-                },
-            }),
-            // 7. Active Production Jobs
-            prisma.productionOrder.count({
-                where: {
-                    status: {
-                        in: [
-                            ProductionStatus.RELEASED,
-                            ProductionStatus.IN_PROGRESS,
-                        ],
-                    },
-                },
-            }),
-            // 8. Production Orders this month (for completion rate)
-            prisma.productionOrder.findMany({
-                where: {
-                    createdAt: {
-                        gte: startOfCurrentMonth,
-                        lte: endOfCurrentMonth,
-                    },
-                },
-                select: { status: true },
-            }),
-            // 8b. Delayed Jobs (past planned end date, not completed/cancelled)
-            prisma.productionOrder.count({
-                where: {
-                    status: {
-                        in: [
-                            ProductionStatus.RELEASED,
-                            ProductionStatus.IN_PROGRESS,
-                        ],
-                    },
-                    plannedEndDate: { lt: now },
-                },
-            }),
-            // 9. Active Machines
-            prisma.machine.count({ where: { status: 'ACTIVE' } }),
-            // 10. Running Machines orders
-            prisma.productionOrder.findMany({
-                where: {
-                    status: ProductionStatus.IN_PROGRESS,
-                    machineId: { not: null },
-                },
-                select: { machineId: true },
-                distinct: ['machineId'],
-            }),
-            // 11. Downtime (Current Month)
-            prisma.machineDowntime.findMany({
-                where: { startTime: { gte: startOfCurrentMonth } },
-                select: { startTime: true, endTime: true },
-            }),
-            // 12. Scrap Ad-hoc
-            prisma.scrapRecord.aggregate({
-                where: {
-                    recordedAt: {
-                        gte: startOfCurrentMonth,
-                        lte: endOfCurrentMonth,
-                    },
-                },
-                _sum: { quantity: true },
-            }),
-            // 13. Execution Scrap
-            prisma.productionExecution.aggregate({
-                where: {
-                    endTime: {
-                        gte: startOfCurrentMonth,
-                        lte: endOfCurrentMonth,
-                    },
-                },
-                _sum: {
-                    scrapQuantity: true,
-                    scrapProngkolQty: true,
-                    scrapDaunQty: true,
-                },
-            }),
-            // 15. Inventory Stats
-            prisma.productVariant.aggregate({
-                where: { archivedAt: null },
-                _count: { id: true },
-            }),
-            // 17. Overdue Receivables (status OVERDUE, or UNPAID/PARTIAL past dueDate —
-            // the status rarely gets flipped to OVERDUE by any running job).
-            // Excludes historical/opening-balance AR (SO-OPEN-/OB-AR- orders) via the same
-            // helper already used by sales-dashboard.ts and finance/invoices.ts, so migrated
-            // opening balances don't inflate "overdue" for a live dashboard KPI.
-            // (docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.B)
-            // NOTE (deferred, Gap 1 in that plan): invoices with dueDate = null are not
-            // included here — null could mean "not yet determined" rather than "overdue", and
-            // this needs live-data verification before deciding either way. Not addressed here.
-            prisma.invoice.aggregate({
-                where: {
-                    OR: [
-                        { status: 'OVERDUE' as InvoiceStatus },
-                        {
-                            status: {
-                                in: ['UNPAID', 'PARTIAL'] as InvoiceStatus[],
-                            },
-                            dueDate: { lt: startOfToday },
-                        },
-                    ],
-                    salesOrder: buildOperationalSalesReceivableOrderWhere(),
-                    AND: [positiveBalance],
-                },
-                _sum: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
-            }),
-            // 18. Overdue Payables (same dynamic definition as Overdue Receivables).
-            // Unlike AR, there is currently no historical/opening-balance AP convention in
-            // this codebase (no `OB-AP-`/equivalent order-number or note prefix exists anywhere
-            // — verified by grep before writing this comment), so there is nothing analogous to
-            // exclude here. Documented so this isn't mistaken for an oversight later.
-            prisma.purchaseInvoice.aggregate({
-                where: {
-                    OR: [
-                        { status: 'OVERDUE' as PurchaseInvoiceStatus },
-                        {
-                            status: {
-                                in: [
-                                    'UNPAID',
-                                    'PARTIAL',
-                                ] as PurchaseInvoiceStatus[],
-                            },
-                            dueDate: { lt: startOfToday },
-                        },
-                    ],
-                },
-                _sum: { totalAmount: true, paidAmount: true },
-            }),
-            // 19. Invoices Due This Week
-            // Status is deliberately an explicit `in` allowlist (UNPAID/PARTIAL/OVERDUE), not
-            // `not: PAID` — the old `not PAID` filter also counted DRAFT (not yet a real
-            // receivable) and CANCELLED (void) invoices as "due this week", which needs no
-            // collection action at all. This mirrors the status set already used by the
-            // Overdue Receivables query above so the two cashflow KPIs stay comparable.
-            // (docs/plan/2026-08-10-fix-invoices-due-this-week-status-filter.md 4.2)
-            prisma.invoice.count({
-                where: {
-                    AND: [positiveBalance],
-                    dueDate: {
-                        gte: now,
-                        lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-                    },
-                    status: {
-                        in: [
-                            InvoiceStatus.UNPAID,
-                            InvoiceStatus.PARTIAL,
-                            InvoiceStatus.OVERDUE,
-                        ],
-                    },
-                },
-            }),
-        ]);
-
-        // --- Calculations ---
-        const mtdRevenue =
-            decimalToNumber(revenueAggMTD._sum.credit) -
-            decimalToNumber(revenueAggMTD._sum.debit);
-        const prevRevenue =
-            decimalToNumber(revenueAggPrevMonth._sum.credit) -
-            decimalToNumber(revenueAggPrevMonth._sum.debit);
-        // No prior-month revenue posted yet → trend is undefined (unknown), not "0% change".
-        // Distinguishing "no data to compare" from "flat" avoids a misleading 0.0% on the
-        // dashboard when last month simply has no POSTED journal entries yet.
-        // (docs/plan/2026-08-10-fix-executive-dashboard-trend-and-overdue-gaps.md 4.2.A)
-        const revenueTrend =
-            prevRevenue > 0
-                ? ((mtdRevenue - prevRevenue) / prevRevenue) * 100
-                : undefined;
-
-        const mtdSpending =
-            decimalToNumber(spendingAggMTD._sum.debit) -
-            decimalToNumber(spendingAggMTD._sum.credit);
-        const prevSpending =
-            decimalToNumber(spendingAggPrevMonth._sum.debit) -
-            decimalToNumber(spendingAggPrevMonth._sum.credit);
-        // Same rationale as revenueTrend above — undefined, not 0, when there's nothing to compare.
-        const spendingTrend =
-            prevSpending > 0
-                ? ((mtdSpending - prevSpending) / prevSpending) * 100
-                : undefined;
-
-        const activeOrders = salesOrdersMTD.filter(
-            (o) => o.status !== SalesOrderStatus.DELIVERED,
-        ).length;
-
-        const completedJobs = productionOrdersMonth.filter(
-            (o) => o.status === ProductionStatus.COMPLETED,
-        ).length;
-        const completionRate =
-            productionOrdersMonth.length > 0
-                ? (completedJobs / productionOrdersMonth.length) * 100
-                : 0;
-
-        const runningMachines = runningMachinesOrders.length;
-        const totalDowntimeMs = downtimeRecords.reduce(
-            (sum, r) =>
-                sum +
-                ((r.endTime?.getTime() || now.getTime()) -
-                    r.startTime.getTime()),
-            0,
-        );
-        const downtimeHours = totalDowntimeMs / (1000 * 60 * 60);
-
-        // Aggregate-level max(generic, prongkol+daun): rows written by the
-        // kiosk duplicate affal into scrapQuantity, AddOutputDialog rows do
-        // not — summing all three columns would double-count.
-        const executionScrapKg = Math.max(
-            decimalToNumber(executionScrapAgg._sum.scrapQuantity),
-            decimalToNumber(executionScrapAgg._sum.scrapProngkolQty) +
-                decimalToNumber(executionScrapAgg._sum.scrapDaunQty),
-        );
-        const totalScrapKg =
-            decimalToNumber(scrapRecordsAgg._sum.quantity) + executionScrapKg;
-        // Low stock: mirrors InventoryQueryService.getDashboardStats() —
-        // minStockAlert per variant, aggregated across locations scoped to RAW_MATERIAL +
-        // FINISHED_GOOD internal warehouses via locationType/locationPurpose, not hardcoded
-        // slugs (tenant slugs vary — see isInventoryThresholdTriggered() and
-        // docs/plan/2026-08-10-fix-lowstock-badge-slug-mismatch.md).
-        const lowStockVariants = await prisma.productVariant.findMany({
-                where: { minStockAlert: { not: null }, archivedAt: null },
-                select: {
-                    id: true,
-                    minStockAlert: true,
-                    inventories: {
-                        select: {
-                            quantity: true,
-                            location: {
-                                select: {
-                                    locationType: true,
-                                    locationPurpose: true,
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-        const lowStockCount = lowStockVariants.filter((variant) =>
-            isInventoryThresholdTriggered(
-                variant.inventories,
-                variant.minStockAlert,
-            ),
-        ).length;
-
-        const overdueReceivables =
-            decimalToNumber(overdueReceivablesAgg._sum.totalAmount) + decimalToNumber(overdueReceivablesAgg._sum.priceAdjustmentAmount) -
-            decimalToNumber(overdueReceivablesAgg._sum.paidAmount) -
-            decimalToNumber(overdueReceivablesAgg._sum.creditedAmount);
-        const overduePayables =
-            decimalToNumber(overduePayablesAgg._sum.totalAmount) -
-            decimalToNumber(overduePayablesAgg._sum.paidAmount);
-
-        // Production trend: completion rate this month vs last month
-        const prevMonthOrders = await prisma.productionOrder.findMany({
-            where: {
-                createdAt: {
-                    gte: startOfPreviousMonth,
-                    lte: endOfPreviousMonth,
-                },
-            },
-            select: { status: true },
+        settled.forEach((result, index) => {
+            const key = selected[index];
+            if (result.status === 'fulfilled') {
+                sections[key] = 'AVAILABLE';
+                values.set(key, result.value);
+            } else {
+                sections[key] = 'UNAVAILABLE';
+            }
         });
-        const prevCompleted = prevMonthOrders.filter(
-            (o) => o.status === ProductionStatus.COMPLETED,
-        ).length;
-        const prevCompletionRate =
-            prevMonthOrders.length > 0
-                ? (prevCompleted / prevMonthOrders.length) * 100
-                : 0;
-        const productionTrend =
-            prevCompletionRate > 0
-                ? ((completionRate - prevCompletionRate) / prevCompletionRate) *
-                  100
-                : 0;
-
-        // Inventory trend: requires historical inventory value snapshots for accurate calculation.
-        // Currently not available — TODO: implement monthly inventory snapshot table.
-        const inventoryTrend = 0;
-
-        // Revenue trend: monthly revenue for current year (from GL)
-        const yearStart = new Date(now.getFullYear(), 0, 1);
-        const monthlyRevenueRaw = await prisma.$queryRaw<
-            { month: string; revenue: number }[]
-        >`
-            SELECT
-                TO_CHAR(je."entryDate", 'YYYY-MM') as month,
-                COALESCE(SUM(jl.credit - jl.debit), 0) as revenue
-            FROM "JournalLine" jl
-            JOIN "JournalEntry" je ON je.id = jl."journalEntryId"
-            JOIN "Account" a ON a.id = jl."accountId"
-            WHERE a.code LIKE '4%'
-                AND je.status = 'POSTED'
-                AND je."entryDate" >= ${yearStart}
-                AND je."entryDate" <= ${endOfCurrentMonth}
-            GROUP BY TO_CHAR(je."entryDate", 'YYYY-MM')
-            ORDER BY month
-        `;
-        const revenueTrendChart = monthlyRevenueRaw.map((r) => ({
-            month: r.month,
-            revenue: Number(r.revenue),
-        }));
 
         return {
-            sales: {
-                mtdRevenue,
-                activeOrders,
-                pendingInvoices: pendingInvoicesCount,
-                trend: revenueTrend,
-            },
-            purchasing: {
-                mtdSpending,
-                pendingPOs: pendingPOsCount,
-                trend: spendingTrend,
-            },
-            production: {
-                activeJobs: activeProductionCount,
-                delayedJobs: delayedJobsCount,
-                completionRate,
-                totalScrapKg,
-                downtimeHours,
-                runningMachines,
-                totalMachines: activeMachinesCount,
-                trend: productionTrend,
-            },
-            inventory: {
-                totalValue: null,
-                valuationStatus: 'NOT_CONFIGURED',
-                lowStockCount,
-                totalItems: inventoryStatsAgg._count.id || 0,
-                trend: inventoryTrend,
-            },
-            cashflow: {
-                overdueReceivables,
-                overduePayables,
-                invoicesDueThisWeek: invoicesDueThisWeekCount,
-            },
-            revenueTrendChart,
+            generatedAt: new Date().toISOString(),
+            sections,
+            sales: (values.get('sales') as SalesSection | undefined) ?? null,
+            purchasing:
+                (values.get('purchasing') as PurchasingSection | undefined) ??
+                null,
+            production:
+                (values.get('production') as ExecutiveStats['production']) ??
+                null,
+            inventory:
+                (values.get('inventory') as ExecutiveStats['inventory']) ??
+                null,
+            finance:
+                (values.get('finance') as ExecutiveStats['finance']) ?? null,
         };
     }
+}
+
+function salesFinanceSlice(finance: ExecutiveFinanceMetrics) {
+    return {
+        mtdRevenue: finance.mtdRevenue,
+        pendingInvoices: finance.pendingInvoices,
+        overdueReceivables: finance.overdueReceivables,
+        invoicesDueThisWeek: finance.invoicesDueThisWeek,
+        trend: finance.revenueTrend,
+        revenueTrendChart: finance.revenueTrendChart,
+    };
+}
+
+function purchasingFinanceSlice(finance: ExecutiveFinanceMetrics) {
+    return {
+        mtdSpending: finance.mtdSpending,
+        overduePayables: finance.overduePayables,
+        trend: finance.spendingTrend,
+    };
 }

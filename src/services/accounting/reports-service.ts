@@ -7,6 +7,7 @@ import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import {
     toBusinessDateString,
     getWibDayBounds,
+    getWibMonthBounds,
     businessDateToEntryDate,
     wibRangeBounds,
 } from '@/lib/utils/timezone';
@@ -57,7 +58,11 @@ export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     return result;
 }
 
-export async function getIncomeStatement(startDate: Date, endDate: Date, tx?: Prisma.TransactionClient) {
+export async function getIncomeStatement(
+    startDate: Date,
+    endDate: Date,
+    tx?: Prisma.TransactionClient,
+) {
     const entryDate = wibRangeBounds(startDate, endDate);
     const accounts = await (tx ?? prisma).account.findMany({
         where: {
@@ -176,6 +181,53 @@ export async function getIncomeStatement(startDate: Date, endDate: Date, tx?: Pr
         totalOther,
         netIncome,
     };
+}
+
+/** Canonical monthly P&L summary for dashboard composition. */
+export async function getMonthlyIncomeSummary(
+    year: number,
+    month: number,
+): Promise<{ totalRevenue: number; totalCOGS: number; totalOpEx: number }> {
+    const { start, end } = getWibMonthBounds(year, month);
+    const rows = await prisma.journalLine.groupBy({
+        by: ['accountId'],
+        where: {
+            account: { type: { in: ['REVENUE', 'EXPENSE'] } },
+            journalEntry: {
+                status: 'POSTED',
+                entryDate: { gte: start, lte: end },
+                ...nonClosingJournalFilter(),
+            },
+        },
+        _sum: { debit: true, credit: true },
+    });
+    if (rows.length === 0) {
+        return { totalRevenue: 0, totalCOGS: 0, totalOpEx: 0 };
+    }
+    const accounts = await prisma.account.findMany({
+        where: { id: { in: rows.map((row) => row.accountId) } },
+        select: { id: true, type: true, category: true },
+    });
+    const accountById = new Map(
+        accounts.map((account) => [account.id, account]),
+    );
+    let totalRevenue = 0;
+    let totalCOGS = 0;
+    let totalOpEx = 0;
+    for (const row of rows) {
+        const account = accountById.get(row.accountId);
+        if (!account) continue;
+        const debit = Number(row._sum.debit ?? 0);
+        const credit = Number(row._sum.credit ?? 0);
+        if (account.type === 'REVENUE') {
+            totalRevenue += credit - debit;
+        } else if (account.category === 'COGS') {
+            totalCOGS += debit - credit;
+        } else {
+            totalOpEx += debit - credit;
+        }
+    }
+    return { totalRevenue, totalCOGS, totalOpEx };
 }
 
 export interface BalanceSheetItem {

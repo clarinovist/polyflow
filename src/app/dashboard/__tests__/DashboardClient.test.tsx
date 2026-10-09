@@ -15,18 +15,35 @@ vi.mock('next/navigation', () => ({
 }));
 
 const stats: ExecutiveStats = {
+    generatedAt: '2026-09-12T14:00:00.000Z',
+    sections: {
+        sales: 'AVAILABLE',
+        purchasing: 'AVAILABLE',
+        production: 'AVAILABLE',
+        inventory: 'AVAILABLE',
+        finance: 'AVAILABLE',
+    },
     sales: {
         mtdRevenue: 100_000,
         activeOrders: 1,
         pendingInvoices: 0,
+        overdueReceivables: 0,
+        invoicesDueThisWeek: 0,
+        trend: 0,
+        revenueTrendChart: [],
+    },
+    purchasing: {
+        mtdSpending: 50_000,
+        pendingPOs: 0,
+        overduePayables: 0,
         trend: 0,
     },
-    purchasing: { mtdSpending: 50_000, pendingPOs: 0, trend: 0 },
     production: {
         activeJobs: 0,
         delayedJobs: 0,
         completionRate: 100,
-        totalScrapKg: 0,
+        totalScrap: null,
+        scrapStatus: 'NOT_CONFIGURED',
         downtimeHours: 0,
         runningMachines: 0,
         totalMachines: 0,
@@ -39,12 +56,17 @@ const stats: ExecutiveStats = {
         totalItems: 0,
         trend: 0,
     },
-    cashflow: {
+    finance: {
+        mtdRevenue: 100_000,
+        revenueTrend: 0,
+        mtdSpending: 50_000,
+        spendingTrend: 0,
+        pendingInvoices: 0,
         overdueReceivables: 0,
         overduePayables: 0,
         invoicesDueThisWeek: 0,
+        revenueTrendChart: [],
     },
-    revenueTrendChart: [],
 };
 
 const presentation = {
@@ -122,6 +144,10 @@ describe('DashboardClient hydration safety', () => {
         view.rerender(
             <DashboardClient
                 {...defaultProps}
+                stats={{
+                    ...stats,
+                    generatedAt: '2026-09-12T14:07:00.000Z',
+                }}
                 presentation={{ ...presentation, lastUpdated: '21.07 WIB' }}
             />,
         );
@@ -163,10 +189,9 @@ describe('DashboardClient hydration safety', () => {
                 {...defaultProps}
                 stats={{
                     ...stats,
-                    cashflow: {
-                        ...stats.cashflow,
-                        overdueReceivables: 10_000,
-                    },
+                    finance: stats.finance
+                        ? { ...stats.finance, overdueReceivables: 10_000 }
+                        : null,
                 }}
                 userRole="FINANCE"
                 permissions={['/finance/invoices/sales']}
@@ -213,6 +238,55 @@ describe('DashboardClient hydration safety', () => {
         expect(html).not.toContain('Buka Portal Produksi');
         expect(html).toContain('SPK Aktif');
         expect(html).toContain('/production/daily');
+    });
+
+    it('shows unavailable sections without rendering false-zero KPIs', () => {
+        render(
+            <DashboardClient
+                {...defaultProps}
+                stats={{
+                    ...stats,
+                    sections: {
+                        ...stats.sections,
+                        production: 'UNAVAILABLE',
+                    },
+                    production: null,
+                }}
+            />,
+        );
+
+        expect(screen.getByText('Sebagian data tidak tersedia')).toBeDefined();
+        expect(
+            screen.getByText(/Produksi tidak ditampilkan/),
+        ).toBeDefined();
+        expect(screen.queryByText('Penyelesaian SPK (MTD)')).toBeNull();
+        expect(screen.queryByText('0.0 jam')).toBeNull();
+    });
+
+    it('shows sections hidden by permission without an unavailable warning', () => {
+        render(
+            <DashboardClient
+                {...defaultProps}
+                userRole="HRD"
+                stats={{
+                    ...stats,
+                    sections: {
+                        sales: 'HIDDEN',
+                        purchasing: 'HIDDEN',
+                        production: 'HIDDEN',
+                        inventory: 'HIDDEN',
+                        finance: 'HIDDEN',
+                    },
+                    sales: null,
+                    purchasing: null,
+                    production: null,
+                    inventory: null,
+                    finance: null,
+                }}
+            />,
+        );
+
+        expect(screen.queryByText('Sebagian data tidak tersedia')).toBeNull();
     });
 
     it('renders the failure state with the page H1', () => {

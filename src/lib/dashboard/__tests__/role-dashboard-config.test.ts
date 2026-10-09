@@ -14,18 +14,38 @@ import {
 } from '../role-dashboard-config';
 
 const baseStats: ExecutiveStats = {
+    generatedAt: '2026-10-09T08:00:00.000Z',
+    sections: {
+        sales: 'AVAILABLE',
+        purchasing: 'AVAILABLE',
+        production: 'AVAILABLE',
+        inventory: 'AVAILABLE',
+        finance: 'AVAILABLE',
+    },
     sales: {
         mtdRevenue: 100_000_000,
         activeOrders: 5,
         pendingInvoices: 3,
+        overdueReceivables: 15_000_000,
+        invoicesDueThisWeek: 2,
         trend: 10,
+        revenueTrendChart: [
+            { month: '2026-01', revenue: 1 },
+            { month: '2026-02', revenue: 2 },
+        ],
     },
-    purchasing: { mtdSpending: 40_000_000, pendingPOs: 2, trend: -5 },
+    purchasing: {
+        mtdSpending: 40_000_000,
+        pendingPOs: 2,
+        overduePayables: 8_000_000,
+        trend: -5,
+    },
     production: {
         activeJobs: 4,
         delayedJobs: 1,
         completionRate: 80,
-        totalScrapKg: 12,
+        totalScrap: null,
+        scrapStatus: 'NOT_CONFIGURED',
         downtimeHours: 3,
         runningMachines: 2,
         totalMachines: 5,
@@ -38,15 +58,20 @@ const baseStats: ExecutiveStats = {
         totalItems: 120,
         trend: 0,
     },
-    cashflow: {
+    finance: {
+        mtdRevenue: 100_000_000,
+        revenueTrend: 10,
+        mtdSpending: 40_000_000,
+        spendingTrend: -5,
+        pendingInvoices: 3,
         overdueReceivables: 15_000_000,
         overduePayables: 8_000_000,
         invoicesDueThisWeek: 2,
+        revenueTrendChart: [
+            { month: '2026-01', revenue: 1 },
+            { month: '2026-02', revenue: 2 },
+        ],
     },
-    revenueTrendChart: [
-        { month: '2026-01', revenue: 1 },
-        { month: '2026-02', revenue: 2 },
-    ],
 };
 
 function kpi(role: string, id: string, stats = baseStats) {
@@ -108,15 +133,35 @@ describe('role-dashboard-config', () => {
 
         const emptyStats: ExecutiveStats = {
             ...baseStats,
-            sales: { ...baseStats.sales, activeOrders: 0 },
-            purchasing: { ...baseStats.purchasing, pendingPOs: 0 },
-            production: { ...baseStats.production, delayedJobs: 0 },
-            inventory: { ...baseStats.inventory, lowStockCount: 0 },
-            cashflow: {
-                overdueReceivables: 0,
-                overduePayables: 0,
-                invoicesDueThisWeek: 0,
-            },
+            production: baseStats.production
+                ? { ...baseStats.production, delayedJobs: 0 }
+                : null,
+            inventory: baseStats.inventory
+                ? { ...baseStats.inventory, lowStockCount: 0 }
+                : null,
+            sales: baseStats.sales
+                ? {
+                      ...baseStats.sales,
+                      activeOrders: 0,
+                      overdueReceivables: 0,
+                      invoicesDueThisWeek: 0,
+                  }
+                : null,
+            purchasing: baseStats.purchasing
+                ? {
+                      ...baseStats.purchasing,
+                      pendingPOs: 0,
+                      overduePayables: 0,
+                  }
+                : null,
+            finance: baseStats.finance
+                ? {
+                      ...baseStats.finance,
+                      overdueReceivables: 0,
+                      overduePayables: 0,
+                      invoicesDueThisWeek: 0,
+                  }
+                : null,
         };
         expect(kpi('FINANCE', 'overdueAr', emptyStats)?.href).toBeUndefined();
         expect(kpi('FINANCE', 'overdueAp', emptyStats)?.href).toBeUndefined();
@@ -171,7 +216,9 @@ describe('role-dashboard-config', () => {
 
         const flatStats: ExecutiveStats = {
             ...baseStats,
-            sales: { ...baseStats.sales, trend: 0 },
+            sales: baseStats.sales
+                ? { ...baseStats.sales, trend: 0 }
+                : null,
         };
         expect(kpi('ADMIN', 'revenue', flatStats)?.trendValue).toBe(
             'Tetap 0.0% dibanding bulan lalu',
@@ -179,7 +226,9 @@ describe('role-dashboard-config', () => {
 
         const noComparisonStats: ExecutiveStats = {
             ...baseStats,
-            sales: { ...baseStats.sales, trend: undefined },
+            sales: baseStats.sales
+                ? { ...baseStats.sales, trend: undefined }
+                : null,
         };
         expect(kpi('ADMIN', 'revenue', noComparisonStats)?.trendValue).toBe(
             'Belum ada data pembanding bulan lalu',
@@ -279,19 +328,22 @@ describe('role-dashboard-config', () => {
         expect(kpi('PROCUREMENT', 'pendingPo')?.subtitle).toBe(
             'Rp 40.000.000 pengeluaran bulan berjalan (MTD)',
         );
-        expect(kpi('PRODUCTION', 'scrap')).toMatchObject({
-            title: 'Sisa Produksi (MTD)',
-            subtitle: 'Waktu henti 3.0 jam',
-            trendValue: 'Pantau rendemen produksi',
+        expect(kpi('PRODUCTION', 'downtime')).toMatchObject({
+            title: 'Waktu Henti (MTD)',
+            subtitle: 'Durasi downtime mesin bulan berjalan',
+            trendValue: 'Perlu pemantauan',
         });
 
         const onScheduleStats: ExecutiveStats = {
             ...baseStats,
-            production: {
-                ...baseStats.production,
-                delayedJobs: 0,
-                totalScrapKg: 0,
-            },
+            production: baseStats.production
+                ? {
+                      ...baseStats.production,
+                      delayedJobs: 0,
+                      totalScrap: null,
+                      scrapStatus: 'NOT_CONFIGURED',
+                  }
+                : null,
         };
         expect(kpi('PRODUCTION', 'activeJobs', onScheduleStats)).toMatchObject({
             trendValue: 'Sesuai jadwal',
@@ -300,9 +352,9 @@ describe('role-dashboard-config', () => {
         expect(
             kpi('PRODUCTION', 'activeJobs', onScheduleStats)?.href,
         ).toBeUndefined();
-        expect(kpi('PRODUCTION', 'scrap', onScheduleStats)?.trendValue).toBe(
-            'Bersih',
-        );
+        expect(
+            kpi('PRODUCTION', 'downtime', onScheduleStats)?.trendValue,
+        ).toBe('Perlu pemantauan');
     });
 
     it('maps role display names and hours to greetings', () => {

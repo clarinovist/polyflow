@@ -40,6 +40,14 @@ import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { cn } from '@/lib/utils/utils';
 
+const SECTION_LABELS = {
+    sales: 'Sales',
+    purchasing: 'Pembelian',
+    production: 'Produksi',
+    inventory: 'Persediaan',
+    finance: 'Finance',
+} as const;
+
 interface DashboardClientProps {
     stats: ExecutiveStats | null;
     userName: string;
@@ -98,6 +106,9 @@ export default function DashboardClient({
         );
     }
 
+    const unavailableSections = Object.entries(stats.sections)
+        .filter(([, state]) => state === 'UNAVAILABLE')
+        .map(([key]) => SECTION_LABELS[key as keyof typeof SECTION_LABELS]);
     const kpis = buildKpis(role, stats).filter((kpi) =>
         canAccessResource(permissions, kpi.resourceHint),
     );
@@ -145,10 +156,37 @@ export default function DashboardClient({
                         className="text-xs text-muted-foreground tabular-nums"
                         aria-live="polite"
                     >
-                        {dashboardLabels.lastUpdated} {presentation.lastUpdated}
+                        {dashboardLabels.lastUpdated}{' '}
+                        {new Intl.DateTimeFormat('id-ID', {
+                            timeZone: 'Asia/Jakarta',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hourCycle: 'h23',
+                            timeZoneName: 'short',
+                        }).format(new Date(stats.generatedAt))}
                     </p>
                 </div>
             </div>
+
+            {unavailableSections.length > 0 && (
+                <Card
+                    role="status"
+                    className="border-amber-500/40 bg-amber-500/5"
+                >
+                    <CardContent className="flex items-start gap-3 p-4 text-sm">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        <div>
+                            <p className="font-medium text-foreground">
+                                Sebagian data tidak tersedia
+                            </p>
+                            <p className="text-muted-foreground">
+                                {unavailableSections.join(', ')} tidak
+                                ditampilkan. Angka kosong tidak dianggap nol.
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Ops portal CTA (Warehouse / Production) */}
             {opsCompact && visiblePortalCta && (
@@ -230,8 +268,8 @@ export default function DashboardClient({
 
             {/* Revenue trend — Admin / Finance only */}
             {showChart &&
-                stats.revenueTrendChart &&
-                stats.revenueTrendChart.length > 1 && (
+                stats.finance?.revenueTrendChart &&
+                stats.finance.revenueTrendChart.length > 1 && (
                     <Card className="shadow-sm border-border/60 bg-card">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -242,7 +280,9 @@ export default function DashboardClient({
                         <CardContent>
                             <div className="h-[180px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={stats.revenueTrendChart}>
+                                    <AreaChart
+                                        data={stats.finance.revenueTrendChart}
+                                    >
                                         <defs>
                                             <linearGradient
                                                 id="colorRevenueDash"

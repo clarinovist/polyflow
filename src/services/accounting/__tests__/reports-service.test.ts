@@ -33,6 +33,7 @@ import { createJournalEntry } from "../journals-service";
 import {
   getTrialBalance,
   getIncomeStatement,
+  getMonthlyIncomeSummary,
   getBalanceSheet,
   getAccountBalance,
   getClosingBalances,
@@ -75,6 +76,41 @@ function _mockJournalLine(overrides: Record<string, unknown> = {}) {
 
 describe("reports-service", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  describe("getMonthlyIncomeSummary", () => {
+    it("groups canonical revenue, COGS, and operating expenses for one WIB month", async () => {
+      vi.mocked(prisma.journalLine.groupBy).mockResolvedValue([
+        { accountId: "revenue", _sum: { debit: 10, credit: 110 } },
+        { accountId: "cogs", _sum: { debit: 40, credit: 5 } },
+        { accountId: "opex", _sum: { debit: 20, credit: 0 } },
+      ] as never);
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        { id: "revenue", type: "REVENUE", category: "OPERATING_REVENUE" },
+        { id: "cogs", type: "EXPENSE", category: "COGS" },
+        { id: "opex", type: "EXPENSE", category: "OPERATING_EXPENSE" },
+      ] as never);
+
+      await expect(getMonthlyIncomeSummary(2026, 5)).resolves.toEqual({
+        totalRevenue: 100,
+        totalCOGS: 35,
+        totalOpEx: 20,
+      });
+      expect(prisma.journalLine.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            account: { type: { in: ["REVENUE", "EXPENSE"] } },
+            journalEntry: expect.objectContaining({
+              status: "POSTED",
+              entryDate: {
+                gte: new Date("2026-04-30T17:00:00.000Z"),
+                lte: new Date("2026-05-31T16:59:59.999Z"),
+              },
+            }),
+          }),
+        }),
+      );
+    });
+  });
 
   // ========================================================================
   // getTrialBalance

@@ -146,248 +146,303 @@ export function buildKpis(
     stats: ExecutiveStats,
 ): DashboardKpi[] {
     const r = role.toUpperCase();
+    const available = (items: Array<DashboardKpi | null>) =>
+        items.filter((item): item is DashboardKpi => item !== null);
 
-    const revenue: DashboardKpi = {
-        id: 'revenue',
-        title: 'Pendapatan (MTD)',
-        value: formatRupiah(stats.sales.mtdRevenue),
-        subtitle: `${stats.sales.activeOrders} pesanan aktif MTD`,
-        icon: Wallet,
-        trend: trendFromNumber(stats.sales.trend),
-        trendValue: monthlyTrendLabel(stats.sales.trend),
-    };
+    const revenue: DashboardKpi | null = stats.sales
+        ? {
+              id: 'revenue',
+              title: 'Pendapatan (MTD)',
+              value: formatRupiah(stats.sales!.mtdRevenue),
+              subtitle: `${stats.sales!.activeOrders} pesanan aktif MTD`,
+              icon: Wallet,
+              trend: trendFromNumber(stats.sales!.trend),
+              trendValue: monthlyTrendLabel(stats.sales!.trend),
+          }
+        : null;
 
-    const spending: DashboardKpi = {
-        id: 'spending',
-        title: 'Pengeluaran (MTD)',
-        value: formatRupiah(stats.purchasing.mtdSpending),
-        subtitle: `${stats.purchasing.pendingPOs} PO tertunda`,
-        icon: ShoppingCart,
-        trend: trendFromNumber(stats.purchasing.trend),
-        trendValue: monthlyTrendLabel(stats.purchasing.trend),
-    };
+    const spending: DashboardKpi | null = stats.purchasing
+        ? {
+              id: 'spending',
+              title: 'Pengeluaran (MTD)',
+              value: formatRupiah(stats.purchasing!.mtdSpending),
+              subtitle: `${stats.purchasing!.pendingPOs} PO tertunda`,
+              icon: ShoppingCart,
+              trend: trendFromNumber(stats.purchasing!.trend),
+              trendValue: monthlyTrendLabel(stats.purchasing!.trend),
+          }
+        : null;
 
     // The available source data is a current-state count, not a utilization
     // percentage: execution hours exist, but machine capacity hours do not.
-    const machines: DashboardKpi = {
-        id: 'machines',
-        title: 'Mesin Berjalan Saat Ini',
-        value: `${stats.production.runningMachines} dari ${stats.production.totalMachines} mesin aktif`,
-        subtitle: 'Snapshot status saat dashboard diperbarui',
-        icon: Factory,
-        trendValue: 'Saat ini',
-    };
+    const machines: DashboardKpi | null = stats.production
+        ? {
+              id: 'machines',
+              title: 'Mesin Berjalan Saat Ini',
+              value: `${stats.production!.runningMachines} dari ${stats.production!.totalMachines} mesin aktif`,
+              subtitle: 'Snapshot status saat dashboard diperbarui',
+              icon: Factory,
+              trendValue: 'Saat ini',
+          }
+        : null;
 
-    const productionCompletion: DashboardKpi = {
-        id: 'productionCompletion',
-        title: 'Penyelesaian SPK (MTD)',
-        value: `${stats.production.completionRate.toFixed(1)}%`,
-        subtitle: 'SPK selesai dari seluruh SPK bulan berjalan',
-        icon: Factory,
-        trendValue: 'Berbasis jumlah dokumen SPK, bukan quantity',
-        progressValue: Math.min(100, stats.production.completionRate),
-        progressColor: 'bg-blue-600',
-    };
+    const productionCompletion: DashboardKpi | null = stats.production
+        ? {
+              id: 'productionCompletion',
+              title: 'Penyelesaian SPK (MTD)',
+              value: `${stats.production!.completionRate.toFixed(1)}%`,
+              subtitle: 'SPK selesai dari seluruh SPK bulan berjalan',
+              icon: Factory,
+              trendValue: 'Berbasis jumlah dokumen SPK, bukan quantity',
+              progressValue: Math.min(100, stats.production!.completionRate),
+              progressColor: 'bg-blue-600',
+          }
+        : null;
 
-    const inventory: DashboardKpi = {
-        id: 'inventory',
-        title: 'Valuasi Stok',
-        value: 'Belum dikonfigurasi',
-        subtitle: `${stats.inventory.lowStockCount} stok rendah · cost basis menunggu keputusan`,
-        icon: Package,
-        trendValue: 'NOT_CONFIGURED',
-        href: '/warehouse/analytics',
-        resourceHint: '/warehouse/analytics',
-    };
+    const inventory: DashboardKpi | null = stats.inventory
+        ? {
+              id: 'inventory',
+              title: 'Valuasi Stok',
+              value: 'Belum dikonfigurasi',
+              subtitle: `${stats.inventory!.lowStockCount} stok rendah · cost basis menunggu keputusan`,
+              icon: Package,
+              trendValue: 'NOT_CONFIGURED',
+              href: '/warehouse/analytics',
+              resourceHint: '/warehouse/analytics',
+          }
+        : null;
 
-    const lowStock: DashboardKpi = {
-        id: 'lowStock',
-        title: 'Stok Rendah',
-        value: stats.inventory.lowStockCount.toString(),
-        subtitle: `${stats.inventory.totalItems.toLocaleString()} item total`,
-        icon: Package,
-        trend: stats.inventory.lowStockCount > 0 ? 'down' : 'neutral',
-        trendValue:
-            stats.inventory.lowStockCount > 0 ? 'Perlu restock' : 'Aman',
-        href:
-            stats.inventory.lowStockCount > 0
-                ? '/warehouse/inventory?lowStock=true'
-                : undefined,
-        resourceHint: '/warehouse/inventory',
-    };
+    const lowStock: DashboardKpi | null = stats.inventory
+        ? {
+              id: 'lowStock',
+              title: 'Stok Rendah',
+              value: stats.inventory!.lowStockCount.toString(),
+              subtitle: `${stats.inventory!.totalItems.toLocaleString()} item total`,
+              icon: Package,
+              trend: stats.inventory!.lowStockCount > 0 ? 'down' : 'neutral',
+              trendValue:
+                  stats.inventory!.lowStockCount > 0 ? 'Perlu restock' : 'Aman',
+              href:
+                  stats.inventory!.lowStockCount > 0
+                      ? '/warehouse/inventory?lowStock=true'
+                      : undefined,
+              resourceHint: '/warehouse/inventory',
+          }
+        : null;
 
-    const overdueAr: DashboardKpi = {
-        id: 'overdueAr',
-        title: 'Piutang Overdue',
-        value: formatRupiah(stats.cashflow.overdueReceivables),
-        subtitle: `${stats.sales.pendingInvoices} invoice belum lunas`,
-        icon: TrendingUp,
-        trend: stats.cashflow.overdueReceivables > 0 ? 'down' : 'neutral',
-        trendValue:
-            stats.cashflow.overdueReceivables > 0 ? 'Tagih segera' : 'Lancar',
-        href:
-            stats.cashflow.overdueReceivables > 0
-                ? '/finance/invoices/sales?overdue=true'
-                : undefined,
-        resourceHint: '/finance/invoices/sales',
-    };
+    const overdueAr: DashboardKpi | null =
+        stats.finance && stats.sales
+            ? {
+                  id: 'overdueAr',
+                  title: 'Piutang Overdue',
+                  value: formatRupiah(stats.finance!.overdueReceivables),
+                  subtitle: `${stats.sales!.pendingInvoices} invoice belum lunas`,
+                  icon: TrendingUp,
+                  trend:
+                      stats.finance!.overdueReceivables > 0
+                          ? 'down'
+                          : 'neutral',
+                  trendValue:
+                      stats.finance!.overdueReceivables > 0
+                          ? 'Tagih segera'
+                          : 'Lancar',
+                  href:
+                      stats.finance!.overdueReceivables > 0
+                          ? '/finance/invoices/sales?overdue=true'
+                          : undefined,
+                  resourceHint: '/finance/invoices/sales',
+              }
+            : null;
 
-    const overdueAp: DashboardKpi = {
-        id: 'overdueAp',
-        title: 'Hutang Overdue',
-        value: formatRupiah(stats.cashflow.overduePayables),
-        subtitle: `${stats.cashflow.invoicesDueThisWeek} jatuh tempo minggu ini`,
-        icon: TrendingDown,
-        trend: stats.cashflow.overduePayables > 0 ? 'down' : 'neutral',
-        trendValue:
-            stats.cashflow.overduePayables > 0 ? 'Bayar segera' : 'Lancar',
-        href:
-            stats.cashflow.overduePayables > 0
-                ? '/finance/invoices/purchase?overdue=true'
-                : undefined,
-        resourceHint: '/finance/invoices/purchase',
-    };
+    const overdueAp: DashboardKpi | null = stats.finance
+        ? {
+              id: 'overdueAp',
+              title: 'Hutang Overdue',
+              value: formatRupiah(stats.finance!.overduePayables),
+              subtitle: `${stats.finance!.invoicesDueThisWeek} jatuh tempo minggu ini`,
+              icon: TrendingDown,
+              trend: stats.finance!.overduePayables > 0 ? 'down' : 'neutral',
+              trendValue:
+                  stats.finance!.overduePayables > 0
+                      ? 'Bayar segera'
+                      : 'Lancar',
+              href:
+                  stats.finance!.overduePayables > 0
+                      ? '/finance/invoices/purchase?overdue=true'
+                      : undefined,
+              resourceHint: '/finance/invoices/purchase',
+          }
+        : null;
 
-    const dueWeek: DashboardKpi = {
-        id: 'dueWeek',
-        title: 'Jatuh Tempo Minggu Ini',
-        value: stats.cashflow.invoicesDueThisWeek.toString(),
-        subtitle: 'Invoice piutang',
-        icon: CalendarClock,
-        trend: stats.cashflow.invoicesDueThisWeek > 3 ? 'down' : 'neutral',
-        trendValue:
-            stats.cashflow.invoicesDueThisWeek > 0
-                ? 'Siapkan penagihan'
-                : 'Tidak ada',
-    };
+    const dueWeek: DashboardKpi | null = stats.finance
+        ? {
+              id: 'dueWeek',
+              title: 'Jatuh Tempo Minggu Ini',
+              value: stats.finance!.invoicesDueThisWeek.toString(),
+              subtitle: 'Invoice piutang',
+              icon: CalendarClock,
+              trend:
+                  stats.finance!.invoicesDueThisWeek > 3 ? 'down' : 'neutral',
+              trendValue:
+                  stats.finance!.invoicesDueThisWeek > 0
+                      ? 'Siapkan penagihan'
+                      : 'Tidak ada',
+          }
+        : null;
 
-    const activeOrders: DashboardKpi = {
-        id: 'activeOrders',
-        title: 'Pesanan Aktif (MTD)',
-        value: stats.sales.activeOrders.toString(),
-        subtitle: `${stats.sales.pendingInvoices} invoice tertunda`,
-        icon: FileText,
-        trend: 'neutral',
-        trendValue: 'Sales order berjalan',
-        href:
-            stats.sales.activeOrders > 0
-                ? '/sales/orders?status=CONFIRMED,IN_PRODUCTION,READY_TO_SHIP,SHIPPED'
-                : undefined,
-        resourceHint: '/sales/orders',
-    };
+    const activeOrders: DashboardKpi | null = stats.sales
+        ? {
+              id: 'activeOrders',
+              title: 'Pesanan Aktif (MTD)',
+              value: stats.sales!.activeOrders.toString(),
+              subtitle: `${stats.sales!.pendingInvoices} invoice tertunda`,
+              icon: FileText,
+              trend: 'neutral',
+              trendValue: 'Sales order berjalan',
+              href:
+                  stats.sales!.activeOrders > 0
+                      ? '/sales/orders?status=CONFIRMED,IN_PRODUCTION,READY_TO_SHIP,SHIPPED'
+                      : undefined,
+              resourceHint: '/sales/orders',
+          }
+        : null;
 
-    const pendingPo: DashboardKpi = {
-        id: 'pendingPo',
-        title: 'PO Tertunda',
-        value: stats.purchasing.pendingPOs.toString(),
-        subtitle:
-            formatRupiah(stats.purchasing.mtdSpending) +
-            ' pengeluaran bulan berjalan (MTD)',
-        icon: ShoppingCart,
-        trend: stats.purchasing.pendingPOs > 0 ? 'neutral' : 'up',
-        trendValue:
-            stats.purchasing.pendingPOs > 0
-                ? 'Perlu follow-up'
-                : 'Antrian kosong',
-        href:
-            stats.purchasing.pendingPOs > 0
-                ? '/purchasing/orders?status=DRAFT,SENT'
-                : undefined,
-        resourceHint: '/purchasing/orders',
-    };
+    const pendingPo: DashboardKpi | null = stats.purchasing
+        ? {
+              id: 'pendingPo',
+              title: 'PO Tertunda',
+              value: stats.purchasing!.pendingPOs.toString(),
+              subtitle:
+                  formatRupiah(stats.purchasing!.mtdSpending) +
+                  ' pengeluaran bulan berjalan (MTD)',
+              icon: ShoppingCart,
+              trend: stats.purchasing!.pendingPOs > 0 ? 'neutral' : 'up',
+              trendValue:
+                  stats.purchasing!.pendingPOs > 0
+                      ? 'Perlu follow-up'
+                      : 'Antrian kosong',
+              href:
+                  stats.purchasing!.pendingPOs > 0
+                      ? '/purchasing/orders?status=DRAFT,SENT'
+                      : undefined,
+              resourceHint: '/purchasing/orders',
+          }
+        : null;
 
-    const activeJobs: DashboardKpi = {
-        id: 'activeJobs',
-        title: 'SPK Dirilis/Berjalan',
-        value: stats.production.activeJobs.toString(),
-        subtitle: `${stats.production.delayedJobs} terlambat`,
-        icon: ClipboardList,
-        trend: stats.production.delayedJobs > 0 ? 'down' : 'neutral',
-        trendValue:
-            stats.production.delayedJobs > 0
-                ? 'Ada keterlambatan'
-                : 'Sesuai jadwal',
-        href:
-            stats.production.delayedJobs > 0
-                ? '/production/orders?late=1'
-                : undefined,
-        resourceHint: '/production/orders',
-    };
+    const activeJobs: DashboardKpi | null = stats.production
+        ? {
+              id: 'activeJobs',
+              title: 'SPK Dirilis/Berjalan',
+              value: stats.production!.activeJobs.toString(),
+              subtitle: `${stats.production!.delayedJobs} terlambat`,
+              icon: ClipboardList,
+              trend: stats.production!.delayedJobs > 0 ? 'down' : 'neutral',
+              trendValue:
+                  stats.production!.delayedJobs > 0
+                      ? 'Ada keterlambatan'
+                      : 'Sesuai jadwal',
+              href:
+                  stats.production!.delayedJobs > 0
+                      ? '/production/orders?late=1'
+                      : undefined,
+              resourceHint: '/production/orders',
+          }
+        : null;
 
-    const scrap: DashboardKpi = {
-        id: 'scrap',
-        title: 'Sisa Produksi (MTD)',
-        value: `${stats.production.totalScrapKg.toFixed(1)} kg`,
-        subtitle: `Waktu henti ${stats.production.downtimeHours.toFixed(1)} jam`,
-        icon: Factory,
-        trend: stats.production.totalScrapKg > 0 ? 'down' : 'neutral',
-        trendValue:
-            stats.production.totalScrapKg > 0
-                ? 'Pantau rendemen produksi'
-                : 'Bersih',
-    };
+    const downtime: DashboardKpi | null = stats.production
+        ? {
+              id: 'downtime',
+              title: 'Waktu Henti (MTD)',
+              value: `${stats.production!.downtimeHours.toFixed(1)} jam`,
+              subtitle: 'Durasi downtime mesin bulan berjalan',
+              icon: Factory,
+              trend: stats.production!.downtimeHours > 0 ? 'down' : 'neutral',
+              trendValue:
+                  stats.production!.downtimeHours > 0
+                      ? 'Perlu pemantauan'
+                      : 'Tidak ada downtime',
+          }
+        : null;
 
-    const cashPressure: DashboardKpi = {
-        id: 'cashPressure',
-        title: 'Tekanan Kas (AR+AP)',
-        value: formatRupiah(
-            stats.cashflow.overdueReceivables + stats.cashflow.overduePayables,
-        ),
-        subtitle: 'Overdue piutang + hutang',
-        icon: Banknote,
-        trend:
-            stats.cashflow.overdueReceivables + stats.cashflow.overduePayables >
-            0
-                ? 'down'
-                : 'neutral',
-        trendValue:
-            stats.cashflow.overdueReceivables + stats.cashflow.overduePayables >
-            0
-                ? 'Perlu aksi kas'
-                : 'Sehat',
-        href:
-            stats.cashflow.overdueReceivables + stats.cashflow.overduePayables >
-            0
-                ? '/finance/aging'
-                : undefined,
-        resourceHint: '/finance/aging',
-    };
+    const cashPressure: DashboardKpi | null = stats.finance
+        ? {
+              id: 'cashPressure',
+              title: 'Tekanan Kas (AR+AP)',
+              value: formatRupiah(
+                  stats.finance!.overdueReceivables +
+                      stats.finance!.overduePayables,
+              ),
+              subtitle: 'Overdue piutang + hutang',
+              icon: Banknote,
+              trend:
+                  stats.finance!.overdueReceivables +
+                      stats.finance!.overduePayables >
+                  0
+                      ? 'down'
+                      : 'neutral',
+              trendValue:
+                  stats.finance!.overdueReceivables +
+                      stats.finance!.overduePayables >
+                  0
+                      ? 'Perlu aksi kas'
+                      : 'Sehat',
+              href:
+                  stats.finance!.overdueReceivables +
+                      stats.finance!.overduePayables >
+                  0
+                      ? '/finance/aging'
+                      : undefined,
+              resourceHint: '/finance/aging',
+          }
+        : null;
 
     switch (r) {
         case 'FINANCE':
-            return [overdueAr, overdueAp, dueWeek, revenue];
+            return available([overdueAr, overdueAp, dueWeek, revenue]);
         case 'SALES':
-            return [activeOrders, revenue, overdueAr, inventory];
+            return available([activeOrders, revenue, overdueAr, inventory]);
         case 'PROCUREMENT':
-            return [pendingPo, spending, overdueAp, lowStock];
+            return available([pendingPo, spending, overdueAp, lowStock]);
         case 'PLANNING':
-            return [
+            return available([
                 activeJobs,
                 machines,
                 productionCompletion,
                 lowStock,
                 activeOrders,
-            ];
+            ]);
         case 'WAREHOUSE':
-            return [lowStock, inventory, activeJobs, pendingPo];
+            return available([lowStock, inventory, activeJobs, pendingPo]);
         case 'PRODUCTION':
-            return [machines, productionCompletion, activeJobs, scrap, lowStock];
+            return available([
+                machines,
+                productionCompletion,
+                activeJobs,
+                downtime,
+                lowStock,
+            ]);
         case 'FACTORY_MANAGER':
             // Ops-only KPIs: never revenue, spending, or cash-pressure metrics.
-            return [activeJobs, machines, productionCompletion, scrap, lowStock];
+            return available([
+                activeJobs,
+                machines,
+                productionCompletion,
+                downtime,
+                lowStock,
+            ]);
         case 'HRD':
             // HRD has its own portal dashboard (/hrd) with dedicated KPIs.
             // Generic dashboard shows only permission-filtered task shortcuts.
-            return [];
+            return available([]);
         case 'ADMIN':
         default:
-            return [
+            return available([
                 revenue,
                 spending,
                 machines,
                 productionCompletion,
                 cashPressure,
-            ];
+            ]);
     }
 }
 
