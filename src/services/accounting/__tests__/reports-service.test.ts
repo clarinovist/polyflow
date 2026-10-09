@@ -78,32 +78,87 @@ describe("reports-service", () => {
   beforeEach(() => vi.clearAllMocks());
 
   describe("getMonthlyIncomeSummary", () => {
-    it("groups canonical revenue, COGS, and operating expenses for one WIB month", async () => {
-      vi.mocked(prisma.journalLine.groupBy).mockResolvedValue([
-        { accountId: "revenue", _sum: { debit: 10, credit: 110 } },
-        { accountId: "cogs", _sum: { debit: 40, credit: 5 } },
-        { accountId: "opex", _sum: { debit: 20, credit: 0 } },
-      ] as never);
+    it("reconciles exactly with the canonical income-statement fields", async () => {
       vi.mocked(prisma.account.findMany).mockResolvedValue([
-        { id: "revenue", type: "REVENUE", category: "OPERATING_REVENUE" },
-        { id: "cogs", type: "EXPENSE", category: "COGS" },
-        { id: "opex", type: "EXPENSE", category: "OPERATING_EXPENSE" },
+        {
+          id: "revenue",
+          code: "4-1000",
+          name: "Sales",
+          type: "REVENUE",
+          category: "OPERATING_REVENUE",
+          journalLines: [{ debit: 10, credit: 110 }],
+        },
+        {
+          id: "other-revenue",
+          code: "7-1000",
+          name: "Other revenue",
+          type: "REVENUE",
+          category: "OTHER_REVENUE",
+          journalLines: [{ debit: 0, credit: 60 }],
+        },
+        {
+          id: "cogs",
+          code: "5-1000",
+          name: "COGS",
+          type: "EXPENSE",
+          category: "COGS",
+          journalLines: [{ debit: 40, credit: 5 }],
+        },
+        {
+          id: "opex",
+          code: "6-1000",
+          name: "Operating expense",
+          type: "EXPENSE",
+          category: "OPERATING_EXPENSE",
+          journalLines: [{ debit: 20, credit: 0 }],
+        },
+        {
+          id: "other-expense",
+          code: "8-1000",
+          name: "Other expense",
+          type: "EXPENSE",
+          category: "OTHER_EXPENSE",
+          journalLines: [{ debit: 15, credit: 0 }],
+        },
       ] as never);
 
-      await expect(getMonthlyIncomeSummary(2026, 5)).resolves.toEqual({
+      const expected = await getIncomeStatement(
+        new Date("2026-04-30T17:00:00.000Z"),
+        new Date("2026-05-31T16:59:59.999Z"),
+      );
+      const summary = await getMonthlyIncomeSummary(2026, 5);
+
+      expect(summary).toEqual({
+        totalRevenue: expected.totalRevenue,
+        totalCOGS: expected.totalCOGS,
+        totalOpEx: expected.totalOpEx,
+      });
+      expect(summary).toEqual({
         totalRevenue: 100,
         totalCOGS: 35,
         totalOpEx: 20,
       });
-      expect(prisma.journalLine.groupBy).toHaveBeenCalledWith(
+      expect(prisma.account.findMany).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
-            account: { type: { in: ["REVENUE", "EXPENSE"] } },
-            journalEntry: expect.objectContaining({
-              status: "POSTED",
-              entryDate: {
-                gte: new Date("2026-04-30T17:00:00.000Z"),
-                lte: new Date("2026-05-31T16:59:59.999Z"),
+          include: expect.objectContaining({
+            journalLines: expect.objectContaining({
+              where: {
+                journalEntry: expect.objectContaining({
+                  status: "POSTED",
+                  entryDate: {
+                    gte: new Date("2026-04-30T17:00:00.000Z"),
+                    lte: new Date("2026-05-31T16:59:59.999Z"),
+                  },
+                  OR: [
+                    { reference: null },
+                    {
+                      NOT: [
+                        { reference: { startsWith: "CLOSING-" } },
+                        { reference: { startsWith: "CLOSE-" } },
+                      ],
+                    },
+                  ],
+                }),
               },
             }),
           }),

@@ -189,44 +189,10 @@ export async function getMonthlyIncomeSummary(
     month: number,
 ): Promise<{ totalRevenue: number; totalCOGS: number; totalOpEx: number }> {
     const { start, end } = getWibMonthBounds(year, month);
-    const rows = await prisma.journalLine.groupBy({
-        by: ['accountId'],
-        where: {
-            account: { type: { in: ['REVENUE', 'EXPENSE'] } },
-            journalEntry: {
-                status: 'POSTED',
-                entryDate: { gte: start, lte: end },
-                ...nonClosingJournalFilter(),
-            },
-        },
-        _sum: { debit: true, credit: true },
-    });
-    if (rows.length === 0) {
-        return { totalRevenue: 0, totalCOGS: 0, totalOpEx: 0 };
-    }
-    const accounts = await prisma.account.findMany({
-        where: { id: { in: rows.map((row) => row.accountId) } },
-        select: { id: true, type: true, category: true },
-    });
-    const accountById = new Map(
-        accounts.map((account) => [account.id, account]),
+    const { totalRevenue, totalCOGS, totalOpEx } = await getIncomeStatement(
+        start,
+        end,
     );
-    let totalRevenue = 0;
-    let totalCOGS = 0;
-    let totalOpEx = 0;
-    for (const row of rows) {
-        const account = accountById.get(row.accountId);
-        if (!account) continue;
-        const debit = Number(row._sum.debit ?? 0);
-        const credit = Number(row._sum.credit ?? 0);
-        if (account.type === 'REVENUE') {
-            totalRevenue += credit - debit;
-        } else if (account.category === 'COGS') {
-            totalCOGS += debit - credit;
-        } else {
-            totalOpEx += debit - credit;
-        }
-    }
     return { totalRevenue, totalCOGS, totalOpEx };
 }
 

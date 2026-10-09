@@ -9,7 +9,13 @@ vi.mock('../account-resolver', () => ({ resolveAccount: vi.fn().mockResolvedValu
 vi.mock('../journals-service', () => ({ createJournalEntry: vi.fn().mockResolvedValue({ entryNumber: 'TEST-CLOSE' }) }));
 import { prisma as db } from '@/lib/core/prisma';
 import { createJournalEntry } from '../journals-service';
-import { getIncomeStatement, getClosingBalances, closePeriod, getAccountBalance } from '../reports-service';
+import {
+    getIncomeStatement,
+    getMonthlyIncomeSummary,
+    getClosingBalances,
+    closePeriod,
+    getAccountBalance,
+} from '../reports-service';
 import { reconcileFinance } from '../../finance/finance-reconciliation-service';
 
 const start = new Date('2026-08-01T00:00:00Z');
@@ -32,8 +38,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('closing exclusion on disposable
         await db.$executeRaw`TRUNCATE "JournalLine", "JournalEntry", "Account" CASCADE`;
         await db.account.createMany({ data: [
             { id: 'rev', code: 'R', name: 'Revenue', type: 'REVENUE', category: 'OPERATING_REVENUE' },
+            { id: 'other-rev', code: 'OR', name: 'Other Revenue', type: 'REVENUE', category: 'OTHER_REVENUE' },
             { id: 'cogs', code: 'C', name: 'Cost', type: 'EXPENSE', category: 'COGS' },
             { id: 'opex', code: 'O', name: 'Expense', type: 'EXPENSE', category: 'OPERATING_EXPENSE' },
+            { id: 'other-exp', code: 'OE', name: 'Other Expense', type: 'EXPENSE', category: 'OTHER_EXPENSE' },
             { id: 'equity', code: 'E', name: 'Equity', type: 'EQUITY', category: 'RETAINED_EARNINGS' },
         ] });
     });
@@ -53,6 +61,34 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('closing exclusion on disposable
         const reconciled = await db.$transaction(tx => reconcileFinance(tx, { startDate: '2026-08-01', endDate: '2026-08-31' }));
         expect(reconciled.cogs).toMatchObject({ count: 1, total: 300 });
         expect(reconciled.cogsDifference).toBe(0);
+    });
+
+    it('reconciles the Executive monthly summary with canonical operating fields', async () => {
+        await entry('SALE', 'rev', -1000);
+        await entry('OTHER-INCOME', 'other-rev', -400);
+        await entry('COST', 'cogs', 300);
+        await entry('OPEX', 'opex', 50);
+        await entry('OTHER-COST', 'other-exp', 25);
+        await entry('DRAFT-SALE', 'rev', -900, { status: 'DRAFT' });
+        await entry('CLOSING-SALE', 'rev', 700, { reference: 'CLOSING-JULY' });
+        await entry('CLOSE-OPEX', 'opex', -600, { reference: 'CLOSE-JULY' });
+
+        const report = await getIncomeStatement(start, end);
+        const monthly = await getMonthlyIncomeSummary(2026, 8);
+
+        expect(report).toMatchObject({
+            totalRevenue: 1000,
+            totalCOGS: 300,
+            totalOpEx: 50,
+            totalOther: 375,
+        });
+        expect(monthly).toEqual({
+            totalRevenue: report.totalRevenue,
+            totalCOGS: report.totalCOGS,
+            totalOpEx: report.totalOpEx,
+        });
+        expect(monthly.totalRevenue).toBe(1000);
+        expect(monthly.totalCOGS + monthly.totalOpEx).toBe(350);
     });
 
     it('preserves WIB limits, statuses, optional NULL references and legitimate negative revenue', async () => {

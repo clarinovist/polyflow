@@ -276,6 +276,7 @@ jobs:
       - name: Receipt, credit, identity and SPK metadata contracts
         env:
           CENTRAL_IDENTITY_TEST_ADMIN_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/postgres
+          TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_recognition_test
         run: >-
           npx vitest run --maxWorkers=1 --no-file-parallelism
           src/services/auth/__tests__/central-identity-postgres.test.ts
@@ -292,6 +293,7 @@ jobs:
           src/actions/finance/__tests__/mobile-readiness-postgres.test.ts
           src/actions/dashboard/__tests__/finance-dashboard-postgres.test.ts
           src/actions/dashboard/__tests__/sales-dashboard-postgres.test.ts
+          src/services/accounting/__tests__/closing-filter-postgres.test.ts
           src/lib/bot/__tests__/help-guides-postgres.test.ts
           src/lib/bot/__tests__/document-tools-postgres.test.ts
           src/lib/core/__tests__/prisma-proxy-postgres.test.ts

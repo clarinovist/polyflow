@@ -21,6 +21,7 @@ const names = [
     'polyflow_return_credit_scope_test',
     'polyflow_return_credit_tenant_test',
     'polyflow_return_receipt_scope_test',
+    'polyflow_recognition_test',
 ];
 const migration = (name) =>
     readFileSync(`prisma/migrations/${name}/migration.sql`, 'utf8');
