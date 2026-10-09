@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import {
+    buildExecutiveAttention,
     buildKpis,
     buildQuickActions,
     canAccessResource,
@@ -61,15 +62,25 @@ const baseStats: ExecutiveStats = {
     finance: {
         mtdRevenue: 100_000_000,
         revenueTrend: 10,
+        mtdNetIncome: 25_000_000,
+        netIncomeTrend: 25,
         mtdSpending: 40_000_000,
         spendingTrend: -5,
+        cashBalance: 75_000_000,
+        cashAsOfDate: '2026-10-09',
         pendingInvoices: 3,
         overdueReceivables: 15_000_000,
+        overdueReceivablesCount: 2,
         overduePayables: 8_000_000,
+        overduePayablesCount: 1,
         invoicesDueThisWeek: 2,
         revenueTrendChart: [
             { month: '2026-01', revenue: 1 },
             { month: '2026-02', revenue: 2 },
+        ],
+        netIncomeTrendChart: [
+            { month: '2026-01', netIncome: 1 },
+            { month: '2026-02', netIncome: 2 },
         ],
     },
 };
@@ -126,9 +137,17 @@ describe('role-dashboard-config', () => {
     });
 
     it('does not style non-actionable or empty queue metrics as links', () => {
-        expect(kpi('ADMIN', 'revenue')?.href).toBeUndefined();
-        expect(kpi('ADMIN', 'spending')?.href).toBeUndefined();
-        expect(kpi('ADMIN', 'machines')?.href).toBeUndefined();
+        expect(kpi('ADMIN', 'revenue')).toMatchObject({
+            targetState: 'NOT_CONFIGURED',
+            href: '/finance/reports/income-statement',
+            resourceHint: '/finance/reports/income-statement',
+        });
+        expect(kpi('ADMIN', 'netIncome')).toMatchObject({
+            href: '/finance/reports/income-statement',
+        });
+        expect(kpi('ADMIN', 'cashBalance')).toMatchObject({
+            href: '/finance/reports/balance-sheet',
+        });
         expect(kpi('ADMIN', 'productionCompletion')?.href).toBeUndefined();
 
         const emptyStats: ExecutiveStats = {
@@ -210,14 +229,17 @@ describe('role-dashboard-config', () => {
         expect(kpi('ADMIN', 'revenue')?.trendValue).toBe(
             'Naik 10.0% dibanding bulan lalu',
         );
-        expect(kpi('ADMIN', 'spending')?.trendValue).toBe(
-            'Turun 5.0% dibanding bulan lalu',
+        expect(kpi('ADMIN', 'netIncome')?.trendValue).toBe(
+            'Naik 25.0% dibanding bulan lalu',
         );
 
         const flatStats: ExecutiveStats = {
             ...baseStats,
             sales: baseStats.sales
                 ? { ...baseStats.sales, trend: 0 }
+                : null,
+            finance: baseStats.finance
+                ? { ...baseStats.finance, revenueTrend: 0 }
                 : null,
         };
         expect(kpi('ADMIN', 'revenue', flatStats)?.trendValue).toBe(
@@ -229,10 +251,32 @@ describe('role-dashboard-config', () => {
             sales: baseStats.sales
                 ? { ...baseStats.sales, trend: undefined }
                 : null,
+            finance: baseStats.finance
+                ? { ...baseStats.finance, revenueTrend: undefined }
+                : null,
         };
         expect(kpi('ADMIN', 'revenue', noComparisonStats)?.trendValue).toBe(
             'Belum ada data pembanding bulan lalu',
         );
+    });
+
+    it('builds deterministic cross-domain attention without adding unlike units', () => {
+        expect(buildExecutiveAttention('ADMIN', baseStats)).toEqual([
+            expect.objectContaining({
+                id: 'overdueAr',
+                severity: 'URGENT',
+                value: expect.stringContaining('15.000.000'),
+            }),
+            expect.objectContaining({ id: 'overdueAp', severity: 'URGENT' }),
+            expect.objectContaining({ id: 'lowStock', value: '7' }),
+            expect.objectContaining({ id: 'delayedProduction', value: '1' }),
+            expect.objectContaining({ id: 'pendingPo', value: '2' }),
+        ]);
+        expect(
+            buildExecutiveAttention('PRODUCTION', baseStats).map(
+                (item) => item.id,
+            ),
+        ).toEqual(['lowStock', 'delayedProduction']);
     });
 
     it('returns role-specific permission-filterable task shortcuts', () => {
@@ -405,8 +449,9 @@ describe('role-dashboard-config', () => {
             expect(ids).toContain('machines');
             for (const forbidden of [
                 'revenue',
+                'netIncome',
+                'cashBalance',
                 'spending',
-                'cashPressure',
                 'overdueAr',
                 'overdueAp',
             ]) {

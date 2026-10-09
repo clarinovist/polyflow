@@ -187,13 +187,16 @@ export async function getIncomeStatement(
 export async function getMonthlyIncomeSummary(
     year: number,
     month: number,
-): Promise<{ totalRevenue: number; totalCOGS: number; totalOpEx: number }> {
+): Promise<{
+    totalRevenue: number;
+    totalCOGS: number;
+    totalOpEx: number;
+    netIncome: number;
+}> {
     const { start, end } = getWibMonthBounds(year, month);
-    const { totalRevenue, totalCOGS, totalOpEx } = await getIncomeStatement(
-        start,
-        end,
-    );
-    return { totalRevenue, totalCOGS, totalOpEx };
+    const { totalRevenue, totalCOGS, totalOpEx, netIncome } =
+        await getIncomeStatement(start, end);
+    return { totalRevenue, totalCOGS, totalOpEx, netIncome };
 }
 
 export interface BalanceSheetItem {
@@ -348,6 +351,16 @@ export async function getBalanceSheet(asOfDate: Date) {
     const liabilityAccounts = calcBalance('LIABILITY', 'credit');
     const equityAccounts = calcBalance('EQUITY', 'credit');
 
+    const cashAccountIds = new Set(
+        accounts
+            .filter((account) => account.isCashAccount)
+            .map((account) => account.id),
+    );
+    const cashBalance = assetAccounts.reduce(
+        (sum, account) =>
+            cashAccountIds.has(account.id) ? sum + account.netBalance : sum,
+        0,
+    );
     const totalAsset = assetAccounts.reduce((sum, a) => sum + a.netBalance, 0);
     const totalLiability = liabilityAccounts.reduce(
         (sum, a) => sum + a.netBalance,
@@ -381,6 +394,7 @@ export async function getBalanceSheet(asOfDate: Date) {
         )[],
         // Totals
         totalAssets: totalAsset,
+        cashBalance,
         totalLiabilities: totalLiability,
         totalEquity,
         unpostedEarnings,

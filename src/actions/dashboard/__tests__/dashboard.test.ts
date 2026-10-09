@@ -64,6 +64,22 @@ describe('getExecutiveStats action', () => {
         );
     });
 
+    it('does not expose the Finance payload to an operational role with a narrow Finance resource', async () => {
+        mocks.requireAuth.mockResolvedValue({
+            user: {
+                role: 'SALES',
+                roles: ['SALES'],
+                allowedResources: ['/finance/invoices/sales'],
+            },
+        });
+
+        await getExecutiveStats();
+
+        expect(mocks.executive).toHaveBeenCalledWith(
+            expect.objectContaining({ sections: ['sales', 'inventory'] }),
+        );
+    });
+
     it('includes a section granted through explicit resource permissions', async () => {
         mocks.requireAuth.mockResolvedValue({
             user: {

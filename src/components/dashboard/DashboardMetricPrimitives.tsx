@@ -178,7 +178,19 @@ export function DashboardHealthCard({
                     <CardTitle className="min-w-0 text-sm font-medium leading-snug text-muted-foreground">
                         {title}
                     </CardTitle>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                'h-auto whitespace-normal text-[10px] font-semibold',
+                                state === 'AVAILABLE' &&
+                                    'border-emerald-500/40 text-emerald-700 dark:text-emerald-300',
+                                state === 'UNAVAILABLE' &&
+                                    'border-amber-500/40 text-amber-700 dark:text-amber-300',
+                            )}
+                        >
+                            {state}
+                        </Badge>
                         {Icon && (
                             <Icon
                                 aria-hidden="true"

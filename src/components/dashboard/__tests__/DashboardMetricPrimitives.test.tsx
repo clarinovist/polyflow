@@ -27,6 +27,7 @@ describe('dashboard metric primitives', () => {
                 supportingText="Naik dibanding bulan lalu"
             />,
         );
+        expect(screen.getByText('AVAILABLE')).toBeTruthy();
         expect(screen.getByText('IDR')).toBeTruthy();
         expect(screen.getByText('Bulan berjalan (MTD)')).toBeTruthy();
         expect(screen.getByLabelText(/Nilai sintetis.*Sumber: Fixture/)).toBeTruthy();
@@ -37,6 +38,7 @@ describe('dashboard metric primitives', () => {
         const { rerender } = render(
             <DashboardHealthCard title="Kas" value="Rp 0" definition={definition} state="UNAVAILABLE" />,
         );
+        expect(screen.getByText('UNAVAILABLE')).toBeTruthy();
         expect(screen.getByText('Data tidak tersedia')).toBeTruthy();
         expect(screen.queryByText('Rp 0')).toBeNull();
 
@@ -48,6 +50,7 @@ describe('dashboard metric primitives', () => {
                 href="/warehouse/analytics"
             />,
         );
+        expect(screen.getByText('NOT_CONFIGURED')).toBeTruthy();
         expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
         expect(
             screen

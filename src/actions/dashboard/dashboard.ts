@@ -41,7 +41,6 @@ function allowedSections(
         ['purchasing', 'purchasing'],
         ['production', 'production'],
         ['warehouse', 'inventory'],
-        ['finance', 'finance'],
     ];
     for (const [workspace, section] of resourceSections) {
         if (hasWorkspaceResourceAccess(user.allowedResources, workspace)) {

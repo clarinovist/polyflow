@@ -86,9 +86,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('closing exclusion on disposable
             totalRevenue: report.totalRevenue,
             totalCOGS: report.totalCOGS,
             totalOpEx: report.totalOpEx,
+            netIncome: report.netIncome,
         });
         expect(monthly.totalRevenue).toBe(1000);
         expect(monthly.totalCOGS + monthly.totalOpEx).toBe(350);
+        expect(monthly.netIncome).toBe(1025);
     });
 
     it('preserves WIB limits, statuses, optional NULL references and legitimate negative revenue', async () => {

@@ -59,13 +59,20 @@ const stats: ExecutiveStats = {
     finance: {
         mtdRevenue: 100_000,
         revenueTrend: 0,
+        mtdNetIncome: 30_000,
+        netIncomeTrend: 0,
         mtdSpending: 50_000,
         spendingTrend: 0,
+        cashBalance: 75_000,
+        cashAsOfDate: '2026-09-12',
         pendingInvoices: 0,
         overdueReceivables: 0,
+        overdueReceivablesCount: 0,
         overduePayables: 0,
+        overduePayablesCount: 0,
         invoicesDueThisWeek: 0,
         revenueTrendChart: [],
+        netIncomeTrendChart: [],
     },
 };
 
@@ -125,8 +132,16 @@ describe('DashboardClient hydration safety', () => {
                 ? {
                       ...stats.finance,
                       revenueTrendChart: [
+                          { month: '2026-06', revenue: 70_000 },
+                          { month: '2026-07', revenue: 80_000 },
                           { month: '2026-08', revenue: 90_000 },
                           { month: '2026-09', revenue: 100_000 },
+                      ],
+                      netIncomeTrendChart: [
+                          { month: '2026-06', netIncome: 10_000 },
+                          { month: '2026-07', netIncome: 20_000 },
+                          { month: '2026-08', netIncome: 25_000 },
+                          { month: '2026-09', netIncome: 30_000 },
                       ],
                   }
                 : null,
@@ -139,6 +154,44 @@ describe('DashboardClient hydration safety', () => {
         expect(
             screen.getByLabelText(/Pendapatan usaha POSTED.*Unit: IDR/),
         ).toBeDefined();
+        expect(screen.getByText('Tren laba rugi bulanan')).toBeDefined();
+        expect(screen.getByText(/Target: belum dikonfigurasi/)).toBeDefined();
+    });
+
+    it('withholds drivers until four comparable points exist', () => {
+        render(<DashboardClient {...defaultProps} />);
+
+        expect(screen.queryByText('Drivers')).toBeNull();
+        expect(screen.queryByText('Tren laba rugi bulanan')).toBeNull();
+    });
+
+    it('withholds drivers when canonical series are not aligned', () => {
+        render(
+            <DashboardClient
+                {...defaultProps}
+                stats={{
+                    ...stats,
+                    finance: stats.finance
+                        ? {
+                              ...stats.finance,
+                              revenueTrendChart: [
+                                  { month: '2026-06', revenue: 70_000 },
+                                  { month: '2026-07', revenue: 80_000 },
+                                  { month: '2026-08', revenue: 90_000 },
+                                  { month: '2026-09', revenue: 100_000 },
+                              ],
+                              netIncomeTrendChart: [
+                                  { month: '2026-06', netIncome: 10_000 },
+                                  { month: '2026-07', netIncome: 20_000 },
+                                  { month: '2026-08', netIncome: 25_000 },
+                              ],
+                          }
+                        : null,
+                }}
+            />,
+        );
+
+        expect(screen.queryByText('Drivers')).toBeNull();
     });
 
     it('renders NOT_CONFIGURED valuation honestly for a permitted warehouse role', () => {
@@ -156,13 +209,51 @@ describe('DashboardClient hydration safety', () => {
         ).toBeDefined();
     });
 
+    it('renders ordered aggregate attention with owner modules and separate units', () => {
+        render(
+            <DashboardClient
+                {...defaultProps}
+                stats={{
+                    ...stats,
+                    finance: stats.finance
+                        ? {
+                              ...stats.finance,
+                              overdueReceivables: 15_000,
+                              overdueReceivablesCount: 2,
+                              overduePayables: 8_000,
+                              overduePayablesCount: 1,
+                          }
+                        : null,
+                    production: stats.production
+                        ? { ...stats.production, delayedJobs: 3 }
+                        : null,
+                    inventory: stats.inventory
+                        ? { ...stats.inventory, lowStockCount: 4 }
+                        : null,
+                    purchasing: stats.purchasing
+                        ? { ...stats.purchasing, pendingPOs: 5 }
+                        : null,
+                }}
+            />,
+        );
+
+        const attention = screen
+            .getByRole('heading', { name: 'Tindakan berikutnya' })
+            .closest('section')?.textContent ?? '';
+        expect(attention.indexOf('Piutang overdue')).toBeLessThan(
+            attention.indexOf('Hutang overdue'),
+        );
+        expect(attention).toContain('2 invoice melewati jatuh tempo');
+        expect(attention).toContain('4');
+        expect(attention).not.toContain('32.000');
+    });
+
     it('removes retired CEO notes while preserving dashboard actions', () => {
         const html = renderToStaticMarkup(<DashboardClient {...defaultProps} />);
 
         expect(html).not.toContain('Catatan CEO');
         expect(html).not.toContain('Belum ada catatan — bagus.');
         expect(html).not.toContain('/ceo-notes');
-        expect(html).not.toContain('border-dashed');
         expect(html).not.toContain('Pintasan Modul');
         expect(html).not.toContain('Master Data');
         expect(html).toContain('Aksi Cepat');

@@ -17,18 +17,18 @@ export type ExecutiveSectionKey =
 export type ExecutiveSectionState = 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN';
 
 type SalesSection = Awaited<ReturnType<typeof getExecutiveSalesMetrics>> & {
-    mtdRevenue: number;
-    pendingInvoices: number;
-    overdueReceivables: number;
-    invoicesDueThisWeek: number;
+    mtdRevenue: number | null;
+    pendingInvoices: number | null;
+    overdueReceivables: number | null;
+    invoicesDueThisWeek: number | null;
     trend?: number;
     revenueTrendChart: ExecutiveFinanceMetrics['revenueTrendChart'];
 };
 type PurchasingSection = Awaited<
     ReturnType<typeof getExecutivePurchasingMetrics>
 > & {
-    mtdSpending: number;
-    overduePayables: number;
+    mtdSpending: number | null;
+    overduePayables: number | null;
     trend?: number;
 };
 
@@ -84,22 +84,30 @@ export class ExecutiveStatsService {
     ): Promise<ExecutiveStats> {
         const now = options.now ?? new Date();
         const selected = selectedSections(options);
-        const needsFinance = selected.some((key) =>
-            ['sales', 'purchasing', 'finance'].includes(key),
-        );
+        const financeModuleActive =
+            !options.activeModules || options.activeModules.includes('FINANCE');
+        const needsFinance =
+            financeModuleActive &&
+            selected.some((key) =>
+                ['sales', 'purchasing', 'finance'].includes(key),
+            );
         const financePromise = needsFinance
-            ? getExecutiveFinanceMetrics(now)
+            ? getExecutiveFinanceMetrics(now, {
+                  includeBalanceSheet: selected.includes('finance'),
+              })
             : null;
+        const financeForComposition =
+            financePromise?.catch(() => null) ?? Promise.resolve(null);
         const loaders: Partial<
             Record<ExecutiveSectionKey, () => Promise<unknown>>
         > = {
             sales: async () => ({
                 ...(await getExecutiveSalesMetrics(now)),
-                ...salesFinanceSlice(await financePromise!),
+                ...salesFinanceSlice(await financeForComposition),
             }),
             purchasing: async () => ({
                 ...(await getExecutivePurchasingMetrics()),
-                ...purchasingFinanceSlice(await financePromise!),
+                ...purchasingFinanceSlice(await financeForComposition),
             }),
             production: () => getExecutiveProductionMetrics(now),
             inventory: () => InventoryQueryService.getExecutiveMetrics(),
@@ -142,21 +150,21 @@ export class ExecutiveStatsService {
     }
 }
 
-function salesFinanceSlice(finance: ExecutiveFinanceMetrics) {
+function salesFinanceSlice(finance: ExecutiveFinanceMetrics | null) {
     return {
-        mtdRevenue: finance.mtdRevenue,
-        pendingInvoices: finance.pendingInvoices,
-        overdueReceivables: finance.overdueReceivables,
-        invoicesDueThisWeek: finance.invoicesDueThisWeek,
-        trend: finance.revenueTrend,
-        revenueTrendChart: finance.revenueTrendChart,
+        mtdRevenue: finance?.mtdRevenue ?? null,
+        pendingInvoices: finance?.pendingInvoices ?? null,
+        overdueReceivables: finance?.overdueReceivables ?? null,
+        invoicesDueThisWeek: finance?.invoicesDueThisWeek ?? null,
+        trend: finance?.revenueTrend,
+        revenueTrendChart: finance?.revenueTrendChart ?? [],
     };
 }
 
-function purchasingFinanceSlice(finance: ExecutiveFinanceMetrics) {
+function purchasingFinanceSlice(finance: ExecutiveFinanceMetrics | null) {
     return {
-        mtdSpending: finance.mtdSpending,
-        overduePayables: finance.overduePayables,
-        trend: finance.spendingTrend,
+        mtdSpending: finance?.mtdSpending ?? null,
+        overduePayables: finance?.overduePayables ?? null,
+        trend: finance?.spendingTrend,
     };
 }

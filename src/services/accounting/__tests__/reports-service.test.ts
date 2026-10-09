@@ -132,11 +132,13 @@ describe("reports-service", () => {
         totalRevenue: expected.totalRevenue,
         totalCOGS: expected.totalCOGS,
         totalOpEx: expected.totalOpEx,
+        netIncome: expected.netIncome,
       });
       expect(summary).toEqual({
         totalRevenue: 100,
         totalCOGS: 35,
         totalOpEx: 20,
+        netIncome: 90,
       });
       expect(prisma.account.findMany).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -734,12 +736,56 @@ describe("reports-service", () => {
       const result = await getBalanceSheet(new Date("2026-06-30"));
 
       expect(result.totalAssets).toBe(10000000);
+      expect(result.cashBalance).toBe(0);
       expect(result.totalLiabilities).toBe(3000000);
       expect(result.totalEquity).toBe(5000000);
       // unpostedEarnings = assets - liabilities - equity = 2000000
       expect(result.unpostedEarnings).toBe(2000000);
       // Total L+E+unposted = total assets
       expect(result.totalLiabilitiesAndEquity).toBe(result.totalAssets);
+    });
+
+    it("returns the as-of balance of accounts explicitly marked as cash", async () => {
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        {
+          id: "cash",
+          code: "10199",
+          parentId: null,
+          type: "ASSET",
+          isCashAccount: true,
+          journalLines: [{ debit: 9000000, credit: 1000000 }],
+        },
+        {
+          id: "not-cash",
+          code: "11110",
+          parentId: null,
+          type: "ASSET",
+          isCashAccount: false,
+          journalLines: [{ debit: 5000000, credit: 0 }],
+        },
+      ] as never);
+
+      const result = await getBalanceSheet(
+        new Date("2026-06-30T10:00:00.000Z"),
+      );
+
+      expect(result.cashBalance).toBe(8000000);
+      expect(prisma.account.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            journalLines: expect.objectContaining({
+              where: {
+                journalEntry: {
+                  entryDate: {
+                    lte: new Date("2026-06-30T16:59:59.999Z"),
+                  },
+                  status: "POSTED",
+                },
+              },
+            }),
+          }),
+        }),
+      );
     });
 
     it("groups child accounts under parent accounts", async () => {

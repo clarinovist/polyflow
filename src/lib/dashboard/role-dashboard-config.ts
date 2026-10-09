@@ -56,8 +56,20 @@ export interface DashboardKpi {
     definition: string;
     source?: string;
     state?: 'AVAILABLE' | 'NOT_CONFIGURED';
+    targetState?: 'NOT_CONFIGURED';
     href?: string;
     resourceHint?: string;
+}
+
+export interface DashboardAttentionItem {
+    id: string;
+    module: string;
+    title: string;
+    value: string;
+    detail: string;
+    severity: 'URGENT' | 'HIGH';
+    href: string;
+    resourceHint: string;
 }
 
 export interface QuickActionItem {
@@ -154,38 +166,87 @@ export function buildKpis(
     const available = (items: Array<DashboardKpi | null>) =>
         items.filter((item): item is DashboardKpi => item !== null);
 
-    const revenue: DashboardKpi | null = stats.sales
-        ? {
-              id: 'revenue',
-              title: 'Pendapatan (MTD)',
-              value: formatRupiah(stats.sales!.mtdRevenue),
-              subtitle: `${stats.sales!.activeOrders} pesanan aktif MTD`,
-              icon: Wallet,
-              trend: trendFromNumber(stats.sales!.trend),
-              trendValue: monthlyTrendLabel(stats.sales!.trend),
-              unit: 'IDR',
-              period: 'Bulan berjalan (MTD)',
-              definition: 'Pendapatan usaha POSTED pada periode berjalan.',
-              source: 'Laporan laba rugi Finance',
-          }
-        : null;
+    const revenueValue = stats.finance?.mtdRevenue ?? stats.sales?.mtdRevenue;
+    const revenueTrend = stats.finance?.revenueTrend ?? stats.sales?.trend;
+    const revenue: DashboardKpi | null =
+        revenueValue !== null && revenueValue !== undefined
+            ? {
+                  id: 'revenue',
+                  title: 'Pendapatan Aktual (MTD)',
+                  value: formatRupiah(revenueValue),
+                  subtitle: 'Target: belum dikonfigurasi',
+                  targetState: 'NOT_CONFIGURED',
+                  icon: Wallet,
+                  trend: trendFromNumber(revenueTrend),
+                  trendValue: monthlyTrendLabel(revenueTrend),
+                  unit: 'IDR',
+                  period: 'Bulan berjalan (MTD)',
+                  definition:
+                      'Pendapatan usaha POSTED; target/on-target ditahan sampai basis target disetujui.',
+                  source: 'Laporan laba rugi Finance',
+                  href: '/finance/reports/income-statement',
+                  resourceHint: '/finance/reports/income-statement',
+              }
+            : null;
 
-    const spending: DashboardKpi | null = stats.purchasing
+    const spending: DashboardKpi | null =
+        stats.purchasing && stats.purchasing.mtdSpending !== null
+            ? {
+                  id: 'spending',
+                  title: 'Pengeluaran (MTD)',
+                  value: formatRupiah(stats.purchasing.mtdSpending),
+                  subtitle: `${stats.purchasing.pendingPOs} PO tertunda`,
+                  icon: ShoppingCart,
+                  trend: trendFromNumber(stats.purchasing.trend),
+                  trendValue: monthlyTrendLabel(stats.purchasing.trend),
+                  unit: 'IDR',
+                  period: 'Bulan berjalan (MTD)',
+                  definition:
+                      'COGS ditambah beban operasional pada periode berjalan.',
+                  source: 'Laporan laba rugi Finance',
+              }
+            : null;
+
+    const netIncome: DashboardKpi | null = stats.finance
         ? {
-              id: 'spending',
-              title: 'Pengeluaran (MTD)',
-              value: formatRupiah(stats.purchasing!.mtdSpending),
-              subtitle: `${stats.purchasing!.pendingPOs} PO tertunda`,
-              icon: ShoppingCart,
-              trend: trendFromNumber(stats.purchasing!.trend),
-              trendValue: monthlyTrendLabel(stats.purchasing!.trend),
+              id: 'netIncome',
+              title: 'Laba Bersih (MTD)',
+              value: formatRupiah(stats.finance.mtdNetIncome),
+              subtitle: 'Termasuk pendapatan dan beban lain kanonis',
+              icon: Banknote,
+              trend: trendFromNumber(stats.finance.netIncomeTrend),
+              trendValue: monthlyTrendLabel(stats.finance.netIncomeTrend),
               unit: 'IDR',
               period: 'Bulan berjalan (MTD)',
               definition:
-                  'COGS ditambah beban operasional pada periode berjalan.',
+                  'Laba bersih dari laporan laba rugi POSTED periode berjalan.',
               source: 'Laporan laba rugi Finance',
+              href: '/finance/reports/income-statement',
+              resourceHint: '/finance/reports/income-statement',
           }
         : null;
+
+    const cashBalance: DashboardKpi | null =
+        stats.finance &&
+        stats.finance.cashBalance !== null &&
+        stats.finance.cashAsOfDate !== null
+            ? {
+                  id: 'cashBalance',
+                  title: 'Kas & Bank',
+                  value: formatRupiah(stats.finance.cashBalance),
+                  subtitle:
+                      'Saldo akun kas yang ditandai pada Chart of Accounts',
+                  icon: Wallet,
+                  trendValue: 'Posisi as-of, bukan mutasi periode',
+                  unit: 'IDR',
+                  period: `As-of ${stats.finance.cashAsOfDate} WIB`,
+                  definition:
+                      'Saldo debit bersih akun kas/bank POSTED sampai akhir hari bisnis.',
+                  source: 'Neraca Finance',
+                  href: '/finance/reports/balance-sheet',
+                  resourceHint: '/finance/reports/balance-sheet',
+              }
+            : null;
 
     // The available source data is a current-state count, not a utilization
     // percentage: execution hours exist, but machine capacity hours do not.
@@ -263,34 +324,30 @@ export function buildKpis(
           }
         : null;
 
-    const overdueAr: DashboardKpi | null =
-        stats.finance && stats.sales
-            ? {
-                  id: 'overdueAr',
-                  title: 'Piutang Overdue',
-                  value: formatRupiah(stats.finance!.overdueReceivables),
-                  subtitle: `${stats.sales!.pendingInvoices} invoice belum lunas`,
-                  icon: TrendingUp,
-                  trend:
-                      stats.finance!.overdueReceivables > 0
-                          ? 'down'
-                          : 'neutral',
-                  trendValue:
-                      stats.finance!.overdueReceivables > 0
-                          ? 'Tagih segera'
-                          : 'Lancar',
-                  unit: 'IDR',
-                  period: 'Jatuh tempo sebelum hari bisnis ini',
-                  definition:
-                      'Sisa piutang operasional yang belum lunas dan telah jatuh tempo.',
-                  source: 'Finance',
-                  href:
-                      stats.finance!.overdueReceivables > 0
-                          ? '/finance/invoices/sales?overdue=true'
-                          : undefined,
-                  resourceHint: '/finance/invoices/sales',
-              }
-            : null;
+    const overdueAr: DashboardKpi | null = stats.finance
+        ? {
+              id: 'overdueAr',
+              title: 'Piutang Overdue',
+              value: formatRupiah(stats.finance!.overdueReceivables),
+              subtitle: `${stats.finance.overdueReceivablesCount} invoice overdue`,
+              icon: TrendingUp,
+              trend: stats.finance!.overdueReceivables > 0 ? 'down' : 'neutral',
+              trendValue:
+                  stats.finance!.overdueReceivables > 0
+                      ? 'Tagih segera'
+                      : 'Lancar',
+              unit: 'IDR',
+              period: 'Jatuh tempo sebelum hari bisnis ini',
+              definition:
+                  'Sisa piutang operasional yang belum lunas dan telah jatuh tempo.',
+              source: 'Finance',
+              href:
+                  stats.finance!.overdueReceivables > 0
+                      ? '/finance/invoices/sales?overdue=true'
+                      : undefined,
+              resourceHint: '/finance/invoices/sales',
+          }
+        : null;
 
     const overdueAp: DashboardKpi | null = stats.finance
         ? {
@@ -317,33 +374,15 @@ export function buildKpis(
           }
         : null;
 
-    const dueWeek: DashboardKpi | null = stats.finance
-        ? {
-              id: 'dueWeek',
-              title: 'Jatuh Tempo Minggu Ini',
-              value: stats.finance!.invoicesDueThisWeek.toString(),
-              subtitle: 'Invoice piutang',
-              icon: CalendarClock,
-              trend:
-                  stats.finance!.invoicesDueThisWeek > 3 ? 'down' : 'neutral',
-              trendValue:
-                  stats.finance!.invoicesDueThisWeek > 0
-                      ? 'Siapkan penagihan'
-                      : 'Tidak ada',
-              unit: 'Invoice',
-              period: 'Tujuh hari ke depan',
-              definition:
-                  'Invoice piutang positif yang jatuh tempo dalam tujuh hari.',
-              source: 'Finance',
-          }
-        : null;
-
     const activeOrders: DashboardKpi | null = stats.sales
         ? {
               id: 'activeOrders',
               title: 'Pesanan Aktif (MTD)',
               value: stats.sales!.activeOrders.toString(),
-              subtitle: `${stats.sales!.pendingInvoices} invoice tertunda`,
+              subtitle:
+                  stats.sales!.pendingInvoices === null
+                      ? 'Nominal Finance tidak tersedia'
+                      : `${stats.sales!.pendingInvoices} invoice tertunda`,
               icon: FileText,
               trend: 'neutral',
               trendValue: 'Sales order berjalan',
@@ -363,10 +402,12 @@ export function buildKpis(
         ? {
               id: 'pendingPo',
               title: 'PO Tertunda',
-              value: stats.purchasing!.pendingPOs.toString(),
+              value: stats.purchasing.pendingPOs.toString(),
               subtitle:
-                  formatRupiah(stats.purchasing!.mtdSpending) +
-                  ' pengeluaran bulan berjalan (MTD)',
+                  stats.purchasing.mtdSpending === null
+                      ? 'Nominal Finance tidak tersedia'
+                      : formatRupiah(stats.purchasing.mtdSpending) +
+                        ' pengeluaran bulan berjalan (MTD)',
               icon: ShoppingCart,
               trend: stats.purchasing!.pendingPOs > 0 ? 'neutral' : 'up',
               trendValue:
@@ -430,45 +471,15 @@ export function buildKpis(
           }
         : null;
 
-    const cashPressure: DashboardKpi | null = stats.finance
-        ? {
-              id: 'cashPressure',
-              title: 'Tekanan Kas (AR+AP)',
-              value: formatRupiah(
-                  stats.finance!.overdueReceivables +
-                      stats.finance!.overduePayables,
-              ),
-              subtitle: 'Overdue piutang + hutang',
-              icon: Banknote,
-              trend:
-                  stats.finance!.overdueReceivables +
-                      stats.finance!.overduePayables >
-                  0
-                      ? 'down'
-                      : 'neutral',
-              trendValue:
-                  stats.finance!.overdueReceivables +
-                      stats.finance!.overduePayables >
-                  0
-                      ? 'Perlu aksi kas'
-                      : 'Sehat',
-              unit: 'IDR',
-              period: 'Jatuh tempo sebelum hari bisnis ini',
-              definition: 'Jumlah overdue AR dan AP; bukan saldo kas.',
-              source: 'Finance',
-              href:
-                  stats.finance!.overdueReceivables +
-                      stats.finance!.overduePayables >
-                  0
-                      ? '/finance/aging'
-                      : undefined,
-              resourceHint: '/finance/aging',
-          }
-        : null;
-
     switch (r) {
         case 'FINANCE':
-            return available([overdueAr, overdueAp, dueWeek, revenue]);
+            return available([
+                revenue,
+                netIncome,
+                cashBalance,
+                overdueAr,
+                overdueAp,
+            ]);
         case 'SALES':
             return available([activeOrders, revenue, overdueAr, inventory]);
         case 'PROCUREMENT':
@@ -508,12 +519,114 @@ export function buildKpis(
         default:
             return available([
                 revenue,
-                spending,
-                machines,
+                netIncome,
+                cashBalance,
                 productionCompletion,
-                cashPressure,
+                lowStock,
             ]);
     }
+}
+
+export function buildExecutiveAttention(
+    role: DashboardRole,
+    stats: ExecutiveStats,
+): DashboardAttentionItem[] {
+    const candidates: Record<string, DashboardAttentionItem | null> = {
+        overdueAr:
+            stats.finance && stats.finance.overdueReceivables > 0
+                ? {
+                      id: 'overdueAr',
+                      module: 'Finance',
+                      title: 'Piutang overdue',
+                      value: formatRupiah(stats.finance.overdueReceivables),
+                      detail: `${stats.finance.overdueReceivablesCount} invoice melewati jatuh tempo`,
+                      severity: 'URGENT',
+                      href: '/finance/invoices/sales?overdue=true',
+                      resourceHint: '/finance/invoices/sales',
+                  }
+                : null,
+        overdueAp:
+            stats.finance && stats.finance.overduePayables > 0
+                ? {
+                      id: 'overdueAp',
+                      module: 'Finance · Pembelian',
+                      title: 'Hutang overdue',
+                      value: formatRupiah(stats.finance.overduePayables),
+                      detail: `${stats.finance.overduePayablesCount} invoice melewati jatuh tempo`,
+                      severity: 'URGENT',
+                      href: '/finance/invoices/purchase?overdue=true',
+                      resourceHint: '/finance/invoices/purchase',
+                  }
+                : null,
+        lowStock:
+            stats.inventory && stats.inventory.lowStockCount > 0
+                ? {
+                      id: 'lowStock',
+                      module: 'Persediaan',
+                      title: 'Stok rendah',
+                      value: stats.inventory.lowStockCount.toLocaleString(
+                          'id-ID',
+                      ),
+                      detail: 'Varian INTERNAL RM/FG di bawah batas minimum',
+                      severity: 'URGENT',
+                      href: '/warehouse/inventory?lowStock=true',
+                      resourceHint: '/warehouse/inventory',
+                  }
+                : null,
+        delayedProduction:
+            stats.production && stats.production.delayedJobs > 0
+                ? {
+                      id: 'delayedProduction',
+                      module: 'Produksi',
+                      title: 'SPK terlambat',
+                      value: stats.production.delayedJobs.toLocaleString(
+                          'id-ID',
+                      ),
+                      detail: 'Dokumen dirilis/berjalan melewati planned end',
+                      severity: 'HIGH',
+                      href: '/production/orders?late=1',
+                      resourceHint: '/production/orders',
+                  }
+                : null,
+        pendingPo:
+            stats.purchasing && stats.purchasing.pendingPOs > 0
+                ? {
+                      id: 'pendingPo',
+                      module: 'Pembelian',
+                      title: 'PO perlu tindak lanjut',
+                      value: stats.purchasing.pendingPOs.toLocaleString(
+                          'id-ID',
+                      ),
+                      detail: 'Purchase order DRAFT atau SENT',
+                      severity: 'HIGH',
+                      href: '/purchasing/orders?status=DRAFT,SENT',
+                      resourceHint: '/purchasing/orders',
+                  }
+                : null,
+    };
+    const byRole: Record<string, string[]> = {
+        ADMIN: [
+            'overdueAr',
+            'overdueAp',
+            'lowStock',
+            'delayedProduction',
+            'pendingPo',
+        ],
+        FINANCE: ['overdueAr', 'overdueAp'],
+        SALES: ['overdueAr', 'lowStock'],
+        MARKETING: ['overdueAr', 'lowStock'],
+        PROCUREMENT: ['overdueAp', 'lowStock', 'pendingPo'],
+        PLANNING: ['lowStock', 'delayedProduction', 'pendingPo'],
+        WAREHOUSE: ['lowStock', 'delayedProduction', 'pendingPo'],
+        PRODUCTION: ['lowStock', 'delayedProduction'],
+        FACTORY_MANAGER: ['lowStock', 'delayedProduction'],
+        HRD: [],
+    };
+
+    return (byRole[role.toUpperCase()] ?? byRole.ADMIN)
+        .map((id) => candidates[id])
+        .filter((item): item is DashboardAttentionItem => item !== null)
+        .slice(0, 5);
 }
 
 export function buildQuickActions(role: DashboardRole): QuickActionItem[] {

@@ -29,15 +29,25 @@ import { ExecutiveStatsService } from '../executive-stats-service';
 const finance = {
     mtdRevenue: 900,
     revenueTrend: 80,
+    mtdNetIncome: 540,
+    netIncomeTrend: 35,
     mtdSpending: 250,
     spendingTrend: 25,
+    cashBalance: 1_500,
+    cashAsOfDate: '2026-05-31',
     pendingInvoices: 4,
     overdueReceivables: 650,
+    overdueReceivablesCount: 3,
     overduePayables: 500,
+    overduePayablesCount: 2,
     invoicesDueThisWeek: 2,
     revenueTrendChart: [
         { month: '2026-04', revenue: 500 },
         { month: '2026-05', revenue: 900 },
+    ],
+    netIncomeTrendChart: [
+        { month: '2026-04', netIncome: 400 },
+        { month: '2026-05', netIncome: 540 },
     ],
 };
 const production = {
@@ -96,7 +106,9 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             finance,
         });
         expect(new Date(stats.generatedAt).getTime()).toBeGreaterThanOrEqual(before);
-        expect(mocks.finance).toHaveBeenCalledOnce();
+        expect(mocks.finance).toHaveBeenCalledWith(expect.any(Date), {
+            includeBalanceSheet: true,
+        });
     });
 
     it('marks one failed domain unavailable without replacing it with zeros', async () => {
@@ -131,7 +143,7 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         expect(mocks.finance).not.toHaveBeenCalled();
     });
 
-    it('marks dependent Sales and Purchasing values unavailable when Finance fails', async () => {
+    it('keeps operational Sales and Purchasing available when Finance fails', async () => {
         mocks.finance.mockRejectedValueOnce(new Error('finance unavailable'));
 
         const stats = await ExecutiveStatsService.getExecutiveStats({
@@ -139,13 +151,63 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         });
 
         expect(stats.sections).toMatchObject({
-            sales: 'UNAVAILABLE',
-            purchasing: 'UNAVAILABLE',
+            sales: 'AVAILABLE',
+            purchasing: 'AVAILABLE',
             finance: 'UNAVAILABLE',
         });
-        expect(stats.sales).toBeNull();
-        expect(stats.purchasing).toBeNull();
+        expect(stats.sales).toMatchObject({
+            activeOrders: 1,
+            mtdRevenue: null,
+            pendingInvoices: null,
+            revenueTrendChart: [],
+        });
+        expect(stats.purchasing).toMatchObject({
+            pendingPOs: 3,
+            mtdSpending: null,
+            overduePayables: null,
+        });
         expect(stats.finance).toBeNull();
-        expect(mocks.finance).toHaveBeenCalledOnce();
+        expect(mocks.finance).toHaveBeenCalledWith(expect.any(Date), {
+            includeBalanceSheet: true,
+        });
+    });
+
+    it('does not query an inactive Finance module even when Sales is visible', async () => {
+        const stats = await ExecutiveStatsService.getExecutiveStats({
+            sections: ['sales', 'finance'],
+            activeModules: ['SALES'],
+        });
+
+        expect(stats.sections).toMatchObject({
+            sales: 'AVAILABLE',
+            finance: 'HIDDEN',
+        });
+        expect(stats.sales).toMatchObject({
+            activeOrders: 1,
+            mtdRevenue: null,
+            pendingInvoices: null,
+        });
+        expect(mocks.finance).not.toHaveBeenCalled();
+    });
+
+    it('withholds the Finance section and skips its balance-sheet option when only Sales needs revenue', async () => {
+        const stats = await ExecutiveStatsService.getExecutiveStats({
+            sections: ['sales', 'inventory'],
+        });
+
+        expect(stats.sections).toMatchObject({
+            sales: 'AVAILABLE',
+            inventory: 'AVAILABLE',
+            finance: 'HIDDEN',
+        });
+        expect(stats.sales).toMatchObject({
+            activeOrders: 1,
+            mtdRevenue: 900,
+            pendingInvoices: 4,
+        });
+        expect(stats.finance).toBeNull();
+        expect(mocks.finance).toHaveBeenCalledWith(expect.any(Date), {
+            includeBalanceSheet: false,
+        });
     });
 });
