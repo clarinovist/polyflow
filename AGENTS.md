@@ -64,6 +64,7 @@ delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index cam
 - **Push langsung ke `main` diizinkan** untuk scope tugas; tidak perlu menunggu perintah “push/ship” lagi. Push dibatch dan tidak langsung deploy; release otomatis berjalan terjadwal pada hari kerja, sedangkan kebutuhan mendesak memakai `workflow_dispatch` pada `main`. SSH, deploy/restart rutin, dan migration rilis diizinkan dengan target terverifikasi, backup, serta rollback. Seeding/data patch destruktif atau perubahan credential/akses di luar scope tetap perlu instruksi spesifik.
 - **CI tidak dikurangi:** artifact commit SHA yang dideploy wajib lolos `test` (full coverage), `lint`, `build-and-push`, serta contract gates di `.github/workflows/production.yml`. Build produksi di CI → registry → VPS pull/restart; **jangan build di VPS**.
 - Sebelum deploy/operasi produksi, baca `docs/ops/vps.md` lokal; jika tidak ada, cari runbook/inventaris tepercaya atau konfigurasi SSH yang tersedia. Minta hanya detail target yang benar-benar belum terverifikasi, bukan izin SSH ulang; jangan menebak. Pascadeploy: health/log + smoke test; perubahan schema/data juga wajib verifikasi migration dan invariant/isi tabel tenant target. CI green bukan bukti data benar.
+- Debug DB produksi wajib read-only (`SET TRANSACTION READ ONLY` / user read-only); tulis langsung ke DB prod hanya lewat alur rilis/migration. Satu key SSH per perangkat; key tak terpakai dihapus dari `authorized_keys`. Detail pola di `docs/ops/vps.md` (lokal).
 
 ## Delegasi (opsional)
 
