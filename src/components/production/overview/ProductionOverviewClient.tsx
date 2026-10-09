@@ -1,9 +1,23 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
+import {
+    AlertCircle,
+    AlertTriangle,
+    CheckCircle2,
+    ExternalLink,
+    Factory,
+    Gauge,
+    TimerOff,
+} from 'lucide-react';
 import { getProductionLiveOverview } from '@/actions/dashboard/production-live-overview';
+import {
+    DashboardFreshness,
+    DashboardHealthCard,
+    DashboardSectionState,
+} from '@/components/dashboard/DashboardMetricPrimitives';
 import { LiveClockBar } from './LiveClockBar';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,52 +29,93 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import {
-    AlertCircle,
-    AlertTriangle,
-    ArrowRight,
-    CheckCircle2,
-    ExternalLink,
-} from 'lucide-react';
 import { cn, formatQuantity } from '@/lib/utils/utils';
 import { formatUnitLabel } from '@/lib/utils/unit-label';
 import type { TodayOutputItem } from '@/lib/production/live-overview';
+import type {
+    ProductionAttentionItem,
+    ProductionRunningOrder,
+} from '@/services/production/production-dashboard-health-service';
 
 type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
 export type TabKey = ProcessKey | 'ALL';
-
-type RunningOrder = {
-    id: string;
-    orderNumber: string;
-    productName: string;
-    machineCode: string;
-    operatorName: string;
-    plannedQty: number;
-    actualQty: number;
-    progress: number;
-    isLate: boolean;
-    processKey: ProcessKey;
-    startedAt: string | Date;
-    estimatedDoneAt: string | Date | null;
-};
-
-type AttentionItem = {
-    type: string;
-    severity: 'red' | 'amber';
-    title: string;
-    subtitle: string;
-    orderId?: string;
-    machineId?: string;
-    ageMinutes: number;
-    processKey: ProcessKey | 'ALL';
-    secondaryHref?: string;
-    secondaryLabel?: string;
-};
+type SectionState = 'AVAILABLE' | 'UNAVAILABLE';
 
 export type ProductionOverviewData = {
-    runningOrders: RunningOrder[];
-    attentions: AttentionItem[];
-    todayOutputItems: TodayOutputItem[];
+    generatedAt: string;
+    state: 'AVAILABLE' | 'HIDDEN';
+    permissions: {
+        links: {
+            outputReport: string | null;
+            daily: string | null;
+            orders: string | null;
+            warehouseMaterials: string | null;
+            kiosk: string | null;
+        };
+    } | null;
+    health: {
+        output: {
+            state: SectionState;
+            totalGroups: number;
+            returned: number;
+            truncated: boolean;
+            processTotals: Array<{
+                processKey: ProcessKey;
+                unit: string;
+                quantity: number;
+            }>;
+            items: TodayOutputItem[];
+        };
+        activeSpk: {
+            state: SectionState;
+            total: number | null;
+            lateTotal: number | null;
+        };
+        downtime: {
+            state: SectionState;
+            total: number;
+            thresholdMinutes: number | null;
+            longest: {
+                incidentId: string;
+                machineId: string;
+                machineCode: string;
+                reason: string;
+                minutes: number;
+                severity: 'red' | 'amber';
+                href?: string;
+            } | null;
+        };
+    } | null;
+    liveOrders: {
+        state: SectionState;
+        total: number | null;
+        lateTotal: number | null;
+        returned: number;
+        items: ProductionRunningOrder[];
+    } | null;
+    attention: {
+        state: SectionState;
+        total: number | null;
+        returned: number;
+        items: ProductionAttentionItem[];
+    } | null;
+    drivers: {
+        state: SectionState;
+        longestDowntime: {
+            incidentId: string;
+            machineId: string;
+            machineCode: string;
+            reason: string;
+            minutes: number;
+            severity: 'red' | 'amber';
+            href?: string;
+        } | null;
+        lateProcess: {
+            processKey: ProcessKey;
+            lateCount: number;
+            oldestDelayMinutes: number;
+        } | null;
+    } | null;
 };
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -78,301 +133,6 @@ const PROCESS_COLOR: Record<ProcessKey, string> = {
     OTHER: 'text-muted-foreground',
 };
 
-export function emptyOverviewData(): ProductionOverviewData {
-    return {
-        runningOrders: [],
-        attentions: [],
-        todayOutputItems: [],
-    };
-}
-
-interface ProductionOverviewClientProps {
-    initialData: ProductionOverviewData;
-}
-
-export function ProductionOverviewClient({
-    initialData,
-}: ProductionOverviewClientProps) {
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-    const [tab, setTab] = useState<TabKey>('ALL');
-
-    useEffect(() => {
-        setLastUpdated(new Date());
-    }, []);
-
-    const fetcher = async (): Promise<ProductionOverviewData> => {
-        const res = await getProductionLiveOverview();
-        if (res.success && res.data) {
-            setLastUpdated(new Date());
-            return res.data as unknown as ProductionOverviewData;
-        }
-        const errorMsg = !res.success
-            ? res.error
-            : 'Failed to fetch live overview';
-        throw new Error(errorMsg);
-    };
-
-    const { data, error, isLoading, mutate } = useSWR<ProductionOverviewData>(
-        'production-live-overview',
-        fetcher,
-        {
-            fallbackData: initialData,
-            refreshInterval: 30000,
-            dedupingInterval: 25000,
-            revalidateOnFocus: true,
-        },
-    );
-
-    const handleRefresh = async () => {
-        await mutate();
-    };
-
-    const activeData = data || initialData;
-
-    const filteredOrders = useMemo(() => {
-        if (tab === 'ALL') return activeData.runningOrders;
-        return activeData.runningOrders.filter((o) => o.processKey === tab);
-    }, [activeData.runningOrders, tab]);
-
-    const filteredAttentions = useMemo(() => {
-        if (tab === 'ALL') return activeData.attentions;
-        return activeData.attentions.filter(
-            (a) => a.processKey === tab || a.processKey === 'ALL',
-        );
-    }, [activeData.attentions, tab]);
-
-    if (error && !data) {
-        return (
-            <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-xl text-center min-h-[300px]">
-                <AlertCircle className="h-10 w-10 text-rose-500 mb-3" />
-                <h3 className="font-bold text-lg">Gagal memuat dashboard</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-md">
-                    {error.message ||
-                        'Terjadi kesalahan koneksi saat memuat data lantai produksi.'}
-                </p>
-                <Button onClick={handleRefresh} className="mt-4 font-bold">
-                    Coba lagi
-                </Button>
-            </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col gap-5">
-            <LiveClockBar
-                onRefresh={handleRefresh}
-                isLoading={isLoading}
-                lastUpdated={lastUpdated}
-            />
-
-            <TodayOutputSummary items={activeData.todayOutputItems ?? []} />
-
-            <div>
-                <p className="mb-2 text-sm font-medium">
-                    Pekerjaan & perhatian per proses
-                </p>
-                <p className="mb-3 text-xs text-muted-foreground">
-                    Filter ini berlaku untuk SPK dan perhatian di bawah. Kondisi
-                    di atas dan ringkasan hasil tetap mencakup seluruh proses.
-                </p>
-                <div
-                    role="group"
-                    aria-label="Filter proses pekerjaan dan perhatian"
-                    className="flex flex-wrap gap-2"
-                >
-                    {TABS.map((t) => (
-                        <Button
-                            key={t.key}
-                            type="button"
-                            variant={tab === t.key ? 'default' : 'outline'}
-                            aria-pressed={tab === t.key}
-                            onClick={() => setTab(t.key)}
-                            className="min-h-11 text-xs font-bold tracking-wide"
-                        >
-                            {t.label}
-                        </Button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-                <Card className="shadow-sm bg-card/65 backdrop-blur-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-bold">
-                            SPK{' '}
-                            {tab === 'ALL'
-                                ? 'aktif'
-                                : `proses ${tab === 'OTHER' ? 'Lainnya' : tab}`}
-                        </CardTitle>
-                        <CardDescription>
-                            {filteredOrders.length} SPK berjalan pada filter
-                            ini. Maksimal 5 ditampilkan; satu SPK untuk satu
-                            proses.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2.5">
-                        <Link
-                            href="/production/daily"
-                            className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
-                        >
-                            Buka semua SPK di Board Proses →
-                        </Link>
-                        {filteredOrders.length === 0 ? (
-                            <div className="border border-dashed rounded-lg py-10 text-center text-sm text-muted-foreground">
-                                Tidak ada SPK berjalan di filter ini
-                            </div>
-                        ) : (
-                            filteredOrders.slice(0, 5).map((o) => (
-                                <div
-                                    key={o.id}
-                                    className="rounded-lg border bg-background/40 p-3 space-y-2"
-                                >
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="min-w-0">
-                                            <div className="font-semibold text-sm truncate">
-                                                {o.productName}
-                                            </div>
-                                            <div className="text-[11px] text-muted-foreground mt-0.5">
-                                                {o.orderNumber} ·{' '}
-                                                {o.machineCode} ·{' '}
-                                                {o.operatorName}
-                                                {tab === 'ALL' && (
-                                                    <span className="ml-1">
-                                                        · {o.processKey}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            {o.isLate && (
-                                                <Badge
-                                                    variant="destructive"
-                                                    className="text-[10px]"
-                                                >
-                                                    Terlambat
-                                                </Badge>
-                                            )}
-                                            <span className="text-xs font-bold tabular-nums">
-                                                {Math.min(
-                                                    100,
-                                                    o.progress,
-                                                ).toFixed(0)}
-                                                %
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <Progress
-                                        value={Math.min(100, o.progress)}
-                                        className="h-1.5"
-                                    />
-                                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                        <span>
-                                            {o.actualQty.toLocaleString(
-                                                'id-ID',
-                                                { maximumFractionDigits: 1 },
-                                            )}{' '}
-                                            /{' '}
-                                            {o.plannedQty.toLocaleString(
-                                                'id-ID',
-                                                { maximumFractionDigits: 1 },
-                                            )}
-                                        </span>
-                                        <Link
-                                            href={`/production/orders/${o.id}`}
-                                            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-                                        >
-                                            Detail{' '}
-                                            <ExternalLink className="h-3 w-3" />
-                                        </Link>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card
-                    className="shadow-sm bg-card/65 backdrop-blur-sm scroll-mt-20"
-                    id="attentions"
-                >
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-bold">
-                            Butuh perhatian
-                        </CardTitle>
-                        <CardDescription>
-                            Pilih item untuk membuka SPK atau mesin terkait.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2 max-h-[32rem] overflow-y-auto">
-                        {filteredAttentions.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center border border-dashed rounded-lg py-10 text-center">
-                                <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
-                                <p className="text-sm font-semibold">
-                                    Tidak ada isu
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Filter ini sehat.
-                                </p>
-                            </div>
-                        ) : (
-                            filteredAttentions.map((item, idx) => {
-                                const href = item.orderId
-                                    ? `/production/orders/${item.orderId}`
-                                    : item.machineId
-                                      ? `/production/machines/${item.machineId}`
-                                      : '/production/daily';
-                                const red = item.severity === 'red';
-                                return (
-                                    <div
-                                        key={`${item.title}-${idx}`}
-                                        className={cn(
-                                            'flex items-start gap-2.5 rounded-lg border p-3 text-xs',
-                                            red
-                                                ? 'border-rose-500/20 bg-rose-500/5'
-                                                : 'border-amber-500/20 bg-amber-500/5',
-                                        )}
-                                    >
-                                        {red ? (
-                                            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-                                        ) : (
-                                            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                                        )}
-                                        <div className="min-w-0 flex-1">
-                                            <Link
-                                                href={href}
-                                                className="block hover:opacity-80 transition-opacity"
-                                            >
-                                                <p className="font-bold truncate">
-                                                    {item.title}
-                                                </p>
-                                                <p className="text-muted-foreground mt-0.5 line-clamp-2">
-                                                    {item.subtitle}
-                                                </p>
-                                            </Link>
-                                            {item.secondaryHref &&
-                                                item.secondaryLabel && (
-                                                    <Link
-                                                        href={
-                                                            item.secondaryHref
-                                                        }
-                                                        className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-primary hover:underline"
-                                                    >
-                                                        {item.secondaryLabel}{' '}
-                                                        <ArrowRight className="h-3 w-3" />
-                                                    </Link>
-                                                )}
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    );
-}
-
 const PROCESS_LABEL: Record<ProcessKey, string> = {
     MIXING: 'Mixing',
     EXTRUSION: 'Extru',
@@ -380,33 +140,672 @@ const PROCESS_LABEL: Record<ProcessKey, string> = {
     OTHER: 'Lainnya',
 };
 
-function TodayOutputSummary({ items }: { items: TodayOutputItem[] }) {
-    const processTotals = new Map<ProcessKey, Map<string, number>>();
-    for (const item of items) {
-        const totals = processTotals.get(item.processKey) ?? new Map();
-        totals.set(item.unit, (totals.get(item.unit) ?? 0) + item.quantity);
-        processTotals.set(item.processKey, totals);
+interface ProductionOverviewClientProps {
+    initialData: ProductionOverviewData;
+}
+
+export function emptyOverviewData(): ProductionOverviewData {
+    return {
+        generatedAt: new Date(0).toISOString(),
+        state: 'AVAILABLE',
+        permissions: {
+            links: {
+                outputReport: null,
+                daily: null,
+                orders: null,
+                warehouseMaterials: null,
+                kiosk: null,
+            },
+        },
+        health: {
+            output: {
+                state: 'AVAILABLE',
+                totalGroups: 0,
+                returned: 0,
+                truncated: false,
+                processTotals: [],
+                items: [],
+            },
+            activeSpk: { state: 'AVAILABLE', total: 0, lateTotal: 0 },
+            downtime: {
+                state: 'AVAILABLE',
+                total: 0,
+                thresholdMinutes: 30,
+                longest: null,
+            },
+        },
+        liveOrders: {
+            state: 'AVAILABLE',
+            total: 0,
+            lateTotal: 0,
+            returned: 0,
+            items: [],
+        },
+        attention: {
+            state: 'AVAILABLE',
+            total: 0,
+            returned: 0,
+            items: [],
+        },
+        drivers: {
+            state: 'AVAILABLE',
+            longestDowntime: null,
+            lateProcess: null,
+        },
+    };
+}
+
+function minuteLabel(minutes: number) {
+    if (minutes < 60) return `${minutes.toLocaleString('id-ID')} menit`;
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder > 0
+        ? `${hours.toLocaleString('id-ID')} jam ${remainder} menit`
+        : `${hours.toLocaleString('id-ID')} jam`;
+}
+
+function outputValue(
+    processTotals: Array<{
+        processKey: ProcessKey;
+        unit: string;
+        quantity: number;
+    }>,
+) {
+    if (processTotals.length === 0) return '0 hasil tercatat';
+    return processTotals
+        .map(
+            (total) =>
+                `${total.processKey} · ${formatQuantity(total.quantity)} ${formatUnitLabel(total.unit)}`,
+        )
+        .join(' · ');
+}
+
+export function ProductionOverviewClient({
+    initialData,
+}: ProductionOverviewClientProps) {
+    const [tab, setTab] = useState<TabKey>('ALL');
+
+    const fetcher = async (): Promise<ProductionOverviewData> => {
+        const response = await getProductionLiveOverview();
+        if (response.success && response.data) {
+            return response.data as unknown as ProductionOverviewData;
+        }
+        throw new Error(
+            !response.success
+                ? response.error
+                : 'Gagal mengambil data produksi terbaru.',
+        );
+    };
+
+    const { data, error, isLoading, mutate } = useSWR<ProductionOverviewData>(
+        'production-live-overview',
+        fetcher,
+        {
+            fallbackData: initialData,
+            refreshInterval: 30_000,
+            dedupingInterval: 25_000,
+            revalidateOnFocus: true,
+        },
+    );
+    const activeData = data ?? initialData;
+    const links = activeData.permissions?.links;
+    const health = activeData.health;
+    const liveOrders = activeData.liveOrders;
+    const attention = activeData.attention;
+    const drivers = activeData.drivers;
+
+    const filteredOrders = useMemo(() => {
+        const rows = liveOrders?.items ?? [];
+        if (tab === 'ALL') return rows;
+        return rows.filter((order) => order.processKey === tab);
+    }, [liveOrders?.items, tab]);
+    const filteredAttentions = useMemo(() => {
+        const rows = attention?.items ?? [];
+        if (tab === 'ALL') return rows;
+        return rows.filter(
+            (item) => item.processKey === tab || item.processKey === 'ALL',
+        );
+    }, [attention?.items, tab]);
+
+    const handleRefresh = () => {
+        void mutate().catch(() => {
+            // SWR exposes the rejection through `error`; keep last-good data.
+        });
+    };
+
+    return (
+        <div className="mx-auto flex max-w-[1600px] min-w-0 flex-col gap-6 [overflow-wrap:anywhere] md:gap-8 [&_[data-slot=badge]]:whitespace-normal [&_[data-slot=card]]:min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                <DashboardFreshness generatedAt={activeData.generatedAt} />
+                <LiveClockBar
+                    onRefresh={handleRefresh}
+                    isLoading={isLoading}
+                    generatedAt={activeData.generatedAt}
+                    kioskHref={links?.kiosk ?? null}
+                />
+            </div>
+
+            {error && (
+                <DashboardSectionState
+                    state="UNAVAILABLE"
+                    title="Pembaruan gagal · data terakhir tetap ditampilkan"
+                    description="Data di bawah mungkin stale. Waktu pembaruan tidak diubah sampai server berhasil mengirim snapshot baru."
+                />
+            )}
+
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="production-health-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Health
+                    </p>
+                    <h2
+                        id="production-health-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Kondisi produksi utama
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Snapshot server saat ini. Kuantitas selalu dipisahkan
+                        menurut proses, barang, dan satuan.
+                    </p>
+                </div>
+                <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-3">
+                    <DashboardHealthCard
+                        title="Output hari ini"
+                        value={
+                            health?.output.state === 'AVAILABLE'
+                                ? outputValue(health.output.processTotals)
+                                : undefined
+                        }
+                        icon={Factory}
+                        state={health?.output.state ?? 'UNAVAILABLE'}
+                        definition={{
+                            unit: 'Kuantitas per proses · barang · unit',
+                            period: 'Hari bisnis WIB',
+                            description:
+                                'Hanya execution non-VOIDED. Nilai KG, PCS, dan unit lain tidak pernah dijumlahkan.',
+                            source: 'ProductionExecution',
+                        }}
+                        supportingText={
+                            health?.output.state === 'AVAILABLE' ? (
+                                <span>
+                                    {health.output.totalGroups} kelompok output.
+                                    {health.output.truncated
+                                        ? ' Pembacaan melewati batas aman; hasil tidak dianggap lengkap.'
+                                        : ''}
+                                </span>
+                            ) : undefined
+                        }
+                        href={
+                            health?.output.state === 'AVAILABLE' &&
+                            links?.outputReport
+                                ? `${links.outputReport}?mode=product&page=1&preset=today`
+                                : undefined
+                        }
+                    />
+                    <DashboardHealthCard
+                        title="SPK aktif"
+                        value={
+                            health?.activeSpk.state === 'AVAILABLE' &&
+                            health.activeSpk.total != null
+                                ? `${health.activeSpk.total.toLocaleString('id-ID')} SPK`
+                                : undefined
+                        }
+                        icon={Gauge}
+                        state={health?.activeSpk.state ?? 'UNAVAILABLE'}
+                        definition={{
+                            unit: 'SPK · jumlah dokumen',
+                            period: 'Snapshot saat ini',
+                            description:
+                                'Seluruh SPK IN_PROGRESS; subset terlambat memakai plannedEndDate sebelum waktu server.',
+                            source: 'ProductionOrder',
+                        }}
+                        supportingText={
+                            health?.activeSpk.state === 'AVAILABLE' &&
+                            health.activeSpk.lateTotal != null ? (
+                                <span>
+                                    {health.activeSpk.lateTotal.toLocaleString(
+                                        'id-ID',
+                                    )}{' '}
+                                    terlambat
+                                </span>
+                            ) : undefined
+                        }
+                        href={
+                            health?.activeSpk.state === 'AVAILABLE'
+                                ? (links?.daily ?? links?.orders ?? undefined)
+                                : undefined
+                        }
+                    />
+                    <DashboardHealthCard
+                        title="Downtime terbuka terlama"
+                        value={
+                            health?.downtime.state === 'AVAILABLE'
+                                ? health.downtime.longest
+                                    ? minuteLabel(
+                                          health.downtime.longest.minutes,
+                                      )
+                                    : 'Tidak ada insiden terbuka'
+                                : undefined
+                        }
+                        icon={TimerOff}
+                        state={health?.downtime.state ?? 'UNAVAILABLE'}
+                        definition={{
+                            unit: 'Menit · satu insiden',
+                            period: 'Snapshot saat ini',
+                            description:
+                                'Durasi satu insiden terbuka terlama, dibandingkan dengan threshold tenant per insiden.',
+                            source: 'MachineDowntime + AppSetting tenant',
+                        }}
+                        supportingText={
+                            health?.downtime.state === 'AVAILABLE' ? (
+                                <span>
+                                    {health.downtime.longest
+                                        ? `${health.downtime.longest.machineCode} · ${health.downtime.longest.reason}`
+                                        : 'Semua insiden sudah ditutup.'}{' '}
+                                    Threshold:{' '}
+                                    {health.downtime.thresholdMinutes ?? '—'}
+                                    {' menit.'}
+                                </span>
+                            ) : undefined
+                        }
+                        href={
+                            health?.downtime.state === 'AVAILABLE'
+                                ? health.downtime.longest?.href
+                                : undefined
+                        }
+                    />
+                </div>
+                {health?.output.state === 'AVAILABLE' && (
+                    <TodayOutputSummary
+                        items={health.output.items}
+                        processTotals={health.output.processTotals}
+                        totalGroups={health.output.totalGroups}
+                        returned={health.output.returned}
+                        outputReportHref={links?.outputReport ?? null}
+                    />
+                )}
+            </section>
+
+            <section
+                className="min-w-0 space-y-4"
+                aria-labelledby="production-attention-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Attention
+                    </p>
+                    <h2
+                        id="production-attention-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Pekerjaan dan perhatian per proses
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Total mencakup populasi eligible; daftar adalah sampel
+                        global deterministik dan dibatasi untuk polling 30
+                        detik.
+                    </p>
+                </div>
+
+                <div
+                    role="group"
+                    aria-label="Filter proses pekerjaan dan perhatian"
+                    className="flex flex-wrap gap-2"
+                >
+                    {TABS.map((item) => (
+                        <Button
+                            key={item.key}
+                            type="button"
+                            variant={tab === item.key ? 'default' : 'outline'}
+                            aria-pressed={tab === item.key}
+                            onClick={() => setTab(item.key)}
+                            className="min-h-11 text-xs font-bold tracking-wide"
+                        >
+                            {item.label}
+                        </Button>
+                    ))}
+                </div>
+
+                {attention?.state === 'UNAVAILABLE' && (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Sebagian Attention Production tidak tersedia"
+                        description="Reader gagal tidak dianggap sebagai semua aman. Item yang berhasil dibaca tetap ditampilkan."
+                    />
+                )}
+
+                <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-bold">
+                                SPK aktif
+                            </CardTitle>
+                            <CardDescription>
+                                {liveOrders?.total == null
+                                    ? 'Total tidak tersedia'
+                                    : `${liveOrders.total.toLocaleString('id-ID')} total · ${liveOrders.returned.toLocaleString('id-ID')} ditampilkan`}
+                                {tab !== 'ALL'
+                                    ? ` · filter ${PROCESS_LABEL[tab]}`
+                                    : ''}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2.5">
+                            {links?.daily && (
+                                <Link
+                                    href={links.daily}
+                                    className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+                                >
+                                    Buka Board Proses →
+                                </Link>
+                            )}
+                            {liveOrders?.state === 'UNAVAILABLE' &&
+                            filteredOrders.length === 0 ? (
+                                <DashboardSectionState state="UNAVAILABLE" />
+                            ) : filteredOrders.length === 0 ? (
+                                <p className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+                                    Tidak ada SPK dalam sampel pada filter ini.
+                                </p>
+                            ) : (
+                                filteredOrders.map((order) => (
+                                    <div
+                                        key={order.id}
+                                        className="space-y-2 rounded-lg border bg-background/40 p-3"
+                                    >
+                                        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="break-words text-sm font-semibold">
+                                                    {order.productName}
+                                                </p>
+                                                <p className="break-words text-[11px] text-muted-foreground">
+                                                    {order.orderNumber} ·{' '}
+                                                    {order.machineCode} ·{' '}
+                                                    {order.operatorName} ·{' '}
+                                                    {order.processKey}
+                                                </p>
+                                            </div>
+                                            {order.isLate && (
+                                                <Badge variant="destructive">
+                                                    Terlambat
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <Progress
+                                            value={Math.min(
+                                                100,
+                                                order.progress,
+                                            )}
+                                            className="h-1.5"
+                                        />
+                                        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                                            <span className="tabular-nums">
+                                                {formatQuantity(
+                                                    order.actualQty,
+                                                )}{' '}
+                                                /{' '}
+                                                {formatQuantity(
+                                                    order.plannedQty,
+                                                )}{' '}
+                                                {formatUnitLabel(order.unit)}
+                                            </span>
+                                            {links?.orders && (
+                                                <Link
+                                                    href={`${links.orders}/${order.id}`}
+                                                    className="inline-flex min-h-11 items-center gap-1 font-semibold text-primary hover:underline"
+                                                >
+                                                    Detail{' '}
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </Link>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card id="attentions" className="scroll-mt-20">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-bold">
+                                Butuh perhatian
+                            </CardTitle>
+                            <CardDescription>
+                                {attention?.total == null
+                                    ? 'Total tidak tersedia'
+                                    : `${attention.total.toLocaleString('id-ID')} total · ${attention.returned.toLocaleString('id-ID')} ditampilkan`}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="max-h-[32rem] space-y-2 overflow-y-auto">
+                            {filteredAttentions.length === 0 &&
+                            attention?.state === 'AVAILABLE' ? (
+                                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-10 text-center">
+                                    <CheckCircle2 className="mb-2 h-8 w-8 text-emerald-500" />
+                                    <p className="text-sm font-semibold">
+                                        Tidak ada isu dalam sampel filter ini
+                                    </p>
+                                </div>
+                            ) : (
+                                filteredAttentions.map((item, index) => {
+                                    const body = (
+                                        <div className="min-w-0 flex-1">
+                                            <p className="break-words font-bold">
+                                                {item.title}
+                                            </p>
+                                            <p className="mt-0.5 break-words text-muted-foreground">
+                                                {item.subtitle}
+                                            </p>
+                                        </div>
+                                    );
+                                    return (
+                                        <div
+                                            key={`${item.type}:${item.orderId ?? item.machineId ?? index}`}
+                                            className={cn(
+                                                'flex min-w-0 items-start gap-2.5 rounded-lg border p-3 text-xs',
+                                                item.severity === 'red'
+                                                    ? 'border-rose-500/20 bg-rose-500/5'
+                                                    : 'border-amber-500/20 bg-amber-500/5',
+                                            )}
+                                        >
+                                            {item.severity === 'red' ? (
+                                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+                                            ) : (
+                                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                                            )}
+                                            <div className="min-w-0 flex-1">
+                                                {item.href ? (
+                                                    <Link
+                                                        href={item.href}
+                                                        className="flex min-h-11 min-w-0 items-center hover:opacity-80"
+                                                    >
+                                                        {body}
+                                                    </Link>
+                                                ) : (
+                                                    body
+                                                )}
+                                                {item.secondaryHref &&
+                                                    item.secondaryLabel && (
+                                                        <Link
+                                                            href={
+                                                                item.secondaryHref
+                                                            }
+                                                            className="mt-1.5 inline-flex min-h-11 items-center text-[11px] font-semibold text-primary hover:underline"
+                                                        >
+                                                            {
+                                                                item.secondaryLabel
+                                                            }
+                                                        </Link>
+                                                    )}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </section>
+
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="production-drivers-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Drivers
+                    </p>
+                    <h2
+                        id="production-drivers-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Snapshot hambatan utama
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Angka mentah saat ini, bukan target gap, rate, atau
+                        inferensi penyebab.
+                    </p>
+                </div>
+                {drivers?.state === 'UNAVAILABLE' && (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Sebagian Drivers Production tidak tersedia"
+                        description="Driver yang gagal tidak dianggap sebagai tidak ada hambatan."
+                    />
+                )}
+                <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-sm">
+                                Insiden downtime terbuka terlama
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {drivers?.longestDowntime ? (
+                                <div className="space-y-2">
+                                    <p className="text-2xl font-bold tabular-nums">
+                                        {minuteLabel(
+                                            drivers.longestDowntime.minutes,
+                                        )}
+                                    </p>
+                                    <p className="break-words text-sm">
+                                        {drivers.longestDowntime.machineCode} ·{' '}
+                                        {drivers.longestDowntime.reason}
+                                    </p>
+                                    {drivers.longestDowntime.href && (
+                                        <Link
+                                            href={drivers.longestDowntime.href}
+                                            className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+                                        >
+                                            Buka mesin →
+                                        </Link>
+                                    )}
+                                </div>
+                            ) : drivers?.state === 'AVAILABLE' ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Tidak ada insiden downtime terbuka.
+                                </p>
+                            ) : (
+                                <DashboardSectionState state="UNAVAILABLE" />
+                            )}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-sm">
+                                Proses dengan SPK terlambat terbanyak
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {drivers?.lateProcess ? (
+                                <div className="space-y-2">
+                                    <p className="text-2xl font-bold">
+                                        {
+                                            PROCESS_LABEL[
+                                                drivers.lateProcess.processKey
+                                            ]
+                                        }
+                                    </p>
+                                    <p className="text-sm tabular-nums">
+                                        {drivers.lateProcess.lateCount.toLocaleString(
+                                            'id-ID',
+                                        )}{' '}
+                                        SPK terlambat · tertua{' '}
+                                        {minuteLabel(
+                                            drivers.lateProcess
+                                                .oldestDelayMinutes,
+                                        )}
+                                    </p>
+                                    {(links?.daily || links?.orders) && (
+                                        <Link
+                                            href={links.daily ?? links.orders!}
+                                            className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+                                        >
+                                            Buka daftar SPK →
+                                        </Link>
+                                    )}
+                                </div>
+                            ) : drivers?.state === 'AVAILABLE' ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Tidak ada SPK aktif yang terlambat.
+                                </p>
+                            ) : (
+                                <DashboardSectionState state="UNAVAILABLE" />
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function TodayOutputSummary({
+    items,
+    processTotals,
+    totalGroups,
+    returned,
+    outputReportHref,
+}: {
+    items: TodayOutputItem[];
+    processTotals: Array<{
+        processKey: ProcessKey;
+        unit: string;
+        quantity: number;
+    }>;
+    totalGroups: number;
+    returned: number;
+    outputReportHref: string | null;
+}) {
+    const totalsByProcess = new Map<ProcessKey, Map<string, number>>();
+    for (const total of processTotals) {
+        const totals = totalsByProcess.get(total.processKey) ?? new Map();
+        totals.set(total.unit, total.quantity);
+        totalsByProcess.set(total.processKey, totals);
     }
 
     return (
-        <section
+        <div
             aria-label="Ringkasan hasil hari ini"
-            className="rounded-xl border bg-card/60 p-4"
+            className="min-w-0 rounded-xl border bg-card/60 p-4"
         >
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-bold">
-                    Hasil hari ini · seluruh proses
-                </h2>
-                <Link
-                    href="/production/output-report?mode=product&page=1&preset=today"
-                    className="text-sm font-medium text-primary hover:underline"
-                >
-                    Lihat rekap lengkap →
-                </Link>
+            <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-bold">
+                    Hasil per proses dan barang
+                </h3>
+                {outputReportHref && (
+                    <Link
+                        href={`${outputReportHref}?mode=product&page=1&preset=today`}
+                        className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+                    >
+                        Lihat rekap lengkap →
+                    </Link>
+                )}
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {(Object.keys(PROCESS_LABEL) as ProcessKey[]).map((key) => (
-                    <div key={key}>
+                    <div key={key} className="min-w-0">
                         <p
                             className={cn(
                                 'text-xs font-semibold',
@@ -415,14 +814,14 @@ function TodayOutputSummary({ items }: { items: TodayOutputItem[] }) {
                         >
                             {PROCESS_LABEL[key]}
                         </p>
-                        {[...(processTotals.get(key) ?? [])].length === 0 ? (
+                        {[...(totalsByProcess.get(key) ?? [])].length === 0 ? (
                             <p className="font-bold tabular-nums">0</p>
                         ) : (
-                            [...(processTotals.get(key) ?? [])].map(
+                            [...(totalsByProcess.get(key) ?? [])].map(
                                 ([unit, quantity]) => (
                                     <p
                                         key={unit}
-                                        className="font-bold tabular-nums"
+                                        className="break-words font-bold tabular-nums"
                                     >
                                         {formatQuantity(quantity)}{' '}
                                         <span className="text-xs font-normal text-muted-foreground">
@@ -435,71 +834,64 @@ function TodayOutputSummary({ items }: { items: TodayOutputItem[] }) {
                     </div>
                 ))}
             </div>
-
-            <div className="mt-4 border-t pt-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Hasil per barang
-                    </h3>
-                    <span className="text-xs text-muted-foreground">
-                        {items.length} barang/proses
-                    </span>
-                </div>
-                {items.length === 0 ? (
-                    <p className="rounded-lg border border-dashed py-5 text-center text-sm text-muted-foreground">
-                        Belum ada hasil produksi yang tercatat hari ini.
-                    </p>
-                ) : (
-                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                        {items.slice(0, 6).map((item) => {
-                            const params = new URLSearchParams({
-                                mode: 'product',
-                                page: '1',
-                                preset: 'today',
-                                productVariantId: item.productVariantId,
-                                process: item.processKey,
-                            });
-
-                            return (
-                                <Link
-                                    key={`${item.processKey}:${item.productVariantId}:${item.unit}`}
-                                    href={`/production/output-report?${params.toString()}`}
-                                    className="rounded-lg border bg-background/40 p-3 transition-colors hover:bg-muted/50"
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-semibold">
-                                                {item.productName}
-                                            </p>
-                                            <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                                                {item.skuCode} ·{' '}
-                                                {PROCESS_LABEL[item.processKey]}{' '}
-                                                · {item.orderCount} SPK
-                                            </p>
-                                        </div>
-                                        <p className="shrink-0 text-sm font-bold tabular-nums">
-                                            {formatQuantity(item.quantity)}{' '}
-                                            <span className="text-xs font-normal text-muted-foreground">
-                                                {formatUnitLabel(item.unit)}
-                                            </span>
-                                        </p>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                )}
-                {items.length > 6 && (
-                    <p className="mt-2 text-right text-xs text-muted-foreground">
-                        {items.length - 6} barang/proses lainnya tersedia di
-                        rekap lengkap.
-                    </p>
-                )}
-            </div>
             <p className="mt-3 text-xs text-muted-foreground">
-                Hasil dikelompokkan per barang dan proses. Nilai dengan satuan
-                berbeda tidak dijumlahkan.
+                {totalGroups.toLocaleString('id-ID')} kelompok total ·{' '}
+                {returned.toLocaleString('id-ID')} ditampilkan. Nilai dengan
+                satuan berbeda tidak dijumlahkan.
             </p>
-        </section>
+            {items.length === 0 ? (
+                <p className="mt-4 rounded-lg border border-dashed py-5 text-center text-sm text-muted-foreground">
+                    Belum ada hasil produksi yang tercatat hari ini.
+                </p>
+            ) : (
+                <div className="mt-4 grid min-w-0 gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {items.slice(0, 6).map((item) => {
+                        const card = (
+                            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                    <p className="break-words text-sm font-semibold">
+                                        {item.productName}
+                                    </p>
+                                    <p className="break-words font-mono text-[11px] text-muted-foreground">
+                                        {item.skuCode} ·{' '}
+                                        {PROCESS_LABEL[item.processKey]} ·{' '}
+                                        {item.orderCount} SPK
+                                    </p>
+                                </div>
+                                <p className="max-w-full break-words text-sm font-bold tabular-nums">
+                                    {formatQuantity(item.quantity)}{' '}
+                                    {formatUnitLabel(item.unit)}
+                                </p>
+                            </div>
+                        );
+                        const href = outputReportHref
+                            ? `${outputReportHref}?${new URLSearchParams({
+                                  mode: 'product',
+                                  page: '1',
+                                  preset: 'today',
+                                  productVariantId: item.productVariantId,
+                                  process: item.processKey,
+                              }).toString()}`
+                            : null;
+                        return href ? (
+                            <Link
+                                key={`${item.processKey}:${item.productVariantId}:${item.unit}`}
+                                href={href}
+                                className="min-w-0 rounded-lg border bg-background/40 p-3 hover:bg-muted/50"
+                            >
+                                {card}
+                            </Link>
+                        ) : (
+                            <div
+                                key={`${item.processKey}:${item.productVariantId}:${item.unit}`}
+                                className="min-w-0 rounded-lg border bg-background/40 p-3"
+                            >
+                                {card}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
 }

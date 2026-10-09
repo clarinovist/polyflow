@@ -1,27 +1,43 @@
 import { getProductionLiveOverview } from '@/actions/dashboard/production-live-overview';
-
 import {
     ProductionOverviewClient,
-    emptyOverviewData,
     type ProductionOverviewData,
 } from '@/components/production/overview/ProductionOverviewClient';
+import { DashboardSectionState } from '@/components/dashboard/DashboardMetricPrimitives';
 import { PageHeader } from '@/components/ui/page-header';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionDashboardPage() {
-    const liveOverviewRes = await getProductionLiveOverview();
-    const liveData: ProductionOverviewData =
-        liveOverviewRes.success && liveOverviewRes.data
-            ? (liveOverviewRes.data as unknown as ProductionOverviewData)
-            : emptyOverviewData();
+    const result = await getProductionLiveOverview();
+    const data =
+        result.success && result.data
+            ? (result.data as unknown as ProductionOverviewData)
+            : null;
+
+    if (!data || data.state !== 'AVAILABLE' || !data.health) {
+        return (
+            <div className="flex min-w-0 flex-col gap-6">
+                <PageHeader
+                    title="Hari Ini — Produksi"
+                    description="Health, attention, dan drivers operasional Production."
+                />
+                <DashboardSectionState
+                    state="UNAVAILABLE"
+                    title="Dashboard Production tidak tersedia"
+                    description="Data awal gagal dimuat. Angka kosong tidak dianggap nol; coba muat ulang setelah akses atau layanan pulih."
+                />
+            </div>
+        );
+    }
+
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
             <PageHeader
                 title="Hari Ini — Produksi"
-                description="Kondisi penting dan pekerjaan yang perlu ditindak hari ini."
+                description="Health, attention, dan drivers operasional Production."
             />
-            <ProductionOverviewClient initialData={liveData} />
+            <ProductionOverviewClient initialData={data} />
         </div>
     );
 }

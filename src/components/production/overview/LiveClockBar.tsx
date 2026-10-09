@@ -1,13 +1,14 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { RefreshCw, Monitor } from 'lucide-react';
 import Link from 'next/link';
+import { Monitor, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface LiveClockBarProps {
     onRefresh: () => void;
     isLoading: boolean;
-    lastUpdated: Date | null;
+    generatedAt: string;
+    kioskHref: string | null;
 }
 
 export function formatWibUpdateTime(date: Date): string {
@@ -20,46 +21,49 @@ export function formatWibUpdateTime(date: Date): string {
     }).format(date);
 }
 
-/** The portal header owns the clock. This bar reports data freshness, not a guessed shift. */
+/** The portal header owns the clock. This bar reports server data freshness. */
 export function LiveClockBar({
     onRefresh,
     isLoading,
-    lastUpdated,
+    generatedAt,
+    kioskHref,
 }: LiveClockBarProps) {
+    const generated = new Date(generatedAt);
+    const valid = !Number.isNaN(generated.getTime());
     return (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <p role="status">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+            <p role="status" aria-live="polite">
                 {isLoading
                     ? 'Memperbarui…'
-                    : lastUpdated
-                      ? `Diperbarui pukul ${formatWibUpdateTime(lastUpdated)} WIB · otomatis 30 detik`
-                      : 'Menunggu pembaruan'}
+                    : valid
+                      ? `Snapshot server ${formatWibUpdateTime(generated)} WIB · otomatis 30 detik`
+                      : 'Waktu snapshot server tidak tersedia'}
             </p>
-            <div className="flex items-center gap-2">
-                <Button
-                    onClick={onRefresh}
-                    disabled={isLoading}
-                    variant="outline"
-                    size="sm"
-                    className="min-h-11 gap-2"
-                >
-                    <RefreshCw
-                        className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-                    />
-                    Segarkan
-                </Button>
+            <Button
+                onClick={onRefresh}
+                disabled={isLoading}
+                variant="outline"
+                size="sm"
+                className="min-h-11 gap-2"
+            >
+                <RefreshCw
+                    className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+                />
+                Segarkan
+            </Button>
+            {kioskHref && (
                 <Button
                     asChild
                     variant="outline"
                     size="sm"
                     className="min-h-11 gap-2"
                 >
-                    <Link href="/kiosk">
+                    <Link href={kioskHref}>
                         <Monitor className="h-4 w-4" />
                         Kiosk
                     </Link>
                 </Button>
-            </div>
+            )}
         </div>
     );
 }

@@ -1,123 +1,334 @@
 'use server';
 
+import { ProductionStatus } from '@prisma/client';
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { ProductionStatus } from '@prisma/client';
+import { hasWorkspaceEntitlement } from '@/lib/auth/access-policy';
+import { canSeeNavHref } from '@/lib/auth/permission-match';
 import { safeAction } from '@/lib/errors/errors';
-import {
-    getWibDayBounds,
-    toBusinessDateString,
-    formatWIB,
-} from '@/lib/utils/timezone';
 import { serializeData } from '@/lib/utils/utils';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 import {
-    processKeyFromCategory,
-    type ProcessKey,
-} from '@/lib/production/process-keys';
-import { executionScrapTotal } from '@/lib/production/execution-scrap';
-import { aggregateTodayOutputItems } from '@/lib/production/live-overview';
-import {
-    assessMissingShift,
-    missingShiftMessage,
-} from '@/lib/production/shift-coverage';
-import {
-    isDowntimeCritical,
-    isScrapAnomaly,
     parseProductionAlertThresholds,
     PRODUCTION_ALERT_THRESHOLDS_KEY,
 } from '@/lib/production/alert-thresholds';
+import {
+    PRODUCTION_ATTENTION_SAMPLE_LIMIT,
+    PRODUCTION_DASHBOARD_SAMPLE_LIMIT,
+    PRODUCTION_OUTPUT_ROW_LIMIT,
+    PRODUCTION_SCRAP_ROW_LIMIT,
+    composeLateProcessDriver,
+    composeProductionAttention,
+    composeProductionDowntime,
+    composeProductionLiveOrders,
+    composeProductionOutputHealth,
+    resolveFreshProductionDashboardAccess,
+    type ProductionActiveOrderRow,
+    type ProductionAttentionData,
+    type ProductionDashboardLinks,
+    type ProductionDowntimeData,
+    type ProductionDashboardSectionState,
+    type ProductionDriversData,
+    type ProductionDowntimeRow,
+    type ProductionExecutionRow,
+    type ProductionIssueRow,
+    type ProductionLiveOrdersData,
+    type ProductionOutputHealthData,
+    type ProductionScrapExecutionRow,
+    type ProductionShiftFact,
+    type ProductionWaitingMaterialRow,
+} from '@/services/production/production-dashboard-health-service';
+
+const ACTIVE_ORDER_COMPOSITION_LIMIT = 500;
+
+function unavailableOutput(): ProductionOutputHealthData {
+    return {
+        state: 'UNAVAILABLE',
+        totalGroups: 0,
+        returned: 0,
+        truncated: false,
+        processTotals: [],
+        items: [],
+    };
+}
+
+function unavailableLiveOrders(
+    total: number | null = null,
+    lateTotal: number | null = null,
+): ProductionLiveOrdersData & {
+    total: number | null;
+    lateTotal: number | null;
+} {
+    return {
+        state: 'UNAVAILABLE',
+        total,
+        lateTotal,
+        returned: 0,
+        items: [],
+    };
+}
+
+function unavailableDowntime(): ProductionDowntimeData {
+    return {
+        state: 'UNAVAILABLE',
+        total: 0,
+        thresholdMinutes: null,
+        longest: null,
+    };
+}
+
+function unavailableAttention(): ProductionAttentionData & {
+    total: number | null;
+} {
+    return {
+        state: 'UNAVAILABLE',
+        total: null,
+        returned: 0,
+        items: [],
+    };
+}
+
+function unavailableDrivers(): ProductionDriversData {
+    return {
+        state: 'UNAVAILABLE',
+        longestDowntime: null,
+        lateProcess: null,
+    };
+}
 
 export const getProductionLiveOverview = withTenant(
     async function getProductionLiveOverview() {
         return safeAction(async () => {
-            await requireAuth();
+            const session = await requireAuth();
+            const generatedAt = new Date();
 
-            const now = new Date();
-            const todayStr = toBusinessDateString(now);
-            const { startOfDay: todayStart, endOfDay: todayEnd } =
-                getWibDayBounds(todayStr);
+            if (!hasWorkspaceEntitlement('production')) {
+                return serializeData({
+                    generatedAt: generatedAt.toISOString(),
+                    state: 'HIDDEN' as const,
+                    permissions: null,
+                    health: null,
+                    liveOrders: null,
+                    attention: null,
+                    drivers: null,
+                });
+            }
 
-            const execTodayInclude = {
-                productionOrder: {
-                    select: {
-                        id: true,
-                        bom: {
-                            select: {
-                                category: true,
-                                productVariant: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        skuCode: true,
-                                        primaryUnit: true,
+            // Fresh tenant DB role/resource state wins over stale JWT claims.
+            // This is intentionally the only query before every business read.
+            const access = await resolveFreshProductionDashboardAccess(
+                session.user.id,
+            );
+            const canOpen = (href: string, moduleRoot = '/production') =>
+                canSeeNavHref(href, access.resources, moduleRoot);
+            const links: ProductionDashboardLinks = {
+                outputReport: canOpen('/production/output-report')
+                    ? '/production/output-report'
+                    : null,
+                daily: canOpen('/production/daily')
+                    ? '/production/daily'
+                    : null,
+                orders: canOpen('/production/orders')
+                    ? '/production/orders'
+                    : null,
+                warehouseMaterials: canOpen(
+                    '/warehouse/materials',
+                    '/warehouse',
+                )
+                    ? '/warehouse/materials'
+                    : null,
+                kiosk: canOpen('/kiosk', '/kiosk') ? '/kiosk' : null,
+            };
+            const orderHref = (orderId: string) =>
+                canOpen(`/production/orders/${orderId}`)
+                    ? `/production/orders/${orderId}`
+                    : null;
+            const machineHref = (machineId: string) =>
+                canOpen(`/production/machines/${machineId}`)
+                    ? `/production/machines/${machineId}`
+                    : null;
+
+            const today = getWibDayBounds(toBusinessDateString(generatedAt));
+            const recentExecutionStart = new Date(
+                generatedAt.getTime() - 24 * 60 * 60 * 1000,
+            );
+
+            const outputRead = prisma.productionExecution.findMany({
+                where: {
+                    status: { not: 'VOIDED' },
+                    startTime: {
+                        gte: today.startOfDay,
+                        lte: today.endOfDay,
+                    },
+                },
+                orderBy: { id: 'asc' },
+                take: PRODUCTION_OUTPUT_ROW_LIMIT + 1,
+                select: {
+                    quantityProduced: true,
+                    productionOrder: {
+                        select: {
+                            id: true,
+                            bom: {
+                                select: {
+                                    category: true,
+                                    productVariant: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            skuCode: true,
+                                            primaryUnit: true,
+                                        },
                                     },
                                 },
                             },
                         },
                     },
                 },
-            } as const;
-
-            const [
-                executionsToday,
-                activeOrders,
-                openDowntimes,
-                openIssues,
-                waitingMaterialOrders,
-                thresholdSetting,
-            ] = await Promise.all([
-                prisma.productionExecution.findMany({
+            });
+            const activeRead = Promise.all([
+                prisma.productionOrder.count({
+                    where: { status: ProductionStatus.IN_PROGRESS },
+                }),
+                prisma.productionOrder.count({
                     where: {
-                        status: { not: 'VOIDED' },
-                        startTime: { gte: todayStart, lte: todayEnd },
+                        status: ProductionStatus.IN_PROGRESS,
+                        plannedEndDate: { lt: generatedAt },
                     },
-                    include: execTodayInclude,
                 }),
                 prisma.productionOrder.findMany({
                     where: { status: ProductionStatus.IN_PROGRESS },
-                    include: {
+                    orderBy: [{ plannedEndDate: 'asc' }, { id: 'asc' }],
+                    take: ACTIVE_ORDER_COMPOSITION_LIMIT + 1,
+                    select: {
+                        id: true,
+                        orderNumber: true,
+                        plannedQuantity: true,
+                        actualQuantity: true,
+                        plannedEndDate: true,
+                        actualStartDate: true,
+                        createdAt: true,
                         bom: {
-                            include: {
-                                productVariant: { select: { name: true } },
+                            select: {
+                                category: true,
+                                productVariant: {
+                                    select: {
+                                        name: true,
+                                        primaryUnit: true,
+                                    },
+                                },
                             },
                         },
                         machine: { select: { code: true } },
+                        _count: {
+                            select: {
+                                shifts: {
+                                    where: {
+                                        startTime: { lte: generatedAt },
+                                        endTime: { gte: generatedAt },
+                                    },
+                                },
+                            },
+                        },
                         shifts: {
-                            include: { operator: { select: { name: true } } },
+                            where: {
+                                startTime: { lte: generatedAt },
+                                endTime: { gte: generatedAt },
+                            },
+                            orderBy: [
+                                {
+                                    operatorId: {
+                                        sort: 'asc',
+                                        nulls: 'last',
+                                    },
+                                },
+                                { startTime: 'asc' },
+                                { id: 'asc' },
+                            ],
+                            take: 1,
+                            select: {
+                                operatorId: true,
+                                startTime: true,
+                                endTime: true,
+                                operator: { select: { name: true } },
+                            },
                         },
                         executions: {
-                            where: { status: { not: 'VOIDED' } },
-                            select: {
-                                quantityProduced: true,
-                                scrapQuantity: true,
-                                scrapProngkolQty: true,
-                                scrapDaunQty: true,
-                                startTime: true,
+                            where: {
+                                status: { not: 'VOIDED' },
+                                startTime: { gte: recentExecutionStart },
                             },
+                            orderBy: [{ startTime: 'asc' }, { id: 'asc' }],
+                            take: 1,
+                            select: { startTime: true },
                         },
                     },
                 }),
+            ]);
+            const scrapAttentionRead = prisma.productionExecution.findMany({
+                where: {
+                    status: { not: 'VOIDED' },
+                    productionOrder: {
+                        status: ProductionStatus.IN_PROGRESS,
+                    },
+                },
+                orderBy: { id: 'asc' },
+                take: PRODUCTION_SCRAP_ROW_LIMIT + 1,
+                select: {
+                    productionOrderId: true,
+                    quantityProduced: true,
+                    scrapQuantity: true,
+                    scrapProngkolQty: true,
+                    scrapDaunQty: true,
+                },
+            });
+            const thresholdRead = prisma.appSetting.findUnique({
+                where: { key: PRODUCTION_ALERT_THRESHOLDS_KEY },
+                select: { value: true },
+            });
+            const downtimeRead = Promise.all([
+                prisma.machineDowntime.count({ where: { endTime: null } }),
                 prisma.machineDowntime.findMany({
                     where: { endTime: null },
-                    include: {
+                    orderBy: [{ startTime: 'asc' }, { id: 'asc' }],
+                    take: PRODUCTION_ATTENTION_SAMPLE_LIMIT,
+                    select: {
+                        id: true,
+                        machineId: true,
+                        startTime: true,
+                        reason: true,
                         machine: { select: { code: true, type: true } },
                     },
                 }),
+            ]);
+            const issueRead = Promise.all([
+                prisma.productionIssue.count({ where: { status: 'OPEN' } }),
                 prisma.productionIssue.findMany({
                     where: { status: 'OPEN' },
-                    include: {
+                    orderBy: [{ reportedAt: 'asc' }, { id: 'asc' }],
+                    take: PRODUCTION_ATTENTION_SAMPLE_LIMIT,
+                    select: {
+                        id: true,
+                        productionOrderId: true,
+                        description: true,
+                        reportedAt: true,
                         productionOrder: {
                             select: {
-                                id: true,
                                 orderNumber: true,
                                 bom: { select: { category: true } },
                             },
                         },
                     },
                 }),
+            ]);
+            const waitingRead = Promise.all([
+                prisma.productionOrder.count({
+                    where: { status: ProductionStatus.WAITING_MATERIAL },
+                }),
                 prisma.productionOrder.findMany({
-                    where: { status: 'WAITING_MATERIAL' },
+                    where: { status: ProductionStatus.WAITING_MATERIAL },
+                    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+                    take: PRODUCTION_ATTENTION_SAMPLE_LIMIT,
                     select: {
                         id: true,
                         orderNumber: true,
@@ -125,287 +336,273 @@ export const getProductionLiveOverview = withTenant(
                         bom: { select: { category: true } },
                     },
                 }),
-                prisma.appSetting.findUnique({
-                    where: { key: PRODUCTION_ALERT_THRESHOLDS_KEY },
-                    select: { value: true },
-                }),
             ]);
-            const thresholds = parseProductionAlertThresholds(
-                thresholdSetting?.value,
-            );
 
-            // Running list per process
-            type RunningOrder = {
-                id: string;
-                orderNumber: string;
-                productName: string;
-                machineCode: string;
-                operatorName: string;
-                plannedQty: number;
-                actualQty: number;
-                progress: number;
-                isLate: boolean;
-                processKey: ProcessKey;
-                unit: string | null;
-                startedAt: Date;
-                estimatedDoneAt: Date | null;
-            };
+            const [
+                output,
+                active,
+                scrapAttention,
+                threshold,
+                downtime,
+                issues,
+                waiting,
+            ] = await Promise.allSettled([
+                outputRead,
+                activeRead,
+                scrapAttentionRead,
+                thresholdRead,
+                downtimeRead,
+                issueRead,
+                waitingRead,
+            ]);
 
-            const runningOrders: RunningOrder[] = [];
-
-            for (const o of activeOrders) {
-                const processKey = processKeyFromCategory(o.bom?.category);
-                if (o.status !== 'IN_PROGRESS') continue;
-
-                const plannedQty = Number(o.plannedQuantity || 0);
-                const actualQty = o.executions.reduce(
-                    (sum, e) => sum + Number(e.quantityProduced || 0),
+            let outputHealth = unavailableOutput();
+            if (output.status === 'fulfilled') {
+                const truncated =
+                    output.value.length > PRODUCTION_OUTPUT_ROW_LIMIT;
+                const boundedRows = output.value.slice(
                     0,
+                    PRODUCTION_OUTPUT_ROW_LIMIT,
+                ) as ProductionExecutionRow[];
+                outputHealth = composeProductionOutputHealth(
+                    boundedRows,
+                    truncated,
                 );
-                const progress =
-                    plannedQty > 0 ? (actualQty / plannedQty) * 100 : 0;
-                const isLate = o.plannedEndDate
-                    ? o.plannedEndDate < now
-                    : false;
-                const startTimes = o.executions.map((e) =>
-                    e.startTime.getTime(),
-                );
-                const startedAt =
-                    o.actualStartDate ||
-                    (startTimes.length > 0
-                        ? new Date(Math.min(...startTimes))
-                        : o.createdAt);
+                if (truncated) outputHealth.state = 'UNAVAILABLE';
+            }
 
-                let estimatedDoneAt: Date | null = null;
-                if (actualQty > 0) {
-                    const elapsedMs = now.getTime() - startedAt.getTime();
-                    if (elapsedMs > 0) {
-                        const qtyPerMs = actualQty / elapsedMs;
-                        const remainingQty = Math.max(
-                            0,
-                            plannedQty - actualQty,
-                        );
-                        if (qtyPerMs > 0) {
-                            estimatedDoneAt = new Date(
-                                now.getTime() + remainingQty / qtyPerMs,
-                            );
-                        }
-                    }
+            let liveOrders = unavailableLiveOrders();
+            let activeRows: ProductionActiveOrderRow[] = [];
+            let activeComplete = false;
+            if (active.status === 'fulfilled') {
+                const [activeTotal, lateTotal, rows] = active.value;
+                activeComplete = rows.length <= ACTIVE_ORDER_COMPOSITION_LIMIT;
+                if (activeComplete) {
+                    activeRows = rows as ProductionActiveOrderRow[];
+                    liveOrders = composeProductionLiveOrders(
+                        activeRows,
+                        generatedAt,
+                    );
+                    liveOrders.total = activeTotal;
+                    liveOrders.lateTotal = lateTotal;
+                    liveOrders.returned = Math.min(
+                        liveOrders.items.length,
+                        PRODUCTION_DASHBOARD_SAMPLE_LIMIT,
+                    );
+                } else {
+                    liveOrders = unavailableLiveOrders(activeTotal, lateTotal);
                 }
-                if (!estimatedDoneAt) estimatedDoneAt = o.plannedEndDate;
-
-                runningOrders.push({
-                    id: o.id,
-                    orderNumber: o.orderNumber,
-                    productName: o.bom.productVariant.name,
-                    machineCode: o.machine?.code || 'N/A',
-                    operatorName: o.shifts?.[0]?.operator?.name || 'Unassigned',
-                    plannedQty,
-                    actualQty,
-                    progress,
-                    isLate,
-                    processKey,
-                    unit: null,
-                    startedAt,
-                    estimatedDoneAt,
-                });
             }
 
-            runningOrders.sort((a, b) => {
-                if (a.isLate && !b.isLate) return -1;
-                if (!a.isLate && b.isLate) return 1;
-                return b.progress - a.progress;
-            });
-
-            // --- Attentions (with processKey when known) ---
-            type AttentionItem = {
-                type:
-                    | 'downtime'
-                    | 'waiting_material'
-                    | 'issue'
-                    | 'no_operator'
-                    | 'no_shift'
-                    | 'late'
-                    | 'high_scrap';
-                severity: 'red' | 'amber';
-                title: string;
-                subtitle: string;
-                orderId?: string;
-                machineId?: string;
-                ageMinutes: number;
-                processKey: ProcessKey | 'ALL';
-                secondaryHref?: string;
-                secondaryLabel?: string;
-            };
-
-            const attentions: AttentionItem[] = [];
-
-            // Map machine type → rough process (best effort for downtime)
-            const machineTypeToProcess = (
-                type: string | null | undefined,
-            ): ProcessKey | 'ALL' => {
-                const t = (type || '').toUpperCase();
-                if (t === 'MIXER') return 'MIXING';
-                if (t === 'EXTRUDER' || t === 'REWINDER') return 'EXTRUSION';
-                if (t === 'PACKER' || t === 'GRANULATOR') return 'PACKING';
-                return 'ALL';
-            };
-
-            for (const d of openDowntimes) {
-                const age = Math.floor(
-                    (now.getTime() - d.startTime.getTime()) / 60000,
+            const activeOrderIds = activeRows.map((order) => order.id);
+            // One fixed batched fact read (two statements), never per SPK.
+            // It runs after bounded active IDs are known and preserves all-time
+            // shift existence/latest truth outside the current-window sample.
+            const shiftFactsResult = activeComplete
+                ? await Promise.allSettled([
+                      prisma.productionShift.groupBy({
+                          by: ['productionOrderId'],
+                          where: {
+                              productionOrderId: { in: activeOrderIds },
+                          },
+                          _count: { _all: true },
+                      }),
+                      prisma.productionShift.findMany({
+                          where: {
+                              productionOrderId: { in: activeOrderIds },
+                          },
+                          orderBy: [
+                              { productionOrderId: 'asc' },
+                              { startTime: 'desc' },
+                              { id: 'asc' },
+                          ],
+                          distinct: ['productionOrderId'],
+                          select: {
+                              productionOrderId: true,
+                              startTime: true,
+                              endTime: true,
+                          },
+                      }),
+                  ])
+                : [];
+            const shiftFacts = new Map<string, ProductionShiftFact>();
+            const shiftCountRows = shiftFactsResult[0];
+            const latestShiftRows = shiftFactsResult[1];
+            if (
+                shiftCountRows?.status === 'fulfilled' &&
+                latestShiftRows?.status === 'fulfilled'
+            ) {
+                const latestByOrder = new Map(
+                    latestShiftRows.value.map((row) => [
+                        row.productionOrderId,
+                        row,
+                    ]),
                 );
-                attentions.push({
-                    type: 'downtime',
-                    severity: isDowntimeCritical(thresholds, age)
-                        ? 'red'
-                        : 'amber',
-                    title: `Mesin ${d.machine.code} Downtime`,
-                    subtitle: `${d.reason} (Sejak ${formatWIB(d.startTime, 'HH:mm')})`,
-                    machineId: d.machineId,
-                    ageMinutes: age,
-                    processKey: machineTypeToProcess(d.machine.type),
-                });
-            }
-
-            for (const iss of openIssues) {
-                const age = Math.floor(
-                    (now.getTime() - iss.reportedAt.getTime()) / 60000,
-                );
-                attentions.push({
-                    type: 'issue',
-                    severity: 'red',
-                    title: `Isu SPK #${iss.productionOrder.orderNumber}`,
-                    subtitle: `${iss.description}`,
-                    orderId: iss.productionOrderId,
-                    ageMinutes: age,
-                    processKey: processKeyFromCategory(
-                        iss.productionOrder.bom?.category,
-                    ),
-                });
-            }
-
-            for (const order of activeOrders.filter(
-                (o) => o.status === 'IN_PROGRESS',
-            )) {
-                const processKey = processKeyFromCategory(order.bom?.category);
-                const totalProduced = order.executions.reduce(
-                    (sum, e) => sum + Number(e.quantityProduced || 0),
-                    0,
-                );
-                const totalScrap = order.executions.reduce(
-                    (sum, e) => sum + executionScrapTotal(e),
-                    0,
-                );
-                const totalPlusScrap = totalProduced + totalScrap;
-                if (totalPlusScrap > 0) {
-                    const scrapRatio = (totalScrap / totalPlusScrap) * 100;
-                    if (isScrapAnomaly(thresholds, scrapRatio)) {
-                        attentions.push({
-                            type: 'high_scrap',
-                            severity: 'red',
-                            title: `Scrap Tinggi SPK #${order.orderNumber}`,
-                            subtitle: `Scrap ratio ${scrapRatio.toFixed(1)}% (${totalScrap.toFixed(0)} unit)`,
-                            orderId: order.id,
-                            ageMinutes: 0,
-                            processKey,
+                for (const row of shiftCountRows.value) {
+                    const latest = latestByOrder.get(row.productionOrderId);
+                    shiftFacts.set(row.productionOrderId, {
+                        count: row._count._all,
+                        latestStartTime: latest?.startTime ?? null,
+                        latestEndTime: latest?.endTime ?? null,
+                    });
+                }
+                for (const order of activeRows) {
+                    if (!shiftFacts.has(order.id)) {
+                        shiftFacts.set(order.id, {
+                            count: 0,
+                            latestStartTime: null,
+                            latestEndTime: null,
                         });
                     }
                 }
+            }
+            const shiftFactsAvailable =
+                !activeComplete ||
+                (shiftCountRows?.status === 'fulfilled' &&
+                    latestShiftRows?.status === 'fulfilled');
 
-                const activeShift = order.shifts?.[0];
-                if (!activeShift || !activeShift.operatorId) {
-                    const age = Math.floor(
-                        (now.getTime() - order.createdAt.getTime()) / 60000,
+            let downtimeHealth = unavailableDowntime();
+            let downtimeRows: ProductionDowntimeRow[] = [];
+            let thresholds: ReturnType<
+                typeof parseProductionAlertThresholds
+            > | null = null;
+            let downtimeTotal: number | null = null;
+            if (threshold.status === 'fulfilled') {
+                thresholds = parseProductionAlertThresholds(
+                    threshold.value?.value,
+                );
+            }
+            if (downtime.status === 'fulfilled') {
+                const [total, rows] = downtime.value;
+                downtimeRows = rows;
+                downtimeTotal = total;
+                if (thresholds) {
+                    downtimeHealth = composeProductionDowntime(
+                        rows,
+                        generatedAt,
+                        thresholds,
+                        machineHref,
                     );
-                    attentions.push({
-                        type: 'no_operator',
-                        severity: 'amber',
-                        title: `SPK #${order.orderNumber} Tanpa Operator`,
-                        subtitle:
-                            'Shift berjalan aktif tetapi belum ditugaskan operator',
-                        orderId: order.id,
-                        ageMinutes: age,
-                        processKey,
-                    });
-                }
-
-                // Disiplin admin: SPK jalan tanpa shift yang mencakup saat ini.
-                // Kiosk akan jatuh ke shift basi dan guard 24 jam menolak
-                // backdate → hasil shift malam salah bucket (plan 2026-09-02).
-                const missingShift = assessMissingShift({
-                    shifts: order.shifts ?? [],
-                    executions: order.executions,
-                    createdAt: order.createdAt,
-                    now,
-                });
-                if (missingShift.alert) {
-                    attentions.push({
-                        type: 'no_shift',
-                        severity: missingShift.severity,
-                        title: `SPK #${order.orderNumber} Tanpa Shift Aktif`,
-                        subtitle: missingShiftMessage(order.shifts ?? [], now),
-                        orderId: order.id,
-                        ageMinutes: missingShift.ageMinutes,
-                        processKey,
-                        secondaryHref: `/production/orders/${order.id}`,
-                        secondaryLabel: 'Tambah Shift',
-                    });
+                    downtimeHealth.total = total;
+                } else {
+                    downtimeHealth.total = total;
                 }
             }
 
-            for (const wo of waitingMaterialOrders) {
-                const age = Math.floor(
-                    (now.getTime() - wo.createdAt.getTime()) / 60000,
-                );
-                attentions.push({
-                    type: 'waiting_material',
-                    severity: 'amber',
-                    title: `SPK #${wo.orderNumber} Tunggu Material`,
-                    subtitle: 'Menunggu rilis bahan baku ke lini produksi',
-                    orderId: wo.id,
-                    ageMinutes: age,
-                    processKey: processKeyFromCategory(wo.bom?.category),
-                    secondaryHref: '/warehouse/materials',
-                    secondaryLabel: 'Bahan di Gudang',
-                });
-            }
-
-            for (const o of runningOrders) {
-                if (!o.isLate) continue;
-                const age = Math.floor(
-                    (now.getTime() -
-                        (o.estimatedDoneAt?.getTime() || now.getTime())) /
-                        60000,
-                );
-                attentions.push({
-                    type: 'late',
-                    severity: 'amber',
-                    title: `SPK #${o.orderNumber} Terlambat`,
-                    subtitle: `Target selesai terlewati. Est: ${
-                        o.estimatedDoneAt
-                            ? formatWIB(o.estimatedDoneAt, 'dd MMM HH:mm')
-                            : '-'
-                    }`,
-                    orderId: o.id,
-                    ageMinutes: Math.max(0, age),
-                    processKey: o.processKey,
-                });
-            }
-
-            attentions.sort((a, b) => {
-                if (a.severity === 'red' && b.severity === 'amber') return -1;
-                if (a.severity === 'amber' && b.severity === 'red') return 1;
-                return b.ageMinutes - a.ageMinutes;
+            const issueRows: ProductionIssueRow[] =
+                issues.status === 'fulfilled' ? issues.value[1] : [];
+            const waitingRows: ProductionWaitingMaterialRow[] =
+                waiting.status === 'fulfilled' ? waiting.value[1] : [];
+            let attention = unavailableAttention();
+            const attentionHasAllReaders =
+                activeComplete &&
+                downtime.status === 'fulfilled' &&
+                issues.status === 'fulfilled' &&
+                waiting.status === 'fulfilled' &&
+                scrapAttention.status === 'fulfilled' &&
+                scrapAttention.value.length <= PRODUCTION_SCRAP_ROW_LIMIT &&
+                thresholds != null &&
+                shiftFactsAvailable;
+            const scrapRows: ProductionScrapExecutionRow[] =
+                scrapAttention.status === 'fulfilled' &&
+                scrapAttention.value.length <= PRODUCTION_SCRAP_ROW_LIMIT
+                    ? scrapAttention.value
+                    : [];
+            const composedAttention = composeProductionAttention({
+                now: generatedAt,
+                activeOrders: activeRows,
+                downtimes: downtimeRows,
+                issues: issueRows,
+                waitingMaterials: waitingRows,
+                scrapExecutions: scrapRows,
+                thresholds,
+                shiftFacts: shiftFactsAvailable ? shiftFacts : null,
+                orderHref,
+                machineHref,
+                warehouseMaterialsHref: links.warehouseMaterials,
             });
+            if (attentionHasAllReaders) {
+                const activeAttentionCount = composeProductionAttention({
+                    now: generatedAt,
+                    activeOrders: activeRows,
+                    downtimes: [],
+                    issues: [],
+                    waitingMaterials: [],
+                    scrapExecutions: scrapRows,
+                    thresholds,
+                    shiftFacts,
+                    orderHref,
+                    machineHref,
+                    warehouseMaterialsHref: links.warehouseMaterials,
+                }).total;
+                composedAttention.total =
+                    (activeAttentionCount ?? 0) +
+                    (downtimeTotal ?? 0) +
+                    issues.value[0] +
+                    waiting.value[0];
+                attention = composedAttention;
+            } else {
+                attention = {
+                    ...composedAttention,
+                    state: 'UNAVAILABLE',
+                    total: null,
+                };
+            }
 
-            const todayOutputItems =
-                aggregateTodayOutputItems(executionsToday);
+            const drivers: ProductionDriversData = {
+                state:
+                    activeComplete &&
+                    downtime.status === 'fulfilled' &&
+                    threshold.status === 'fulfilled' &&
+                    thresholds != null
+                        ? 'AVAILABLE'
+                        : 'UNAVAILABLE',
+                longestDowntime: downtimeHealth.longest,
+                lateProcess: activeComplete
+                    ? composeLateProcessDriver(activeRows, generatedAt)
+                    : null,
+            };
 
             return serializeData({
-                todayOutputItems,
-                runningOrders,
-                attentions: attentions.slice(0, 12),
+                generatedAt: generatedAt.toISOString(),
+                state: 'AVAILABLE' as const,
+                permissions: { links },
+                health: {
+                    output: outputHealth,
+                    activeSpk: {
+                        state:
+                            active.status === 'fulfilled'
+                                ? ('AVAILABLE' as const)
+                                : ('UNAVAILABLE' as const),
+                        total:
+                            active.status === 'fulfilled'
+                                ? active.value[0]
+                                : null,
+                        lateTotal:
+                            active.status === 'fulfilled'
+                                ? active.value[1]
+                                : null,
+                    },
+                    downtime: downtimeHealth,
+                } satisfies {
+                    output: ProductionOutputHealthData;
+                    activeSpk: {
+                        state: ProductionDashboardSectionState;
+                        total: number | null;
+                        lateTotal: number | null;
+                    };
+                    downtime: ProductionDowntimeData;
+                },
+                liveOrders,
+                attention,
+                drivers:
+                    drivers.state === 'AVAILABLE'
+                        ? drivers
+                        : {
+                              ...unavailableDrivers(),
+                              longestDowntime: downtimeHealth.longest,
+                              lateProcess: drivers.lateProcess,
+                          },
             });
         });
     },
