@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { InfoHint } from '@/components/common/InfoHint';
 import Link from 'next/link';
 
 interface AgingInvoiceDetail {
@@ -269,31 +270,79 @@ const AgingTable = ({
                     <div className="relative w-full overflow-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b bg-muted/20 text-muted-foreground">
-                                    <th className="h-10 px-4 text-left font-medium w-8"></th>
-                                    <th className="h-10 px-4 text-left font-medium">
+                                <tr className="bg-muted/20 text-muted-foreground">
+                                    <th
+                                        rowSpan={2}
+                                        scope="col"
+                                        aria-label="Kontrol detail nota"
+                                        className="w-8 border-b px-4"
+                                    ></th>
+                                    <th
+                                        rowSpan={2}
+                                        scope="col"
+                                        className="border-b px-4 text-left font-medium"
+                                    >
                                         {partnerNameHeader}
                                     </th>
-                                    <th className="h-10 px-4 text-right font-medium text-emerald-600">
+                                    <th
+                                        rowSpan={2}
+                                        scope="col"
+                                        className="border-b px-4 text-right font-medium text-emerald-600"
+                                    >
                                         Belum Jatuh Tempo
                                     </th>
-                                    <th className="h-10 px-4 text-right font-medium">
-                                        1-30 Hari
+                                    <th
+                                        colSpan={4}
+                                        scope="colgroup"
+                                        className="h-10 border-b border-border/50 px-4 text-center font-medium"
+                                    >
+                                        <div className="flex items-center justify-center gap-1">
+                                            <span>Lewat Jatuh Tempo</span>
+                                            <InfoHint label="Info kelompok lewat jatuh tempo">
+                                                Rentang hari dihitung sejak tanggal
+                                                jatuh tempo.
+                                            </InfoHint>
+                                        </div>
                                     </th>
-                                    <th className="h-10 px-4 text-right font-medium">
-                                        31-60 Hari
-                                    </th>
-                                    <th className="h-10 px-4 text-right font-medium">
-                                        61-90 Hari
-                                    </th>
-                                    <th className="h-10 px-4 text-right font-medium">
-                                        &gt; 90 Hari
-                                    </th>
-                                    <th className="h-10 px-4 text-right font-bold text-foreground">
+                                    <th
+                                        rowSpan={2}
+                                        scope="col"
+                                        className="border-b px-4 text-right font-bold text-foreground"
+                                    >
                                         Total
                                     </th>
-                                    <th className="h-10 px-4 text-center font-medium text-muted-foreground">
+                                    <th
+                                        rowSpan={2}
+                                        scope="col"
+                                        className="border-b px-4 text-center font-medium text-muted-foreground"
+                                    >
                                         Jml Nota
+                                    </th>
+                                </tr>
+                                <tr className="border-b bg-muted/20 text-muted-foreground">
+                                    <th
+                                        scope="col"
+                                        className="h-9 px-4 text-right font-medium"
+                                    >
+                                        1-30 Hari
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="h-9 px-4 text-right font-medium"
+                                    >
+                                        31-60 Hari
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="h-9 px-4 text-right font-medium text-amber-600"
+                                    >
+                                        61-90 Hari
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="h-9 px-4 text-right font-medium text-rose-600"
+                                    >
+                                        &gt; 90 Hari
                                     </th>
                                 </tr>
                             </thead>
@@ -427,6 +476,8 @@ const AgingTable = ({
         </Card>
     );
 };
+
+export { AgingTable };
 
 export default function AgingPage() {
     const [arData, setArData] = useState<AgingRow[]>([]);
