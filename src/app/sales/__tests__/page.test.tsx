@@ -13,11 +13,19 @@ vi.mock('@/actions/dashboard/sales-dashboard', () => ({
 
 import SalesCommandBoardPage from '../page';
 
-function dashboardData(draftOrders: number) {
+function dashboardData(
+    draftOrders: number,
+    readyWithoutDo: Array<{
+        id: string;
+        orderNumber: string;
+        customerName: string;
+    }> = [],
+) {
     return {
         counts: {
             draftOrders,
             readyToShipOrders: 2,
+            readyWithoutDo: 27,
             openDeliveryOrders: 3,
             tripsToday: 4,
             overdueInvoices: 1,
@@ -27,7 +35,7 @@ function dashboardData(draftOrders: number) {
         },
         attention: {
             oldDrafts: [],
-            readyWithoutDo: [],
+            readyWithoutDo,
             openDeliveries: [],
             overdueInvoices: [],
             creditRisk: [],
@@ -63,6 +71,26 @@ describe('SalesCommandBoardPage', () => {
         ).toBe('/sales/invoices?status=OVERDUE');
         expect(screen.getByText('Pesanan baru')).toBeTruthy();
         expect(screen.queryByText('Order Baru')).not.toBeTruthy();
+    });
+
+    it('shows the full ready-without-DO total when the list is only a sample', async () => {
+        mocks.getSalesDashboardStats.mockResolvedValue({
+            success: true,
+            data: dashboardData(1, [
+                {
+                    id: 'so-ready-21',
+                    orderNumber: 'SO-READY-21',
+                    customerName: 'Customer sample',
+                },
+            ]),
+        });
+
+        render(
+            await SalesCommandBoardPage({ searchParams: Promise.resolve({}) }),
+        );
+
+        expect(screen.getByText('Siap tanpa SJ (27)')).toBeTruthy();
+        expect(screen.getAllByText('SO-READY-21')).toHaveLength(1);
     });
 
     it('shows a zero-count queue card without link semantics or action styling', async () => {

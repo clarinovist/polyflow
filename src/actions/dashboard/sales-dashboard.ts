@@ -9,14 +9,19 @@ import {
     isActionableInvoiceOverdue,
 } from '@/lib/finance/payment-terms';
 import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
+import { requireSalesAccess } from '@/lib/auth/sales-access';
 
 import { AnalyticsService } from '@/services/analytics/analytics-service';
 import { DateRange } from '@/types/analytics';
 import { startOfDay, endOfDay } from 'date-fns';
+import type { Prisma } from '@prisma/client';
+import { getTopCustomerCreditRisks } from '@/services/sales/credit-service';
 
 export const getSalesDashboardStats = withTenant(
     async function getSalesDashboardStats(dateRange?: DateRange) {
         return safeAction(async () => {
+            await requireSalesAccess();
+
             const now = new Date();
             const todayStart = startOfDay(now);
             const todayEnd = endOfDay(now);
@@ -92,39 +97,27 @@ export const getSalesDashboardStats = withTenant(
                 },
             });
 
-            // 3b. READY_TO_SHIP without any open DO
-            const readySoIds = (
-                await prisma.salesOrder.findMany({
-                    take: 20,
-                    where: { status: 'READY_TO_SHIP' },
-                    select: { id: true },
-                })
-            ).map((s) => s.id);
-
-            const readyWithDo = new Set(
-                (
-                    await prisma.deliveryOrder.findMany({
-                        where: {
-                            salesOrderId: { in: readySoIds },
-                            status: { in: ['PENDING', 'LOADING'] },
-                        },
-                        select: { salesOrderId: true },
-                    })
-                ).map((d) => d.salesOrderId),
-            );
-
-            const readyWithoutDoRaw = await prisma.salesOrder.findMany({
-                take: 5,
-                where: {
-                    id: { in: readySoIds.filter((id) => !readyWithDo.has(id)) },
+            // 3b. READY_TO_SHIP without an open DO: filter the full eligible
+            // population in SQL, then take the globally oldest five.
+            const readyWithoutDoWhere: Prisma.SalesOrderWhereInput = {
+                status: 'READY_TO_SHIP',
+                deliveryOrders: {
+                    none: { status: { in: ['PENDING', 'LOADING'] } },
                 },
-                orderBy: { createdAt: 'asc' },
-                select: {
-                    id: true,
-                    orderNumber: true,
-                    customer: { select: { name: true } },
-                },
-            });
+            };
+            const [readyWithoutDoCount, readyWithoutDoRaw] = await Promise.all([
+                prisma.salesOrder.count({ where: readyWithoutDoWhere }),
+                prisma.salesOrder.findMany({
+                    take: 5,
+                    where: readyWithoutDoWhere,
+                    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+                    select: {
+                        id: true,
+                        orderNumber: true,
+                        customer: { select: { name: true } },
+                    },
+                }),
+            ]);
 
             // 3c. Open deliveries (PENDING + LOADING) — top 5
             const openDeliveries = await prisma.deliveryOrder.findMany({
@@ -183,80 +176,15 @@ export const getSalesDashboardStats = withTenant(
                 0,
             );
 
-            // 3e. Credit risk — customers with credit limit near/over (top 5)
-            const customersWithLimit = await prisma.customer.findMany({
-                take: 30,
-                where: { isActive: true, creditLimit: { not: null } },
-                select: { id: true, name: true, creditLimit: true },
-            });
-
-            const creditRiskList: Array<{
-                id: string;
-                name: string;
-                exposureStatus: 'near' | 'over';
-                headroom: number;
-            }> = [];
-
-            for (const c of customersWithLimit) {
-                const limit = Number(c.creditLimit);
-                if (limit <= 0) continue;
-
-                const [unpaidAgg, openSoAgg] = await Promise.all([
-                    prisma.invoice.aggregate({
-                        where: {
-                            salesOrder: { customerId: c.id },
-                            status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
-                        },
-                        _sum: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
-                    }),
-                    prisma.salesOrder.aggregate({
-                        where: {
-                            customerId: c.id,
-                            status: {
-                                in: [
-                                    'CONFIRMED',
-                                    'IN_PRODUCTION',
-                                    'READY_TO_SHIP',
-                                    'SHIPPED',
-                                ],
-                            },
-                            invoices: { none: {} },
-                        },
-                        _sum: { totalAmount: true },
-                    }),
-                ]);
-
-                const unpaidBalance =
-                    (Number(unpaidAgg._sum.totalAmount) || 0) + (Number(unpaidAgg._sum.priceAdjustmentAmount) || 0) -
-                    (Number(unpaidAgg._sum.paidAmount) || 0) -
-                    (Number(unpaidAgg._sum.creditedAmount) || 0);
-                const openSo = Number(openSoAgg._sum.totalAmount) || 0;
-                const exposure = unpaidBalance + openSo;
-                const headroom = limit - exposure;
-
-                if (exposure > limit) {
-                    creditRiskList.push({
-                        id: c.id,
-                        name: c.name,
-                        exposureStatus: 'over',
-                        headroom,
-                    });
-                } else if (headroom < limit * 0.1) {
-                    creditRiskList.push({
-                        id: c.id,
-                        name: c.name,
-                        exposureStatus: 'near',
-                        headroom,
-                    });
-                }
-
-                if (creditRiskList.length >= 5) break;
-            }
+            // 3e. Credit risk — batch the complete active/limited population
+            // and rank globally before taking the top five.
+            const creditRiskList = await getTopCustomerCreditRisks(5);
 
             return serializeData({
                 counts: {
                     draftOrders: draftOrdersCount,
                     readyToShipOrders: readyToShipCount,
+                    readyWithoutDo: readyWithoutDoCount,
                     openDeliveryOrders: openDeliveryCount,
                     tripsToday: tripsTodayCount,
                     overdueInvoices: overdueInvoiceCount,

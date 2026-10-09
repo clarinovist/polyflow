@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { formatRupiah } from '@/lib/utils/utils';
 import { BusinessRuleError } from '@/lib/errors/errors';
 import { parseTablePage, parseTablePageSize } from '@/lib/ui/table-query';
+import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 import { Prisma } from '@prisma/client';
 
 export type CreditExposure = {
@@ -40,6 +41,13 @@ export type CustomerCreditSummaryQuery = {
     filter?: CustomerCreditFilter;
     page?: number;
     pageSize?: number;
+};
+
+export type CustomerCreditRisk = {
+    id: string;
+    name: string;
+    exposureStatus: 'near' | 'over';
+    headroom: number;
 };
 
 export type CustomerCreditSummaryPage = {
@@ -317,10 +325,12 @@ async function getCustomerIdPage(
     return { ids: rows.map((row) => row.id), total, page };
 }
 
+type CreditSummaryCustomer = Prisma.CustomerGetPayload<{
+    select: typeof CUSTOMER_SUMMARY_SELECT;
+}>;
+
 function summarizeCustomer(
-    customer: Prisma.CustomerGetPayload<{
-        select: typeof CUSTOMER_SUMMARY_SELECT;
-    }>,
+    customer: CreditSummaryCustomer,
     invoiceBalance: Prisma.Decimal,
     openOrderBalance: Prisma.Decimal,
 ): CustomerCreditSummary {
@@ -346,21 +356,28 @@ function summarizeCustomer(
     };
 }
 
-async function calculatePageSummaries(
-    customerIds: string[],
+async function calculateCustomerSummaries(
+    customers: CreditSummaryCustomer[],
+    options: { operationalReceivablesOnly?: boolean } = {},
 ): Promise<CustomerCreditSummary[]> {
-    if (customerIds.length === 0) return [];
+    if (customers.length === 0) return [];
+    const customerIds = customers.map((customer) => customer.id);
+    const invoiceWhere: Prisma.InvoiceWhereInput = {
+        salesOrder: options.operationalReceivablesOnly
+            ? {
+                  ...buildOperationalSalesReceivableOrderWhere(),
+                  customerId: { in: customerIds },
+              }
+            : { customerId: { in: customerIds } },
+        status: { in: [...UNPAID_INVOICE_STATUSES] },
+        ...(options.operationalReceivablesOnly
+            ? { remainingAmount: { gt: 0 } }
+            : {}),
+    };
 
-    const [customers, invoices, openOrders] = await Promise.all([
-        prisma.customer.findMany({
-            where: { id: { in: customerIds } },
-            select: CUSTOMER_SUMMARY_SELECT,
-        }),
+    const [invoices, openOrders] = await Promise.all([
         prisma.invoice.findMany({
-            where: {
-                salesOrder: { customerId: { in: customerIds } },
-                status: { in: [...UNPAID_INVOICE_STATUSES] },
-            },
+            where: invoiceWhere,
             select: {
                 totalAmount: true,
                 paidAmount: true,
@@ -417,6 +434,59 @@ async function calculatePageSummaries(
               ]
             : [];
     });
+}
+
+async function calculatePageSummaries(
+    customerIds: string[],
+): Promise<CustomerCreditSummary[]> {
+    if (customerIds.length === 0) return [];
+    const customers = await prisma.customer.findMany({
+        where: { id: { in: customerIds } },
+        select: CUSTOMER_SUMMARY_SELECT,
+    });
+    return calculateCustomerSummaries(customers);
+}
+
+/** Read and rank the complete active/limited population with three batched queries. */
+export async function getTopCustomerCreditRisks(
+    limit = 5,
+): Promise<CustomerCreditRisk[]> {
+    const customers = await prisma.customer.findMany({
+        where: { isActive: true, creditLimit: { gt: 0 } },
+        select: CUSTOMER_SUMMARY_SELECT,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    });
+    const summaries = await calculateCustomerSummaries(customers, {
+        operationalReceivablesOnly: true,
+    });
+
+    return summaries
+        .filter(
+            (customer): customer is CustomerCreditSummary & {
+                exposureStatus: 'near' | 'over';
+                headroom: number;
+            } =>
+                (customer.exposureStatus === 'near' ||
+                    customer.exposureStatus === 'over') &&
+                customer.headroom !== null,
+        )
+        .sort((a, b) => {
+            if (a.exposureStatus !== b.exposureStatus) {
+                return a.exposureStatus === 'over' ? -1 : 1;
+            }
+            return (
+                a.headroom - b.headroom ||
+                a.name.localeCompare(b.name) ||
+                a.id.localeCompare(b.id)
+            );
+        })
+        .slice(0, Math.max(0, limit))
+        .map(({ id, name, exposureStatus, headroom }) => ({
+            id,
+            name,
+            exposureStatus,
+            headroom,
+        }));
 }
 
 /**

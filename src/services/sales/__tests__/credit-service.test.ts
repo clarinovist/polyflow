@@ -19,6 +19,7 @@ import {
   getCustomerCreditExposure,
   checkCreditLimit,
   getCustomersWithCreditSummary,
+  getTopCustomerCreditRisks,
 } from "../credit-service";
 import { BusinessRuleError } from "@/lib/errors/errors";
 
@@ -242,6 +243,141 @@ describe("credit-service", () => {
       await expect(
         checkCreditLimit("cus-1", 3000000),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("getTopCustomerCreditRisks", () => {
+    const customer = (id: string, name = id) => ({
+      id,
+      code: null,
+      name,
+      phone: null,
+      city: null,
+      paymentTermDays: null,
+      creditLimit: mockDecimal(100),
+      isActive: true,
+    });
+
+    it("batches all customers, including risk beyond the former first 30, before deterministic ranking", async () => {
+      const customers = [
+        ...Array.from({ length: 30 }, (_, index) =>
+          customer(`safe-${String(index + 1).padStart(2, "0")}`),
+        ),
+        customer("over-outside-cap", "Outside Cap"),
+        customer("over-alpha-b", "Alpha"),
+        customer("over-alpha-a", "Alpha"),
+        customer("near", "Near"),
+      ];
+      vi.mocked(prisma.customer.findMany).mockResolvedValue(customers as never);
+      vi.mocked(prisma.invoice.findMany).mockResolvedValue([
+        ...customers.slice(0, 30).map((item) => ({
+          totalAmount: mockDecimal(10),
+          paidAmount: mockDecimal(0),
+          creditedAmount: mockDecimal(0),
+          priceAdjustmentAmount: mockDecimal(0),
+          salesOrder: { customerId: item.id },
+        })),
+        {
+          totalAmount: mockDecimal(160),
+          paidAmount: mockDecimal(0),
+          creditedAmount: mockDecimal(0),
+          priceAdjustmentAmount: mockDecimal(0),
+          salesOrder: { customerId: "over-outside-cap" },
+        },
+        {
+          totalAmount: mockDecimal(140),
+          paidAmount: mockDecimal(20),
+          creditedAmount: mockDecimal(10),
+          priceAdjustmentAmount: mockDecimal(10),
+          salesOrder: { customerId: "over-alpha-b" },
+        },
+        {
+          totalAmount: mockDecimal(140),
+          paidAmount: mockDecimal(20),
+          creditedAmount: mockDecimal(0),
+          priceAdjustmentAmount: mockDecimal(0),
+          salesOrder: { customerId: "over-alpha-a" },
+        },
+        {
+          totalAmount: mockDecimal(95),
+          paidAmount: mockDecimal(0),
+          creditedAmount: mockDecimal(0),
+          priceAdjustmentAmount: mockDecimal(0),
+          salesOrder: { customerId: "near" },
+        },
+      ] as never);
+      vi.mocked(prisma.salesOrder.groupBy).mockResolvedValue([] as never);
+
+      const result = await getTopCustomerCreditRisks(4);
+
+      expect(result.map((item) => item.id)).toEqual([
+        "over-outside-cap",
+        "over-alpha-a",
+        "over-alpha-b",
+        "near",
+      ]);
+      expect(result).toEqual([
+        expect.objectContaining({
+          id: "over-outside-cap",
+          exposureStatus: "over",
+          headroom: -60,
+        }),
+        expect.objectContaining({ id: "over-alpha-a", headroom: -20 }),
+        expect.objectContaining({ id: "over-alpha-b", headroom: -20 }),
+        expect.objectContaining({
+          id: "near",
+          exposureStatus: "near",
+          headroom: 5,
+        }),
+      ]);
+      expect(prisma.customer.findMany).toHaveBeenCalledOnce();
+      expect(prisma.invoice.findMany).toHaveBeenCalledOnce();
+      expect(prisma.salesOrder.groupBy).toHaveBeenCalledOnce();
+      expect(prisma.customer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isActive: true, creditLimit: { gt: 0 } },
+        }),
+      );
+      expect(prisma.customer.findMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ take: 30 }),
+      );
+      expect(prisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+            remainingAmount: { gt: 0 },
+            salesOrder: expect.objectContaining({
+              customerId: { in: customers.map((item) => item.id) },
+              NOT: expect.arrayContaining([
+                { orderNumber: { startsWith: "SO-OPEN-" } },
+                { orderNumber: { startsWith: "OB-AR-" } },
+                { notes: { startsWith: "Opening Balance Entry" } },
+                { notes: { startsWith: "Sheet Penjualan Jun:" } },
+              ]),
+            }),
+          }),
+        }),
+      );
+      expect(prisma.salesOrder.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ["customerId"],
+          where: expect.objectContaining({
+            customerId: { in: customers.map((item) => item.id) },
+            status: {
+              in: ["CONFIRMED", "IN_PRODUCTION", "READY_TO_SHIP", "SHIPPED"],
+            },
+            invoices: { none: {} },
+          }),
+        }),
+      );
+    });
+
+    it("avoids exposure reads when no eligible customer exists", async () => {
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
+
+      await expect(getTopCustomerCreditRisks()).resolves.toEqual([]);
+      expect(prisma.invoice.findMany).not.toHaveBeenCalled();
+      expect(prisma.salesOrder.groupBy).not.toHaveBeenCalled();
     });
   });
 

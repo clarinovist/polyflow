@@ -64,6 +64,7 @@ export default async function SalesCommandBoardPage(props: {
                   counts: {
                       draftOrders: 0,
                       readyToShipOrders: 0,
+                      readyWithoutDo: 0,
                       openDeliveryOrders: 0,
                       tripsToday: 0,
                       overdueInvoices: 0,
@@ -270,8 +271,7 @@ export default async function SalesCommandBoardPage(props: {
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
                                 <Package className="h-4 w-4" />
-                                Siap tanpa SJ ({attention.readyWithoutDo.length}
-                                )
+                                Siap tanpa SJ ({counts.readyWithoutDo})
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">

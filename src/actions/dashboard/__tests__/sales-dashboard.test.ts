@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockPrisma } = vi.hoisted(() => {
+const { mockPrisma, mockGetTopCustomerCreditRisks, mockRequireSalesAccess } = vi.hoisted(() => {
   const mockPrisma = {
     salesOrder: {
       count: vi.fn(),
@@ -24,7 +24,11 @@ const { mockPrisma } = vi.hoisted(() => {
       findMany: vi.fn(),
     },
   };
-  return { mockPrisma };
+  return {
+    mockPrisma,
+    mockGetTopCustomerCreditRisks: vi.fn(),
+    mockRequireSalesAccess: vi.fn(),
+  };
 });
 
 vi.mock('@/lib/core/prisma', () => ({
@@ -46,6 +50,14 @@ vi.mock('@/lib/errors/errors', () => ({
   },
 }));
 
+vi.mock('@/services/sales/credit-service', () => ({
+  getTopCustomerCreditRisks: mockGetTopCustomerCreditRisks,
+}));
+
+vi.mock('@/lib/auth/sales-access', () => ({
+  requireSalesAccess: mockRequireSalesAccess,
+}));
+
 vi.mock('@/services/analytics/analytics-service', () => ({
   AnalyticsService: {
     getSalesMetrics: vi.fn().mockResolvedValue({
@@ -64,12 +76,17 @@ import { getSalesDashboardStats } from '../sales-dashboard';
 describe('getSalesDashboardStats (command board)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSalesAccess.mockResolvedValue({ user: { id: 'sales-user' } });
 
     mockPrisma.salesOrder.count.mockImplementation(async (args?: {
-      where?: { status?: string | { notIn?: string[] } };
+      where?: {
+        status?: string | { notIn?: string[] };
+        deliveryOrders?: unknown;
+      };
     }) => {
       const status = args?.where?.status;
       if (status === 'DRAFT') return 3;
+      if (status === 'READY_TO_SHIP' && args?.where?.deliveryOrders) return 27;
       if (status === 'READY_TO_SHIP') return 2;
       return 9; // active (not delivered/cancelled)
     });
@@ -84,17 +101,13 @@ describe('getSalesDashboardStats (command board)', () => {
     });
 
     mockPrisma.salesOrder.findMany.mockImplementation(async (args?: {
-      where?: { status?: string; id?: { in?: string[] } };
-      select?: { id?: boolean };
+      where?: { status?: string; deliveryOrders?: unknown };
     }) => {
-      if (args?.select && 'id' in (args.select || {}) && args.where?.status === 'READY_TO_SHIP') {
-        return [{ id: 'so-ready-1' }, { id: 'so-ready-2' }];
-      }
-      if (args?.where?.id?.in) {
+      if (args?.where?.deliveryOrders) {
         return [
           {
-            id: 'so-ready-1',
-            orderNumber: 'SO-READY',
+            id: 'so-ready-21',
+            orderNumber: 'SO-READY-21',
             customer: { name: 'Toko Ready' },
           },
         ];
@@ -140,13 +153,14 @@ describe('getSalesDashboardStats (command board)', () => {
       },
     ]);
 
-    mockPrisma.customer.findMany.mockResolvedValue([
-      { id: 'c-over', name: 'Customer Over', creditLimit: 100_000 },
+    mockGetTopCustomerCreditRisks.mockResolvedValue([
+      {
+        id: 'c-over',
+        name: 'Customer Over',
+        exposureStatus: 'over',
+        headroom: -50_000,
+      },
     ]);
-
-    mockPrisma.salesOrder.aggregate.mockResolvedValue({
-      _sum: { totalAmount: 50_000 },
-    });
   });
 
   it('returns board counts including open DO PENDING+LOADING', async () => {
@@ -156,6 +170,7 @@ describe('getSalesDashboardStats (command board)', () => {
 
     expect(res.data.counts.draftOrders).toBe(3);
     expect(res.data.counts.readyToShipOrders).toBe(2);
+    expect(res.data.counts.readyWithoutDo).toBe(27);
     expect(res.data.counts.openDeliveryOrders).toBe(4);
     expect(res.data.counts.tripsToday).toBe(1);
     expect(res.data.counts.overdueInvoices).toBe(1);
@@ -170,33 +185,49 @@ describe('getSalesDashboardStats (command board)', () => {
     if (!res.success || !res.data) return;
 
     expect(res.data.attention.oldDrafts[0]?.orderNumber).toBe('SO-DRAFT');
-    expect(res.data.attention.readyWithoutDo.some((r) => r.id === 'so-ready-1')).toBe(true);
+    expect(
+      res.data.attention.readyWithoutDo.some((r) => r.id === 'so-ready-21'),
+    ).toBe(true);
     expect(res.data.attention.openDeliveries[0]?.status).toBe('LOADING');
     expect(res.data.attention.overdueInvoices[0]?.salesOrderId).toBe('so-1');
     expect(res.data.attention.creditRisk[0]?.exposureStatus).toBe('over');
   });
 
-  it('characterizes legacy C7: attention is capped before global eligibility/risk ranking and uses per-customer aggregates', async () => {
-    mockPrisma.customer.findMany.mockResolvedValue([
-      { id: 'c-1', name: 'Customer 1', creditLimit: 100_000 },
-      { id: 'c-2', name: 'Customer 2', creditLimit: 100_000 },
-    ]);
+  it('lets an eligible READY record beyond the former first 20 reach the sample', async () => {
+    const res = await getSalesDashboardStats();
+    expect(res.success).toBe(true);
+    if (!res.success || !res.data) return;
+    expect(res.data.attention.readyWithoutDo.map((item) => item.id)).toContain(
+      'so-ready-21',
+    );
 
+    const query = mockPrisma.salesOrder.findMany.mock.calls.find(
+      ([args]) => args?.where?.deliveryOrders,
+    )?.[0];
+    expect(query).toMatchObject({
+      take: 5,
+      where: {
+        status: 'READY_TO_SHIP',
+        deliveryOrders: {
+          none: { status: { in: ['PENDING', 'LOADING'] } },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    expect(mockPrisma.salesOrder.count).toHaveBeenCalledWith({
+      where: query?.where,
+    });
+    expect(mockPrisma.deliveryOrder.findMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ select: { salesOrderId: true } }),
+    );
+  });
+
+  it('delegates globally ranked credit risk to the batch service without N+1 aggregates', async () => {
     await getSalesDashboardStats();
 
-    const readyCandidateQuery = mockPrisma.salesOrder.findMany.mock.calls.find(
-      ([args]) => args?.where?.status === 'READY_TO_SHIP' && args?.select?.id,
-    )?.[0] as { take?: number };
-    const creditCandidateQuery = mockPrisma.customer.findMany.mock.calls[0]?.[0] as {
-      take?: number;
-    };
-
-    // R0 baseline only: R1E must query the globally eligible READY set, batch
-    // exposure, rank deterministically, and only then take the top five.
-    expect(readyCandidateQuery.take).toBe(20);
-    expect(creditCandidateQuery.take).toBe(30);
-    expect(mockPrisma.invoice.aggregate).toHaveBeenCalledTimes(2);
-    expect(mockPrisma.salesOrder.aggregate).toHaveBeenCalledTimes(2);
+    expect(mockGetTopCustomerCreditRisks).toHaveBeenCalledWith(5);
+    expect(mockPrisma.invoice.aggregate).not.toHaveBeenCalled();
+    expect(mockPrisma.salesOrder.aggregate).not.toHaveBeenCalled();
   });
 
   it('queries open deliveries with PENDING and LOADING', async () => {
@@ -274,16 +305,26 @@ describe('getSalesDashboardStats (command board)', () => {
     );
   });
 
-  it('identifies near-limit credit risk exposure', async () => {
-    mockPrisma.customer.findMany.mockResolvedValue([
-      { id: 'c-near', name: 'Customer Near', creditLimit: 100_000 },
+  it('enforces the Sales read guard before loading dashboard data', async () => {
+    const denied = new Error('Unauthorized');
+    mockRequireSalesAccess.mockRejectedValueOnce(denied);
+
+    const res = await getSalesDashboardStats();
+
+    expect(res).toEqual({ success: false, error: 'Unauthorized' });
+    expect(mockPrisma.salesOrder.count).not.toHaveBeenCalled();
+    expect(mockGetTopCustomerCreditRisks).not.toHaveBeenCalled();
+  });
+
+  it('returns the batch-ranked near-limit risk', async () => {
+    mockGetTopCustomerCreditRisks.mockResolvedValue([
+      {
+        id: 'c-near',
+        name: 'Customer Near',
+        exposureStatus: 'near',
+        headroom: 5_000,
+      },
     ]);
-    mockPrisma.invoice.aggregate.mockResolvedValue({
-      _sum: { totalAmount: 95_000, paidAmount: 0 },
-    });
-    mockPrisma.salesOrder.aggregate.mockResolvedValue({
-      _sum: { totalAmount: 0 },
-    });
 
     const res = await getSalesDashboardStats();
     expect(res.success).toBe(true);
