@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 import { sumInventoryAlertQuantity } from '@/lib/constants/locations';
 import {
     getWibDayBounds,
@@ -285,11 +286,7 @@ export async function readPurchasingMobileOverview(input: {
     const { startOfDay } = getWibDayBounds(toBusinessDateString(now));
     const prWhere = requestWhere(input.prOwnerId);
     const receiptWhere = waitingReceiptWhere();
-    const overdueWhere: Prisma.PurchaseInvoiceWhereInput = {
-        status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
-        dueDate: { lt: now },
-        totalAmount: { gt: tenantDb.purchaseInvoice.fields.paidAmount },
-    };
+    const overdueWhere = buildOverduePurchaseInvoiceWhere(tenantDb, now);
     const wantsRequests = input.filter === 'ALL' || input.filter === 'REQUESTS';
     const wantsDrafts = input.filter === 'ALL' || input.filter === 'DRAFT_PO';
     const wantsReceipts =

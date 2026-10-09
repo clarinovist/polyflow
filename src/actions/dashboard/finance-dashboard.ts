@@ -4,6 +4,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireFinanceAccess } from '@/lib/auth/finance-access';
 import { AccountingService } from '@/services/accounting/accounting-service';
+import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 import {
     InvoiceStatus,
     PurchaseInvoiceStatus,
@@ -135,16 +136,8 @@ export const getFinanceShiftBoard = withTenant(
                     ],
                 },
             };
-            const overdueWherePurchase: Prisma.PurchaseInvoiceWhereInput = {
-                dueDate: { lt: now },
-                status: {
-                    in: [
-                        PurchaseInvoiceStatus.UNPAID,
-                        PurchaseInvoiceStatus.PARTIAL,
-                        PurchaseInvoiceStatus.OVERDUE,
-                    ],
-                },
-            };
+            const overdueWherePurchase =
+                buildOverduePurchaseInvoiceWhere(prisma, now);
             const unpaidWhereSales: Prisma.InvoiceWhereInput = {
                 AND: [positiveBalance],
                 status: {

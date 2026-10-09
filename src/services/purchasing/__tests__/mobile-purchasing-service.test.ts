@@ -141,6 +141,11 @@ describe('Purchasing Mobile read service', () => {
             now,
         });
 
+        expect(m.invoiceCount.mock.calls[0][0].where).toEqual({
+            status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
+            dueDate: { lt: new Date('2026-10-06T17:00:00.000Z') },
+            totalAmount: { gt: db.purchaseInvoice.fields.paidAmount },
+        });
         expect(result.highlights).toMatchObject({
             pendingRequestCount: 1,
             draftPoCount: 1,

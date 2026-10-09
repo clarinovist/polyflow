@@ -10,6 +10,7 @@ const { mockPrisma, mockRequireAuth, mockRequireFinanceAccess, mockGetBalanceShe
     purchaseInvoice: {
       findMany: vi.fn(),
       count: vi.fn(),
+      fields: { paidAmount: Symbol('paidAmount') },
     },
     journalEntry: {
       count: vi.fn(),
@@ -210,6 +211,19 @@ describe('getFinanceShiftBoard', () => {
     expect(res.data.queues.apUnpaidCount).toBe(2);
     expect(res.data.queues.draftJournals).toBe(2);
     expect(res.data.queues.openBankRecs).toBe(1);
+  });
+
+  it('shares the canonical overdue AP predicate with Purchasing', async () => {
+    setupMocks();
+
+    await getFinanceShiftBoard();
+
+    const query = mockPrisma.purchaseInvoice.findMany.mock.calls[0]?.[0];
+    expect(query.where).toEqual({
+      status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
+      dueDate: { lt: new Date('2026-07-21T17:00:00.000Z') },
+      totalAmount: { gt: mockPrisma.purchaseInvoice.fields.paidAmount },
+    });
   });
 
   it('calculates overdue amounts from remaining (total - paid)', async () => {

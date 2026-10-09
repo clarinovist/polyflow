@@ -4,7 +4,12 @@ const { mockPrisma, mockGetSuggestedPurchases } = vi.hoisted(() => {
   const mockPrisma = {
     purchaseRequest: { count: vi.fn(), findMany: vi.fn() },
     purchaseOrder: { count: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
-    purchaseInvoice: { count: vi.fn(), aggregate: vi.fn(), findMany: vi.fn() },
+    purchaseInvoice: {
+      count: vi.fn(),
+      aggregate: vi.fn(),
+      findMany: vi.fn(),
+      fields: { paidAmount: Symbol('paidAmount') },
+    },
     supplier: { findUnique: vi.fn() },
   };
   const mockGetSuggestedPurchases = vi.fn();
@@ -156,29 +161,20 @@ describe('getPurchasingShiftBoard', () => {
     expect(res.data.counts.monthlySpend).toBe(5_000_000);
   });
 
-  it('characterizes legacy C6: overdue AP queries admit DRAFT and do not require positive remaining', async () => {
+  it('uses the canonical outstanding AP predicate for count, amount, and attention', async () => {
     await getPurchasingShiftBoard();
 
     const overdueQueries = [
       mockPrisma.purchaseInvoice.count.mock.calls[0]?.[0],
       mockPrisma.purchaseInvoice.aggregate.mock.calls[0]?.[0],
       mockPrisma.purchaseInvoice.findMany.mock.calls[0]?.[0],
-    ] as Array<{
-      where?: {
-        status?: { notIn?: string[] };
-        dueDate?: { lt?: Date };
-        remainingAmount?: unknown;
-        AND?: unknown;
-      };
-    }>;
-
+    ];
     for (const query of overdueQueries) {
-      // R0 baseline only: R1D replaces this denylist with the canonical
-      // UNPAID/PARTIAL/OVERDUE allowlist plus positive remaining balance.
-      expect(query.where?.status?.notIn).toEqual(['PAID', 'CANCELLED']);
-      expect(query.where?.dueDate?.lt).toBeInstanceOf(Date);
-      expect(query.where?.remainingAmount).toBeUndefined();
-      expect(query.where?.AND).toBeUndefined();
+      expect(query.where).toEqual({
+        status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
+        dueDate: { lt: expect.any(Date) },
+        totalAmount: { gt: mockPrisma.purchaseInvoice.fields.paidAmount },
+      });
     }
   });
 

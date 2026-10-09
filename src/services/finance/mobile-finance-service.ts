@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { NotFoundError } from '@/lib/errors/errors';
 import { positiveSalesReceivableWhere } from '@/services/finance/sales-receivable-query';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
+import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 
 export const FINANCE_MOBILE_PAGE_SIZE = 10;
 export const FINANCE_MOBILE_TYPES = ['ALL', 'AR', 'AP'] as const;
@@ -78,15 +79,19 @@ function apWhere(
     input: FinanceMobileQuery,
     tx: Prisma.TransactionClient,
 ): Prisma.PurchaseInvoiceWhereInput {
-    return {
-        AND: [
-            {
-                status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
-                totalAmount: { gt: tx.purchaseInvoice.fields.paidAmount },
-            },
-            datePredicate(rangeFor(input)),
-        ],
-    };
+    return input.due === 'OVERDUE'
+        ? buildOverduePurchaseInvoiceWhere(tx, input.now)
+        : {
+              AND: [
+                  {
+                      status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
+                      totalAmount: {
+                          gt: tx.purchaseInvoice.fields.paidAmount,
+                      },
+                  },
+                  datePredicate(rangeFor(input)),
+              ],
+          };
 }
 
 function bucketFor(date: Date, now: Date): FinanceMobileBucket {

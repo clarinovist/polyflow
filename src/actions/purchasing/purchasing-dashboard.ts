@@ -7,6 +7,7 @@ import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';import { getSuggestedPurchases } from '@/services/inventory/analytics-service';
 import type { SuggestedReorderItem } from './purchasing-types';
 import { PR_AGING_THRESHOLD_DAYS } from './purchasing-types';
+import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 
 export const getPurchasingShiftBoard = withTenant(
     async function getPurchasingShiftBoard() {
@@ -15,6 +16,10 @@ export const getPurchasingShiftBoard = withTenant(
 
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const overdueApWhere = buildOverduePurchaseInvoiceWhere(
+                prisma,
+                now,
+            );
 
             const [
                 pendingPrs,
@@ -53,16 +58,10 @@ export const getPurchasingShiftBoard = withTenant(
                     where: { status: PurchaseOrderStatus.PARTIAL_RECEIVED },
                 }),
                 prisma.purchaseInvoice.count({
-                    where: {
-                        status: { notIn: ['PAID', 'CANCELLED'] },
-                        dueDate: { lt: now },
-                    },
+                    where: overdueApWhere,
                 }),
                 prisma.purchaseInvoice.aggregate({
-                    where: {
-                        status: { notIn: ['PAID', 'CANCELLED'] },
-                        dueDate: { lt: now },
-                    },
+                    where: overdueApWhere,
                     _sum: { totalAmount: true, paidAmount: true },
                 }),
                 prisma.purchaseOrder.aggregate({
@@ -135,10 +134,7 @@ export const getPurchasingShiftBoard = withTenant(
                     },
                 }),
                 prisma.purchaseInvoice.findMany({
-                    where: {
-                        status: { notIn: ['PAID', 'CANCELLED'] },
-                        dueDate: { lt: now },
-                    },
+                    where: overdueApWhere,
                     orderBy: { dueDate: 'asc' },
                     take: 5,
                     select: {
