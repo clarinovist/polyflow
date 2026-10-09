@@ -133,28 +133,30 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             .mockResolvedValueOnce({ _sum: { scrapQuantity: new FakeDecimal(1) } })
             .mockResolvedValueOnce({ _sum: { quantityProduced: new FakeDecimal(80) } });
         mockPrisma.materialIssue.aggregate.mockResolvedValue({ _sum: { quantity: new FakeDecimal(100) } });
-        mockPrisma.productVariant.aggregate.mockResolvedValue({ _sum: { price: new FakeDecimal(0) }, _count: { id: 12 } });
+        mockPrisma.productVariant.aggregate.mockResolvedValue({ _count: { id: 12 } });
         mockPrisma.invoice.aggregate.mockResolvedValue({
             _sum: { totalAmount: new FakeDecimal(1000), paidAmount: new FakeDecimal(250), creditedAmount: new FakeDecimal(100) }
         });
         mockPrisma.purchaseInvoice.aggregate.mockResolvedValue({
             _sum: { totalAmount: new FakeDecimal(600), paidAmount: new FakeDecimal(100) }
         });
-        // inventory.findMany called twice: stockItems (value calc) + inventoryForAlert (low stock)
-        mockPrisma.inventory.findMany
-            .mockResolvedValueOnce([
-                { quantity: new FakeDecimal(10), averageCost: new FakeDecimal(20), productVariant: { standardCost: null, price: new FakeDecimal(20) } },
-                { quantity: new FakeDecimal(3), averageCost: null, productVariant: { standardCost: new FakeDecimal(15), price: new FakeDecimal(15) } },
-            ])
-            .mockResolvedValueOnce([
-                { quantity: new FakeDecimal(2), productVariantId: 'var-1', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
-                { quantity: new FakeDecimal(1), productVariantId: 'var-1', location: { locationType: 'INTERNAL', locationPurpose: 'FINISHED_GOOD' } },
-                { quantity: new FakeDecimal(50), productVariantId: 'var-2', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
-            ]);
         // lowStockVariants - var-1 has 3 < 10 threshold => low, var-2 50 >= 5 => not low
         mockPrisma.productVariant.findMany.mockResolvedValue([
-            { id: 'var-1', minStockAlert: new FakeDecimal(10) },
-            { id: 'var-2', minStockAlert: new FakeDecimal(5) },
+            {
+                id: 'var-1',
+                minStockAlert: new FakeDecimal(10),
+                inventories: [
+                    { quantity: new FakeDecimal(2), location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                    { quantity: new FakeDecimal(1), location: { locationType: 'INTERNAL', locationPurpose: 'FINISHED_GOOD' } },
+                ],
+            },
+            {
+                id: 'var-2',
+                minStockAlert: new FakeDecimal(5),
+                inventories: [
+                    { quantity: new FakeDecimal(50), location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                ],
+            },
         ] as never);
     });
 
@@ -216,9 +218,27 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             _sum: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
         });
         // lowStock uses minStockAlert per variant aggregated across RAW_MATERIAL+FINISHING warehouses
+        expect(mockPrisma.productVariant.aggregate).toHaveBeenCalledWith({
+            where: { archivedAt: null },
+            _count: { id: true },
+        });
         expect(mockPrisma.productVariant.findMany).toHaveBeenCalledWith({
-            where: { minStockAlert: { not: null } },
-            select: { id: true, minStockAlert: true },
+            where: { minStockAlert: { not: null }, archivedAt: null },
+            select: {
+                id: true,
+                minStockAlert: true,
+                inventories: {
+                    select: {
+                        quantity: true,
+                        location: {
+                            select: {
+                                locationType: true,
+                                locationPurpose: true,
+                            },
+                        },
+                    },
+                },
+            },
         });
         expect(stats).toEqual({
             sales: {
@@ -244,7 +264,8 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 trend: -50,
             },
             inventory: {
-                totalValue: 245,
+                totalValue: null,
+                valuationStatus: 'NOT_CONFIGURED',
                 lowStockCount: 1,
                 totalItems: 12,
                 trend: 0,
@@ -286,37 +307,14 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         );
     });
 
-    it('characterizes legacy C3: valuation has no location scope and falls back to selling price', async () => {
-        mockPrisma.inventory.findMany.mockReset();
-        mockPrisma.inventory.findMany
-            .mockResolvedValueOnce([
-                {
-                    quantity: new FakeDecimal(10),
-                    averageCost: null,
-                    productVariant: {
-                        standardCost: null,
-                        price: new FakeDecimal(40),
-                    },
-                    // Extra fixture evidence: the current select/where ignores ownership.
-                    location: { locationType: 'CUSTOMER_OWNED' },
-                },
-            ])
-            .mockResolvedValueOnce([]);
-
+    it('keeps inventory valuation NOT_CONFIGURED until the cost-basis gate is signed off', async () => {
         const stats = await ExecutiveStatsService.getExecutiveStats();
 
-        // R0 baseline only: R1B must exclude customer-owned stock and remove
-        // selling price as a cost basis after the owner decision is signed off.
-        expect(stats.inventory.totalValue).toBe(400);
-        expect(mockPrisma.inventory.findMany.mock.calls[0]?.[0]).toEqual({
-            select: {
-                quantity: true,
-                averageCost: true,
-                productVariant: {
-                    select: { standardCost: true, price: true },
-                },
-            },
+        expect(stats.inventory).toMatchObject({
+            totalValue: null,
+            valuationStatus: 'NOT_CONFIGURED',
         });
+        expect(mockPrisma.inventory.findMany).not.toHaveBeenCalled();
     });
 
     it('handles numeric and string values in decimalToNumber helper', async () => {
@@ -339,13 +337,11 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         mockPrisma.productionExecution.aggregate.mockReset();
         mockPrisma.productionExecution.aggregate.mockResolvedValue({ _sum: { scrapQuantity: null, quantityProduced: null } });
         mockPrisma.materialIssue.aggregate.mockResolvedValue({ _sum: { quantity: null } });
-        mockPrisma.productVariant.aggregate.mockResolvedValue({ _sum: { price: null }, _count: { id: 0 } });
+        mockPrisma.productVariant.aggregate.mockResolvedValue({ _count: { id: 0 } });
         mockPrisma.productVariant.findMany.mockReset();
         mockPrisma.productVariant.findMany.mockResolvedValue([]);
         mockPrisma.invoice.aggregate.mockResolvedValue({ _sum: { totalAmount: null, paidAmount: null } });
         mockPrisma.purchaseInvoice.aggregate.mockResolvedValue({ _sum: { totalAmount: null, paidAmount: null } });
-        mockPrisma.inventory.findMany.mockReset();
-        mockPrisma.inventory.findMany.mockResolvedValue([]);
 
         const stats = await ExecutiveStatsService.getExecutiveStats();
         expect(stats.sales.mtdRevenue).toBe(900);
@@ -367,24 +363,42 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
     });
 
     it('calculates lowStockCount with minStockAlert logic scoped to raw+finishing warehouses', async () => {
-        // Override inventory for alert and variants to test aggregation
-        mockPrisma.inventory.findMany.mockReset();
-        mockPrisma.inventory.findMany
-            .mockResolvedValueOnce([]) // stockItems for value
-            .mockResolvedValueOnce([
-                { quantity: new FakeDecimal(1), productVariantId: 'v1', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
-                { quantity: new FakeDecimal(1), productVariantId: 'v1', location: { locationType: 'INTERNAL', locationPurpose: 'MIXING' } }, // should be ignored
-                { quantity: new FakeDecimal(20), productVariantId: 'v2', location: { locationType: 'INTERNAL', locationPurpose: 'FINISHED_GOOD' } },
-                { quantity: 0, productVariantId: 'v3', location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
-            ]);
         mockPrisma.productVariant.findMany.mockReset();
         mockPrisma.productVariant.findMany.mockResolvedValue([
-            { id: 'v1', minStockAlert: new FakeDecimal(5) }, // 1 (only rm) < 5 => low
-            { id: 'v2', minStockAlert: new FakeDecimal(10) }, // 20 >=10 => not low
-            { id: 'v3', minStockAlert: new FakeDecimal(1) }, // 0 <1 => low
+            {
+                id: 'v1',
+                minStockAlert: new FakeDecimal(5),
+                inventories: [
+                    { quantity: new FakeDecimal(1), location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                    { quantity: new FakeDecimal(1), location: { locationType: 'INTERNAL', locationPurpose: 'MIXING' } },
+                ],
+            },
+            {
+                id: 'v2',
+                minStockAlert: new FakeDecimal(10),
+                inventories: [
+                    { quantity: new FakeDecimal(20), location: { locationType: 'INTERNAL', locationPurpose: 'FINISHED_GOOD' } },
+                ],
+            },
+            {
+                id: 'v3',
+                minStockAlert: new FakeDecimal(1),
+                inventories: [
+                    { quantity: 0, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                ],
+            },
+            {
+                id: 'v4',
+                minStockAlert: new FakeDecimal(10),
+                inventories: [
+                    { quantity: new FakeDecimal(2), location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                    { quantity: new FakeDecimal(100), location: { locationType: 'CUSTOMER_OWNED', locationPurpose: 'RAW_MATERIAL' } },
+                    { quantity: new FakeDecimal(100), location: { locationType: 'INTERNAL', locationPurpose: 'WIP' } },
+                ],
+            },
         ] as never);
 
         const stats = await ExecutiveStatsService.getExecutiveStats();
-        expect(stats.inventory.lowStockCount).toBe(2);
+        expect(stats.inventory.lowStockCount).toBe(3);
     });
 });

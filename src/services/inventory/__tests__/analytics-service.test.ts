@@ -56,8 +56,8 @@ describe("analytics-service", () => {
           product: { name: "Product A", productType: "RAW_MATERIAL" },
           preferredSupplier: { name: "Supplier A" },
           inventories: [
-            { quantity: { toNumber: () => 30 } },
-            { quantity: { toNumber: () => 20 } },
+            { quantity: { toNumber: () => 30 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+            { quantity: { toNumber: () => 20 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
           ],
         },
         {
@@ -66,7 +66,7 @@ describe("analytics-service", () => {
           reorderPoint: { toNumber: () => 50 },
           product: { name: "Product B", productType: "RAW_MATERIAL" },
           preferredSupplier: null,
-          inventories: [{ quantity: { toNumber: () => 100 } }],
+          inventories: [{ quantity: { toNumber: () => 100 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } }],
         },
       ];
 
@@ -94,7 +94,7 @@ describe("analytics-service", () => {
           reorderPoint: { toNumber: () => 100 },
           product: { name: "Product A", productType: "RAW_MATERIAL" },
           preferredSupplier: null,
-          inventories: [{ quantity: { toNumber: () => 150 } }],
+          inventories: [{ quantity: { toNumber: () => 150 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } }],
         },
       ];
 
@@ -119,7 +119,7 @@ describe("analytics-service", () => {
           reorderPoint: null,
           product: { name: "Product A", productType: "RAW_MATERIAL" },
           preferredSupplier: null,
-          inventories: [{ quantity: { toNumber: () => 50 } }],
+          inventories: [{ quantity: { toNumber: () => 50 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } }],
         },
       ];
 
@@ -135,7 +135,7 @@ describe("analytics-service", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("should treat null reorderPoint as 0 and reorder when stock is negative", async () => {
+    it("should not reorder a variant without a configured reorder point", async () => {
       // Arrange - null reorderPoint || 0 = 0, so totalPhysical < 0 triggers reorder
       const mockVariants = [
         {
@@ -144,7 +144,7 @@ describe("analytics-service", () => {
           reorderPoint: null,
           product: { name: "Product A", productType: "RAW_MATERIAL" },
           preferredSupplier: null,
-          inventories: [{ quantity: { toNumber: () => -5 } }],
+          inventories: [{ quantity: { toNumber: () => -5 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } }],
         },
       ];
 
@@ -156,9 +156,8 @@ describe("analytics-service", () => {
       // Act
       const result = await getSuggestedPurchases();
 
-      // Assert - totalStock=-5 < 0 (the fallback reorderPoint), so should reorder
-      expect(result).toHaveLength(1);
-      expect(result[0].totalStock).toBe(-5);
+      // The production query excludes null reorderPoint rows; a defensive mock must not fabricate a reorder.
+      expect(result).toHaveLength(0);
     });
 
     it("should return empty array when no variants have reorderPoint set", async () => {
@@ -173,7 +172,47 @@ describe("analytics-service", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("should sum multiple inventory locations correctly", async () => {
+    it("excludes WIP, scrap, and customer-owned stock from reorder availability", async () => {
+      const mockVariants = [
+        {
+          id: "pv-scope",
+          name: "Scoped Product",
+          reorderPoint: { toNumber: () => 100 },
+          product: { name: "Scoped Product", productType: "RAW_MATERIAL" },
+          preferredSupplier: null,
+          inventories: [
+            { quantity: { toNumber: () => 20 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+            { quantity: { toNumber: () => 200 }, location: { locationType: 'INTERNAL', locationPurpose: 'WIP' } },
+            { quantity: { toNumber: () => 300 }, location: { locationType: 'INTERNAL', locationPurpose: 'SCRAP' } },
+            { quantity: { toNumber: () => 400 }, location: { locationType: 'CUSTOMER_OWNED', locationPurpose: 'RAW_MATERIAL' } },
+          ],
+        },
+      ];
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.productVariant.findMany).mockResolvedValue(
+        mockVariants as any,
+      );
+
+      const result = await getSuggestedPurchases();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].totalStock).toBe(20);
+    });
+
+    it("excludes archived variants in the reorder query", async () => {
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.productVariant.findMany).mockResolvedValue([]);
+
+      await getSuggestedPurchases();
+
+      expect(prisma.productVariant.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { reorderPoint: { not: null }, archivedAt: null },
+        }),
+      );
+    });
+
+    it("should sum multiple eligible inventory locations correctly", async () => {
       // Arrange
       const mockVariants = [
         {
@@ -183,9 +222,9 @@ describe("analytics-service", () => {
           product: { name: "Product A", productType: "RAW_MATERIAL" },
           preferredSupplier: { name: "Supplier A" },
           inventories: [
-            { quantity: { toNumber: () => 10 } },
-            { quantity: { toNumber: () => 20 } },
-            { quantity: { toNumber: () => 30 } },
+            { quantity: { toNumber: () => 10 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+            { quantity: { toNumber: () => 20 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+            { quantity: { toNumber: () => 30 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
           ],
         },
       ];
@@ -254,10 +293,33 @@ describe("analytics-service", () => {
       const result = await getInventoryValuation();
 
       // Assert
-      expect(result.totalValuation).toBe(2000);
+      expect(result.totalValuation).toBe(1000);
       expect(result.financeValuation).toBe(1000);
-      expect(result.customerOwnedValuation).toBe(1000);
+      expect(result.customerOwnedValuation).toBe(0);
       expect(result.details).toHaveLength(2);
+    });
+
+    it("does not assign a company cost value to customer-owned stock", async () => {
+      const { prisma } = await import("@/lib/core/prisma");
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+        {
+          productVariantId: "customer-owned",
+          locationId: "customer-location",
+          quantity: { toNumber: () => 50 },
+          averageCost: { toNumber: () => 99 },
+          location: { id: "customer-location", name: "Customer", locationType: "CUSTOMER_OWNED" },
+          productVariant: { name: "Titipan", skuCode: "MK-1", buyPrice: { toNumber: () => 120 } },
+        },
+      ] as any);
+
+      const result = await getInventoryValuation();
+
+      expect(result).toMatchObject({
+        totalValuation: 0,
+        financeValuation: 0,
+        customerOwnedValuation: 0,
+      });
+      expect(result.details[0]).toMatchObject({ unitCost: 0, totalValue: 0 });
     });
 
     it("should return zero valuation when no inventory", async () => {

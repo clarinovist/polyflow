@@ -228,6 +228,39 @@ describe("InventoryQueryService.getDashboardStats", () => {
     expect(result.lowStockCount).toBe(0);
   });
 
+  it("uses the canonical eligible-location scope for suggested reorder", async () => {
+    const { prisma } = await import("@/lib/core/prisma");
+    vi.mocked(prisma.product.count).mockResolvedValue(1);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([
+      {
+        productVariantId: "pv-1",
+        quantity: dec(5),
+        location: { id: "rm", locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
+        productVariant: { minStockAlert: null },
+      },
+      {
+        productVariantId: "pv-1",
+        quantity: dec(100),
+        location: { id: "wip", locationType: "INTERNAL", locationPurpose: "WIP" },
+        productVariant: { minStockAlert: null },
+      },
+      {
+        productVariantId: "pv-1",
+        quantity: dec(1000),
+        location: { id: "customer", locationType: "CUSTOMER_OWNED", locationPurpose: "RAW_MATERIAL" },
+        productVariant: { minStockAlert: null },
+      },
+    ] as any);
+    vi.mocked(prisma.productVariant.findMany)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ id: "pv-1", reorderPoint: dec(20) }] as any);
+    vi.mocked(prisma.stockMovement.count).mockResolvedValue(0);
+
+    const result = await InventoryQueryService.getDashboardStats();
+
+    expect(result.suggestedPurchasesCount).toBe(1);
+  });
+
   it("returns productCount, totalStock, recentMovements and suggestedPurchasesCount alongside lowStockCount", async () => {
     // Arrange
     const { prisma } = await import("@/lib/core/prisma");

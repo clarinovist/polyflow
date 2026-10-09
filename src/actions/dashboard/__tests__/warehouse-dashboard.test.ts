@@ -83,14 +83,14 @@ describe('getWarehouseShiftBoard', () => {
             id: 'pv-low',
             minStockAlert: decimal(100),
             inventories: [
-              { quantity: decimal(10), location: { slug: 'rm_warehouse' } },
+              { quantity: decimal(10), location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
             ],
           },
           {
             id: 'pv-ok',
             minStockAlert: decimal(10),
             inventories: [
-              { quantity: decimal(50), location: { slug: 'rm_warehouse' } },
+              { quantity: decimal(50), location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
             ],
           },
         ];
@@ -99,7 +99,7 @@ describe('getWarehouseShiftBoard', () => {
         {
           id: 'pv-re',
           reorderPoint: decimal(20),
-          inventories: [{ quantity: decimal(5) }],
+          inventories: [{ quantity: decimal(5), location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } }],
         },
       ];
     });
@@ -127,7 +127,7 @@ describe('getWarehouseShiftBoard', () => {
     expect(res.data.attention.waitingMaterial[0].orderNumber).toBe('SPK-001');
   });
 
-  it('characterizes legacy C5: WIP stock can suppress an internal RM low-stock alert', async () => {
+  it('keeps an internal RM variant low when WIP stock is high', async () => {
     mockPrisma.productVariant.findMany.mockImplementation(async (args?: {
       where?: { minStockAlert?: unknown; reorderPoint?: unknown };
     }) => {
@@ -154,8 +154,7 @@ describe('getWarehouseShiftBoard', () => {
 
     expect(res.success).toBe(true);
     if (!res.success || !res.data) return;
-    // R0 baseline only: R1B must count the RM quantity (1 < 50) without WIP.
-    expect(res.data.counts.lowStock).toBe(0);
+    expect(res.data.counts.lowStock).toBe(1);
   });
 
   it('queries open load orders as PENDING + LOADING', async () => {

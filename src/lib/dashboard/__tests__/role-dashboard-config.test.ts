@@ -33,7 +33,8 @@ const baseStats: ExecutiveStats = {
         trend: 0,
     },
     inventory: {
-        totalValue: 50_000_000,
+        totalValue: null,
+        valuationStatus: 'NOT_CONFIGURED',
         lowStockCount: 7,
         totalItems: 120,
         trend: 0,
@@ -148,6 +149,16 @@ describe('role-dashboard-config', () => {
             trendValue: 'Periode bulan berjalan',
             progressValue: 92,
         });
+    });
+
+    it('does not publish inventory valuation before the cost-basis decision gate', () => {
+        expect(kpi('WAREHOUSE', 'inventory')).toMatchObject({
+            title: 'Valuasi Stok',
+            value: 'Belum dikonfigurasi',
+            trendValue: 'NOT_CONFIGURED',
+            href: '/warehouse/analytics',
+        });
+        expect(kpi('SALES', 'inventory')?.value).not.toContain('Rp');
     });
 
     it('states trend direction and comparison period explicitly', () => {

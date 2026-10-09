@@ -14,6 +14,7 @@ import {
     getWibDayBounds,
     toBusinessDateString,
 } from '@/lib/utils/timezone';
+import { isInventoryThresholdTriggered } from '@/lib/constants/locations';
 
 export interface WarehouseShiftBoard {
     counts: {
@@ -214,18 +215,12 @@ async function computeLowStockCount(): Promise<number> {
         },
     });
 
-    return lowStockVariants.filter((variant) => {
-        const total = variant.inventories
-            .filter(
-                (inv) =>
-                    !inv.location ||
-                    (inv.location.locationPurpose !== 'SCRAP' &&
-                        (inv.location.locationType as string) !== 'CUSTOMER_OWNED'),
-            )
-            .reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
-        const threshold = variant.minStockAlert?.toNumber() || 0;
-        return total < threshold;
-    }).length;
+    return lowStockVariants.filter((variant) =>
+        isInventoryThresholdTriggered(
+            variant.inventories,
+            variant.minStockAlert,
+        ),
+    ).length;
 }
 
 async function computeSuggestedReorderCount(): Promise<number> {
@@ -234,16 +229,24 @@ async function computeSuggestedReorderCount(): Promise<number> {
         select: {
             id: true,
             reorderPoint: true,
-            inventories: { select: { quantity: true } },
+            inventories: {
+                select: {
+                    quantity: true,
+                    location: {
+                        select: {
+                            locationPurpose: true,
+                            locationType: true,
+                        },
+                    },
+                },
+            },
         },
     });
 
-    return reorderVariants.filter((variant) => {
-        const total = variant.inventories.reduce(
-            (sum, inv) => sum + inv.quantity.toNumber(),
-            0,
-        );
-        const reorderPoint = variant.reorderPoint?.toNumber() || 0;
-        return total < reorderPoint;
-    }).length;
+    return reorderVariants.filter((variant) =>
+        isInventoryThresholdTriggered(
+            variant.inventories,
+            variant.reorderPoint,
+        ),
+    ).length;
 }

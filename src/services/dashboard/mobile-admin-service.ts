@@ -5,6 +5,7 @@ import type { MobilePortalDependency } from '@/lib/mobile/mobile-portal-registry
 import { canSeeNavHref } from '@/lib/auth/permission-match';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError } from '@/lib/errors/errors';
+import { isInventoryThresholdTriggered } from '@/lib/constants/locations';
 
 const ADMIN_MODULES = [
     'PRODUCTION',
@@ -195,18 +196,12 @@ async function readInventory(db: QueryDb): Promise<ModuleSnapshot> {
             },
         },
     });
-    const lowStock = variants.filter((variant) => {
-        const eligibleQuantity = variant.inventories
-            .filter(
-                (inventory) =>
-                    inventory.location.locationType === 'INTERNAL' &&
-                    ['RAW_MATERIAL', 'FINISHED_GOOD'].includes(
-                        inventory.location.locationPurpose,
-                    ),
-            )
-            .reduce((sum, inventory) => sum + Number(inventory.quantity), 0);
-        return eligibleQuantity < Number(variant.minStockAlert ?? 0);
-    }).length;
+    const lowStock = variants.filter((variant) =>
+        isInventoryThresholdTriggered(
+            variant.inventories,
+            variant.minStockAlert,
+        ),
+    ).length;
     return {
         exceptionCount: lowStock,
         approvalCount: 0,

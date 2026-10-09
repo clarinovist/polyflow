@@ -1,7 +1,4 @@
 import {
-    getInventoryValuation,
-    getInventoryTurnover,
-    getDaysOfInventoryOnHand,
     getDashboardStats,
     getSuggestedPurchases,
     getInventoryStats,
@@ -22,12 +19,10 @@ const getStockAging = withTenantPage(() =>
 import { canViewPrices } from '@/actions/admin/permissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah, cn, toDecimalNumber } from '@/lib/utils/utils';
+import { cn, toDecimalNumber } from '@/lib/utils/utils';
 import {
-    Activity,
-    CalendarClock,
     AlertTriangle,
-    DollarSign,
+    CircleHelp,
     BarChart3,
     Clock,
     ArrowRight,
@@ -79,36 +74,17 @@ export function computeLowStockVariantIds(
 
 export default async function AnalyticsDashboard() {
     const [
-        valuationRes,
-        turnoverRes,
-        dohRes,
         dashboardRes,
         agingSummaryRes,
         suggestedPurchasesRes,
         inventoryRes,
     ] = await Promise.all([
-        getInventoryValuation(),
-        getInventoryTurnover(),
-        getDaysOfInventoryOnHand(),
         getDashboardStats(),
         getAgingSummary(),
         getSuggestedPurchases(),
         getInventoryStats(),
     ]);
 
-    const valuation =
-        valuationRes.success && valuationRes.data
-            ? valuationRes.data
-            : {
-                  totalValuation: 0,
-                  financeValuation: 0,
-                  customerOwnedValuation: 0,
-              };
-    const turnover =
-        turnoverRes.success && turnoverRes.data
-            ? turnoverRes.data
-            : { turnoverRatio: 0, cogs: 0, averageInventory: 0 };
-    const doh = dohRes.success && dohRes.data ? dohRes.data : { daysOnHand: 0 };
     const dashboard =
         dashboardRes.success && dashboardRes.data
             ? dashboardRes.data
@@ -192,30 +168,13 @@ export default async function AnalyticsDashboard() {
             </div>
 
             {/* Primary KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <KPICard
-                    title="Nilai Stok"
-                    value={
-                        showPrices
-                            ? formatRupiah(valuation.totalValuation)
-                            : '—'
-                    }
-                    icon={<DollarSign className="h-4 w-4" />}
-                    color="text-emerald-600 dark:text-emerald-400"
-                />
-                <KPICard
-                    title="Perputaran Stok"
-                    value={turnover.turnoverRatio.toString()}
-                    suffix="x"
-                    icon={<Activity className="h-4 w-4" />}
-                    color="text-blue-600 dark:text-blue-400"
-                />
-                <KPICard
-                    title="Hari Bertahan"
-                    value={doh.daysOnHand.toFixed(1)}
-                    suffix="hari"
-                    icon={<CalendarClock className="h-4 w-4" />}
-                    color="text-purple-600 dark:text-purple-400"
+                    title="Valuasi Stok"
+                    value={showPrices ? 'Belum dikonfigurasi' : '—'}
+                    suffix={showPrices ? 'cost basis menunggu keputusan' : undefined}
+                    icon={<CircleHelp className="h-4 w-4" />}
+                    color="text-muted-foreground"
                 />
                 <KPICard
                     title="Stok Menipis"

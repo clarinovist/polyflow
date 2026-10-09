@@ -7,7 +7,7 @@ import {
     SalesOrderStatus,
 } from '@prisma/client';
 import { endOfMonth, startOfDay, startOfMonth } from 'date-fns';
-import { isLowStockAlertLocation } from '@/lib/constants/locations';
+import { isInventoryThresholdTriggered } from '@/lib/constants/locations';
 import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 
 export interface ExecutiveStats {
@@ -35,7 +35,9 @@ export interface ExecutiveStats {
         trend?: number;
     };
     inventory: {
-        totalValue: number;
+        /** NOT_CONFIGURED until Finance + Warehouse sign off the cost basis. */
+        totalValue: null;
+        valuationStatus: 'NOT_CONFIGURED';
         lowStockCount: number;
         totalItems: number;
         trend?: number;
@@ -309,7 +311,7 @@ export class ExecutiveStatsService {
             }),
             // 16. Inventory Stats
             prisma.productVariant.aggregate({
-                _sum: { price: true },
+                where: { archivedAt: null },
                 _count: { id: true },
             }),
             // 17. Overdue Receivables (status OVERDUE, or UNPAID/PARTIAL past dueDate —
@@ -450,60 +452,35 @@ export class ExecutiveStatsService {
         const totalInput = decimalToNumber(materialIssuesAgg._sum.quantity);
         const yieldRate = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
 
-        // Inventory Value Estimation (using weighted average cost, not selling price)
-        const stockItems = await prisma.inventory.findMany({
-            select: {
-                quantity: true,
-                averageCost: true,
-                productVariant: { select: { standardCost: true, price: true } },
-            },
-        });
-        const totalInventoryValue = stockItems.reduce((s, i) => {
-            const unitCost = Number(
-                i.averageCost ||
-                    i.productVariant.standardCost ||
-                    i.productVariant.price ||
-                    0,
-            );
-            return s + Number(i.quantity) * unitCost;
-        }, 0);
-
         // Low stock: mirrors InventoryQueryService.getDashboardStats() —
         // minStockAlert per variant, aggregated across locations scoped to RAW_MATERIAL +
         // FINISHED_GOOD internal warehouses via locationType/locationPurpose, not hardcoded
-        // slugs (tenant slugs vary — see isLowStockAlertLocation() and
+        // slugs (tenant slugs vary — see isInventoryThresholdTriggered() and
         // docs/plan/2026-08-10-fix-lowstock-badge-slug-mismatch.md).
-        const [lowStockVariants, inventoryForAlert] = await Promise.all([
-            prisma.productVariant.findMany({
-                where: { minStockAlert: { not: null } },
-                select: { id: true, minStockAlert: true },
-            }),
-            prisma.inventory.findMany({
+        const lowStockVariants = await prisma.productVariant.findMany({
+                where: { minStockAlert: { not: null }, archivedAt: null },
                 select: {
-                    quantity: true,
-                    productVariantId: true,
-                    location: {
-                        select: { locationType: true, locationPurpose: true },
+                    id: true,
+                    minStockAlert: true,
+                    inventories: {
+                        select: {
+                            quantity: true,
+                            location: {
+                                select: {
+                                    locationType: true,
+                                    locationPurpose: true,
+                                },
+                            },
+                        },
                     },
                 },
-            }),
-        ]);
-        const variantQuantitiesForAlerts = inventoryForAlert.reduce(
-            (acc, item) => {
-                if (isLowStockAlertLocation(item.location)) {
-                    acc[item.productVariantId] =
-                        (acc[item.productVariantId] || 0) +
-                        Number(item.quantity);
-                }
-                return acc;
-            },
-            {} as Record<string, number>,
-        );
-        const lowStockCount = lowStockVariants.filter((variant) => {
-            const totalForAlert = variantQuantitiesForAlerts[variant.id] || 0;
-            const threshold = Number(variant.minStockAlert) || 0;
-            return totalForAlert < threshold;
-        }).length;
+            });
+        const lowStockCount = lowStockVariants.filter((variant) =>
+            isInventoryThresholdTriggered(
+                variant.inventories,
+                variant.minStockAlert,
+            ),
+        ).length;
 
         const overdueReceivables =
             decimalToNumber(overdueReceivablesAgg._sum.totalAmount) + decimalToNumber(overdueReceivablesAgg._sum.priceAdjustmentAmount) -
@@ -587,7 +564,8 @@ export class ExecutiveStatsService {
                 trend: productionTrend,
             },
             inventory: {
-                totalValue: totalInventoryValue,
+                totalValue: null,
+                valuationStatus: 'NOT_CONFIGURED',
                 lowStockCount,
                 totalItems: inventoryStatsAgg._count.id || 0,
                 trend: inventoryTrend,

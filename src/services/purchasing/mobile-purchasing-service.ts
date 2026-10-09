@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
-import { isLowStockAlertLocation } from '@/lib/constants/locations';
+import { sumInventoryAlertQuantity } from '@/lib/constants/locations';
 import {
     getWibDayBounds,
     toBusinessDateString,
@@ -246,14 +246,9 @@ async function readReorderRows(
 
     return variants
         .map((variant) => {
-            const totalStock = variant.inventories
-                .filter((inventory) =>
-                    isLowStockAlertLocation(inventory.location),
-                )
-                .reduce(
-                    (sum, inventory) => sum + decimalNumber(inventory.quantity),
-                    0,
-                );
+            const totalStock = sumInventoryAlertQuantity(
+                variant.inventories,
+            );
             return {
                 id: variant.id,
                 name: variant.name,

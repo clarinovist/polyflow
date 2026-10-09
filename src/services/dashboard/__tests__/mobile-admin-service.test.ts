@@ -102,6 +102,31 @@ describe('MobileAdminService', () => {
         expect(JSON.stringify(result)).not.toMatch(/amount|employee|phone|email|account|document/i);
     });
 
+    it('uses the canonical internal RM/FG scope for low-stock', async () => {
+        db.productVariant.findMany.mockResolvedValue([
+            {
+                id: 'variant-low',
+                minStockAlert: 10,
+                inventories: [
+                    { quantity: 2, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                    { quantity: 100, location: { locationType: 'INTERNAL', locationPurpose: 'WIP' } },
+                    { quantity: 100, location: { locationType: 'CUSTOMER_OWNED', locationPurpose: 'RAW_MATERIAL' } },
+                ],
+            },
+        ]);
+
+        const result = await MobileAdminService.getOverview({
+            activeModules: ['CORE', 'INVENTORY'],
+            permissions: 'ALL',
+            availablePortals: portals,
+            dataDependencies: dependencies,
+        }, db as never);
+
+        expect(
+            result.modules.find((module) => module.key === 'INVENTORY'),
+        ).toMatchObject({ state: 'AVAILABLE', exceptionCount: 1 });
+    });
+
     it('uses only the supplied tenant client', async () => {
         const otherTenant = { ...db, invoice: { count: vi.fn() } };
         await MobileAdminService.getOverview({

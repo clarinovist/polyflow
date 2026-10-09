@@ -34,7 +34,8 @@ const stats: ExecutiveStats = {
         trend: 0,
     },
     inventory: {
-        totalValue: 0,
+        totalValue: null,
+        valuationStatus: 'NOT_CONFIGURED',
         lowStockCount: 0,
         totalItems: 0,
         trend: 0,

@@ -60,9 +60,9 @@ describe('inventory analytics valuation', () => {
 
         const result = await getInventoryValuation();
 
-        expect(result.totalValuation).toBe(2000);
+        expect(result.totalValuation).toBe(1000);
         expect(result.financeValuation).toBe(1000);
-        expect(result.customerOwnedValuation).toBe(1000);
+        expect(result.customerOwnedValuation).toBe(0);
         expect(result.details).toHaveLength(2);
         expect(result.details[1].locationType).toBe('CUSTOMER_OWNED');
     });

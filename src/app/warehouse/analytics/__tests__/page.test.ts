@@ -1,35 +1,70 @@
-import { describe, it, expect, vi } from "vitest";
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const actions = vi.hoisted(() => ({
+  dashboard: vi.fn(),
+  suggested: vi.fn(),
+  inventory: vi.fn(),
+  prices: vi.fn(),
+  agingSummary: vi.fn(),
+  aging: vi.fn(),
+  abc: vi.fn(),
+}));
 
 // The page module (Server Component) pulls in several services/actions
 // that ultimately touch prisma. We only test the pure exported helper
 // `computeLowStockVariantIds`, so mock out everything not needed for it.
 vi.mock("@/actions/inventory/inventory", () => ({
-  getInventoryValuation: vi.fn(),
-  getInventoryTurnover: vi.fn(),
-  getDaysOfInventoryOnHand: vi.fn(),
-  getDashboardStats: vi.fn(),
-  getSuggestedPurchases: vi.fn(),
-  getInventoryStats: vi.fn(),
+  getDashboardStats: actions.dashboard,
+  getSuggestedPurchases: actions.suggested,
+  getInventoryStats: actions.inventory,
 }));
 
 vi.mock("@/services/inventory/abc-analysis-service", () => ({
   ABCAnalysisService: {
-    calculateABCClassification: vi.fn(),
+    calculateABCClassification: actions.abc,
   },
 }));
 
 vi.mock("@/services/inventory/stock-aging-service", () => ({
   StockAgingService: {
-    getAgingSummary: vi.fn(),
-    calculateStockAging: vi.fn(),
+    getAgingSummary: actions.agingSummary,
+    calculateStockAging: actions.aging,
   },
 }));
 
 vi.mock("@/actions/admin/permissions", () => ({
-  canViewPrices: vi.fn(),
+  canViewPrices: actions.prices,
 }));
 
-import { computeLowStockVariantIds } from "../page";
+vi.mock('@/lib/core/tenant', () => ({
+  withTenantPage: (fn: (...args: unknown[]) => unknown) => fn,
+}));
+
+import AnalyticsDashboard, { computeLowStockVariantIds } from "../page";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  actions.dashboard.mockResolvedValue({ success: true, data: { totalStock: 0, lowStockCount: 0, suggestedPurchasesCount: 0 } });
+  actions.suggested.mockResolvedValue({ success: true, data: [] });
+  actions.inventory.mockResolvedValue({ success: true, data: [] });
+  actions.prices.mockResolvedValue({ success: true, data: true });
+  actions.agingSummary.mockResolvedValue({ totalItems: 0, avgDays: 0, slowMovingCount: 0 });
+  actions.aging.mockResolvedValue([]);
+  actions.abc.mockResolvedValue([]);
+});
+
+describe("AnalyticsDashboard valuation decision gate", () => {
+  it("shows NOT_CONFIGURED instead of a nominal, turnover, or days-on-hand KPI", async () => {
+    const html = renderToStaticMarkup(await AnalyticsDashboard());
+
+    expect(html).toContain('Valuasi Stok');
+    expect(html).toContain('Belum dikonfigurasi');
+    expect(html).toContain('cost basis menunggu keputusan');
+    expect(html).not.toContain('Perputaran Stok');
+    expect(html).not.toContain('Hari Bertahan');
+  });
+});
 
 describe("computeLowStockVariantIds", () => {
   it("counts an item in an INTERNAL Raw-Material-purpose location with a non-canonical, tenant-specific slug as low stock (regression for slug-mismatch bug)", () => {

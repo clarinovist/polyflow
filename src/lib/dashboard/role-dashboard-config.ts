@@ -192,15 +192,13 @@ export function buildKpis(
 
     const inventory: DashboardKpi = {
         id: 'inventory',
-        title: 'Nilai Stok',
-        value: formatRupiah(stats.inventory.totalValue),
-        subtitle: `${stats.inventory.lowStockCount} stok rendah`,
+        title: 'Valuasi Stok',
+        value: 'Belum dikonfigurasi',
+        subtitle: `${stats.inventory.lowStockCount} stok rendah · cost basis menunggu keputusan`,
         icon: Package,
-        trend: stats.inventory.lowStockCount > 0 ? 'down' : 'neutral',
-        trendValue:
-            stats.inventory.lowStockCount > 0
-                ? 'Perlu perhatian'
-                : 'Level aman',
+        trendValue: 'NOT_CONFIGURED',
+        href: '/warehouse/analytics',
+        resourceHint: '/warehouse/analytics',
     };
 
     const lowStock: DashboardKpi = {

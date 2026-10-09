@@ -238,7 +238,6 @@ export class InventoryQueryService {
                 select: {
                     id: true,
                     minStockAlert: true,
-                    inventories: { select: { quantity: true } },
                 },
             }),
         ]);
@@ -246,17 +245,6 @@ export class InventoryQueryService {
         const totalStock = inventory.reduce(
             (sum, item) => sum + item.quantity.toNumber(),
             0,
-        );
-
-        // Build total quantities per variant for ALL locations
-        const variantQuantitiesAll = inventory.reduce(
-            (acc, item) => {
-                acc[item.productVariantId] =
-                    (acc[item.productVariantId] || 0) +
-                    item.quantity.toNumber();
-                return acc;
-            },
-            {} as Record<string, number>,
         );
 
         // For low stock alert we only consider internal Raw Material and
@@ -285,7 +273,7 @@ export class InventoryQueryService {
         });
 
         const suggestedPurchasesCount = reorderVariants.filter((variant) => {
-            const total = variantQuantitiesAll[variant.id] || 0;
+            const total = variantQuantitiesForAlerts[variant.id] || 0;
             const reorderPoint = variant.reorderPoint?.toNumber() || 0;
             return total < reorderPoint;
         }).length;

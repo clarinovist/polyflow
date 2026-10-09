@@ -1,28 +1,39 @@
 import { prisma } from '@/lib/core/prisma';
 import { LocationType, MovementType, Prisma } from '@prisma/client';
 import { subDays, format } from 'date-fns';
+import { sumInventoryAlertQuantity } from '@/lib/constants/locations';
 
 export async function getSuggestedPurchases() {
     const variants = await prisma.productVariant.findMany({
-        where: { reorderPoint: { not: null } },
+        where: { reorderPoint: { not: null }, archivedAt: null },
         include: {
             product: { select: { name: true, productType: true } },
             preferredSupplier: { select: { name: true } },
-            inventories: { select: { quantity: true } },
+            inventories: {
+                select: {
+                    quantity: true,
+                    location: {
+                        select: {
+                            locationType: true,
+                            locationPurpose: true,
+                        },
+                    },
+                },
+            },
         },
     });
 
     return variants
         .map((v) => {
-            const totalPhysical = v.inventories.reduce(
-                (sum, inv) => sum + inv.quantity.toNumber(),
-                0,
-            );
+            const totalPhysical = sumInventoryAlertQuantity(v.inventories);
+            const reorderPoint = v.reorderPoint?.toNumber();
             return {
                 ...v,
                 totalStock: totalPhysical,
                 shouldReorder:
-                    totalPhysical < (v.reorderPoint?.toNumber() || 0),
+                    reorderPoint != null &&
+                    reorderPoint > 0 &&
+                    totalPhysical < reorderPoint,
             };
         })
         .filter((v) => v.shouldReorder);
@@ -52,13 +63,16 @@ export async function getInventoryValuation() {
 
     for (const item of stock) {
         const quantity = item.quantity.toNumber();
-        const unitCost =
-            item.averageCost?.toNumber() ||
-            item.productVariant.buyPrice?.toNumber() ||
-            0;
-        const value = quantity * unitCost;
         const isCustomerOwned =
             item.location.locationType === LocationType.CUSTOMER_OWNED;
+        // Customer-owned material is off balance for the company. Do not infer
+        // a company asset value from its variant purchase price.
+        const unitCost = isCustomerOwned
+            ? 0
+            : item.averageCost?.toNumber() ||
+              item.productVariant.buyPrice?.toNumber() ||
+              0;
+        const value = quantity * unitCost;
 
         totalValuation += value;
         if (isCustomerOwned) {

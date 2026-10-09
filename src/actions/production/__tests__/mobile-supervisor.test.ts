@@ -601,6 +601,39 @@ describe('factory manager executive overview', () => {
         });
     });
 
+    it('uses canonical eligible stock for low-stock and reorder counts', async () => {
+        vi.mocked(prisma.productVariant.findMany)
+            .mockResolvedValueOnce([
+                {
+                    id: 'v1',
+                    minStockAlert: { toNumber: () => 10 },
+                    inventories: [
+                        { quantity: { toNumber: () => 2 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                        { quantity: { toNumber: () => 100 }, location: { locationType: 'INTERNAL', locationPurpose: 'WIP' } },
+                    ],
+                },
+            ] as any)
+            .mockResolvedValueOnce([
+                {
+                    id: 'v1',
+                    reorderPoint: { toNumber: () => 10 },
+                    inventories: [
+                        { quantity: { toNumber: () => 2 }, location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' } },
+                        { quantity: { toNumber: () => 100 }, location: { locationType: 'CUSTOMER_OWNED', locationPurpose: 'RAW_MATERIAL' } },
+                    ],
+                },
+            ] as any);
+
+        const result = await getFactoryManagerExecutiveOverview();
+
+        expect(result).toMatchObject({
+            success: true,
+            data: {
+                stock: { lowStockCount: 1, suggestedReorderCount: 1 },
+            },
+        });
+    });
+
     it('denies FACTORY_MANAGER when any executive resource grant is missing', async () => {
         vi.mocked(auth).mockResolvedValue({
             user: {
