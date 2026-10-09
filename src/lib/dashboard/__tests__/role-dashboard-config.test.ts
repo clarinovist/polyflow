@@ -25,7 +25,6 @@ const baseStats: ExecutiveStats = {
         activeJobs: 4,
         delayedJobs: 1,
         completionRate: 80,
-        yieldRate: 92,
         totalScrapKg: 12,
         downtimeHours: 3,
         runningMachines: 2,
@@ -105,7 +104,7 @@ describe('role-dashboard-config', () => {
         expect(kpi('ADMIN', 'revenue')?.href).toBeUndefined();
         expect(kpi('ADMIN', 'spending')?.href).toBeUndefined();
         expect(kpi('ADMIN', 'machines')?.href).toBeUndefined();
-        expect(kpi('ADMIN', 'productionYield')?.href).toBeUndefined();
+        expect(kpi('ADMIN', 'productionCompletion')?.href).toBeUndefined();
 
         const emptyStats: ExecutiveStats = {
             ...baseStats,
@@ -127,11 +126,11 @@ describe('role-dashboard-config', () => {
         expect(kpi('SALES', 'activeOrders', emptyStats)?.href).toBeUndefined();
     });
 
-    it('separates machine utilization from production yield semantics', () => {
+    it('separates machine utilization from document-based completion semantics', () => {
         const production = buildKpis('PRODUCTION', baseStats);
         const machines = production.find((item) => item.id === 'machines');
-        const productionYield = production.find(
-            (item) => item.id === 'productionYield',
+        const productionCompletion = production.find(
+            (item) => item.id === 'productionCompletion',
         );
 
         expect(machines).toMatchObject({
@@ -142,13 +141,14 @@ describe('role-dashboard-config', () => {
         });
         expect(machines?.progressValue).toBeUndefined();
         expect(machines?.subtitle).not.toContain('Yield');
-        expect(productionYield).toMatchObject({
-            title: 'Yield Produksi (MTD)',
-            value: '92.0%',
-            subtitle: 'Output dibanding bahan terpakai',
-            trendValue: 'Periode bulan berjalan',
-            progressValue: 92,
+        expect(productionCompletion).toMatchObject({
+            title: 'Penyelesaian SPK (MTD)',
+            value: '80.0%',
+            subtitle: 'SPK selesai dari seluruh SPK bulan berjalan',
+            trendValue: 'Berbasis jumlah dokumen SPK, bukan quantity',
+            progressValue: 80,
         });
+        expect(production.some((item) => /yield/i.test(item.title))).toBe(false);
     });
 
     it('does not publish inventory valuation before the cost-basis decision gate', () => {

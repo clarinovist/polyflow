@@ -25,7 +25,6 @@ import {
 import { cn, formatQuantity } from '@/lib/utils/utils';
 import { formatUnitLabel } from '@/lib/utils/unit-label';
 import type { TodayOutputItem } from '@/lib/production/live-overview';
-import type { ProductionAlertThresholds } from '@/lib/production/alert-thresholds';
 
 type ProcessKey = 'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER';
 export type TabKey = ProcessKey | 'ALL';
@@ -89,7 +88,6 @@ export function emptyOverviewData(): ProductionOverviewData {
 
 interface ProductionOverviewClientProps {
     initialData: ProductionOverviewData;
-    thresholds?: ProductionAlertThresholds;
 }
 
 export function ProductionOverviewClient({

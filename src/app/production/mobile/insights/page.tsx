@@ -58,7 +58,12 @@ export default async function ProductionInsightsPage() {
                     insight={{
                         key: 'efficiency-target',
                         label: 'Efisiensi Output Target',
-                        value: efficiency === null ? '—' : efficiency,
+                        value:
+                            highlights.targetUnitMode === 'MIXED'
+                                ? 'Belum dikonfigurasi'
+                                : efficiency === null
+                                  ? '—'
+                                  : efficiency,
                         unit: efficiency === null ? undefined : '%',
                         severity: 'SUCCESS',
                     }}
@@ -91,9 +96,9 @@ export default async function ProductionInsightsPage() {
             {!efficiencyAvailable && (
                 <p className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2">
                     Efisiensi output tidak dapat dihitung:{' '}
-                    {highlights.targetToday === null
-                        ? 'target hari ini tidak tersedia.'
-                        : 'rencana produksi hari ini memakai satuan yang berbeda-beda.'}
+                    {highlights.targetUnitMode === 'MIXED'
+                        ? 'target lintas satuan belum dikonfigurasi.'
+                        : 'target hari ini tidak tersedia.'}
                 </p>
             )}
         </div>

@@ -169,7 +169,6 @@ export function buildKpis(
 
     // The available source data is a current-state count, not a utilization
     // percentage: execution hours exist, but machine capacity hours do not.
-    // Keep this distinct from MTD yield rather than inventing a denominator.
     const machines: DashboardKpi = {
         id: 'machines',
         title: 'Mesin Berjalan Saat Ini',
@@ -179,14 +178,14 @@ export function buildKpis(
         trendValue: 'Saat ini',
     };
 
-    const productionYield: DashboardKpi = {
-        id: 'productionYield',
-        title: 'Yield Produksi (MTD)',
-        value: `${stats.production.yieldRate.toFixed(1)}%`,
-        subtitle: 'Output dibanding bahan terpakai',
+    const productionCompletion: DashboardKpi = {
+        id: 'productionCompletion',
+        title: 'Penyelesaian SPK (MTD)',
+        value: `${stats.production.completionRate.toFixed(1)}%`,
+        subtitle: 'SPK selesai dari seluruh SPK bulan berjalan',
         icon: Factory,
-        trendValue: 'Periode bulan berjalan',
-        progressValue: Math.min(100, stats.production.yieldRate),
+        trendValue: 'Berbasis jumlah dokumen SPK, bukan quantity',
+        progressValue: Math.min(100, stats.production.completionRate),
         progressColor: 'bg-blue-600',
     };
 
@@ -365,24 +364,30 @@ export function buildKpis(
             return [
                 activeJobs,
                 machines,
-                productionYield,
+                productionCompletion,
                 lowStock,
                 activeOrders,
             ];
         case 'WAREHOUSE':
             return [lowStock, inventory, activeJobs, pendingPo];
         case 'PRODUCTION':
-            return [machines, productionYield, activeJobs, scrap, lowStock];
+            return [machines, productionCompletion, activeJobs, scrap, lowStock];
         case 'FACTORY_MANAGER':
             // Ops-only KPIs: never revenue, spending, or cash-pressure metrics.
-            return [activeJobs, machines, productionYield, scrap, lowStock];
+            return [activeJobs, machines, productionCompletion, scrap, lowStock];
         case 'HRD':
             // HRD has its own portal dashboard (/hrd) with dedicated KPIs.
             // Generic dashboard shows only permission-filtered task shortcuts.
             return [];
         case 'ADMIN':
         default:
-            return [revenue, spending, machines, productionYield, cashPressure];
+            return [
+                revenue,
+                spending,
+                machines,
+                productionCompletion,
+                cashPressure,
+            ];
     }
 }
 

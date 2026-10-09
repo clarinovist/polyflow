@@ -256,7 +256,6 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 activeJobs: 5,
                 delayedJobs: 2,
                 completionRate: 50,
-                yieldRate: 80,
                 totalScrapKg: 3,
                 downtimeHours: 1.5,
                 runningMachines: 2,
@@ -285,26 +284,13 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         });
     });
 
-    it('characterizes legacy C2: mixed-unit aggregates are collapsed into one yield ratio', async () => {
-        mockPrisma.productionExecution.aggregate.mockReset();
-        mockPrisma.productionExecution.aggregate
-            .mockResolvedValueOnce({ _sum: { scrapQuantity: new FakeDecimal(0) } })
-            .mockResolvedValueOnce({ _sum: { quantityProduced: new FakeDecimal(80) } });
-        mockPrisma.materialIssue.aggregate.mockResolvedValue({
-            _sum: { quantity: new FakeDecimal(100) },
-        });
-
+    it('uses document-count completion without querying mixed-unit output/input aggregates', async () => {
         const stats = await ExecutiveStatsService.getExecutiveStats();
 
-        // R0 baseline only: aggregate sources carry no unit/process dimension,
-        // yet the legacy dashboard presents their quotient as a global yield.
-        expect(stats.production.yieldRate).toBe(80);
-        expect(mockPrisma.productionExecution.aggregate).toHaveBeenCalledWith(
-            expect.objectContaining({ _sum: { quantityProduced: true } }),
-        );
-        expect(mockPrisma.materialIssue.aggregate).toHaveBeenCalledWith(
-            expect.objectContaining({ _sum: { quantity: true } }),
-        );
+        expect(stats.production.completionRate).toBe(50);
+        expect(stats.production).not.toHaveProperty('yieldRate');
+        expect(mockPrisma.productionExecution.aggregate).toHaveBeenCalledTimes(1);
+        expect(mockPrisma.materialIssue.aggregate).not.toHaveBeenCalled();
     });
 
     it('keeps inventory valuation NOT_CONFIGURED until the cost-basis gate is signed off', async () => {

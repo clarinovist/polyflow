@@ -21,6 +21,12 @@ import {
     assessMissingShift,
     missingShiftMessage,
 } from '@/lib/production/shift-coverage';
+import {
+    isDowntimeCritical,
+    isScrapAnomaly,
+    parseProductionAlertThresholds,
+    PRODUCTION_ALERT_THRESHOLDS_KEY,
+} from '@/lib/production/alert-thresholds';
 
 export const getProductionLiveOverview = withTenant(
     async function getProductionLiveOverview() {
@@ -59,6 +65,7 @@ export const getProductionLiveOverview = withTenant(
                 openDowntimes,
                 openIssues,
                 waitingMaterialOrders,
+                thresholdSetting,
             ] = await Promise.all([
                 prisma.productionExecution.findMany({
                     where: {
@@ -118,7 +125,14 @@ export const getProductionLiveOverview = withTenant(
                         bom: { select: { category: true } },
                     },
                 }),
+                prisma.appSetting.findUnique({
+                    where: { key: PRODUCTION_ALERT_THRESHOLDS_KEY },
+                    select: { value: true },
+                }),
             ]);
+            const thresholds = parseProductionAlertThresholds(
+                thresholdSetting?.value,
+            );
 
             // Running list per process
             type RunningOrder = {
@@ -243,7 +257,9 @@ export const getProductionLiveOverview = withTenant(
                 );
                 attentions.push({
                     type: 'downtime',
-                    severity: age > 30 ? 'red' : 'amber',
+                    severity: isDowntimeCritical(thresholds, age)
+                        ? 'red'
+                        : 'amber',
                     title: `Mesin ${d.machine.code} Downtime`,
                     subtitle: `${d.reason} (Sejak ${formatWIB(d.startTime, 'HH:mm')})`,
                     machineId: d.machineId,
@@ -284,7 +300,7 @@ export const getProductionLiveOverview = withTenant(
                 const totalPlusScrap = totalProduced + totalScrap;
                 if (totalPlusScrap > 0) {
                     const scrapRatio = (totalScrap / totalPlusScrap) * 100;
-                    if (scrapRatio > 5.0) {
+                    if (isScrapAnomaly(thresholds, scrapRatio)) {
                         attentions.push({
                             type: 'high_scrap',
                             severity: 'red',

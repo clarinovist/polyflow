@@ -280,7 +280,7 @@ describe('getProductionSupervisorOverview', () => {
         const result = await getProductionSupervisorOverview();
         expect(result.success).toBe(true);
         if (result.success) {
-            expect(result.data.highlights.targetToday).toBe(150);
+            expect(result.data.highlights.targetToday).toBeNull();
             expect(result.data.highlights.targetUnitMode).toBe('MIXED');
             expect(result.data.highlights.targetUnit).toBeNull();
         }

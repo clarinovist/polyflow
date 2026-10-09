@@ -69,6 +69,64 @@ describe('mobile read states', () => {
         render(await Page()); expect(screen.getByRole('alert')).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: 'Coba lagi' })); expect(m.refresh).toHaveBeenCalled();
     });
+    it('does not render a summed mixed-unit production target', async () => {
+        m.auth.mockResolvedValue({
+            user: { id: 'production', role: 'PRODUCTION' },
+        });
+        m.production.mockResolvedValue({
+            success: true,
+            data: {
+                generatedAt: '2026-10-09T00:00:00.000Z',
+                highlights: {
+                    activeOrdersCount: 2,
+                    outputToday: 12,
+                    targetToday: null,
+                    targetUnitMode: 'MIXED',
+                    targetUnit: null,
+                    downtimeMinutesToday: 0,
+                    scrapToday: 0,
+                    qcPendingCount: 0,
+                },
+                recentOrders: [],
+                downtimeAlerts: [],
+            },
+        });
+
+        render(await ProductionHome());
+
+        expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
+        expect(screen.queryByText(/campuran/i)).toBeNull();
+    });
+
+    it('explains that mixed-unit target efficiency is not configured', async () => {
+        m.production.mockResolvedValue({
+            success: true,
+            data: {
+                generatedAt: '2026-10-09T00:00:00.000Z',
+                highlights: {
+                    activeOrdersCount: 2,
+                    outputToday: 12,
+                    targetToday: null,
+                    targetUnitMode: 'MIXED',
+                    targetUnit: null,
+                    downtimeMinutesToday: 0,
+                    scrapToday: 0,
+                    qcPendingCount: 0,
+                },
+                recentOrders: [],
+                downtimeAlerts: [],
+            },
+        });
+
+        render(await ProductionInsights());
+
+        expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
+        expect(
+            screen.getByText(/target lintas satuan belum dikonfigurasi/i),
+        ).toBeTruthy();
+        expect(screen.queryByText(/150.*campuran/i)).toBeNull();
+    });
+
     it('keeps a failed Sales home read distinct from an empty dashboard', async () => {
         render(await SalesHome());
         expect(screen.getByRole('alert').textContent).toContain(

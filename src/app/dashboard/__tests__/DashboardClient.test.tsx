@@ -26,7 +26,6 @@ const stats: ExecutiveStats = {
         activeJobs: 0,
         delayedJobs: 0,
         completionRate: 100,
-        yieldRate: 100,
         totalScrapKg: 0,
         downtimeHours: 0,
         runningMachines: 0,

@@ -25,9 +25,7 @@ export interface ExecutiveStats {
     production: {
         activeJobs: number;
         delayedJobs: number; // Placeholder logic for now, or could be jobs past due date
-        completionRate: number; // Completed / Total this month
-        // New Metrics
-        yieldRate: number; // % Good Output / Total Input
+        completionRate: number; // Completed / eligible SPK count this month
         totalScrapKg: number; // ScrapRecord + Execution Scrap
         downtimeHours: number; // MachineDowntime duration
         runningMachines: number; // Count of machines with IN_PROGRESS orders
@@ -99,12 +97,10 @@ export class ExecutiveStatsService {
             downtimeRecords, // 12
             scrapRecordsAgg, // 13
             executionScrapAgg, // 14
-            executionOutputAgg, // 15
-            materialIssuesAgg, // 16
-            inventoryStatsAgg, // 17
-            overdueReceivablesAgg, // 18
-            overduePayablesAgg, // 19
-            invoicesDueThisWeekCount, // 20
+            inventoryStatsAgg, // 15
+            overdueReceivablesAgg, // 16
+            overduePayablesAgg, // 17
+            invoicesDueThisWeekCount, // 18
         ] = await prisma.$transaction([
             // 0. Revenue MTD (GL: 4xxxx)
             prisma.journalLine.aggregate({
@@ -289,27 +285,7 @@ export class ExecutiveStatsService {
                     scrapDaunQty: true,
                 },
             }),
-            // 14. Execution Output
-            prisma.productionExecution.aggregate({
-                where: {
-                    endTime: {
-                        gte: startOfCurrentMonth,
-                        lte: endOfCurrentMonth,
-                    },
-                },
-                _sum: { quantityProduced: true },
-            }),
-            // 15. Material Issues
-            prisma.materialIssue.aggregate({
-                where: {
-                    issuedAt: {
-                        gte: startOfCurrentMonth,
-                        lte: endOfCurrentMonth,
-                    },
-                },
-                _sum: { quantity: true },
-            }),
-            // 16. Inventory Stats
+            // 15. Inventory Stats
             prisma.productVariant.aggregate({
                 where: { archivedAt: null },
                 _count: { id: true },
@@ -446,12 +422,6 @@ export class ExecutiveStatsService {
         );
         const totalScrapKg =
             decimalToNumber(scrapRecordsAgg._sum.quantity) + executionScrapKg;
-        const totalOutput = decimalToNumber(
-            executionOutputAgg._sum.quantityProduced,
-        );
-        const totalInput = decimalToNumber(materialIssuesAgg._sum.quantity);
-        const yieldRate = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
-
         // Low stock: mirrors InventoryQueryService.getDashboardStats() —
         // minStockAlert per variant, aggregated across locations scoped to RAW_MATERIAL +
         // FINISHED_GOOD internal warehouses via locationType/locationPurpose, not hardcoded
@@ -556,7 +526,6 @@ export class ExecutiveStatsService {
                 activeJobs: activeProductionCount,
                 delayedJobs: delayedJobsCount,
                 completionRate,
-                yieldRate,
                 totalScrapKg,
                 downtimeHours,
                 runningMachines,

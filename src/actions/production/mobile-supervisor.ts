@@ -26,7 +26,7 @@ interface MobileSupervisorOverview {
     highlights: {
         activeOrdersCount: number;
         outputToday: number;
-        /** Sum of plannedQuantity for non-cancelled SPKs planned today; null when unavailable. */
+        /** Comparable single-unit planned quantity; null when unavailable or mixed-unit. */
         targetToday: number | null;
         /** Unit comparability of the daily target aggregate. */
         targetUnitMode: TargetUnitMode;
@@ -260,15 +260,20 @@ export const getProductionSupervisorOverview = withTenant(
                         .filter((u): u is NonNullable<typeof u> => u != null)
                         .map(String),
                 );
-                targetToday = targetOrders.reduce(
-                    (sum, o) => sum + Number(o.plannedQuantity),
-                    0,
-                );
                 if (units.size > 1) {
+                    // Production target grouping still awaits owner sign-off.
+                    // Never expose a sum across unlike units.
                     targetUnitMode = 'MIXED';
+                    targetToday = null;
                 } else if (units.size === 1) {
                     targetUnitMode = 'SINGLE';
                     targetUnit = units.values().next().value ?? null;
+                    targetToday = targetOrders.reduce(
+                        (sum, o) => sum + Number(o.plannedQuantity),
+                        0,
+                    );
+                } else {
+                    targetToday = 0;
                 }
             }
 

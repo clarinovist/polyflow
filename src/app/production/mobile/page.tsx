@@ -42,10 +42,10 @@ export default async function ProductionMobilePage() {
 
     const { highlights } = overview;
     const targetLabel =
-        highlights.targetToday == null
+        highlights.targetUnitMode === 'NONE'
             ? null
             : highlights.targetUnitMode === 'MIXED'
-              ? `${highlights.targetToday} (campuran)`
+              ? 'Belum dikonfigurasi'
               : `${highlights.targetToday}${highlights.targetUnit ? ' ' + highlights.targetUnit : ''}`;
 
     return (
