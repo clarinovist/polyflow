@@ -2,7 +2,8 @@
 
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireFinanceAccess } from '@/lib/auth/finance-access';
+import { AccountingService } from '@/services/accounting/accounting-service';
 import {
     InvoiceStatus,
     PurchaseInvoiceStatus,
@@ -12,6 +13,7 @@ import {
     PeriodStatus,
 } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
+import { formatWibDate, wibRangeBounds } from '@/lib/utils/timezone';
 // ---- New shift/command board DTO ----
 
 type FinanceShiftBoard = {
@@ -57,6 +59,7 @@ type FinanceShiftBoard = {
         arGl: number;
         apGl: number;
         periodLabel: string;
+        asOfLabel: string;
         definitions: {
             revenue: string;
             cash: string;
@@ -88,22 +91,34 @@ function toNumber(v: unknown): number {
     return 0;
 }
 
+function sumAccountPrefix(
+    accounts: Array<{ code: string; netBalance: number }>,
+    prefix: string,
+): number {
+    return accounts.reduce(
+        (sum, account) =>
+            account.code.startsWith(prefix) ? sum + account.netBalance : sum,
+        0,
+    );
+}
+
 export const getFinanceShiftBoard = withTenant(
     async function getFinanceShiftBoard(dateRange?: {
         startDate?: Date;
         endDate?: Date;
     }) {
         return safeAction(async () => {
-            await requireAuth();
+            await requireFinanceAccess();
             const now = new Date();
+            const asOfDate = dateRange?.endDate ?? now;
             const journalEntryConditions: Prisma.JournalEntryWhereInput = {
                 status: 'POSTED',
             };
             if (dateRange?.startDate && dateRange?.endDate) {
-                journalEntryConditions.entryDate = {
-                    gte: dateRange.startDate,
-                    lte: dateRange.endDate,
-                };
+                journalEntryConditions.entryDate = wibRangeBounds(
+                    dateRange.startDate,
+                    dateRange.endDate,
+                );
             }
 
             // Overdue = dueDate < now AND remaining > 0 AND status in UNPAID/PARTIAL/OVERDUE
@@ -159,9 +174,7 @@ export const getFinanceShiftBoard = withTenant(
                 draftJournalsTop,
                 openRecsCount,
                 revenueAgg,
-                cashAgg,
-                arAgg,
-                apAgg,
+                balanceSheet,
                 openPeriods,
                 currentMonthPeriod,
                 reconThisMonth,
@@ -235,27 +248,7 @@ export const getFinanceShiftBoard = withTenant(
                     },
                     _sum: { credit: true, debit: true },
                 }),
-                prisma.journalLine.aggregate({
-                    where: {
-                        account: { code: { startsWith: '111' } },
-                        journalEntry: journalEntryConditions,
-                    },
-                    _sum: { debit: true, credit: true },
-                }),
-                prisma.journalLine.aggregate({
-                    where: {
-                        account: { code: { startsWith: '112' } },
-                        journalEntry: journalEntryConditions,
-                    },
-                    _sum: { debit: true, credit: true },
-                }),
-                prisma.journalLine.aggregate({
-                    where: {
-                        account: { code: { startsWith: '211' } },
-                        journalEntry: journalEntryConditions,
-                    },
-                    _sum: { credit: true, debit: true },
-                }),
+                AccountingService.getBalanceSheet(asOfDate),
                 prisma.fiscalPeriod.count({
                     where: { status: PeriodStatus.OPEN },
                 }),
@@ -295,12 +288,12 @@ export const getFinanceShiftBoard = withTenant(
             const revenue =
                 toNumber(revenueAgg._sum.credit) -
                 toNumber(revenueAgg._sum.debit);
-            const cashPosition =
-                toNumber(cashAgg._sum.debit) - toNumber(cashAgg._sum.credit);
-            const arGl =
-                toNumber(arAgg._sum.debit) - toNumber(arAgg._sum.credit);
-            const apGl =
-                toNumber(apAgg._sum.credit) - toNumber(apAgg._sum.debit);
+            const cashPosition = sumAccountPrefix(
+                balanceSheet.assets,
+                '111',
+            );
+            const arGl = sumAccountPrefix(balanceSheet.assets, '112');
+            const apGl = sumAccountPrefix(balanceSheet.liabilities, '211');
 
             const startLabel =
                 dateRange?.startDate?.toLocaleDateString('id-ID', {
@@ -379,11 +372,12 @@ export const getFinanceShiftBoard = withTenant(
                     arGl,
                     apGl,
                     periodLabel,
+                    asOfLabel: formatWibDate(asOfDate),
                     definitions: {
                         revenue: 'GL akun 4* (POSTED, filter periode)',
-                        cash: 'GL akun 111* (POSTED, filter periode)',
-                        arGl: 'GL akun 112* (POSTED, filter periode)',
-                        apGl: 'GL akun 211* (POSTED, filter periode)',
+                        cash: 'Neraca akun 111* (POSTED, sampai tanggal as-of)',
+                        arGl: 'Neraca akun 112* (POSTED, sampai tanggal as-of)',
+                        apGl: 'Neraca akun 211* (POSTED, sampai tanggal as-of)',
                     },
                 },
                 period: {

@@ -42,6 +42,7 @@ function dashboardData(arOverdueCount: number) {
         },
         snapshot: {
             periodLabel: 'September 2026',
+            asOfLabel: '30 Sep 2026',
             revenue: 1_000_000,
             cashPosition: 2_000_000,
             arGl: 3_000_000,
@@ -85,7 +86,12 @@ describe('FinanceDashboardPage', () => {
         expect(
             screen.getByText('Jurnal draf').closest('a')?.getAttribute('href'),
         ).toBe('/finance/journals?status=DRAFT');
-        expect(screen.getByText(/Ringkasan periode/)).toBeTruthy();
+        expect(screen.getByText('Ringkasan GL terposting')).toBeTruthy();
+        expect(screen.getByText('Pendapatan: September 2026')).toBeTruthy();
+        expect(screen.getByText('Saldo per 30 Sep 2026')).toBeTruthy();
+        expect(screen.getByText('Posisi kas per 30 Sep 2026')).toBeTruthy();
+        expect(screen.getByText('Piutang GL per 30 Sep 2026')).toBeTruthy();
+        expect(screen.getByText('Hutang GL per 30 Sep 2026')).toBeTruthy();
         expect(
             screen.queryByRole('link', { name: /laporan/i }),
         ).not.toBeTruthy();

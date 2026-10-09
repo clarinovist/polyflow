@@ -491,15 +491,18 @@ export default async function FinanceDashboardPage({
                 </Card>
             </div>
 
-            {/* Snapshot periode — honest GL metrics */}
+            {/* Revenue is a period flow; cash/AR/AP are balance-sheet positions as of the period end. */}
             <div>
                 <div className="mb-3 flex flex-wrap items-center gap-3">
                     <FinanceDateFilter />
                     <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
-                        Ringkasan periode (filter bulan, hanya GL terposting)
+                        Ringkasan GL terposting
                     </h2>
                     <Badge variant="outline" className="text-[10px]">
-                        {board.snapshot.periodLabel}
+                        Pendapatan: {board.snapshot.periodLabel}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                        Saldo per {board.snapshot.asOfLabel}
                     </Badge>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -526,7 +529,7 @@ export default async function FinanceDashboardPage({
                     <Card className="shadow-sm border-t-2 border-t-blue-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-xs font-medium">
-                                Posisi kas (akun 111*)
+                                Posisi kas per {board.snapshot.asOfLabel}
                             </CardTitle>
                             <Wallet className="h-3.5 w-3.5 text-blue-600" />
                         </CardHeader>
@@ -538,7 +541,7 @@ export default async function FinanceDashboardPage({
                                 className="text-[10px] text-muted-foreground mt-1"
                                 title={board.snapshot.definitions.cash}
                             >
-                                GL {board.snapshot.definitions.cash} · Bukan =
+                                {board.snapshot.definitions.cash} · Bukan =
                                 Revenue − AP
                             </p>
                         </CardContent>
@@ -546,7 +549,7 @@ export default async function FinanceDashboardPage({
                     <Card className="shadow-sm">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-xs font-medium">
-                                Piutang GL (112*)
+                                Piutang GL per {board.snapshot.asOfLabel}
                             </CardTitle>
                             <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
                         </CardHeader>
@@ -558,7 +561,7 @@ export default async function FinanceDashboardPage({
                                 className="text-[10px] text-muted-foreground mt-1"
                                 title={board.snapshot.definitions.arGl}
                             >
-                                GL {board.snapshot.definitions.arGl} · Beda
+                                {board.snapshot.definitions.arGl} · Beda
                                 dengan antrean invoice sisa
                             </p>
                         </CardContent>
@@ -566,7 +569,7 @@ export default async function FinanceDashboardPage({
                     <Card className="shadow-sm">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-xs font-medium">
-                                Hutang GL (211*)
+                                Hutang GL per {board.snapshot.asOfLabel}
                             </CardTitle>
                             <Banknote className="h-3.5 w-3.5 text-muted-foreground" />
                         </CardHeader>
@@ -578,7 +581,7 @@ export default async function FinanceDashboardPage({
                                 className="text-[10px] text-muted-foreground mt-1"
                                 title={board.snapshot.definitions.apGl}
                             >
-                                GL {board.snapshot.definitions.apGl} · Beda
+                                {board.snapshot.definitions.apGl} · Beda
                                 dengan antrean invoice sisa
                             </p>
                         </CardContent>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockPrisma, mockRequireAuth, mockRequireFinanceAccess } = vi.hoisted(() => {
+const { mockPrisma, mockRequireAuth, mockRequireFinanceAccess, mockGetBalanceSheet } = vi.hoisted(() => {
   const mockPrisma = {
     $queryRaw: vi.fn().mockResolvedValue([]),
     invoice: {
@@ -29,7 +29,8 @@ const { mockPrisma, mockRequireAuth, mockRequireFinanceAccess } = vi.hoisted(() 
   return {
     mockPrisma,
     mockRequireAuth: vi.fn().mockResolvedValue({ user: { id: 'u1' } }),
-    mockRequireFinanceAccess: vi.fn(),
+    mockRequireFinanceAccess: vi.fn().mockResolvedValue({ user: { id: 'u1' } }),
+    mockGetBalanceSheet: vi.fn(),
   };
 });
 
@@ -47,6 +48,10 @@ vi.mock('@/lib/tools/auth-checks', () => ({
 
 vi.mock('@/lib/auth/finance-access', () => ({
   requireFinanceAccess: mockRequireFinanceAccess,
+}));
+
+vi.mock('@/services/accounting/accounting-service', () => ({
+  AccountingService: { getBalanceSheet: mockGetBalanceSheet },
 }));
 
 vi.mock('@/lib/errors/errors', () => ({
@@ -109,9 +114,10 @@ function setupMocks(overrides: {
   draftTop?: unknown[];
   openRecs?: number;
   revenueAgg?: { _sum: { credit: unknown; debit: unknown } };
-  cashAgg?: { _sum: { debit: unknown; credit: unknown } };
-  arAgg?: { _sum: { debit: unknown; credit: unknown } };
-  apAgg?: { _sum: { credit: unknown; debit: unknown } };
+  balanceSheet?: {
+    assets: Array<{ code: string; netBalance: number }>;
+    liabilities: Array<{ code: string; netBalance: number }>;
+  };
   openPeriods?: number;
   currentPeriod?: unknown;
 } = {}) {
@@ -136,9 +142,10 @@ function setupMocks(overrides: {
   // 5. prisma.journalEntry.count (draft)
   // 6. prisma.journalEntry.findMany (draft top)
   // 7. prisma.bankReconciliation.count (open)
-  // 8-11. prisma.journalLine.aggregate (4x: revenue, cash, ar, ap)
-  // 12. prisma.fiscalPeriod.count (open)
-  // 13. prisma.fiscalPeriod.findFirst (current)
+  // 8. prisma.journalLine.aggregate (revenue flow)
+  // 9. AccountingService.getBalanceSheet (cash/AR/AP as-of)
+  // 10. prisma.fiscalPeriod.count (open)
+  // 11. prisma.fiscalPeriod.findFirst (current)
 
   // Reset and use call-index approach for each mock
   mockPrisma.invoice.findMany
@@ -152,15 +159,18 @@ function setupMocks(overrides: {
   mockPrisma.journalEntry.findMany.mockResolvedValue(overrides.draftTop ?? [makeJournal()]);
   mockPrisma.bankReconciliation.count.mockResolvedValue(overrides.openRecs ?? 1);
 
-  // GL aggregates: revenue, cash, ar, ap
-  const aggResults = [
+  mockPrisma.journalLine.aggregate.mockResolvedValue(
     overrides.revenueAgg ?? { _sum: { credit: 5_000_000, debit: 0 } },
-    overrides.cashAgg ?? { _sum: { debit: 3_000_000, credit: 1_000_000 } },
-    overrides.arAgg ?? { _sum: { debit: 800_000, credit: 200_000 } },
-    overrides.apAgg ?? { _sum: { credit: 400_000, debit: 100_000 } },
-  ];
-  let aggIdx = 0;
-  mockPrisma.journalLine.aggregate.mockImplementation(async () => aggResults[aggIdx++]);
+  );
+  mockGetBalanceSheet.mockResolvedValue(
+    overrides.balanceSheet ?? {
+      assets: [
+        { code: '11110', netBalance: 2_000_000 },
+        { code: '11210', netBalance: 600_000 },
+      ],
+      liabilities: [{ code: '21110', netBalance: 300_000 }],
+    },
+  );
 
   mockPrisma.fiscalPeriod.count.mockResolvedValue(overrides.openPeriods ?? 3);
   mockPrisma.fiscalPeriod.findFirst.mockResolvedValue(overrides.currentPeriod ?? {
@@ -251,12 +261,23 @@ describe('getFinanceShiftBoard', () => {
     expect(res.data.attention.draftJournals[0].entryNumber).toBe('JE-001');
   });
 
-  it('calculates GL snapshot from journal lines (POSTED filter)', async () => {
+  it('reconciles stock balances with the canonical balance-sheet accounts', async () => {
     setupMocks({
       revenueAgg: { _sum: { credit: 10_000_000, debit: 500_000 } },
-      cashAgg: { _sum: { debit: 6_000_000, credit: 3_000_000 } },
-      arAgg: { _sum: { debit: 2_000_000, credit: 800_000 } },
-      apAgg: { _sum: { credit: 1_500_000, debit: 600_000 } },
+      balanceSheet: {
+        assets: [
+          { code: '11100', netBalance: 0 },
+          { code: '11110', netBalance: 1_000_000 },
+          { code: '11120', netBalance: 2_000_000 },
+          { code: '11210', netBalance: 1_200_000 },
+          { code: '11310', netBalance: 8_000_000 },
+        ],
+        liabilities: [
+          { code: '21110', netBalance: 600_000 },
+          { code: '21120', netBalance: 300_000 },
+          { code: '21210', netBalance: 5_000_000 },
+        ],
+      },
     });
 
     const res = await getFinanceShiftBoard({ startDate: new Date('2026-07-01'), endDate: new Date('2026-07-31') });
@@ -269,37 +290,51 @@ describe('getFinanceShiftBoard', () => {
     expect(res.data.snapshot.apGl).toBe(900_000);         // credit - debit
     expect(res.data.snapshot.definitions.revenue).toContain('4*');
     expect(res.data.snapshot.definitions.cash).toContain('111*');
+    expect(res.data.snapshot.asOfLabel).toBe('31 Jul 2026');
   });
 
-  it('characterizes legacy C1: stock-like GL cards are filtered by both range boundaries', async () => {
+  it('keeps revenue period-bound but makes cash, AR, and AP independent of startDate', async () => {
     setupMocks();
-    const startDate = new Date('2026-07-01');
+    const firstStart = new Date('2026-07-01');
+    const secondStart = new Date('2026-07-15');
     const endDate = new Date('2026-07-31');
 
-    await getFinanceShiftBoard({ startDate, endDate });
+    const first = await getFinanceShiftBoard({ startDate: firstStart, endDate });
+    setupMocks();
+    const second = await getFinanceShiftBoard({ startDate: secondStart, endDate });
 
-    // R0 baseline only: R1A must remove startDate from cash/AR/AP while
-    // retaining the period range for revenue. Naming this legacy behavior
-    // explicitly prevents the test from being read as approval of the formula.
-    for (const callIndex of [1, 2, 3]) {
-      const query = mockPrisma.journalLine.aggregate.mock.calls[callIndex]?.[0] as {
-        where?: { journalEntry?: { entryDate?: { gte?: Date; lte?: Date } } };
-      };
-      expect(query.where?.journalEntry?.entryDate).toEqual({
-        gte: startDate,
-        lte: endDate,
-      });
-    }
+    expect(first.success && first.data?.snapshot.cashPosition).toBe(2_000_000);
+    expect(second.success && second.data?.snapshot.cashPosition).toBe(2_000_000);
+    expect(mockGetBalanceSheet).toHaveBeenNthCalledWith(1, endDate);
+    expect(mockGetBalanceSheet).toHaveBeenNthCalledWith(2, endDate);
+    const revenueCalls = mockPrisma.journalLine.aggregate.mock.calls;
+    expect(revenueCalls[0]?.[0].where.journalEntry.entryDate).toEqual({
+      gte: new Date('2026-06-30T17:00:00.000Z'),
+      lte: new Date('2026-07-31T16:59:59.999Z'),
+    });
+    expect(revenueCalls[1]?.[0].where.journalEntry.entryDate).toEqual({
+      gte: new Date('2026-07-14T17:00:00.000Z'),
+      lte: new Date('2026-07-31T16:59:59.999Z'),
+    });
   });
 
-  it('characterizes legacy C8: the dashboard uses authentication without the Finance read guard', async () => {
+  it('requires Finance read access before querying dashboard data', async () => {
     setupMocks();
 
     await getFinanceShiftBoard();
 
-    // R0 baseline only: R1A reverses these expectations.
-    expect(mockRequireAuth).toHaveBeenCalledOnce();
-    expect(mockRequireFinanceAccess).not.toHaveBeenCalled();
+    expect(mockRequireFinanceAccess).toHaveBeenCalledOnce();
+    expect(mockRequireAuth).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-Finance caller before any data query', async () => {
+    mockRequireFinanceAccess.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const result = await getFinanceShiftBoard();
+
+    expect(result.success).toBe(false);
+    expect(mockPrisma.invoice.findMany).not.toHaveBeenCalled();
+    expect(mockGetBalanceSheet).not.toHaveBeenCalled();
   });
 
   it('returns period signal with current OPEN period and days to month end', async () => {
@@ -332,6 +367,7 @@ describe('getFinanceShiftBoard', () => {
     mockPrisma.journalEntry.findMany.mockResolvedValue([]);
     mockPrisma.bankReconciliation.count.mockResolvedValue(2);
     mockPrisma.journalLine.aggregate.mockResolvedValue({ _sum: { credit: 0, debit: 0 } });
+    mockGetBalanceSheet.mockResolvedValue({ assets: [], liabilities: [] });
     mockPrisma.fiscalPeriod.count.mockResolvedValue(3);
     mockPrisma.fiscalPeriod.findFirst.mockResolvedValue({
       id: 'fp-jul', name: 'Juli 2026', endDate: new Date('2026-07-31'), status: 'OPEN',
@@ -353,6 +389,7 @@ describe('getFinanceShiftBoard', () => {
     mockPrisma.journalEntry.findMany.mockResolvedValue([]);
     mockPrisma.bankReconciliation.count.mockResolvedValue(0);
     mockPrisma.journalLine.aggregate.mockResolvedValue({ _sum: { credit: 0, debit: 0 } });
+    mockGetBalanceSheet.mockResolvedValue({ assets: [], liabilities: [] });
     mockPrisma.fiscalPeriod.count.mockResolvedValue(3);
     mockPrisma.fiscalPeriod.findFirst.mockResolvedValue(null);
 
