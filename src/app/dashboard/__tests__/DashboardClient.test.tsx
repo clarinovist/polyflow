@@ -118,6 +118,44 @@ describe('DashboardClient hydration safety', () => {
         expect(html).toContain(presentation.lastUpdated);
     });
 
+    it('orders Health, Attention, then Drivers and exposes metric definitions', () => {
+        const statsWithTrend: ExecutiveStats = {
+            ...stats,
+            finance: stats.finance
+                ? {
+                      ...stats.finance,
+                      revenueTrendChart: [
+                          { month: '2026-08', revenue: 90_000 },
+                          { month: '2026-09', revenue: 100_000 },
+                      ],
+                  }
+                : null,
+        };
+        render(<DashboardClient {...defaultProps} stats={statsWithTrend} />);
+
+        const text = document.body.textContent ?? '';
+        expect(text.indexOf('Health')).toBeLessThan(text.indexOf('Attention'));
+        expect(text.indexOf('Attention')).toBeLessThan(text.indexOf('Drivers'));
+        expect(
+            screen.getByLabelText(/Pendapatan usaha POSTED.*Unit: IDR/),
+        ).toBeDefined();
+    });
+
+    it('renders NOT_CONFIGURED valuation honestly for a permitted warehouse role', () => {
+        render(
+            <DashboardClient
+                {...defaultProps}
+                userRole="WAREHOUSE"
+                permissions="ALL"
+            />,
+        );
+
+        expect(screen.getByText('Belum dikonfigurasi')).toBeDefined();
+        expect(
+            screen.getByText(/Metrik ditahan sampai definisi bisnis disetujui/),
+        ).toBeDefined();
+    });
+
     it('removes retired CEO notes while preserving dashboard actions', () => {
         const html = renderToStaticMarkup(<DashboardClient {...defaultProps} />);
 

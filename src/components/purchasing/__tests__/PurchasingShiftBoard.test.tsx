@@ -6,6 +6,7 @@ import { PurchasingShiftBoardComponent } from '../PurchasingShiftBoard';
 import type { PurchasingShiftBoard } from '@/actions/purchasing/purchasing-types';
 
 const data: PurchasingShiftBoard = {
+    generatedAt: '2026-10-09T08:00:00.000Z',
     counts: {
         pendingPrs: 1,
         draftPos: 1,
@@ -51,11 +52,14 @@ describe('PurchasingShiftBoardComponent', () => {
         render(<PurchasingShiftBoardComponent data={data} />);
 
         expect(
-            screen.getByText('PR proses').closest('a')?.getAttribute('href'),
+            screen
+                .getByText('PR dalam proses')
+                .closest('a')
+                ?.getAttribute('href'),
         ).toBe('/purchasing/requests');
         expect(
             screen
-                .getAllByText('Hutang jatuh tempo')[0]
+                .getByText('Hutang overdue')
                 .closest('a')
                 ?.getAttribute('href'),
         ).toBe('/purchasing/invoices?overdue=true');
@@ -78,14 +82,34 @@ describe('PurchasingShiftBoardComponent', () => {
 
         render(<PurchasingShiftBoardComponent data={zeroData} />);
 
-        const title = screen.getByText('PR proses');
+        const title = screen.getByText('PR dalam proses');
         expect(title.closest('a')).toBeNull();
         expect(
             title
                 .closest('[data-slot="card"]')
                 ?.classList.contains('cursor-pointer'),
         ).toBe(false);
-        expect(screen.queryByText('Proses')).not.toBeTruthy();
+        expect(screen.queryByText('Perlu diproses')).not.toBeTruthy();
+    });
+
+    it('orders Health, Attention, then Drivers and shows freshness plus definitions', () => {
+        render(<PurchasingShiftBoardComponent data={data} />);
+
+        const text = document.body.textContent ?? '';
+        expect(text.indexOf('Health')).toBeLessThan(text.indexOf('Attention'));
+        expect(text.indexOf('Attention')).toBeLessThan(text.indexOf('Drivers'));
+        expect(screen.getByText(/Diperbarui 15.00 WIB/)).toBeTruthy();
+        expect(
+            screen.getByLabelText(/PR OPEN atau APPROVED.*Unit: Purchase request/),
+        ).toBeTruthy();
+    });
+
+    it('renders a truthful unavailable state instead of zero metrics', () => {
+        render(<PurchasingShiftBoardComponent data={null} />);
+
+        expect(screen.getByText('Dashboard pembelian tidak tersedia')).toBeTruthy();
+        expect(screen.getByText(/Angka kosong tidak dianggap nol/)).toBeTruthy();
+        expect(screen.queryByText('Rp 0')).not.toBeTruthy();
     });
 
     it('keeps only frequent creation actions instead of a duplicate portal menu', () => {

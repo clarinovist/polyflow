@@ -4,7 +4,8 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
-import { safeAction } from '@/lib/errors/errors';import { getSuggestedPurchases } from '@/services/inventory/analytics-service';
+import { safeAction } from '@/lib/errors/errors';
+import { getSuggestedPurchases } from '@/services/inventory/analytics-service';
 import type { SuggestedReorderItem } from './purchasing-types';
 import { PR_AGING_THRESHOLD_DAYS } from './purchasing-types';
 import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
@@ -211,6 +212,7 @@ export const getPurchasingShiftBoard = withTenant(
                 }));
 
             return {
+                generatedAt: new Date().toISOString(),
                 counts: {
                     pendingPrs,
                     draftPos,

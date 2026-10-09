@@ -3,7 +3,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import {
+    DashboardFreshness,
+    DashboardHealthCard,
+    DashboardSectionState,
+} from '@/components/dashboard/DashboardMetricPrimitives';
 import { type ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { formatRupiah } from '@/lib/utils/utils';
 import { dashboardLabels } from '@/lib/labels';
@@ -28,13 +32,7 @@ import {
     YAxis,
     Tooltip,
 } from 'recharts';
-import {
-    TrendingUp,
-    TrendingDown,
-    ArrowRight,
-    AlertCircle,
-    RefreshCw,
-} from 'lucide-react';
+import { TrendingUp, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
@@ -152,40 +150,22 @@ export default function DashboardClient({
                             {dashboardLabels.refresh}
                         </span>
                     </Button>
-                    <p
-                        className="text-xs text-muted-foreground tabular-nums"
-                        aria-live="polite"
-                    >
-                        {dashboardLabels.lastUpdated}{' '}
-                        {new Intl.DateTimeFormat('id-ID', {
-                            timeZone: 'Asia/Jakarta',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hourCycle: 'h23',
-                            timeZoneName: 'short',
-                        }).format(new Date(stats.generatedAt))}
-                    </p>
+                    <DashboardFreshness
+                        generatedAt={stats.generatedAt}
+                        label={dashboardLabels.lastUpdated}
+                    />
                 </div>
             </div>
 
             {unavailableSections.length > 0 && (
-                <Card
-                    role="status"
-                    className="border-amber-500/40 bg-amber-500/5"
-                >
-                    <CardContent className="flex items-start gap-3 p-4 text-sm">
-                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                        <div>
-                            <p className="font-medium text-foreground">
-                                Sebagian data tidak tersedia
-                            </p>
-                            <p className="text-muted-foreground">
-                                {unavailableSections.join(', ')} tidak
-                                ditampilkan. Angka kosong tidak dianggap nol.
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <DashboardSectionState
+                    state="UNAVAILABLE"
+                    title="Sebagian data tidak tersedia"
+                    description={
+                        unavailableSections.join(', ') +
+                        ' tidak ditampilkan. Angka kosong tidak dianggap nol.'
+                    }
+                />
             )}
 
             {/* Ops portal CTA (Warehouse / Production) */}
@@ -213,180 +193,234 @@ export default function DashboardClient({
                 </Card>
             )}
 
-            {/* KPI strip */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                {kpis.map((kpi) => (
-                    <KPICard key={kpi.id} {...kpi} />
-                ))}
-            </div>
-
-            {/* Task-oriented shortcuts; complete module navigation stays in the sidebar. */}
-            {!opsCompact && quickActions.length > 0 && (
-                <section
-                    className="space-y-3"
-                    aria-labelledby="actions-heading"
-                >
-                    <h2
-                        id="actions-heading"
-                        className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
-                    >
-                        {dashboardLabels.quickActions}
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="health-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Health
+                    </p>
+                    <h2 id="health-heading" className="text-lg font-semibold">
+                        Kondisi utama
                     </h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {quickActions.map((action) => (
-                            <QuickAction
-                                key={action.href + action.label}
-                                {...action}
-                            />
-                        ))}
-                    </div>
-                </section>
-            )}
+                </div>
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 md:gap-4">
+                    {kpis.map((kpi) => (
+                        <KPICard key={kpi.id} {...kpi} />
+                    ))}
+                </div>
+            </section>
 
-            {/* Compact ops: only quick actions under KPIs */}
-            {opsCompact && quickActions.length > 0 && (
-                <section
-                    className="space-y-3"
-                    aria-labelledby="actions-heading-ops"
-                >
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="attention-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Attention
+                    </p>
                     <h2
-                        id="actions-heading-ops"
-                        className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+                        id="attention-heading"
+                        className="text-lg font-semibold"
                     >
-                        {dashboardLabels.quickActions}
+                        Tindakan berikutnya
                     </h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {quickActions.map((action) => (
-                            <QuickAction
-                                key={action.href + action.label}
-                                {...action}
-                            />
-                        ))}
-                    </div>
-                </section>
-            )}
+                </div>
+
+                {/* Task-oriented shortcuts; complete module navigation stays in the sidebar. */}
+                {!opsCompact && quickActions.length > 0 && (
+                    <section
+                        className="space-y-3"
+                        aria-labelledby="actions-heading"
+                    >
+                        <h2
+                            id="actions-heading"
+                            className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+                        >
+                            {dashboardLabels.quickActions}
+                        </h2>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {quickActions.map((action) => (
+                                <QuickAction
+                                    key={action.href + action.label}
+                                    {...action}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Compact ops: only quick actions under KPIs */}
+                {opsCompact && quickActions.length > 0 && (
+                    <section
+                        className="space-y-3"
+                        aria-labelledby="actions-heading-ops"
+                    >
+                        <h2
+                            id="actions-heading-ops"
+                            className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+                        >
+                            {dashboardLabels.quickActions}
+                        </h2>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {quickActions.map((action) => (
+                                <QuickAction
+                                    key={action.href + action.label}
+                                    {...action}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
+            </section>
 
             {/* Revenue trend — Admin / Finance only */}
             {showChart &&
                 stats.finance?.revenueTrendChart &&
                 stats.finance.revenueTrendChart.length > 1 && (
-                    <Card className="shadow-sm border-border/60 bg-card">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4" />
-                                {dashboardLabels.revenueTrend}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="h-[180px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart
-                                        data={stats.finance.revenueTrendChart}
+                    <section
+                        className="min-w-0 space-y-3"
+                        aria-labelledby="drivers-heading"
+                    >
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Drivers
+                            </p>
+                            <h2
+                                id="drivers-heading"
+                                className="text-lg font-semibold"
+                            >
+                                Arah pendapatan
+                            </h2>
+                        </div>
+                        <Card className="min-w-0 overflow-hidden shadow-sm border-border/60 bg-card">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                    <TrendingUp className="h-4 w-4" />
+                                    {dashboardLabels.revenueTrend}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="min-w-0 overflow-hidden">
+                                <div className="h-[180px] min-w-0 w-full overflow-hidden">
+                                    <ResponsiveContainer
+                                        width="100%"
+                                        height="100%"
                                     >
-                                        <defs>
-                                            <linearGradient
-                                                id="colorRevenueDash"
-                                                x1="0"
-                                                y1="0"
-                                                x2="0"
-                                                y2="1"
-                                            >
-                                                <stop
-                                                    offset="5%"
-                                                    stopColor="#10b981"
-                                                    stopOpacity={0.3}
-                                                />
-                                                <stop
-                                                    offset="95%"
-                                                    stopColor="#10b981"
-                                                    stopOpacity={0}
-                                                />
-                                            </linearGradient>
-                                        </defs>
-                                        <XAxis
-                                            dataKey="month"
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{ fontSize: 11 }}
-                                            tickFormatter={(val) => {
-                                                const parts =
-                                                    String(val).split('-');
-                                                const months = [
-                                                    'Jan',
-                                                    'Feb',
-                                                    'Mar',
-                                                    'Apr',
-                                                    'Mei',
-                                                    'Jun',
-                                                    'Jul',
-                                                    'Agu',
-                                                    'Sep',
-                                                    'Okt',
-                                                    'Nov',
-                                                    'Des',
-                                                ];
-                                                return (
-                                                    months[
-                                                        parseInt(parts[1], 10) -
-                                                            1
-                                                    ] || val
-                                                );
-                                            }}
-                                        />
-                                        <YAxis
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{ fontSize: 11 }}
-                                            tickFormatter={(val) =>
-                                                `${(Number(val) / 1000000).toFixed(0)}jt`
+                                        <AreaChart
+                                            data={
+                                                stats.finance.revenueTrendChart
                                             }
-                                            width={50}
-                                        />
-                                        <Tooltip
-                                            contentStyle={{
-                                                borderRadius: '8px',
-                                                border: 'none',
-                                                boxShadow:
-                                                    '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                                                fontSize: '12px',
-                                            }}
-                                            formatter={(value) => [
-                                                formatRupiah(Number(value)),
-                                                'Pendapatan',
-                                            ]}
-                                            labelFormatter={(label) => {
-                                                const parts =
-                                                    String(label).split('-');
-                                                const months = [
-                                                    'Januari',
-                                                    'Februari',
-                                                    'Maret',
-                                                    'April',
-                                                    'Mei',
-                                                    'Juni',
-                                                    'Juli',
-                                                    'Agustus',
-                                                    'September',
-                                                    'Oktober',
-                                                    'November',
-                                                    'Desember',
-                                                ];
-                                                return `${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
-                                            }}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="revenue"
-                                            stroke="#10b981"
-                                            strokeWidth={2}
-                                            fillOpacity={1}
-                                            fill="url(#colorRevenueDash)"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                        >
+                                            <defs>
+                                                <linearGradient
+                                                    id="colorRevenueDash"
+                                                    x1="0"
+                                                    y1="0"
+                                                    x2="0"
+                                                    y2="1"
+                                                >
+                                                    <stop
+                                                        offset="5%"
+                                                        stopColor="#10b981"
+                                                        stopOpacity={0.3}
+                                                    />
+                                                    <stop
+                                                        offset="95%"
+                                                        stopColor="#10b981"
+                                                        stopOpacity={0}
+                                                    />
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis
+                                                dataKey="month"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tick={{ fontSize: 11 }}
+                                                tickFormatter={(val) => {
+                                                    const parts =
+                                                        String(val).split('-');
+                                                    const months = [
+                                                        'Jan',
+                                                        'Feb',
+                                                        'Mar',
+                                                        'Apr',
+                                                        'Mei',
+                                                        'Jun',
+                                                        'Jul',
+                                                        'Agu',
+                                                        'Sep',
+                                                        'Okt',
+                                                        'Nov',
+                                                        'Des',
+                                                    ];
+                                                    return (
+                                                        months[
+                                                            parseInt(
+                                                                parts[1],
+                                                                10,
+                                                            ) - 1
+                                                        ] || val
+                                                    );
+                                                }}
+                                            />
+                                            <YAxis
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tick={{ fontSize: 11 }}
+                                                tickFormatter={(val) =>
+                                                    `${(Number(val) / 1000000).toFixed(0)}jt`
+                                                }
+                                                width={50}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    borderRadius: '8px',
+                                                    border: 'none',
+                                                    boxShadow:
+                                                        '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                                    fontSize: '12px',
+                                                }}
+                                                formatter={(value) => [
+                                                    formatRupiah(Number(value)),
+                                                    'Pendapatan',
+                                                ]}
+                                                labelFormatter={(label) => {
+                                                    const parts =
+                                                        String(label).split(
+                                                            '-',
+                                                        );
+                                                    const months = [
+                                                        'Januari',
+                                                        'Februari',
+                                                        'Maret',
+                                                        'April',
+                                                        'Mei',
+                                                        'Juni',
+                                                        'Juli',
+                                                        'Agustus',
+                                                        'September',
+                                                        'Oktober',
+                                                        'November',
+                                                        'Desember',
+                                                    ];
+                                                    return `${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+                                                }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="revenue"
+                                                stroke="#10b981"
+                                                strokeWidth={2}
+                                                fillOpacity={1}
+                                                fill="url(#colorRevenueDash)"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </section>
                 )}
         </div>
     );
@@ -398,77 +432,50 @@ function KPICard({
     title,
     value,
     subtitle,
-    icon: Icon,
+    icon,
     trend,
     trendValue,
     progressValue,
     progressColor,
+    unit,
+    period,
+    definition,
+    source,
+    state,
     href,
 }: DashboardKpi) {
-    const body = (
-        <Card
-            className={cn(
-                'shadow-sm border-border/60 bg-card h-full transition-shadow',
-                href &&
-                    'hover:shadow-md cursor-pointer hover:border-primary/25',
-            )}
-        >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {title}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-xl md:text-2xl font-bold tracking-tight text-foreground tabular-nums break-words">
-                    {value}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1.5 flex-wrap">
-                    {trend === 'up' && (
-                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    )}
-                    {trend === 'down' && (
-                        <TrendingDown className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" />
-                    )}
-                    {trend === 'neutral' && (
-                        <span className="w-1 h-1 rounded-full bg-zinc-400 mx-1 mt-1.5 shrink-0" />
-                    )}
-                    <span
-                        className={
-                            trend === 'up'
-                                ? 'text-emerald-600 font-medium'
-                                : trend === 'down'
-                                  ? 'text-red-600 font-medium'
-                                  : ''
-                        }
-                    >
-                        {trendValue}
-                    </span>
-                    <span className="text-muted-foreground/80">
-                        · {subtitle}
-                    </span>
-                </p>
-                {progressValue !== undefined && (
-                    <div className="mt-3">
-                        <Progress
-                            value={progressValue}
-                            className="h-1.5"
-                            indicatorClassName={progressColor}
-                        />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
+    const tone =
+        trend === 'up'
+            ? 'text-emerald-600 font-medium'
+            : trend === 'down'
+              ? 'text-red-600 font-medium'
+              : '';
 
-    if (href) {
-        return (
-            <Link href={href} className="block h-full">
-                {body}
-            </Link>
-        );
-    }
-    return body;
+    return (
+        <DashboardHealthCard
+            title={title}
+            value={value}
+            icon={icon}
+            definition={{ unit, period, description: definition, source }}
+            state={state}
+            href={href}
+            supportingText={
+                <span className="flex min-w-0 flex-wrap items-start gap-1.5">
+                    <span className={tone}>{trendValue}</span>
+                    <span>· {subtitle}</span>
+                </span>
+            }
+            progress={
+                progressValue !== undefined
+                    ? {
+                          value: progressValue,
+                          label: 'Pencapaian',
+                          indicatorClassName: progressColor,
+                      }
+                    : undefined
+            }
+        />
+    );
 }
 
 function QuickAction({

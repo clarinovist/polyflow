@@ -152,6 +152,7 @@ describe('getPurchasingShiftBoard', () => {
     expect(res.success).toBe(true);
     if (!res.success || !res.data) return;
 
+    expect(new Date(res.data.generatedAt).toString()).not.toBe('Invalid Date');
     expect(res.data.counts.pendingPrs).toBe(4);
     expect(res.data.counts.draftPos).toBe(2);
     expect(res.data.counts.awaitingReceiptPos).toBe(3);

@@ -51,6 +51,11 @@ export interface DashboardKpi {
     trendValue: string;
     progressValue?: number;
     progressColor?: string;
+    unit: string;
+    period: string;
+    definition: string;
+    source?: string;
+    state?: 'AVAILABLE' | 'NOT_CONFIGURED';
     href?: string;
     resourceHint?: string;
 }
@@ -158,6 +163,10 @@ export function buildKpis(
               icon: Wallet,
               trend: trendFromNumber(stats.sales!.trend),
               trendValue: monthlyTrendLabel(stats.sales!.trend),
+              unit: 'IDR',
+              period: 'Bulan berjalan (MTD)',
+              definition: 'Pendapatan usaha POSTED pada periode berjalan.',
+              source: 'Laporan laba rugi Finance',
           }
         : null;
 
@@ -170,6 +179,11 @@ export function buildKpis(
               icon: ShoppingCart,
               trend: trendFromNumber(stats.purchasing!.trend),
               trendValue: monthlyTrendLabel(stats.purchasing!.trend),
+              unit: 'IDR',
+              period: 'Bulan berjalan (MTD)',
+              definition:
+                  'COGS ditambah beban operasional pada periode berjalan.',
+              source: 'Laporan laba rugi Finance',
           }
         : null;
 
@@ -183,6 +197,11 @@ export function buildKpis(
               subtitle: 'Snapshot status saat dashboard diperbarui',
               icon: Factory,
               trendValue: 'Saat ini',
+              unit: 'Mesin',
+              period: 'Saat dashboard diperbarui',
+              definition:
+                  'Mesin aktif dengan status berjalan saat snapshot dibuat.',
+              source: 'Produksi',
           }
         : null;
 
@@ -196,6 +215,10 @@ export function buildKpis(
               trendValue: 'Berbasis jumlah dokumen SPK, bukan quantity',
               progressValue: Math.min(100, stats.production!.completionRate),
               progressColor: 'bg-blue-600',
+              unit: 'Persen dokumen SPK',
+              period: 'Bulan berjalan (MTD)',
+              definition: 'SPK selesai dibagi seluruh dokumen SPK eligible.',
+              source: 'Produksi',
           }
         : null;
 
@@ -207,6 +230,11 @@ export function buildKpis(
               subtitle: `${stats.inventory!.lowStockCount} stok rendah · cost basis menunggu keputusan`,
               icon: Package,
               trendValue: 'NOT_CONFIGURED',
+              unit: 'IDR',
+              period: 'Saat dashboard diperbarui',
+              definition: 'Valuasi persediaan milik perusahaan.',
+              source: 'Persediaan / Finance',
+              state: 'NOT_CONFIGURED',
               href: '/warehouse/analytics',
               resourceHint: '/warehouse/analytics',
           }
@@ -222,6 +250,11 @@ export function buildKpis(
               trend: stats.inventory!.lowStockCount > 0 ? 'down' : 'neutral',
               trendValue:
                   stats.inventory!.lowStockCount > 0 ? 'Perlu restock' : 'Aman',
+              unit: 'Varian',
+              period: 'Saat dashboard diperbarui',
+              definition:
+                  'Varian di bawah batas minimum pada lokasi INTERNAL RM/FG.',
+              source: 'Persediaan',
               href:
                   stats.inventory!.lowStockCount > 0
                       ? '/warehouse/inventory?lowStock=true'
@@ -246,6 +279,11 @@ export function buildKpis(
                       stats.finance!.overdueReceivables > 0
                           ? 'Tagih segera'
                           : 'Lancar',
+                  unit: 'IDR',
+                  period: 'Jatuh tempo sebelum hari bisnis ini',
+                  definition:
+                      'Sisa piutang operasional yang belum lunas dan telah jatuh tempo.',
+                  source: 'Finance',
                   href:
                       stats.finance!.overdueReceivables > 0
                           ? '/finance/invoices/sales?overdue=true'
@@ -266,6 +304,11 @@ export function buildKpis(
                   stats.finance!.overduePayables > 0
                       ? 'Bayar segera'
                       : 'Lancar',
+              unit: 'IDR',
+              period: 'Jatuh tempo sebelum hari bisnis ini',
+              definition:
+                  'Sisa hutang UNPAID, PARTIAL, atau OVERDUE yang positif.',
+              source: 'Finance',
               href:
                   stats.finance!.overduePayables > 0
                       ? '/finance/invoices/purchase?overdue=true'
@@ -287,6 +330,11 @@ export function buildKpis(
                   stats.finance!.invoicesDueThisWeek > 0
                       ? 'Siapkan penagihan'
                       : 'Tidak ada',
+              unit: 'Invoice',
+              period: 'Tujuh hari ke depan',
+              definition:
+                  'Invoice piutang positif yang jatuh tempo dalam tujuh hari.',
+              source: 'Finance',
           }
         : null;
 
@@ -299,6 +347,10 @@ export function buildKpis(
               icon: FileText,
               trend: 'neutral',
               trendValue: 'Sales order berjalan',
+              unit: 'Pesanan',
+              period: 'Bulan berjalan (MTD)',
+              definition: 'Sales order pada fase operasional aktif.',
+              source: 'Sales',
               href:
                   stats.sales!.activeOrders > 0
                       ? '/sales/orders?status=CONFIRMED,IN_PRODUCTION,READY_TO_SHIP,SHIPPED'
@@ -321,6 +373,11 @@ export function buildKpis(
                   stats.purchasing!.pendingPOs > 0
                       ? 'Perlu follow-up'
                       : 'Antrian kosong',
+              unit: 'Purchase order',
+              period: 'Saat dashboard diperbarui',
+              definition:
+                  'PO draf atau telah dikirim yang masih perlu ditindaklanjuti.',
+              source: 'Purchasing',
               href:
                   stats.purchasing!.pendingPOs > 0
                       ? '/purchasing/orders?status=DRAFT,SENT'
@@ -341,6 +398,11 @@ export function buildKpis(
                   stats.production!.delayedJobs > 0
                       ? 'Ada keterlambatan'
                       : 'Sesuai jadwal',
+              unit: 'Dokumen SPK',
+              period: 'Saat dashboard diperbarui',
+              definition:
+                  'SPK dirilis atau berjalan, dengan jumlah terlambat sebagai perhatian.',
+              source: 'Produksi',
               href:
                   stats.production!.delayedJobs > 0
                       ? '/production/orders?late=1'
@@ -361,6 +423,10 @@ export function buildKpis(
                   stats.production!.downtimeHours > 0
                       ? 'Perlu pemantauan'
                       : 'Tidak ada downtime',
+              unit: 'Jam',
+              period: 'Bulan berjalan (MTD)',
+              definition: 'Durasi waktu henti mesin yang tercatat.',
+              source: 'Produksi',
           }
         : null;
 
@@ -386,6 +452,10 @@ export function buildKpis(
                   0
                       ? 'Perlu aksi kas'
                       : 'Sehat',
+              unit: 'IDR',
+              period: 'Jatuh tempo sebelum hari bisnis ini',
+              definition: 'Jumlah overdue AR dan AP; bukan saldo kas.',
+              source: 'Finance',
               href:
                   stats.finance!.overdueReceivables +
                       stats.finance!.overduePayables >

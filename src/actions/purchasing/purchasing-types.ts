@@ -14,6 +14,7 @@ export interface SuggestedReorderItem {
 }
 
 export interface PurchasingShiftBoard {
+    generatedAt: string;
     counts: {
         pendingPrs: number;
         draftPos: number;
