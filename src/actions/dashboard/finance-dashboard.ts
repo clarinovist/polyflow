@@ -1,107 +1,20 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
 import { requireFinanceAccess } from '@/lib/auth/finance-access';
-import { AccountingService } from '@/services/accounting/accounting-service';
-import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
-import {
-    InvoiceStatus,
-    PurchaseInvoiceStatus,
-    Prisma,
-    JournalStatus,
-    ReconciliationStatus,
-    PeriodStatus,
-} from '@prisma/client';
+import { hasWorkspaceEntitlement } from '@/lib/auth/access-policy';
+import { canSeeNavHref } from '@/lib/auth/permission-match';
 import { safeAction } from '@/lib/errors/errors';
-import { formatWibDate, wibRangeBounds } from '@/lib/utils/timezone';
-// ---- New shift/command board DTO ----
-
-type FinanceShiftBoard = {
-    queues: {
-        arOverdueCount: number;
-        arOverdueAmount: number;
-        arUnpaidCount: number;
-        arUnpaidAmount: number;
-        apOverdueCount: number;
-        apOverdueAmount: number;
-        apUnpaidCount: number;
-        apUnpaidAmount: number;
-        draftJournals: number;
-        openBankRecs: number;
-    };
-    attention: {
-        arOverdue: Array<{
-            id: string;
-            invoiceNumber: string;
-            customerName: string;
-            remaining: number;
-            dueDate: string | null;
-            totalAmount: number;
-        }>;
-        apOverdue: Array<{
-            id: string;
-            invoiceNumber: string;
-            supplierName: string;
-            remaining: number;
-            dueDate: string | null;
-            totalAmount: number;
-        }>;
-        draftJournals: Array<{
-            id: string;
-            entryNumber: string;
-            entryDate: string;
-            description: string;
-        }>;
-    };
-    snapshot: {
-        revenue: number;
-        cashPosition: number;
-        arGl: number;
-        apGl: number;
-        periodLabel: string;
-        asOfLabel: string;
-        definitions: {
-            revenue: string;
-            cash: string;
-            arGl: string;
-            apGl: string;
-        };
-    };
-    period: {
-        openCount: number;
-        currentPeriod: {
-            id: string;
-            name: string;
-            endDate: string;
-            status: string;
-        } | null;
-        daysToMonthEnd: number | null;
-        reconThisMonth: number;
-    } | null;
-};
-
-const BOARD_TAKE = 5;
-
-function toNumber(v: unknown): number {
-    if (v === null || v === undefined) return 0;
-    if (typeof v === 'number') return v;
-    if (typeof v === 'string') return parseFloat(v) || 0;
-    const d = v as { toNumber?: () => number };
-    if (typeof d.toNumber === 'function') return d.toNumber() || 0;
-    return 0;
-}
-
-function sumAccountPrefix(
-    accounts: Array<{ code: string; netBalance: number }>,
-    prefix: string,
-): number {
-    return accounts.reduce(
-        (sum, account) =>
-            account.code.startsWith(prefix) ? sum + account.netBalance : sum,
-        0,
-    );
-}
+import { serializeData } from '@/lib/utils/utils';
+import {
+    readFinanceAttention,
+    readFinanceCashHealth,
+    readFinanceDrivers,
+    readFinancePeriodSignals,
+    readFinanceProfitHealth,
+    resolveFinanceDashboardPeriod,
+    resolveFreshFinanceDashboardAccess,
+} from '@/services/finance/finance-dashboard-service';
 
 export const getFinanceShiftBoard = withTenant(
     async function getFinanceShiftBoard(dateRange?: {
@@ -109,286 +22,145 @@ export const getFinanceShiftBoard = withTenant(
         endDate?: Date;
     }) {
         return safeAction(async () => {
-            await requireFinanceAccess();
-            const now = new Date();
-            const asOfDate = dateRange?.endDate ?? now;
-            const journalEntryConditions: Prisma.JournalEntryWhereInput = {
-                status: 'POSTED',
-            };
-            if (dateRange?.startDate && dateRange?.endDate) {
-                journalEntryConditions.entryDate = wibRangeBounds(
-                    dateRange.startDate,
-                    dateRange.endDate,
-                );
+            const session = await requireFinanceAccess();
+            if (!hasWorkspaceEntitlement('finance')) {
+                return {
+                    generatedAt: new Date().toISOString(),
+                    state: 'HIDDEN' as const,
+                    period: null,
+                    permissions: null,
+                    health: null,
+                    attention: null,
+                    periodSignals: null,
+                    drivers: null,
+                };
             }
 
-            // Overdue = dueDate < now AND remaining > 0 AND status in UNPAID/PARTIAL/OVERDUE
-            const { positiveSalesReceivableWhere } = await import('@/services/finance/sales-receivable-query');
-            const positiveBalance = await positiveSalesReceivableWhere();
-            const overdueWhereSales: Prisma.InvoiceWhereInput = {
-                AND: [positiveBalance],
-                dueDate: { lt: now },
-                status: {
-                    in: [
-                        InvoiceStatus.UNPAID,
-                        InvoiceStatus.PARTIAL,
-                        InvoiceStatus.OVERDUE,
-                    ],
-                },
+            // Resolve fresh role + exact root grant before every nominal reader.
+            const access = await resolveFreshFinanceDashboardAccess(
+                session.user.id,
+            );
+            const resources = access.resources;
+            const canOpen = (href: string) =>
+                canSeeNavHref(href, resources, '/finance');
+            const links = {
+                receivedPayments: canOpen('/finance/payments/received')
+                    ? '/finance/payments/received'
+                    : null,
+                sentPayments: canOpen('/finance/payments/sent')
+                    ? '/finance/payments/sent'
+                    : null,
+                pettyCash: canOpen('/finance/petty-cash')
+                    ? '/finance/petty-cash'
+                    : null,
+                journals: canOpen('/finance/journals')
+                    ? '/finance/journals'
+                    : null,
+                salesInvoices: canOpen('/finance/invoices/sales')
+                    ? '/finance/invoices/sales'
+                    : null,
+                purchaseInvoices: canOpen('/finance/invoices/purchase')
+                    ? '/finance/invoices/purchase'
+                    : null,
+                reconciliation: canOpen('/finance/bank-reconciliation')
+                    ? '/finance/bank-reconciliation'
+                    : null,
+                periods: canOpen('/finance/periods')
+                    ? '/finance/periods'
+                    : null,
+                returns: canOpen('/finance/returns')
+                    ? '/finance/returns'
+                    : null,
+                balanceSheet: canOpen('/finance/reports/balance-sheet')
+                    ? '/finance/reports/balance-sheet'
+                    : null,
+                incomeStatement: canOpen('/finance/reports/income-statement')
+                    ? '/finance/reports/income-statement'
+                    : null,
             };
-            const overdueWherePurchase =
-                buildOverduePurchaseInvoiceWhere(prisma, now);
-            const unpaidWhereSales: Prisma.InvoiceWhereInput = {
-                AND: [positiveBalance],
-                status: {
-                    in: [
-                        InvoiceStatus.UNPAID,
-                        InvoiceStatus.PARTIAL,
-                        InvoiceStatus.OVERDUE,
-                    ],
-                },
-            };
-            const unpaidWherePurchase: Prisma.PurchaseInvoiceWhereInput = {
-                status: {
-                    in: [
-                        PurchaseInvoiceStatus.UNPAID,
-                        PurchaseInvoiceStatus.PARTIAL,
-                        PurchaseInvoiceStatus.OVERDUE,
-                    ],
-                },
-            };
-
-            const [
-                arOverdueRows,
-                apOverdueRows,
-                arUnpaidRows,
-                apUnpaidRows,
-                draftJournalsCount,
-                draftJournalsTop,
-                openRecsCount,
-                revenueAgg,
-                balanceSheet,
-                openPeriods,
-                currentMonthPeriod,
-                reconThisMonth,
-            ] = await Promise.all([
-                prisma.invoice.findMany({
-                    where: overdueWhereSales,
-                    select: {
-                        id: true,
-                        invoiceNumber: true,
-                        totalAmount: true,
-                        paidAmount: true,
-                        creditedAmount: true,
-                        priceAdjustmentAmount: true,
-                        dueDate: true,
-                        salesOrder: {
-                            select: { customer: { select: { name: true } } },
-                        },
-                    },
-                    orderBy: { dueDate: 'asc' },
-                }),
-                prisma.purchaseInvoice.findMany({
-                    where: overdueWherePurchase,
-                    select: {
-                        id: true,
-                        invoiceNumber: true,
-                        totalAmount: true,
-                        paidAmount: true,
-                        dueDate: true,
-                        purchaseOrder: {
-                            select: { supplier: { select: { name: true } } },
-                        },
-                    },
-                    orderBy: { dueDate: 'asc' },
-                }),
-                prisma.invoice.findMany({
-                    where: unpaidWhereSales,
-                    select: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
-                }),
-                prisma.purchaseInvoice.findMany({
-                    where: unpaidWherePurchase,
-                    select: { totalAmount: true, paidAmount: true },
-                }),
-                prisma.journalEntry.count({
-                    where: { status: JournalStatus.DRAFT },
-                }),
-                prisma.journalEntry.findMany({
-                    where: { status: JournalStatus.DRAFT },
-                    select: {
-                        id: true,
-                        entryNumber: true,
-                        entryDate: true,
-                        description: true,
-                    },
-                    orderBy: { entryDate: 'desc' },
-                    take: BOARD_TAKE,
-                }),
-                prisma.bankReconciliation.count({
-                    where: {
-                        status: {
-                            in: [
-                                ReconciliationStatus.DRAFT,
-                                ReconciliationStatus.IN_PROGRESS,
-                            ],
-                        },
-                    },
-                }),
-                prisma.journalLine.aggregate({
-                    where: {
-                        account: { code: { startsWith: '4' } },
-                        journalEntry: journalEntryConditions,
-                    },
-                    _sum: { credit: true, debit: true },
-                }),
-                AccountingService.getBalanceSheet(asOfDate),
-                prisma.fiscalPeriod.count({
-                    where: { status: PeriodStatus.OPEN },
-                }),
-                prisma.fiscalPeriod.findFirst({
-                    where: {
-                        startDate: { lte: now },
-                        endDate: { gte: now },
-                    },
-                    orderBy: { endDate: 'asc' },
-                }),
-                prisma.bankReconciliation.count({
-                    where: {
-                        status: ReconciliationStatus.COMPLETED,
-                        completedAt: {
-                            gte: new Date(now.getFullYear(), now.getMonth(), 1),
-                            lte: now,
-                        },
-                    },
-                }),
-            ]);
-
-            const sumRemaining = (
-                rows: Array<{ totalAmount: unknown; paidAmount: unknown; creditedAmount?: unknown; priceAdjustmentAmount?: unknown }>,
-            ) =>
-                rows.reduce(
-                    (acc, r) =>
-                        acc +
-                        (toNumber(r.totalAmount) + toNumber(r.priceAdjustmentAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount)),
-                    0,
+            const now = new Date();
+            const period = resolveFinanceDashboardPeriod(dateRange, now);
+            const [profit, cash, attention, periodSignals, drivers] =
+                await Promise.allSettled([
+                    readFinanceProfitHealth(period),
+                    readFinanceCashHealth(period.end),
+                    readFinanceAttention(now),
+                    readFinancePeriodSignals(now),
+                    readFinanceDrivers(period.end),
+                ]);
+            const profitData =
+                profit.status === 'fulfilled' ? profit.value : null;
+            const cashData = cash.status === 'fulfilled' ? cash.value : null;
+            const driverData =
+                drivers.status === 'fulfilled' ? drivers.value : null;
+            const comparableDrivers =
+                driverData != null &&
+                driverData.revenue.length >= 4 &&
+                driverData.revenue.length === driverData.netIncome.length &&
+                driverData.revenue.every(
+                    (point, index) =>
+                        point.month === driverData.netIncome[index]?.month,
                 );
 
-            const arOverdueAmount = sumRemaining(arOverdueRows);
-            const apOverdueAmount = sumRemaining(apOverdueRows);
-            const arUnpaidAmount = sumRemaining(arUnpaidRows);
-            const apUnpaidAmount = sumRemaining(apUnpaidRows);
-
-            const revenue =
-                toNumber(revenueAgg._sum.credit) -
-                toNumber(revenueAgg._sum.debit);
-            const cashPosition = sumAccountPrefix(
-                balanceSheet.assets,
-                '111',
-            );
-            const arGl = sumAccountPrefix(balanceSheet.assets, '112');
-            const apGl = sumAccountPrefix(balanceSheet.liabilities, '211');
-
-            const startLabel =
-                dateRange?.startDate?.toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                }) ?? '';
-            const endLabel =
-                dateRange?.endDate?.toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                }) ?? '';
-            const periodLabel =
-                startLabel && endLabel
-                    ? `${startLabel} – ${endLabel}`
-                    : 'Periode berjalan';
-
-            const attentionAr = arOverdueRows.slice(0, BOARD_TAKE).map((r) => ({
-                id: r.id,
-                invoiceNumber: r.invoiceNumber,
-                customerName: r.salesOrder?.customer?.name ?? '-',
-                remaining: toNumber(r.totalAmount) + toNumber(r.priceAdjustmentAmount) - toNumber(r.paidAmount) - toNumber(r.creditedAmount),
-                dueDate: r.dueDate ? r.dueDate.toISOString() : null,
-                totalAmount: toNumber(r.totalAmount),
-            }));
-
-            const attentionAp = apOverdueRows.slice(0, BOARD_TAKE).map((r) => ({
-                id: r.id,
-                invoiceNumber: r.invoiceNumber,
-                supplierName: r.purchaseOrder?.supplier?.name ?? '-',
-                remaining: toNumber(r.totalAmount) - toNumber(r.paidAmount),
-                dueDate: r.dueDate ? r.dueDate.toISOString() : null,
-                totalAmount: toNumber(r.totalAmount),
-            }));
-
-            const attentionDraft = draftJournalsTop.map((j) => ({
-                id: j.id,
-                entryNumber: j.entryNumber,
-                entryDate: j.entryDate.toISOString(),
-                description: j.description,
-            }));
-
-            const daysToMonthEnd = currentMonthPeriod
-                ? Math.max(
-                      0,
-                      Math.ceil(
-                          (new Date(currentMonthPeriod.endDate).getTime() -
-                              now.getTime()) /
-                              (1000 * 60 * 60 * 24),
-                      ),
-                  )
-                : null;
-
-            const board: FinanceShiftBoard = {
-                queues: {
-                    arOverdueCount: arOverdueRows.length,
-                    arOverdueAmount,
-                    arUnpaidCount: arUnpaidRows.length,
-                    arUnpaidAmount,
-                    apOverdueCount: apOverdueRows.length,
-                    apOverdueAmount,
-                    apUnpaidCount: apUnpaidRows.length,
-                    apUnpaidAmount,
-                    draftJournals: draftJournalsCount,
-                    openBankRecs: openRecsCount,
+            return serializeData({
+                generatedAt: now.toISOString(),
+                state: 'AVAILABLE' as const,
+                period: {
+                    start: period.start.toISOString(),
+                    end: period.end.toISOString(),
+                    label: period.label,
+                    asOfLabel: period.asOfLabel,
                 },
-                attention: {
-                    arOverdue: attentionAr,
-                    apOverdue: attentionAp,
-                    draftJournals: attentionDraft,
-                },
-                snapshot: {
-                    revenue,
-                    cashPosition,
-                    arGl,
-                    apGl,
-                    periodLabel,
-                    asOfLabel: formatWibDate(asOfDate),
-                    definitions: {
-                        revenue: 'GL akun 4* (POSTED, filter periode)',
-                        cash: 'Neraca akun 111* (POSTED, sampai tanggal as-of)',
-                        arGl: 'Neraca akun 112* (POSTED, sampai tanggal as-of)',
-                        apGl: 'Neraca akun 211* (POSTED, sampai tanggal as-of)',
+                permissions: { links },
+                health: {
+                    cash: {
+                        state:
+                            cash.status === 'rejected'
+                                ? ('UNAVAILABLE' as const)
+                                : cashData?.configured
+                                  ? ('AVAILABLE' as const)
+                                  : ('NOT_CONFIGURED' as const),
+                        value:
+                            cashData?.configured === true
+                                ? cashData.value
+                                : null,
+                    },
+                    revenue: {
+                        state: profitData
+                            ? ('AVAILABLE' as const)
+                            : ('UNAVAILABLE' as const),
+                        value: profitData?.revenue ?? null,
+                    },
+                    grossProfit: {
+                        state: profitData
+                            ? ('AVAILABLE' as const)
+                            : ('UNAVAILABLE' as const),
+                        value: profitData?.grossProfit ?? null,
+                    },
+                    netProfit: {
+                        state: profitData
+                            ? ('AVAILABLE' as const)
+                            : ('UNAVAILABLE' as const),
+                        value: profitData?.netProfit ?? null,
                     },
                 },
-                period: {
-                    openCount: openPeriods,
-                    currentPeriod: currentMonthPeriod
-                        ? {
-                              id: currentMonthPeriod.id,
-                              name: currentMonthPeriod.name,
-                              endDate: currentMonthPeriod.endDate.toISOString(),
-                              status: currentMonthPeriod.status,
-                          }
+                attention:
+                    attention.status === 'fulfilled' ? attention.value : null,
+                periodSignals:
+                    periodSignals.status === 'fulfilled'
+                        ? periodSignals.value
                         : null,
-                    daysToMonthEnd,
-                    reconThisMonth,
+                drivers: {
+                    state:
+                        drivers.status === 'rejected'
+                            ? ('UNAVAILABLE' as const)
+                            : comparableDrivers
+                              ? ('AVAILABLE' as const)
+                              : ('NOT_CONFIGURED' as const),
+                    revenue: comparableDrivers ? driverData.revenue : [],
+                    netIncome: comparableDrivers ? driverData.netIncome : [],
                 },
-            };
-
-            return board;
+            });
         });
     },
 );

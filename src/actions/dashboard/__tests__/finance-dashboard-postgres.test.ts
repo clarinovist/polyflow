@@ -1,9 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifyReturnTestDatabase } from '@/services/finance/__tests__/return-credit-postgres-fixture';
 
-const { database, mockSession } = vi.hoisted(() => ({
-    database: { client: null as import('@prisma/client').PrismaClient | null },
-    mockSession: { roles: ['FINANCE'] },
+const { database } = vi.hoisted(() => ({
+    database: {
+        client: null as import('@prisma/client').PrismaClient | null,
+    },
 }));
 
 vi.mock('@/lib/core/prisma', async () => {
@@ -18,14 +19,19 @@ vi.mock('@/lib/core/prisma', async () => {
 vi.mock('@/lib/core/tenant', () => ({
     withTenant: (fn: (...args: unknown[]) => unknown) => fn,
 }));
-
-vi.mock('@/lib/tools/auth-checks', () => ({
-    requireAuth: vi.fn(async () => ({
-        user: {
-            id: 'finance-test-user',
-            role: mockSession.roles[0],
-            roles: mockSession.roles,
-        },
+vi.mock('@/lib/auth/finance-access', () => ({
+    requireFinanceAccess: vi.fn(async () => ({
+        user: { id: 'finance-contract-user', role: 'ADMIN', roles: ['ADMIN'] },
+    })),
+}));
+vi.mock('@/lib/auth/access-policy', async (original) => ({
+    ...(await original<object>()),
+    hasWorkspaceEntitlement: () => true,
+}));
+vi.mock('@/services/finance/finance-dashboard-service', async (original) => ({
+    ...(await original<object>()),
+    resolveFreshFinanceDashboardAccess: vi.fn(async () => ({
+        resources: 'ALL',
     })),
 }));
 
@@ -36,30 +42,32 @@ const db = database.client;
 async function addEntry(
     id: string,
     entryDate: Date,
-    status: 'DRAFT' | 'POSTED',
-    amounts: { cash?: number; ar?: number; ap?: number; revenue?: number },
+    status: 'DRAFT' | 'POSTED' | 'VOIDED',
+    reference: string,
+    amounts: Record<string, number>,
 ) {
-    const lines = [
-        amounts.cash
-            ? { accountId: 'cash', debit: Math.max(amounts.cash, 0), credit: Math.max(-amounts.cash, 0) }
-            : null,
-        amounts.ar
-            ? { accountId: 'ar', debit: Math.max(amounts.ar, 0), credit: Math.max(-amounts.ar, 0) }
-            : null,
-        amounts.ap
-            ? { accountId: 'ap', debit: Math.max(-amounts.ap, 0), credit: Math.max(amounts.ap, 0) }
-            : null,
-        amounts.revenue
-            ? { accountId: 'revenue', debit: Math.max(-amounts.revenue, 0), credit: Math.max(amounts.revenue, 0) }
-            : null,
-    ].filter((line): line is NonNullable<typeof line> => line !== null);
+    const lines = Object.entries(amounts)
+        .filter(([, amount]) => amount !== 0)
+        .map(([accountId, amount]) => ({
+            accountId,
+            debit: ['cash', 'cogs', 'expense', 'other-expense'].includes(
+                accountId,
+            )
+                ? Math.max(amount, 0)
+                : Math.max(-amount, 0),
+            credit: ['cash', 'cogs', 'expense', 'other-expense'].includes(
+                accountId,
+            )
+                ? Math.max(-amount, 0)
+                : Math.max(amount, 0),
+        }));
     await db!.journalEntry.create({
         data: {
             id,
             entryNumber: id,
             entryDate,
-            description: 'Synthetic finance dashboard contract',
-            reference: id,
+            description: 'Synthetic Finance dashboard contract',
+            reference,
             referenceType: 'MANUAL_ENTRY',
             status,
             lines: { create: lines },
@@ -68,56 +76,220 @@ async function addEntry(
 }
 
 describe.skipIf(!db)(
-    'finance dashboard as-of contract on disposable PostgreSQL',
+    'finance dashboard canonical report contract on disposable PostgreSQL',
     () => {
         beforeEach(async () => {
             await verifyReturnTestDatabase(db!);
             await db!.$executeRawUnsafe(
-                'TRUNCATE "BankReconciliation", "JournalLine", "JournalEntry", "PurchaseInvoice", "Invoice", "FiscalPeriod", "Account" CASCADE',
+                'TRUNCATE "BankReconciliation", "JournalLine", "JournalEntry", "PurchaseInvoice", "PurchaseOrder", "Invoice", "SalesOrder", "Supplier", "Customer", "FiscalPeriod", "Account" CASCADE',
             );
             await db!.account.createMany({
                 data: [
-                    { id: 'cash', code: '11110', name: 'Synthetic Cash', type: 'ASSET', category: 'CURRENT_ASSET' },
-                    { id: 'ar', code: '11210', name: 'Synthetic AR', type: 'ASSET', category: 'CURRENT_ASSET' },
-                    { id: 'ap', code: '21110', name: 'Synthetic AP', type: 'LIABILITY', category: 'CURRENT_LIABILITY' },
-                    { id: 'revenue', code: '41100', name: 'Synthetic Revenue', type: 'REVENUE', category: 'OPERATING_REVENUE' },
+                    {
+                        id: 'non-cash',
+                        code: '11100',
+                        name: 'Synthetic prefix-only asset',
+                        type: 'ASSET',
+                        category: 'CURRENT_ASSET',
+                        isCashAccount: false,
+                    },
+                    {
+                        id: 'cash',
+                        code: '99901',
+                        name: 'Synthetic configured cash',
+                        type: 'ASSET',
+                        category: 'CURRENT_ASSET',
+                        isCashAccount: true,
+                    },
+                    {
+                        id: 'revenue',
+                        code: 'X-REV',
+                        name: 'Synthetic revenue',
+                        type: 'REVENUE',
+                        category: 'OPERATING_REVENUE',
+                    },
+                    {
+                        id: 'cogs',
+                        code: 'X-COGS',
+                        name: 'Synthetic COGS',
+                        type: 'EXPENSE',
+                        category: 'COGS',
+                    },
+                    {
+                        id: 'expense',
+                        code: 'X-OPEX',
+                        name: 'Synthetic operating expense',
+                        type: 'EXPENSE',
+                        category: 'OPERATING_EXPENSE',
+                    },
+                    {
+                        id: 'other-revenue',
+                        code: 'X-OTHER-R',
+                        name: 'Synthetic other revenue',
+                        type: 'REVENUE',
+                        category: 'OTHER_REVENUE',
+                    },
+                    {
+                        id: 'other-expense',
+                        code: 'X-OTHER-E',
+                        name: 'Synthetic other expense',
+                        type: 'EXPENSE',
+                        category: 'OTHER_EXPENSE',
+                    },
                 ],
             });
-            await addEntry('OPENING', new Date('2026-06-15T00:00:00.000Z'), 'POSTED', { cash: 1_000, ar: 600, ap: 400 });
-            await addEntry('IN-RANGE', new Date('2026-07-15T00:00:00.000Z'), 'POSTED', { cash: 200, ar: 100, ap: 50, revenue: 900 });
-            await addEntry('END-BOUNDARY', new Date('2026-07-31T16:59:59.999Z'), 'POSTED', { cash: 20, ar: 10, ap: 5, revenue: 100 });
-            await addEntry('AFTER', new Date('2026-07-31T17:00:00.000Z'), 'POSTED', { cash: 9_000, ar: 9_000, ap: 9_000, revenue: 9_000 });
-            await addEntry('DRAFT', new Date('2026-07-20T00:00:00.000Z'), 'DRAFT', { cash: 8_000, ar: 8_000, ap: 8_000, revenue: 8_000 });
+            await addEntry(
+                'OPENING',
+                new Date('2026-03-15T00:00:00.000Z'),
+                'POSTED',
+                'OPENING',
+                { cash: 1_000, 'non-cash': 50_000 },
+            );
+            await addEntry(
+                'IN-RANGE',
+                new Date('2026-04-15T00:00:00.000Z'),
+                'POSTED',
+                'NORMAL',
+                {
+                    cash: 200,
+                    revenue: 1_000,
+                    cogs: 300,
+                    expense: 100,
+                    'other-revenue': 50,
+                    'other-expense': 20,
+                },
+            );
+            await addEntry(
+                'END-BOUNDARY',
+                new Date('2026-04-30T16:59:59.999Z'),
+                'POSTED',
+                'NORMAL-END',
+                { cash: 20, revenue: 100 },
+            );
+            await addEntry(
+                'AFTER',
+                new Date('2026-04-30T17:00:00.000Z'),
+                'POSTED',
+                'AFTER',
+                { cash: 9_000, revenue: 9_000 },
+            );
+            await addEntry(
+                'DRAFT',
+                new Date('2026-04-20T00:00:00.000Z'),
+                'DRAFT',
+                'DRAFT',
+                { cash: 8_000, revenue: 8_000 },
+            );
+            await addEntry(
+                'CLOSING',
+                new Date('2026-04-29T00:00:00.000Z'),
+                'POSTED',
+                'CLOSING-2026-04',
+                { revenue: 7_000 },
+            );
         });
 
         afterAll(async () => {
             await db?.$disconnect();
         });
 
-        it('reconciles as-of balances and keeps revenue period-bound', async () => {
-            const endDate = new Date('2026-07-31T00:00:00.000Z');
-            const first = await getFinanceShiftBoard({
-                startDate: new Date('2026-07-01T00:00:00.000Z'),
-                endDate,
-            });
-            const second = await getFinanceShiftBoard({
-                startDate: new Date('2026-07-10T00:00:00.000Z'),
-                endDate,
+        it('reconciles Health with category-based P&L and configured cash as-of', async () => {
+            const result = await getFinanceShiftBoard({
+                startDate: new Date('2026-04-01T00:00:00+07:00'),
+                endDate: new Date('2026-04-30T00:00:00+07:00'),
             });
 
-            expect(first.success && first.data?.snapshot).toMatchObject({
-                revenue: 1_000,
-                cashPosition: 1_220,
-                arGl: 710,
-                apGl: 455,
-                asOfLabel: '31 Jul 2026',
+            expect(result.success).toBe(true);
+            if (
+                !result.success ||
+                !result.data ||
+                result.data.state !== 'AVAILABLE'
+            )
+                return;
+            expect(result.data.health).toEqual({
+                cash: { state: 'AVAILABLE', value: 1_220 },
+                revenue: { state: 'AVAILABLE', value: 1_100 },
+                grossProfit: { state: 'AVAILABLE', value: 800 },
+                netProfit: { state: 'AVAILABLE', value: 730 },
             });
-            expect(second.success && second.data?.snapshot).toMatchObject({
-                revenue: 1_000,
-                cashPosition: 1_220,
-                arGl: 710,
-                apGl: 455,
+            expect(result.data.period?.asOfLabel).toBe('30 Apr 2026');
+        });
+
+        it('computes complete totals before deterministic global top-five sampling', async () => {
+            await db!.customer.create({
+                data: { id: 'customer', name: 'Synthetic customer' },
             });
+            await db!.salesOrder.create({
+                data: {
+                    id: 'sales-order',
+                    orderNumber: 'SO-FINANCE-CONTRACT',
+                    customerId: 'customer',
+                },
+            });
+            await db!.supplier.create({
+                data: { id: 'supplier', name: 'Synthetic supplier' },
+            });
+            await db!.purchaseOrder.create({
+                data: {
+                    id: 'purchase-order',
+                    orderNumber: 'PO-FINANCE-CONTRACT',
+                    supplierId: 'supplier',
+                },
+            });
+            const dueDate = new Date('2020-01-01T00:00:00.000Z');
+            await db!.invoice.createMany({
+                data: Array.from({ length: 7 }, (_, index) => ({
+                    id: `ar-${String(index + 1).padStart(2, '0')}`,
+                    invoiceNumber: `INV-${String(index + 1).padStart(2, '0')}`,
+                    salesOrderId: 'sales-order',
+                    dueDate,
+                    status: 'PARTIAL' as const,
+                    totalAmount: 100,
+                    paidAmount: 10,
+                    creditedAmount: 5,
+                    priceAdjustmentAmount: 2,
+                })),
+            });
+            await db!.purchaseInvoice.createMany({
+                data: Array.from({ length: 7 }, (_, index) => ({
+                    id: `ap-${String(index + 1).padStart(2, '0')}`,
+                    invoiceNumber: `PI-${String(index + 1).padStart(2, '0')}`,
+                    purchaseOrderId: 'purchase-order',
+                    dueDate,
+                    status: 'PARTIAL' as const,
+                    totalAmount: 200,
+                    paidAmount: 50,
+                })),
+            });
+
+            const result = await getFinanceShiftBoard({
+                startDate: new Date('2026-04-01T00:00:00+07:00'),
+                endDate: new Date('2026-04-30T00:00:00+07:00'),
+            });
+
+            expect(result.success).toBe(true);
+            if (
+                !result.success ||
+                !result.data ||
+                result.data.state !== 'AVAILABLE'
+            )
+                return;
+            expect(result.data.attention?.arOverdue).toMatchObject({
+                total: 7,
+                amount: 609,
+                returned: 5,
+            });
+            expect(
+                result.data.attention?.arOverdue?.items.map((item) => item.id),
+            ).toEqual(['ar-01', 'ar-02', 'ar-03', 'ar-04', 'ar-05']);
+            expect(result.data.attention?.apOverdue).toMatchObject({
+                total: 7,
+                amount: 1_050,
+                returned: 5,
+            });
+            expect(
+                result.data.attention?.apOverdue?.items.map((item) => item.id),
+            ).toEqual(['ap-01', 'ap-02', 'ap-03', 'ap-04', 'ap-05']);
         });
     },
 );
