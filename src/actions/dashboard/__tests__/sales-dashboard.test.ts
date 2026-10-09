@@ -176,6 +176,29 @@ describe('getSalesDashboardStats (command board)', () => {
     expect(res.data.attention.creditRisk[0]?.exposureStatus).toBe('over');
   });
 
+  it('characterizes legacy C7: attention is capped before global eligibility/risk ranking and uses per-customer aggregates', async () => {
+    mockPrisma.customer.findMany.mockResolvedValue([
+      { id: 'c-1', name: 'Customer 1', creditLimit: 100_000 },
+      { id: 'c-2', name: 'Customer 2', creditLimit: 100_000 },
+    ]);
+
+    await getSalesDashboardStats();
+
+    const readyCandidateQuery = mockPrisma.salesOrder.findMany.mock.calls.find(
+      ([args]) => args?.where?.status === 'READY_TO_SHIP' && args?.select?.id,
+    )?.[0] as { take?: number };
+    const creditCandidateQuery = mockPrisma.customer.findMany.mock.calls[0]?.[0] as {
+      take?: number;
+    };
+
+    // R0 baseline only: R1E must query the globally eligible READY set, batch
+    // exposure, rank deterministically, and only then take the top five.
+    expect(readyCandidateQuery.take).toBe(20);
+    expect(creditCandidateQuery.take).toBe(30);
+    expect(mockPrisma.invoice.aggregate).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.salesOrder.aggregate).toHaveBeenCalledTimes(2);
+  });
+
   it('queries open deliveries with PENDING and LOADING', async () => {
     await getSalesDashboardStats();
     const openCountCall = mockPrisma.deliveryOrder.count.mock.calls[0]?.[0] as {

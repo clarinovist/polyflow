@@ -156,6 +156,32 @@ describe('getPurchasingShiftBoard', () => {
     expect(res.data.counts.monthlySpend).toBe(5_000_000);
   });
 
+  it('characterizes legacy C6: overdue AP queries admit DRAFT and do not require positive remaining', async () => {
+    await getPurchasingShiftBoard();
+
+    const overdueQueries = [
+      mockPrisma.purchaseInvoice.count.mock.calls[0]?.[0],
+      mockPrisma.purchaseInvoice.aggregate.mock.calls[0]?.[0],
+      mockPrisma.purchaseInvoice.findMany.mock.calls[0]?.[0],
+    ] as Array<{
+      where?: {
+        status?: { notIn?: string[] };
+        dueDate?: { lt?: Date };
+        remainingAmount?: unknown;
+        AND?: unknown;
+      };
+    }>;
+
+    for (const query of overdueQueries) {
+      // R0 baseline only: R1D replaces this denylist with the canonical
+      // UNPAID/PARTIAL/OVERDUE allowlist plus positive remaining balance.
+      expect(query.where?.status?.notIn).toEqual(['PAID', 'CANCELLED']);
+      expect(query.where?.dueDate?.lt).toBeInstanceOf(Date);
+      expect(query.where?.remainingAmount).toBeUndefined();
+      expect(query.where?.AND).toBeUndefined();
+    }
+  });
+
   it('returns attention lists and suggested reorder', async () => {
     const res = await getPurchasingShiftBoard();
     expect(res.success).toBe(true);

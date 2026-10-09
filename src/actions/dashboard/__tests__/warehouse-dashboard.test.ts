@@ -127,6 +127,37 @@ describe('getWarehouseShiftBoard', () => {
     expect(res.data.attention.waitingMaterial[0].orderNumber).toBe('SPK-001');
   });
 
+  it('characterizes legacy C5: WIP stock can suppress an internal RM low-stock alert', async () => {
+    mockPrisma.productVariant.findMany.mockImplementation(async (args?: {
+      where?: { minStockAlert?: unknown; reorderPoint?: unknown };
+    }) => {
+      if (args?.where && 'minStockAlert' in args.where) {
+        return [{
+          id: 'pv-mixed-location',
+          minStockAlert: decimal(50),
+          inventories: [
+            {
+              quantity: decimal(1),
+              location: { locationType: 'INTERNAL', locationPurpose: 'RAW_MATERIAL' },
+            },
+            {
+              quantity: decimal(100),
+              location: { locationType: 'INTERNAL', locationPurpose: 'WIP' },
+            },
+          ],
+        }];
+      }
+      return [];
+    });
+
+    const res = await getWarehouseShiftBoard();
+
+    expect(res.success).toBe(true);
+    if (!res.success || !res.data) return;
+    // R0 baseline only: R1B must count the RM quantity (1 < 50) without WIP.
+    expect(res.data.counts.lowStock).toBe(0);
+  });
+
   it('queries open load orders as PENDING + LOADING', async () => {
     await getWarehouseShiftBoard();
     const openLoadCall = mockPrisma.deliveryOrder.count.mock.calls.find(

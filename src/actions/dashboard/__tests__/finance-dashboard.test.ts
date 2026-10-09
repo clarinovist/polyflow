@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockPrisma } = vi.hoisted(() => {
+const { mockPrisma, mockRequireAuth, mockRequireFinanceAccess } = vi.hoisted(() => {
   const mockPrisma = {
     $queryRaw: vi.fn().mockResolvedValue([]),
     invoice: {
@@ -26,7 +26,11 @@ const { mockPrisma } = vi.hoisted(() => {
       findFirst: vi.fn(),
     },
   };
-  return { mockPrisma };
+  return {
+    mockPrisma,
+    mockRequireAuth: vi.fn().mockResolvedValue({ user: { id: 'u1' } }),
+    mockRequireFinanceAccess: vi.fn(),
+  };
 });
 
 vi.mock('@/lib/core/prisma', () => ({
@@ -38,7 +42,11 @@ vi.mock('@/lib/core/tenant', () => ({
 }));
 
 vi.mock('@/lib/tools/auth-checks', () => ({
-  requireAuth: vi.fn().mockResolvedValue({ user: { id: 'u1' } }),
+  requireAuth: mockRequireAuth,
+}));
+
+vi.mock('@/lib/auth/finance-access', () => ({
+  requireFinanceAccess: mockRequireFinanceAccess,
 }));
 
 vi.mock('@/lib/errors/errors', () => ({
@@ -261,6 +269,37 @@ describe('getFinanceShiftBoard', () => {
     expect(res.data.snapshot.apGl).toBe(900_000);         // credit - debit
     expect(res.data.snapshot.definitions.revenue).toContain('4*');
     expect(res.data.snapshot.definitions.cash).toContain('111*');
+  });
+
+  it('characterizes legacy C1: stock-like GL cards are filtered by both range boundaries', async () => {
+    setupMocks();
+    const startDate = new Date('2026-07-01');
+    const endDate = new Date('2026-07-31');
+
+    await getFinanceShiftBoard({ startDate, endDate });
+
+    // R0 baseline only: R1A must remove startDate from cash/AR/AP while
+    // retaining the period range for revenue. Naming this legacy behavior
+    // explicitly prevents the test from being read as approval of the formula.
+    for (const callIndex of [1, 2, 3]) {
+      const query = mockPrisma.journalLine.aggregate.mock.calls[callIndex]?.[0] as {
+        where?: { journalEntry?: { entryDate?: { gte?: Date; lte?: Date } } };
+      };
+      expect(query.where?.journalEntry?.entryDate).toEqual({
+        gte: startDate,
+        lte: endDate,
+      });
+    }
+  });
+
+  it('characterizes legacy C8: the dashboard uses authentication without the Finance read guard', async () => {
+    setupMocks();
+
+    await getFinanceShiftBoard();
+
+    // R0 baseline only: R1A reverses these expectations.
+    expect(mockRequireAuth).toHaveBeenCalledOnce();
+    expect(mockRequireFinanceAccess).not.toHaveBeenCalled();
   });
 
   it('returns period signal with current OPEN period and days to month end', async () => {

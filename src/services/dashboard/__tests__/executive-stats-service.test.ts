@@ -264,6 +264,61 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
         });
     });
 
+    it('characterizes legacy C2: mixed-unit aggregates are collapsed into one yield ratio', async () => {
+        mockPrisma.productionExecution.aggregate.mockReset();
+        mockPrisma.productionExecution.aggregate
+            .mockResolvedValueOnce({ _sum: { scrapQuantity: new FakeDecimal(0) } })
+            .mockResolvedValueOnce({ _sum: { quantityProduced: new FakeDecimal(80) } });
+        mockPrisma.materialIssue.aggregate.mockResolvedValue({
+            _sum: { quantity: new FakeDecimal(100) },
+        });
+
+        const stats = await ExecutiveStatsService.getExecutiveStats();
+
+        // R0 baseline only: aggregate sources carry no unit/process dimension,
+        // yet the legacy dashboard presents their quotient as a global yield.
+        expect(stats.production.yieldRate).toBe(80);
+        expect(mockPrisma.productionExecution.aggregate).toHaveBeenCalledWith(
+            expect.objectContaining({ _sum: { quantityProduced: true } }),
+        );
+        expect(mockPrisma.materialIssue.aggregate).toHaveBeenCalledWith(
+            expect.objectContaining({ _sum: { quantity: true } }),
+        );
+    });
+
+    it('characterizes legacy C3: valuation has no location scope and falls back to selling price', async () => {
+        mockPrisma.inventory.findMany.mockReset();
+        mockPrisma.inventory.findMany
+            .mockResolvedValueOnce([
+                {
+                    quantity: new FakeDecimal(10),
+                    averageCost: null,
+                    productVariant: {
+                        standardCost: null,
+                        price: new FakeDecimal(40),
+                    },
+                    // Extra fixture evidence: the current select/where ignores ownership.
+                    location: { locationType: 'CUSTOMER_OWNED' },
+                },
+            ])
+            .mockResolvedValueOnce([]);
+
+        const stats = await ExecutiveStatsService.getExecutiveStats();
+
+        // R0 baseline only: R1B must exclude customer-owned stock and remove
+        // selling price as a cost basis after the owner decision is signed off.
+        expect(stats.inventory.totalValue).toBe(400);
+        expect(mockPrisma.inventory.findMany.mock.calls[0]?.[0]).toEqual({
+            select: {
+                quantity: true,
+                averageCost: true,
+                productVariant: {
+                    select: { standardCost: true, price: true },
+                },
+            },
+        });
+    });
+
     it('handles numeric and string values in decimalToNumber helper', async () => {
         mockPrisma.journalLine.aggregate.mockReset();
         mockPrisma.journalLine.aggregate
