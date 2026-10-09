@@ -1,334 +1,323 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockPrisma, mockGetTopCustomerCreditRisks, mockRequireSalesAccess } = vi.hoisted(() => {
-  const mockPrisma = {
-    salesOrder: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-      aggregate: vi.fn(),
-    },
-    deliveryOrder: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-    },
-    deliveryScheduleVehicle: {
-      count: vi.fn(),
-    },
-    invoice: {
-      count: vi.fn(),
-      aggregate: vi.fn(),
-      findMany: vi.fn(),
-    },
-    customer: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-    },
-  };
-  return {
-    mockPrisma,
-    mockGetTopCustomerCreditRisks: vi.fn(),
-    mockRequireSalesAccess: vi.fn(),
-  };
-});
-
-vi.mock('@/lib/core/prisma', () => ({
-  prisma: mockPrisma,
+const mocks = vi.hoisted(() => ({
+    guard: vi.fn(),
+    entitled: vi.fn(),
+    access: vi.fn(),
+    scope: vi.fn(),
+    revenue: vi.fn(),
+    visits: vi.fn(),
+    pipeline: vi.fn(),
+    attention: vi.fn(),
 }));
 
 vi.mock('@/lib/core/tenant', () => ({
-  withTenant: (fn: (...args: unknown[]) => unknown) => fn,
+    withTenant: (fn: (...args: unknown[]) => unknown) => fn,
 }));
-
 vi.mock('@/lib/errors/errors', () => ({
-  safeAction: async (fn: () => Promise<unknown>) => {
-    try {
-      const data = await fn();
-      return { success: true as const, data };
-    } catch (e) {
-      return { success: false as const, error: e instanceof Error ? e.message : String(e) };
-    }
-  },
+    safeAction: async (fn: () => Promise<unknown>) => {
+        try {
+            return { success: true as const, data: await fn() };
+        } catch (error) {
+            return {
+                success: false as const,
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
+    },
 }));
-
-vi.mock('@/services/sales/credit-service', () => ({
-  getTopCustomerCreditRisks: mockGetTopCustomerCreditRisks,
+vi.mock('@/lib/auth/sales-access', () => ({ requireSalesAccess: mocks.guard }));
+vi.mock('@/lib/auth/access-policy', () => ({
+    hasWorkspaceEntitlement: mocks.entitled,
 }));
-
-vi.mock('@/lib/auth/sales-access', () => ({
-  requireSalesAccess: mockRequireSalesAccess,
-}));
-
-vi.mock('@/services/analytics/analytics-service', () => ({
-  AnalyticsService: {
-    getSalesMetrics: vi.fn().mockResolvedValue({
-      totalRevenue: 1_000_000,
-      totalOrders: 12,
-      averageOrderValue: 0,
-      revenueTrend: [],
-      topProducts: [],
-      topCustomers: [],
-    }),
-  },
+vi.mock('@/services/sales/sales-dashboard-service', async () => ({
+    ...(await vi.importActual<object>('@/services/sales/sales-dashboard-service')),
+    resolveFreshSalesDashboardAccess: mocks.access,
+    resolveSalesDashboardScope: mocks.scope,
+    readSalesRevenueAndOrders: mocks.revenue,
+    readSalesVisitActual: mocks.visits,
+    readSalesPipelineDashboard: mocks.pipeline,
+    readSalesAttention: mocks.attention,
 }));
 
 import { getSalesDashboardStats } from '../sales-dashboard';
 
-describe('getSalesDashboardStats (command board)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockRequireSalesAccess.mockResolvedValue({ user: { id: 'sales-user' } });
+const attention = {
+    state: 'AVAILABLE' as const,
+    counts: {
+        draftOrders: 3,
+        readyToShipOrders: 2,
+        readyWithoutDo: 27,
+        openDeliveryOrders: 4,
+        tripsToday: 1,
+        overdueInvoices: 1,
+        overdueAmount: 200_000,
+        activeOrders: 9,
+        activeCustomers: 20,
+    },
+    oldDrafts: { total: 3, returned: 1, items: [] },
+    readyWithoutDo: { total: 27, returned: 1, items: [] },
+    openDeliveries: { total: 4, returned: 1, items: [] },
+    overdueInvoices: { total: 1, returned: 1, items: [] },
+    creditRisk: { total: 1, returned: 1, items: [] },
+    followUpsDue: { total: 2, returned: 1, items: [] },
+};
 
-    mockPrisma.salesOrder.count.mockImplementation(async (args?: {
-      where?: {
-        status?: string | { notIn?: string[] };
-        deliveryOrders?: unknown;
-      };
-    }) => {
-      const status = args?.where?.status;
-      if (status === 'DRAFT') return 3;
-      if (status === 'READY_TO_SHIP' && args?.where?.deliveryOrders) return 27;
-      if (status === 'READY_TO_SHIP') return 2;
-      return 9; // active (not delivered/cancelled)
+function setup(role = 'ADMIN') {
+    mocks.guard.mockResolvedValue({
+        user: { id: 'user-1', role, roles: [role] },
     });
-
-    mockPrisma.deliveryOrder.count.mockResolvedValue(4);
-    mockPrisma.deliveryScheduleVehicle.count.mockResolvedValue(1);
-    mockPrisma.invoice.count.mockResolvedValue(5);
-    mockPrisma.customer.count.mockResolvedValue(20);
-
-    mockPrisma.invoice.aggregate.mockResolvedValue({
-      _sum: { totalAmount: 500_000, paidAmount: 100_000 },
+    mocks.entitled.mockReturnValue(true);
+    mocks.access.mockResolvedValue({
+        user: { id: 'user-1', role, roles: [role] },
+        resources: 'ALL',
+        canViewNominal: true,
     });
-
-    mockPrisma.salesOrder.findMany.mockImplementation(async (args?: {
-      where?: { status?: string; deliveryOrders?: unknown };
-    }) => {
-      if (args?.where?.deliveryOrders) {
-        return [
-          {
-            id: 'so-ready-21',
-            orderNumber: 'SO-READY-21',
-            customer: { name: 'Toko Ready' },
-          },
-        ];
-      }
-      // old drafts
-      return [
-        {
-          id: 'so-draft-1',
-          orderNumber: 'SO-DRAFT',
-          createdAt: new Date(Date.now() - 2 * 86400000),
-          customer: { name: 'Toko Draft' },
+    mocks.scope.mockResolvedValue({
+        kind:
+            role === 'SALES'
+                ? 'MY'
+                : role === 'MARKETING'
+                  ? 'TEAM'
+                  : 'COMPANY',
+        label:
+            role === 'SALES'
+                ? 'Portofolio saya'
+                : role === 'MARKETING'
+                  ? 'Tim sales aktif'
+                  : 'Seluruh perusahaan',
+        actorUserId: 'user-1',
+        fieldScope: { actorUserId: 'user-1', isGlobalViewer: role !== 'SALES' },
+    });
+    mocks.revenue.mockResolvedValue({
+        orderActual: 12,
+        revenueActual: 1_000_000,
+        revenueTrend: Array.from({ length: 6 }, (_, index) => ({
+            month: '2026-' + String(index + 1).padStart(2, '0'),
+            revenue: (index + 1) * 100_000,
+        })),
+    });
+    mocks.visits.mockResolvedValue(8);
+    mocks.pipeline.mockResolvedValue({
+        activeCount: 5,
+        activeValue: 700_000,
+        topLostReason: {
+            reason: 'PRICE',
+            label: 'Harga',
+            count: 3,
+            totalValue: 250_000,
         },
-      ];
+    });
+    mocks.attention.mockResolvedValue(attention);
+}
+
+describe('getSalesDashboardStats R4A', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        setup();
     });
 
-    mockPrisma.deliveryOrder.findMany.mockImplementation(async (args?: {
-      where?: { salesOrderId?: { in?: string[] }; status?: { in?: string[] } };
-      select?: { salesOrderId?: boolean };
-    }) => {
-      if (args?.select && 'salesOrderId' in (args.select || {})) {
-        return [{ salesOrderId: 'so-ready-2' }]; // so-ready-1 has no open DO
-      }
-      return [
-        {
-          id: 'do-1',
-          orderNumber: 'SJ-001',
-          status: 'LOADING',
-          salesOrder: { customer: { name: 'Toko A' } },
-        },
-      ];
+    it('returns canonical Health, Attention, and Drivers with target withheld', async () => {
+        const result = await getSalesDashboardStats();
+
+        expect(result.success).toBe(true);
+        if (!result.success || !result.data || result.data.state !== 'AVAILABLE') return;
+        expect(result.data.health.revenue).toEqual({
+            state: 'AVAILABLE',
+            value: 1_000_000,
+            targetState: 'NOT_CONFIGURED',
+        });
+        expect(result.data.health.orders.value).toBe(12);
+        expect(result.data.health.visits.value).toBe(8);
+        expect(result.data.health.pipeline).toMatchObject({
+            state: 'AVAILABLE',
+            count: 5,
+            value: 700_000,
+        });
+        expect(result.data.attention?.readyWithoutDo?.total).toBe(27);
+        expect(result.data.drivers.revenueTrend).toMatchObject({
+            state: 'AVAILABLE',
+        });
+        expect(result.data.drivers.revenueTrend.points).toHaveLength(6);
+        expect(result.data.drivers.topLostReason.value?.label).toBe('Harga');
     });
 
-    mockPrisma.invoice.findMany.mockResolvedValue([
-      {
-        id: 'inv-1',
-        invoiceNumber: 'INV-001',
-        totalAmount: 200_000,
-        paidAmount: 0,
-        dueDate: new Date(Date.now() - 86400000),
-        status: 'UNPAID',
-        salesOrderId: 'so-1',
-        salesOrder: { id: 'so-1', customer: { name: 'Toko B' } },
-      },
-    ]);
+    it('filters links on the server and does not widen a narrow resource grant', async () => {
+        mocks.access.mockResolvedValue({
+            user: { id: 'user-1', role: 'SALES', roles: ['SALES'] },
+            resources: ['/sales/orders'],
+            canViewNominal: true,
+        });
 
-    mockGetTopCustomerCreditRisks.mockResolvedValue([
-      {
-        id: 'c-over',
-        name: 'Customer Over',
-        exposureStatus: 'over',
-        headroom: -50_000,
-      },
-    ]);
-  });
+        const result = await getSalesDashboardStats();
 
-  it('returns board counts including open DO PENDING+LOADING', async () => {
-    const res = await getSalesDashboardStats();
-    expect(res.success).toBe(true);
-    if (!res.success || !res.data) return;
-
-    expect(res.data.counts.draftOrders).toBe(3);
-    expect(res.data.counts.readyToShipOrders).toBe(2);
-    expect(res.data.counts.readyWithoutDo).toBe(27);
-    expect(res.data.counts.openDeliveryOrders).toBe(4);
-    expect(res.data.counts.tripsToday).toBe(1);
-    expect(res.data.counts.overdueInvoices).toBe(1);
-    expect(res.data.counts.overdueAmount).toBe(200_000);
-    expect(res.data.performance.totalRevenue).toBe(1_000_000);
-    expect(res.data.performance.revenueDefinition).toBe('journal_4xx');
-  });
-
-  it('builds attention lists with SO-ready-without-DO and overdue salesOrderId', async () => {
-    const res = await getSalesDashboardStats();
-    expect(res.success).toBe(true);
-    if (!res.success || !res.data) return;
-
-    expect(res.data.attention.oldDrafts[0]?.orderNumber).toBe('SO-DRAFT');
-    expect(
-      res.data.attention.readyWithoutDo.some((r) => r.id === 'so-ready-21'),
-    ).toBe(true);
-    expect(res.data.attention.openDeliveries[0]?.status).toBe('LOADING');
-    expect(res.data.attention.overdueInvoices[0]?.salesOrderId).toBe('so-1');
-    expect(res.data.attention.creditRisk[0]?.exposureStatus).toBe('over');
-  });
-
-  it('lets an eligible READY record beyond the former first 20 reach the sample', async () => {
-    const res = await getSalesDashboardStats();
-    expect(res.success).toBe(true);
-    if (!res.success || !res.data) return;
-    expect(res.data.attention.readyWithoutDo.map((item) => item.id)).toContain(
-      'so-ready-21',
-    );
-
-    const query = mockPrisma.salesOrder.findMany.mock.calls.find(
-      ([args]) => args?.where?.deliveryOrders,
-    )?.[0];
-    expect(query).toMatchObject({
-      take: 5,
-      where: {
-        status: 'READY_TO_SHIP',
-        deliveryOrders: {
-          none: { status: { in: ['PENDING', 'LOADING'] } },
-        },
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        expect(result.success).toBe(true);
+        if (!result.success || !result.data || result.data.state !== 'AVAILABLE') return;
+        expect(result.data.permissions.links.orders).toBe('/sales/orders');
+        expect(result.data.permissions.links.pipeline).toBeNull();
+        expect(result.data.permissions.links.performance).toBeNull();
+        expect(result.data.permissions.links.fieldSales).toBeNull();
+        expect(result.data.health.visits.state).toBe('HIDDEN');
+        expect(result.data.health.pipeline.state).toBe('HIDDEN');
+        expect(mocks.visits).not.toHaveBeenCalled();
+        expect(mocks.pipeline).not.toHaveBeenCalled();
+        expect(mocks.attention).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.any(Date),
+            true,
+            {
+                orders: true,
+                deliveries: false,
+                deliverySchedules: false,
+                invoices: false,
+                customers: false,
+            },
+        );
     });
-    expect(mockPrisma.salesOrder.count).toHaveBeenCalledWith({
-      where: query?.where,
+
+    it('uses team scope for MARKETING actuals but global operational scope for pipeline and Attention', async () => {
+        setup('MARKETING');
+
+        const result = await getSalesDashboardStats();
+
+        expect(result.success).toBe(true);
+        if (!result.success || !result.data || result.data.state !== 'AVAILABLE') return;
+        expect(result.data.scope).toEqual({
+            kind: 'TEAM',
+            label: 'Tim sales aktif',
+            operationalLabel: 'Seluruh operasi Sales',
+        });
+        expect(mocks.revenue).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'TEAM' }),
+            expect.anything(),
+            true,
+        );
+        expect(mocks.pipeline).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'COMPANY',
+                fieldScope: expect.objectContaining({ isGlobalViewer: true }),
+            }),
+            expect.anything(),
+            true,
+        );
+        expect(mocks.attention).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'COMPANY' }),
+            expect.any(Date),
+            true,
+            expect.anything(),
+        );
     });
-    expect(mockPrisma.deliveryOrder.findMany).not.toHaveBeenCalledWith(
-      expect.objectContaining({ select: { salesOrderId: true } }),
-    );
-  });
 
-  it('delegates globally ranked credit risk to the batch service without N+1 aggregates', async () => {
-    await getSalesDashboardStats();
+    it('removes every nominal value from the payload without price capability', async () => {
+        mocks.access.mockResolvedValue({
+            user: { id: 'user-1', role: 'ADMIN', roles: ['ADMIN'] },
+            resources: 'ALL',
+            canViewNominal: false,
+        });
+        mocks.revenue.mockResolvedValue({
+            orderActual: 12,
+            revenueActual: null,
+            revenueTrend: [],
+        });
+        mocks.pipeline.mockResolvedValue({
+            activeCount: 5,
+            activeValue: null,
+            topLostReason: {
+                reason: 'PRICE',
+                label: 'Harga',
+                count: 3,
+                totalValue: null,
+            },
+        });
+        mocks.attention.mockResolvedValue({
+            ...attention,
+            counts: { ...attention.counts, overdueAmount: null },
+        });
 
-    expect(mockGetTopCustomerCreditRisks).toHaveBeenCalledWith(5);
-    expect(mockPrisma.invoice.aggregate).not.toHaveBeenCalled();
-    expect(mockPrisma.salesOrder.aggregate).not.toHaveBeenCalled();
-  });
+        const result = await getSalesDashboardStats();
 
-  it('queries open deliveries with PENDING and LOADING', async () => {
-    await getSalesDashboardStats();
-    const openCountCall = mockPrisma.deliveryOrder.count.mock.calls[0]?.[0] as {
-      where?: { status?: { in?: string[] } };
-    };
-    expect(openCountCall?.where?.status?.in).toEqual(
-      expect.arrayContaining(['PENDING', 'LOADING']),
-    );
-  });
-
-  it('scopes overdue invoices to operational customer AR only', async () => {
-    await getSalesDashboardStats();
-
-    const overdueQuery = mockPrisma.invoice.findMany.mock.calls.find(
-      ([args]) => args?.where?.dueDate,
-    )?.[0] as {
-      where?: {
-        salesOrder?: {
-          customerId?: { not: null };
-          NOT?: unknown[];
-        };
-      };
-    };
-
-    expect(overdueQuery?.where?.salesOrder?.customerId).toEqual({ not: null });
-    expect(overdueQuery?.where?.salesOrder?.NOT).toEqual(
-      expect.arrayContaining([
-        { orderNumber: { startsWith: 'SO-OPEN-' } },
-        { orderNumber: { startsWith: 'OB-AR-' } },
-        { notes: { startsWith: 'Opening Balance Entry' } },
-        { notes: { startsWith: 'Sheet Penjualan Jun:' } },
-      ]),
-    );
-  });
-
-  it('excludes fully paid stale overdue invoices from KPI and attention list', async () => {
-    mockPrisma.invoice.count.mockResolvedValue(2);
-    mockPrisma.invoice.aggregate.mockResolvedValue({
-      _sum: { totalAmount: 3_000, paidAmount: 2_250 },
+        expect(result.success).toBe(true);
+        if (!result.success || !result.data || result.data.state !== 'AVAILABLE') return;
+        expect(result.data.health.revenue.state).toBe('HIDDEN');
+        expect(result.data.health.revenue.value).toBeNull();
+        expect(result.data.health.pipeline.value).toBeNull();
+        expect(result.data.drivers.revenueTrend).toEqual({
+            state: 'HIDDEN',
+            points: [],
+        });
+        expect(result.data.drivers.topLostReason.value?.totalValue).toBeNull();
+        expect(result.data.attention?.counts.overdueAmount).toBeNull();
     });
-    mockPrisma.invoice.findMany.mockResolvedValue([
-      {
-        id: 'inv-open',
-        invoiceNumber: 'INV-OPEN',
-        totalAmount: 1_000,
-        paidAmount: 250,
-        dueDate: new Date(Date.now() - 86400000),
-        status: 'UNPAID',
-        salesOrderId: 'so-open',
-        salesOrder: { id: 'so-open', customer: { name: 'Toko Open' } },
-      },
-      {
-        id: 'inv-stale-paid',
-        invoiceNumber: 'INV-STALE-PAID',
-        totalAmount: 2_000,
-        paidAmount: 2_000,
-        dueDate: new Date(Date.now() - 86400000),
-        status: 'OVERDUE',
-        salesOrderId: 'so-paid',
-        salesOrder: { id: 'so-paid', customer: { name: 'Toko Paid' } },
-      },
-    ]);
 
-    const res = await getSalesDashboardStats();
+    it('marks a failed pipeline driver UNAVAILABLE instead of not configured', async () => {
+        mocks.pipeline.mockRejectedValue(new Error('pipeline unavailable'));
 
-    expect(res.success).toBe(true);
-    if (!res.success || !res.data) return;
-    expect(res.data.counts.overdueInvoices).toBe(1);
-    expect(res.data.counts.overdueAmount).toBe(750);
-    expect(res.data.attention.overdueInvoices).toHaveLength(1);
-    expect(res.data.attention.overdueInvoices[0]?.invoiceNumber).toBe(
-      'INV-OPEN',
-    );
-  });
+        const result = await getSalesDashboardStats();
 
-  it('enforces the Sales read guard before loading dashboard data', async () => {
-    const denied = new Error('Unauthorized');
-    mockRequireSalesAccess.mockRejectedValueOnce(denied);
+        expect(result.success).toBe(true);
+        if (!result.success || !result.data || result.data.state !== 'AVAILABLE') return;
+        expect(result.data.health.pipeline.state).toBe('UNAVAILABLE');
+        expect(result.data.drivers.topLostReason).toEqual({
+            state: 'UNAVAILABLE',
+            value: null,
+        });
+        expect(result.data.drivers.revenueTrend.state).toBe('AVAILABLE');
+    });
 
-    const res = await getSalesDashboardStats();
+    it('keeps independent sections useful when one reader fails', async () => {
+        mocks.revenue.mockRejectedValue(new Error('revenue unavailable'));
 
-    expect(res).toEqual({ success: false, error: 'Unauthorized' });
-    expect(mockPrisma.salesOrder.count).not.toHaveBeenCalled();
-    expect(mockGetTopCustomerCreditRisks).not.toHaveBeenCalled();
-  });
+        const result = await getSalesDashboardStats();
 
-  it('returns the batch-ranked near-limit risk', async () => {
-    mockGetTopCustomerCreditRisks.mockResolvedValue([
-      {
-        id: 'c-near',
-        name: 'Customer Near',
-        exposureStatus: 'near',
-        headroom: 5_000,
-      },
-    ]);
+        expect(result.success).toBe(true);
+        if (!result.success || !result.data || result.data.state !== 'AVAILABLE') return;
+        expect(result.data.health.revenue.state).toBe('UNAVAILABLE');
+        expect(result.data.health.orders.state).toBe('UNAVAILABLE');
+        expect(result.data.drivers.revenueTrend).toEqual({
+            state: 'UNAVAILABLE',
+            points: [],
+        });
+        expect(result.data.health.visits.value).toBe(8);
+        expect(result.data.health.pipeline.count).toBe(5);
+        expect(result.data.attention?.counts.draftOrders).toBe(3);
+    });
 
-    const res = await getSalesDashboardStats();
-    expect(res.success).toBe(true);
-    if (!res.success || !res.data) return;
-    expect(res.data.attention.creditRisk[0]?.exposureStatus).toBe('near');
-  });
+    it('fails closed when fresh database roles have revoked Sales access despite a stale session role', async () => {
+        mocks.access.mockRejectedValue(
+            new Error('Unauthorized: fresh role revoked'),
+        );
+
+        const result = await getSalesDashboardStats();
+
+        expect(result).toMatchObject({
+            success: false,
+            error: 'Unauthorized: fresh role revoked',
+        });
+        expect(mocks.scope).not.toHaveBeenCalled();
+        expect(mocks.revenue).not.toHaveBeenCalled();
+        expect(mocks.attention).not.toHaveBeenCalled();
+    });
+
+    it('does not query any dashboard reader when Sales module is inactive', async () => {
+        mocks.entitled.mockReturnValue(false);
+
+        const result = await getSalesDashboardStats();
+
+        expect(result.success).toBe(true);
+        if (!result.success || !result.data) return;
+        expect(result.data.state).toBe('HIDDEN');
+        expect(mocks.scope).not.toHaveBeenCalled();
+        expect(mocks.revenue).not.toHaveBeenCalled();
+        expect(mocks.attention).not.toHaveBeenCalled();
+    });
+
+    it('enforces the Sales role guard before entitlement or data reads', async () => {
+        mocks.guard.mockRejectedValue(new Error('Unauthorized'));
+
+        const result = await getSalesDashboardStats();
+
+        expect(result).toMatchObject({ success: false, error: 'Unauthorized' });
+        expect(mocks.entitled).not.toHaveBeenCalled();
+        expect(mocks.scope).not.toHaveBeenCalled();
+    });
 });

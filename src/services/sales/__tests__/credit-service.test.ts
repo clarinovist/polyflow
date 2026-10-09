@@ -19,6 +19,7 @@ import {
   getCustomerCreditExposure,
   checkCreditLimit,
   getCustomersWithCreditSummary,
+  getTopCustomerCreditRiskSnapshot,
   getTopCustomerCreditRisks,
 } from "../credit-service";
 import { BusinessRuleError } from "@/lib/errors/errors";
@@ -308,8 +309,10 @@ describe("credit-service", () => {
       ] as never);
       vi.mocked(prisma.salesOrder.groupBy).mockResolvedValue([] as never);
 
-      const result = await getTopCustomerCreditRisks(4);
+      const snapshot = await getTopCustomerCreditRiskSnapshot(4);
+      const result = snapshot.items;
 
+      expect(snapshot).toMatchObject({ total: 4, returned: 4 });
       expect(result.map((item) => item.id)).toEqual([
         "over-outside-cap",
         "over-alpha-a",

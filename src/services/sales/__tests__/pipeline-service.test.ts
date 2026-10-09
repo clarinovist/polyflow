@@ -202,6 +202,30 @@ describe('pipeline-service', () => {
             expect(knownBucket!.count).toBe(1);
         });
 
+        it('uses deterministic count, value, label, then reason ordering', async () => {
+            mockFindMany.mockResolvedValue([
+                makeRow({
+                    id: 'same-count-low-value',
+                    status: SalesOrderStatus.QUOTATION_REJECTED,
+                    totalAmount: dec(1_000),
+                    lostReason: SalesLostReason.STOK_TIDAK_TERSEDIA,
+                }),
+                makeRow({
+                    id: 'same-count-high-value',
+                    status: SalesOrderStatus.QUOTATION_REJECTED,
+                    totalAmount: dec(2_000),
+                    lostReason: SalesLostReason.HARGA_TERLALU_TINGGI,
+                }),
+            ] as never);
+
+            const result = await getPipelineData(GLOBAL_SCOPE);
+
+            expect(result.lostReasonBreakdown.map((bucket) => bucket.reason)).toEqual([
+                SalesLostReason.HARGA_TERLALU_TINGGI,
+                SalesLostReason.STOK_TIDAK_TERSEDIA,
+            ]);
+        });
+
         it('group by lostReason dengan sum totalValue Decimal', async () => {
             // Arrange
             const rows = [

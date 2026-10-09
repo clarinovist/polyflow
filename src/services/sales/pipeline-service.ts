@@ -319,7 +319,13 @@ export async function getPipelineData(
             count: v.count,
             totalValue: v.totalValue,
         }))
-        .sort((a, b) => b.count - a.count);
+        .sort(
+            (a, b) =>
+                b.count - a.count ||
+                b.totalValue.comparedTo(a.totalValue) ||
+                a.label.localeCompare(b.label, 'id') ||
+                String(a.reason ?? '').localeCompare(String(b.reason ?? '')),
+        );
 
     const totalCount = stages.reduce((sum, s) => sum + s.count, 0);
 

@@ -59,6 +59,20 @@ describe("field-scope", () => {
       expect(where.OR).toBeDefined();
       expect(where.OR!.length).toBe(4);
     });
+
+    it("uses the explicit active-team cohort for manager scope", () => {
+      const where = scopedCustomerWhere({
+        actorUserId: "manager",
+        isGlobalViewer: false,
+        salesRepIds: ["sales-a", "sales-b"],
+      });
+      expect(where.OR).toEqual(
+        expect.arrayContaining([
+          { salesOrders: { some: { salesRepId: { in: ["sales-a", "sales-b"] } } } },
+          { salesVisits: { some: { userId: { in: ["sales-a", "sales-b"] } } } },
+        ]),
+      );
+    });
   });
 
   describe("scopedSalesOrderWhere", () => {
@@ -71,6 +85,16 @@ describe("field-scope", () => {
       const where = scopedSalesOrderWhere({ actorUserId: "u1", isGlobalViewer: false });
       expect(where.OR).toBeDefined();
       expect(where.OR!.length).toBe(2);
+    });
+
+    it("uses salesRepId allowlist for manager team scope", () => {
+      expect(
+        scopedSalesOrderWhere({
+          actorUserId: "manager",
+          isGlobalViewer: false,
+          salesRepIds: ["sales-a", "sales-b"],
+        }),
+      ).toEqual({ salesRepId: { in: ["sales-a", "sales-b"] } });
     });
   });
 

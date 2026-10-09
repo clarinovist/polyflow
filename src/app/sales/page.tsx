@@ -1,4 +1,9 @@
 import { getSalesDashboardStats } from '@/actions/dashboard/sales-dashboard';
+import {
+    DashboardFreshness,
+    DashboardHealthCard,
+    DashboardSectionState,
+} from '@/components/dashboard/DashboardMetricPrimitives';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -7,326 +12,229 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { salesLabels } from '@/lib/labels';
 import Link from 'next/link';
 import {
-    FileText,
-    Truck,
-    CalendarDays,
     AlertTriangle,
-    Plus,
     ArrowRight,
+    BarChart3,
+    CalendarDays,
+    Clock,
+    CreditCard,
+    FileText,
+    HandCoins,
+    Kanban,
+    MapPinned,
+    Package,
+    Plus,
+    ShoppingCart,
     Smartphone,
     TrendingUp,
-    CreditCard,
-    Package,
-    Clock,
+    Truck,
 } from 'lucide-react';
 
+type ActionData<T> = T extends { data?: infer D } ? NonNullable<D> : never;
+export type SalesDashboardData = ActionData<
+    Awaited<ReturnType<typeof getSalesDashboardStats>>
+>;
+
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+type Attention = NonNullable<SalesDashboardData['attention']>;
+type Links = NonNullable<SalesDashboardData['permissions']>['links'];
 
-function ActionCard({
-    count,
-    href,
-    activeClassName,
-    children,
-}: {
-    count: number;
-    href: string;
-    activeClassName: string;
-    children: React.ReactNode;
-}) {
-    const card = (
-        <Card className={count > 0 ? activeClassName : undefined}>
-            {children}
-        </Card>
-    );
-
-    return count > 0 ? <Link href={href}>{card}</Link> : card;
+function dateParam(value: string | string[] | undefined) {
+    if (typeof value !== 'string') return undefined;
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date : undefined;
 }
 
-export default async function SalesCommandBoardPage(props: {
-    searchParams: SearchParams;
+function sampleLabel(total: number, returned: number) {
+    return returned < total
+        ? total + ' total · ' + returned + ' ditampilkan'
+        : String(total);
+}
+
+function QueueCard({
+    title,
+    total,
+    returned,
+    icon: Icon,
+    children,
+    footerHref,
+    footerLabel = 'Lihat semua',
+}: {
+    title: string;
+    total: number;
+    returned: number;
+    icon: typeof FileText;
+    children: React.ReactNode;
+    footerHref?: string | null;
+    footerLabel?: string;
 }) {
-    const searchParams = await props.searchParams;
-    const from =
-        typeof searchParams.from === 'string'
-            ? new Date(searchParams.from)
-            : undefined;
-    const to =
-        typeof searchParams.to === 'string'
-            ? new Date(searchParams.to)
-            : undefined;
+    return (
+        <Card className="min-w-0">
+            <CardHeader className="pb-2">
+                <CardTitle className="min-w-0 text-sm font-medium">
+                    <span className="flex min-w-0 items-center gap-2">
+                        <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0 break-words">{title}</span>
+                    </span>
+                    <Badge
+                        variant="secondary"
+                        className="mt-2 h-auto max-w-full whitespace-normal text-left text-[10px]"
+                    >
+                        {sampleLabel(total, returned)}
+                    </Badge>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="min-w-0 space-y-2">
+                {children}
+                {footerHref && (
+                    <Link
+                        href={footerHref}
+                        className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                        {footerLabel} <ArrowRight className="h-3 w-3" />
+                    </Link>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
 
-    const dateRange = from && to ? { from, to } : undefined;
-    const statsRes = await getSalesDashboardStats(dateRange);
-    const board =
-        statsRes.success && statsRes.data
-            ? statsRes.data
-            : {
-                  counts: {
-                      draftOrders: 0,
-                      readyToShipOrders: 0,
-                      readyWithoutDo: 0,
-                      openDeliveryOrders: 0,
-                      tripsToday: 0,
-                      overdueInvoices: 0,
-                      overdueAmount: 0,
-                      activeOrders: 0,
-                      activeCustomers: 0,
-                  },
-                  attention: {
-                      oldDrafts: [],
-                      readyWithoutDo: [],
-                      openDeliveries: [],
-                      overdueInvoices: [],
-                      creditRisk: [],
-                      followUpsDue: [],
-                  },
-                  performance: {
-                      totalRevenue: 0,
-                      revenueDefinition: 'journal_4xx' as const,
-                      revenueTrend: [],
-                      totalOrders: 0,
-                  },
-              };
-
-    const { counts, attention, performance } = board;
+function AttentionSection({
+    attention,
+    links,
+    canViewNominal,
+}: {
+    attention: Attention;
+    links: Links;
+    canViewNominal: boolean;
+}) {
+    const groups = [
+        attention.oldDrafts,
+        attention.readyWithoutDo,
+        attention.openDeliveries,
+        attention.overdueInvoices,
+        attention.creditRisk,
+        attention.followUpsDue,
+    ];
+    const hasItems = groups.some((group) => (group?.returned ?? 0) > 0);
 
     return (
-        <div className="flex flex-col space-y-6">
-            {/* Header */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <PageHeader
-                    title={salesLabels.salesDashboard}
-                    description={salesLabels.salesDashboardDesc}
+        <>
+            {attention.state === 'UNAVAILABLE' && (
+                <DashboardSectionState
+                    state="UNAVAILABLE"
+                    title="Sebagian antrean Sales tidak tersedia"
+                    description="Reader yang gagal tidak dianggap sebagai antrean kosong. Data lain yang berhasil tetap ditampilkan."
                 />
-            </div>
-
-            {/* KPI Cards — operational snapshot (NOT date-bound) */}
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                <ActionCard
-                    count={counts.draftOrders}
-                    href="/sales/orders?status=DRAFT"
-                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
-                >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            SO draf
-                        </CardTitle>
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold tabular-nums">
-                            {counts.draftOrders}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Perlu dikonfirmasi
-                        </p>
-                    </CardContent>
-                </ActionCard>
-
-                <ActionCard
-                    count={counts.readyToShipOrders}
-                    href="/sales/orders?status=READY_TO_SHIP"
-                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
-                >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Siap SJ
-                        </CardTitle>
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold tabular-nums">
-                            {counts.readyToShipOrders}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Siap dibuatkan SJ
-                        </p>
-                    </CardContent>
-                </ActionCard>
-
-                <ActionCard
-                    count={counts.openDeliveryOrders}
-                    href="/sales/deliveries"
-                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
-                >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            SJ Aktif
-                        </CardTitle>
-                        <Truck className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold tabular-nums">
-                            {counts.openDeliveryOrders}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Menunggu + sedang dimuat
-                        </p>
-                    </CardContent>
-                </ActionCard>
-
-                <ActionCard
-                    count={counts.tripsToday}
-                    href="/sales/delivery-schedules"
-                    activeClassName="hover:border-primary/50 transition-colors cursor-pointer"
-                >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Perjalanan hari ini
-                        </CardTitle>
-                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold tabular-nums">
-                            {counts.tripsToday}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Jadwal berangkat
-                        </p>
-                    </CardContent>
-                </ActionCard>
-
-                <ActionCard
-                    count={counts.overdueInvoices}
-                    href="/sales/invoices?status=OVERDUE"
-                    activeClassName="hover:border-destructive/50 transition-colors cursor-pointer"
-                >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Jatuh tempo
-                        </CardTitle>
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-destructive tabular-nums">
-                            {counts.overdueInvoices}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            {counts.overdueAmount > 0
-                                ? formatRupiah(counts.overdueAmount)
-                                : '-'}
-                        </p>
-                    </CardContent>
-                </ActionCard>
-            </div>
-
-            {/* Butuh Perhatian — Attention Lists */}
-            <div className="space-y-1">
-                <h2 className="text-lg font-semibold text-foreground">
-                    Butuh Perhatian
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                    Hal yang butuh tindakan segera.
-                </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {/* SO DRAFT > 0 hari */}
-                {attention.oldDrafts.length > 0 && (
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                SO draf ({attention.oldDrafts.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {attention.oldDrafts.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="flex items-center justify-between text-sm"
-                                >
-                                    <div className="min-w-0">
+            )}
+            <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4">
+                {attention.oldDrafts && attention.oldDrafts.returned > 0 && (
+                    <QueueCard
+                        title="SO draf"
+                        total={attention.oldDrafts.total}
+                        returned={attention.oldDrafts.returned}
+                        icon={FileText}
+                        footerHref={
+                            links.orders ? links.orders + '?status=DRAFT' : null
+                        }
+                    >
+                        {attention.oldDrafts.items.map((item) => (
+                            <div
+                                key={item.id}
+                                className="flex min-w-0 items-center justify-between gap-2 text-sm"
+                            >
+                                <div className="min-w-0">
+                                    {links.orders ? (
                                         <Link
-                                            href={`/sales/orders/${item.id}`}
-                                            className="font-medium hover:underline truncate block"
+                                            href={links.orders + '/' + item.id}
+                                            className="block truncate font-medium hover:underline"
                                         >
                                             {item.orderNumber}
                                         </Link>
-                                        <p className="text-xs text-muted-foreground truncate">
-                                            {item.customerName}
+                                    ) : (
+                                        <p className="truncate font-medium">
+                                            {item.orderNumber}
                                         </p>
-                                    </div>
-                                    <Badge
-                                        variant="outline"
-                                        className="shrink-0 ml-2"
-                                    >
-                                        {item.daysOld}h
-                                    </Badge>
+                                    )}
+                                    <p className="truncate text-xs text-muted-foreground">
+                                        {item.customerName}
+                                    </p>
                                 </div>
-                            ))}
-                            <Link
-                                href="/sales/orders?status=DRAFT"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
-                            >
-                                Lihat semua <ArrowRight className="h-3 w-3" />
-                            </Link>
-                        </CardContent>
-                    </Card>
+                                <Badge variant="outline" className="shrink-0">
+                                    {item.daysOld}h
+                                </Badge>
+                            </div>
+                        ))}
+                    </QueueCard>
                 )}
 
-                {/* READY_TO_SHIP tanpa DO */}
-                {attention.readyWithoutDo.length > 0 && (
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <Package className="h-4 w-4" />
-                                Siap tanpa SJ ({counts.readyWithoutDo})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {attention.readyWithoutDo.map((item) => (
-                                <div key={item.id} className="text-sm">
-                                    <Link
-                                        href={`/sales/orders/${item.id}`}
-                                        className="font-medium hover:underline"
-                                    >
-                                        {item.orderNumber}
-                                    </Link>
-                                    <p className="text-xs text-muted-foreground">
+                {attention.readyWithoutDo &&
+                    attention.readyWithoutDo.returned > 0 && (
+                        <QueueCard
+                            title="Siap tanpa SJ"
+                            total={attention.readyWithoutDo.total}
+                            returned={attention.readyWithoutDo.returned}
+                            icon={Package}
+                            footerHref={
+                                links.orders
+                                    ? links.orders + '?status=READY_TO_SHIP'
+                                    : null
+                            }
+                        >
+                            {attention.readyWithoutDo.items.map((item) => (
+                                <div key={item.id} className="min-w-0 text-sm">
+                                    {links.orders ? (
+                                        <Link
+                                            href={links.orders + '/' + item.id}
+                                            className="block truncate font-medium hover:underline"
+                                        >
+                                            {item.orderNumber}
+                                        </Link>
+                                    ) : (
+                                        <p className="truncate font-medium">
+                                            {item.orderNumber}
+                                        </p>
+                                    )}
+                                    <p className="truncate text-xs text-muted-foreground">
                                         {item.customerName}
                                     </p>
                                 </div>
                             ))}
-                            <Link
-                                href="/sales/orders?status=READY_TO_SHIP"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
-                            >
-                                Lihat semua <ArrowRight className="h-3 w-3" />
-                            </Link>
-                        </CardContent>
-                    </Card>
-                )}
+                        </QueueCard>
+                    )}
 
-                {/* SJ LOADING / PENDING */}
-                {attention.openDeliveries.length > 0 && (
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <Truck className="h-4 w-4" />
-                                SJ Aktif ({attention.openDeliveries.length})
-                                <Badge
-                                    variant="secondary"
-                                    className="text-[10px] ml-auto"
-                                >
-                                    Gudang eksekusi
-                                </Badge>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {attention.openDeliveries.map((item) => (
+                {attention.openDeliveries &&
+                    attention.openDeliveries.returned > 0 && (
+                        <QueueCard
+                            title="SJ aktif"
+                            total={attention.openDeliveries.total}
+                            returned={attention.openDeliveries.returned}
+                            icon={Truck}
+                            footerHref={links.deliveries}
+                        >
+                            {attention.openDeliveries.items.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="flex items-center justify-between text-sm"
+                                    className="flex min-w-0 items-center justify-between gap-2 text-sm"
                                 >
                                     <div className="min-w-0">
-                                        <Link
-                                            href={`/sales/deliveries/${item.id}`}
-                                            className="font-medium hover:underline truncate block"
-                                        >
-                                            {item.deliveryNumber}
-                                        </Link>
-                                        <p className="text-xs text-muted-foreground truncate">
+                                        {links.deliveries ? (
+                                            <Link
+                                                href={
+                                                    links.deliveries +
+                                                    '/' +
+                                                    item.id
+                                                }
+                                                className="block truncate font-medium hover:underline"
+                                            >
+                                                {item.deliveryNumber}
+                                            </Link>
+                                        ) : (
+                                            <p className="truncate font-medium">
+                                                {item.deliveryNumber}
+                                            </p>
+                                        )}
+                                        <p className="truncate text-xs text-muted-foreground">
                                             {item.customerName ?? '-'}
                                         </p>
                                     </div>
@@ -336,7 +244,7 @@ export default async function SalesCommandBoardPage(props: {
                                                 ? 'default'
                                                 : 'outline'
                                         }
-                                        className="shrink-0 ml-2"
+                                        className="shrink-0"
                                     >
                                         {item.status === 'LOADING'
                                             ? 'Muat'
@@ -344,136 +252,145 @@ export default async function SalesCommandBoardPage(props: {
                                     </Badge>
                                 </div>
                             ))}
-                            <Link
-                                href="/sales/deliveries"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
-                            >
-                                Lihat semua <ArrowRight className="h-3 w-3" />
-                            </Link>
-                        </CardContent>
-                    </Card>
-                )}
+                        </QueueCard>
+                    )}
 
-                {/* Invoice OVERDUE */}
-                {attention.overdueInvoices.length > 0 && (
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4 text-destructive" />
-                                Jatuh tempo ({attention.overdueInvoices.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {attention.overdueInvoices.map((item) => (
+                {attention.overdueInvoices &&
+                    attention.overdueInvoices.returned > 0 && (
+                        <QueueCard
+                            title="Invoice jatuh tempo"
+                            total={attention.overdueInvoices.total}
+                            returned={attention.overdueInvoices.returned}
+                            icon={AlertTriangle}
+                            footerHref={
+                                links.invoices
+                                    ? links.invoices + '?status=OVERDUE'
+                                    : null
+                            }
+                        >
+                            {attention.overdueInvoices.items.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="flex items-center justify-between text-sm"
+                                    className="flex min-w-0 items-center justify-between gap-2 text-sm"
                                 >
                                     <div className="min-w-0">
-                                        {/* Sales has no invoice detail page — open related SO when known */}
-                                        <Link
-                                            href={
-                                                item.salesOrderId
-                                                    ? `/sales/orders/${item.salesOrderId}`
-                                                    : '/sales/invoices?status=OVERDUE'
-                                            }
-                                            className="font-medium hover:underline truncate block"
-                                        >
-                                            {item.invoiceNumber}
-                                        </Link>
-                                        <p className="text-xs text-muted-foreground truncate">
+                                        {item.salesOrderId && links.orders ? (
+                                            <Link
+                                                href={
+                                                    links.orders +
+                                                    '/' +
+                                                    item.salesOrderId
+                                                }
+                                                className="block truncate font-medium hover:underline"
+                                            >
+                                                {item.invoiceNumber}
+                                            </Link>
+                                        ) : (
+                                            <p className="truncate font-medium">
+                                                {item.invoiceNumber}
+                                            </p>
+                                        )}
+                                        <p className="truncate text-xs text-muted-foreground">
                                             {item.customerName}
                                         </p>
                                     </div>
-                                    <span className="text-xs font-medium text-destructive shrink-0 ml-2">
-                                        {formatRupiah(item.remaining)}
-                                    </span>
+                                    {canViewNominal &&
+                                        item.remaining != null && (
+                                            <span className="shrink-0 text-xs font-medium text-destructive tabular-nums">
+                                                {formatRupiah(item.remaining)}
+                                            </span>
+                                        )}
                                 </div>
                             ))}
-                            <Link
-                                href="/sales/invoices?status=OVERDUE"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
-                            >
-                                Lihat semua <ArrowRight className="h-3 w-3" />
-                            </Link>
-                        </CardContent>
-                    </Card>
-                )}
+                        </QueueCard>
+                    )}
 
-                {/* Credit Risk */}
-                {attention.creditRisk.length > 0 && (
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <CreditCard className="h-4 w-4" />
-                                Limit Kredit ({attention.creditRisk.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {attention.creditRisk.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="flex items-center justify-between text-sm gap-2"
-                                >
+                {attention.creditRisk && attention.creditRisk.returned > 0 && (
+                    <QueueCard
+                        title="Risiko limit kredit"
+                        total={attention.creditRisk.total}
+                        returned={attention.creditRisk.returned}
+                        icon={CreditCard}
+                        footerHref={links.customers}
+                        footerLabel="Lihat pelanggan"
+                    >
+                        {attention.creditRisk.items.map((item) => (
+                            <div
+                                key={item.id}
+                                className="flex min-w-0 items-center justify-between gap-2 text-sm"
+                            >
+                                {links.customers ? (
                                     <Link
-                                        href={`/sales/customers/${item.id}`}
-                                        className="font-medium truncate hover:underline"
+                                        href={links.customers + '/' + item.id}
+                                        className="min-w-0 truncate font-medium hover:underline"
                                     >
                                         {item.name}
                                     </Link>
+                                ) : (
+                                    <p className="min-w-0 truncate font-medium">
+                                        {item.name}
+                                    </p>
+                                )}
+                                <div className="flex shrink-0 flex-col items-end gap-1">
                                     <Badge
                                         variant={
                                             item.exposureStatus === 'over'
                                                 ? 'destructive'
                                                 : 'outline'
                                         }
-                                        className="shrink-0"
                                     >
                                         {item.exposureStatus === 'over'
                                             ? 'Terlewati'
                                             : 'Mendekati'}
                                     </Badge>
+                                    {canViewNominal &&
+                                        item.headroom != null && (
+                                            <span className="text-[10px] tabular-nums text-muted-foreground">
+                                                {formatRupiah(item.headroom)}
+                                            </span>
+                                        )}
                                 </div>
-                            ))}
-                            <Link
-                                href="/sales/customers"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
-                            >
-                                Lihat pelanggan{' '}
-                                <ArrowRight className="h-3 w-3" />
-                            </Link>
-                        </CardContent>
-                    </Card>
+                            </div>
+                        ))}
+                    </QueueCard>
                 )}
 
-                {/* Follow-up Hari Ini / Terlewat */}
-                {attention.followUpsDue.length > 0 && (
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                Tindak lanjut hari ini / terlewat (
-                                {attention.followUpsDue.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {attention.followUpsDue.map((item) => (
+                {attention.followUpsDue &&
+                    attention.followUpsDue.returned > 0 && (
+                        <QueueCard
+                            title="Tindak lanjut due"
+                            total={attention.followUpsDue.total}
+                            returned={attention.followUpsDue.returned}
+                            icon={Clock}
+                            footerHref={
+                                links.orders
+                                    ? links.orders +
+                                      '?status=QUOTATION,QUOTATION_SENT&followUpDue=1'
+                                    : null
+                            }
+                        >
+                            {attention.followUpsDue.items.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="flex items-center justify-between text-sm gap-2"
+                                    className="flex min-w-0 items-center justify-between gap-2 text-sm"
                                 >
                                     <div className="min-w-0">
-                                        <Link
-                                            href={`/sales/orders/${item.id}`}
-                                            className="font-medium hover:underline truncate block"
-                                        >
-                                            {item.orderNumber}
-                                        </Link>
-                                        <p className="text-xs text-muted-foreground truncate">
+                                        {links.orders ? (
+                                            <Link
+                                                href={
+                                                    links.orders + '/' + item.id
+                                                }
+                                                className="block truncate font-medium hover:underline"
+                                            >
+                                                {item.orderNumber}
+                                            </Link>
+                                        ) : (
+                                            <p className="truncate font-medium">
+                                                {item.orderNumber}
+                                            </p>
+                                        )}
+                                        <p className="truncate text-xs text-muted-foreground">
                                             {item.customerName}
-                                            {item.nextFollowUpDate
-                                                ? ` · ${new Date(item.nextFollowUpDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                                                : ''}
                                         </p>
                                     </div>
                                     <Badge
@@ -482,7 +399,7 @@ export default async function SalesCommandBoardPage(props: {
                                                 ? 'destructive'
                                                 : 'outline'
                                         }
-                                        className="shrink-0 ml-2"
+                                        className="shrink-0"
                                     >
                                         {item.isOverdue
                                             ? 'Terlambat'
@@ -490,112 +407,443 @@ export default async function SalesCommandBoardPage(props: {
                                     </Badge>
                                 </div>
                             ))}
-                            <Link
-                                href="/sales/orders?status=QUOTATION,QUOTATION_SENT&followUpDue=1"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
-                            >
-                                Lihat semua <ArrowRight className="h-3 w-3" />
-                            </Link>
+                        </QueueCard>
+                    )}
+
+                {!hasItems && attention.state === 'AVAILABLE' && (
+                    <Card className="md:col-span-2 xl:col-span-3">
+                        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                            Tidak ada item yang butuh perhatian pada scope ini.
                         </CardContent>
                     </Card>
                 )}
+            </div>
+        </>
+    );
+}
 
-                {/* Empty state when no attention items */}
-                {attention.oldDrafts.length === 0 &&
-                    attention.readyWithoutDo.length === 0 &&
-                    attention.openDeliveries.length === 0 &&
-                    attention.overdueInvoices.length === 0 &&
-                    attention.creditRisk.length === 0 &&
-                    attention.followUpsDue.length === 0 && (
-                        <Card className="md:col-span-2 lg:col-span-3">
-                            <CardContent className="py-8 text-center text-muted-foreground">
-                                <p>
-                                    Tidak ada item yang butuh perhatian saat
-                                    ini.
-                                </p>
-                            </CardContent>
-                        </Card>
+export default async function SalesCommandBoardPage(props: {
+    searchParams: SearchParams;
+}) {
+    const searchParams = await props.searchParams;
+    const from = dateParam(searchParams.from);
+    const to = dateParam(searchParams.to);
+    const statsRes = await getSalesDashboardStats(
+        from && to ? { from, to } : undefined,
+    );
+    const board = statsRes.success && statsRes.data ? statsRes.data : null;
+
+    if (
+        !board ||
+        board.state !== 'AVAILABLE' ||
+        !board.health ||
+        !board.permissions ||
+        !board.scope ||
+        !board.period
+    ) {
+        return (
+            <div className="min-w-0 space-y-6">
+                <PageHeader
+                    title={salesLabels.salesDashboard}
+                    description={salesLabels.salesDashboardDesc}
+                />
+                {board?.state === 'HIDDEN' ? (
+                    <div className="flex min-w-0 items-start gap-3 rounded-lg border border-dashed bg-muted/30 p-3 text-sm">
+                        <Badge variant="outline" className="shrink-0">
+                            HIDDEN
+                        </Badge>
+                        <div className="min-w-0">
+                            <p className="font-medium text-foreground">
+                                Modul Sales tidak aktif
+                            </p>
+                            <p className="text-muted-foreground">
+                                Dashboard Sales disembunyikan dan reader tidak
+                                dijalankan.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Dashboard Sales tidak tersedia"
+                        description="Data gagal dimuat. Angka kosong tidak dianggap nol."
+                    />
+                )}
+            </div>
+        );
+    }
+
+    const { health, attention, drivers, permissions, scope, period } = board;
+    const { links, canViewNominal } = permissions;
+    const revenueTrend = drivers?.revenueTrend.points ?? [];
+    const topLostReason = drivers?.topLostReason.value ?? null;
+    const driverUnavailable =
+        drivers?.revenueTrend.state === 'UNAVAILABLE' ||
+        drivers?.topLostReason.state === 'UNAVAILABLE';
+    const hasDrivers = revenueTrend.length >= 4 || topLostReason != null;
+
+    return (
+        <div className="mx-auto flex max-w-[1600px] min-w-0 flex-col space-y-6 md:space-y-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <PageHeader
+                        title={salesLabels.salesDashboard}
+                        description="Health, attention, dan drivers Sales dari source canonical."
+                    />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge variant="secondary">Scope: {scope.label}</Badge>
+                        <Badge variant="outline">Periode: {period.label}</Badge>
+                    </div>
+                </div>
+                <DashboardFreshness generatedAt={board.generatedAt} />
+            </div>
+
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="sales-health-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Health
+                    </p>
+                    <h2
+                        id="sales-health-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Kondisi utama
+                    </h2>
+                </div>
+                <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-3">
+                    {health.revenue.state !== 'HIDDEN' && (
+                        <DashboardHealthCard
+                            title="Omzet SO bersih"
+                            value={
+                                health.revenue.value == null
+                                    ? undefined
+                                    : formatRupiah(health.revenue.value)
+                            }
+                            icon={HandCoins}
+                            state={health.revenue.state}
+                            definition={{
+                                unit: 'IDR',
+                                period: period.label,
+                                description:
+                                    'SO non-batal (termasuk fase quotation) dikurangi retur terproses pada periode retur. ' +
+                                    scope.label +
+                                    '.',
+                                source: 'Sales revenue basis · SALES_ORDER',
+                            }}
+                            href={
+                                health.revenue.state === 'AVAILABLE'
+                                    ? (links.performance ?? undefined)
+                                    : undefined
+                            }
+                            supportingText={
+                                <span>
+                                    Target/on-target:{' '}
+                                    <Badge
+                                        variant="outline"
+                                        className="h-auto whitespace-normal text-[10px]"
+                                    >
+                                        NOT_CONFIGURED
+                                    </Badge>{' '}
+                                    menunggu rekonsiliasi Finance + Sales.
+                                </span>
+                            }
+                        />
                     )}
-            </div>
+                    {health.orders.state !== 'HIDDEN' && (
+                        <DashboardHealthCard
+                            title="Pesanan aktual"
+                            value={health.orders.value?.toLocaleString('id-ID')}
+                            icon={ShoppingCart}
+                            state={health.orders.state}
+                            definition={{
+                                unit: 'Sales order',
+                                period: period.label,
+                                description:
+                                    'Count SO non-batal pada cohort yang sama dengan omzet, termasuk fase quotation. ' +
+                                    scope.label +
+                                    '.',
+                                source: 'SalesOrder',
+                            }}
+                            href={
+                                health.orders.state === 'AVAILABLE'
+                                    ? (links.orders ?? undefined)
+                                    : undefined
+                            }
+                            supportingText="Target attainment ditahan; tidak ada target sintetis."
+                        />
+                    )}
+                    {health.visits.state !== 'HIDDEN' && (
+                        <DashboardHealthCard
+                            title="Kunjungan aktual"
+                            value={health.visits.value?.toLocaleString('id-ID')}
+                            icon={MapPinned}
+                            state={health.visits.state}
+                            definition={{
+                                unit: 'Kunjungan',
+                                period: period.label,
+                                description:
+                                    'Kunjungan non-REJECTED. ' +
+                                    scope.label +
+                                    '.',
+                                source: 'SalesVisit',
+                            }}
+                            href={
+                                health.visits.state === 'AVAILABLE'
+                                    ? (links.visits ?? undefined)
+                                    : undefined
+                            }
+                            supportingText="Compliance/target ditahan sampai denominator eligible disetujui."
+                        />
+                    )}
+                    {health.pipeline.state !== 'HIDDEN' && (
+                        <DashboardHealthCard
+                            title={
+                                canViewNominal
+                                    ? 'Nilai pipeline aktif'
+                                    : 'Pipeline aktif'
+                            }
+                            value={
+                                health.pipeline.state !== 'AVAILABLE'
+                                    ? undefined
+                                    : canViewNominal &&
+                                        health.pipeline.value != null
+                                      ? formatRupiah(health.pipeline.value)
+                                      : (
+                                            health.pipeline.count ?? 0
+                                        ).toLocaleString('id-ID')
+                            }
+                            icon={Kanban}
+                            state={health.pipeline.state}
+                            definition={{
+                                unit: canViewNominal ? 'IDR' : 'Penawaran',
+                                period: period.label,
+                                description:
+                                    'QUOTATION + QUOTATION_SENT dalam scope ' +
+                                    scope.operationalLabel +
+                                    '.',
+                                source: 'Sales pipeline',
+                            }}
+                            href={
+                                health.pipeline.state === 'AVAILABLE'
+                                    ? (links.pipeline ?? undefined)
+                                    : undefined
+                            }
+                            supportingText={
+                                (health.pipeline.count ?? 0).toLocaleString(
+                                    'id-ID',
+                                ) +
+                                ' penawaran aktif · termasuk dalam SO actual; conversion ditahan'
+                            }
+                        />
+                    )}
+                </div>
+            </section>
 
-            {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
-            <div className="flex flex-wrap gap-3">
-                <Link href="/sales/orders/create">
-                    <Button size="sm">
-                        <Plus className="h-4 w-4 mr-1" /> Pesanan baru
-                    </Button>
-                </Link>
-                <Link href="/sales/orders/create?intent=quotation">
-                    <Button size="sm" variant="outline">
-                        <Plus className="h-4 w-4 mr-1" /> Penawaran
-                    </Button>
-                </Link>
-                <Link href="/sales/delivery-schedules">
-                    <Button size="sm" variant="outline">
-                        <CalendarDays className="h-4 w-4 mr-1" /> Jadwal Kirim
-                    </Button>
-                </Link>
-                <Link href="/field/sales">
-                    <Button size="sm" variant="ghost">
-                        <Smartphone className="h-4 w-4 mr-1" /> Mode seluler
-                    </Button>
-                </Link>
-            </div>
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="sales-attention-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Attention
+                    </p>
+                    <h2
+                        id="sales-attention-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Butuh perhatian
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Scope antrean: {scope.operationalLabel}. Total berasal
+                        dari seluruh populasi eligible; daftar adalah sampel
+                        lima teratas.
+                    </p>
+                </div>
+                {attention ? (
+                    <AttentionSection
+                        attention={attention}
+                        links={links}
+                        canViewNominal={canViewNominal}
+                    />
+                ) : (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Antrean Sales tidak tersedia"
+                        description="Kegagalan reader tidak dianggap sebagai antrean kosong."
+                    />
+                )}
 
-            {/* Ringkas Performa — collapsible / secondary */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4" />
-                        Ringkas Performa
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                            <p className="text-muted-foreground">
-                                Omzet Periode
-                            </p>
-                            <p className="font-semibold tabular-nums">
-                                {formatRupiah(performance.totalRevenue)}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-muted-foreground">
-                                Pesanan aktif
-                            </p>
-                            <p className="font-semibold tabular-nums">
-                                {counts.activeOrders}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-muted-foreground">
-                                Pelanggan aktif
-                            </p>
-                            <p className="font-semibold tabular-nums">
-                                {counts.activeCustomers}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-muted-foreground">Definisi</p>
-                            <p
-                                className="font-semibold text-xs"
-                                title="Omzet = total jurnal pendapatan (akun 4*) yang sudah POSTED pada periode ini. Basis ini berbeda dengan nilai Sales Order di laporan performa — bukan bug."
+                <div className="flex flex-wrap gap-3">
+                    {links.orders && (
+                        <>
+                            <Button asChild size="sm" className="min-h-11">
+                                <Link href={links.orders + '/create'}>
+                                    <Plus className="mr-1 h-4 w-4" /> Pesanan
+                                    baru
+                                </Link>
+                            </Button>
+                            <Button
+                                asChild
+                                size="sm"
+                                variant="outline"
+                                className="min-h-11"
                             >
-                                Basis: jurnal akuntansi (4xx)
-                            </p>
-                        </div>
-                    </div>
-                    <div className="mt-3">
-                        <Link
-                            href="/sales/reports/sales-performance"
-                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                                <Link
+                                    href={
+                                        links.orders +
+                                        '/create?intent=quotation'
+                                    }
+                                >
+                                    <Plus className="mr-1 h-4 w-4" /> Penawaran
+                                </Link>
+                            </Button>
+                        </>
+                    )}
+                    {links.deliverySchedules && (
+                        <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="min-h-11"
                         >
-                            Performa lengkap <ArrowRight className="h-3 w-3" />
-                        </Link>
+                            <Link href={links.deliverySchedules}>
+                                <CalendarDays className="mr-1 h-4 w-4" /> Jadwal
+                                Kirim
+                            </Link>
+                        </Button>
+                    )}
+                    {links.fieldSales && (
+                        <Button
+                            asChild
+                            size="sm"
+                            variant="ghost"
+                            className="min-h-11"
+                        >
+                            <Link href={links.fieldSales}>
+                                <Smartphone className="mr-1 h-4 w-4" /> Mode
+                                seluler
+                            </Link>
+                        </Button>
+                    )}
+                </div>
+            </section>
+
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="sales-drivers-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Drivers
+                    </p>
+                    <h2
+                        id="sales-drivers-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Arah dan hambatan utama
+                    </h2>
+                </div>
+                {driverUnavailable && (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Sebagian driver Sales tidak tersedia"
+                        description="Reader yang gagal tidak dianggap sebagai tidak adanya driver bisnis. Driver lain yang berhasil tetap ditampilkan."
+                    />
+                )}
+                {hasDrivers ? (
+                    <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-4">
+                        {revenueTrend.length >= 4 && (
+                            <Card className="min-w-0 overflow-hidden">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-sm">
+                                        <TrendingUp className="h-4 w-4" /> Tren
+                                        omzet SO bersih
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="min-w-0">
+                                    <ol
+                                        className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2"
+                                        aria-label="Nilai omzet bulanan"
+                                    >
+                                        {revenueTrend.map((point) => (
+                                            <li
+                                                key={point.month}
+                                                className="min-w-0 rounded-md border bg-muted/20 p-3"
+                                            >
+                                                <p className="text-xs text-muted-foreground">
+                                                    {point.month}
+                                                </p>
+                                                <p className="break-words text-sm font-semibold tabular-nums">
+                                                    {formatRupiah(
+                                                        point.revenue,
+                                                    )}
+                                                </p>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                    <p className="mt-3 text-xs text-muted-foreground">
+                                        Enam bulan selesai sebelum bulan cutoff;
+                                        setiap titik memakai basis SO minus
+                                        retur yang sama.
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+                        {topLostReason && (
+                            <Card className="min-w-0 overflow-hidden">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-sm">
+                                        <BarChart3 className="h-4 w-4" /> Alasan
+                                        penawaran ditolak teratas
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-2">
+                                    <p className="break-words text-xl font-bold">
+                                        {topLostReason.label}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {topLostReason.count.toLocaleString(
+                                            'id-ID',
+                                        )}{' '}
+                                        penawaran ditolak pada {period.label}.
+                                        Scope: {scope.operationalLabel}.
+                                    </p>
+                                    {canViewNominal &&
+                                        topLostReason.totalValue != null && (
+                                            <p className="text-sm font-medium tabular-nums">
+                                                Nilai:{' '}
+                                                {formatRupiah(
+                                                    topLostReason.totalValue,
+                                                )}
+                                            </p>
+                                        )}
+                                    {links.pipeline && (
+                                        <Link
+                                            href={links.pipeline}
+                                            className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline"
+                                        >
+                                            Buka pipeline{' '}
+                                            <ArrowRight className="h-3 w-3" />
+                                        </Link>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
-                </CardContent>
-            </Card>
+                ) : driverUnavailable ? null : (
+                    <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-sm">
+                        <p className="font-medium">Driver belum cukup matang</p>
+                        <p className="text-muted-foreground">
+                            Tren membutuhkan minimal empat titik comparable dan
+                            loss reason membutuhkan penawaran ditolak dalam
+                            scope ini.
+                        </p>
+                    </div>
+                )}
+            </section>
         </div>
     );
 }

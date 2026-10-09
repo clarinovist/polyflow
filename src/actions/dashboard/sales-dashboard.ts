@@ -1,252 +1,209 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction } from '@/lib/errors/errors';
-import {
-    getInvoiceRemainingAmount,
-    isActionableInvoiceOverdue,
-} from '@/lib/finance/payment-terms';
-import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 import { requireSalesAccess } from '@/lib/auth/sales-access';
-
-import { AnalyticsService } from '@/services/analytics/analytics-service';
+import { hasWorkspaceEntitlement } from '@/lib/auth/access-policy';
+import { canSeeNavHref } from '@/lib/auth/permission-match';
 import { DateRange } from '@/types/analytics';
-import { startOfDay, endOfDay } from 'date-fns';
-import type { Prisma } from '@prisma/client';
-import { getTopCustomerCreditRisks } from '@/services/sales/credit-service';
+import {
+    readSalesAttention,
+    readSalesPipelineDashboard,
+    readSalesRevenueAndOrders,
+    readSalesVisitActual,
+    resolveFreshSalesDashboardAccess,
+    resolveSalesDashboardPeriod,
+    resolveSalesDashboardScope,
+} from '@/services/sales/sales-dashboard-service';
 
 export const getSalesDashboardStats = withTenant(
     async function getSalesDashboardStats(dateRange?: DateRange) {
         return safeAction(async () => {
-            await requireSalesAccess();
+            const session = await requireSalesAccess();
+            if (!hasWorkspaceEntitlement('sales')) {
+                return {
+                    generatedAt: new Date().toISOString(),
+                    state: 'HIDDEN' as const,
+                    scope: null,
+                    period: null,
+                    permissions: null,
+                    health: null,
+                    attention: null,
+                    drivers: null,
+                };
+            }
 
             const now = new Date();
-            const todayStart = startOfDay(now);
-            const todayEnd = endOfDay(now);
+            const generatedAt = now.toISOString();
+            const period = resolveSalesDashboardPeriod(dateRange, now);
+            const access = await resolveFreshSalesDashboardAccess(
+                session.user.id,
+            );
+            const scope = await resolveSalesDashboardScope(access.user);
+            const operationalScope =
+                scope.kind === 'TEAM'
+                    ? {
+                          kind: 'COMPANY' as const,
+                          label: 'Seluruh operasi Sales',
+                          actorUserId: scope.actorUserId,
+                          fieldScope: {
+                              actorUserId: scope.actorUserId,
+                              isGlobalViewer: true,
+                          },
+                      }
+                    : scope;
+            const { canViewNominal, resources } = access;
+            const canOpen = (href: string) =>
+                canSeeNavHref(
+                    href,
+                    resources === 'ALL' ? 'ALL' : resources,
+                    href.startsWith('/field/') ? '/field/sales' : '/sales',
+                );
 
-            // ── 1. Analytics Metrics (revenue, trends — date-bound) ──
-            const analytics = await AnalyticsService.getSalesMetrics(dateRange);
-
-            // ── 2. Operational Counts (snapshot now — NOT date-bound) ──
-            const [
-                draftOrdersCount,
-                readyToShipCount,
-                openDeliveryCount,
-                tripsTodayCount,
-                activeOrdersCount,
-                activeCustomersCount,
-            ] = await Promise.all([
-                prisma.salesOrder.count({ where: { status: 'DRAFT' } }),
-                prisma.salesOrder.count({ where: { status: 'READY_TO_SHIP' } }),
-                prisma.deliveryOrder.count({
-                    where: { status: { in: ['PENDING', 'LOADING'] } },
-                }),
-                prisma.deliveryScheduleVehicle.count({
-                    where: {
-                        departureDate: { gte: todayStart, lte: todayEnd },
-                        status: { notIn: ['CANCELLED'] },
-                    },
-                }),
-                prisma.salesOrder.count({
-                    where: {
-                        status: {
-                            notIn: [
-                                'DELIVERED',
-                                'CANCELLED',
-                                'QUOTATION',
-                                'QUOTATION_SENT',
-                                'QUOTATION_REJECTED',
-                                'QUOTATION_EXPIRED',
-                            ],
-                        },
-                    },
-                }),
-                prisma.customer.count({ where: { isActive: true } }),
-            ]);
-
-            // 3f. Follow-ups due today or overdue (quotation phase only) — top 5
-            const followUpsDueRaw = await prisma.salesOrder.findMany({
-                take: 5,
-                where: {
-                    status: { in: ['QUOTATION', 'QUOTATION_SENT'] },
-                    nextFollowUpDate: { not: null, lte: todayEnd },
-                },
-                orderBy: { nextFollowUpDate: 'asc' },
-                select: {
-                    id: true,
-                    orderNumber: true,
-                    nextFollowUpDate: true,
-                    customer: { select: { name: true } },
-                },
-            });
-
-            // ── 3. Attention Lists (top 5 each) ──
-
-            // 3a. Old DRAFT orders (> 0 days old, sorted oldest first)
-            const oldDrafts = await prisma.salesOrder.findMany({
-                take: 5,
-                where: { status: 'DRAFT' },
-                orderBy: { createdAt: 'asc' },
-                select: {
-                    id: true,
-                    orderNumber: true,
-                    createdAt: true,
-                    customer: { select: { name: true } },
-                },
-            });
-
-            // 3b. READY_TO_SHIP without an open DO: filter the full eligible
-            // population in SQL, then take the globally oldest five.
-            const readyWithoutDoWhere: Prisma.SalesOrderWhereInput = {
-                status: 'READY_TO_SHIP',
-                deliveryOrders: {
-                    none: { status: { in: ['PENDING', 'LOADING'] } },
-                },
+            const links = {
+                orders: canOpen('/sales/orders') ? '/sales/orders' : null,
+                performance: canOpen('/sales/reports/sales-performance')
+                    ? '/sales/reports/sales-performance'
+                    : null,
+                visits: canOpen('/sales/visits') ? '/sales/visits' : null,
+                pipeline: canOpen('/sales/pipeline') ? '/sales/pipeline' : null,
+                invoices: canOpen('/sales/invoices') ? '/sales/invoices' : null,
+                deliveries: canOpen('/sales/deliveries')
+                    ? '/sales/deliveries'
+                    : null,
+                deliverySchedules: canOpen('/sales/delivery-schedules')
+                    ? '/sales/delivery-schedules'
+                    : null,
+                customers: canOpen('/sales/customers')
+                    ? '/sales/customers'
+                    : null,
+                fieldSales: canOpen('/field/sales') ? '/field/sales' : null,
             };
-            const [readyWithoutDoCount, readyWithoutDoRaw] = await Promise.all([
-                prisma.salesOrder.count({ where: readyWithoutDoWhere }),
-                prisma.salesOrder.findMany({
-                    take: 5,
-                    where: readyWithoutDoWhere,
-                    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-                    select: {
-                        id: true,
-                        orderNumber: true,
-                        customer: { select: { name: true } },
-                    },
-                }),
-            ]);
+            const includeRevenue = canViewNominal && links.performance != null;
+            const [revenue, visits, pipeline, attention] =
+                await Promise.allSettled([
+                    links.orders || includeRevenue
+                        ? readSalesRevenueAndOrders(
+                              scope,
+                              period,
+                              includeRevenue,
+                          )
+                        : Promise.resolve(null),
+                    links.visits
+                        ? readSalesVisitActual(scope, period)
+                        : Promise.resolve(null),
+                    links.pipeline
+                        ? readSalesPipelineDashboard(
+                              operationalScope,
+                              period,
+                              canViewNominal,
+                          )
+                        : Promise.resolve(null),
+                    readSalesAttention(operationalScope, now, canViewNominal, {
+                        orders: links.orders != null,
+                        deliveries: links.deliveries != null,
+                        deliverySchedules: links.deliverySchedules != null,
+                        invoices: links.invoices != null,
+                        customers: links.customers != null,
+                    }),
+                ]);
 
-            // 3c. Open deliveries (PENDING + LOADING) — top 5
-            const openDeliveries = await prisma.deliveryOrder.findMany({
-                take: 5,
-                where: { status: { in: ['PENDING', 'LOADING'] } },
-                orderBy: { createdAt: 'desc' },
-                select: {
-                    id: true,
-                    orderNumber: true,
-                    status: true,
-                    salesOrder: {
-                        select: { customer: { select: { name: true } } },
-                    },
-                },
-            });
-
-            // 3d. Overdue invoices — actionable outstanding only
-            const overdueInvoicesRaw = await prisma.invoice.findMany({
-                where: {
-                    status: { in: ['OVERDUE', 'UNPAID', 'PARTIAL'] },
-                    dueDate: { lt: todayStart },
-                    salesOrder: buildOperationalSalesReceivableOrderWhere(),
-                },
-                orderBy: { dueDate: 'asc' },
-                select: {
-                    id: true,
-                    invoiceNumber: true,
-                    totalAmount: true,
-                    paidAmount: true,
-                    creditedAmount: true,
-                    priceAdjustmentAmount: true,
-                    dueDate: true,
-                    status: true,
-                    salesOrderId: true,
-                    salesOrder: {
-                        select: {
-                            id: true,
-                            customer: { select: { name: true } },
-                        },
-                    },
-                },
-            });
-            const actionableOverdueInvoices = overdueInvoicesRaw.filter(
-                (invoice) => isActionableInvoiceOverdue(invoice, now),
-            );
-            const overdueInvoiceCount = actionableOverdueInvoices.length;
-            const overdueAmount = actionableOverdueInvoices.reduce(
-                (sum, invoice) =>
-                    sum +
-                    getInvoiceRemainingAmount(
-                        invoice.totalAmount,
-                        invoice.paidAmount,
-                        invoice.creditedAmount,
-                        invoice.priceAdjustmentAmount,
-                    ),
-                0,
-            );
-
-            // 3e. Credit risk — batch the complete active/limited population
-            // and rank globally before taking the top five.
-            const creditRiskList = await getTopCustomerCreditRisks(5);
+            const revenueData =
+                revenue.status === 'fulfilled' ? revenue.value : null;
+            const visitActual =
+                visits.status === 'fulfilled' ? visits.value : null;
+            const pipelineData =
+                pipeline.status === 'fulfilled' ? pipeline.value : null;
+            const attentionData =
+                attention.status === 'fulfilled' ? attention.value : null;
 
             return serializeData({
-                counts: {
-                    draftOrders: draftOrdersCount,
-                    readyToShipOrders: readyToShipCount,
-                    readyWithoutDo: readyWithoutDoCount,
-                    openDeliveryOrders: openDeliveryCount,
-                    tripsToday: tripsTodayCount,
-                    overdueInvoices: overdueInvoiceCount,
-                    overdueAmount,
-                    activeOrders: activeOrdersCount,
-                    activeCustomers: activeCustomersCount,
+                generatedAt,
+                state: 'AVAILABLE' as const,
+                scope: {
+                    kind: scope.kind,
+                    label: scope.label,
+                    operationalLabel: operationalScope.label,
                 },
-                attention: {
-                    oldDrafts: oldDrafts.map((o) => ({
-                        id: o.id,
-                        orderNumber: o.orderNumber,
-                        customerName: o.customer?.name ?? '-',
-                        daysOld: Math.floor(
-                            (now.getTime() - new Date(o.createdAt).getTime()) /
-                                86400000,
-                        ),
-                    })),
-                    readyWithoutDo: readyWithoutDoRaw.map((o) => ({
-                        id: o.id,
-                        orderNumber: o.orderNumber,
-                        customerName: o.customer?.name ?? '-',
-                    })),
-                    openDeliveries: openDeliveries.map((d) => ({
-                        id: d.id,
-                        deliveryNumber: d.orderNumber,
-                        status: d.status,
-                        customerName: d.salesOrder?.customer?.name ?? undefined,
-                    })),
-                    overdueInvoices: actionableOverdueInvoices
-                        .slice(0, 5)
-                        .map((inv) => ({
-                            id: inv.id,
-                            invoiceNumber: inv.invoiceNumber,
-                            customerName: inv.salesOrder?.customer?.name ?? '-',
-                            remaining: getInvoiceRemainingAmount(
-                                inv.totalAmount,
-                                inv.paidAmount,
-                                inv.creditedAmount,
-                                inv.priceAdjustmentAmount,
-                            ),
-                            dueDate: inv.dueDate?.toISOString() ?? '',
-                            salesOrderId:
-                                inv.salesOrderId ?? inv.salesOrder?.id ?? null,
-                        })),
-                    creditRisk: creditRiskList,
-                    followUpsDue: followUpsDueRaw.map((o) => ({
-                        id: o.id,
-                        orderNumber: o.orderNumber,
-                        customerName: o.customer?.name ?? '-',
-                        nextFollowUpDate:
-                            o.nextFollowUpDate?.toISOString() ?? '',
-                        isOverdue:
-                            o.nextFollowUpDate != null &&
-                            new Date(o.nextFollowUpDate).getTime() <
-                                todayStart.getTime(),
-                    })),
+                period: {
+                    start: period.start.toISOString(),
+                    end: period.end.toISOString(),
+                    label: period.label,
                 },
-                performance: {
-                    totalRevenue: analytics.totalRevenue,
-                    revenueDefinition: 'journal_4xx' as const,
-                    revenueTrend: analytics.revenueTrend,
-                    totalOrders: analytics.totalOrders,
+                permissions: { canViewNominal, links },
+                health: {
+                    revenue: {
+                        state: !includeRevenue
+                            ? ('HIDDEN' as const)
+                            : revenueData && revenueData.revenueActual != null
+                              ? ('AVAILABLE' as const)
+                              : ('UNAVAILABLE' as const),
+                        value: revenueData?.revenueActual ?? null,
+                        targetState: 'NOT_CONFIGURED' as const,
+                    },
+                    orders: {
+                        state: !links.orders
+                            ? ('HIDDEN' as const)
+                            : revenueData
+                              ? ('AVAILABLE' as const)
+                              : ('UNAVAILABLE' as const),
+                        value: links.orders
+                            ? (revenueData?.orderActual ?? null)
+                            : null,
+                    },
+                    visits: {
+                        state: !links.visits
+                            ? ('HIDDEN' as const)
+                            : visitActual == null
+                              ? ('UNAVAILABLE' as const)
+                              : ('AVAILABLE' as const),
+                        value: links.visits ? visitActual : null,
+                    },
+                    pipeline: {
+                        state: !links.pipeline
+                            ? ('HIDDEN' as const)
+                            : pipelineData
+                              ? ('AVAILABLE' as const)
+                              : ('UNAVAILABLE' as const),
+                        count: links.pipeline
+                            ? (pipelineData?.activeCount ?? null)
+                            : null,
+                        value: links.pipeline
+                            ? (pipelineData?.activeValue ?? null)
+                            : null,
+                    },
+                },
+                attention: attentionData,
+                drivers: {
+                    revenueTrend: {
+                        state: !includeRevenue
+                            ? ('HIDDEN' as const)
+                            : revenue.status === 'rejected'
+                              ? ('UNAVAILABLE' as const)
+                              : revenueData &&
+                                  revenueData.revenueTrend.length >= 4
+                                ? ('AVAILABLE' as const)
+                                : ('NOT_CONFIGURED' as const),
+                        points:
+                            includeRevenue &&
+                            revenueData &&
+                            revenueData.revenueTrend.length >= 4
+                                ? revenueData.revenueTrend
+                                : [],
+                    },
+                    topLostReason: {
+                        state: !links.pipeline
+                            ? ('HIDDEN' as const)
+                            : pipeline.status === 'rejected'
+                              ? ('UNAVAILABLE' as const)
+                              : pipelineData?.topLostReason
+                                ? ('AVAILABLE' as const)
+                                : ('NOT_CONFIGURED' as const),
+                        value: links.pipeline
+                            ? (pipelineData?.topLostReason ?? null)
+                            : null,
+                    },
                 },
             });
         });

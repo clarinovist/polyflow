@@ -50,6 +50,12 @@ export type CustomerCreditRisk = {
     headroom: number;
 };
 
+export type CustomerCreditRiskSnapshot = {
+    total: number;
+    returned: number;
+    items: CustomerCreditRisk[];
+};
+
 export type CustomerCreditSummaryPage = {
     customers: CustomerCreditSummary[];
     total: number;
@@ -114,12 +120,21 @@ export async function getCustomerCreditExposure(
             salesOrder: { customerId },
             status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
         },
-        select: { totalAmount: true, paidAmount: true, creditedAmount: true, priceAdjustmentAmount: true },
+        select: {
+            totalAmount: true,
+            paidAmount: true,
+            creditedAmount: true,
+            priceAdjustmentAmount: true,
+        },
     });
 
     const unpaidInvoiceBalance = unpaidInvoices.reduce(
         (sum, invoice) =>
-            sum.plus(invoice.totalAmount).plus(invoice.priceAdjustmentAmount ?? 0).minus(invoice.paidAmount).minus(invoice.creditedAmount ?? 0),
+            sum
+                .plus(invoice.totalAmount)
+                .plus(invoice.priceAdjustmentAmount ?? 0)
+                .minus(invoice.paidAmount)
+                .minus(invoice.creditedAmount ?? 0),
         ZERO_DECIMAL,
     );
 
@@ -350,7 +365,8 @@ function summarizeCustomer(
 
     return {
         ...customer,
-        creditLimit: customer.creditLimit == null ? null : creditLimit.toNumber(),
+        creditLimit:
+            customer.creditLimit == null ? null : creditLimit.toNumber(),
         headroom: headroom?.toNumber() ?? null,
         exposureStatus,
     };
@@ -404,7 +420,10 @@ async function calculateCustomerSummaries(
     for (const invoice of invoices) {
         const customerId = invoice.salesOrder.customerId;
         if (!customerId) continue;
-        const balance = invoice.totalAmount.plus(invoice.priceAdjustmentAmount ?? 0).minus(invoice.paidAmount).minus(invoice.creditedAmount ?? 0);
+        const balance = invoice.totalAmount
+            .plus(invoice.priceAdjustmentAmount ?? 0)
+            .minus(invoice.paidAmount)
+            .minus(invoice.creditedAmount ?? 0);
         invoiceBalanceByCustomer.set(
             customerId,
             (invoiceBalanceByCustomer.get(customerId) ?? ZERO_DECIMAL).plus(
@@ -447,12 +466,16 @@ async function calculatePageSummaries(
     return calculateCustomerSummaries(customers);
 }
 
-/** Read and rank the complete active/limited population with three batched queries. */
-export async function getTopCustomerCreditRisks(
+/** Read and rank the complete eligible population with three batched queries. */
+export async function getTopCustomerCreditRiskSnapshot(
     limit = 5,
-): Promise<CustomerCreditRisk[]> {
+    where: Prisma.CustomerWhereInput = {
+        isActive: true,
+        creditLimit: { gt: 0 },
+    },
+): Promise<CustomerCreditRiskSnapshot> {
     const customers = await prisma.customer.findMany({
-        where: { isActive: true, creditLimit: { gt: 0 } },
+        where,
         select: CUSTOMER_SUMMARY_SELECT,
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
@@ -460,9 +483,18 @@ export async function getTopCustomerCreditRisks(
         operationalReceivablesOnly: true,
     });
 
-    return summaries
+    return rankCustomerCreditRisks(summaries, limit);
+}
+
+export function rankCustomerCreditRisks(
+    summaries: CustomerCreditSummary[],
+    limit: number,
+): CustomerCreditRiskSnapshot {
+    const ranked = summaries
         .filter(
-            (customer): customer is CustomerCreditSummary & {
+            (
+                customer,
+            ): customer is CustomerCreditSummary & {
                 exposureStatus: 'near' | 'over';
                 headroom: number;
             } =>
@@ -480,13 +512,22 @@ export async function getTopCustomerCreditRisks(
                 a.id.localeCompare(b.id)
             );
         })
-        .slice(0, Math.max(0, limit))
         .map(({ id, name, exposureStatus, headroom }) => ({
             id,
             name,
             exposureStatus,
             headroom,
         }));
+
+    const items = ranked.slice(0, Math.max(0, limit));
+    return { total: ranked.length, returned: items.length, items };
+}
+
+/** Backward-compatible list reader for existing consumers. */
+export async function getTopCustomerCreditRisks(
+    limit = 5,
+): Promise<CustomerCreditRisk[]> {
+    return (await getTopCustomerCreditRiskSnapshot(limit)).items;
 }
 
 /**

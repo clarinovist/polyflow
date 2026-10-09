@@ -23,21 +23,26 @@ vi.mock('@/lib/core/tenant', () => ({
 
 vi.mock('@/lib/auth/sales-access', () => ({
     requireSalesAccess: vi.fn(async () => ({
-        user: { id: 'sales-contract-user', role: 'SALES', roles: ['SALES'] },
+        user: { id: 'sales-contract-user', role: 'ADMIN', roles: ['ADMIN'] },
     })),
 }));
 
-vi.mock('@/services/analytics/analytics-service', () => ({
-    AnalyticsService: {
-        getSalesMetrics: vi.fn(async () => ({
-            totalRevenue: 0,
-            totalOrders: 0,
-            averageOrderValue: 0,
-            revenueTrend: [],
-            topProducts: [],
-            topCustomers: [],
-        })),
-    },
+vi.mock('@/lib/auth/access-policy', async (original) => ({
+    ...(await original<object>()),
+    hasWorkspaceEntitlement: () => true,
+}));
+
+vi.mock('@/services/sales/sales-dashboard-service', async (original) => ({
+    ...(await original<object>()),
+    resolveFreshSalesDashboardAccess: vi.fn(async () => ({
+        user: {
+            id: 'sales-contract-user',
+            role: 'ADMIN',
+            roles: ['ADMIN'],
+        },
+        resources: 'ALL',
+        canViewNominal: false,
+    })),
 }));
 
 import { getSalesDashboardStats } from '../sales-dashboard';
@@ -91,9 +96,13 @@ describe.skipIf(!db)(
 
             expect(result.success).toBe(true);
             if (!result.success || !result.data) return;
-            expect(result.data.counts.readyWithoutDo).toBe(6);
+            expect(result.data.state).toBe('AVAILABLE');
+            if (result.data.state !== 'AVAILABLE') return;
+            expect(result.data.attention?.counts.readyWithoutDo).toBe(6);
             expect(
-                result.data.attention.readyWithoutDo.map((order) => order.id),
+                result.data.attention?.readyWithoutDo?.items.map(
+                    (order) => order.id,
+                ),
             ).toEqual([
                 'ready-21',
                 'ready-22',

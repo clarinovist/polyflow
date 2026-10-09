@@ -5,6 +5,8 @@ import { hasAnyRole } from '@/lib/auth/roles';
 export type FieldSalesActorScope = {
     actorUserId: string;
     isGlobalViewer: boolean;
+    /** Explicit active-team cohort for manager dashboards. Omitted for global/MY scope. */
+    salesRepIds?: string[];
 };
 
 /**
@@ -39,6 +41,31 @@ export function scopedCustomerWhere(
     scope: FieldSalesActorScope,
 ): Prisma.CustomerWhereInput {
     if (scope.isGlobalViewer) return {};
+
+    if (scope.salesRepIds) {
+        return {
+            OR: [
+                {
+                    salesAssignments: {
+                        some: {
+                            userId: { in: scope.salesRepIds },
+                            unassignedAt: null,
+                        },
+                    },
+                },
+                {
+                    salesOrders: {
+                        some: { salesRepId: { in: scope.salesRepIds } },
+                    },
+                },
+                {
+                    salesVisits: {
+                        some: { userId: { in: scope.salesRepIds } },
+                    },
+                },
+            ],
+        };
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -90,6 +117,9 @@ export function scopedSalesOrderWhere(
     scope: FieldSalesActorScope,
 ): Prisma.SalesOrderWhereInput {
     if (scope.isGlobalViewer) return {};
+    if (scope.salesRepIds) {
+        return { salesRepId: { in: scope.salesRepIds } };
+    }
 
     return {
         OR: [
