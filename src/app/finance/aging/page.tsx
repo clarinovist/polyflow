@@ -297,9 +297,10 @@ const AgingTable = ({
                                         className="h-10 border-b border-border/50 px-4 text-center font-medium"
                                     >
                                         <div className="flex items-center justify-center gap-1">
-                                            <span>Lewat Jatuh Tempo</span>
-                                            <InfoHint label="Info kelompok lewat jatuh tempo">
+                                            <span>Jatuh Tempo &amp; Terlambat</span>
+                                            <InfoHint label="Info kelompok jatuh tempo dan terlambat">
                                                 Rentang hari dihitung sejak tanggal
+                                                jatuh tempo; hari ke-0 berarti tepat
                                                 jatuh tempo.
                                             </InfoHint>
                                         </div>
@@ -324,7 +325,7 @@ const AgingTable = ({
                                         scope="col"
                                         className="h-9 px-4 text-right font-medium"
                                     >
-                                        1-30 Hari
+                                        0-30 Hari
                                     </th>
                                     <th
                                         scope="col"

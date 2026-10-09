@@ -37,7 +37,7 @@ describe('AgingTable', () => {
 
         const table = screen.getByRole('table');
         const overdueGroup = within(table).getByRole('columnheader', {
-            name: /Lewat Jatuh Tempo/,
+            name: /Jatuh Tempo & Terlambat/,
         });
 
         expect(overdueGroup.getAttribute('colspan')).toBe('4');
@@ -47,11 +47,11 @@ describe('AgingTable', () => {
             }),
         ).toBeTruthy();
         expect(
-            within(table).getByRole('columnheader', { name: '1-30 Hari' }),
+            within(table).getByRole('columnheader', { name: '0-30 Hari' }),
         ).toBeTruthy();
         expect(
             within(overdueGroup).getByRole('button', {
-                name: 'Info kelompok lewat jatuh tempo',
+                name: 'Info kelompok jatuh tempo dan terlambat',
             }),
         ).toBeTruthy();
     });
