@@ -15,14 +15,15 @@ export interface SuggestedReorderItem {
 
 export interface PurchasingShiftBoard {
     generatedAt: string;
+    nominalAccess: 'AVAILABLE' | 'RESTRICTED';
     counts: {
         pendingPrs: number;
         draftPos: number;
         awaitingReceiptPos: number;
         partialPos: number;
         overdueApCount: number;
-        overdueApAmount: number;
-        monthlySpend: number;
+        overdueApAmount?: number;
+        monthlySpend?: number;
     };
     attention: {
         agingPrs: Array<{
@@ -57,8 +58,10 @@ export interface PurchasingShiftBoard {
         suggestedReorder: SuggestedReorderItem[];
     };
     performance: {
-        monthlySpend: number;
-        topSupplierName: string | null;
-        topSupplierSpend: number;
+        monthlySpend?: number;
+        previousFullMonthSpend?: number;
+        previousFullMonthChangePercent?: number | null;
+        topSupplierName?: string | null;
+        topSupplierSpend?: number | null;
     };
 }

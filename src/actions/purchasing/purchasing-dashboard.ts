@@ -1,14 +1,16 @@
 'use server';
 
-import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
+import { getMyExplicitFeaturePermissions } from '@/actions/admin/permissions';
 import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
-import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
+import { prisma } from '@/lib/core/prisma';
+import { withTenant } from '@/lib/core/tenant';
 import { safeAction } from '@/lib/errors/errors';
+import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 import { getSuggestedPurchases } from '@/services/inventory/analytics-service';
+import { readPurchasingDashboardNominalMetrics } from '@/services/purchasing/dashboard-metrics-service';
+import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
 import type { SuggestedReorderItem } from './purchasing-types';
 import { PR_AGING_THRESHOLD_DAYS } from './purchasing-types';
-import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 
 export const getPurchasingShiftBoard = withTenant(
     async function getPurchasingShiftBoard() {
@@ -16,7 +18,7 @@ export const getPurchasingShiftBoard = withTenant(
             await requirePurchasingAccess();
 
             const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const featurePermissionsPromise = getMyExplicitFeaturePermissions();
             const overdueApWhere = buildOverduePurchaseInvoiceWhere(
                 prisma,
                 now,
@@ -28,17 +30,13 @@ export const getPurchasingShiftBoard = withTenant(
                 awaitingReceiptPos,
                 partialPos,
                 overdueApCount,
-                overdueApAgg,
-                monthlySpendAgg,
                 agingPrs,
                 draftPosList,
                 awaitingReceiptList,
                 partialPosList,
-                overdueApList,
-                topSuppliers,
                 suggestedReorderRaw,
+                featurePermissions,
             ] = await Promise.all([
-                // Counts
                 prisma.purchaseRequest.count({
                     where: {
                         status: {
@@ -58,27 +56,7 @@ export const getPurchasingShiftBoard = withTenant(
                 prisma.purchaseOrder.count({
                     where: { status: PurchaseOrderStatus.PARTIAL_RECEIVED },
                 }),
-                prisma.purchaseInvoice.count({
-                    where: overdueApWhere,
-                }),
-                prisma.purchaseInvoice.aggregate({
-                    where: overdueApWhere,
-                    _sum: { totalAmount: true, paidAmount: true },
-                }),
-                prisma.purchaseOrder.aggregate({
-                    where: {
-                        createdAt: { gte: startOfMonth },
-                        status: {
-                            notIn: [
-                                PurchaseOrderStatus.CANCELLED,
-                                PurchaseOrderStatus.DRAFT,
-                            ],
-                        },
-                    },
-                    _sum: { totalAmount: true },
-                }),
-
-                // Attention: aging PRs (OPEN|APPROVED older than threshold)
+                prisma.purchaseInvoice.count({ where: overdueApWhere }),
                 prisma.purchaseRequest.findMany({
                     where: {
                         status: {
@@ -134,60 +112,39 @@ export const getPurchasingShiftBoard = withTenant(
                         supplier: { select: { name: true } },
                     },
                 }),
-                prisma.purchaseInvoice.findMany({
-                    where: overdueApWhere,
-                    orderBy: { dueDate: 'asc' },
-                    take: 5,
-                    select: {
-                        id: true,
-                        invoiceNumber: true,
-                        totalAmount: true,
-                        paidAmount: true,
-                        dueDate: true,
-                        purchaseOrder: {
-                            select: { supplier: { select: { name: true } } },
-                        },
-                    },
-                }),
-
-                // Performance strip
-                prisma.purchaseOrder.groupBy({
-                    by: ['supplierId'],
-                    where: {
-                        createdAt: { gte: startOfMonth },
-                        status: {
-                            notIn: [
-                                PurchaseOrderStatus.CANCELLED,
-                                PurchaseOrderStatus.DRAFT,
-                            ],
-                        },
-                    },
-                    _count: { id: true },
-                    _sum: { totalAmount: true },
-                    orderBy: { _count: { id: 'desc' } },
-                    take: 1,
-                }),
-
-                // Suggested reorder from warehouse inventory (service, not action)
                 getSuggestedPurchases(),
+                featurePermissionsPromise,
             ]);
+            const canViewNominal =
+                featurePermissions.success &&
+                featurePermissions.data.includes('feature:view-prices');
 
-            // Resolve top supplier name
-            let topSupplierName: string | null = null;
-            let topSupplierSpend = 0;
-            if (topSuppliers.length > 0) {
-                const supplier = await prisma.supplier.findUnique({
-                    where: { id: topSuppliers[0].supplierId },
-                    select: { name: true },
-                });
-                topSupplierName = supplier?.name ?? null;
-                topSupplierSpend =
-                    topSuppliers[0]._sum.totalAmount?.toNumber() || 0;
-            }
-
-            const overdueApAmount =
-                (Number(overdueApAgg._sum.totalAmount) || 0) -
-                (Number(overdueApAgg._sum.paidAmount) || 0);
+            const nominal = canViewNominal
+                ? await Promise.all([
+                      prisma.purchaseInvoice.aggregate({
+                          where: overdueApWhere,
+                          _sum: { totalAmount: true, paidAmount: true },
+                      }),
+                      prisma.purchaseInvoice.findMany({
+                          where: overdueApWhere,
+                          orderBy: { dueDate: 'asc' },
+                          take: 5,
+                          select: {
+                              id: true,
+                              invoiceNumber: true,
+                              totalAmount: true,
+                              paidAmount: true,
+                              dueDate: true,
+                              purchaseOrder: {
+                                  select: {
+                                      supplier: { select: { name: true } },
+                                  },
+                              },
+                          },
+                      }),
+                      readPurchasingDashboardNominalMetrics(prisma, now),
+                  ])
+                : null;
 
             const agingPrsMapped = agingPrs.map((pr) => ({
                 id: pr.id,
@@ -211,17 +168,31 @@ export const getPurchasingShiftBoard = withTenant(
                     reorderQuantity: v.reorderQuantity?.toNumber() ?? null,
                 }));
 
+            const overdueApAgg = nominal?.[0] ?? null;
+            const overdueApList = nominal?.[1] ?? [];
+            const spendMetrics = nominal?.[2] ?? null;
+            const overdueApAmount = overdueApAgg
+                ? (Number(overdueApAgg._sum.totalAmount) || 0) -
+                  (Number(overdueApAgg._sum.paidAmount) || 0)
+                : null;
+
             return {
                 generatedAt: new Date().toISOString(),
+                nominalAccess: canViewNominal
+                    ? ('AVAILABLE' as const)
+                    : ('RESTRICTED' as const),
                 counts: {
                     pendingPrs,
                     draftPos,
                     awaitingReceiptPos,
                     partialPos,
                     overdueApCount,
-                    overdueApAmount,
-                    monthlySpend:
-                        monthlySpendAgg._sum.totalAmount?.toNumber() || 0,
+                    ...(canViewNominal
+                        ? {
+                              overdueApAmount: overdueApAmount ?? 0,
+                              monthlySpend: spendMetrics?.monthlySpend ?? 0,
+                          }
+                        : {}),
                 },
                 attention: {
                     agingPrs: agingPrsMapped,
@@ -254,12 +225,17 @@ export const getPurchasingShiftBoard = withTenant(
                     })),
                     suggestedReorder,
                 },
-                performance: {
-                    monthlySpend:
-                        monthlySpendAgg._sum.totalAmount?.toNumber() || 0,
-                    topSupplierName,
-                    topSupplierSpend,
-                },
+                performance: spendMetrics
+                    ? {
+                          monthlySpend: spendMetrics.monthlySpend,
+                          previousFullMonthSpend:
+                              spendMetrics.previousFullMonthSpend,
+                          previousFullMonthChangePercent:
+                              spendMetrics.previousFullMonthChangePercent,
+                          topSupplierName: spendMetrics.topSupplierName,
+                          topSupplierSpend: spendMetrics.topSupplierSpend,
+                      }
+                    : {},
             };
         });
     },

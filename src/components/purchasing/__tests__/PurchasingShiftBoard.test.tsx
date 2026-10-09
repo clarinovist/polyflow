@@ -2,11 +2,12 @@
 
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { PurchasingShiftBoardComponent } from '../PurchasingShiftBoard';
 import type { PurchasingShiftBoard } from '@/actions/purchasing/purchasing-types';
+import { PurchasingShiftBoardComponent } from '../PurchasingShiftBoard';
 
 const data: PurchasingShiftBoard = {
     generatedAt: '2026-10-09T08:00:00.000Z',
+    nominalAccess: 'AVAILABLE',
     counts: {
         pendingPrs: 1,
         draftPos: 1,
@@ -18,16 +19,34 @@ const data: PurchasingShiftBoard = {
     },
     attention: {
         agingPrs: [
-            { id: 'pr-1', requestNumber: 'PR-001', daysOld: 8, status: 'APPROVED' },
+            {
+                id: 'pr-1',
+                requestNumber: 'PR-001',
+                daysOld: 8,
+                status: 'APPROVED',
+            },
         ],
         draftPos: [
-            { id: 'po-draft', orderNumber: 'PO-001', supplierName: 'Pemasok A', daysOld: 3 },
+            {
+                id: 'po-draft',
+                orderNumber: 'PO-001',
+                supplierName: 'Pemasok A',
+                daysOld: 3,
+            },
         ],
         awaitingReceipt: [
-            { id: 'po-sent', orderNumber: 'PO-002', supplierName: 'Pemasok B' },
+            {
+                id: 'po-sent',
+                orderNumber: 'PO-002',
+                supplierName: 'Pemasok B',
+            },
         ],
         partialPos: [
-            { id: 'po-partial', orderNumber: 'PO-003', supplierName: 'Pemasok C' },
+            {
+                id: 'po-partial',
+                orderNumber: 'PO-003',
+                supplierName: 'Pemasok C',
+            },
         ],
         overdueAp: [
             {
@@ -42,7 +61,9 @@ const data: PurchasingShiftBoard = {
     },
     performance: {
         monthlySpend: 1_000_000,
-        topSupplierName: 'Pemasok A',
+        previousFullMonthSpend: 800_000,
+        previousFullMonthChangePercent: 25,
+        topSupplierName: 'Pemasok Dengan Nama Sangat Panjang Untuk Uji Tata Letak',
         topSupplierSpend: 500_000,
     },
 };
@@ -63,21 +84,18 @@ describe('PurchasingShiftBoardComponent', () => {
                 .closest('a')
                 ?.getAttribute('href'),
         ).toBe('/purchasing/invoices?overdue=true');
-        expect(screen.getByText('INV-001').closest('a')?.getAttribute('href')).toBe(
-            '/purchasing/invoices?overdue=true&search=INV-001',
-        );
-        expect(screen.getByText('PR-001').closest('a')?.getAttribute('href')).toBe(
-            '/purchasing/requests?status=APPROVED',
-        );
+        expect(
+            screen.getByText('INV-001').closest('a')?.getAttribute('href'),
+        ).toBe('/purchasing/invoices?overdue=true&search=INV-001');
+        expect(
+            screen.getByText('PR-001').closest('a')?.getAttribute('href'),
+        ).toBe('/purchasing/requests?status=APPROVED');
     });
 
-    it('shows zero-count cards without link semantics, action styling, or CTA', () => {
+    it('shows zero operational counts without link semantics', () => {
         const zeroData: PurchasingShiftBoard = {
             ...data,
-            counts: {
-                ...data.counts,
-                pendingPrs: 0,
-            },
+            counts: { ...data.counts, pendingPrs: 0 },
         };
 
         render(<PurchasingShiftBoardComponent data={zeroData} />);
@@ -92,7 +110,7 @@ describe('PurchasingShiftBoardComponent', () => {
         expect(screen.queryByText('Perlu diproses')).not.toBeTruthy();
     });
 
-    it('orders Health, Attention, then Drivers and shows freshness plus definitions', () => {
+    it('orders Health, Attention, then Drivers and shows canonical spend copy', () => {
         render(<PurchasingShiftBoardComponent data={data} />);
 
         const text = document.body.textContent ?? '';
@@ -102,9 +120,78 @@ describe('PurchasingShiftBoardComponent', () => {
         expect(
             screen.getByLabelText(/PR OPEN atau APPROVED.*Unit: Purchase request/),
         ).toBeTruthy();
+        expect(
+            screen.getByText(/MTD saat ini dibandingkan dengan bulan penuh sebelumnya/),
+        ).toBeTruthy();
+        expect(screen.getAllByText(/\+25% vs bulan penuh sebelumnya/)).toHaveLength(
+            2,
+        );
+        expect(
+            screen.getByText(
+                'Pemasok Dengan Nama Sangat Panjang Untuk Uji Tata Letak',
+            ),
+        ).toBeTruthy();
     });
 
-    it('renders a truthful unavailable state instead of zero metrics', () => {
+    it('shows zero current spend as a valid value but never fabricates a prior-month delta', () => {
+        const zeroData: PurchasingShiftBoard = {
+            ...data,
+            counts: { ...data.counts, monthlySpend: 0 },
+            performance: {
+                ...data.performance,
+                monthlySpend: 0,
+                previousFullMonthSpend: 0,
+                previousFullMonthChangePercent: null,
+                topSupplierName: null,
+                topSupplierSpend: null,
+            },
+        };
+
+        render(<PurchasingShiftBoardComponent data={zeroData} />);
+
+        expect(screen.getAllByText(/Rp\s*0/).length).toBeGreaterThan(0);
+        expect(
+            screen.getAllByText(
+                /Tidak dapat dibandingkan: belanja bulan penuh sebelumnya nol/,
+            ),
+        ).toHaveLength(2);
+        expect(screen.queryByText(/0% vs bulan penuh sebelumnya/)).toBeNull();
+    });
+
+    it('renders explicit restricted nominal states without leaking values or AP details', () => {
+        const restricted: PurchasingShiftBoard = {
+            ...data,
+            nominalAccess: 'RESTRICTED',
+            counts: {
+                pendingPrs: data.counts.pendingPrs,
+                draftPos: data.counts.draftPos,
+                awaitingReceiptPos: data.counts.awaitingReceiptPos,
+                partialPos: data.counts.partialPos,
+                overdueApCount: data.counts.overdueApCount,
+            },
+            attention: { ...data.attention, overdueAp: [] },
+            performance: {},
+        };
+
+        render(<PurchasingShiftBoardComponent data={restricted} />);
+
+        expect(screen.getByText(/Nominal dibatasi; jumlah invoice/)).toBeTruthy();
+        expect(screen.getByText('Penggerak nominal dibatasi')).toBeTruthy();
+        expect(screen.getByText(/1 invoice overdue terdeteksi/)).toBeTruthy();
+        expect(screen.queryByText('INV-001')).toBeNull();
+        expect(screen.queryByText(/250\.000/)).toBeNull();
+        expect(screen.queryByText(/1\.000\.000/)).toBeNull();
+        expect(
+            screen
+                .getByText('Hutang overdue')
+                .closest('a')
+                ?.getAttribute('href'),
+        ).toBe('/purchasing/invoices?overdue=true');
+        expect(screen.getByText('PR-001')).toBeTruthy();
+        expect(screen.getByText('PO-002')).toBeTruthy();
+    });
+
+    it('renders a truthful whole-dashboard unavailable state instead of zero metrics', () => {
         render(<PurchasingShiftBoardComponent data={null} />);
 
         expect(screen.getByText('Dashboard pembelian tidak tersedia')).toBeTruthy();
