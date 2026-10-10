@@ -32,25 +32,23 @@ type RoutePlan = {
 };
 
 type RouteTodaySectionProps = {
+    businessDate: string;
     routePlan?: RoutePlan | null;
     activeCustomers: CustomerSummary[];
 };
 
-function getStorageKey(): string {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `today_journey_plan_${yyyy}-${mm}-${dd}`;
+function getStorageKey(businessDate: string): string {
+    return `today_journey_plan_${businessDate}`;
 }
 
 export function RouteTodaySection({
+    businessDate,
     routePlan,
     activeCustomers,
 }: RouteTodaySectionProps) {
     const [localPlan, setLocalPlan] = useState<RouteItem[]>(() => {
         if (typeof window !== 'undefined') {
-            const key = getStorageKey();
+            const key = getStorageKey(businessDate);
             const saved = localStorage.getItem(key);
             if (saved) return JSON.parse(saved) as RouteItem[];
         }
@@ -59,7 +57,7 @@ export function RouteTodaySection({
 
     useEffect(() => {
         const handleStorageChange = () => {
-            const key = getStorageKey();
+            const key = getStorageKey(businessDate);
             const saved = localStorage.getItem(key);
             if (saved) {
                 const parsed = JSON.parse(saved) as RouteItem[];
@@ -79,7 +77,7 @@ export function RouteTodaySection({
             window.removeEventListener('storage', handleStorageChange);
             clearInterval(interval);
         };
-    }, []);
+    }, [businessDate]);
 
     // Server route takes priority over local
     const journeyPlan: RouteItem[] = useMemo(() => {

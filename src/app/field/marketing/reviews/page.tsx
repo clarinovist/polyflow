@@ -6,6 +6,7 @@ import {
     MobileSectionHeader,
 } from '@/components/mobile';
 import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
+import { SectionUnavailable } from '../SectionUnavailable';
 
 export default async function MarketingReviewsPage() {
     await requireMobilePortalPageAccess('marketing-supervisor');
@@ -16,6 +17,8 @@ export default async function MarketingReviewsPage() {
         );
     }
     const overview = response.data;
+    const reviews = overview.sections.reviews;
+    const noFollowUp = overview.sections.customersWithoutFollowUp;
 
     return (
         <div className="min-w-0 space-y-6">
@@ -33,18 +36,21 @@ export default async function MarketingReviewsPage() {
                     <h2 id="pending-review-heading" className="font-semibold">
                         Prospek & kunjungan
                     </h2>
-                    <span className="text-xs text-muted-foreground">
-                        {overview.reviews.returned} dari{' '}
-                        {overview.reviews.total}
-                    </span>
+                    {reviews.status === 'AVAILABLE' && (
+                        <span className="text-xs text-muted-foreground">
+                            {reviews.data.returned} dari {reviews.data.total}
+                        </span>
+                    )}
                 </div>
-                {overview.reviews.items.length === 0 ? (
+                {reviews.status !== 'AVAILABLE' ? (
+                    <SectionUnavailable label="Review prospek dan kunjungan" />
+                ) : reviews.data.items.length === 0 ? (
                     <MobileEmptyState
                         title="Tidak ada review tertunda"
                         className="rounded-xl border bg-card"
                     />
                 ) : (
-                    overview.reviews.items.map((item) => (
+                    reviews.data.items.map((item) => (
                         <article
                             key={`${item.kind}:${item.id}`}
                             className="rounded-xl border bg-card p-4 [overflow-wrap:anywhere]"
@@ -72,18 +78,22 @@ export default async function MarketingReviewsPage() {
                     <h2 id="follow-up-heading" className="font-semibold">
                         Customer tanpa follow-up
                     </h2>
-                    <span className="text-xs text-muted-foreground">
-                        {overview.customersWithoutFollowUp.returned} dari{' '}
-                        {overview.customersWithoutFollowUp.total}
-                    </span>
+                    {noFollowUp.status === 'AVAILABLE' && (
+                        <span className="text-xs text-muted-foreground">
+                            {noFollowUp.data.returned} dari{' '}
+                            {noFollowUp.data.total}
+                        </span>
+                    )}
                 </div>
-                {overview.customersWithoutFollowUp.items.length === 0 ? (
+                {noFollowUp.status !== 'AVAILABLE' ? (
+                    <SectionUnavailable label="Customer tanpa follow-up" />
+                ) : noFollowUp.data.items.length === 0 ? (
                     <MobileEmptyState
                         title="Semua customer punya follow-up"
                         className="rounded-xl border bg-card"
                     />
                 ) : (
-                    overview.customersWithoutFollowUp.items.map((item) => (
+                    noFollowUp.data.items.map((item) => (
                         <article
                             key={item.id}
                             className="rounded-xl border bg-card p-4 [overflow-wrap:anywhere]"

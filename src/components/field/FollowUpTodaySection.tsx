@@ -9,25 +9,13 @@ type FollowUpItem = {
     orderNumber: string;
     customerName: string;
     nextFollowUpDate: string;
+    displayDate: string;
     isOverdue?: boolean;
 };
 
 type FollowUpTodaySectionProps = {
     items: FollowUpItem[];
 };
-
-function fmtDate(iso: string): string {
-    try {
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return '-';
-        return d.toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: 'short',
-        });
-    } catch {
-        return '-';
-    }
-}
 
 export function FollowUpTodaySection({ items }: FollowUpTodaySectionProps) {
     if (!items || items.length === 0) return null;
@@ -53,7 +41,7 @@ export function FollowUpTodaySection({ items }: FollowUpTodaySectionProps) {
                 </div>
                 <NextLink
                     href="/field/sales/orders?followUpDue=1"
-                    className="text-[10px] font-semibold text-primary hover:underline"
+                    className="min-h-11 inline-flex items-center text-[10px] font-semibold text-primary hover:underline"
                 >
                     Lihat semua
                 </NextLink>
@@ -71,8 +59,7 @@ export function FollowUpTodaySection({ items }: FollowUpTodaySectionProps) {
                                 {item.customerName}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
-                                {item.orderNumber} ·{' '}
-                                {fmtDate(item.nextFollowUpDate)}
+                                {item.orderNumber} · {item.displayDate}
                             </p>
                         </div>
                         <Badge

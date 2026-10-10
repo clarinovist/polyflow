@@ -8,6 +8,7 @@ import {
 } from '@/components/mobile';
 import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 import { formatRupiah } from '@/lib/utils/utils';
+import { SectionUnavailable } from './SectionUnavailable';
 
 const taskLabels = {
     PIPELINE: 'Pipeline',
@@ -23,6 +24,21 @@ export default async function MarketingMobilePage() {
         return <MobileReadError title="Ringkasan marketing belum tersedia" />;
     }
     const overview = response.data;
+    const { sections } = overview;
+    const pipelineCount =
+        sections.pipelineExceptions.status === 'AVAILABLE'
+            ? sections.pipelineExceptions.data.total
+            : null;
+    const reviewCount =
+        sections.reviews.status === 'AVAILABLE'
+            ? sections.reviews.data.total
+            : null;
+    const noFollowUpCount =
+        sections.customersWithoutFollowUp.status === 'AVAILABLE'
+            ? sections.customersWithoutFollowUp.data.total
+            : null;
+    const receivables = sections.receivables;
+    const tasks = sections.tasks;
 
     return (
         <div className="min-w-0 space-y-6">
@@ -33,60 +49,67 @@ export default async function MarketingMobilePage() {
             />
             <MobileDataFreshness generatedAt={overview.generatedAt} />
             <div className="grid grid-cols-2 gap-3">
-                <MobileInsightCard
-                    insight={{
-                        key: 'pipeline-exception',
-                        label: 'Pipeline Perlu Perhatian',
-                        value: overview.highlights.pipelineExceptionCount,
-                        severity: overview.highlights.pipelineExceptionCount
-                            ? 'WARNING'
-                            : 'SUCCESS',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'review-queue',
-                        label: 'Menunggu Review',
-                        value: overview.highlights.pendingReviewCount,
-                        severity: overview.highlights.pendingReviewCount
-                            ? 'WARNING'
-                            : 'SUCCESS',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'missing-follow-up',
-                        label: 'Tanpa Follow-up',
-                        value: overview.highlights
-                            .customersWithoutFollowUpCount,
-                        severity: overview.highlights
-                            .customersWithoutFollowUpCount
-                            ? 'WARNING'
-                            : 'SUCCESS',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'overdue-receivables',
-                        label: 'Piutang Overdue',
-                        value: overview.highlights.overdueReceivableCount,
-                        severity: overview.highlights.overdueReceivableCount
-                            ? 'CRITICAL'
-                            : 'SUCCESS',
-                    }}
-                />
+                {pipelineCount == null ? (
+                    <SectionUnavailable label="Pipeline perlu perhatian" />
+                ) : (
+                    <MobileInsightCard
+                        insight={{
+                            key: 'pipeline-exception',
+                            label: 'Pipeline Perlu Perhatian',
+                            value: pipelineCount,
+                            severity: pipelineCount ? 'WARNING' : 'SUCCESS',
+                        }}
+                    />
+                )}
+                {reviewCount == null ? (
+                    <SectionUnavailable label="Antrean review" />
+                ) : (
+                    <MobileInsightCard
+                        insight={{
+                            key: 'review-queue',
+                            label: 'Menunggu Review',
+                            value: reviewCount,
+                            severity: reviewCount ? 'WARNING' : 'SUCCESS',
+                        }}
+                    />
+                )}
+                {noFollowUpCount == null ? (
+                    <SectionUnavailable label="Customer tanpa follow-up" />
+                ) : (
+                    <MobileInsightCard
+                        insight={{
+                            key: 'missing-follow-up',
+                            label: 'Tanpa Follow-up',
+                            value: noFollowUpCount,
+                            severity: noFollowUpCount ? 'WARNING' : 'SUCCESS',
+                        }}
+                    />
+                )}
+                {receivables.status === 'AVAILABLE' ? (
+                    <MobileInsightCard
+                        insight={{
+                            key: 'overdue-receivables',
+                            label: 'Piutang Overdue',
+                            value: receivables.data.overdueCount,
+                            severity: receivables.data.overdueCount
+                                ? 'CRITICAL'
+                                : 'SUCCESS',
+                        }}
+                    />
+                ) : (
+                    <SectionUnavailable label="Piutang overdue" />
+                )}
             </div>
 
-            {'overdueReceivableAmount' in overview.highlights && (
-                <p className="rounded-xl border bg-card p-4 text-sm">
-                    Total sisa piutang overdue:{' '}
-                    <strong>
-                        {formatRupiah(
-                            overview.highlights.overdueReceivableAmount,
-                        )}
-                    </strong>
-                </p>
-            )}
+            {receivables.status === 'AVAILABLE' &&
+                'overdueAmount' in receivables.data && (
+                    <p className="rounded-xl border bg-card p-4 text-sm">
+                        Total sisa piutang overdue:{' '}
+                        <strong>
+                            {formatRupiah(receivables.data.overdueAmount)}
+                        </strong>
+                    </p>
+                )}
 
             <section
                 className="space-y-3"
@@ -96,11 +119,15 @@ export default async function MarketingMobilePage() {
                     <h2 id="marketing-task-heading" className="font-semibold">
                         Antrean awal
                     </h2>
-                    <span className="text-xs text-muted-foreground">
-                        {overview.tasks.returned} dari {overview.tasks.total}
-                    </span>
+                    {tasks.status === 'AVAILABLE' && (
+                        <span className="text-xs text-muted-foreground">
+                            {tasks.data.returned} dari {tasks.data.total}
+                        </span>
+                    )}
                 </div>
-                {overview.tasks.items.length === 0 ? (
+                {tasks.status !== 'AVAILABLE' ? (
+                    <SectionUnavailable label="Antrean awal" />
+                ) : tasks.data.items.length === 0 ? (
                     <MobileEmptyState
                         title="Tidak ada antrean prioritas"
                         description="Snapshot tim saat ini tidak memiliki exception yang perlu ditinjau."
@@ -108,7 +135,7 @@ export default async function MarketingMobilePage() {
                     />
                 ) : (
                     <div className="space-y-2">
-                        {overview.tasks.items.map((task) => (
+                        {tasks.data.items.map((task) => (
                             <article
                                 key={`${task.kind}:${task.id}`}
                                 className="min-w-0 rounded-xl border bg-card p-4 [overflow-wrap:anywhere]"

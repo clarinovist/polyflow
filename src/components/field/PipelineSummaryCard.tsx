@@ -8,16 +8,16 @@ type PipelineItem = {
     id: string;
     orderNumber: string;
     customerName: string;
-    totalAmount: number | null;
+    totalAmount?: number | null;
     status: string;
     orderDate: string;
 };
 
 type PipelineSummaryCardProps = {
     activeCount: number;
-    pipelineAmount: number;
+    pipelineAmount?: number;
     openQuotationCount: number;
-    openQuotationAmount: number;
+    openQuotationAmount?: number;
     followUpCount: number;
     topItems: PipelineItem[];
 };
@@ -42,7 +42,7 @@ export function PipelineSummaryCard({
                 </div>
                 <NextLink
                     href="/field/sales/orders"
-                    className="text-[10px] font-semibold text-primary hover:underline"
+                    className="min-h-11 inline-flex items-center text-[10px] font-semibold text-primary hover:underline"
                 >
                     Lihat semua
                 </NextLink>
@@ -53,17 +53,18 @@ export function PipelineSummaryCard({
                 {openQuotationCount > 0 && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/30 text-xs font-semibold text-blue-700 dark:text-blue-400">
                         {openQuotationCount} penawaran
-                        {openQuotationAmount > 0 && (
-                            <span className="text-[10px] font-normal opacity-70">
-                                {formatRupiah(openQuotationAmount)}
-                            </span>
-                        )}
+                        {openQuotationAmount !== undefined &&
+                            openQuotationAmount > 0 && (
+                                <span className="text-[10px] font-normal opacity-70">
+                                    {formatRupiah(openQuotationAmount)}
+                                </span>
+                            )}
                     </span>
                 )}
                 {activeCount > 0 && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/30 text-xs font-semibold text-amber-700 dark:text-amber-400">
                         {activeCount} aktif
-                        {pipelineAmount > 0 && (
+                        {pipelineAmount !== undefined && pipelineAmount > 0 && (
                             <span className="text-[10px] font-normal opacity-70">
                                 {formatRupiah(pipelineAmount)}
                             </span>
@@ -102,11 +103,13 @@ export function PipelineSummaryCard({
                                 </p>
                             </div>
                             <div className="text-right shrink-0">
-                                <p className="text-xs font-semibold text-primary">
-                                    {item.totalAmount
-                                        ? formatRupiah(item.totalAmount)
-                                        : '-'}
-                                </p>
+                                {'totalAmount' in item && (
+                                    <p className="text-xs font-semibold text-primary">
+                                        {item.totalAmount != null
+                                            ? formatRupiah(item.totalAmount)
+                                            : '-'}
+                                    </p>
+                                )}
                                 <p className="text-[10px] text-muted-foreground">
                                     {item.status}
                                 </p>

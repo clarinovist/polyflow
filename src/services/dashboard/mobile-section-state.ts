@@ -26,6 +26,10 @@ export function unavailableSection<T>(): MobileSection<T> {
     return { status: 'UNAVAILABLE', data: null };
 }
 
+export function hiddenSection<T>(): MobileSection<T> {
+    return { status: 'HIDDEN', data: null };
+}
+
 export function notConfiguredSection<T>(): MobileSection<T> {
     return { status: 'NOT_CONFIGURED', data: null };
 }

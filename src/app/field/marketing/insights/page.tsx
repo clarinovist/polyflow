@@ -7,6 +7,7 @@ import {
 } from '@/components/mobile';
 import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 import { formatRupiah } from '@/lib/utils/utils';
+import { SectionUnavailable } from '../SectionUnavailable';
 
 const reasonLabels = {
     COMMERCIAL_REVIEW: 'Review komersial tertunda',
@@ -21,6 +22,8 @@ export default async function MarketingInsightsPage() {
         return <MobileReadError title="Insight marketing belum tersedia" />;
     }
     const overview = response.data;
+    const receivables = overview.sections.receivables;
+    const pipeline = overview.sections.pipelineExceptions;
 
     return (
         <div className="min-w-0 space-y-6">
@@ -30,36 +33,43 @@ export default async function MarketingInsightsPage() {
                 className="px-0"
             />
             <MobileDataFreshness generatedAt={overview.generatedAt} />
-            <div className="rounded-xl border bg-card p-4">
-                <p className="text-sm text-muted-foreground">Piutang overdue</p>
-                <p className="text-2xl font-bold tabular-nums">
-                    {overview.highlights.overdueReceivableCount}
-                </p>
-                {'overdueReceivableAmount' in overview.highlights && (
-                    <p className="text-sm font-medium">
-                        {formatRupiah(
-                            overview.highlights.overdueReceivableAmount,
-                        )}
+            {receivables.status === 'AVAILABLE' ? (
+                <div className="rounded-xl border bg-card p-4">
+                    <p className="text-sm text-muted-foreground">
+                        Piutang overdue
                     </p>
-                )}
-            </div>
+                    <p className="text-2xl font-bold tabular-nums">
+                        {receivables.data.overdueCount}
+                    </p>
+                    {'overdueAmount' in receivables.data && (
+                        <p className="text-sm font-medium">
+                            {formatRupiah(receivables.data.overdueAmount)}
+                        </p>
+                    )}
+                </div>
+            ) : (
+                <SectionUnavailable label="Piutang overdue" />
+            )}
             <section className="space-y-3" aria-labelledby="pipeline-heading">
                 <div className="flex items-baseline justify-between gap-3">
                     <h2 id="pipeline-heading" className="font-semibold">
                         Quotation perlu perhatian
                     </h2>
-                    <span className="text-xs text-muted-foreground">
-                        {overview.pipelineExceptions.returned} dari{' '}
-                        {overview.pipelineExceptions.total}
-                    </span>
+                    {pipeline.status === 'AVAILABLE' && (
+                        <span className="text-xs text-muted-foreground">
+                            {pipeline.data.returned} dari {pipeline.data.total}
+                        </span>
+                    )}
                 </div>
-                {overview.pipelineExceptions.items.length === 0 ? (
+                {pipeline.status !== 'AVAILABLE' ? (
+                    <SectionUnavailable label="Exception pipeline" />
+                ) : pipeline.data.items.length === 0 ? (
                     <MobileEmptyState
                         title="Tidak ada exception pipeline"
                         className="rounded-xl border bg-card"
                     />
                 ) : (
-                    overview.pipelineExceptions.items.map((item) => (
+                    pipeline.data.items.map((item) => (
                         <article
                             key={item.id}
                             className="rounded-xl border bg-card p-4 [overflow-wrap:anywhere]"

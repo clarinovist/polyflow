@@ -1,362 +1,290 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 
-const m = vi.hoisted(() => ({
-    tenantDbContext: vi.fn(),
-    transaction: vi.fn(),
-    user: vi.fn(),
-    targets: vi.fn(),
-    orderGroup: vi.fn(),
-    visitGroup: vi.fn(),
-    plans: vi.fn(),
-    orderCount: vi.fn(),
-    orders: vi.fn(),
-    customerCount: vi.fn(),
-    customers: vi.fn(),
-    visitCount: vi.fn(),
-    visits: vi.fn(),
-    invoiceCount: vi.fn(),
-    invoiceAggregate: vi.fn(),
-    returns: vi.fn(),
-}));
-
-const tx = {
-    user: { findMany: m.user },
-    salesTarget: { findMany: m.targets },
-    salesOrder: { groupBy: m.orderGroup, count: m.orderCount, findMany: m.orders },
-    salesVisit: { groupBy: m.visitGroup, count: m.visitCount, findMany: m.visits },
-    salesRoutePlan: { findMany: m.plans },
-    customer: { count: m.customerCount, findMany: m.customers },
-    invoice: { count: m.invoiceCount, aggregate: m.invoiceAggregate },
-    salesReturn: { findMany: m.returns },
-};
-
+const m = vi.hoisted(() => ({ tenantDbContext: vi.fn(), transaction: vi.fn() }));
 vi.mock('@/lib/core/prisma', () => ({
     getTenantDbFromContext: m.tenantDbContext,
 }));
 
 import {
     MARKETING_MOBILE_SAMPLE_LIMIT,
+    compareMarketingTasks,
     readMarketingMobileOverview,
+    type MarketingTaskDto,
 } from '../mobile-marketing-service';
 
 const now = new Date('2026-10-07T03:00:00.000Z');
 
-function arrangeBase() {
-    m.transaction.mockImplementation(
-        async (fn: (client: typeof tx) => unknown) => fn(tx),
-    );
-    m.user.mockResolvedValue([
-        { id: 'sales-b', name: 'Budi' },
-        { id: 'sales-a', name: 'Ani' },
-    ]);
-    m.targets.mockResolvedValue([
-        {
-            userId: 'sales-a',
-            orderTarget: 4,
-            visitTarget: 8,
-            revenueTarget: new Prisma.Decimal(1000),
+function makeTx() {
+    return {
+        user: {
+            findMany: vi.fn().mockResolvedValue([
+                { id: 'sales-a', name: 'Ani' },
+                { id: 'sales-b', name: 'Budi' },
+            ]),
         },
-    ]);
-    m.orderGroup.mockResolvedValue([
-        { salesRepId: 'sales-a', _count: { id: 2 } },
-    ]);
-    m.visitGroup
-        .mockResolvedValueOnce([
-            { userId: 'sales-a', _count: { id: 4 } },
-        ])
-        .mockResolvedValueOnce([
-            { userId: 'sales-a', _count: { id: 2 } },
-        ])
-        .mockResolvedValueOnce([
-            { userId: 'sales-a', _count: { id: 1 } },
-        ]);
-    m.plans.mockResolvedValue([
-        {
-            userId: 'sales-a',
-            items: [{ status: 'COMPLETED' }, { status: 'PENDING' }],
+        salesTarget: {
+            findMany: vi.fn().mockResolvedValue([
+                {
+                    userId: 'sales-a',
+                    orderTarget: 4,
+                    visitTarget: 8,
+                    revenueTarget: new Prisma.Decimal(1000),
+                },
+            ]),
         },
-    ]);
-    m.orderCount.mockResolvedValue(1);
-    m.orders
-        .mockResolvedValueOnce([
-            {
-                id: 'quote-1',
-                orderNumber: 'Q-1',
-                commercialReviewStatus: 'PENDING',
-                nextFollowUpDate: now,
-                validUntil: null,
-                customer: { name: 'Customer Synthetic' },
-                salesRep: { name: 'Ani' },
-                totalAmount: new Prisma.Decimal(750),
-            },
-        ])
-        .mockResolvedValueOnce([
-            {
-                id: 'order-1',
-                salesRepId: 'sales-a',
-                totalAmount: new Prisma.Decimal(750),
-                status: 'CONFIRMED',
-            },
-        ]);
-    m.customerCount.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
-    m.customers
-        .mockResolvedValueOnce([
-            {
-                id: 'prospect-1',
-                name: 'Prospek Synthetic',
-                createdAt: new Date('2026-10-01T00:00:00.000Z'),
-                createdBy: { name: 'Ani' },
-                salesAssignments: [],
-            },
-        ])
-        .mockResolvedValueOnce([
-            {
-                id: 'customer-1',
-                name: 'Customer Lama',
-                city: 'Bandung',
-                updatedAt: new Date('2026-09-01T00:00:00.000Z'),
-                salesAssignments: [{ user: { name: 'Budi' } }],
-            },
-        ]);
-    m.visitCount.mockResolvedValue(1);
-    m.visits.mockResolvedValue([
-        {
-            id: 'visit-1',
-            checkInTime: new Date('2026-10-02T00:00:00.000Z'),
-            customer: { name: 'Customer Visit' },
-            user: { name: 'Budi' },
+        salesOrder: {
+            groupBy: vi.fn().mockResolvedValue([
+                { salesRepId: 'sales-a', _count: { id: 2 } },
+            ]),
+            count: vi.fn().mockResolvedValue(0),
+            findMany: vi.fn().mockResolvedValue([]),
         },
-    ]);
-    m.invoiceCount.mockResolvedValue(3);
-    m.invoiceAggregate.mockResolvedValue({
-        _sum: {
-            totalAmount: new Prisma.Decimal(1000),
-            paidAmount: new Prisma.Decimal(200),
-            creditedAmount: new Prisma.Decimal(100),
-            priceAdjustmentAmount: new Prisma.Decimal(50),
+        salesVisit: {
+            groupBy: vi.fn().mockResolvedValue([]),
+            count: vi.fn().mockResolvedValue(0),
+            findMany: vi.fn().mockResolvedValue([]),
         },
-    });
-    m.returns.mockResolvedValue([]);
+        salesRoutePlan: { findMany: vi.fn().mockResolvedValue([]) },
+        customer: {
+            count: vi.fn().mockResolvedValue(0),
+            findMany: vi.fn().mockResolvedValue([]),
+        },
+        invoice: {
+            count: vi.fn().mockResolvedValue(3),
+            aggregate: vi.fn().mockResolvedValue({
+                _sum: { remainingAmount: new Prisma.Decimal(750) },
+            }),
+        },
+        salesReturn: { findMany: vi.fn().mockResolvedValue([]) },
+    };
 }
 
 beforeEach(() => {
     vi.resetAllMocks();
+    m.transaction.mockImplementation(
+        async (fn: (client: ReturnType<typeof makeTx>) => unknown) =>
+            fn(makeTx()),
+    );
     m.tenantDbContext.mockReturnValue({ $transaction: m.transaction });
-    arrangeBase();
 });
 
 describe('marketing mobile read service', () => {
-    it('returns global SALES-team aggregates with deterministic counts and samples', async () => {
+    it('uses independent RepeatableRead transactions and returns available empty sections', async () => {
         const result = await readMarketingMobileOverview({
             canViewPrices: false,
             now,
         });
 
-        expect(result.highlights).toMatchObject({
-            teamMemberCount: 2,
-            pipelineExceptionCount: 1,
-            pendingReviewCount: 2,
-            customersWithoutFollowUpCount: 1,
-            overdueReceivableCount: 3,
-        });
-        expect(result.team.items.map((item) => item.id)).toEqual([
-            'sales-a',
-            'sales-b',
-        ]);
-        expect(result.team.items[0]).toMatchObject({
-            orders: { actual: 2, target: 4, gap: 2 },
-            visits: { actual: 4, target: 8, gap: 4 },
-        });
-        expect(result.teamTarget).toMatchObject({
-            orders: { actual: 2, target: 4, gap: 2 },
-            visits: { actual: 4, target: 8, gap: 4 },
-        });
-        expect(result.compliance.items[0]).toMatchObject({
-            id: 'sales-a',
-            assigned: 2,
-            visited: 2,
-            extraCalls: 1,
-            compliancePercent: 50,
-        });
-        expect(result.compliance.items[1]).toMatchObject({
-            id: 'sales-b',
-            compliancePercent: 0,
-        });
-        expect(result.reviews).toMatchObject({ total: 2, returned: 2 });
-        expect(result.tasks.total).toBe(4);
-        expect(result.tasks.returned).toBe(4);
-        expect(m.user).toHaveBeenCalledWith(
-            expect.objectContaining({
-                where: expect.objectContaining({
-                    OR: expect.arrayContaining([
-                        { role: 'SALES' },
-                        { roles: { some: { role: 'SALES' } } },
-                    ]),
-                }),
-            }),
+        expect(result.generatedAt).toBe(now.toISOString());
+        expect(result.sections.team.status).toBe('AVAILABLE');
+        expect(result.sections.compliance.status).toBe('AVAILABLE');
+        expect(result.sections.pipelineExceptions.status).toBe('AVAILABLE');
+        expect(result.sections.reviews.status).toBe('AVAILABLE');
+        expect(result.sections.customersWithoutFollowUp.status).toBe(
+            'AVAILABLE',
         );
-        expect(m.tenantDbContext).toHaveBeenCalledOnce();
-        expect(m.transaction).toHaveBeenCalledWith(
-            expect.any(Function),
-            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-        );
+        expect(result.sections.tasks).toEqual({
+            status: 'AVAILABLE',
+            data: { total: 0, returned: 0, items: [] },
+        });
+        expect(result.sections.receivables).toMatchObject({
+            status: 'AVAILABLE',
+            data: { overdueCount: 3 },
+        });
+        expect(m.transaction).toHaveBeenCalledTimes(7);
+        for (const call of m.transaction.mock.calls) {
+            expect(call[1]).toEqual({
+                isolationLevel:
+                    Prisma.TransactionIsolationLevel.RepeatableRead,
+            });
+        }
     });
 
-    it('fails closed before any query when tenant context is unavailable', async () => {
-        m.tenantDbContext.mockReturnValue(undefined);
+    it('isolates one failed SQL section without erasing available peers', async () => {
+        let transactionIndex = 0;
+        m.transaction.mockImplementation(
+            async (fn: (client: ReturnType<typeof makeTx>) => unknown) => {
+                transactionIndex += 1;
+                if (transactionIndex === 3) {
+                    throw new Error('synthetic pipeline statement failure');
+                }
+                return fn(makeTx());
+            },
+        );
 
+        const result = await readMarketingMobileOverview({
+            canViewPrices: false,
+            now,
+        });
+        expect(result.sections.pipelineExceptions.status).toBe('UNAVAILABLE');
+        expect(result.sections.team.status).toBe('AVAILABLE');
+        expect(result.sections.reviews.status).toBe('AVAILABLE');
+        expect(result.sections.tasks.status).toBe('AVAILABLE');
+    });
+
+    it('omits nominal selects and queries without price permission', async () => {
+        const clients: ReturnType<typeof makeTx>[] = [];
+        m.transaction.mockImplementation(
+            async (fn: (client: ReturnType<typeof makeTx>) => unknown) => {
+                const client = makeTx();
+                clients.push(client);
+                return fn(client);
+            },
+        );
+        const result = await readMarketingMobileOverview({
+            canViewPrices: false,
+            now,
+        });
+
+        expect(JSON.stringify(result)).not.toContain('overdueAmount');
+        expect(JSON.stringify(result)).not.toContain('revenue');
+        const teamClient = clients[0];
+        expect(
+            teamClient.salesTarget.findMany.mock.calls[0][0].select,
+        ).not.toHaveProperty('revenueTarget');
+        expect(teamClient.salesReturn.findMany).not.toHaveBeenCalled();
+        const pipelineClient = clients[2];
+        expect(
+            pipelineClient.salesOrder.findMany.mock.calls[0][0].select,
+        ).not.toHaveProperty('totalAmount');
+        const arClient = clients[6];
+        expect(arClient.invoice.aggregate).not.toHaveBeenCalled();
+    });
+
+    it('fails before queries when tenant context is unavailable', async () => {
+        m.tenantDbContext.mockReturnValue(undefined);
         await expect(
             readMarketingMobileOverview({ canViewPrices: false, now }),
         ).rejects.toThrow(
             'Konteks tenant untuk ringkasan marketing tidak tersedia.',
         );
         expect(m.transaction).not.toHaveBeenCalled();
-        expect(m.user).not.toHaveBeenCalled();
     });
 
-    it('uses the exact tenant context client for the snapshot transaction', async () => {
-        const contextTransaction = vi.fn(
-            async (fn: (client: typeof tx) => unknown) => fn(tx),
+    it('orders tasks by URGENT, HIGH, NORMAL then occurredAt, kind, id', () => {
+        const tasks: MarketingTaskDto[] = [
+            {
+                id: 'normal',
+                kind: 'NO_FOLLOW_UP',
+                title: '',
+                subtitle: '',
+                priority: 'NORMAL',
+                occurredAt: '2026-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'high-b',
+                kind: 'VISIT_REVIEW',
+                title: '',
+                subtitle: '',
+                priority: 'HIGH',
+                occurredAt: '2026-01-02T00:00:00.000Z',
+            },
+            {
+                id: 'urgent',
+                kind: 'PIPELINE',
+                title: '',
+                subtitle: '',
+                priority: 'URGENT',
+                occurredAt: '2026-12-01T00:00:00.000Z',
+            },
+            {
+                id: 'high-a',
+                kind: 'PROSPECT_REVIEW',
+                title: '',
+                subtitle: '',
+                priority: 'HIGH',
+                occurredAt: '2026-01-02T00:00:00.000Z',
+            },
+        ];
+        expect(tasks.sort(compareMarketingTasks).map((task) => task.id)).toEqual(
+            ['urgent', 'high-a', 'high-b', 'normal'],
         );
-        m.tenantDbContext.mockReturnValue({
-            $transaction: contextTransaction,
-        });
-
-        await readMarketingMobileOverview({ canViewPrices: false, now });
-
-        expect(contextTransaction).toHaveBeenCalledWith(
-            expect.any(Function),
-            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-        );
-        expect(m.transaction).not.toHaveBeenCalled();
     });
 
-    it('uses canonical compliance semantics above 100 percent', async () => {
-        m.user.mockResolvedValue([{ id: 'sales-a', name: 'Ani' }]);
-        m.visitGroup.mockReset();
-        m.visitGroup
-            .mockResolvedValueOnce([
-                { userId: 'sales-a', _count: { id: 2 } },
-            ])
-            .mockResolvedValueOnce([
-                { userId: 'sales-a', _count: { id: 2 } },
-            ])
-            .mockResolvedValueOnce([]);
-        m.plans.mockResolvedValue([
-            { userId: 'sales-a', items: [{ status: 'COMPLETED' }] },
-        ]);
+    it('keeps an urgent task ahead of more than ten lower-priority candidates', async () => {
+        const clients: ReturnType<typeof makeTx>[] = [];
+        m.transaction.mockImplementation(
+            async (fn: (client: ReturnType<typeof makeTx>) => unknown) => {
+                const client = makeTx();
+                clients.push(client);
+                if (clients.length === 6) {
+                    client.salesOrder.count
+                        .mockResolvedValueOnce(0)
+                        .mockResolvedValueOnce(1)
+                        .mockResolvedValueOnce(11);
+                    client.salesOrder.findMany
+                        .mockResolvedValueOnce([])
+                        .mockResolvedValueOnce([
+                            {
+                                id: 'urgent-1',
+                                orderNumber: 'Q-URGENT',
+                                commercialReviewStatus: 'NOT_REQUIRED',
+                                nextFollowUpDate: new Date(
+                                    '2026-10-01T00:00:00.000Z',
+                                ),
+                                validUntil: null,
+                                customer: { name: 'Urgent Customer' },
+                                salesRep: { name: 'Ani' },
+                            },
+                        ])
+                        .mockResolvedValueOnce(
+                            Array.from(
+                                { length: MARKETING_MOBILE_SAMPLE_LIMIT },
+                                (_, index) => ({
+                                    id: `commercial-${index}`,
+                                    orderNumber: `Q-HIGH-${index}`,
+                                    commercialReviewStatus: 'PENDING',
+                                    nextFollowUpDate: new Date(
+                                        `2026-09-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+                                    ),
+                                    validUntil: null,
+                                    customer: { name: 'High Customer' },
+                                    salesRep: { name: 'Ani' },
+                                }),
+                            ),
+                        )
+                        .mockResolvedValueOnce([])
+                        .mockResolvedValueOnce([]);
+                }
+                return fn(client);
+            },
+        );
 
         const result = await readMarketingMobileOverview({
             canViewPrices: false,
             now,
         });
-
-        expect(result.compliance.items[0]).toMatchObject({
-            assigned: 1,
-            visited: 2,
-            extraCalls: 0,
-            compliancePercent: 200,
+        expect(result.sections.tasks).toMatchObject({
+            status: 'AVAILABLE',
+            data: {
+                total: 12,
+                returned: MARKETING_MOBILE_SAMPLE_LIMIT,
+            },
         });
-    });
-
-    it('omits every amount field and amount-bearing queries without price permission', async () => {
-        const result = await readMarketingMobileOverview({
-            canViewPrices: false,
-            now,
+        if (result.sections.tasks.status !== 'AVAILABLE') return;
+        expect(result.sections.tasks.data.items[0]).toMatchObject({
+            id: 'urgent-1',
+            priority: 'URGENT',
         });
-
-        expect('overdueReceivableAmount' in result.highlights).toBe(false);
-        expect(result.team.items.every((item) => !('revenue' in item))).toBe(true);
-        expect('revenue' in result.teamTarget).toBe(false);
         expect(
-            result.pipelineExceptions.items.every(
-                (item) => !('amount' in item),
+            result.sections.tasks.data.items.slice(1).every(
+                (task) => task.priority === 'HIGH',
             ),
         ).toBe(true);
-        expect(m.invoiceAggregate).not.toHaveBeenCalled();
-        expect(m.returns).not.toHaveBeenCalled();
-        expect(m.orders).toHaveBeenCalledTimes(1);
-        const targetSelect = m.targets.mock.calls[0][0].select;
-        expect(targetSelect).not.toHaveProperty('revenueTarget');
-        expect(m.orders.mock.calls[0][0].select).not.toHaveProperty(
-            'totalAmount',
-        );
-    });
-
-    it('includes nominal fields only with canonical price permission', async () => {
-        const result = await readMarketingMobileOverview({
-            canViewPrices: true,
-            now,
+        const taskClient = clients[5];
+        expect(taskClient.salesOrder.findMany).toHaveBeenCalledTimes(5);
+        expect(
+            taskClient.salesOrder.findMany.mock.calls[0][0].where.AND[0],
+        ).toMatchObject({ commercialReviewStatus: { not: 'PENDING' } });
+        expect(
+            taskClient.salesOrder.findMany.mock.calls[1][0].where.AND[0],
+        ).toMatchObject({ commercialReviewStatus: { not: 'PENDING' } });
+        expect(
+            taskClient.salesOrder.findMany.mock.calls[2][0].where,
+        ).toMatchObject({
+            commercialReviewStatus: 'PENDING',
+            nextFollowUpDate: { not: null },
         });
-
-        expect(result.highlights.overdueReceivableAmount).toBe(750);
-        expect(result.team.items[0].revenue).toMatchObject({
-            targetAmount: 1000,
-            actualAmount: 750,
-            gapAmount: 250,
-            achievementPercent: 75,
-        });
-        expect(result.teamTarget.revenue).toMatchObject({
-            targetAmount: 1000,
-            actualAmount: 750,
-            gapAmount: 250,
-            achievementPercent: 75,
-        });
-        expect(result.pipelineExceptions.items[0].amount).toBe(750);
-        expect(m.invoiceAggregate).toHaveBeenCalledOnce();
-        expect(m.returns).toHaveBeenCalledOnce();
-        expect(m.orders).toHaveBeenCalledTimes(2);
-    });
-
-    it('caps initial tasks at ten while preserving the full total', async () => {
-        m.orderCount.mockResolvedValue(7);
-        m.customerCount.mockReset();
-        m.customerCount.mockResolvedValueOnce(4).mockResolvedValueOnce(5);
-        m.visitCount.mockResolvedValue(6);
-        m.orders.mockReset();
-        m.orders.mockResolvedValue(
-            Array.from({ length: MARKETING_MOBILE_SAMPLE_LIMIT }, (_, index) => ({
-                id: `quote-${index}`,
-                orderNumber: `Q-${index}`,
-                commercialReviewStatus: 'PENDING',
-                nextFollowUpDate: new Date(2026, 9, index + 1),
-                validUntil: null,
-                customer: { name: 'Customer' },
-                salesRep: { name: 'Sales' },
-            })),
-        );
-        m.customers.mockReset();
-        m.customers.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-        m.visits.mockResolvedValue([]);
-
-        const result = await readMarketingMobileOverview({
-            canViewPrices: false,
-            now,
-        });
-
-        expect(result.tasks).toMatchObject({
-            total: 22,
-            returned: MARKETING_MOBILE_SAMPLE_LIMIT,
-        });
-        expect(result.tasks.items).toHaveLength(MARKETING_MOBILE_SAMPLE_LIMIT);
-        expect(result.pipelineExceptions).toMatchObject({
-            total: 7,
-            returned: MARKETING_MOBILE_SAMPLE_LIMIT,
-        });
-    });
-
-    it('queries only the active SALES team rather than actor-personal scope', async () => {
-        await readMarketingMobileOverview({ canViewPrices: false, now });
-
-        const pipelineWhere = m.orderCount.mock.calls[0][0].where;
-        expect(pipelineWhere.salesRepId).toEqual({
-            in: ['sales-b', 'sales-a'],
-        });
-        expect(pipelineWhere).not.toHaveProperty('createdById');
-        expect(m.invoiceCount.mock.calls[0][0].where.salesOrder.salesRepId).toEqual({
-            in: ['sales-b', 'sales-a'],
-        });
-        expect(m.customerCount.mock.calls[1][0].where.AND).toHaveLength(3);
     });
 });

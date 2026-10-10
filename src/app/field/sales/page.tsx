@@ -1,11 +1,4 @@
-import {
-    getMyFieldPipelineStats,
-    getMyFieldReceivables,
-    getMyFieldCustomers,
-    getMyFieldComplianceStats,
-    getMyFollowUpsToday,
-} from '@/actions/sales/field-actions';
-import { getTodayRoutePlan } from '@/actions/sales/route-plans';
+import { getFieldSalesMobileOverview } from '@/actions/sales/mobile-field-sales';
 import {
     Plus,
     Search,
@@ -23,7 +16,21 @@ import { PipelineSummaryCard } from '@/components/field/PipelineSummaryCard';
 import { FollowUpTodaySection } from '@/components/field/FollowUpTodaySection';
 import { VisitSyncBanner } from '@/components/sales/mobile/VisitSyncBanner';
 import { formatRupiah } from '@/lib/utils/utils';
-import { MobileReadError } from '@/components/mobile';
+import { MobileDataFreshness, MobileReadError } from '@/components/mobile';
+
+function SectionUnavailable({ label }: { label: string }) {
+    return (
+        <div
+            role="status"
+            className="rounded-xl border border-dashed bg-muted/30 p-4"
+        >
+            <p className="text-sm font-medium">{label} tidak tersedia</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+                Data gagal dimuat dan tidak dihitung sebagai nol.
+            </p>
+        </div>
+    );
+}
 
 export default async function FieldSalesDashboardPage() {
     const session = await auth();
@@ -33,154 +40,116 @@ export default async function FieldSalesDashboardPage() {
         session?.user?.id && session.user.tenantId
             ? { tenantId: session.user.tenantId, userId: session.user.id }
             : null;
-
-    const [
-        pipelineRes,
-        invoicesRes,
-        customersRes,
-        routeRes,
-        complianceRes,
-        followUpsRes,
-    ] = await Promise.all([
-        getMyFieldPipelineStats(),
-        getMyFieldReceivables(),
-        getMyFieldCustomers(),
-        getTodayRoutePlan(),
-        getMyFieldComplianceStats(),
-        getMyFollowUpsToday(),
-    ]);
-
-    if (
-        !pipelineRes.success ||
-        !invoicesRes.success ||
-        !customersRes.success ||
-        !routeRes.success ||
-        !complianceRes.success ||
-        !followUpsRes.success
-    ) {
+    const response = await getFieldSalesMobileOverview();
+    if (!response.success || !response.data) {
         return (
             <MobileReadError title="Ringkasan sales lapangan belum tersedia" />
         );
     }
 
-    const pipeline = pipelineRes.data ?? null;
-    const invoices = invoicesRes.data ?? [];
-    const customers = customersRes.data ?? [];
-    const rawRoutePlan = routeRes.data ?? null;
-    // Normalize Date -> string for RouteTodaySection (expects string date)
-    const routePlan = rawRoutePlan
-        ? {
-              ...rawRoutePlan,
-              date:
-                  rawRoutePlan.date instanceof Date
-                      ? rawRoutePlan.date.toISOString().split('T')[0]
-                      : String(rawRoutePlan.date),
-          }
-        : null;
-    const compliance = complianceRes.data ?? null;
-    const followUps = followUpsRes.data ?? [];
-
-    const totalOutstanding = invoices.reduce(
-        (sum, inv) =>
-            sum +
-            (Number(inv.totalAmount) +
-                Number(inv.priceAdjustmentAmount ?? 0) -
-                Number(inv.paidAmount) -
-                Number(inv.creditedAmount ?? 0)),
-        0,
-    );
-
-    const overdueCount = invoices.filter(
-        (inv) => inv.status === 'OVERDUE',
-    ).length;
-
-    const activeCustomers = customers
-        .filter((c) => c.isActive)
-        .map((c) => ({
-            id: c.id,
-            name: c.name,
-            code: c.code,
-            city: c.city,
-        }));
-
-    const now = new Date();
-    const greeting =
-        now.getHours() < 12
-            ? 'Selamat pagi'
-            : now.getHours() < 17
-              ? 'Selamat siang'
-              : 'Selamat sore';
-    const dateStr = now.toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
+    const overview = response.data;
+    const { sections } = overview;
+    const route = sections.route;
+    const customers = sections.activeCustomers;
+    const pipeline = sections.pipeline;
+    const receivables = sections.receivables;
 
     return (
         <div className="p-4 space-y-4">
-            {/* Header — Today-first greeting */}
             <div>
                 <h1 className="text-xl font-bold">
-                    {greeting}
+                    {overview.greeting}
                     {userName ? `, ${userName}` : ''}
                 </h1>
-                <p className="text-sm text-muted-foreground">{dateStr}</p>
+                <p className="text-sm text-muted-foreground">
+                    {overview.displayDate}
+                </p>
+                <MobileDataFreshness generatedAt={overview.generatedAt} />
             </div>
 
-            {/* Sync Banner */}
             {queuePartition && <VisitSyncBanner partition={queuePartition} />}
 
-            {/* Rute Hari Ini — Above fold priority */}
-            <RouteTodaySection
-                routePlan={routePlan}
-                activeCustomers={activeCustomers}
-            />
-
-            {/* Follow-up Hari Ini — next to route */}
-            <FollowUpTodaySection items={followUps} />
-
-            {/* Compliance KPI */}
-            {compliance && compliance.assigned > 0 && (
-                <div className="border rounded-xl p-3 bg-card">
-                    <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                            Compliance Hari Ini
-                        </span>
-                        <span className="text-xs font-bold">
-                            {compliance.completed}/{compliance.assigned} toko
-                        </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-1.5">
-                        <div
-                            className="bg-primary h-1.5 rounded-full transition-all"
-                            style={{ width: `${compliance.compliance}%` }}
-                        />
-                    </div>
-                    <div className="flex justify-between mt-1">
-                        <span className="text-[10px] text-muted-foreground">
-                            {compliance.compliance}% selesai
-                        </span>
-                        {compliance.extraCalls > 0 && (
-                            <span className="text-[10px] text-orange-600 font-semibold">
-                                +{compliance.extraCalls} EC
-                            </span>
-                        )}
-                    </div>
-                </div>
+            {route.status === 'UNAVAILABLE' ? (
+                <SectionUnavailable label="Rute hari ini" />
+            ) : (
+                <>
+                    <RouteTodaySection
+                        businessDate={overview.businessDate}
+                        routePlan={route.data}
+                        activeCustomers={
+                            customers.status === 'AVAILABLE'
+                                ? customers.data
+                                : []
+                        }
+                    />
+                    {customers.status === 'UNAVAILABLE' && (
+                        <SectionUnavailable label="Daftar customer aktif" />
+                    )}
+                </>
             )}
 
-            {/* Pipeline Saya — Stacked hybrid counts + next 3 */}
-            <PipelineSummaryCard
-                activeCount={pipeline?.activeCount ?? 0}
-                pipelineAmount={pipeline?.pipelineAmount ?? 0}
-                openQuotationCount={pipeline?.openQuotationCount ?? 0}
-                openQuotationAmount={pipeline?.openQuotationAmount ?? 0}
-                followUpCount={0}
-                topItems={pipeline?.recentPipeline ?? []}
-            />
+            {sections.followUps.status === 'AVAILABLE' ? (
+                <FollowUpTodaySection items={sections.followUps.data.items} />
+            ) : (
+                <SectionUnavailable label="Follow-up hari ini" />
+            )}
 
-            {/* Quick Actions — Aksi cepat */}
+            {sections.compliance.status === 'AVAILABLE' ? (
+                sections.compliance.data.assigned > 0 && (
+                    <div className="border rounded-xl p-3 bg-card">
+                        <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                                Compliance Hari Ini
+                            </span>
+                            <span className="text-xs font-bold">
+                                {sections.compliance.data.completed}/
+                                {sections.compliance.data.assigned} toko
+                            </span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-1.5">
+                            <div
+                                className="bg-primary h-1.5 rounded-full transition-all"
+                                style={{
+                                    width: `${sections.compliance.data.compliance}%`,
+                                }}
+                            />
+                        </div>
+                        <div className="flex justify-between mt-1">
+                            <span className="text-[10px] text-muted-foreground">
+                                {sections.compliance.data.compliance}% selesai
+                            </span>
+                            {sections.compliance.data.extraCalls > 0 && (
+                                <span className="text-[10px] text-orange-600 font-semibold">
+                                    +{sections.compliance.data.extraCalls} EC
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )
+            ) : (
+                <SectionUnavailable label="Compliance hari ini" />
+            )}
+
+            {pipeline.status === 'AVAILABLE' ? (
+                <PipelineSummaryCard
+                    activeCount={pipeline.data.activeCount}
+                    {...(pipeline.data.nominal.status === 'AVAILABLE'
+                        ? {
+                              pipelineAmount:
+                                  pipeline.data.nominal.data.pipelineAmount,
+                              openQuotationAmount:
+                                  pipeline.data.nominal.data
+                                      .openQuotationAmount,
+                          }
+                        : {})}
+                    openQuotationCount={pipeline.data.openQuotationCount}
+                    followUpCount={0}
+                    topItems={pipeline.data.items}
+                />
+            ) : (
+                <SectionUnavailable label="Pipeline saya" />
+            )}
+
             <div className="grid grid-cols-2 gap-3">
                 <Link
                     href="/field/sales/orders/create"
@@ -206,7 +175,6 @@ export default async function FieldSalesDashboardPage() {
                 </Link>
             </div>
 
-            {/* Mulai Kunjungan — prominent CTA */}
             <Link
                 href="/field/sales/customers?startVisit=true"
                 className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 rounded-xl active:scale-[0.98] transition-transform min-h-[52px]"
@@ -225,39 +193,63 @@ export default async function FieldSalesDashboardPage() {
                 <Store className="h-5 w-5 text-emerald-400 shrink-0" />
             </Link>
 
-            {/* Summary — Field KPI */}
             <div className="grid grid-cols-2 gap-3">
-                <Link
-                    href="/field/sales/receivables"
-                    className="flex items-center gap-3 p-3 border rounded-xl text-sm active:scale-[0.98] transition-transform min-h-[48px]"
-                >
-                    <ReceiptText className="h-5 w-5 text-rose-500 shrink-0" />
-                    <div className="min-w-0">
-                        <p className="text-[10px] text-muted-foreground">
-                            Piutang
-                            {overdueCount > 0
-                                ? ` (${overdueCount} overdue)`
-                                : ''}
-                        </p>
-                        <p className="font-bold text-sm text-rose-600 dark:text-rose-400 truncate">
-                            {formatRupiah(totalOutstanding)}
-                        </p>
+                {receivables.status === 'AVAILABLE' ? (
+                    receivables.data.href &&
+                    receivables.data.nominal.status === 'AVAILABLE' ? (
+                        <Link
+                            href={receivables.data.href}
+                            className="flex items-center gap-3 p-3 border rounded-xl text-sm active:scale-[0.98] transition-transform min-h-[48px]"
+                        >
+                            <ReceiptText className="h-5 w-5 text-rose-500 shrink-0" />
+                            <div className="min-w-0">
+                                <p className="text-[10px] text-muted-foreground">
+                                    Piutang
+                                    {receivables.data.overdueCount > 0
+                                        ? ` (${receivables.data.overdueCount} overdue)`
+                                        : ''}
+                                </p>
+                                <p className="font-bold text-sm text-rose-600 dark:text-rose-400 truncate">
+                                    {formatRupiah(
+                                        receivables.data.nominal.data
+                                            .totalOutstanding,
+                                    )}
+                                </p>
+                            </div>
+                        </Link>
+                    ) : (
+                        <div className="flex items-center gap-3 p-3 border rounded-xl text-sm min-h-[48px]">
+                            <ReceiptText className="h-5 w-5 text-rose-500 shrink-0" />
+                            <div className="min-w-0">
+                                <p className="text-[10px] text-muted-foreground">
+                                    Piutang aktif
+                                </p>
+                                <p className="font-bold text-sm">
+                                    {receivables.data.total}
+                                </p>
+                            </div>
+                        </div>
+                    )
+                ) : (
+                    <SectionUnavailable label="Piutang" />
+                )}
+                {pipeline.status === 'AVAILABLE' ? (
+                    <div className="flex items-center gap-3 p-3 border rounded-xl min-h-[48px]">
+                        <ShoppingCart className="h-5 w-5 text-blue-500 shrink-0" />
+                        <div className="min-w-0">
+                            <p className="text-[10px] text-muted-foreground">
+                                Order Aktif
+                            </p>
+                            <p className="font-bold text-sm">
+                                {pipeline.data.activeCount}
+                            </p>
+                        </div>
                     </div>
-                </Link>
-                <div className="flex items-center gap-3 p-3 border rounded-xl min-h-[48px]">
-                    <ShoppingCart className="h-5 w-5 text-blue-500 shrink-0" />
-                    <div className="min-w-0">
-                        <p className="text-[10px] text-muted-foreground">
-                            Order Aktif
-                        </p>
-                        <p className="font-bold text-sm">
-                            {pipeline?.activeCount ?? 0}
-                        </p>
-                    </div>
-                </div>
+                ) : (
+                    <SectionUnavailable label="Order aktif" />
+                )}
             </div>
 
-            {/* Links — Quick access */}
             <div className="space-y-2">
                 <Link
                     href="/field/sales/orders"
