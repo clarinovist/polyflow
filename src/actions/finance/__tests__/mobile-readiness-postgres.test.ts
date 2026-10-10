@@ -15,7 +15,7 @@ vi.mock('@/services/accounting/account-resolver', () => ({ resolveAccount: async
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: async () => ({ user: { role: 'FINANCE' } }) }));
 vi.mock('@/lib/auth/purchasing-access', () => ({ requirePurchasingAccess: async () => ({ user: { id: 'procurement-test', role: 'PROCUREMENT' } }) }));
-vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess: async () => ({ portal: { id: 'purchasing' } }) }));
+vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess: async () => ({ portal: { id: 'purchasing' }, permissions: 'ALL' }) }));
 vi.mock('@/actions/admin/permissions', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/actions/admin/permissions')>()),
     getMyExplicitFeaturePermissions: async () => ({ success: true, data: ['feature:view-prices'] }),
@@ -105,8 +105,19 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
         const result = await run(getProductionSupervisorOverview);
         expect(result.success).toBe(true);
         if (!result.success) throw new Error(result.error);
-        expect(result.data.highlights.activeOrdersCount).toBe(15);
-        expect(result.data.recentOrders).toHaveLength(10); expect(result.data.downtimeAlerts).toHaveLength(5);
-        expect(result.data.highlights.downtimeMinutesToday).toBe(Math.round((now.getTime() - startOfDay.getTime()) / 60000) * 6);
+        expect(result.data.health.activeSpk).toEqual({
+            status: 'AVAILABLE',
+            data: { count: 15 },
+        });
+        expect(result.data.health.downtime).toMatchObject({
+            status: 'AVAILABLE',
+            data: {
+                openCount: 0,
+                totalMinutesToday:
+                    Math.round(
+                        (now.getTime() - startOfDay.getTime()) / 60000,
+                    ) * 6,
+            },
+        });
     });
 });

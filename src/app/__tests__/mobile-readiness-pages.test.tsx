@@ -64,62 +64,116 @@ describe('mobile read states', () => {
         render(await Page()); expect(screen.getByRole('alert')).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: 'Coba lagi' })); expect(m.refresh).toHaveBeenCalled();
     });
-    it('does not render a summed mixed-unit production target', async () => {
-        m.auth.mockResolvedValue({
-            user: { id: 'production', role: 'PRODUCTION' },
-        });
+    it('renders grouped Production units and explicitly withholds target, efficiency, and scrap severity', async () => {
         m.production.mockResolvedValue({
             success: true,
             data: {
                 generatedAt: '2026-10-09T00:00:00.000Z',
-                highlights: {
-                    activeOrdersCount: 2,
-                    outputToday: 12,
-                    targetToday: null,
-                    targetUnitMode: 'MIXED',
-                    targetUnit: null,
-                    downtimeMinutesToday: 0,
-                    scrapToday: 0,
-                    qcPendingCount: 0,
+                audience: 'OPERATIONAL',
+                links: {
+                    maintenance: null,
+                    attendance: null,
+                    quickSpk: null,
                 },
-                recentOrders: [],
-                downtimeAlerts: [],
+                health: {
+                    outputToday: {
+                        status: 'AVAILABLE',
+                        data: {
+                            processTotals: [
+                                { processKey: 'MIXING', quantity: 12, unit: 'KG' },
+                                { processKey: 'PACKING', quantity: 5, unit: 'PCS' },
+                            ],
+                        },
+                    },
+                    activeSpk: { status: 'AVAILABLE', data: { count: 2 } },
+                    qcPending: { status: 'AVAILABLE', data: { count: 0 } },
+                    downtime: {
+                        status: 'AVAILABLE',
+                        data: {
+                            openCount: 0,
+                            totalMinutesToday: 0,
+                            thresholdMinutes: 30,
+                            longest: null,
+                        },
+                    },
+                    targetAttainment: { status: 'NOT_CONFIGURED', data: null },
+                    scrapSeverity: { status: 'NOT_CONFIGURED', data: null },
+                },
+            },
+        });
+
+        render(await ProductionHome());
+        expect(screen.getByText('12')).toBeTruthy();
+        expect(screen.getByText('KG')).toBeTruthy();
+        expect(screen.getByText('5')).toBeTruthy();
+        expect(screen.getByText('PCS')).toBeTruthy();
+        expect(screen.getByText(/Target, attainment, dan efisiensi output belum dikonfigurasi/)).toBeTruthy();
+        expect(screen.queryByText(/Efisiensi Output Target/)).toBeNull();
+
+        cleanup();
+        render(await ProductionInsights());
+        expect(screen.getByText(/Target produksi, attainment, dan efisiensi output ditahan/)).toBeTruthy();
+        expect(screen.getByText(/Scrap rate dan severity quantity ditahan/)).toBeTruthy();
+        expect(screen.queryByText(/Total Scrapped/)).toBeNull();
+    });
+
+    it('renders Factory Manager canonical section states without NO_RECORD or personal/nominal fields', async () => {
+        m.production.mockResolvedValue({
+            success: true,
+            data: {
+                generatedAt: '2026-10-09T00:00:00.000Z',
+                audience: 'EXECUTIVE',
+                links: {
+                    maintenance: null,
+                    attendance: null,
+                    quickSpk: null,
+                },
+                health: {
+                    outputToday: {
+                        status: 'AVAILABLE',
+                        data: { processTotals: [] },
+                    },
+                    activeSpk: { status: 'AVAILABLE', data: { count: 0 } },
+                    qcPending: { status: 'AVAILABLE', data: { count: 0 } },
+                    downtime: { status: 'UNAVAILABLE', data: null },
+                    targetAttainment: { status: 'NOT_CONFIGURED', data: null },
+                    scrapSeverity: { status: 'NOT_CONFIGURED', data: null },
+                },
+            },
+        });
+        m.exec.mockResolvedValue({
+            success: true,
+            data: {
+                generatedAt: '2026-10-09T00:00:00.000Z',
+                stock: { status: 'UNAVAILABLE', data: null },
+                purchasing: {
+                    status: 'AVAILABLE',
+                    data: { waitingReceiptCount: 4 },
+                },
+                workforce: {
+                    status: 'AVAILABLE',
+                    data: {
+                        activeCount: 12,
+                        presentCount: 9,
+                        absentCount: 2,
+                        onLeaveCount: 1,
+                    },
+                },
             },
         });
 
         render(await ProductionHome());
 
-        expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
-        expect(screen.queryByText(/campuran/i)).toBeNull();
-    });
-
-    it('explains that mixed-unit target efficiency is not configured', async () => {
-        m.production.mockResolvedValue({
-            success: true,
-            data: {
-                generatedAt: '2026-10-09T00:00:00.000Z',
-                highlights: {
-                    activeOrdersCount: 2,
-                    outputToday: 12,
-                    targetToday: null,
-                    targetUnitMode: 'MIXED',
-                    targetUnit: null,
-                    downtimeMinutesToday: 0,
-                    scrapToday: 0,
-                    qcPendingCount: 0,
-                },
-                recentOrders: [],
-                downtimeAlerts: [],
-            },
-        });
-
-        render(await ProductionInsights());
-
-        expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
-        expect(
-            screen.getByText(/target lintas satuan belum dikonfigurasi/i),
-        ).toBeTruthy();
-        expect(screen.queryByText(/150.*campuran/i)).toBeNull();
+        expect(screen.getByText(/Ringkasan stok tidak tersedia/)).toBeTruthy();
+        expect(screen.getByText('PO Menunggu Terima')).toBeTruthy();
+        expect(screen.getByText('Karyawan Aktif')).toBeTruthy();
+        expect(screen.getByText('Hadir Tercatat')).toBeTruthy();
+        expect(screen.getByText('Absen Tercatat')).toBeTruthy();
+        expect(screen.getByText('Cuti Tercatat')).toBeTruthy();
+        expect(screen.queryByText(/Tanpa Catatan|NO_RECORD/i)).toBeNull();
+        expect(document.body.textContent).not.toMatch(
+            /payroll|loan|salary|customer|employee id|harga|biaya/i,
+        );
     });
 
     it('keeps a failed Sales home read distinct from an empty dashboard', async () => {
@@ -139,6 +193,55 @@ describe('mobile read states', () => {
         expect(screen.queryByText('Gudang Mobile')).toBeNull();
     });
 
+    it('renders task freshness, full total/sample limit, 44px controls, and no unsafe Kiosk link', async () => {
+        m.auth.mockResolvedValue({
+            user: { id: 'production', role: 'PRODUCTION' },
+        });
+        m.spkList.mockResolvedValue({
+            success: true,
+            data: {
+                generatedAt: '2026-10-09T00:00:00.000Z',
+                total: 72,
+                returned: 1,
+                limit: 50,
+                createHref: '/production/mobile/tasks/new',
+                items: [
+                    {
+                        id: 'spk',
+                        spkNumber: 'SPK-001',
+                        productName: 'Synthetic product',
+                        productCode: 'SYN',
+                        status: 'IN_PROGRESS',
+                        priority: 'URGENT',
+                        progressPercent: 50,
+                        plannedQty: 10,
+                        actualQty: 5,
+                        machineName: null,
+                        locationName: null,
+                        href: null,
+                    },
+                ],
+            },
+        });
+
+        render(
+            await ProductionTasks({
+                searchParams: Promise.resolve({}),
+            }),
+        );
+
+        expect(screen.getByText(/Menampilkan 1 dari 72 SPK/)).toBeTruthy();
+        expect(screen.getByText(/Terakhir diperbarui/)).toBeTruthy();
+        expect(screen.getByText(/tujuan Kiosk tidak diizinkan/)).toBeTruthy();
+        expect(screen.queryByRole('link', { name: /SPK-001/ })).toBeNull();
+        expect(screen.getByRole('link', { name: 'Semua' }).className).toContain(
+            'min-h-11',
+        );
+        expect(screen.getByRole('link', { name: /Buat SPK/ }).className).toContain(
+            'min-h-11',
+        );
+    });
+
     it('hides quick SPK from Factory Manager even with a secondary production role', async () => {
         m.auth.mockResolvedValue({
             user: {
@@ -149,7 +252,14 @@ describe('mobile read states', () => {
         });
         m.spkList.mockResolvedValue({
             success: true,
-            data: { items: [], total: 0 },
+            data: {
+                generatedAt: '2026-10-09T00:00:00.000Z',
+                items: [],
+                total: 0,
+                returned: 0,
+                limit: 50,
+                createHref: null,
+            },
         });
         render(
             await ProductionTasks({

@@ -2,58 +2,31 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
-import { safeAction, AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
+import { getTenantDbFromContext, prisma } from '@/lib/core/prisma';
+import {
+    safeAction,
+    AuthorizationError,
+    BusinessRuleError,
+} from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
-import {
-    getWibDayBounds,
-    toBusinessDateString,
-    parseBusinessDate,
-} from '@/lib/utils/timezone';
+import { toBusinessDateString, parseBusinessDate } from '@/lib/utils/timezone';
 import { hasAnyRole, hasRole } from '@/lib/auth/roles';
-import {
-    hasWorkspaceResourceAccess,
-    isPathAllowedByResources,
-} from '@/lib/auth/access-policy';
+import { isPathAllowedByResources } from '@/lib/auth/access-policy';
 import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
-import { isInventoryThresholdTriggered } from '@/lib/constants/locations';
+import { canSeeNavHref } from '@/lib/auth/permission-match';
+import {
+    readProductionMobileOverview,
+    type ProductionMobileOverview,
+} from '@/services/production/production-mobile-dashboard-service';
+import { readWarehouseInventoryThresholdSnapshot } from '@/services/inventory/warehouse-dashboard-service';
+import { buildPurchasingDashboardWaitingReceiptWhere } from '@/services/purchasing/purchasing-dashboard-query';
+import { readHrdDashboardMobileAggregate } from '@/services/hrd/hrd-dashboard-service';
 
-type TargetUnitMode = 'MIXED' | 'SINGLE' | 'NONE';
-
-interface MobileSupervisorOverview {
-    generatedAt: string;
-    highlights: {
-        activeOrdersCount: number;
-        outputToday: number;
-        /** Comparable single-unit planned quantity; null when unavailable or mixed-unit. */
-        targetToday: number | null;
-        /** Unit comparability of the daily target aggregate. */
-        targetUnitMode: TargetUnitMode;
-        /** Output unit when all planned SPKs share one unit, else null. */
-        targetUnit: string | null;
-        downtimeMinutesToday: number;
-        scrapToday: number;
-        qcPendingCount: number;
-    };
-    recentOrders: Array<{
-        id: string;
-        spkNumber: string;
-        productName: string;
-        status: string;
-        progressPercent: number;
-    }>;
-    downtimeAlerts: Array<{
-        id: string;
-        machineName: string;
-        reason: string;
-        durationMinutes: number;
-        startTime: string;
-    }>;
-}
+export type MobileSupervisorOverview = ProductionMobileOverview;
 
 /** Actionable SPK list for mobile supervisor — extends recentOrders with machine/target. */
-interface MobileSupervisorSpkItem {
+export interface MobileSupervisorSpkItem {
     id: string;
     spkNumber: string;
     productName: string;
@@ -68,10 +41,15 @@ interface MobileSupervisorSpkItem {
     machineCode: string | null;
     locationName: string | null;
     plannedStartDate: string;
+    href: `/kiosk/jobs/${string}` | null;
 }
 
-interface MobileSupervisorSpkList {
+export interface MobileSupervisorSpkList {
     generatedAt: string;
+    total: number;
+    returned: number;
+    limit: number;
+    createHref: '/production/mobile/tasks/new' | null;
     items: MobileSupervisorSpkItem[];
 }
 
@@ -148,17 +126,17 @@ function assertSupervisorAccess(user: MobileSupervisorUser) {
     const operational =
         hasAnyRole(user, ['PRODUCTION', 'PLANNING', 'ADMIN']) ||
         !!user.isSuperAdmin;
-    const factoryManager =
-        hasRole(user, 'FACTORY_MANAGER') &&
-        hasWorkspaceResourceAccess(user.allowedResources, 'production');
-    if (!operational && !factoryManager) {
+    if (!operational && !hasRole(user, 'FACTORY_MANAGER')) {
         throw new AuthorizationError(
             'Hanya supervisor produksi, planning, kepala pabrik berizin, atau admin yang dapat mengakses data ini.',
         );
     }
 }
 
-function assertFactoryManagerExecutiveAccess(user: MobileSupervisorUser) {
+function assertFactoryManagerExecutiveAccess(
+    user: MobileSupervisorUser,
+    permissions: string[] | 'ALL',
+) {
     if (hasRole(user, 'ADMIN')) return;
     if (!hasRole(user, 'FACTORY_MANAGER')) {
         throw new AuthorizationError(
@@ -174,8 +152,7 @@ function assertFactoryManagerExecutiveAccess(user: MobileSupervisorUser) {
     ];
     if (
         requiredResources.some(
-            (resource) =>
-                !isPathAllowedByResources(resource, user.allowedResources),
+            (resource) => !isPathAllowedByResources(resource, permissions),
         )
     ) {
         throw new AuthorizationError(
@@ -213,130 +190,38 @@ export const getProductionSupervisorOverview = withTenant(
         return safeAction(async () => {
             const session = await requireAuth();
             assertSupervisorAccess(session.user as never);
-            await requireMobilePortalAccess('production-supervisor');
-
-            const now = new Date();
-            const todayStr = toBusinessDateString(now);
-            const { startOfDay, endOfDay } = getWibDayBounds(todayStr);
-
-            const [orders, executions, downtimes, qcPending, targetOrders, activeOrdersCount] = await Promise.all([
-                prisma.productionOrder.findMany({
-                    where: { status: { in: ['IN_PROGRESS', 'RELEASED', 'DRAFT'] } },
-                    take: 10, orderBy: { updatedAt: 'desc' }, include: { bom: { select: { name: true } } },
-                }),
-                prisma.productionExecution.aggregate({
-                    // Shift-attributed output; never include a future business day.
-                    where: { startTime: { gte: startOfDay, lte: endOfDay } },
-                    _sum: { quantityProduced: true, scrapQuantity: true, scrapProngkolQty: true, scrapDaunQty: true },
-                }),
-                prisma.machineDowntime.findMany({
-                    // Include every interval overlapping today, not just the latest five.
-                    where: { startTime: { lte: now }, OR: [{ endTime: null }, { endTime: { gt: startOfDay } }] },
-                    orderBy: { createdAt: 'desc' }, include: { machine: { select: { name: true } } },
-                }),
-                prisma.qualityInspection.count({ where: { result: 'QUARANTINE' } }),
-                prisma.productionOrder.findMany({
-                    where: { status: { not: 'CANCELLED' }, plannedStartDate: { gte: startOfDay, lte: endOfDay } },
-                    select: { plannedQuantity: true, bom: { select: { productVariant: { select: { primaryUnit: true } } } } },
-                }),
-                prisma.productionOrder.count({ where: { status: 'IN_PROGRESS' } }),
-            ]);
-            const outputToday = Number(executions._sum?.quantityProduced ?? 0);
-            // Kiosk rows duplicate affal into scrapQuantity; AddOutputDialog
-            // rows leave it 0 — max(generic, prongkol+daun) avoids double count.
-            const scrapToday = Math.max(
-                Number(executions._sum?.scrapQuantity ?? 0),
-                Number(executions._sum?.scrapProngkolQty ?? 0) +
-                    Number(executions._sum?.scrapDaunQty ?? 0),
+            const access = await requireMobilePortalAccess(
+                'production-supervisor',
             );
-
-            let targetToday: number | null = null;
-            let targetUnitMode: TargetUnitMode = 'NONE';
-            let targetUnit: string | null = null;
-            if (targetOrders) {
-                const units = new Set<string>(
-                    targetOrders
-                        .map((o) => o.bom?.productVariant?.primaryUnit)
-                        .filter((u): u is NonNullable<typeof u> => u != null)
-                        .map(String),
+            const db = getTenantDbFromContext();
+            if (!db) {
+                throw new BusinessRuleError(
+                    'Konteks tenant Production Mobile tidak tersedia.',
                 );
-                if (units.size > 1) {
-                    // Production target grouping still awaits owner sign-off.
-                    // Never expose a sum across unlike units.
-                    targetUnitMode = 'MIXED';
-                    targetToday = null;
-                } else if (units.size === 1) {
-                    targetUnitMode = 'SINGLE';
-                    targetUnit = units.values().next().value ?? null;
-                    targetToday = targetOrders.reduce(
-                        (sum, o) => sum + Number(o.plannedQuantity),
-                        0,
-                    );
-                } else {
-                    targetToday = 0;
-                }
             }
+            const permissions =
+                access.permissions === 'ALL' ? 'ALL' : [...access.permissions];
+            const canOpen = (href: string) =>
+                canSeeNavHref(href, permissions, '/production');
+            const user = session.user as MobileSupervisorUser;
+            const canCreateSpk =
+                !hasRole(user, 'FACTORY_MANAGER') || hasRole(user, 'ADMIN');
 
-            const getDowntimeMinutes = (d: {
-                startTime: Date;
-                endTime: Date | null;
-            }) => {
-                const start = Math.max(startOfDay.getTime(), new Date(d.startTime).getTime());
-                const end = Math.min(now.getTime(), d.endTime ? new Date(d.endTime).getTime() : now.getTime());
-                return Math.max(0, Math.round((end - start) / 60000));
-            };
-
-            const totalDowntimeMinutes = downtimes.reduce(
-                (sum, d) => sum + getDowntimeMinutes(d),
-                0,
-            );
-
-            const recentOrders = orders.map((o) => {
-                const target = Number(o.plannedQuantity ?? 1);
-                const actual = Number(o.actualQuantity ?? 0);
-                const progress =
-                    target > 0
-                        ? Math.min(100, Math.round((actual / target) * 100))
-                        : 0;
-                return {
-                    id: o.id,
-                    spkNumber: o.orderNumber || o.id.substring(0, 8),
-                    productName: o.bom?.name ?? 'Formulasi BOM',
-                    status: o.status,
-                    progressPercent: progress,
-                };
+            const overview = await readProductionMobileOverview({
+                db,
+                canOpen,
+                canCreateSpk,
+                audience:
+                    hasRole(user, 'FACTORY_MANAGER') && !hasRole(user, 'ADMIN')
+                        ? 'EXECUTIVE'
+                        : 'OPERATIONAL',
             });
-
-            const downtimeAlerts = downtimes.slice(0, 5).map((d) => ({
-                id: d.id,
-                machineName: d.machine?.name ?? 'Mesin',
-                reason: d.reason || 'Downtime',
-                durationMinutes: getDowntimeMinutes(d),
-                startTime: d.startTime
-                    ? new Date(d.startTime).toISOString()
-                    : new Date(d.createdAt).toISOString(),
-            }));
-
-            const overview: MobileSupervisorOverview = {
-                generatedAt: new Date().toISOString(),
-                highlights: {
-                    activeOrdersCount,
-                    outputToday,
-                    targetToday,
-                    targetUnitMode,
-                    targetUnit,
-                    downtimeMinutesToday: totalDowntimeMinutes,
-                    scrapToday,
-                    qcPendingCount: qcPending,
-                },
-                recentOrders,
-                downtimeAlerts,
-            };
-
             return serializeData(overview);
         });
     },
 );
+
+const MOBILE_SPK_SAMPLE_LIMIT = 50;
 
 export const getMobileSupervisorSpkList = withTenant(
     async function getMobileSupervisorSpkList(filters?: {
@@ -347,13 +232,27 @@ export const getMobileSupervisorSpkList = withTenant(
         return safeAction(async () => {
             const session = await requireAuth();
             assertSupervisorAccess(session.user as never);
+            const access = await requireMobilePortalAccess(
+                'production-supervisor',
+            );
+            const permissions =
+                access.permissions === 'ALL' ? 'ALL' : [...access.permissions];
+            const canOpenKiosk = canSeeNavHref('/kiosk', permissions, '/kiosk');
+            const user = session.user as MobileSupervisorUser;
+            const canCreateSpk =
+                (!hasRole(user, 'FACTORY_MANAGER') || hasRole(user, 'ADMIN')) &&
+                canSeeNavHref(
+                    '/production/mobile/tasks/new',
+                    permissions,
+                    '/production',
+                );
 
             const where: Record<string, unknown> = {};
             const statusFilter = filters?.status?.trim();
             if (statusFilter && statusFilter !== 'ALL') {
-                (where as { status: unknown }).status = statusFilter;
+                where.status = statusFilter;
             } else {
-                (where as { status: unknown }).status = {
+                where.status = {
                     in: [
                         'RELEASED',
                         'IN_PROGRESS',
@@ -362,74 +261,99 @@ export const getMobileSupervisorSpkList = withTenant(
                     ],
                 };
             }
-            if (filters?.machineId) {
-                (where as { machineId: unknown }).machineId = filters.machineId;
-            }
+            if (filters?.machineId) where.machineId = filters.machineId;
 
             const q = filters?.q?.trim();
-            const andClauses: unknown[] = [];
-
             if (q) {
-                andClauses.push({
-                    OR: [
-                        { orderNumber: { contains: q, mode: 'insensitive' } },
-                        {
-                            bom: {
-                                is: {
-                                    name: { contains: q, mode: 'insensitive' },
+                where.AND = [
+                    {
+                        OR: [
+                            {
+                                orderNumber: {
+                                    contains: q,
+                                    mode: 'insensitive',
                                 },
                             },
-                        },
-                        {
-                            bom: {
-                                is: {
-                                    productVariant: {
-                                        is: {
-                                            name: {
-                                                contains: q,
-                                                mode: 'insensitive',
+                            {
+                                bom: {
+                                    is: {
+                                        name: {
+                                            contains: q,
+                                            mode: 'insensitive',
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                bom: {
+                                    is: {
+                                        productVariant: {
+                                            is: {
+                                                name: {
+                                                    contains: q,
+                                                    mode: 'insensitive',
+                                                },
                                             },
                                         },
                                     },
                                 },
                             },
-                        },
-                    ],
-                });
+                        ],
+                    },
+                ];
             }
 
-            const finalWhere =
-                andClauses.length > 0 ? { ...where, AND: andClauses } : where;
-
-            const orders = await (prisma.productionOrder
-                ? prisma.productionOrder.findMany({
-                      where: finalWhere as never,
-                      take: 50,
-                      orderBy: [
-                          { priority: 'desc' },
-                          { plannedStartDate: 'desc' },
-                      ],
-                      include: {
-                          bom: {
-                              select: {
-                                  name: true,
-                                  productVariant: {
-                                      select: { name: true, skuCode: true },
-                                  },
-                              },
-                          },
-                          machine: {
-                              select: { id: true, name: true, code: true },
-                          },
-                          location: { select: { name: true } },
-                      },
-                  })
-                : Promise.resolve([] as never[]));
+            const orderSelect = {
+                id: true,
+                orderNumber: true,
+                status: true,
+                priority: true,
+                plannedQuantity: true,
+                actualQuantity: true,
+                machineId: true,
+                plannedStartDate: true,
+                createdAt: true,
+                bom: {
+                    select: {
+                        name: true,
+                        productVariant: {
+                            select: { name: true, skuCode: true },
+                        },
+                    },
+                },
+                machine: { select: { id: true, name: true, code: true } },
+                location: { select: { name: true } },
+            } as const;
+            // Prisma/PostgreSQL enum sorting is not relied on here. Explicit
+            // buckets prove URGENT → NORMAL → LOW, while every bucket is read
+            // through the full global sample limit before the final cap.
+            const perPriority = await Promise.all(
+                (['URGENT', 'NORMAL', 'LOW'] as const).map((priority) =>
+                    Promise.all([
+                        prisma.productionOrder.count({
+                            where: { ...where, priority } as never,
+                        }),
+                        prisma.productionOrder.findMany({
+                            where: { ...where, priority } as never,
+                            take: MOBILE_SPK_SAMPLE_LIMIT,
+                            orderBy: [
+                                { plannedStartDate: 'asc' },
+                                { id: 'asc' },
+                            ],
+                            select: orderSelect,
+                        }),
+                    ]),
+                ),
+            );
+            const total = perPriority.reduce((sum, [count]) => sum + count, 0);
+            const orders = perPriority
+                .flatMap(([, rows]) => rows)
+                .slice(0, MOBILE_SPK_SAMPLE_LIMIT);
 
             const items: MobileSupervisorSpkItem[] = (orders as Array<any>).map(
-                (o) => {
-                    const planned = Number(o.plannedQuantity ?? 0);
-                    const actual = Number(o.actualQuantity ?? 0);
+                (order) => {
+                    const planned = Number(order.plannedQuantity ?? 0);
+                    const actual = Number(order.actualQuantity ?? 0);
                     const progress =
                         planned > 0
                             ? Math.min(
@@ -438,31 +362,41 @@ export const getMobileSupervisorSpkList = withTenant(
                               )
                             : 0;
                     return {
-                        id: o.id,
-                        spkNumber: o.orderNumber || o.id.substring(0, 8),
+                        id: order.id,
+                        spkNumber:
+                            order.orderNumber || order.id.substring(0, 8),
                         productName:
-                            o.bom?.productVariant?.name ??
-                            o.bom?.name ??
+                            order.bom?.productVariant?.name ??
+                            order.bom?.name ??
                             'Formulasi BOM',
-                        productCode: o.bom?.productVariant?.skuCode ?? '',
-                        status: o.status,
-                        priority: o.priority ?? 'NORMAL',
+                        productCode: order.bom?.productVariant?.skuCode ?? '',
+                        status: order.status,
+                        priority: order.priority ?? 'NORMAL',
                         progressPercent: progress,
                         plannedQty: planned,
                         actualQty: actual,
-                        machineId: o.machine?.id ?? o.machineId ?? null,
-                        machineName: o.machine?.name ?? null,
-                        machineCode: o.machine?.code ?? null,
-                        locationName: o.location?.name ?? null,
-                        plannedStartDate: o.plannedStartDate
-                            ? new Date(o.plannedStartDate).toISOString()
-                            : new Date(o.createdAt).toISOString(),
+                        machineId: order.machine?.id ?? order.machineId ?? null,
+                        machineName: order.machine?.name ?? null,
+                        machineCode: order.machine?.code ?? null,
+                        locationName: order.location?.name ?? null,
+                        plannedStartDate: order.plannedStartDate
+                            ? new Date(order.plannedStartDate).toISOString()
+                            : new Date(order.createdAt).toISOString(),
+                        href: canOpenKiosk
+                            ? (`/kiosk/jobs/${order.id}` as const)
+                            : null,
                     };
                 },
             );
 
             const result: MobileSupervisorSpkList = {
                 generatedAt: new Date().toISOString(),
+                total,
+                returned: items.length,
+                limit: MOBILE_SPK_SAMPLE_LIMIT,
+                createHref: canCreateSpk
+                    ? '/production/mobile/tasks/new'
+                    : null,
                 items,
             };
             return serializeData(result);
@@ -554,11 +488,23 @@ export const getMobileTeamAttendance = withTenant(
             assertSupervisorAccess(session.user as never);
             await requireMobilePortalAccess('production-supervisor');
 
-            if (filters?.status && !['ALL', 'PRESENT', 'ABSENT', 'ON_LEAVE', 'NO_RECORD'].includes(filters.status)) {
-                throw new BusinessRuleError('Filter status absensi tidak valid.');
+            if (
+                filters?.status &&
+                !['ALL', 'PRESENT', 'ABSENT', 'ON_LEAVE', 'NO_RECORD'].includes(
+                    filters.status,
+                )
+            ) {
+                throw new BusinessRuleError(
+                    'Filter status absensi tidak valid.',
+                );
             }
-            if (filters?.role && !['ALL', 'OPERATOR', 'HELPER', 'PACKER'].includes(filters.role)) {
-                throw new BusinessRuleError('Filter peran produksi tidak valid.');
+            if (
+                filters?.role &&
+                !['ALL', 'OPERATOR', 'HELPER', 'PACKER'].includes(filters.role)
+            ) {
+                throw new BusinessRuleError(
+                    'Filter peran produksi tidak valid.',
+                );
             }
             const rawDate =
                 filters?.date?.trim() || toBusinessDateString(new Date());
@@ -596,55 +542,52 @@ export const getMobileTeamAttendance = withTenant(
 
             const [employees, attendanceRecords, shifts] = await Promise.all([
                 prisma.employee
-                    ? prisma.employee
-                          .findMany({
-                              where: employeeWhere,
-                              select: {
-                                  id: true,
-                                  name: true,
-                                  code: true,
-                                  role: true,
-                              },
-                              orderBy: { name: 'asc' },
-                          })
+                    ? prisma.employee.findMany({
+                          where: employeeWhere,
+                          select: {
+                              id: true,
+                              name: true,
+                              code: true,
+                              role: true,
+                          },
+                          orderBy: { name: 'asc' },
+                      })
                     : Promise.resolve([] as any[]),
                 prisma.attendanceRecord
-                    ? prisma.attendanceRecord
-                          .findMany({
-                              where: {
-                                  workDate,
-                                  employee: employeeWhere,
-                                  ...(filters?.workShiftId
-                                      ? { workShiftId: filters.workShiftId }
-                                      : {}),
-                              },
-                              include: {
-                                  employee: {
-                                      select: {
-                                          id: true,
-                                          name: true,
-                                          code: true,
-                                          role: true,
-                                      },
-                                  },
-                                  workShift: {
-                                      select: {
-                                          id: true,
-                                          name: true,
-                                          startTime: true,
-                                      },
+                    ? prisma.attendanceRecord.findMany({
+                          where: {
+                              workDate,
+                              employee: employeeWhere,
+                              ...(filters?.workShiftId
+                                  ? { workShiftId: filters.workShiftId }
+                                  : {}),
+                          },
+                          include: {
+                              employee: {
+                                  select: {
+                                      id: true,
+                                      name: true,
+                                      code: true,
+                                      role: true,
                                   },
                               },
-                              orderBy: { clockInAt: 'desc' },
-                          })
+                              workShift: {
+                                  select: {
+                                      id: true,
+                                      name: true,
+                                      startTime: true,
+                                  },
+                              },
+                          },
+                          orderBy: { clockInAt: 'desc' },
+                      })
                     : Promise.resolve([] as any[]),
                 prisma.workShift
-                    ? prisma.workShift
-                          .findMany({
-                              where: { status: 'ACTIVE' },
-                              select: { id: true, name: true },
-                              orderBy: { startTime: 'asc' },
-                          })
+                    ? prisma.workShift.findMany({
+                          where: { status: 'ACTIVE' },
+                          select: { id: true, name: true },
+                          orderBy: { startTime: 'asc' },
+                      })
                     : Promise.resolve([] as any[]),
             ]);
 
@@ -662,7 +605,11 @@ export const getMobileTeamAttendance = withTenant(
                         rec.status === 'PRESENT'
                     ) {
                         recordByEmployee.set(rec.employeeId, rec);
-                    } else if (rec.status === existing.status && rec.clockInAt && existing.clockInAt) {
+                    } else if (
+                        rec.status === existing.status &&
+                        rec.clockInAt &&
+                        existing.clockInAt
+                    ) {
                         if (
                             new Date(rec.clockInAt) >
                             new Date(existing.clockInAt)
@@ -850,177 +797,118 @@ export const getMobileTeamAttendance = withTenant(
 
 export interface FactoryManagerExecutiveOverview {
     generatedAt: string;
-    stock: {
-        lowStockCount: number;
-        suggestedReorderCount: number;
-    };
-    purchasing: {
-        openPrCount: number;
-        draftPoCount: number;
-        waitingReceiptCount: number;
-    };
-    team: {
-        totalEmployees: number;
-        presentCount: number;
-        absentCount: number;
-        onLeaveCount: number;
-        noRecordCount: number;
-    };
+    stock:
+        | {
+              status: 'AVAILABLE';
+              data: {
+                  lowStockCount: number;
+                  suggestedReorderCount: number;
+              };
+          }
+        | { status: 'UNAVAILABLE'; data: null };
+    purchasing:
+        | {
+              status: 'AVAILABLE';
+              data: { waitingReceiptCount: number };
+          }
+        | { status: 'UNAVAILABLE'; data: null };
+    workforce:
+        | {
+              status: 'AVAILABLE';
+              data: {
+                  activeCount: number | null;
+                  presentCount: number | null;
+                  absentCount: number | null;
+                  onLeaveCount: number | null;
+              };
+          }
+        | { status: 'UNAVAILABLE'; data: null };
 }
 
-async function countLowStockVariants(): Promise<number> {
-    const variants = await prisma.productVariant.findMany({
-        where: { minStockAlert: { not: null }, archivedAt: null },
-        select: {
-            id: true,
-            minStockAlert: true,
-            inventories: {
-                select: {
-                    quantity: true,
-                    location: {
-                        select: {
-                            locationPurpose: true,
-                            locationType: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    return variants.filter((variant) =>
-        isInventoryThresholdTriggered(
-            variant.inventories,
-            variant.minStockAlert,
-        ),
-    ).length;
-}
-
-async function countSuggestedReorderVariants(): Promise<number> {
-    const variants = await prisma.productVariant.findMany({
-        where: { reorderPoint: { not: null }, archivedAt: null },
-        select: {
-            id: true,
-            reorderPoint: true,
-            inventories: {
-                select: {
-                    quantity: true,
-                    location: {
-                        select: {
-                            locationPurpose: true,
-                            locationType: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    return variants.filter((variant) =>
-        isInventoryThresholdTriggered(
-            variant.inventories,
-            variant.reorderPoint,
-        ),
-    ).length;
-}
-
-/**
- * Executive read-only aggregate for the Kepala Pabrik surface: stock
- * attention, purchasing document counts (never amounts), and team attendance
- * summary. No costing/finance/payroll fields leave this action.
- */
 export const getFactoryManagerExecutiveOverview = withTenant(
     async function getFactoryManagerExecutiveOverview() {
         return safeAction(async () => {
             const session = await requireAuth();
+            const access = await requireMobilePortalAccess(
+                'production-supervisor',
+            );
+            const permissions =
+                access.permissions === 'ALL' ? 'ALL' : [...access.permissions];
             assertFactoryManagerExecutiveAccess(
                 session.user as MobileSupervisorUser,
+                permissions,
             );
-            await requireMobilePortalAccess('production-supervisor');
-
-            const businessDate = toBusinessDateString(new Date());
-            const workDate = new Date(`${businessDate}T00:00:00.000Z`);
-            const employeeWhere = {
-                status: 'ACTIVE' as const,
-                role: { in: ['OPERATOR', 'HELPER', 'PACKER'] },
-            };
-
-            const [
-                lowStockCount,
-                suggestedReorderCount,
-                openPrCount,
-                draftPoCount,
-                waitingReceiptCount,
-                employees,
-                attendanceRecords,
-            ] = await Promise.all([
-                prisma.productVariant ? countLowStockVariants() : Promise.resolve(0),
-                prisma.productVariant ? countSuggestedReorderVariants() : Promise.resolve(0),
-                prisma.purchaseRequest
-                    ? prisma.purchaseRequest.count({ where: { status: 'OPEN' } })
-                    : Promise.resolve(0),
-                prisma.purchaseOrder
-                    ? prisma.purchaseOrder.count({ where: { status: 'DRAFT' } })
-                    : Promise.resolve(0),
-                prisma.purchaseOrder
-                    ? prisma.purchaseOrder.count({
-                          where: { status: { in: ['SENT', 'PARTIAL_RECEIVED'] } },
-                      })
-                    : Promise.resolve(0),
-                prisma.employee
-                    ? prisma.employee.findMany({
-                          where: employeeWhere,
-                          select: { id: true },
-                      })
-                    : Promise.resolve([] as any[]),
-                prisma.attendanceRecord
-                    ? prisma.attendanceRecord.findMany({
-                          where: { workDate, employee: employeeWhere },
-                          select: { employeeId: true, status: true },
-                      })
-                    : Promise.resolve([] as any[]),
-            ]);
-
-            // Latest record per employee; PRESENT wins ties (same rule as
-            // the getMobileTeamAttendance summary view).
-            const statusByEmployee = new Map<string, string>();
-            for (const rec of attendanceRecords as Array<{ employeeId: string; status: string }>) {
-                const existing = statusByEmployee.get(rec.employeeId);
-                if (!existing || (existing !== 'PRESENT' && rec.status === 'PRESENT')) {
-                    statusByEmployee.set(rec.employeeId, rec.status);
-                }
+            const db = getTenantDbFromContext();
+            if (!db) {
+                throw new BusinessRuleError(
+                    'Konteks tenant monitor Kepala Pabrik tidak tersedia.',
+                );
             }
 
-            let presentCount = 0;
-            let absentCount = 0;
-            let onLeaveCount = 0;
-            let noRecordCount = 0;
-            for (const emp of employees as Array<{ id: string }>) {
-                const status = statusByEmployee.get(emp.id);
-                if (status === 'PRESENT') presentCount += 1;
-                else if (status === 'ABSENT') absentCount += 1;
-                else if (status === 'ON_LEAVE') onLeaveCount += 1;
-                else noRecordCount += 1;
+            const [stock, purchasing, workforce] = await Promise.allSettled([
+                readWarehouseInventoryThresholdSnapshot(),
+                db.purchaseOrder.count({
+                    where: buildPurchasingDashboardWaitingReceiptWhere(),
+                }),
+                readHrdDashboardMobileAggregate(db),
+            ]);
+
+            let workforceSection: FactoryManagerExecutiveOverview['workforce'] =
+                { status: 'UNAVAILABLE', data: null };
+            if (workforce.status === 'fulfilled') {
+                const active = workforce.value.health.activeHeadcount;
+                const attendance = workforce.value.health.attendanceToday;
+                if (
+                    active.status === 'AVAILABLE' ||
+                    attendance.status === 'AVAILABLE'
+                ) {
+                    workforceSection = {
+                        status: 'AVAILABLE',
+                        data: {
+                            activeCount:
+                                active.status === 'AVAILABLE'
+                                    ? active.data.count
+                                    : null,
+                            presentCount:
+                                attendance.status === 'AVAILABLE'
+                                    ? attendance.data.present
+                                    : null,
+                            absentCount:
+                                attendance.status === 'AVAILABLE'
+                                    ? attendance.data.absent
+                                    : null,
+                            onLeaveCount:
+                                attendance.status === 'AVAILABLE'
+                                    ? attendance.data.onLeave
+                                    : null,
+                        },
+                    };
+                }
             }
 
             const overview: FactoryManagerExecutiveOverview = {
                 generatedAt: new Date().toISOString(),
-                stock: {
-                    lowStockCount,
-                    suggestedReorderCount,
-                },
-                purchasing: {
-                    openPrCount,
-                    draftPoCount,
-                    waitingReceiptCount,
-                },
-                team: {
-                    totalEmployees: (employees as Array<{ id: string }>).length,
-                    presentCount,
-                    absentCount,
-                    onLeaveCount,
-                    noRecordCount,
-                },
+                stock:
+                    stock.status === 'fulfilled'
+                        ? {
+                              status: 'AVAILABLE',
+                              data: {
+                                  lowStockCount: stock.value.lowStockCount,
+                                  suggestedReorderCount:
+                                      stock.value.reorderCount,
+                              },
+                          }
+                        : { status: 'UNAVAILABLE', data: null },
+                purchasing:
+                    purchasing.status === 'fulfilled'
+                        ? {
+                              status: 'AVAILABLE',
+                              data: {
+                                  waitingReceiptCount: purchasing.value,
+                              },
+                          }
+                        : { status: 'UNAVAILABLE', data: null },
+                workforce: workforceSection,
             };
 
             return serializeData(overview);

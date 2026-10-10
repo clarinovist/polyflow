@@ -16,13 +16,12 @@ import {
 import {
     PRODUCTION_ATTENTION_SAMPLE_LIMIT,
     PRODUCTION_DASHBOARD_SAMPLE_LIMIT,
-    PRODUCTION_OUTPUT_ROW_LIMIT,
     PRODUCTION_SCRAP_ROW_LIMIT,
     composeLateProcessDriver,
     composeProductionAttention,
     composeProductionDowntime,
     composeProductionLiveOrders,
-    composeProductionOutputHealth,
+    readProductionOutputHealth,
     resolveFreshProductionDashboardAccess,
     type ProductionActiveOrderRow,
     type ProductionAttentionData,
@@ -31,7 +30,6 @@ import {
     type ProductionDashboardSectionState,
     type ProductionDriversData,
     type ProductionDowntimeRow,
-    type ProductionExecutionRow,
     type ProductionIssueRow,
     type ProductionLiveOrdersData,
     type ProductionOutputHealthData,
@@ -154,38 +152,7 @@ export const getProductionLiveOverview = withTenant(
                 generatedAt.getTime() - 24 * 60 * 60 * 1000,
             );
 
-            const outputRead = prisma.productionExecution.findMany({
-                where: {
-                    status: { not: 'VOIDED' },
-                    startTime: {
-                        gte: today.startOfDay,
-                        lte: today.endOfDay,
-                    },
-                },
-                orderBy: { id: 'asc' },
-                take: PRODUCTION_OUTPUT_ROW_LIMIT + 1,
-                select: {
-                    quantityProduced: true,
-                    productionOrder: {
-                        select: {
-                            id: true,
-                            bom: {
-                                select: {
-                                    category: true,
-                                    productVariant: {
-                                        select: {
-                                            id: true,
-                                            name: true,
-                                            skuCode: true,
-                                            primaryUnit: true,
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            });
+            const outputRead = readProductionOutputHealth(prisma, today);
             const activeRead = Promise.all([
                 prisma.productionOrder.count({
                     where: { status: ProductionStatus.IN_PROGRESS },
@@ -358,17 +325,7 @@ export const getProductionLiveOverview = withTenant(
 
             let outputHealth = unavailableOutput();
             if (output.status === 'fulfilled') {
-                const truncated =
-                    output.value.length > PRODUCTION_OUTPUT_ROW_LIMIT;
-                const boundedRows = output.value.slice(
-                    0,
-                    PRODUCTION_OUTPUT_ROW_LIMIT,
-                ) as ProductionExecutionRow[];
-                outputHealth = composeProductionOutputHealth(
-                    boundedRows,
-                    truncated,
-                );
-                if (truncated) outputHealth.state = 'UNAVAILABLE';
+                outputHealth = output.value;
             }
 
             let liveOrders = unavailableLiveOrders();

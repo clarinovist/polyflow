@@ -1,106 +1,129 @@
 import React from 'react';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getProductionSupervisorOverview } from '@/actions/production/mobile-supervisor';
-import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
-import {
-    DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
-    isDowntimeCritical,
-    isScrapQuantityCritical,
-} from '@/lib/production/alert-thresholds';
 import {
     MobileDataFreshness,
     MobileSectionHeader,
     MobileInsightCard,
 } from '@/components/mobile';
 
+const PROCESS_LABEL: Record<string, string> = {
+    MIXING: 'Mixing',
+    EXTRUSION: 'Extrusion',
+    PACKING: 'Packing',
+    OTHER: 'Proses lain',
+};
+
+function Withheld({ children }: { children: React.ReactNode }) {
+    return (
+        <p className="rounded-lg bg-slate-100 px-3 py-3 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            {children}
+        </p>
+    );
+}
+
 export default async function ProductionInsightsPage() {
-    const [overviewRes, thresholdsRes] = await Promise.all([
-        getProductionSupervisorOverview(),
-        getProductionAlertThresholdsForPage(),
-    ]);
-    if (!overviewRes.success) return <MobileReadError title="Insight produksi belum tersedia" />;
-    const overview = overviewRes.data;
-    const thresholds = thresholdsRes.success
-        ? thresholdsRes.data
-        : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
-
-    const { highlights } = overview;
-
-    const target = highlights.targetToday;
-    const efficiencyAvailable =
-        target !== null && target > 0 && highlights.targetUnitMode !== 'MIXED';
-    const efficiency =
-        efficiencyAvailable && target !== null
-            ? Math.round((highlights.outputToday / target) * 100)
-            : null;
+    const response = await getProductionSupervisorOverview();
+    if (!response.success) {
+        return <MobileReadError title="Insight produksi belum tersedia" />;
+    }
+    const overview = response.data;
 
     return (
         <div className="space-y-6">
-            <MobileSectionHeader title="Insight & KPI Produksi" level={1} />
+            <MobileSectionHeader title="Insight Produksi" level={1} />
             <MobileDataFreshness generatedAt={overview.generatedAt} />
 
-            <div className="grid grid-cols-1 gap-3">
-                <MobileInsightCard
-                    insight={{
-                        key: 'afval-scrap',
-                        label: 'Total Scrapped (Afval)',
-                        value: highlights.scrapToday,
-                        unit: 'unit',
-                        severity: isScrapQuantityCritical(
-                            thresholds,
-                            highlights.scrapToday,
-                        )
-                            ? 'CRITICAL'
-                            : 'INFO',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'efficiency-target',
-                        label: 'Efisiensi Output Target',
-                        value:
-                            highlights.targetUnitMode === 'MIXED'
-                                ? 'Belum dikonfigurasi'
-                                : efficiency === null
-                                  ? '—'
-                                  : efficiency,
-                        unit: efficiency === null ? undefined : '%',
-                        severity: 'SUCCESS',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'qc-queue',
-                        label: 'Status Antrean QC',
-                        value: highlights.qcPendingCount,
-                        unit: 'item',
-                        severity: highlights.qcPendingCount > 0 ? 'WARNING' : 'SUCCESS',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'downtime-duration',
-                        label: 'Total Durasi Downtime',
-                        value: highlights.downtimeMinutesToday,
-                        unit: 'menit',
-                        severity: isDowntimeCritical(
-                            thresholds,
-                            highlights.downtimeMinutesToday,
-                        )
-                            ? 'CRITICAL'
-                            : 'SUCCESS',
-                    }}
-                />
-            </div>
+            <section className="space-y-3">
+                <MobileSectionHeader title="Output Hari Ini per Proses & Satuan" />
+                {overview.health.outputToday.status === 'AVAILABLE' ? (
+                    overview.health.outputToday.data.processTotals.length >
+                    0 ? (
+                        <div className="grid grid-cols-1 gap-3">
+                            {overview.health.outputToday.data.processTotals.map(
+                                (total) => (
+                                    <MobileInsightCard
+                                        key={`${total.processKey}-${total.unit}`}
+                                        insight={{
+                                            key: `${total.processKey}-${total.unit}`,
+                                            label:
+                                                PROCESS_LABEL[
+                                                    total.processKey
+                                                ] ?? total.processKey,
+                                            value: total.quantity,
+                                            unit: total.unit,
+                                            severity: 'INFO',
+                                        }}
+                                    />
+                                ),
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-500">
+                            Belum ada output non-voided dalam hari bisnis WIB
+                            ini.
+                        </p>
+                    )
+                ) : (
+                    <p role="status" className="text-sm text-amber-700">
+                        Output hari ini tidak tersedia; nilai tidak diganti
+                        dengan nol.
+                    </p>
+                )}
+            </section>
 
-            {!efficiencyAvailable && (
-                <p className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2">
-                    Efisiensi output tidak dapat dihitung:{' '}
-                    {highlights.targetUnitMode === 'MIXED'
-                        ? 'target lintas satuan belum dikonfigurasi.'
-                        : 'target hari ini tidak tersedia.'}
-                </p>
-            )}
+            <section className="space-y-3">
+                <MobileSectionHeader title="Fakta Operasional" />
+                {overview.health.qcPending.status === 'AVAILABLE' ? (
+                    <MobileInsightCard
+                        insight={{
+                            key: 'qc-queue',
+                            label: 'QC Pending',
+                            value: overview.health.qcPending.data.count,
+                            unit: 'item',
+                            severity: 'INFO',
+                        }}
+                    />
+                ) : (
+                    <p role="status" className="text-sm text-amber-700">
+                        Antrean QC tidak tersedia.
+                    </p>
+                )}
+                {overview.health.downtime.status === 'AVAILABLE' ? (
+                    <>
+                        <MobileInsightCard
+                            insight={{
+                                key: 'downtime-duration',
+                                label: 'Total Durasi Downtime Hari Ini',
+                                value: overview.health.downtime.data
+                                    .totalMinutesToday,
+                                unit: 'menit',
+                                severity: 'INFO',
+                            }}
+                        />
+                        <p className="text-xs text-slate-500">
+                            Total harian tidak diberi severity. Ambang tenant
+                            hanya menilai insiden terbuka terlama.
+                        </p>
+                    </>
+                ) : (
+                    <p role="status" className="text-sm text-amber-700">
+                        Downtime atau sumber ambang tenant tidak tersedia.
+                    </p>
+                )}
+            </section>
+
+            <section className="space-y-3">
+                <MobileSectionHeader title="Belum Dikonfigurasi" />
+                <Withheld>
+                    Target produksi, attainment, dan efisiensi output ditahan
+                    sampai definisi owner dan cohort yang comparable tersedia.
+                </Withheld>
+                <Withheld>
+                    Scrap rate dan severity quantity ditahan karena agregasi
+                    lintas proses/satuan belum mempunyai denominator yang sah.
+                </Withheld>
+            </section>
         </div>
     );
 }

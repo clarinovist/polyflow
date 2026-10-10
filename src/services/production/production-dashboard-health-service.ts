@@ -1,4 +1,10 @@
-import type { BomCategory, MachineType, Role, Unit } from '@prisma/client';
+import type {
+    BomCategory,
+    MachineType,
+    PrismaClient,
+    Role,
+    Unit,
+} from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { AuthorizationError } from '@/lib/errors/errors';
 import {
@@ -204,6 +210,58 @@ export type ProductionDriversData = {
     lateProcess: ProductionLateProcessDriver | null;
 };
 
+type ProductionOutputReaderDb = Pick<PrismaClient, 'productionExecution'>;
+
+/**
+ * Canonical bounded Production output read shared by desktop and mobile.
+ * The database cohort is non-VOIDED execution inside one explicit WIB day;
+ * composition keeps process and unit dimensions intact.
+ */
+export async function readProductionOutputHealth(
+    db: ProductionOutputReaderDb,
+    bounds: { startOfDay: Date; endOfDay: Date },
+): Promise<ProductionOutputHealthData> {
+    const rows = await db.productionExecution.findMany({
+        where: {
+            status: { not: 'VOIDED' },
+            startTime: {
+                gte: bounds.startOfDay,
+                lte: bounds.endOfDay,
+            },
+        },
+        orderBy: { id: 'asc' },
+        take: PRODUCTION_OUTPUT_ROW_LIMIT + 1,
+        select: {
+            quantityProduced: true,
+            productionOrder: {
+                select: {
+                    id: true,
+                    bom: {
+                        select: {
+                            category: true,
+                            productVariant: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    skuCode: true,
+                                    primaryUnit: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    });
+    const truncated = rows.length > PRODUCTION_OUTPUT_ROW_LIMIT;
+    const output = composeProductionOutputHealth(
+        rows.slice(0, PRODUCTION_OUTPUT_ROW_LIMIT) as ProductionExecutionRow[],
+        truncated,
+    );
+    if (truncated) output.state = 'UNAVAILABLE';
+    return output;
+}
+
 function minutesSince(now: Date, date: Date): number {
     return Math.max(0, Math.floor((now.getTime() - date.getTime()) / 60_000));
 }
@@ -272,7 +330,7 @@ export function composeProductionOutputHealth(
         { processKey: ProcessKey; unit: string; quantity: number }
     >();
     for (const item of allItems) {
-        const key = `${item.processKey}:${item.unit}`;
+        const key = JSON.stringify([item.processKey, item.unit]);
         const total = totals.get(key) ?? {
             processKey: item.processKey,
             unit: item.unit,

@@ -84,13 +84,18 @@ function downtime() {
     };
 }
 
-function outputExecution(unit: 'KG' | 'PCS', id: string, quantity: number) {
+function outputExecution(
+    unit: 'KG' | 'PCS',
+    id: string,
+    quantity: number,
+    category: 'MIXING' | 'PACKING' = 'MIXING',
+) {
     return {
         quantityProduced: quantity,
         productionOrder: {
             id: `order-${id}`,
             bom: {
-                category: 'MIXING',
+                category,
                 productVariant: {
                     id,
                     name: `Product ${id}`,
@@ -350,6 +355,42 @@ describe('getProductionLiveOverview R4C', () => {
                 },
                 take: 2001,
                 orderBy: { id: 'asc' },
+            }),
+        );
+    });
+
+    it('keeps desktop and mobile on the exported canonical output reader query/composition contract', async () => {
+        const service = await import(
+            '@/services/production/production-dashboard-health-service'
+        );
+        const db = {
+            productionExecution: {
+                findMany: vi.fn().mockResolvedValue([
+                    outputExecution('KG', 'kg', 3, 'MIXING'),
+                    outputExecution('PCS', 'pcs', 8, 'PACKING'),
+                ]),
+            },
+        };
+
+        const output = await service.readProductionOutputHealth(db as never, {
+            startOfDay: new Date('2026-10-08T17:00:00.000Z'),
+            endOfDay: new Date('2026-10-09T16:59:59.999Z'),
+        });
+
+        expect(output.processTotals).toEqual([
+            { processKey: 'MIXING', quantity: 3, unit: 'KG' },
+            { processKey: 'PACKING', quantity: 8, unit: 'PCS' },
+        ]);
+        expect(db.productionExecution.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: {
+                    status: { not: 'VOIDED' },
+                    startTime: {
+                        gte: new Date('2026-10-08T17:00:00.000Z'),
+                        lte: new Date('2026-10-09T16:59:59.999Z'),
+                    },
+                },
+                take: 2001,
             }),
         );
     });
