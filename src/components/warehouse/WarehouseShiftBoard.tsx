@@ -1,101 +1,56 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
 import {
-    Package,
-    Truck,
-    ClipboardList,
     AlertTriangle,
-    ShoppingCart,
     ArrowRight,
-    TrendingDown,
     CheckCircle2,
+    ClipboardList,
+    Package,
+    ShoppingCart,
+    TrendingDown,
+    Truck,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/utils';
 import type { WarehouseShiftBoard } from '@/actions/dashboard/warehouse-dashboard';
-
-type BoardData = WarehouseShiftBoard;
+import {
+    DashboardFreshness,
+    DashboardHealthCard,
+    DashboardSectionState,
+} from '@/components/dashboard/DashboardMetricPrimitives';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface WarehouseShiftBoardProps {
-    data: BoardData;
-}
-
-function StatCard({
-    label,
-    count,
-    icon: Icon,
-    href,
-    ctaLabel,
-    colorClass,
-}: {
-    label: string;
-    count: number;
-    icon: React.ComponentType<{ className?: string }>;
-    href: string;
-    ctaLabel: string;
-    colorClass: string;
-}) {
-    const isActionable = count > 0;
-    const card = (
-        <Card
-            className={
-                isActionable
-                    ? 'hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group h-full'
-                    : 'h-full'
-            }
-        >
-            <CardContent className="p-4 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                    <div className={cn('p-2 rounded-lg', colorClass)}>
-                        <Icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-2xl font-bold tabular-nums">
-                        {count}
-                    </span>
-                </div>
-                <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                        {label}
-                    </p>
-                    {isActionable && (
-                        <p className="text-xs text-primary font-semibold flex items-center gap-1 mt-1 group-hover:underline">
-                            {ctaLabel} <ArrowRight className="h-3 w-3" />
-                        </p>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
-    );
-
-    return isActionable ? (
-        <Link href={href} className="contents">
-            {card}
-        </Link>
-    ) : (
-        card
-    );
+    data: WarehouseShiftBoard | null;
 }
 
 function AttentionSection({
     title,
+    total,
+    returned,
     items,
     emptyMessage,
     renderItem,
 }: {
     title: string;
+    total: number;
+    returned: number;
     items: Array<Record<string, unknown>>;
     emptyMessage: string;
     renderItem: (item: Record<string, unknown>) => React.ReactNode;
 }) {
     return (
-        <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                {title}
-            </h3>
+        <div className="min-w-0 space-y-2">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+                <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span>{title}</span>
+                </h3>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {returned} dari {total}
+                </span>
+            </div>
             {items.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-2">
+                <p className="py-2 text-xs italic text-muted-foreground">
                     {emptyMessage}
                 </p>
             ) : (
@@ -103,7 +58,7 @@ function AttentionSection({
                     {items.map((item) => (
                         <div
                             key={String(item.id)}
-                            className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors min-h-[44px]"
+                            className="flex min-h-11 min-w-0 items-center justify-between rounded-md bg-muted/30 px-3 py-2 transition-colors hover:bg-muted/50 [&>*]:min-w-0 [&_span]:break-words"
                         >
                             {renderItem(item)}
                         </div>
@@ -114,188 +69,449 @@ function AttentionSection({
     );
 }
 
+function formatQuantity(value: number): string {
+    return value.toLocaleString('id-ID', {
+        maximumFractionDigits: 4,
+    });
+}
+
 export function WarehouseShiftBoardComponent({
     data,
 }: WarehouseShiftBoardProps) {
-    const { counts, today, attention } = data;
+    if (!data) {
+        return (
+            <div className="min-w-0 space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Gudang
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Kondisi, perhatian, dan driver operasional gudang.
+                    </p>
+                </div>
+                <section
+                    className="space-y-3"
+                    aria-labelledby="warehouse-health-heading"
+                >
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Health
+                    </p>
+                    <h2
+                        id="warehouse-health-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Kondisi utama
+                    </h2>
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Dashboard gudang tidak tersedia"
+                        description="Data gagal dimuat. Angka kosong tidak dianggap nol."
+                    />
+                </section>
+            </div>
+        );
+    }
+
+    const { generatedAt, health, today, attention, drivers } = data;
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Hari Ini</h1>
-                <p className="text-muted-foreground">
-                    Ringkasan pekerjaan sif dan antrean prioritas.
-                </p>
+        <div className="min-w-0 space-y-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Gudang
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Kondisi, perhatian, dan driver operasional gudang.
+                    </p>
+                </div>
+                <DashboardFreshness generatedAt={generatedAt} />
             </div>
 
-            {/* Stat Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                <StatCard
-                    label="Terima"
-                    count={counts.receivablePOs}
-                    icon={Package}
-                    href="/warehouse/incoming"
-                    ctaLabel="Buka"
-                    colorClass="bg-blue-500/10 text-blue-600"
-                />
-                <StatCard
-                    label="Muat"
-                    count={counts.openLoadOrders}
-                    icon={Truck}
-                    href="/warehouse/outgoing"
-                    ctaLabel="Buka"
-                    colorClass="bg-emerald-500/10 text-emerald-600"
-                />
-                <StatCard
-                    label="Bahan produksi"
-                    count={counts.materialQueue}
-                    icon={ClipboardList}
-                    href="/warehouse/materials"
-                    ctaLabel="Buka"
-                    colorClass="bg-amber-500/10 text-amber-600"
-                />
-                <StatCard
-                    label="Stok menipis"
-                    count={counts.lowStock}
-                    icon={TrendingDown}
-                    href="/warehouse/inventory?lowStock=true"
-                    ctaLabel="Lihat"
-                    colorClass="bg-red-500/10 text-red-600"
-                />
-                <StatCard
-                    label="Perlu dipesan ulang"
-                    count={counts.suggestedReorder}
-                    icon={ShoppingCart}
-                    href="/warehouse/analytics#reorder"
-                    ctaLabel="Tinjau"
-                    colorClass="bg-purple-500/10 text-purple-600"
-                />
-            </div>
-
-            {/* Attention Section */}
-            <Card>
-                <CardContent className="p-4 space-y-4">
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">
-                        Butuh Perhatian
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="warehouse-health-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Health
+                    </p>
+                    <h2
+                        id="warehouse-health-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Kondisi utama
                     </h2>
+                </div>
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    {health.operational.status === 'UNAVAILABLE' ? (
+                        <div className="sm:col-span-2 xl:col-span-3">
+                            <DashboardSectionState
+                                state="UNAVAILABLE"
+                                title="Antrean operasional tidak tersedia"
+                                description="Hitungan terima, muat, dan material gagal dimuat dan tidak dianggap nol."
+                            />
+                        </div>
+                    ) : (
+                        <>
+                            <DashboardHealthCard
+                                title="Terima"
+                                value={health.operational.data.receivablePOs.toLocaleString(
+                                    'id-ID',
+                                )}
+                                icon={Package}
+                                definition={{
+                                    unit: 'Purchase order',
+                                    period: 'Saat dashboard diperbarui',
+                                    description:
+                                        'PO SENT atau PARTIAL_RECEIVED yang dapat diterima.',
+                                    source: 'Purchasing',
+                                }}
+                                href={
+                                    health.operational.data.receivablePOs > 0
+                                        ? '/warehouse/incoming'
+                                        : undefined
+                                }
+                                supportingText={
+                                    health.operational.data.receivablePOs > 0
+                                        ? 'Buka antrean penerimaan'
+                                        : 'Antrean kosong'
+                                }
+                            />
+                            <DashboardHealthCard
+                                title="Muat"
+                                value={health.operational.data.openLoadOrders.toLocaleString(
+                                    'id-ID',
+                                )}
+                                icon={Truck}
+                                definition={{
+                                    unit: 'Surat jalan',
+                                    period: 'Saat dashboard diperbarui',
+                                    description:
+                                        'Surat jalan PENDING atau LOADING.',
+                                    source: 'Warehouse',
+                                }}
+                                href={
+                                    health.operational.data.openLoadOrders > 0
+                                        ? '/warehouse/outgoing'
+                                        : undefined
+                                }
+                                supportingText={
+                                    health.operational.data.openLoadOrders > 0
+                                        ? 'Buka antrean pemuatan'
+                                        : 'Antrean kosong'
+                                }
+                            />
+                            <DashboardHealthCard
+                                title="Bahan produksi"
+                                value={health.operational.data.materialQueue.toLocaleString(
+                                    'id-ID',
+                                )}
+                                icon={ClipboardList}
+                                definition={{
+                                    unit: 'SPK',
+                                    period: 'Saat dashboard diperbarui',
+                                    description:
+                                        'SPK RELEASED, IN_PROGRESS, atau WAITING_MATERIAL.',
+                                    source: 'Production',
+                                }}
+                                href={
+                                    health.operational.data.materialQueue > 0
+                                        ? '/warehouse/materials'
+                                        : undefined
+                                }
+                                supportingText={
+                                    health.operational.data.materialQueue > 0
+                                        ? 'Buka antrean material'
+                                        : 'Antrean kosong'
+                                }
+                            />
+                        </>
+                    )}
+                    {health.inventory.status === 'UNAVAILABLE' ? (
+                        <div className="sm:col-span-2 xl:col-span-2">
+                            <DashboardSectionState
+                                state="UNAVAILABLE"
+                                title="Alert persediaan tidak tersedia"
+                                description="Hitungan stok menipis dan reorder gagal dimuat dan tidak dianggap nol."
+                            />
+                        </div>
+                    ) : (
+                        <>
+                            <DashboardHealthCard
+                                title="Stok menipis"
+                                value={health.inventory.data.lowStock.toLocaleString(
+                                    'id-ID',
+                                )}
+                                icon={TrendingDown}
+                                definition={{
+                                    unit: 'Varian',
+                                    period: 'Saat dashboard diperbarui',
+                                    description:
+                                        'Varian aktif di bawah batas minimum berdasarkan stok INTERNAL RM/FG.',
+                                    source: 'Inventory',
+                                }}
+                                href={
+                                    health.inventory.data.lowStock > 0
+                                        ? '/warehouse/inventory?lowStock=true'
+                                        : undefined
+                                }
+                                supportingText={
+                                    health.inventory.data.lowStock > 0
+                                        ? 'Tinjau varian'
+                                        : 'Tidak ada alert'
+                                }
+                            />
+                            <DashboardHealthCard
+                                title="Perlu dipesan ulang"
+                                value={health.inventory.data.suggestedReorder.toLocaleString(
+                                    'id-ID',
+                                )}
+                                icon={ShoppingCart}
+                                definition={{
+                                    unit: 'Varian',
+                                    period: 'Saat dashboard diperbarui',
+                                    description:
+                                        'Varian aktif di bawah reorder point berdasarkan stok INTERNAL RM/FG.',
+                                    source: 'Inventory',
+                                }}
+                                supportingText={
+                                    health.inventory.data.suggestedReorder > 0
+                                        ? 'Koordinasikan dengan pembelian'
+                                        : 'Tidak ada alert'
+                                }
+                            />
+                        </>
+                    )}
+                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <AttentionSection
-                            title="SJ sedang dimuat, belum diverifikasi"
-                            items={attention.loadingUnverified.map((d) => ({
-                                id: d.id,
-                                number: d.number,
-                                customerName: d.customerName ?? '',
-                            }))}
-                            emptyMessage="Tidak ada SJ menunggu verifikasi"
-                            renderItem={(item) => (
-                                <Link
-                                    href={`/warehouse/outgoing/${String(item.id)}`}
-                                    className="flex-1 flex items-center justify-between group/link"
-                                >
-                                    <div>
-                                        <span className="text-sm font-mono font-bold">
-                                            {String(item.number)}
-                                        </span>
-                                        {typeof item.customerName ===
-                                            'string' &&
-                                            item.customerName.length > 0 && (
-                                                <span className="text-xs text-muted-foreground ml-2">
-                                                    {item.customerName}
-                                                </span>
-                                            )}
-                                    </div>
-                                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
-                                </Link>
-                            )}
-                        />
-
-                        <AttentionSection
-                            title="PO diterima sebagian, menunggu sisa"
-                            items={attention.partialPOs.map((p) => ({
-                                id: p.id,
-                                orderNumber: p.orderNumber,
-                                supplierName: p.supplierName,
-                            }))}
-                            emptyMessage="Tidak ada PO diterima sebagian"
-                            renderItem={(item) => (
-                                <Link
-                                    href={`/warehouse/incoming/orders/${String(item.id)}`}
-                                    className="flex-1 flex items-center justify-between group/link"
-                                >
-                                    <div>
-                                        <span className="text-sm font-mono font-bold">
-                                            {String(item.orderNumber)}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground ml-2">
-                                            {String(item.supplierName)}
-                                        </span>
-                                    </div>
-                                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
-                                </Link>
-                            )}
-                        />
-
-                        <AttentionSection
-                            title="SPK menunggu bahan"
-                            items={attention.waitingMaterial.map((p) => ({
-                                id: p.id,
-                                orderNumber: p.orderNumber,
-                            }))}
-                            emptyMessage="Tidak ada SPK menunggu bahan"
-                            renderItem={(item) => (
-                                <Link
-                                    href={`/warehouse/materials?orderId=${String(item.id)}`}
-                                    className="flex-1 flex items-center justify-between group/link"
-                                >
-                                    <span className="text-sm font-mono font-bold">
-                                        {String(item.orderNumber)}
+                <Card>
+                    <CardContent className="min-w-0 p-4">
+                        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-foreground">
+                            Aktivitas hari ini
+                        </h3>
+                        {today.status === 'UNAVAILABLE' ? (
+                            <DashboardSectionState
+                                state="UNAVAILABLE"
+                                title="Aktivitas hari ini tidak tersedia"
+                                description="Hitungan event hari bisnis WIB gagal dimuat dan tidak dianggap nol."
+                            />
+                        ) : (
+                            <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
+                                <div className="flex min-h-11 items-center gap-2">
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                    <span className="text-muted-foreground">
+                                        Diterima:
                                     </span>
-                                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
-                                </Link>
-                            )}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+                                    <span className="font-bold tabular-nums">
+                                        {today.data.goodsReceipts} GR
+                                    </span>
+                                </div>
+                                <div className="flex min-h-11 items-center gap-2">
+                                    <Truck className="h-4 w-4 text-blue-500" />
+                                    <span className="text-muted-foreground">
+                                        Dikirim:
+                                    </span>
+                                    <span className="font-bold tabular-nums">
+                                        {today.data.deliveriesShipped} SJ
+                                    </span>
+                                </div>
+                                <div className="flex min-h-11 items-center gap-2">
+                                    <ClipboardList className="h-4 w-4 text-amber-500" />
+                                    <span className="text-muted-foreground">
+                                        Pengeluaran bahan:
+                                    </span>
+                                    <span className="font-bold tabular-nums">
+                                        {today.data.materialIssues}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </section>
 
-            {/* Today Ops KPI */}
-            <Card>
-                <CardContent className="p-4">
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-3">
-                        Aktivitas Hari Ini
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="warehouse-attention-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Attention
+                    </p>
+                    <h2
+                        id="warehouse-attention-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Butuh perhatian
                     </h2>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                            <span className="text-muted-foreground">
-                                Diterima:
-                            </span>
-                            <span className="font-bold tabular-nums">
-                                {today.goodsReceipts} GR
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Truck className="h-4 w-4 text-blue-500" />
-                            <span className="text-muted-foreground">
-                                Dikirim:
-                            </span>
-                            <span className="font-bold tabular-nums">
-                                {today.deliveriesShipped} SJ
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <ClipboardList className="h-4 w-4 text-amber-500" />
-                            <span className="text-muted-foreground">
-                                Pengeluaran bahan:
-                            </span>
-                            <span className="font-bold tabular-nums">
-                                {today.materialIssues}
-                            </span>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                </div>
+                {attention.status === 'UNAVAILABLE' ? (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Daftar perhatian tidak tersedia"
+                        description="Kegagalan baca tidak dianggap sebagai antrean kosong."
+                    />
+                ) : (
+                    <Card>
+                        <CardContent className="min-w-0 p-4">
+                            <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3">
+                                <AttentionSection
+                                    title="SJ sedang dimuat, belum diverifikasi"
+                                    total={
+                                        attention.data.loadingUnverified.total
+                                    }
+                                    returned={
+                                        attention.data.loadingUnverified
+                                            .returned
+                                    }
+                                    items={attention.data.loadingUnverified.items.map(
+                                        (delivery) => ({ ...delivery }),
+                                    )}
+                                    emptyMessage="Tidak ada SJ menunggu verifikasi"
+                                    renderItem={(item) => (
+                                        <Link
+                                            href={`/warehouse/outgoing/${String(item.id)}`}
+                                            className="group/link flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2"
+                                        >
+                                            <div className="min-w-0">
+                                                <span className="text-sm font-mono font-bold">
+                                                    {String(item.number)}
+                                                </span>
+                                                {typeof item.customerName ===
+                                                    'string' &&
+                                                    item.customerName.length >
+                                                        0 && (
+                                                        <span className="ml-2 text-xs text-muted-foreground">
+                                                            {item.customerName}
+                                                        </span>
+                                                    )}
+                                            </div>
+                                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover/link:text-primary" />
+                                        </Link>
+                                    )}
+                                />
+                                <AttentionSection
+                                    title="PO diterima sebagian, menunggu sisa"
+                                    total={attention.data.partialPOs.total}
+                                    returned={
+                                        attention.data.partialPOs.returned
+                                    }
+                                    items={attention.data.partialPOs.items.map(
+                                        (purchaseOrder) => ({
+                                            ...purchaseOrder,
+                                        }),
+                                    )}
+                                    emptyMessage="Tidak ada PO diterima sebagian"
+                                    renderItem={(item) => (
+                                        <Link
+                                            href={`/warehouse/incoming/orders/${String(item.id)}`}
+                                            className="group/link flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2"
+                                        >
+                                            <div className="min-w-0">
+                                                <span className="text-sm font-mono font-bold">
+                                                    {String(item.orderNumber)}
+                                                </span>
+                                                <span className="ml-2 text-xs text-muted-foreground">
+                                                    {String(item.supplierName)}
+                                                </span>
+                                                {item.expectedDate === null && (
+                                                    <span className="block text-[10px] text-muted-foreground">
+                                                        Tanggal harapan belum
+                                                        diisi
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover/link:text-primary" />
+                                        </Link>
+                                    )}
+                                />
+                                <AttentionSection
+                                    title="SPK menunggu bahan"
+                                    total={attention.data.waitingMaterial.total}
+                                    returned={
+                                        attention.data.waitingMaterial.returned
+                                    }
+                                    items={attention.data.waitingMaterial.items.map(
+                                        (productionOrder) => ({
+                                            ...productionOrder,
+                                        }),
+                                    )}
+                                    emptyMessage="Tidak ada SPK menunggu bahan"
+                                    renderItem={(item) => (
+                                        <Link
+                                            href={`/warehouse/materials?orderId=${String(item.id)}`}
+                                            className="group/link flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2"
+                                        >
+                                            <span className="text-sm font-mono font-bold">
+                                                {String(item.orderNumber)}
+                                            </span>
+                                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover/link:text-primary" />
+                                        </Link>
+                                    )}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </section>
+
+            <section
+                className="min-w-0 space-y-3"
+                aria-labelledby="warehouse-drivers-heading"
+            >
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Drivers
+                    </p>
+                    <h2
+                        id="warehouse-drivers-heading"
+                        className="text-lg font-semibold"
+                    >
+                        Penyumbang stok menipis
+                    </h2>
+                </div>
+                {drivers.status === 'UNAVAILABLE' ? (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Driver stok tidak tersedia"
+                        description="Daftar driver berasal dari snapshot stok yang sama dengan hitungan alert dan gagal dimuat."
+                    />
+                ) : (
+                    <Card>
+                        <CardContent className="min-w-0 space-y-2 p-4">
+                            {drivers.data.lowStock.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Tidak ada varian di bawah batas minimum.
+                                </p>
+                            ) : (
+                                drivers.data.lowStock.map((driver) => (
+                                    <div
+                                        key={driver.id}
+                                        className="flex min-h-11 min-w-0 flex-col justify-center gap-1 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="break-words text-sm font-medium">
+                                                {driver.name}
+                                            </p>
+                                            <p className="break-words text-xs text-muted-foreground">
+                                                {driver.skuCode}
+                                            </p>
+                                        </div>
+                                        <p className="shrink-0 text-sm tabular-nums">
+                                            {formatQuantity(
+                                                driver.eligibleQuantity,
+                                            )}{' '}
+                                            / {formatQuantity(driver.threshold)}{' '}
+                                            {driver.unit}
+                                        </p>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+            </section>
         </div>
     );
 }

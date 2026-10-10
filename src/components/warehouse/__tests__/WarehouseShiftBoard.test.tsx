@@ -2,73 +2,247 @@
 
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { WarehouseShiftBoardComponent } from '../WarehouseShiftBoard';
 import type { WarehouseShiftBoard } from '@/actions/dashboard/warehouse-dashboard';
+import { WarehouseShiftBoardComponent } from '../WarehouseShiftBoard';
 
 const data: WarehouseShiftBoard = {
-    counts: {
-        receivablePOs: 1,
-        openLoadOrders: 1,
-        materialQueue: 1,
-        lowStock: 1,
-        suggestedReorder: 1,
+    generatedAt: '2026-10-09T08:00:00.000Z',
+    health: {
+        operational: {
+            status: 'AVAILABLE',
+            data: {
+                receivablePOs: 1,
+                openLoadOrders: 2,
+                materialQueue: 3,
+            },
+        },
+        inventory: {
+            status: 'AVAILABLE',
+            data: { lowStock: 1, suggestedReorder: 1 },
+        },
     },
-    today: { goodsReceipts: 2, deliveriesShipped: 3, materialIssues: 4 },
+    today: {
+        status: 'AVAILABLE',
+        data: {
+            goodsReceipts: 4,
+            deliveriesShipped: 5,
+            materialIssues: 6,
+        },
+    },
     attention: {
-        loadingUnverified: [
-            { id: 'sj-1', number: 'SJ-001', customerName: 'Pelanggan A' },
-        ],
-        partialPOs: [
-            { id: 'po-1', orderNumber: 'PO-001', supplierName: 'Pemasok A' },
-        ],
-        waitingMaterial: [{ id: 'spk-1', orderNumber: 'SPK-001' }],
+        status: 'AVAILABLE',
+        data: {
+            loadingUnverified: {
+                total: 8,
+                returned: 1,
+                items: [
+                    {
+                        id: 'sj-1',
+                        number: 'SJ-001',
+                        customerName: 'Pelanggan A',
+                        deliveryDate: '2026-10-01T08:00:00.000Z',
+                    },
+                ],
+            },
+            partialPOs: {
+                total: 2,
+                returned: 1,
+                items: [
+                    {
+                        id: 'po-1',
+                        orderNumber: 'PO-001',
+                        supplierName: 'Pemasok A',
+                        expectedDate: null,
+                    },
+                ],
+            },
+            waitingMaterial: {
+                total: 3,
+                returned: 1,
+                items: [
+                    {
+                        id: 'spk-1',
+                        orderNumber: 'SPK-001',
+                        createdAt: '2026-10-01T08:00:00.000Z',
+                    },
+                ],
+            },
+        },
+    },
+    drivers: {
+        status: 'AVAILABLE',
+        data: {
+            lowStock: [
+                {
+                    id: 'variant-1',
+                    name: 'Resin A',
+                    skuCode: 'RM-A',
+                    unit: 'KG',
+                    eligibleQuantity: 2,
+                    threshold: 10,
+                    shortageRatio: 0.8,
+                },
+                {
+                    id: 'variant-2',
+                    name: 'Botol A',
+                    skuCode: 'FG-A',
+                    unit: 'PCS',
+                    eligibleQuantity: 5,
+                    threshold: 20,
+                    shortageRatio: 0.75,
+                },
+            ],
+        },
     },
 };
 
 describe('WarehouseShiftBoardComponent', () => {
-    it('keeps positive-count cards and attention items linked to their targets', () => {
+    it('renders Health then Attention then Drivers with server freshness', () => {
+        render(<WarehouseShiftBoardComponent data={data} />);
+
+        const health = screen.getByText('Health');
+        const attention = screen.getByText('Attention');
+        const drivers = screen.getByText('Drivers');
+        expect(
+            health.compareDocumentPosition(attention) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            attention.compareDocumentPosition(drivers) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        const freshness = screen.getByText(/Diperbarui/).closest('time');
+        expect(freshness?.getAttribute('datetime')).toBe(
+            '2026-10-09T08:00:00.000Z',
+        );
+    });
+
+    it('preserves operational links and bounded backlog links with touch-safe targets', () => {
         render(<WarehouseShiftBoardComponent data={data} />);
 
         expect(
             screen.getByText('Terima').closest('a')?.getAttribute('href'),
         ).toBe('/warehouse/incoming');
-        expect(screen.getByText('SJ-001').closest('a')?.getAttribute('href')).toBe(
-            '/warehouse/outgoing/sj-1',
+        expect(screen.getByText('SJ-001').closest('a')).toHaveProperty(
+            'className',
+            expect.stringContaining('min-h-11'),
         );
-        expect(screen.getByText('PO-001').closest('a')?.getAttribute('href')).toBe(
-            '/warehouse/incoming/orders/po-1',
-        );
-        expect(screen.getByText('SPK-001').closest('a')?.getAttribute('href')).toBe(
-            '/warehouse/materials?orderId=spk-1',
-        );
+        expect(
+            screen.getByText('SJ-001').closest('a')?.getAttribute('href'),
+        ).toBe('/warehouse/outgoing/sj-1');
+        expect(
+            screen.getByText('PO-001').closest('a')?.getAttribute('href'),
+        ).toBe('/warehouse/incoming/orders/po-1');
+        expect(
+            screen.getByText('SPK-001').closest('a')?.getAttribute('href'),
+        ).toBe('/warehouse/materials?orderId=spk-1');
+        expect(screen.getByText('1 dari 8')).toBeTruthy();
+        expect(screen.getAllByText('1 dari 2')).toHaveLength(1);
     });
 
-    it('shows zero-count cards without link semantics, action styling, or CTA', () => {
+    it('shows explicit null-date copy and each driver in its own unit', () => {
+        render(<WarehouseShiftBoardComponent data={data} />);
+
+        expect(screen.getByText('Tanggal harapan belum diisi')).toBeTruthy();
+        expect(screen.getByText('2 / 10 KG')).toBeTruthy();
+        expect(screen.getByText('5 / 20 PCS')).toBeTruthy();
+        expect(screen.queryByText(/KG \+ PCS/)).toBeNull();
+    });
+
+    it('renders valid zero and empty states as available rather than unavailable', () => {
         const zeroData: WarehouseShiftBoard = {
             ...data,
-            counts: {
-                ...data.counts,
-                receivablePOs: 0,
+            health: {
+                operational: {
+                    status: 'AVAILABLE',
+                    data: {
+                        receivablePOs: 0,
+                        openLoadOrders: 0,
+                        materialQueue: 0,
+                    },
+                },
+                inventory: {
+                    status: 'AVAILABLE',
+                    data: { lowStock: 0, suggestedReorder: 0 },
+                },
+            },
+            today: {
+                status: 'AVAILABLE',
+                data: {
+                    goodsReceipts: 0,
+                    deliveriesShipped: 0,
+                    materialIssues: 0,
+                },
+            },
+            attention: {
+                status: 'AVAILABLE',
+                data: {
+                    loadingUnverified: {
+                        total: 0,
+                        returned: 0,
+                        items: [],
+                    },
+                    partialPOs: { total: 0, returned: 0, items: [] },
+                    waitingMaterial: { total: 0, returned: 0, items: [] },
+                },
+            },
+            drivers: {
+                status: 'AVAILABLE',
+                data: { lowStock: [] },
             },
         };
 
         render(<WarehouseShiftBoardComponent data={zeroData} />);
 
-        const title = screen.getByText('Terima');
-        expect(title.closest('a')).toBeNull();
+        expect(screen.getAllByText('Antrean kosong')).toHaveLength(3);
+        expect(screen.getAllByText('Tidak ada alert')).toHaveLength(2);
         expect(
-            title
-                .closest('[data-slot="card"]')
-                ?.classList.contains('cursor-pointer'),
-        ).toBe(false);
-        expect(screen.getAllByText('Buka')).toHaveLength(2);
+            screen.getByText('Tidak ada varian di bawah batas minimum.'),
+        ).toBeTruthy();
+        expect(screen.queryByText(/tidak tersedia/i)).toBeNull();
+        expect(screen.getByText('Terima').closest('a')).toBeNull();
     });
 
-    it('uses Indonesian operational terminology and tabular activity figures', () => {
-        const { container } = render(<WarehouseShiftBoardComponent data={data} />);
+    it('does not emit the removed analytics reorder link', () => {
+        render(<WarehouseShiftBoardComponent data={data} />);
 
-        expect(screen.getByText('Perlu dipesan ulang')).toBeTruthy();
-        expect(screen.getByText('Pengeluaran bahan:')).toBeTruthy();
-        expect(container.querySelectorAll('.tabular-nums').length).toBeGreaterThan(4);
+        expect(
+            screen.queryByRole('link', { name: /Perlu dipesan ulang/i }),
+        ).toBeNull();
+        expect(
+            document.querySelector('a[href="/warehouse/analytics#reorder"]'),
+        ).toBeNull();
+    });
+
+    it('keeps successful operational and today data visible when inventory is unavailable', () => {
+        const partialData: WarehouseShiftBoard = {
+            ...data,
+            health: {
+                ...data.health,
+                inventory: { status: 'UNAVAILABLE', data: null },
+            },
+            drivers: { status: 'UNAVAILABLE', data: null },
+        };
+
+        render(<WarehouseShiftBoardComponent data={partialData} />);
+
+        expect(screen.getByText('Terima')).toBeTruthy();
+        expect(screen.getByText('4 GR')).toBeTruthy();
+        expect(
+            screen.getByText('Alert persediaan tidak tersedia'),
+        ).toBeTruthy();
+        expect(screen.getByText('Driver stok tidak tersedia')).toBeTruthy();
+        expect(screen.queryByText('Stok menipis')).toBeNull();
+    });
+
+    it('renders whole-board failure without healthy-looking zeroes or operational links', () => {
+        render(<WarehouseShiftBoardComponent data={null} />);
+
+        expect(
+            screen.getByText('Dashboard gudang tidak tersedia'),
+        ).toBeTruthy();
+        expect(screen.queryByText('Terima')).toBeNull();
+        expect(screen.queryByText('0 GR')).toBeNull();
+        expect(screen.queryByRole('link')).toBeNull();
     });
 });

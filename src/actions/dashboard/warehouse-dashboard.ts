@@ -1,252 +1,323 @@
 'use server';
 
-import { withTenant } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
-import { requireAuth } from '@/lib/tools/auth-checks';
 import {
+    DeliveryStatus,
     ProductionStatus,
     PurchaseOrderStatus,
-    DeliveryStatus,
 } from '@prisma/client';
-import { safeAction } from '@/lib/errors/errors';
+import { getMyPermissions } from '@/actions/admin/permissions';
 import { getWarehouseTodayKPIs } from '@/actions/dashboard/warehouse-kpi';
 import {
-    getWibDayBounds,
-    toBusinessDateString,
-} from '@/lib/utils/timezone';
-import { isInventoryThresholdTriggered } from '@/lib/constants/locations';
+    canAccessWorkspace,
+    hasWorkspaceResourceAccess,
+} from '@/lib/auth/access-policy';
+import { getUserRoles } from '@/lib/auth/roles';
+import { prisma } from '@/lib/core/prisma';
+import { withTenant } from '@/lib/core/tenant';
+import { AuthorizationError, safeAction } from '@/lib/errors/errors';
+import { requireAuth } from '@/lib/tools/auth-checks';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
+import {
+    readWarehouseInventoryThresholdSnapshot,
+    type WarehouseLowStockDriver,
+} from '@/services/inventory/warehouse-dashboard-service';
+
+export type WarehouseSection<T> =
+    | { status: 'AVAILABLE'; data: T }
+    | { status: 'UNAVAILABLE'; data: null };
+
+export interface WarehouseAttentionSample<T> {
+    total: number;
+    returned: number;
+    items: T[];
+}
 
 export interface WarehouseShiftBoard {
-    counts: {
-        receivablePOs: number;
-        openLoadOrders: number;
-        materialQueue: number;
-        lowStock: number;
-        suggestedReorder: number;
+    generatedAt: string;
+    health: {
+        operational: WarehouseSection<{
+            receivablePOs: number;
+            openLoadOrders: number;
+            materialQueue: number;
+        }>;
+        inventory: WarehouseSection<{
+            lowStock: number;
+            suggestedReorder: number;
+        }>;
     };
-    today: {
+    today: WarehouseSection<{
         goodsReceipts: number;
         deliveriesShipped: number;
         materialIssues: number;
-    };
-    attention: {
-        loadingUnverified: Array<{
+    }>;
+    attention: WarehouseSection<{
+        loadingUnverified: WarehouseAttentionSample<{
             id: string;
             number: string;
             customerName?: string;
+            deliveryDate: string;
         }>;
-        partialPOs: Array<{
+        partialPOs: WarehouseAttentionSample<{
             id: string;
             orderNumber: string;
             supplierName: string;
+            expectedDate: string | null;
         }>;
-        waitingMaterial: Array<{ id: string; orderNumber: string }>;
+        waitingMaterial: WarehouseAttentionSample<{
+            id: string;
+            orderNumber: string;
+            createdAt: string;
+        }>;
+    }>;
+    drivers: WarehouseSection<{
+        lowStock: WarehouseLowStockDriver[];
+    }>;
+}
+
+const ATTENTION_SAMPLE_LIMIT = 5;
+
+async function requireWarehouseRootRead() {
+    const session = await requireAuth();
+    const permissionResult = await getMyPermissions();
+    const sessionResources =
+        (session.user as { allowedResources?: string[] }).allowedResources ??
+        [];
+    const resources =
+        permissionResult.success && permissionResult.data
+            ? permissionResult.data
+            : sessionResources;
+    const userForPolicy = {
+        ...session.user,
+        roles: getUserRoles(session.user),
+        allowedResources: resources === 'ALL' ? sessionResources : resources,
+    };
+    const canOpenRoot =
+        canAccessWorkspace(userForPolicy, 'warehouse', '/warehouse') &&
+        hasWorkspaceResourceAccess(resources, 'warehouse') &&
+        (resources === 'ALL' || resources.includes('/warehouse'));
+
+    if (!canOpenRoot) {
+        throw new AuthorizationError(
+            'Unauthorized: Akses root Warehouse tidak tersedia.',
+        );
+    }
+
+    return session;
+}
+
+function available<T>(data: T): WarehouseSection<T> {
+    return { status: 'AVAILABLE', data };
+}
+
+function unavailable<T>(): WarehouseSection<T> {
+    return { status: 'UNAVAILABLE', data: null };
+}
+
+async function settleSection<T>(
+    reader: () => Promise<T>,
+): Promise<WarehouseSection<T>> {
+    try {
+        return available(await reader());
+    } catch {
+        return unavailable();
+    }
+}
+
+async function readOperationalHealth() {
+    const [receivablePOs, openLoadOrders, materialQueue] = await Promise.all([
+        prisma.purchaseOrder.count({
+            where: {
+                status: {
+                    in: [
+                        PurchaseOrderStatus.SENT,
+                        PurchaseOrderStatus.PARTIAL_RECEIVED,
+                    ],
+                },
+            },
+        }),
+        prisma.deliveryOrder.count({
+            where: {
+                status: {
+                    in: [DeliveryStatus.PENDING, DeliveryStatus.LOADING],
+                },
+            },
+        }),
+        prisma.productionOrder.count({
+            where: {
+                status: {
+                    in: [
+                        ProductionStatus.RELEASED,
+                        ProductionStatus.IN_PROGRESS,
+                        ProductionStatus.WAITING_MATERIAL,
+                    ],
+                },
+            },
+        }),
+    ]);
+
+    return { receivablePOs, openLoadOrders, materialQueue };
+}
+
+async function readTodayActivity() {
+    const { startOfDay, endOfDay } = getWibDayBounds(
+        toBusinessDateString(new Date()),
+    );
+    const [todayKPIs, materialIssues] = await Promise.all([
+        getWarehouseTodayKPIs(),
+        prisma.stockMovement.count({
+            where: {
+                type: 'OUT',
+                productionOrderId: { not: null },
+                createdAt: { gte: startOfDay, lte: endOfDay },
+            },
+        }),
+    ]);
+
+    return {
+        goodsReceipts: todayKPIs.receivedToday,
+        deliveriesShipped: todayKPIs.shippedToday,
+        materialIssues,
+    };
+}
+
+async function readAttention() {
+    const loadingWhere = {
+        status: DeliveryStatus.LOADING,
+        loadVerifiedAt: null,
+    };
+    const partialWhere = {
+        status: PurchaseOrderStatus.PARTIAL_RECEIVED,
+    };
+    const waitingWhere = {
+        status: ProductionStatus.WAITING_MATERIAL,
+    };
+
+    const [
+        loadingTotal,
+        loadingUnverified,
+        partialTotal,
+        partialPOs,
+        waitingTotal,
+        waitingMaterial,
+    ] = await Promise.all([
+        prisma.deliveryOrder.count({ where: loadingWhere }),
+        prisma.deliveryOrder.findMany({
+            where: loadingWhere,
+            select: {
+                id: true,
+                orderNumber: true,
+                deliveryDate: true,
+                salesOrder: {
+                    select: { customer: { select: { name: true } } },
+                },
+            },
+            orderBy: [{ deliveryDate: 'asc' }, { id: 'asc' }],
+            take: ATTENTION_SAMPLE_LIMIT,
+        }),
+        prisma.purchaseOrder.count({ where: partialWhere }),
+        prisma.purchaseOrder.findMany({
+            where: partialWhere,
+            select: {
+                id: true,
+                orderNumber: true,
+                expectedDate: true,
+                supplier: { select: { name: true } },
+            },
+            // Missing expected dates are explicit and sort after dated POs.
+            orderBy: [
+                { expectedDate: { sort: 'asc', nulls: 'last' } },
+                { id: 'asc' },
+            ],
+            take: ATTENTION_SAMPLE_LIMIT,
+        }),
+        prisma.productionOrder.count({ where: waitingWhere }),
+        prisma.productionOrder.findMany({
+            where: waitingWhere,
+            select: {
+                id: true,
+                orderNumber: true,
+                createdAt: true,
+            },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            take: ATTENTION_SAMPLE_LIMIT,
+        }),
+    ]);
+
+    return {
+        loadingUnverified: {
+            total: loadingTotal,
+            returned: loadingUnverified.length,
+            items: loadingUnverified.map((delivery) => ({
+                id: delivery.id,
+                number: delivery.orderNumber,
+                customerName: delivery.salesOrder?.customer?.name ?? undefined,
+                deliveryDate: delivery.deliveryDate.toISOString(),
+            })),
+        },
+        partialPOs: {
+            total: partialTotal,
+            returned: partialPOs.length,
+            items: partialPOs.map((purchaseOrder) => ({
+                id: purchaseOrder.id,
+                orderNumber: purchaseOrder.orderNumber,
+                supplierName: purchaseOrder.supplier.name,
+                expectedDate: purchaseOrder.expectedDate?.toISOString() ?? null,
+            })),
+        },
+        waitingMaterial: {
+            total: waitingTotal,
+            returned: waitingMaterial.length,
+            items: waitingMaterial.map((productionOrder) => ({
+                id: productionOrder.id,
+                orderNumber: productionOrder.orderNumber,
+                createdAt: productionOrder.createdAt.toISOString(),
+            })),
+        },
     };
 }
 
 export const getWarehouseShiftBoard = withTenant(
     async function getWarehouseShiftBoard() {
         return safeAction(async () => {
-            await requireAuth();
+            // Mirror the Warehouse layout's role/resource policy. A direct
+            // action call must neither bypass explicit resources nor reject a
+            // cross-role user who has a current `/warehouse` grant.
+            await requireWarehouseRootRead();
 
-            // Canonical today KPIs (WIB business day, event timestamps)
-            const todayKPIs = await getWarehouseTodayKPIs();
-
-            const [
-                receivablePOs,
-                openLoadOrders,
-                materialQueue,
-                lowStockCount,
-                suggestedReorderCount,
-                todayMaterialIssues,
-                loadingUnverified,
-                partialPOs,
-                waitingMaterial,
-            ] = await Promise.all([
-                // Receivable POs: SENT | PARTIAL_RECEIVED
-                prisma.purchaseOrder.count({
-                    where: {
-                        status: {
-                            in: [
-                                PurchaseOrderStatus.SENT,
-                                PurchaseOrderStatus.PARTIAL_RECEIVED,
-                            ],
-                        },
-                    },
-                }),
-
-                // Open load orders: DO PENDING | LOADING
-                prisma.deliveryOrder.count({
-                    where: {
-                        status: {
-                            in: [
-                                DeliveryStatus.PENDING,
-                                DeliveryStatus.LOADING,
-                            ],
-                        },
-                    },
-                }),
-
-                // Material queue: production RELEASED | IN_PROGRESS | WAITING_MATERIAL
-                prisma.productionOrder.count({
-                    where: {
-                        status: {
-                            in: [
-                                ProductionStatus.RELEASED,
-                                ProductionStatus.IN_PROGRESS,
-                                ProductionStatus.WAITING_MATERIAL,
-                            ],
-                        },
-                    },
-                }),
-
-                // Low stock count
-                computeLowStockCount(),
-
-                // Suggested reorder count
-                computeSuggestedReorderCount(),
-
-                // Today material issues (best-effort: movements with productionOrderId OUT type)
-                (async () => {
-                    const { startOfDay, endOfDay } = getWibDayBounds(
-                        toBusinessDateString(new Date()),
-                    );
-                    return prisma.stockMovement.count({
-                        where: {
-                            type: 'OUT',
-                            productionOrderId: { not: null },
-                            createdAt: { gte: startOfDay, lte: endOfDay },
-                        },
-                    });
-                })(),
-
-                // Attention: LOADING but not verified
-                prisma.deliveryOrder.findMany({
-                    where: {
-                        status: DeliveryStatus.LOADING,
-                        loadVerifiedAt: null,
-                    },
-                    select: {
-                        id: true,
-                        orderNumber: true,
-                        salesOrder: {
-                            select: { customer: { select: { name: true } } },
-                        },
-                    },
-                    take: 5,
-                    orderBy: { deliveryDate: 'asc' },
-                }),
-
-                // Attention: Partial POs awaiting remaining
-                prisma.purchaseOrder.findMany({
-                    where: { status: PurchaseOrderStatus.PARTIAL_RECEIVED },
-                    select: {
-                        id: true,
-                        orderNumber: true,
-                        supplier: { select: { name: true } },
-                    },
-                    take: 5,
-                    orderBy: { expectedDate: 'asc' },
-                }),
-
-                // Attention: SPK waiting material
-                prisma.productionOrder.findMany({
-                    where: { status: ProductionStatus.WAITING_MATERIAL },
-                    select: {
-                        id: true,
-                        orderNumber: true,
-                    },
-                    take: 5,
-                    orderBy: { createdAt: 'asc' },
-                }),
-            ]);
+            const [operational, inventory, today, attention] =
+                await Promise.all([
+                    settleSection(readOperationalHealth),
+                    settleSection(readWarehouseInventoryThresholdSnapshot),
+                    settleSection(readTodayActivity),
+                    settleSection(readAttention),
+                ]);
 
             return {
-                counts: {
-                    receivablePOs,
-                    openLoadOrders,
-                    materialQueue,
-                    lowStock: lowStockCount,
-                    suggestedReorder: suggestedReorderCount,
+                generatedAt: new Date().toISOString(),
+                health: {
+                    operational,
+                    inventory:
+                        inventory.status === 'AVAILABLE'
+                            ? available({
+                                  lowStock: inventory.data.lowStockCount,
+                                  suggestedReorder: inventory.data.reorderCount,
+                              })
+                            : unavailable<{
+                                  lowStock: number;
+                                  suggestedReorder: number;
+                              }>(),
                 },
-                today: {
-                    goodsReceipts: todayKPIs.receivedToday,
-                    deliveriesShipped: todayKPIs.shippedToday,
-                    materialIssues: todayMaterialIssues,
-                },
-                attention: {
-                    loadingUnverified: loadingUnverified.map((d) => ({
-                        id: d.id,
-                        number: d.orderNumber,
-                        customerName: d.salesOrder?.customer?.name ?? undefined,
-                    })),
-                    partialPOs: partialPOs.map((p) => ({
-                        id: p.id,
-                        orderNumber: p.orderNumber,
-                        supplierName: p.supplier.name,
-                    })),
-                    waitingMaterial: waitingMaterial.map((p) => ({
-                        id: p.id,
-                        orderNumber: p.orderNumber,
-                    })),
-                },
-            };
+                today,
+                attention,
+                drivers:
+                    inventory.status === 'AVAILABLE'
+                        ? available({
+                              lowStock: inventory.data.lowStockDrivers,
+                          })
+                        : unavailable<{
+                              lowStock: WarehouseLowStockDriver[];
+                          }>(),
+            } satisfies WarehouseShiftBoard;
         });
     },
 );
-
-async function computeLowStockCount(): Promise<number> {
-    const lowStockVariants = await prisma.productVariant.findMany({
-        where: { minStockAlert: { not: null }, archivedAt: null },
-        select: {
-            id: true,
-            minStockAlert: true,
-            inventories: {
-                select: {
-                    quantity: true,
-                    location: {
-                        select: {
-                            locationPurpose: true,
-                            locationType: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    return lowStockVariants.filter((variant) =>
-        isInventoryThresholdTriggered(
-            variant.inventories,
-            variant.minStockAlert,
-        ),
-    ).length;
-}
-
-async function computeSuggestedReorderCount(): Promise<number> {
-    const reorderVariants = await prisma.productVariant.findMany({
-        where: { reorderPoint: { not: null }, archivedAt: null },
-        select: {
-            id: true,
-            reorderPoint: true,
-            inventories: {
-                select: {
-                    quantity: true,
-                    location: {
-                        select: {
-                            locationPurpose: true,
-                            locationType: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    return reorderVariants.filter((variant) =>
-        isInventoryThresholdTriggered(
-            variant.inventories,
-            variant.reorderPoint,
-        ),
-    ).length;
-}
