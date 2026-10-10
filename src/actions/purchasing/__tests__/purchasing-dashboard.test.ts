@@ -57,6 +57,7 @@ vi.mock('@/services/purchasing/dashboard-metrics-service', () => ({
 
 import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
 import { getPurchasingShiftBoard } from '../purchasing-dashboard';
+import { buildPurchasingDashboardWaitingReceiptWhere } from '@/services/purchasing/purchasing-dashboard-query';
 import { PR_AGING_THRESHOLD_DAYS } from '../purchasing-types';
 
 const decimal = (value: number) => ({ toNumber: () => value });
@@ -199,6 +200,37 @@ describe('getPurchasingShiftBoard', () => {
             expect(res.data.attention.suggestedReorder[0].skuCode).toBe('RM-PP');
         },
     );
+
+    it('keeps every receipt count and sample query conformant with the owner waiting-receipt builder', async () => {
+        await getPurchasingShiftBoard();
+
+        const countWheres = mocks.prisma.purchaseOrder.count.mock.calls.map(
+            ([args]) => args.where,
+        );
+        expect(countWheres).toContainEqual(
+            buildPurchasingDashboardWaitingReceiptWhere(
+                PurchaseOrderStatus.SENT,
+            ),
+        );
+        expect(countWheres).toContainEqual(
+            buildPurchasingDashboardWaitingReceiptWhere(
+                PurchaseOrderStatus.PARTIAL_RECEIVED,
+            ),
+        );
+        const sampleWheres = mocks.prisma.purchaseOrder.findMany.mock.calls.map(
+            ([args]) => args.where,
+        );
+        expect(sampleWheres).toContainEqual(
+            buildPurchasingDashboardWaitingReceiptWhere(
+                PurchaseOrderStatus.SENT,
+            ),
+        );
+        expect(sampleWheres).toContainEqual(
+            buildPurchasingDashboardWaitingReceiptWhere(
+                PurchaseOrderStatus.PARTIAL_RECEIVED,
+            ),
+        );
+    });
 
     it('returns canonical nominal spend and AP details when capability is granted', async () => {
         const res = await getPurchasingShiftBoard();

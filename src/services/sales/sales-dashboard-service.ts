@@ -136,6 +136,32 @@ export type SalesAttentionData = {
 const ZERO = new Decimal(0);
 const SAMPLE_LIMIT = 5;
 
+export const SALES_DASHBOARD_ACTIVE_ORDER_STATUSES = [
+    'CONFIRMED',
+    'IN_PRODUCTION',
+    'READY_TO_SHIP',
+    'SHIPPED',
+] as const;
+
+export function buildSalesDashboardActiveOrderWhere(): Prisma.SalesOrderWhereInput {
+    return {
+        status: { in: [...SALES_DASHBOARD_ACTIVE_ORDER_STATUSES] },
+    };
+}
+
+export function buildSalesDashboardReadyOrderWhere(): Prisma.SalesOrderWhereInput {
+    return { status: 'READY_TO_SHIP' };
+}
+
+export function buildSalesDashboardReadyWithoutOpenDeliveryWhere(): Prisma.SalesOrderWhereInput {
+    return {
+        status: 'READY_TO_SHIP',
+        deliveryOrders: {
+            none: { status: { in: ['PENDING', 'LOADING'] } },
+        },
+    };
+}
+
 function validDate(value: Date | undefined): value is Date {
     return value instanceof Date && Number.isFinite(value.getTime());
 }
@@ -532,12 +558,10 @@ export async function readSalesAttention(
         scope,
         buildOperationalSalesReceivableOrderWhere(),
     );
-    const readyWithoutDoWhere = withOrderScope(scope, {
-        status: 'READY_TO_SHIP',
-        deliveryOrders: {
-            none: { status: { in: ['PENDING', 'LOADING'] } },
-        },
-    });
+    const readyWithoutDoWhere = withOrderScope(
+        scope,
+        buildSalesDashboardReadyWithoutOpenDeliveryWhere(),
+    );
     const openDeliveryWhere: Prisma.DeliveryOrderWhereInput = {
         status: { in: ['PENDING', 'LOADING'] },
         ...(Object.keys(orderScope).length > 0
@@ -554,12 +578,14 @@ export async function readSalesAttention(
         nextFollowUpDate: { not: null, lte: today.endOfDay },
     });
     const oldDraftWhere = withOrderScope(scope, { status: 'DRAFT' });
-    const readyWhere = withOrderScope(scope, { status: 'READY_TO_SHIP' });
-    const activeWhere = withOrderScope(scope, {
-        status: {
-            in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP', 'SHIPPED'],
-        },
-    });
+    const readyWhere = withOrderScope(
+        scope,
+        buildSalesDashboardReadyOrderWhere(),
+    );
+    const activeWhere = withOrderScope(
+        scope,
+        buildSalesDashboardActiveOrderWhere(),
+    );
     const tripWhere: Prisma.DeliveryScheduleVehicleWhereInput = {
         departureDate: businessDateToEntryDate(toBusinessDateString(now)),
         status: { not: 'CANCELLED' },

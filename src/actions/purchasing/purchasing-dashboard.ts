@@ -8,6 +8,7 @@ import { safeAction } from '@/lib/errors/errors';
 import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 import { getSuggestedPurchases } from '@/services/inventory/analytics-service';
 import { readPurchasingDashboardNominalMetrics } from '@/services/purchasing/dashboard-metrics-service';
+import { buildPurchasingDashboardWaitingReceiptWhere } from '@/services/purchasing/purchasing-dashboard-query';
 import { PurchaseOrderStatus, PurchaseRequestStatus } from '@prisma/client';
 import type { SuggestedReorderItem } from './purchasing-types';
 import { PR_AGING_THRESHOLD_DAYS } from './purchasing-types';
@@ -23,6 +24,14 @@ export const getPurchasingShiftBoard = withTenant(
                 prisma,
                 now,
             );
+            const sentReceiptWhere =
+                buildPurchasingDashboardWaitingReceiptWhere(
+                    PurchaseOrderStatus.SENT,
+                );
+            const partialReceiptWhere =
+                buildPurchasingDashboardWaitingReceiptWhere(
+                    PurchaseOrderStatus.PARTIAL_RECEIVED,
+                );
 
             const [
                 pendingPrs,
@@ -50,12 +59,8 @@ export const getPurchasingShiftBoard = withTenant(
                 prisma.purchaseOrder.count({
                     where: { status: PurchaseOrderStatus.DRAFT },
                 }),
-                prisma.purchaseOrder.count({
-                    where: { status: PurchaseOrderStatus.SENT },
-                }),
-                prisma.purchaseOrder.count({
-                    where: { status: PurchaseOrderStatus.PARTIAL_RECEIVED },
-                }),
+                prisma.purchaseOrder.count({ where: sentReceiptWhere }),
+                prisma.purchaseOrder.count({ where: partialReceiptWhere }),
                 prisma.purchaseInvoice.count({ where: overdueApWhere }),
                 prisma.purchaseRequest.findMany({
                     where: {
@@ -93,7 +98,7 @@ export const getPurchasingShiftBoard = withTenant(
                     },
                 }),
                 prisma.purchaseOrder.findMany({
-                    where: { status: PurchaseOrderStatus.SENT },
+                    where: sentReceiptWhere,
                     orderBy: { expectedDate: 'asc' },
                     take: 5,
                     select: {
@@ -103,7 +108,7 @@ export const getPurchasingShiftBoard = withTenant(
                     },
                 }),
                 prisma.purchaseOrder.findMany({
-                    where: { status: PurchaseOrderStatus.PARTIAL_RECEIVED },
+                    where: partialReceiptWhere,
                     orderBy: { expectedDate: 'asc' },
                     take: 5,
                     select: {

@@ -26,6 +26,9 @@ vi.mock('@/services/sales/credit-service', () => ({
 }));
 
 import {
+    buildSalesDashboardActiveOrderWhere,
+    buildSalesDashboardReadyOrderWhere,
+    buildSalesDashboardReadyWithoutOpenDeliveryWhere,
     readSalesAttention,
     readSalesPipelineDashboard,
     resolveFreshSalesDashboardAccess,
@@ -329,15 +332,22 @@ describe('sales-dashboard-service', () => {
         const readyQuery = mocks.prisma.salesOrder.findMany.mock.calls[1][0];
         expect(readyQuery).toMatchObject({
             take: 5,
-            where: {
-                status: 'READY_TO_SHIP',
-                deliveryOrders: {
-                    none: { status: { in: ['PENDING', 'LOADING'] } },
-                },
-            },
+            where: buildSalesDashboardReadyWithoutOpenDeliveryWhere(),
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         });
         expect(mocks.prisma.invoice.aggregate).not.toHaveBeenCalled();
+        const salesOrderCountWheres = mocks.prisma.salesOrder.count.mock.calls.map(
+            ([args]) => args.where,
+        );
+        expect(salesOrderCountWheres).toContainEqual(
+            buildSalesDashboardReadyOrderWhere(),
+        );
+        expect(salesOrderCountWheres).toContainEqual(
+            buildSalesDashboardReadyWithoutOpenDeliveryWhere(),
+        );
+        expect(salesOrderCountWheres).toContainEqual(
+            buildSalesDashboardActiveOrderWhere(),
+        );
     });
 
     it('skips resource-owned attention queries that are not granted', async () => {
