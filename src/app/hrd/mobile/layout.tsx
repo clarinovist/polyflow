@@ -1,6 +1,7 @@
 import React from 'react';
-import Link from 'next/link';
 import { Users } from 'lucide-react';
+import { auth } from '@/auth';
+import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
 import {
     MobilePortalBottomNav,
     MobilePortalHeader,
@@ -14,6 +15,7 @@ export default async function HrdMobileLayout({
     children: React.ReactNode;
 }) {
     await requireMobilePortalPageAccess('hrd-supervisor');
+    const session = await auth();
 
     return (
         <MobilePortalShell
@@ -29,12 +31,10 @@ export default async function HrdMobileLayout({
                         />
                     }
                     actions={
-                        <Link
-                            href="/mobile"
-                            className="inline-flex min-h-11 items-center text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                        >
-                            Pilih Portal
-                        </Link>
+                        <MobileAccountMenuServer
+                            user={session?.user}
+                            accentColor="bg-violet-600"
+                        />
                     }
                 />
             }

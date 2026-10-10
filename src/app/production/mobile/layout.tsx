@@ -2,6 +2,7 @@ import React from 'react';
 import { auth } from '@/auth';
 import Link from 'next/link';
 import { ClipboardCheck, Plus } from 'lucide-react';
+import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
 import { isMobileSupervisorOperator } from '@/lib/mobile/mobile-access-policy';
 import {
     MobilePortalBottomNav,
@@ -56,12 +57,10 @@ export default async function ProductionMobileLayout({
                                     SPK
                                 </Link>
                             )}
-                            <Link
-                                href="/mobile"
-                                className="inline-flex min-h-11 items-center text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                            >
-                                Pilih Portal
-                            </Link>
+                            <MobileAccountMenuServer
+                                user={session?.user}
+                                accentColor="bg-indigo-600"
+                            />
                         </>
                     }
                 />

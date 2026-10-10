@@ -4,15 +4,18 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { Role } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 
-const push = vi.hoisted(() => vi.fn());
+const mocks = vi.hoisted(() => ({ push: vi.fn(), general: vi.fn() }));
 
 vi.mock('next/navigation', () => ({
     usePathname: () => '/dashboard/settings',
-    useRouter: () => ({ push }),
+    useRouter: () => ({ push: mocks.push }),
     useSearchParams: () => new URLSearchParams('tab=general'),
 }));
 vi.mock('../GeneralSettings', () => ({
-    GeneralSettings: () => <div>General settings content</div>,
+    GeneralSettings: (props: unknown) => {
+        mocks.general(props);
+        return <div>General settings content</div>;
+    },
 }));
 vi.mock('../UsersTab', () => ({ UsersTab: () => <div>Users content</div> }));
 vi.mock('../AccessControlTab', () => ({
@@ -67,6 +70,19 @@ describe('SettingsTabs mobile containment', () => {
         );
 
         fireEvent.click(screen.getByRole('tab', { name: 'Sistem' }));
-        expect(push).toHaveBeenCalledWith('/dashboard/settings?tab=system');
+        expect(mocks.push).toHaveBeenCalledWith('/dashboard/settings?tab=system');
+    });
+
+    it('passes the account authentication mode to general settings', () => {
+        render(
+            <SettingsTabs
+                currentUserRole={Role.ADMIN}
+                currentUserRoles={[Role.ADMIN]}
+                currentUserAuthMode="CENTRAL"
+            />,
+        );
+        expect(mocks.general).toHaveBeenCalledWith(
+            expect.objectContaining({ authMode: 'CENTRAL' }),
+        );
     });
 });

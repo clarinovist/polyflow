@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@/auth';
-import { prisma } from '@/lib/core/prisma';
+import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -12,21 +12,49 @@ import {
     NotFoundError,
     ConflictError,
     ValidationError,
+    AuthorizationError,
 } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 
-async function requireUserId(): Promise<string> {
+async function requireTenantAccountContext() {
     const session = await auth();
-    const id = session?.user?.id;
-    if (!id) {
+    const userId = session?.user?.id;
+    if (!userId) {
         throw new AuthenticationError(
             'Anda harus login untuk melakukan aksi ini.',
         );
     }
-    return id;
+
+    const tenantDb = getTenantDbFromContext();
+    if (!tenantDb) {
+        throw new AuthenticationError(
+            'Konteks perusahaan tidak tersedia. Silakan login kembali.',
+        );
+    }
+
+    const account = await tenantDb.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            email: true,
+            password: true,
+            authMode: true,
+            centralAccountId: true,
+            isActive: true,
+        },
+    });
+    if (!account) throw new NotFoundError('User', userId);
+    if (!account.isActive) {
+        throw new AuthorizationError('Akun ini tidak aktif.');
+    }
+
+    return { userId, tenantDb, account };
 }
 
-// ─── 1a + 4b: Update own profile (name, email, locale) ──────────────
+function revalidateProfilePaths() {
+    revalidatePath('/dashboard/settings');
+    revalidatePath('/mobile/account');
+}
 
 const UpdateProfileSchema = z.object({
     name: z
@@ -43,27 +71,19 @@ export const updateOwnProfile = withTenant(async function updateOwnProfile(
     input: UpdateProfileInput,
 ) {
     return safeAction(async () => {
-        const userId = await requireUserId();
+        const { userId, tenantDb, account } =
+            await requireTenantAccountContext();
         const data = UpdateProfileSchema.parse(input);
 
-        const currentUser = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { authMode: true, email: true },
-        });
-        if (!currentUser) throw new NotFoundError('User', userId);
-
-        // A central identity owns its verified email. Tenant profile edits
-        // must not silently redirect ownership of that account.
-        const isCentral = currentUser.authMode === 'CENTRAL';
-        if (isCentral && data.email !== currentUser.email) {
+        const isCentral = account.authMode === 'CENTRAL';
+        if (isCentral && data.email !== account.email) {
             throw new ValidationError(
                 'Email akun pusat harus diubah melalui layanan login pusat.',
             );
         }
 
         if (!isCentral) {
-            // Email must be unique across the tenant (except for the user themselves).
-            const existing = await prisma.user.findUnique({
+            const existing = await tenantDb.user.findUnique({
                 where: { email: data.email },
                 select: { id: true },
             });
@@ -74,7 +94,7 @@ export const updateOwnProfile = withTenant(async function updateOwnProfile(
             }
         }
 
-        const updated = await prisma.user.update({
+        const updated = await tenantDb.user.update({
             where: { id: userId },
             data: {
                 name: data.name,
@@ -91,19 +111,17 @@ export const updateOwnProfile = withTenant(async function updateOwnProfile(
             entityId: userId,
         });
 
-        revalidatePath('/dashboard/settings');
+        revalidateProfilePaths();
         return updated;
     });
 });
-
-// ─── 4a: Change own password ─────────────────────────────────────────
 
 const ChangePasswordSchema = z
     .object({
         currentPassword: z.string().min(1, 'Password saat ini wajib diisi'),
         newPassword: z.string().min(6, 'Password baru minimal 6 karakter'),
     })
-    .refine((v) => v.currentPassword !== v.newPassword, {
+    .refine((value) => value.currentPassword !== value.newPassword, {
         message: 'Password baru harus berbeda dari password saat ini',
         path: ['newPassword'],
     });
@@ -114,30 +132,24 @@ export const changeOwnPassword = withTenant(async function changeOwnPassword(
     input: ChangePasswordInput,
 ) {
     return safeAction(async () => {
-        const userId = await requireUserId();
+        const { userId, tenantDb, account } =
+            await requireTenantAccountContext();
         const data = ChangePasswordSchema.parse(input);
 
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true, password: true, authMode: true },
-        });
-        if (!user) {
-            throw new NotFoundError('User', userId);
-        }
-
-        if (user.authMode === 'CENTRAL') {
+        if (account.authMode === 'CENTRAL') {
             throw new ValidationError(
                 'Password akun pusat harus diubah melalui layanan login pusat.',
             );
         }
 
-        const valid = await bcrypt.compare(data.currentPassword, user.password);
-        if (!valid) {
-            throw new ValidationError('Password saat ini salah.');
-        }
+        const valid = await bcrypt.compare(
+            data.currentPassword,
+            account.password,
+        );
+        if (!valid) throw new ValidationError('Password saat ini salah.');
 
         const hashed = await bcrypt.hash(data.newPassword, 10);
-        await prisma.user.update({
+        await tenantDb.user.update({
             where: { id: userId },
             data: { password: hashed },
         });
@@ -153,16 +165,14 @@ export const changeOwnPassword = withTenant(async function changeOwnPassword(
     });
 });
 
-// ─── 4c: Update own avatar ───────────────────────────────────────────
-
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export const updateOwnAvatar = withTenant(async function updateOwnAvatar(
     formData: FormData,
 ) {
     return safeAction(async () => {
-        const userId = await requireUserId();
+        const { userId, tenantDb } = await requireTenantAccountContext();
         const file = formData.get('avatar');
 
         if (!(file instanceof File) || file.size === 0) {
@@ -188,7 +198,7 @@ export const updateOwnAvatar = withTenant(async function updateOwnAvatar(
         const buffer = Buffer.from(await file.arrayBuffer());
         const url = await uploadToR2(key, buffer, file.type);
 
-        const updated = await prisma.user.update({
+        const updated = await tenantDb.user.update({
             where: { id: userId },
             data: { avatarUrl: url },
             select: { id: true, avatarUrl: true },
@@ -201,45 +211,37 @@ export const updateOwnAvatar = withTenant(async function updateOwnAvatar(
             entityId: userId,
         });
 
-        revalidatePath('/dashboard/settings');
+        revalidateProfilePaths();
         return updated;
     });
 });
 
 export const removeOwnAvatar = withTenant(async function removeOwnAvatar() {
     return safeAction(async () => {
-        const userId = await requireUserId();
-        const updated = await prisma.user.update({
+        const { userId, tenantDb } = await requireTenantAccountContext();
+        const updated = await tenantDb.user.update({
             where: { id: userId },
             data: { avatarUrl: null },
             select: { id: true, avatarUrl: true },
         });
-        revalidatePath('/dashboard/settings');
+        revalidateProfilePaths();
         return updated;
     });
 });
 
-// ─── 4f: Log out of all devices (token invalidation) ─────────────────
-
 export const logoutAllDevices = withTenant(async function logoutAllDevices() {
     return safeAction(async () => {
-        const userId = await requireUserId();
-        const current = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { centralAccountId: true },
-        });
-        if (!current) throw new NotFoundError('User', userId);
+        const { userId, tenantDb, account } =
+            await requireTenantAccountContext();
 
-        // CENTRAL sessions are invalidated in MAIN first. If the tenant write
-        // then fails, the operation remains fail-closed globally.
-        if (current.centralAccountId) {
+        if (account.centralAccountId) {
             const { getMainPrisma } = await import('@/lib/core/prisma');
             await getMainPrisma().globalAccount.update({
-                where: { id: current.centralAccountId },
+                where: { id: account.centralAccountId },
                 data: { revocationVersion: { increment: 1 } },
             });
         }
-        const updated = await prisma.user.update({
+        const updated = await tenantDb.user.update({
             where: { id: userId },
             data: { tokenVersion: { increment: 1 } },
             select: { tokenVersion: true },

@@ -24,12 +24,12 @@ beforeEach(() => {
 
 describe('mobile account server boundary', () => {
     it('loads only the authenticated identity and passes display/link props to the client', async () => {
-        const result = await MobileAccountMenuServer({ user, accentColor: 'bg-blue-600' });
+        const result = await MobileAccountMenuServer({ user, accentColor: 'bg-blue-600', hideAccountLink: true });
         expect(m.tenant).toHaveBeenCalledWith({ where: { id: user.tenantId }, select: { name: true } });
         expect(m.workspaces).toHaveBeenCalledWith(user.globalAccountId);
         expect(result?.props).toMatchObject({
             currentTenantId: 'tenant-a', currentTenantName: 'Synthetic A', workspaces,
-            accentColor: 'bg-blue-600', workspacesUnavailable: false,
+            accentColor: 'bg-blue-600', workspacesUnavailable: false, hideAccountLink: true,
         });
         expect(result?.props.user).toEqual({ name: user.name, role: 'SALES', image: undefined, avatarUrl: undefined });
         expect(JSON.stringify(result?.props)).not.toContain('account-a');

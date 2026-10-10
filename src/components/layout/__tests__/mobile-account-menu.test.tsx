@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
+import type { AnchorHTMLAttributes } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { signOut } from 'next-auth/react';
 import { MobileAccountMenu } from '../mobile-account-menu';
 
+vi.mock('next/link', () => ({
+    default: ({ href, children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => <a href={href} {...props}>{children}</a>,
+}));
 vi.mock('next-auth/react', () => ({ signOut: vi.fn() }));
 const user = { name: 'Synthetic User', role: 'SALES' };
 const workspaces = [
@@ -65,6 +69,24 @@ describe('mobile company navigation', () => {
             expect(confirm).toHaveBeenCalledWith('Ada perubahan yang belum disimpan. Tetap ganti perusahaan?');
             expect(signOut).not.toHaveBeenCalled();
         } finally { form.remove(); }
+    });
+
+    it('shows account and portal navigation with compact accessible trigger', () => {
+        render(<MobileAccountMenu user={user} />);
+        const trigger = screen.getByRole('button', { name: 'Menu akun Synthetic User' });
+        expect(trigger.className).toContain('min-w-11');
+        expect(trigger.textContent).toContain('Synthetic User');
+        openAccount();
+        expect(screen.getByRole('link', { name: 'Akun Saya' }).getAttribute('href')).toBe('/mobile/account');
+        expect(screen.getByRole('link', { name: 'Pilih Portal' }).getAttribute('href')).toBe('/mobile');
+    });
+
+    it('suppresses contextual self links without hiding logout', () => {
+        render(<MobileAccountMenu user={user} hideAccountLink hidePortalLink />);
+        openAccount();
+        expect(screen.queryByRole('link', { name: 'Akun Saya' })).toBeNull();
+        expect(screen.queryByRole('link', { name: 'Pilih Portal' })).toBeNull();
+        expect(screen.getByRole('button', { name: 'Keluar' })).toBeTruthy();
     });
 
     it('retains normal logout behavior without company data', () => {

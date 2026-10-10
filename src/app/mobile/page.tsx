@@ -68,7 +68,10 @@ export default async function MobileSelectorPage({
                         PolyFlow Mobile
                     </span>
                 </div>
-                <MobileAccountMenuServer user={session.user} />
+                <MobileAccountMenuServer
+                    user={session.user}
+                    hidePortalLink
+                />
             </header>
 
             <main className="flex-1 max-w-md w-full mx-auto p-5 flex flex-col justify-center gap-6">

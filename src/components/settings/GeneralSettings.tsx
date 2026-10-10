@@ -19,12 +19,14 @@ export function GeneralSettings({
     userEmail,
     userLocale,
     userAvatarUrl,
+    authMode,
 }: {
     tenantName?: string;
     userName?: string;
     userEmail?: string;
     userLocale?: string;
     userAvatarUrl?: string | null;
+    authMode?: 'LOCAL' | 'CENTRAL';
 }) {
     return (
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
@@ -58,6 +60,7 @@ export function GeneralSettings({
                 userEmail={userEmail}
                 userLocale={userLocale}
                 userAvatarUrl={userAvatarUrl}
+                authMode={authMode}
             />
 
             <ThemeSettings />

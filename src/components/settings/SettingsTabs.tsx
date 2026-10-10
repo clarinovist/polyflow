@@ -44,6 +44,7 @@ interface SettingsTabsProps {
     currentUserEmail?: string;
     currentUserLocale?: string;
     currentUserAvatarUrl?: string | null;
+    currentUserAuthMode?: 'LOCAL' | 'CENTRAL';
     appVersion?: string;
     environment?: string;
     /** Active module keys for this tenant. Used to filter Access Control UI. */
@@ -77,6 +78,7 @@ export function SettingsTabs({
     currentUserEmail,
     currentUserLocale,
     currentUserAvatarUrl,
+    currentUserAuthMode,
     appVersion,
     environment,
     activeModules,
@@ -164,6 +166,7 @@ export function SettingsTabs({
                         userEmail={currentUserEmail}
                         userLocale={currentUserLocale}
                         userAvatarUrl={currentUserAvatarUrl}
+                        authMode={currentUserAuthMode}
                     />
                 );
             case 'notifications':

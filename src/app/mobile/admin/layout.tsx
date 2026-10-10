@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
+import { auth } from '@/auth';
+import { MobileAccountMenuServer } from '@/components/layout/mobile-account-menu-server';
 import { MobilePortalHeader, MobilePortalShell } from '@/components/mobile';
 import { requireMobilePortalPageAccess } from '@/lib/mobile/mobile-portal-page-access';
 import { AdminMobileBottomNav } from './admin-mobile-bottom-nav';
@@ -11,6 +12,7 @@ export default async function AdminMobileLayout({
     children: ReactNode;
 }) {
     await requireMobilePortalPageAccess('admin');
+    const session = await auth();
 
     return (
         <MobilePortalShell
@@ -26,12 +28,7 @@ export default async function AdminMobileLayout({
                         />
                     }
                     actions={
-                        <Link
-                            href="/mobile"
-                            className="inline-flex min-h-11 items-center text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                        >
-                            Pilih Portal
-                        </Link>
+                        <MobileAccountMenuServer user={session?.user} />
                     }
                 />
             }

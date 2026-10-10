@@ -1,5 +1,4 @@
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ChartNoAxesCombined } from 'lucide-react';
 import { auth } from '@/auth';
@@ -34,18 +33,10 @@ export default async function MarketingMobileLayout({
                         />
                     }
                     actions={
-                        <div className="flex items-center gap-2">
-                            <Link
-                                href="/mobile"
-                                className="inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground hover:text-foreground"
-                            >
-                                Portal
-                            </Link>
-                            <MobileAccountMenuServer
-                                user={session.user}
-                                accentColor="bg-teal-700"
-                            />
-                        </div>
+                        <MobileAccountMenuServer
+                            user={session.user}
+                            accentColor="bg-teal-700"
+                        />
                     }
                 />
             }

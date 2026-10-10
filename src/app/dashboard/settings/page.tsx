@@ -1,16 +1,21 @@
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { auth } from '@/auth';
 import { headers } from 'next/headers';
-import { extractSubdomain } from '@/lib/core/tenant';
-import { prisma } from '@/lib/core/prisma';
-import { withTenantPage } from '@/lib/core/tenant';
+import { extractSubdomain, withTenantPage } from '@/lib/core/tenant';
+import { getTenantDbFromContext } from '@/lib/core/prisma';
 
-const getUserProfile = withTenantPage(async (userId: string) =>
-    prisma.user.findUnique({
+const getUserProfile = withTenantPage(async (userId: string) => {
+    const tenantDb = getTenantDbFromContext();
+    if (!tenantDb) return { status: 'tenant-context' as const };
+
+    const profile = await tenantDb.user.findUnique({
         where: { id: userId },
-        select: { locale: true, avatarUrl: true },
-    }),
-);
+        select: { locale: true, avatarUrl: true, authMode: true },
+    });
+    return profile
+        ? { status: 'available' as const, profile }
+        : { status: 'user-not-found' as const };
+});
 import { ContextualHelp } from '@/components/support/contextual-help';
 import { getTenantActiveModules } from '@/lib/auth/access-policy';
 import packageJson from '../../../../package.json';
@@ -41,10 +46,17 @@ export default async function SettingsPage() {
     // avatar/locale until re-login; these should reflect immediately).
     let userLocale: string | undefined;
     let userAvatarUrl: string | null | undefined;
+    let userAuthMode: 'LOCAL' | 'CENTRAL' | undefined;
+    let profileUnavailable = false;
     if (session?.user?.id) {
-        const dbUser = await getUserProfile(session.user.id);
-        userLocale = dbUser?.locale;
-        userAvatarUrl = dbUser?.avatarUrl;
+        const result = await getUserProfile(session.user.id);
+        if (result.status === 'available') {
+            userLocale = result.profile.locale;
+            userAvatarUrl = result.profile.avatarUrl;
+            userAuthMode = result.profile.authMode;
+        } else {
+            profileUnavailable = true;
+        }
     }
 
     return (
@@ -68,20 +80,31 @@ export default async function SettingsPage() {
                     ]}
                 />
             </div>
-            <SettingsTabs
-                currentUserRole={userRole}
-                currentUserRoles={userRoles}
-                currentUserId={currentUserId}
-                tenantName={tenantName}
-                currentUserName={userName}
-                currentUserEmail={userEmail}
-                currentUserLocale={userLocale}
-                currentUserAvatarUrl={userAvatarUrl}
-                appVersion={packageJson.version}
-                environment={process.env.NODE_ENV}
-                activeModules={getTenantActiveModules()}
-                centralSsoEnabled={isCentralSsoConfigured()}
-            />
+            {profileUnavailable ? (
+                <p
+                    role="alert"
+                    className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    Profil akun belum dapat dimuat untuk perusahaan aktif.
+                    Muat ulang atau login kembali.
+                </p>
+            ) : (
+                <SettingsTabs
+                    currentUserRole={userRole}
+                    currentUserRoles={userRoles}
+                    currentUserId={currentUserId}
+                    tenantName={tenantName}
+                    currentUserName={userName}
+                    currentUserEmail={userEmail}
+                    currentUserLocale={userLocale}
+                    currentUserAvatarUrl={userAvatarUrl}
+                    currentUserAuthMode={userAuthMode}
+                    appVersion={packageJson.version}
+                    environment={process.env.NODE_ENV}
+                    activeModules={getTenantActiveModules()}
+                    centralSsoEnabled={isCentralSsoConfigured()}
+                />
+            )}
         </div>
     );
 }

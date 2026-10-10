@@ -1,6 +1,7 @@
 'use client';
 
-import { LogOut, ChevronDown } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, UserRound } from 'lucide-react';
+import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { TenantSwitcher } from './tenant-switcher';
 import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
@@ -25,6 +26,8 @@ interface MobileAccountMenuProps {
     workspaces?: CentralWorkspaceOption[];
     workspacesUnavailable?: boolean;
     centralLoginHint?: boolean;
+    hideAccountLink?: boolean;
+    hidePortalLink?: boolean;
 }
 
 export function MobileAccountMenu({
@@ -36,6 +39,8 @@ export function MobileAccountMenu({
     workspaces = [],
     workspacesUnavailable = false,
     centralLoginHint = false,
+    hideAccountLink = false,
+    hidePortalLink = false,
 }: MobileAccountMenuProps) {
     const handleLogout = async () => {
         if (onLogout) {
@@ -51,7 +56,7 @@ export function MobileAccountMenu({
                 <button
                     type="button"
                     aria-label={`Menu akun ${user.name || 'User'}`}
-                    className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm active:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-2 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3"
                 >
                     <Avatar className="h-6 w-6 shrink-0">
                         {(user.image || user.avatarUrl) && (
@@ -69,10 +74,10 @@ export function MobileAccountMenu({
                                 : 'U'}
                         </AvatarFallback>
                     </Avatar>
-                    <span className="max-w-[100px] truncate text-xs">
+                    <span className="hidden max-w-[100px] truncate text-xs sm:inline">
                         {user.name || 'User'}
                     </span>
-                    <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <ChevronDown className="hidden h-3 w-3 shrink-0 text-muted-foreground sm:block" />
                 </button>
             </PopoverTrigger>
             <PopoverContent
@@ -106,6 +111,31 @@ export function MobileAccountMenu({
                         </p>
                     </div>
                 </div>
+                {(!hideAccountLink || !hidePortalLink) && (
+                    <nav
+                        aria-label="Navigasi akun"
+                        className="mt-1 space-y-1 border-t border-border pt-1"
+                    >
+                        {!hideAccountLink && (
+                            <Link
+                                href="/mobile/account"
+                                className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                <UserRound className="h-4 w-4" />
+                                Akun Saya
+                            </Link>
+                        )}
+                        {!hidePortalLink && (
+                            <Link
+                                href="/mobile"
+                                className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                <LayoutGrid className="h-4 w-4" />
+                                Pilih Portal
+                            </Link>
+                        )}
+                    </nav>
+                )}
                 {(currentTenantName || workspacesUnavailable) && (
                     <div className="mt-1 space-y-2 border-t border-border px-1 py-3">
                         {currentTenantName && (

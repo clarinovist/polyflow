@@ -7,9 +7,13 @@ import { MobileAccountMenu } from './mobile-account-menu';
 export async function MobileAccountMenuServer({
     user,
     accentColor,
+    hideAccountLink = false,
+    hidePortalLink = false,
 }: {
     user?: Session['user'];
     accentColor?: string;
+    hideAccountLink?: boolean;
+    hidePortalLink?: boolean;
 }) {
     if (!user) return null;
 
@@ -49,6 +53,8 @@ export async function MobileAccountMenuServer({
             workspaces={workspaces}
             workspacesUnavailable={workspacesUnavailable}
             centralLoginHint={!user.globalAccountId}
+            hideAccountLink={hideAccountLink}
+            hidePortalLink={hidePortalLink}
         />
     );
 }

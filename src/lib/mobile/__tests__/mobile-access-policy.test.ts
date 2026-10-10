@@ -103,6 +103,7 @@ describe('mobile-access-policy', () => {
       ['/hrd/mobile/attendance', true],
       ['/mobile/admin', true],
       ['/mobile/admin/attention', true],
+      ['/mobile/account', true],
       ['/field/marketing', true],
       ['/field/marketing/reviews', true],
       ['/maklon/mobile', false],
