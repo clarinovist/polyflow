@@ -38,12 +38,30 @@ describe('buildOperationalSalesReceivableOrderWhere', () => {
         const where = buildOperationalSalesReceivableOrderWhere();
 
         expect(where.customerId).toEqual({ not: null });
-        expect(where.NOT).toEqual(
+        expect(where.AND).toEqual(
             expect.arrayContaining([
-                { orderNumber: { startsWith: 'SO-OPEN-' } },
-                { orderNumber: { startsWith: 'OB-AR-' } },
-                { notes: { startsWith: 'Opening Balance Entry' } },
-                { notes: { startsWith: 'Sheet Penjualan Jun:' } },
+                { NOT: { orderNumber: { startsWith: 'SO-OPEN-' } } },
+                { NOT: { orderNumber: { startsWith: 'OB-AR-' } } },
+                {
+                    OR: [
+                        { notes: null },
+                        {
+                            NOT: {
+                                notes: { startsWith: 'Opening Balance Entry' },
+                            },
+                        },
+                    ],
+                },
+                {
+                    OR: [
+                        { notes: null },
+                        {
+                            NOT: {
+                                notes: { startsWith: 'Sheet Penjualan Jun:' },
+                            },
+                        },
+                    ],
+                },
             ]),
         );
     });

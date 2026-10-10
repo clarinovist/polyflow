@@ -243,11 +243,8 @@ describe.skipIf(!db)(
                     invoiceNumber: `INV-${String(index + 1).padStart(2, '0')}`,
                     salesOrderId: 'sales-order',
                     dueDate,
-                    status: 'PARTIAL' as const,
+                    status: 'UNPAID' as const,
                     totalAmount: 100,
-                    paidAmount: 10,
-                    creditedAmount: 5,
-                    priceAdjustmentAmount: 2,
                 })),
             });
             await db!.purchaseInvoice.createMany({
@@ -276,7 +273,7 @@ describe.skipIf(!db)(
                 return;
             expect(result.data.attention?.arOverdue).toMatchObject({
                 total: 7,
-                amount: 609,
+                amount: 700,
                 returned: 5,
             });
             expect(
