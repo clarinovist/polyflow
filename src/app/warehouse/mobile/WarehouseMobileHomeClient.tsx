@@ -1,132 +1,262 @@
 'use client';
 
 import Link from 'next/link';
-import { Truck, Package, ArrowRight, Clock, ClipboardList } from 'lucide-react';
+import {
+    ArrowRight,
+    ClipboardList,
+    Clock,
+    Package,
+    Truck,
+    Boxes,
+} from 'lucide-react';
+import type { WarehouseMobileDashboard } from '@/actions/dashboard/warehouse-mobile-dashboard';
+import { MobileDataFreshness } from '@/components/mobile';
 
-type HomeData = {
-    loadingCount: number;
-    pendingCount: number;
-    receivableCount: number;
-    openOpnameCount?: number;
-    shippedTodayCount?: number;
-    receivedTodayCount?: number;
-    recentLoading: {
-        id: string;
-        orderNumber: string;
-        deliveryDate: string;
-        salesOrder?: { customer?: { name: string } };
-    }[];
-};
+const linkClass =
+    'min-h-11 rounded-xl border bg-card transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]';
 
-export function WarehouseMobileHomeClient({ data }: { data: HomeData }) {
-    const totalOpen = data.loadingCount + data.pendingCount;
-
+function UnavailableCard({ label }: { label: string }) {
     return (
-        <div className="p-4 space-y-6">
-            {/* Header */}
-            <div>
+        <div className="rounded-xl border border-dashed bg-muted/30 p-4">
+            <p className="text-sm font-medium">{label} tidak tersedia</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+                Data gagal dimuat dan tidak dihitung sebagai nol.
+            </p>
+        </div>
+    );
+}
+
+export function WarehouseMobileHomeClient({
+    data,
+}: {
+    data: WarehouseMobileDashboard;
+}) {
+    return (
+        <div className="space-y-6 p-4">
+            <header className="space-y-1">
                 <h1 className="text-xl font-bold">Gudang Mobile</h1>
                 <p className="text-sm text-muted-foreground">
                     Ringkasan shift hari ini
                 </p>
-            </div>
+                <MobileDataFreshness generatedAt={data.generatedAt} />
+            </header>
 
-            {/* Today Completed Summary Strip */}
-            <div className="p-3 border rounded-xl bg-card shadow-sm flex items-center justify-around text-center text-xs">
-                <div>
-                    <p className="text-base font-bold text-emerald-600 tabular-nums">
-                        {data.shippedTodayCount ?? 0}
+            <section aria-labelledby="today-heading" className="space-y-3">
+                <h2 id="today-heading" className="text-sm font-semibold">
+                    Selesai Hari Ini
+                </h2>
+                {data.todayShipped.status === 'HIDDEN' &&
+                data.todayReceived.status === 'HIDDEN' &&
+                data.todayMaterialIssues.status === 'HIDDEN' ? (
+                    <p className="text-sm text-muted-foreground">
+                        Aktivitas hari ini tidak tersedia untuk akses ini.
                     </p>
-                    <p className="text-muted-foreground">DO Dikirim Hari Ini</p>
-                </div>
-                <div className="h-8 w-px bg-border" />
-                <div>
-                    <p className="text-base font-bold text-blue-600 tabular-nums">
-                        {data.receivedTodayCount ?? 0}
-                    </p>
-                    <p className="text-muted-foreground">Penerimaan Selesai</p>
-                </div>
-            </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {data.todayShipped.status === 'AVAILABLE' ? (
+                            <div className="rounded-xl border bg-card p-3 text-center text-xs shadow-sm">
+                                <p className="text-base font-bold tabular-nums text-emerald-600">
+                                    {data.todayShipped.data.count}
+                                </p>
+                                <p className="text-muted-foreground">
+                                    DO Dikirim Hari Ini
+                                </p>
+                            </div>
+                        ) : data.todayShipped.status === 'UNAVAILABLE' ? (
+                            <UnavailableCard label="Pengiriman hari ini" />
+                        ) : null}
+                        {data.todayReceived.status === 'AVAILABLE' ? (
+                            <div className="rounded-xl border bg-card p-3 text-center text-xs shadow-sm">
+                                <p className="text-base font-bold tabular-nums text-blue-600">
+                                    {data.todayReceived.data.count}
+                                </p>
+                                <p className="text-muted-foreground">
+                                    Penerimaan Selesai
+                                </p>
+                            </div>
+                        ) : data.todayReceived.status === 'UNAVAILABLE' ? (
+                            <UnavailableCard label="Penerimaan hari ini" />
+                        ) : null}
+                        {data.todayMaterialIssues.status === 'AVAILABLE' ? (
+                            <div className="rounded-xl border bg-card p-3 text-center text-xs shadow-sm">
+                                <p className="text-base font-bold tabular-nums text-violet-600">
+                                    {data.todayMaterialIssues.data.count}
+                                </p>
+                                <p className="text-muted-foreground">
+                                    Material Produksi Keluar
+                                </p>
+                            </div>
+                        ) : (
+                            <UnavailableCard label="Material produksi keluar" />
+                        )}
+                    </div>
+                )}
+            </section>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-3 gap-3">
-                <Link
-                    href="/warehouse/mobile/outgoing"
-                    className="p-4 border rounded-xl bg-card active:scale-[0.98] transition-all"
-                >
-                    <Truck className="h-6 w-6 text-primary mb-2" />
-                    <p className="text-2xl font-bold">{totalOpen}</p>
-                    <p className="text-xs text-muted-foreground">
-                        Antrian Muat
-                    </p>
-                    {data.loadingCount > 0 && (
-                        <p className="text-[10px] text-amber-600 mt-1">
-                            {data.loadingCount} sedang diproses
-                        </p>
-                    )}
-                </Link>
-
-                <Link
-                    href="/warehouse/mobile/incoming"
-                    className="p-4 border rounded-xl bg-card active:scale-[0.98] transition-all"
-                >
-                    <Package className="h-6 w-6 text-emerald-600 mb-2" />
-                    <p className="text-2xl font-bold">{data.receivableCount}</p>
-                    <p className="text-xs text-muted-foreground">
-                        Perlu Diterima
-                    </p>
-                </Link>
-
-                <Link
-                    href="/warehouse/mobile/opname"
-                    className="p-4 border rounded-xl bg-card active:scale-[0.98] transition-all"
-                >
-                    <ClipboardList className="h-6 w-6 text-amber-600 mb-2" />
-                    <p className="text-2xl font-bold">{data.openOpnameCount ?? 0}</p>
-                    <p className="text-xs text-muted-foreground">
-                        Opname Aktif
-                    </p>
-                </Link>
-            </div>
-
-            {/* Recent Loading */}
-            {data.recentLoading.length > 0 && (
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-sm font-semibold">Sedang Dimuat</h2>
+            <section aria-labelledby="tasks-heading" className="space-y-3">
+                <h2 id="tasks-heading" className="text-sm font-semibold">
+                    Tugas Operasional
+                </h2>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                    {data.loads.status === 'AVAILABLE' &&
+                    data.links.outgoing ? (
                         <Link
-                            href="/warehouse/mobile/outgoing"
-                            className="text-xs text-primary flex items-center gap-1"
+                            href={data.links.outgoing}
+                            className={`${linkClass} p-4`}
                         >
-                            Lihat semua <ArrowRight className="h-3 w-3" />
+                            <Truck className="mb-2 h-6 w-6 text-primary" />
+                            <p className="text-2xl font-bold tabular-nums">
+                                {data.loads.data.loading +
+                                    data.loads.data.pending}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Antrian Muat
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                                {data.loads.data.loading} loading ·{' '}
+                                {data.loads.data.pending} pending
+                            </p>
                         </Link>
-                    </div>
-                    <div className="space-y-2">
-                        {data.recentLoading.map((order) => (
-                            <Link
-                                key={order.id}
-                                href={`/warehouse/mobile/outgoing/${order.id}`}
-                                className="block p-3 border rounded-xl bg-card active:scale-[0.98] transition-all"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium truncate">
-                                            {order.orderNumber}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground truncate">
-                                            {order.salesOrder?.customer?.name ||
-                                                '—'}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-xs text-amber-600 shrink-0">
-                                        <Clock className="h-3 w-3" />
-                                        Loading
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
+                    ) : data.loads.status === 'UNAVAILABLE' ? (
+                        <UnavailableCard label="Antrean muat" />
+                    ) : null}
+                    {data.receiving.status === 'AVAILABLE' &&
+                    data.links.incoming ? (
+                        <Link
+                            href={data.links.incoming}
+                            className={`${linkClass} p-4`}
+                        >
+                            <Package className="mb-2 h-6 w-6 text-emerald-600" />
+                            <p className="text-2xl font-bold tabular-nums">
+                                {data.receiving.data.receivable}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Perlu Diterima
+                            </p>
+                        </Link>
+                    ) : data.receiving.status === 'UNAVAILABLE' ? (
+                        <UnavailableCard label="Antrean penerimaan" />
+                    ) : null}
+                    {data.materialQueue.status === 'AVAILABLE' ? (
+                        <div className="min-h-11 rounded-xl border bg-card p-4">
+                            <Boxes className="mb-2 h-6 w-6 text-violet-600" />
+                            <p className="text-2xl font-bold tabular-nums">
+                                {data.materialQueue.data.count}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Antrean Material Produksi
+                            </p>
+                        </div>
+                    ) : (
+                        <UnavailableCard label="Antrean material produksi" />
+                    )}
+                    {data.openOpname.status === 'AVAILABLE' &&
+                    data.links.opname ? (
+                        <Link
+                            href={data.links.opname}
+                            className={`${linkClass} p-4`}
+                        >
+                            <ClipboardList className="mb-2 h-6 w-6 text-amber-600" />
+                            <p className="text-2xl font-bold tabular-nums">
+                                {data.openOpname.data.count}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Opname Aktif
+                            </p>
+                        </Link>
+                    ) : data.openOpname.status === 'UNAVAILABLE' ? (
+                        <UnavailableCard label="Opname aktif" />
+                    ) : null}
                 </div>
+            </section>
+
+            {data.loadingAttention.status !== 'HIDDEN' && (
+                <section
+                    aria-labelledby="loading-heading"
+                    className="space-y-3"
+                >
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h2
+                                id="loading-heading"
+                                className="text-sm font-semibold"
+                            >
+                                Perlu Verifikasi Muat
+                            </h2>
+                            {data.loadingAttention.status === 'AVAILABLE' && (
+                                <p className="text-xs text-muted-foreground">
+                                    Menampilkan{' '}
+                                    {data.loadingAttention.data.returned} dari{' '}
+                                    {data.loadingAttention.data.total} DO
+                                    loading.
+                                </p>
+                            )}
+                        </div>
+                        {data.loadingAttention.status === 'AVAILABLE' &&
+                            data.links.outgoing && (
+                                <Link
+                                    href={data.links.outgoing}
+                                    className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-3 text-xs font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                >
+                                    Lihat semua{' '}
+                                    <ArrowRight className="h-3 w-3" />
+                                </Link>
+                            )}
+                    </div>
+                    {data.loadingAttention.status === 'UNAVAILABLE' ? (
+                        <UnavailableCard label="Verifikasi muat" />
+                    ) : data.loadingAttention.data.items.length === 0 ? (
+                        <div className="rounded-xl border bg-card p-4">
+                            <p className="text-sm font-medium">
+                                Tidak ada DO loading yang menunggu verifikasi.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {data.loadingAttention.data.items.map((order) =>
+                                order.href ? (
+                                    <Link
+                                        key={order.id}
+                                        href={order.href}
+                                        className={`${linkClass} block p-3`}
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-medium">
+                                                    {order.number}
+                                                </p>
+                                                <p className="truncate text-xs text-muted-foreground">
+                                                    {order.customerName || '—'}
+                                                </p>
+                                                <time
+                                                    dateTime={
+                                                        order.deliveryDate
+                                                    }
+                                                    className="text-xs text-muted-foreground"
+                                                >
+                                                    Jadwal{' '}
+                                                    {new Date(
+                                                        order.deliveryDate,
+                                                    ).toLocaleDateString(
+                                                        'id-ID',
+                                                        {
+                                                            timeZone:
+                                                                'Asia/Jakarta',
+                                                        },
+                                                    )}
+                                                </time>
+                                            </div>
+                                            <div className="flex shrink-0 items-center gap-1 text-xs text-amber-600">
+                                                <Clock className="h-3 w-3" />
+                                                Loading
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ) : null,
+                            )}
+                        </div>
+                    )}
+                </section>
             )}
         </div>
     );

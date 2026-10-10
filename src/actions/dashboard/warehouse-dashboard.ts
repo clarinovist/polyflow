@@ -1,12 +1,7 @@
 'use server';
 
-import {
-    DeliveryStatus,
-    ProductionStatus,
-    PurchaseOrderStatus,
-} from '@prisma/client';
+import { PurchaseOrderStatus, ProductionStatus } from '@prisma/client';
 import { getMyPermissions } from '@/actions/admin/permissions';
-import { getWarehouseTodayKPIs } from '@/actions/dashboard/warehouse-kpi';
 import {
     canAccessWorkspace,
     hasWorkspaceResourceAccess,
@@ -21,6 +16,11 @@ import {
     readWarehouseInventoryThresholdSnapshot,
     type WarehouseLowStockDriver,
 } from '@/services/inventory/warehouse-dashboard-service';
+import {
+    readWarehouseDesktopOperational,
+    readWarehouseLoadingAttention,
+    readWarehouseTodayActivity,
+} from '@/services/inventory/warehouse-operational-reader';
 
 export type WarehouseSection<T> =
     | { status: 'AVAILABLE'; data: T }
@@ -124,67 +124,15 @@ async function settleSection<T>(
 }
 
 async function readOperationalHealth() {
-    const [receivablePOs, openLoadOrders, materialQueue] = await Promise.all([
-        prisma.purchaseOrder.count({
-            where: {
-                status: {
-                    in: [
-                        PurchaseOrderStatus.SENT,
-                        PurchaseOrderStatus.PARTIAL_RECEIVED,
-                    ],
-                },
-            },
-        }),
-        prisma.deliveryOrder.count({
-            where: {
-                status: {
-                    in: [DeliveryStatus.PENDING, DeliveryStatus.LOADING],
-                },
-            },
-        }),
-        prisma.productionOrder.count({
-            where: {
-                status: {
-                    in: [
-                        ProductionStatus.RELEASED,
-                        ProductionStatus.IN_PROGRESS,
-                        ProductionStatus.WAITING_MATERIAL,
-                    ],
-                },
-            },
-        }),
-    ]);
-
-    return { receivablePOs, openLoadOrders, materialQueue };
+    return readWarehouseDesktopOperational(prisma);
 }
 
 async function readTodayActivity() {
-    const { startOfDay, endOfDay } = getWibDayBounds(
-        toBusinessDateString(new Date()),
-    );
-    const [todayKPIs, materialIssues] = await Promise.all([
-        getWarehouseTodayKPIs(),
-        prisma.stockMovement.count({
-            where: {
-                type: 'OUT',
-                productionOrderId: { not: null },
-                createdAt: { gte: startOfDay, lte: endOfDay },
-            },
-        }),
-    ]);
-
-    return {
-        goodsReceipts: todayKPIs.receivedToday,
-        deliveriesShipped: todayKPIs.shippedToday,
-        materialIssues,
-    };
+    const bounds = getWibDayBounds(toBusinessDateString(new Date()));
+    return readWarehouseTodayActivity(prisma, bounds);
 }
 
 async function readAttention() {
-    const loadingWhere = {
-        status: DeliveryStatus.LOADING,
-        loadVerifiedAt: null,
-    };
     const partialWhere = {
         status: PurchaseOrderStatus.PARTIAL_RECEIVED,
     };
@@ -193,27 +141,13 @@ async function readAttention() {
     };
 
     const [
-        loadingTotal,
         loadingUnverified,
         partialTotal,
         partialPOs,
         waitingTotal,
         waitingMaterial,
     ] = await Promise.all([
-        prisma.deliveryOrder.count({ where: loadingWhere }),
-        prisma.deliveryOrder.findMany({
-            where: loadingWhere,
-            select: {
-                id: true,
-                orderNumber: true,
-                deliveryDate: true,
-                salesOrder: {
-                    select: { customer: { select: { name: true } } },
-                },
-            },
-            orderBy: [{ deliveryDate: 'asc' }, { id: 'asc' }],
-            take: ATTENTION_SAMPLE_LIMIT,
-        }),
+        readWarehouseLoadingAttention(prisma, ATTENTION_SAMPLE_LIMIT),
         prisma.purchaseOrder.count({ where: partialWhere }),
         prisma.purchaseOrder.findMany({
             where: partialWhere,
@@ -244,16 +178,7 @@ async function readAttention() {
     ]);
 
     return {
-        loadingUnverified: {
-            total: loadingTotal,
-            returned: loadingUnverified.length,
-            items: loadingUnverified.map((delivery) => ({
-                id: delivery.id,
-                number: delivery.orderNumber,
-                customerName: delivery.salesOrder?.customer?.name ?? undefined,
-                deliveryDate: delivery.deliveryDate.toISOString(),
-            })),
-        },
+        loadingUnverified,
         partialPOs: {
             total: partialTotal,
             returned: partialPOs.length,

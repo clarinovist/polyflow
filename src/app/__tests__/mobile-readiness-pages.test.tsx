@@ -21,17 +21,14 @@ import ReceivablesPage from '../field/sales/receivables/page';
 import SelectorPage from '../mobile/page';
 import { HrdAttendanceClient } from '../hrd/mobile/attendance/attendance-client';
 import WarehouseHome from '../warehouse/mobile/page';
-const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), followUps: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), deliveries: vi.fn(), opname: vi.fn(), warehouseKpis: vi.fn(), receivablePos: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
+const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), followUps: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), warehouse: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
 vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production, getMobileSupervisorSpkList: m.spkList, getFactoryManagerExecutiveOverview: m.exec }));
 vi.mock('@/actions/production/alert-threshold-settings', () => ({ getProductionAlertThresholdsForPage: async () => ({ success: false }) }));
 vi.mock('@/actions/finance/mobile-dashboard', () => ({ getFinanceMobileOverview: m.finance }));
 vi.mock('@/actions/hrd/mobile-dashboard', () => ({ getHrdMobileOverview: m.hrd }));
 vi.mock('@/actions/purchasing/mobile-dashboard', () => ({ getPurchasingMobileOverview: m.purchasing }));
 vi.mock('@/actions/inventory/inventory', () => ({ getProductVariants: m.products, getLocations: m.locations }));
-vi.mock('@/actions/inventory/deliveries', () => ({ getOpenDeliveryOrders: m.deliveries }));
-vi.mock('@/actions/inventory/opname', () => ({ getOpnameSessions: m.opname }));
-vi.mock('@/actions/dashboard/warehouse-kpi', () => ({ getWarehouseTodayKPIs: m.warehouseKpis }));
-vi.mock('@/services/purchasing/purchase-service', () => ({ PurchaseService: { listReceivablePurchaseOrders: m.receivablePos } }));
+vi.mock('@/actions/dashboard/warehouse-mobile-dashboard', () => ({ getWarehouseMobileDashboard: m.warehouse }));
 vi.mock('@/lib/core/tenant', () => ({
     withTenantPage: (fn: unknown) => fn,
     withTenant: (fn: unknown) => fn,
@@ -59,9 +56,7 @@ vi.mock('../field/sales/receivables/ReceivablesListClient', () => ({ Receivables
 afterEach(cleanup);
 beforeEach(() => {
     vi.resetAllMocks();
-    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.pipeline, m.customers, m.compliance, m.followUps, m.routePlan, m.products, m.locations, m.orders, m.receivables, m.portals, m.deliveries, m.opname]) fn.mockResolvedValue({ success: false });
-    m.warehouseKpis.mockResolvedValue({ shippedToday: 0, receivedToday: 0 });
-    m.receivablePos.mockResolvedValue([]);
+    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.pipeline, m.customers, m.compliance, m.followUps, m.routePlan, m.products, m.locations, m.orders, m.receivables, m.portals, m.warehouse]) fn.mockResolvedValue({ success: false });
     m.auth.mockResolvedValue({ user: { id: 'synthetic', role: 'FINANCE' } });
 });
 describe('mobile read states', () => {
@@ -137,6 +132,7 @@ describe('mobile read states', () => {
 
     it('keeps a failed warehouse read distinct from an empty dashboard', async () => {
         render(await WarehouseHome());
+        expect(m.warehouse).toHaveBeenCalledTimes(1);
         expect(screen.getByRole('alert').textContent).toContain(
             'Ringkasan gudang belum tersedia',
         );

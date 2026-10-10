@@ -1,8 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
-import {
-    getWibDayBounds,
-    toBusinessDateString,
-} from '@/lib/utils/timezone';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
+import { readWarehouseTodayKPIs } from '@/services/inventory/warehouse-operational-reader';
 
 /**
  * Canonical warehouse today KPIs.
@@ -19,21 +17,13 @@ export async function getWarehouseTodayKPIs(): Promise<{
     const todayStr = toBusinessDateString(new Date());
     const { startOfDay, endOfDay } = getWibDayBounds(todayStr);
 
-    const [shippedToday, receivedToday] = await Promise.all([
-        // Shipped today: stockCommittedAt within today WIB
-        prisma.deliveryOrder.count({
-            where: {
-                stockCommittedAt: { gte: startOfDay, lte: endOfDay },
-            },
-        }),
-        // Received today: GR receivedDate within today WIB
-        prisma.goodsReceipt.count({
-            where: {
-                isMaklon: false,
-                receivedDate: { gte: startOfDay, lte: endOfDay },
-            },
-        }),
-    ]);
+    const { deliveriesShipped, goodsReceipts } = await readWarehouseTodayKPIs(
+        prisma,
+        { startOfDay, endOfDay },
+    );
 
-    return { shippedToday, receivedToday };
+    return {
+        shippedToday: deliveriesShipped,
+        receivedToday: goodsReceipts,
+    };
 }

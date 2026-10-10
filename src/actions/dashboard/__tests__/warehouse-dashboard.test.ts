@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
     prisma: {
         purchaseOrder: { count: vi.fn(), findMany: vi.fn() },
-        deliveryOrder: { count: vi.fn(), findMany: vi.fn() },
+        deliveryOrder: { count: vi.fn(), groupBy: vi.fn(), findMany: vi.fn() },
         productionOrder: { count: vi.fn(), findMany: vi.fn() },
         goodsReceipt: { count: vi.fn() },
         stockMovement: { count: vi.fn() },
@@ -100,10 +100,11 @@ function setupHappyPath() {
         async (args?: { where?: { status?: string | { in?: string[] } } }) =>
             typeof args?.where?.status === 'object' ? 3 : 7,
     );
-    mocks.prisma.deliveryOrder.count.mockImplementation(
-        async (args?: { where?: { status?: string | { in?: string[] } } }) =>
-            typeof args?.where?.status === 'object' ? 2 : 8,
-    );
+    mocks.prisma.deliveryOrder.count.mockResolvedValue(8);
+    mocks.prisma.deliveryOrder.groupBy.mockResolvedValue([
+        { status: DeliveryStatus.PENDING, _count: { _all: 1 } },
+        { status: DeliveryStatus.LOADING, _count: { _all: 1 } },
+    ]);
     mocks.prisma.productionOrder.count.mockImplementation(
         async (args?: { where?: { status?: string | { in?: string[] } } }) =>
             typeof args?.where?.status === 'object' ? 4 : 6,
@@ -225,6 +226,7 @@ describe('getWarehouseShiftBoard', () => {
     it('returns available zeroes, server freshness, and the canonical one-read inventory snapshot', async () => {
         mocks.prisma.purchaseOrder.count.mockResolvedValue(0);
         mocks.prisma.deliveryOrder.count.mockResolvedValue(0);
+        mocks.prisma.deliveryOrder.groupBy.mockResolvedValue([]);
         mocks.prisma.productionOrder.count.mockResolvedValue(0);
         mocks.prisma.goodsReceipt.count.mockResolvedValue(0);
         mocks.prisma.stockMovement.count.mockResolvedValue(0);
@@ -381,12 +383,14 @@ describe('getWarehouseShiftBoard', () => {
                 },
             },
         });
-        expect(mocks.prisma.deliveryOrder.count).toHaveBeenCalledWith({
+        expect(mocks.prisma.deliveryOrder.groupBy).toHaveBeenCalledWith({
+            by: ['status'],
             where: {
                 status: {
                     in: [DeliveryStatus.PENDING, DeliveryStatus.LOADING],
                 },
             },
+            _count: { _all: true },
         });
         expect(mocks.prisma.productionOrder.count).toHaveBeenCalledWith({
             where: {
