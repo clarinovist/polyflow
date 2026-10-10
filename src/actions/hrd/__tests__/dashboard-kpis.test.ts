@@ -1,117 +1,175 @@
-import { describe, expect, it } from 'vitest';
-import { daysBetween, getMonthName, mapHrdShiftBoard } from '../hrd-helpers';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('getMonthName', () => {
-  it('returns Indonesian month names', () => {
-    expect(getMonthName(1)).toBe('Januari');
-    expect(getMonthName(7)).toBe('Juli');
-    expect(getMonthName(12)).toBe('Desember');
-  });
-});
+const mocks = vi.hoisted(() => ({
+    guard: vi.fn(),
+    permissions: vi.fn(),
+    workspace: vi.fn(),
+    resource: vi.fn(),
+    reader: vi.fn(),
+    prisma: {},
+}));
 
-describe('daysBetween', () => {
-  it('counts whole days from created to today', () => {
-    const created = new Date('2026-07-15T00:00:00.000Z');
-    const today = new Date('2026-07-22T00:00:00.000Z');
-    expect(daysBetween(created, today)).toBe(7);
-  });
-});
+vi.mock('@/lib/core/prisma', () => ({ prisma: mocks.prisma }));
+vi.mock('@/lib/core/tenant', () => ({
+    withTenant: (fn: (...args: never[]) => unknown) => fn,
+}));
+vi.mock('@/lib/tools/auth-checks', () => ({ requireAuth: mocks.guard }));
+vi.mock('@/actions/admin/permissions', () => ({
+    getMyPermissions: mocks.permissions,
+}));
+vi.mock('@/lib/auth/access-policy', () => ({
+    canAccessWorkspace: mocks.workspace,
+    hasWorkspaceResourceAccess: mocks.resource,
+}));
+vi.mock('@/lib/auth/roles', () => ({
+    getUserRoles: (user: { role?: string; roles?: string[] }) =>
+        user.roles ?? (user.role ? [user.role] : []),
+}));
+vi.mock('@/services/hrd/hrd-dashboard-service', () => ({
+    readHrdDashboardAggregate: mocks.reader,
+}));
+vi.mock('@/lib/errors/errors', () => ({
+    AuthorizationError: class AuthorizationError extends Error {},
+    safeAction: async (fn: () => Promise<unknown>) => {
+        try {
+            return { success: true as const, data: await fn() };
+        } catch (error) {
+            return {
+                success: false as const,
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
+    },
+}));
 
-describe('mapHrdShiftBoard', () => {
-  it('maps counts + attention lists and flags periods needing generate', () => {
-    const board = mapHrdShiftBoard({
-      today: '2026-07-22',
-      presentToday: 12,
-      leavePendingCount: 3,
-      loanOutstanding: 1_500_000,
-      loanActiveCount: 2,
-      openPeriodsCount: 2,
-      bpjsCount: 40,
-      hrAlertsUnreadCount: 1,
-      absentYesterdayCount: 4,
-      pendingLeaves: [
-        {
-          id: 'lv-1',
-          type: 'ANNUAL',
-          startDate: new Date('2026-07-25T00:00:00.000Z'),
-          createdAt: new Date('2026-07-20T00:00:00.000Z'),
-          employee: { name: 'Budi' },
+import { getHrdShiftBoard } from '../dashboard-kpis';
+
+const aggregateFixture = {
+    generatedAt: '2026-10-10T00:00:00.000Z',
+    workDate: '2026-10-10',
+    yesterdayWorkDate: '2026-10-09',
+    health: {},
+    attention: {},
+    drivers: { status: 'NOT_CONFIGURED', data: null },
+};
+
+function setupAuthorized(role = 'HRD') {
+    mocks.guard.mockResolvedValue({
+        user: { id: 'u1', role, roles: [role], allowedResources: [] },
+    });
+    mocks.permissions.mockResolvedValue({ success: true, data: ['/hrd'] });
+    mocks.workspace.mockReturnValue(true);
+    mocks.resource.mockReturnValue(true);
+    mocks.reader.mockResolvedValue(aggregateFixture);
+}
+
+describe('getHrdShiftBoard authorization', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        setupAuthorized();
+    });
+
+    it.each(['ADMIN', 'FINANCE', 'HRD'])(
+        'allows tracked HRD root role %s with an exact root grant',
+        async (role) => {
+            setupAuthorized(role);
+
+            const result = await getHrdShiftBoard();
+
+            expect(result).toEqual({ success: true, data: aggregateFixture });
+            expect(mocks.workspace).toHaveBeenCalledWith(
+                expect.objectContaining({ roles: [role] }),
+                'hrd',
+                '/hrd',
+            );
+            expect(mocks.resource).toHaveBeenCalledWith(['/hrd'], 'hrd');
+            expect(mocks.reader).toHaveBeenCalledWith(mocks.prisma);
         },
-      ],
-      hrAlerts: [
-        {
-          id: 'n-1',
-          title: 'Kontrak Siti berakhir',
-          type: 'HRD_CONTRACT_EXPIRING',
-          createdAt: new Date('2026-07-21T00:00:00.000Z'),
-        },
-      ],
-      openPeriods: [
-        { id: 'p-1', year: 2026, month: 7, status: 'OPEN', payslipCount: 0 },
-        { id: 'p-2', year: 2026, month: 6, status: 'OPEN', payslipCount: 10 },
-      ],
-      absentYesterday: [
-        {
-          employeeId: 'e-1',
-          employee: { name: 'Andi', code: 'EMP-001' },
-        },
-      ],
+    );
+
+    it('allows ALL permissions while keeping session resources isolated in policy input', async () => {
+        mocks.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+
+        expect(await getHrdShiftBoard()).toMatchObject({ success: true });
+        expect(mocks.workspace).toHaveBeenCalledWith(
+            expect.objectContaining({ allowedResources: [] }),
+            'hrd',
+            '/hrd',
+        );
+        expect(mocks.resource).toHaveBeenCalledWith('ALL', 'hrd');
     });
 
-    expect(board.counts.presentToday).toBe(12);
-    expect(board.counts.leavePending).toBe(3);
-    expect(board.counts.loanOutstanding).toBe(1_500_000);
-    expect(board.counts.openPayrollPeriods).toBe(2);
-    expect(board.counts.periodsNeedGenerate).toBe(1);
-    expect(board.counts.absentYesterday).toBe(4);
-    expect(board.counts.hrAlertsUnread).toBe(1);
+    it('allows a cross-role or secondary-role user only when policy and explicit root grant allow it', async () => {
+        mocks.guard.mockResolvedValue({
+            user: {
+                id: 'cross-role',
+                role: 'SALES',
+                roles: ['SALES', 'HRD'],
+                allowedResources: [],
+            },
+        });
 
-    expect(board.attention.pendingLeaves).toHaveLength(1);
-    expect(board.attention.pendingLeaves[0]).toMatchObject({
-      id: 'lv-1',
-      employeeName: 'Budi',
-      type: 'ANNUAL',
-      daysPending: 2,
+        expect(await getHrdShiftBoard()).toMatchObject({ success: true });
+        expect(mocks.workspace).toHaveBeenCalledWith(
+            expect.objectContaining({ roles: ['SALES', 'HRD'] }),
+            'hrd',
+            '/hrd',
+        );
     });
 
-    expect(board.attention.hrAlerts[0]).toMatchObject({
-      id: 'n-1',
-      title: 'Kontrak Siti berakhir',
-      type: 'HRD_CONTRACT_EXPIRING',
+    it.each([
+        ['/hrd/attendance'],
+        ['/warehouse'],
+        [],
+    ])('denies non-root resource %j before reading HRD data', async (...resources) => {
+        mocks.permissions.mockResolvedValue({
+            success: true,
+            data: resources,
+        });
+        mocks.resource.mockReturnValue(resources[0]?.startsWith('/hrd') ?? false);
+
+        const result = await getHrdShiftBoard();
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Unauthorized: Akses root HRD tidak tersedia.',
+        });
+        expect(mocks.reader).not.toHaveBeenCalled();
     });
 
-    expect(board.attention.openPeriods).toEqual([
-      { id: 'p-1', label: 'Juli 2026', status: 'OPEN', needsGenerate: true },
-      { id: 'p-2', label: 'Juni 2026', status: 'OPEN', needsGenerate: false },
-    ]);
+    it('denies an unrelated role when the global policy rejects it', async () => {
+        mocks.workspace.mockReturnValue(false);
 
-    expect(board.attention.absentYesterday).toEqual([
-      { employeeId: 'e-1', employeeName: 'Andi', employeeCode: 'EMP-001' },
-    ]);
-
-    expect(board.today).toBe('2026-07-22');
-  });
-
-  it('returns zero periodsNeedGenerate when all open periods have payslips', () => {
-    const board = mapHrdShiftBoard({
-      today: '2026-07-22',
-      presentToday: 0,
-      leavePendingCount: 0,
-      loanOutstanding: 0,
-      loanActiveCount: 0,
-      openPeriodsCount: 1,
-      bpjsCount: 0,
-      hrAlertsUnreadCount: 0,
-      absentYesterdayCount: 0,
-      pendingLeaves: [],
-      hrAlerts: [],
-      openPeriods: [
-        { id: 'p-1', year: 2026, month: 7, status: 'OPEN', payslipCount: 5 },
-      ],
-      absentYesterday: [],
+        expect(await getHrdShiftBoard()).toMatchObject({ success: false });
+        expect(mocks.reader).not.toHaveBeenCalled();
     });
 
-    expect(board.counts.periodsNeedGenerate).toBe(0);
-    expect(board.attention.openPeriods[0]?.needsGenerate).toBe(false);
-  });
+    it('uses the session resource snapshot when the fresh permission read fails', async () => {
+        mocks.guard.mockResolvedValue({
+            user: {
+                id: 'u1',
+                role: 'HRD',
+                roles: ['HRD'],
+                allowedResources: ['/hrd'],
+            },
+        });
+        mocks.permissions.mockResolvedValue({
+            success: false,
+            error: 'permission read failed',
+        });
+
+        expect(await getHrdShiftBoard()).toMatchObject({ success: true });
+        expect(mocks.resource).toHaveBeenCalledWith(['/hrd'], 'hrd');
+    });
+
+    it('denies no session and super-admin isolation before reads', async () => {
+        mocks.guard.mockRejectedValueOnce(new Error('Autentikasi diperlukan'));
+        expect(await getHrdShiftBoard()).toMatchObject({ success: false });
+        expect(mocks.reader).not.toHaveBeenCalled();
+
+        setupAuthorized('SUPER_ADMIN');
+        mocks.workspace.mockReturnValue(false);
+        expect(await getHrdShiftBoard()).toMatchObject({ success: false });
+        expect(mocks.reader).not.toHaveBeenCalled();
+    });
 });

@@ -1,17 +1,20 @@
 import React from 'react';
-import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getHrdMobileOverview } from '@/actions/hrd/mobile-dashboard';
+import { DashboardSectionState } from '@/components/dashboard/DashboardMetricPrimitives';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import {
     MobileDataFreshness,
-    MobileSectionHeader,
     MobileInsightCard,
+    MobileSectionHeader,
 } from '@/components/mobile';
 
 export default async function HrdInsightsPage() {
     const response = await getHrdMobileOverview();
     if (!response.success)
         return <MobileReadError title="Insight HRD belum tersedia" />;
-    const { highlights, generatedAt, payrollReadiness, alerts } = response.data;
+
+    const { generatedAt, workDate, health, drivers } = response.data;
+    const attendance = health.attendanceToday;
 
     return (
         <div className="space-y-6">
@@ -19,83 +22,80 @@ export default async function HrdInsightsPage() {
             <MobileDataFreshness generatedAt={generatedAt} />
 
             <div className="grid grid-cols-1 gap-3">
-                <MobileInsightCard
-                    insight={{
-                        key: 'present-count',
-                        label: 'Total Hadir Hari Ini',
-                        value: highlights.presentTodayCount,
-                        unit: 'karyawan',
-                        severity: 'SUCCESS',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'pending-leave-approval',
-                        label: 'Cuti Membutuhkan Approval',
-                        value: highlights.pendingLeaveCount,
-                        unit: 'pengajuan',
-                        severity:
-                            highlights.pendingLeaveCount > 0
-                                ? 'WARNING'
-                                : 'INFO',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'payroll-period-active',
-                        label: 'Periode Penggajian Aktif',
-                        value:
-                            highlights.openPayrollPeriodName ?? 'Belum Dibuka',
-                        severity: highlights.openPayrollPeriodName
-                            ? 'SUCCESS'
-                            : 'INFO',
-                    }}
-                />
-                <MobileInsightCard
-                    insight={{
-                        key: 'employment-reminder-count',
-                        label: 'Kontrak/Probation ≤30 Hari',
-                        value: highlights.employmentReminderCount,
-                        severity:
-                            highlights.employmentReminderCount > 0
-                                ? 'WARNING'
-                                : 'INFO',
-                    }}
-                />
+                {attendance.status === 'AVAILABLE' ? (
+                    <>
+                        <MobileInsightCard
+                            insight={{
+                                key: 'recorded-statuses',
+                                label: `Status Tercatat · ${workDate}`,
+                                value: `${attendance.data.present} / ${attendance.data.absent} / ${attendance.data.onLeave}`,
+                                unit: 'PRESENT / ABSENT / ON_LEAVE',
+                                severity:
+                                    attendance.data.absent > 0
+                                        ? 'WARNING'
+                                        : 'INFO',
+                            }}
+                        />
+                        <MobileInsightCard
+                            insight={{
+                                key: 'overtime-hours',
+                                label: 'Lembur Hari Ini pada Record PRESENT',
+                                value: attendance.data.overtimeHours.toLocaleString(
+                                    'id-ID',
+                                    { maximumFractionDigits: 2 },
+                                ),
+                                unit: 'jam',
+                                severity: 'INFO',
+                            }}
+                        />
+                    </>
+                ) : (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Status kehadiran tidak tersedia"
+                        description="Kegagalan baca tidak dianggap nol dan tidak membuat NO_RECORD."
+                    />
+                )}
+                {health.employmentFollowUp.status === 'AVAILABLE' ? (
+                    <MobileInsightCard
+                        insight={{
+                            key: 'employment-follow-up',
+                            label: 'Tindak Lanjut ≤30 Hari',
+                            value: health.employmentFollowUp.data.total,
+                            unit: `${health.employmentFollowUp.data.probation} probation · ${health.employmentFollowUp.data.contract} kontrak`,
+                            severity:
+                                health.employmentFollowUp.data.total > 0
+                                    ? 'WARNING'
+                                    : 'INFO',
+                        }}
+                    />
+                ) : (
+                    <DashboardSectionState
+                        state="UNAVAILABLE"
+                        title="Tindak lanjut kontrak/probation tidak tersedia"
+                    />
+                )}
             </div>
+
             <section
-                aria-labelledby="hr-alert-heading"
+                aria-labelledby="hrd-mobile-drivers"
                 className="space-y-3 rounded-xl border bg-card p-4"
             >
-                <h2 id="hr-alert-heading" className="font-semibold">
-                    Alert HR aktif
+                <h2 id="hrd-mobile-drivers" className="font-semibold">
+                    Drivers
                 </h2>
-                {!alerts.length ? (
-                    <p className="text-sm text-muted-foreground">
-                        Tidak ada alert kontrak/probation belum dibaca.
-                    </p>
-                ) : (
-                    alerts.map((alert) => (
-                        <article
-                            key={alert.id}
-                            className="border-t pt-3 first:border-t-0 first:pt-0"
-                        >
-                            <h3 className="text-sm font-semibold">
-                                {alert.title}
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                                {alert.type.replaceAll('_', ' ')} ·{' '}
-                                {new Date(alert.createdAt).toLocaleDateString(
-                                    'id-ID',
-                                )}
-                            </p>
-                        </article>
-                    ))
-                )}
+                <DashboardSectionState
+                    state={
+                        drivers.status === 'NOT_CONFIGURED'
+                            ? 'NOT_CONFIGURED'
+                            : 'UNAVAILABLE'
+                    }
+                    title="Driver unit/sif belum dikonfigurasi"
+                    description="Ranking penyebab menunggu kontrak organisasi dan penjadwalan yang disetujui; hitungan mentah tidak diperlakukan sebagai sebab."
+                />
                 <p className="text-xs text-muted-foreground">
-                    {payrollReadiness
-                        ? `${payrollReadiness.counts.draft} draft payroll masih perlu review.`
-                        : 'Tidak ada payroll terbuka.'}
+                    Attendance rate, NO_RECORD, turnover, tren lembur, dan
+                    produktivitas ditahan sampai definisinya disetujui.
                 </p>
             </section>
         </div>

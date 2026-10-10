@@ -1,25 +1,37 @@
 import { getHrdMobileOverview } from '@/actions/hrd/mobile-dashboard';
+import { DashboardSectionState } from '@/components/dashboard/DashboardMetricPrimitives';
 import { MobileDataFreshness, MobileSectionHeader } from '@/components/mobile';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
-import { formatWIB } from '@/lib/utils/timezone';
 
 export default async function HrdTasksPage() {
     const response = await getHrdMobileOverview();
-    if (!response.success) return <MobileReadError title="Daftar cuti belum tersedia" />;
-    const { generatedAt, pendingLeaves, highlights } = response.data;
+    if (!response.success)
+        return <MobileReadError title="Daftar cuti belum tersedia" />;
+
+    const { generatedAt, attention } = response.data;
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Pengajuan Cuti Pending" level={1} />
             <MobileDataFreshness generatedAt={generatedAt} />
-            <p className="text-sm text-muted-foreground">{highlights.pendingLeaveCount} pengajuan menunggu. Menampilkan maksimal 10 pengajuan terbaru. Persetujuan tetap melalui desktop HRD.</p>
-            {!pendingLeaves.length ? <p className="py-4 text-sm">Tidak ada pengajuan cuti pending.</p> : pendingLeaves.map((leave) => (
-                <article key={leave.id} className="space-y-2 rounded-xl border bg-card p-4 [overflow-wrap:anywhere]">
-                    <h2 className="font-semibold">{leave.employeeName}</h2>
-                    <p className="text-sm">{leave.leaveType}</p>
-                    <p className="text-sm">{formatWIB(new Date(leave.startDate), 'dd/MM/yyyy')} – {formatWIB(new Date(leave.endDate), 'dd/MM/yyyy')}</p>
-                    <p className="text-sm text-muted-foreground">Menunggu persetujuan</p>
-                </article>
-            ))}
+            {attention.pendingLeave.status === 'AVAILABLE' ? (
+                <section className="space-y-3 rounded-xl border bg-card p-4">
+                    <p className="text-sm text-muted-foreground">
+                        {attention.pendingLeave.data.count} pengajuan menunggu
+                        persetujuan. Ringkasan mobile tidak memuat baris atau
+                        identitas karyawan.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                        Persetujuan tetap dilakukan melalui workbench desktop
+                        HRD oleh pengguna yang memiliki akses ke modul Cuti.
+                    </p>
+                </section>
+            ) : (
+                <DashboardSectionState
+                    state="UNAVAILABLE"
+                    title="Hitungan pengajuan cuti tidak tersedia"
+                    description="Kegagalan baca tidak dianggap sebagai antrean kosong."
+                />
+            )}
         </div>
     );
 }

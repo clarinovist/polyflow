@@ -5,125 +5,180 @@ import { describe, expect, it } from 'vitest';
 import { HrdShiftBoardComponent } from '../HrdShiftBoard';
 import type { HrdShiftBoard } from '@/actions/hrd/dashboard-kpis';
 
+function section<T>(data: T) {
+    return { status: 'AVAILABLE' as const, data };
+}
+
 const data: HrdShiftBoard = {
-    counts: {
-        presentToday: 10,
-        leavePending: 1,
-        loanOutstanding: 250_000,
-        loanActiveCount: 1,
-        openPayrollPeriods: 1,
-        bpjsParticipants: 9,
-        hrAlertsUnread: 1,
-        absentYesterday: 1,
-        periodsNeedGenerate: 1,
+    generatedAt: '2026-10-10T00:00:00.000Z',
+    workDate: '2026-10-10',
+    yesterdayWorkDate: '2026-10-09',
+    health: {
+        activeHeadcount: section({ count: 10 }),
+        attendanceToday: section({
+            present: 8,
+            absent: 1,
+            onLeave: 1,
+            overtimeHours: 2.25,
+        }),
+        payrollReadiness: section({
+            year: 2026,
+            month: 10,
+            total: 5,
+            draft: 1,
+            finalized: 2,
+            paid: 2,
+        }),
+        employmentFollowUp: section({
+            probation: 1,
+            contract: 2,
+            total: 3,
+            horizonDays: 30 as const,
+        }),
     },
     attention: {
-        pendingLeaves: [
-            {
-                id: 'leave-1',
-                employeeName: 'Ani',
-                type: 'ANNUAL',
-                startDate: '2026-09-14',
-                daysPending: 2,
-            },
-        ],
-        hrAlerts: [
-            { id: 'alert-1', title: 'Kontrak Ani', type: 'HRD_CONTRACT_EXPIRING', createdAt: '2026-09-13' },
-        ],
-        openPeriods: [
-            { id: 'period-1', label: 'September 2026', status: 'OPEN', needsGenerate: true },
-        ],
-        absentYesterday: [
-            { employeeId: 'employee-1', employeeName: 'Budi', employeeCode: 'EMP-1' },
-        ],
+        pendingLeave: section({ count: 2 }),
+        loanPortfolio: section({
+            activeCount: 1,
+            outstandingAmount: 250_000,
+        }),
+        payroll: section({ openPeriods: 1, periodsNeedGenerate: 1 }),
+        bpjs: section({ activeParticipants: 9 }),
+        hrAlerts: section({ unreadRecipientNotifications: 4 }),
+        recordedAbsenceYesterday: section({ count: 2 }),
     },
-    today: '2026-09-13',
+    drivers: { status: 'NOT_CONFIGURED', data: null },
 };
 
 describe('HrdShiftBoardComponent', () => {
-    it('keeps positive actionable queues linked to their specific destinations', () => {
+    it('renders Health → Attention → Drivers with formulas, freshness, and safe root links', () => {
         render(<HrdShiftBoardComponent data={data} />);
 
+        const health = screen.getByText('Health');
+        const attention = screen.getByText('Attention');
+        const drivers = screen.getByText('Drivers');
+        expect(
+            health.compareDocumentPosition(attention) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            attention.compareDocumentPosition(drivers) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(screen.getByText(/Diperbarui/)).toBeTruthy();
+        expect(screen.getByText('8 hadir')).toBeTruthy();
+        expect(
+            screen.getByText(/1 absent · 1 cuti\/izin · 2,25 jam lembur/),
+        ).toBeTruthy();
+        expect(screen.getByText('5 slip dibuat')).toBeTruthy();
+        expect(screen.getByText(/1 draft · 2 finalized · 2 paid/)).toBeTruthy();
+        expect(screen.getByText('3')).toBeTruthy();
         expect(
             screen
-                .getByText('Cuti menunggu persetujuan')
+                .getByText('Cuti/izin menunggu')
                 .closest('a')
                 ?.getAttribute('href'),
         ).toBe('/hrd/leave?status=PENDING');
         expect(
-            screen.getByText('Sisa kasbon').closest('a')?.getAttribute('href'),
+            screen.getByText('Kasbon aktif').closest('a')?.getAttribute('href'),
         ).toBe('/hrd/loans');
         expect(
             screen
-                .getByText('Periode terbuka')
+                .getByText('Periode payroll terbuka')
                 .closest('a')
                 ?.getAttribute('href'),
         ).toBe('/hrd/payroll-monthly');
         expect(
             screen
-                .getByText('Peringatan HR belum dibaca')
+                .getByText('ABSENT tercatat kemarin')
                 .closest('a')
                 ?.getAttribute('href'),
-        ).toBe('/hrd/alerts?unread=true');
-        expect(screen.getByText('Ani').closest('a')?.getAttribute('href')).toBe(
-            '/hrd/leave?status=PENDING&requestId=leave-1',
-        );
-        expect(screen.getByText('Kontrak Ani').closest('a')?.getAttribute('href')).toBe(
-            '/hrd/alerts?unread=true#alert-alert-1',
-        );
-        expect(screen.getByText('September 2026').closest('a')?.getAttribute('href')).toBe(
-            '/hrd/payroll-monthly/period-1',
-        );
-        expect(screen.getByText('Budi').closest('a')?.getAttribute('href')).toBe(
-            '/dashboard/employees/employee-1?tab=attendance',
-        );
+        ).toBe('/hrd/attendance');
+        expect(screen.getByText(/Driver unit\/sif belum/)).toBeTruthy();
+        expect(screen.getByText(/ranking kausal/i)).toBeTruthy();
     });
 
-    it('keeps observational metrics and zero-count queues informative without action affordances', () => {
-        const zeroQueueData: HrdShiftBoard = {
+    it('renders valid zeroes as AVAILABLE rather than unavailable', () => {
+        const zero: HrdShiftBoard = {
             ...data,
-            counts: {
-                ...data.counts,
-                leavePending: 0,
-                loanOutstanding: 0,
-                loanActiveCount: 0,
-                openPayrollPeriods: 0,
-                hrAlertsUnread: 0,
-                periodsNeedGenerate: 0,
+            health: {
+                activeHeadcount: section({ count: 0 }),
+                attendanceToday: section({
+                    present: 0,
+                    absent: 0,
+                    onLeave: 0,
+                    overtimeHours: 0,
+                }),
+                payrollReadiness: section({
+                    year: 2026,
+                    month: 10,
+                    total: 0,
+                    draft: 0,
+                    finalized: 0,
+                    paid: 0,
+                }),
+                employmentFollowUp: section({
+                    probation: 0,
+                    contract: 0,
+                    total: 0,
+                    horizonDays: 30 as const,
+                }),
             },
         };
 
-        render(<HrdShiftBoardComponent data={zeroQueueData} />);
+        render(<HrdShiftBoardComponent data={zero} />);
 
-        for (const label of [
-            'Hadir hari ini',
-            'Peserta BPJS',
-            'Cuti menunggu persetujuan',
-            'Sisa kasbon',
-            'Periode terbuka',
-            'Peringatan HR belum dibaca',
-        ]) {
-            const metric = screen.getByText(label);
-            expect(metric.closest('a')).toBeNull();
-            expect(
-                metric
-                    .closest('[data-slot="card"]')
-                    ?.classList.contains('cursor-pointer'),
-            ).toBe(false);
-        }
-
-        expect(screen.queryByText('Proses')).toBeNull();
-        expect(screen.queryByText('Lihat')).toBeNull();
-        expect(screen.queryByText('Tinjau')).toBeNull();
+        expect(screen.getByText('0 hadir')).toBeTruthy();
+        expect(screen.getByText('0 slip dibuat')).toBeTruthy();
+        expect(screen.queryByText('Absensi tercatat tidak tersedia')).toBeNull();
     });
 
-    it('removes the sitemap-like complete menu while preserving frequent actions', () => {
+    it('renders independent unavailable and payroll not-configured states without synthetic values', () => {
+        const partial: HrdShiftBoard = {
+            ...data,
+            health: {
+                ...data.health,
+                attendanceToday: { status: 'UNAVAILABLE', data: null },
+                payrollReadiness: { status: 'NOT_CONFIGURED', data: null },
+            },
+            attention: {
+                ...data.attention,
+                pendingLeave: { status: 'UNAVAILABLE', data: null },
+            },
+        };
+
+        render(<HrdShiftBoardComponent data={partial} />);
+
+        expect(screen.getAllByText('Data tidak tersedia').length).toBeGreaterThan(
+            0,
+        );
+        expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
+        expect(screen.queryByText('0 hadir')).toBeNull();
+        expect(screen.getByText(/Rp\s*250\.000/)).toBeTruthy();
+    });
+
+    it('renders a whole-action failure explicitly and no zero dashboard', () => {
+        render(<HrdShiftBoardComponent data={null} />);
+
+        expect(screen.getByText('Dashboard HRD tidak tersedia')).toBeTruthy();
+        expect(screen.getByText(/Angka kosong tidak dianggap nol/)).toBeTruthy();
+        expect(screen.queryByText('0 hadir')).toBeNull();
+    });
+
+    it('does not render personal names, codes, identifiers, or notification text', () => {
         render(<HrdShiftBoardComponent data={data} />);
 
-        expect(screen.queryByText('Semua Menu')).not.toBeTruthy();
-        expect(screen.getByRole('link', { name: /Rekap Absensi/ })).toBeTruthy();
-        expect(
-            screen.getByRole('link', { name: 'Gaji Bulanan' }),
-        ).toBeTruthy();
+        for (const forbidden of [
+            'Synthetic Personal Name',
+            'EMP-001',
+            'employee-1',
+            'Kontrak Ani berakhir',
+            '1234567890',
+        ]) {
+            expect(screen.queryByText(forbidden)).toBeNull();
+        }
+        expect(screen.queryByText(/requestId=/)).toBeNull();
+        expect(screen.getByText(/bukan attendance rate/i)).toBeTruthy();
+        expect(screen.queryByText(/turnover/i)).toBeNull();
     });
 });

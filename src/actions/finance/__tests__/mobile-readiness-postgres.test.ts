@@ -71,9 +71,26 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
         ] });
         await db!.leaveRequest.createMany({ data: Array.from({ length: 12 }, () => ({ employeeId: 'mobile-e1', type: 'ANNUAL' as const, startDate: workDate, endDate: workDate, status: 'PENDING' as const })) });
         const overview = await run(getHrdMobileOverview);
-        expect(overview).toMatchObject({ success: true, data: { highlights: { presentTodayCount: 1, pendingLeaveCount: 12 } } });
+        expect(overview).toMatchObject({
+            success: true,
+            data: {
+                health: {
+                    attendanceToday: {
+                        status: 'AVAILABLE',
+                        data: { present: 1, absent: 1 },
+                    },
+                },
+                attention: {
+                    pendingLeave: {
+                        status: 'AVAILABLE',
+                        data: { count: 12 },
+                    },
+                },
+            },
+        });
         if (!overview.success) throw new Error(overview.error);
-        expect(overview.data.pendingLeaves).toHaveLength(10); expect(overview.data.pendingLeaves[0].leaveType).toBe('ANNUAL');
+        expect(overview.data).not.toHaveProperty('pendingLeaves');
+        expect(overview.data).not.toHaveProperty('alerts');
         const attendance = await run(() => getHrdMobileTeamAttendance({ date, status: 'NO_RECORD' }));
         expect(attendance).toMatchObject({ success: true, data: { noRecordCount: 1, absentCount: 0, records: [{ employeeId: 'mobile-e3' }] } });
         expect(await run(() => getHrdMobileTeamAttendance({ date, status: 'PRESENT' }))).toMatchObject({ success: true, data: { presentCount: 1, totalEmployees: 1 } });

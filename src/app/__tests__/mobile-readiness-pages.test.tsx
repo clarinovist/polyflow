@@ -178,9 +178,67 @@ describe('mobile read states', () => {
         expect(screen.getByText(/Pembayaran, posting jurnal/)).toBeTruthy();
         expect(screen.getByRole('link', { name: /SYNTHETIC/ }).getAttribute('href')).toBe('/finance/mobile/invoices/ap/inv');
     });
-    it('shows leaves inline and the full pending count', async () => {
-        m.hrd.mockResolvedValue({ success: true, data: { highlights: { pendingLeaveCount: 35 }, pendingLeaves: [{ id: 'leave', employeeName: 'Example', leaveType: 'ANNUAL', startDate: '2026-09-01', endDate: '2026-09-02' }] } });
-        render(await HrdTasks()); expect(screen.getByText(/35 pengajuan/)).toBeTruthy(); expect(screen.queryAllByRole('link')).toHaveLength(0);
+    it('renders canonical HRD mobile states without recomputing or exposing personal rows', async () => {
+        const overview = {
+            generatedAt: '2026-10-09T00:00:00.000Z',
+            workDate: '2026-10-09',
+            health: {
+                activeHeadcount: { status: 'AVAILABLE', data: { count: 12 } },
+                attendanceToday: {
+                    status: 'AVAILABLE',
+                    data: {
+                        present: 0,
+                        absent: 2,
+                        onLeave: 1,
+                        overtimeHours: 1.25,
+                    },
+                },
+                payrollReadiness: { status: 'NOT_CONFIGURED', data: null },
+                employmentFollowUp: { status: 'UNAVAILABLE', data: null },
+            },
+            drivers: { status: 'NOT_CONFIGURED', data: null },
+        };
+        m.hrd.mockResolvedValue({ success: true, data: overview });
+
+        render(await HrdHome());
+        expect(screen.getByText('0')).toBeTruthy();
+        expect(screen.getByText(/2 \/ 1/)).toBeTruthy();
+        expect(screen.getByText('Belum ada periode payroll OPEN')).toBeTruthy();
+        expect(
+            screen.getByText('Tindak lanjut kepegawaian tidak tersedia'),
+        ).toBeTruthy();
+        expect(
+            screen
+                .getByRole('link', { name: /PRESENT Tercatat Hari Ini/ })
+                .getAttribute('href'),
+        ).toBe('/hrd/mobile/attendance');
+        expect(overview).not.toHaveProperty('pendingLeaves');
+        expect(overview).not.toHaveProperty('alerts');
+
+        cleanup();
+        render(await HrdInsights());
+        expect(screen.getByText('Driver unit/sif belum dikonfigurasi')).toBeTruthy();
+        expect(screen.getByText(/Attendance rate, NO_RECORD/)).toBeTruthy();
+    });
+
+    it('shows only the aggregate pending-leave count without exposing a desktop route', async () => {
+        const overview = {
+            generatedAt: '2026-10-09T00:00:00.000Z',
+            attention: {
+                pendingLeave: {
+                    status: 'AVAILABLE',
+                    data: { count: 35 },
+                },
+            },
+        };
+        m.hrd.mockResolvedValue({ success: true, data: overview });
+        render(await HrdTasks());
+        expect(screen.getByText(/35 pengajuan/)).toBeTruthy();
+        expect(screen.queryByRole('link')).toBeNull();
+        expect(screen.getByText(/workbench desktop HRD/)).toBeTruthy();
+        expect(screen.queryByText('Example')).toBeNull();
+        expect(overview).not.toHaveProperty('pendingLeaves');
+        expect(overview).not.toHaveProperty('alerts');
     });
     it('renders an exception queue with mobile-safe detail links and no mutation control', async () => {
         m.purchasing.mockResolvedValue({
