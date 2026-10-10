@@ -5,7 +5,17 @@ import type { MobilePortalDependency } from '@/lib/mobile/mobile-portal-registry
 import { canSeeNavHref } from '@/lib/auth/permission-match';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError } from '@/lib/errors/errors';
-import { isInventoryThresholdTriggered } from '@/lib/constants/locations';
+import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
+import { positiveSalesReceivableWhere } from '@/services/finance/sales-receivable-query';
+import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
+import { readHrdPendingLeaveDashboardCount } from '@/services/hrd/hrd-dashboard-service';
+import { readWarehouseInventoryThresholdSnapshot } from '@/services/inventory/warehouse-dashboard-service';
+import {
+    buildPurchasingDashboardAwaitingApprovalRequestWhere,
+    buildPurchasingDashboardWaitingReceiptWhere,
+} from '@/services/purchasing/purchasing-dashboard-query';
+import { readProductionDashboardOperationalCounts } from '@/services/production/production-dashboard-health-service';
 
 const ADMIN_MODULES = [
     'PRODUCTION',
@@ -160,138 +170,209 @@ function task(
     };
 }
 
-async function readProduction(db: QueryDb): Promise<ModuleSnapshot> {
-    const [openIssues, lateOrders, pendingMaintenance] = await Promise.all([
-        db.productionIssue.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
-        db.productionOrder.count({
-            where: {
-                status: { in: ['RELEASED', 'IN_PROGRESS', 'WAITING_MATERIAL'] },
-                plannedEndDate: { lt: new Date() },
-            },
-        }),
-        db.maintenanceRequest.count({ where: { status: 'PENDING' } }),
-    ]);
+async function readProduction(
+    db: QueryDb,
+    snapshotAt: Date,
+): Promise<ModuleSnapshot> {
+    const { openIssueCount, lateOrderCount, pendingMaintenanceCount } =
+        await readProductionDashboardOperationalCounts(db, snapshotAt);
     return {
-        exceptionCount: openIssues + lateOrders,
-        approvalCount: pendingMaintenance,
+        exceptionCount: openIssueCount + lateOrderCount,
+        approvalCount: pendingMaintenanceCount,
         tasks: [
-            task('PRODUCTION', 'open-issues', 'Isu produksi terbuka', openIssues, 'URGENT', '/production/mobile'),
-            task('PRODUCTION', 'late-orders', 'SPK melewati target', lateOrders, 'HIGH', '/production/mobile'),
-            task('PRODUCTION', 'maintenance-approval', 'Maintenance menunggu persetujuan', pendingMaintenance, 'HIGH', '/production/mobile/maintenance'),
+            task(
+                'PRODUCTION',
+                'open-issues',
+                'Isu produksi terbuka',
+                openIssueCount,
+                'URGENT',
+                '/production/mobile',
+            ),
+            task(
+                'PRODUCTION',
+                'late-orders',
+                'SPK melewati target',
+                lateOrderCount,
+                'HIGH',
+                '/production/mobile',
+            ),
+            task(
+                'PRODUCTION',
+                'maintenance-approval',
+                'Maintenance menunggu persetujuan',
+                pendingMaintenanceCount,
+                'HIGH',
+                '/production/mobile/maintenance',
+            ),
         ],
     };
 }
 
-async function readInventory(db: QueryDb): Promise<ModuleSnapshot> {
-    const variants = await db.productVariant.findMany({
-        where: { minStockAlert: { not: null }, archivedAt: null },
-        select: {
-            id: true,
-            minStockAlert: true,
-            inventories: {
-                select: {
-                    quantity: true,
-                    location: { select: { locationPurpose: true, locationType: true } },
-                },
-            },
-        },
-    });
-    const lowStock = variants.filter((variant) =>
-        isInventoryThresholdTriggered(
-            variant.inventories,
-            variant.minStockAlert,
-        ),
-    ).length;
+async function readInventory(
+    db: QueryDb,
+    _snapshotAt: Date,
+): Promise<ModuleSnapshot> {
+    const { lowStockCount } = await readWarehouseInventoryThresholdSnapshot(db);
     return {
-        exceptionCount: lowStock,
+        exceptionCount: lowStockCount,
         approvalCount: 0,
         tasks: [
-            task('INVENTORY', 'low-stock', 'Varian stok rendah', lowStock, 'URGENT', '/warehouse/mobile'),
+            task(
+                'INVENTORY',
+                'low-stock',
+                'Varian stok rendah',
+                lowStockCount,
+                'URGENT',
+                '/warehouse/mobile',
+            ),
         ],
     };
 }
 
-async function readPurchasing(db: QueryDb): Promise<ModuleSnapshot> {
-    const now = new Date();
+async function readPurchasing(
+    db: QueryDb,
+    snapshotAt: Date,
+): Promise<ModuleSnapshot> {
     const [openRequests, waitingReceipt, overdueInvoices] = await Promise.all([
-        db.purchaseRequest.count({ where: { status: 'OPEN' } }),
-        db.purchaseOrder.count({ where: { status: { in: ['SENT', 'PARTIAL_RECEIVED'] } } }),
+        db.purchaseRequest.count({
+            where: buildPurchasingDashboardAwaitingApprovalRequestWhere(),
+        }),
+        db.purchaseOrder.count({
+            where: buildPurchasingDashboardWaitingReceiptWhere(),
+        }),
         db.purchaseInvoice.count({
-            where: {
-                status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
-                dueDate: { lt: now },
-                totalAmount: { gt: db.purchaseInvoice.fields.paidAmount },
-            },
+            where: buildOverduePurchaseInvoiceWhere(db, snapshotAt),
         }),
     ]);
     return {
         exceptionCount: waitingReceipt + overdueInvoices,
         approvalCount: openRequests,
         tasks: [
-            task('PURCHASING', 'open-requests', 'PR menunggu persetujuan', openRequests, 'HIGH', '/purchasing/mobile'),
-            task('PURCHASING', 'waiting-receipt', 'PO menunggu penerimaan', waitingReceipt, 'HIGH', '/purchasing/mobile'),
-            task('PURCHASING', 'overdue-invoices', 'Invoice pembelian overdue', overdueInvoices, 'URGENT', '/purchasing/mobile'),
+            task(
+                'PURCHASING',
+                'open-requests',
+                'PR menunggu persetujuan',
+                openRequests,
+                'HIGH',
+                '/purchasing/mobile',
+            ),
+            task(
+                'PURCHASING',
+                'waiting-receipt',
+                'PO menunggu penerimaan',
+                waitingReceipt,
+                'HIGH',
+                '/purchasing/mobile',
+            ),
+            task(
+                'PURCHASING',
+                'overdue-invoices',
+                'Invoice pembelian overdue',
+                overdueInvoices,
+                'URGENT',
+                '/purchasing/mobile',
+            ),
         ],
     };
 }
 
-async function readFinance(db: QueryDb): Promise<ModuleSnapshot> {
-    const now = new Date();
-    const [overdueReceivables, overduePayables, draftJournals, openReconciliations] =
-        await Promise.all([
-            db.invoice.count({
-                where: {
-                    status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
-                    dueDate: { lt: now },
-                    remainingAmount: { gt: 0 },
-                    salesOrder: {
-                        customerId: { not: null },
-                        NOT: [
-                            { orderNumber: { startsWith: 'SO-OPEN-' } },
-                            { orderNumber: { startsWith: 'OB-AR-' } },
-                            { notes: { startsWith: 'Opening Balance Entry' } },
-                            { notes: { startsWith: 'Sheet Penjualan Jun:' } },
-                        ],
-                    },
-                },
-            }),
-            db.purchaseInvoice.count({
-                where: {
-                    status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] },
-                    dueDate: { lt: now },
-                    totalAmount: { gt: db.purchaseInvoice.fields.paidAmount },
-                },
-            }),
-            db.journalEntry.count({ where: { status: 'DRAFT' } }),
-            db.bankReconciliation.count({ where: { status: { in: ['DRAFT', 'IN_PROGRESS'] } } }),
-        ]);
+async function readFinance(
+    db: QueryDb,
+    snapshotAt: Date,
+): Promise<ModuleSnapshot> {
+    const overdueCutoff = getWibDayBounds(
+        toBusinessDateString(snapshotAt),
+    ).startOfDay;
+    const [
+        overdueReceivables,
+        overduePayables,
+        draftJournals,
+        openReconciliations,
+    ] = await Promise.all([
+        db.invoice.count({
+            where: {
+                AND: [positiveSalesReceivableWhere()],
+                dueDate: { lt: overdueCutoff },
+                salesOrder: buildOperationalSalesReceivableOrderWhere(),
+            },
+        }),
+        db.purchaseInvoice.count({
+            where: buildOverduePurchaseInvoiceWhere(db, snapshotAt),
+        }),
+        db.journalEntry.count({ where: { status: 'DRAFT' } }),
+        db.bankReconciliation.count({
+            where: { status: { in: ['DRAFT', 'IN_PROGRESS'] } },
+        }),
+    ]);
     return {
         exceptionCount:
-            overdueReceivables + overduePayables + draftJournals + openReconciliations,
+            overdueReceivables +
+            overduePayables +
+            draftJournals +
+            openReconciliations,
         approvalCount: draftJournals,
         tasks: [
-            task('FINANCE', 'overdue-ar', 'Piutang overdue', overdueReceivables, 'URGENT', '/finance/mobile'),
-            task('FINANCE', 'overdue-ap', 'Hutang overdue', overduePayables, 'URGENT', '/finance/mobile'),
-            task('FINANCE', 'draft-journals', 'Draft jurnal perlu ditinjau', draftJournals, 'HIGH', null),
-            task('FINANCE', 'open-reconciliation', 'Rekonsiliasi masih terbuka', openReconciliations, 'HIGH', null),
+            task(
+                'FINANCE',
+                'overdue-ar',
+                'Piutang overdue',
+                overdueReceivables,
+                'URGENT',
+                '/finance/mobile',
+            ),
+            task(
+                'FINANCE',
+                'overdue-ap',
+                'Hutang overdue',
+                overduePayables,
+                'URGENT',
+                '/finance/mobile',
+            ),
+            task(
+                'FINANCE',
+                'draft-journals',
+                'Draft jurnal perlu ditinjau',
+                draftJournals,
+                'HIGH',
+                null,
+            ),
+            task(
+                'FINANCE',
+                'open-reconciliation',
+                'Rekonsiliasi masih terbuka',
+                openReconciliations,
+                'HIGH',
+                null,
+            ),
         ],
     };
 }
 
-async function readHrd(db: QueryDb): Promise<ModuleSnapshot> {
-    const pendingLeave = await db.leaveRequest.count({
-        where: { status: 'PENDING' },
-    });
+async function readHrd(
+    db: QueryDb,
+    _snapshotAt: Date,
+): Promise<ModuleSnapshot> {
+    const { count: pendingLeave } = await readHrdPendingLeaveDashboardCount(db);
     return {
         exceptionCount: pendingLeave,
         approvalCount: pendingLeave,
         tasks: [
-            task('HRD', 'pending-leave', 'Cuti menunggu persetujuan', pendingLeave, 'HIGH', '/hrd/mobile'),
+            task(
+                'HRD',
+                'pending-leave',
+                'Cuti menunggu persetujuan',
+                pendingLeave,
+                'HIGH',
+                '/hrd/mobile',
+            ),
         ],
     };
 }
 
-const READERS: Record<AdminModuleKey, (db: QueryDb) => Promise<ModuleSnapshot>> = {
+const READERS: Record<
+    AdminModuleKey,
+    (db: QueryDb, snapshotAt: Date) => Promise<ModuleSnapshot>
+> = {
     PRODUCTION: readProduction,
     INVENTORY: readInventory,
     PURCHASING: readPurchasing,
@@ -341,7 +422,10 @@ function buildHighlights(
         {
             key: 'modules',
             label: 'Modul tersedia',
-            value: unavailable > 0 ? `${available.length}/${modules.length}` : available.length,
+            value:
+                unavailable > 0
+                    ? `${available.length}/${modules.length}`
+                    : available.length,
             severity: unavailable > 0 ? 'WARNING' : 'INFO',
         },
     ];
@@ -358,12 +442,12 @@ export class MobileAdminService {
         tenantDb: TenantDb | undefined = getTenantDbFromContext(),
     ): Promise<AdminMobileSectionResult> {
         if (!tenantDb) {
-            throw new BusinessRuleError('Konteks tenant Admin Mobile tidak tersedia.');
+            throw new BusinessRuleError(
+                'Konteks tenant Admin Mobile tidak tersedia.',
+            );
         }
 
-        const requestedModules = new Set(
-            context.onlyModules ?? ADMIN_MODULES,
-        );
+        const requestedModules = new Set(context.onlyModules ?? ADMIN_MODULES);
         const entitledModules = ADMIN_MODULES.filter(
             (moduleKey) =>
                 requestedModules.has(moduleKey) &&
@@ -380,12 +464,13 @@ export class MobileAdminService {
                 context.dataDependencies,
             ),
         );
+        const snapshotAt = new Date();
         const settled = await Promise.allSettled(
             queryableModules.map(async (moduleKey) => ({
                 moduleKey,
                 snapshot: await tenantDb.$transaction(
                     (transaction: Prisma.TransactionClient) =>
-                        READERS[moduleKey](transaction),
+                        READERS[moduleKey](transaction, snapshotAt),
                     {
                         isolationLevel:
                             Prisma.TransactionIsolationLevel.RepeatableRead,
@@ -394,19 +479,24 @@ export class MobileAdminService {
             })),
         );
         const snapshots = new Map<AdminModuleKey, ModuleSnapshot>();
-        const unavailableModules: AdminModuleKey[] = entitledModules.filter(
-            (moduleKey) => !queryableModules.includes(moduleKey),
+        const unavailable = new Set<AdminModuleKey>(
+            entitledModules.filter(
+                (moduleKey) => !queryableModules.includes(moduleKey),
+            ),
         );
         settled.forEach((result, index) => {
             const moduleKey = queryableModules[index];
             if (result.status === 'fulfilled') {
                 snapshots.set(moduleKey, result.value.snapshot);
             } else {
-                unavailableModules.push(moduleKey);
+                unavailable.add(moduleKey);
             }
         });
+        const unavailableModules = entitledModules.filter((moduleKey) =>
+            unavailable.has(moduleKey),
+        );
 
-        const modules = queryableModules.map(
+        const modules = entitledModules.map(
             (moduleKey): AdminMobileModuleStatus => {
                 const snapshot = snapshots.get(moduleKey);
                 return snapshot
@@ -455,7 +545,7 @@ export class MobileAdminService {
         const sampledTasks = tasks.slice(0, 10);
 
         return {
-            generatedAt: new Date().toISOString(),
+            generatedAt: snapshotAt.toISOString(),
             tasks: sampledTasks,
             counts: { total: tasks.length, returned: sampledTasks.length },
             modules,

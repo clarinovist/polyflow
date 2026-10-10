@@ -1,9 +1,13 @@
-import type {
-    BomCategory,
-    MachineType,
-    PrismaClient,
-    Role,
-    Unit,
+import {
+    IssueStatus,
+    MaintenanceStatus,
+    Prisma,
+    ProductionStatus,
+    type BomCategory,
+    type MachineType,
+    type PrismaClient,
+    type Role,
+    type Unit,
 } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { AuthorizationError } from '@/lib/errors/errors';
@@ -211,6 +215,56 @@ export type ProductionDriversData = {
 };
 
 type ProductionOutputReaderDb = Pick<PrismaClient, 'productionExecution'>;
+type ProductionOperationalCountsDb = Pick<
+    PrismaClient,
+    'productionIssue' | 'productionOrder' | 'maintenanceRequest'
+>;
+
+export function buildProductionDashboardActiveOrderWhere(): Prisma.ProductionOrderWhereInput {
+    return { status: ProductionStatus.IN_PROGRESS };
+}
+
+export function buildProductionDashboardLateOrderWhere(
+    snapshotAt: Date,
+): Prisma.ProductionOrderWhereInput {
+    return {
+        ...buildProductionDashboardActiveOrderWhere(),
+        plannedEndDate: { lt: snapshotAt },
+    };
+}
+
+export function buildProductionDashboardOpenIssueWhere(): Prisma.ProductionIssueWhereInput {
+    return { status: IssueStatus.OPEN };
+}
+
+export function buildProductionDashboardPendingMaintenanceWhere(): Prisma.MaintenanceRequestWhereInput {
+    return { status: MaintenanceStatus.PENDING };
+}
+
+/** Count-only Production operations read; callers supply their tenant client. */
+export async function readProductionDashboardOperationalCounts(
+    db: ProductionOperationalCountsDb,
+    snapshotAt: Date,
+): Promise<{
+    openIssueCount: number;
+    lateOrderCount: number;
+    pendingMaintenanceCount: number;
+}> {
+    const [openIssueCount, lateOrderCount, pendingMaintenanceCount] =
+        await Promise.all([
+            db.productionIssue.count({
+                where: buildProductionDashboardOpenIssueWhere(),
+            }),
+            db.productionOrder.count({
+                where: buildProductionDashboardLateOrderWhere(snapshotAt),
+            }),
+            db.maintenanceRequest.count({
+                where: buildProductionDashboardPendingMaintenanceWhere(),
+            }),
+        ]);
+
+    return { openIssueCount, lateOrderCount, pendingMaintenanceCount };
+}
 
 /**
  * Canonical bounded Production output read shared by desktop and mobile.

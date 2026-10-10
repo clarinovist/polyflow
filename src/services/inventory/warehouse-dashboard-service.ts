@@ -1,9 +1,11 @@
+import type { PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { sumInventoryAlertQuantity } from '@/lib/constants/locations';
 
 const LOW_STOCK_DRIVER_LIMIT = 5;
 
 type DecimalLike = { toNumber(): number };
+type WarehouseInventoryThresholdDb = Pick<PrismaClient, 'productVariant'>;
 
 type WarehouseThresholdVariant = {
     id: string;
@@ -57,8 +59,10 @@ function toFiniteNumber(value: unknown): number {
  * Quantities only include INTERNAL RAW_MATERIAL / FINISHED_GOOD locations via
  * the shared alert-scope helper; unlike units are never aggregated together.
  */
-export async function readWarehouseInventoryThresholdSnapshot(): Promise<WarehouseInventoryThresholdSnapshot> {
-    const variants = (await prisma.productVariant.findMany({
+export async function readWarehouseInventoryThresholdSnapshot(
+    db: WarehouseInventoryThresholdDb = prisma,
+): Promise<WarehouseInventoryThresholdSnapshot> {
+    const variants = (await db.productVariant.findMany({
         where: {
             archivedAt: null,
             OR: [{ minStockAlert: { gt: 0 } }, { reorderPoint: { gt: 0 } }],

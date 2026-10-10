@@ -19,20 +19,6 @@ const m = vi.hoisted(() => ({
 let pathname = '/mobile/admin';
 vi.mock('@/actions/dashboard/mobile-admin', () => ({
     getAdminMobileOverview: m.overview,
-    getAdminMobileSection: async () => {
-        const response = await m.overview();
-        if (!response.success) return response;
-        return {
-            success: true,
-            data: {
-                generatedAt: response.data.generatedAt,
-                tasks: response.data.tasks,
-                counts: response.data.counts,
-                modules: response.data.modules,
-                unavailableModules: response.data.unavailableModules,
-            },
-        };
-    },
 }));
 vi.mock('@/lib/mobile/mobile-portal-page-access', () => ({ requireMobilePortalPageAccess: m.guard }));
 vi.mock('@/lib/analytics/mobile-task-events', () => ({
@@ -109,6 +95,40 @@ describe('Admin Mobile pages', () => {
         expect(
             screen.queryByText(/Kesehatan aplikasi|Aplikasi dapat membaca/i),
         ).toBeNull();
+    });
+
+    it('uses one canonical snapshot and excludes an unavailable module from aggregate highlights', async () => {
+        m.overview.mockResolvedValue({
+            success: true,
+            data: {
+                ...data,
+                generatedAt: '2026-10-07T02:00:00.000Z',
+                highlights: [
+                    { key: 'exceptions', label: 'Total pengecualian', value: 0, severity: 'INFO' },
+                    { key: 'approvals', label: 'Menunggu persetujuan', value: 0, severity: 'INFO' },
+                    { key: 'tasks', label: 'Total kelompok tugas', value: 0, severity: 'INFO' },
+                    { key: 'modules', label: 'Modul tersedia', value: '0/1', severity: 'WARNING' },
+                ],
+                modules: [
+                    {
+                        key: 'FINANCE',
+                        label: 'Finance',
+                        state: 'UNAVAILABLE',
+                        exceptionCount: null,
+                        approvalCount: null,
+                    },
+                ],
+                unavailableModules: ['FINANCE'],
+            },
+        });
+
+        render(await AdminInsights());
+        expect(m.overview).toHaveBeenCalledOnce();
+        expect(screen.getByText('Tidak tersedia')).toBeTruthy();
+        expect(screen.getAllByText('—')).toHaveLength(2);
+        expect(screen.queryByText('Tersedia')).toBeNull();
+        expect(screen.getByText('0/1')).toBeTruthy();
+        expect(screen.queryByText('1/2')).toBeNull();
     });
 
     it('shows expected read failure instead of an empty zero dashboard', async () => {

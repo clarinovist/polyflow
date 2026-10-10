@@ -3,6 +3,7 @@ import {
     collectHrdDashboardAggregate,
     readHrdDashboardAggregate,
     readHrdDashboardMobileAggregate,
+    readHrdPendingLeaveDashboardCount,
     type HrdDashboardReader,
 } from '../hrd-dashboard-service';
 
@@ -39,6 +40,20 @@ describe('readHrdDashboardAggregate', () => {
     beforeEach(() => {
         vi.resetAllMocks();
         setupAvailableZeroes();
+    });
+
+    it('uses the narrow supplied-client pending-leave owner reader', async () => {
+        db.leaveRequest.count.mockResolvedValue(7);
+
+        await expect(
+            readHrdPendingLeaveDashboardCount(db as never),
+        ).resolves.toEqual({ count: 7 });
+        expect(db.leaveRequest.count).toHaveBeenCalledWith({
+            where: { status: 'PENDING' },
+        });
+        expect(db.employee.count).not.toHaveBeenCalled();
+        expect(db.payrollPeriod.count).not.toHaveBeenCalled();
+        expect(db.employeeLoan.aggregate).not.toHaveBeenCalled();
     });
 
     it('counts only the current ACTIVE employee snapshot', async () => {

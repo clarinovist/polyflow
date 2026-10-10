@@ -869,6 +869,21 @@ describe('getProductionLiveOverview R4C', () => {
             }),
         );
         expect(mocks.prisma.productionOrder.count).toHaveBeenCalledTimes(3);
+        expect(mocks.prisma.productionOrder.count).toHaveBeenCalledWith({
+            where: { status: 'IN_PROGRESS' },
+        });
+        expect(mocks.prisma.productionOrder.count).toHaveBeenCalledWith({
+            where: {
+                status: 'IN_PROGRESS',
+                plannedEndDate: { lt: new Date('2026-10-09T08:00:00.000Z') },
+            },
+        });
+        expect(mocks.prisma.productionIssue.count).toHaveBeenCalledWith({
+            where: { status: 'OPEN' },
+        });
+        expect(mocks.prisma.productionIssue.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { status: 'OPEN' } }),
+        );
         expect(mocks.prisma.productionShift.groupBy).toHaveBeenCalledOnce();
         expect(mocks.prisma.productionShift.groupBy).toHaveBeenCalledWith({
             by: ['productionOrderId'],

@@ -93,6 +93,8 @@ export interface HrdDashboardReader {
     readRecordedAbsence(workDate: Date): Promise<{ count: number }>;
 }
 
+type HrdPendingLeaveDashboardDb = Pick<PrismaClient, 'leaveRequest'>;
+
 type AvailableSection<T> = Extract<
     HrdDashboardSection<T>,
     { status: 'AVAILABLE' }
@@ -237,6 +239,16 @@ async function readEmploymentFollowUp(db: PrismaClient, now: Date) {
     };
 }
 
+export async function readHrdPendingLeaveDashboardCount(
+    db: HrdPendingLeaveDashboardDb,
+): Promise<{ count: number }> {
+    return {
+        count: await db.leaveRequest.count({
+            where: { status: 'PENDING' },
+        }),
+    };
+}
+
 async function readLoanPortfolio(db: PrismaClient) {
     const result = await db.employeeLoan.aggregate({
         where: { status: 'ACTIVE' },
@@ -261,13 +273,7 @@ function createPrismaReader(db: PrismaClient): HrdDashboardReader {
         readPayrollAttention: () => readPayrollAttention(db),
         readPayrollReadiness: () => readPayrollReadiness(db),
         readEmploymentFollowUp: (now) => readEmploymentFollowUp(db, now),
-        async readPendingLeave() {
-            return {
-                count: await db.leaveRequest.count({
-                    where: { status: 'PENDING' },
-                }),
-            };
-        },
+        readPendingLeave: () => readHrdPendingLeaveDashboardCount(db),
         readLoanPortfolio: () => readLoanPortfolio(db),
         async readBpjs() {
             return {

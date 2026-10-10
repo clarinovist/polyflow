@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProductionActiveOrderRow } from '../production-dashboard-health-service';
 import {
+    buildProductionDashboardActiveOrderWhere,
+    buildProductionDashboardLateOrderWhere,
+    buildProductionDashboardOpenIssueWhere,
+    buildProductionDashboardPendingMaintenanceWhere,
     composeLateProcessDriver,
     composeProductionAttention,
     composeProductionDowntime,
     composeProductionLiveOrders,
     composeProductionOutputHealth,
+    readProductionDashboardOperationalCounts,
     resolveFreshProductionDashboardAccess,
 } from '../production-dashboard-health-service';
 
@@ -56,6 +61,48 @@ const thresholds = {
 };
 
 describe('production dashboard health composition', () => {
+    it('owns exact operational predicates and reads count-only facts from the supplied client', async () => {
+        const productionIssue = { count: vi.fn().mockResolvedValue(2) };
+        const productionOrder = { count: vi.fn().mockResolvedValue(3) };
+        const maintenanceRequest = { count: vi.fn().mockResolvedValue(4) };
+
+        expect(buildProductionDashboardActiveOrderWhere()).toEqual({
+            status: 'IN_PROGRESS',
+        });
+        expect(buildProductionDashboardLateOrderWhere(now)).toEqual({
+            status: 'IN_PROGRESS',
+            plannedEndDate: { lt: now },
+        });
+        expect(buildProductionDashboardOpenIssueWhere()).toEqual({
+            status: 'OPEN',
+        });
+        expect(buildProductionDashboardPendingMaintenanceWhere()).toEqual({
+            status: 'PENDING',
+        });
+        await expect(
+            readProductionDashboardOperationalCounts(
+                { productionIssue, productionOrder, maintenanceRequest } as never,
+                now,
+            ),
+        ).resolves.toEqual({
+            openIssueCount: 2,
+            lateOrderCount: 3,
+            pendingMaintenanceCount: 4,
+        });
+        expect(productionIssue.count).toHaveBeenCalledWith({
+            where: { status: 'OPEN' },
+        });
+        expect(productionOrder.count).toHaveBeenCalledWith({
+            where: {
+                status: 'IN_PROGRESS',
+                plannedEndDate: { lt: now },
+            },
+        });
+        expect(maintenanceRequest.count).toHaveBeenCalledWith({
+            where: { status: 'PENDING' },
+        });
+    });
+
     it('groups output without combining unlike units and exposes bounded live totals', () => {
         const output = composeProductionOutputHealth(
             [

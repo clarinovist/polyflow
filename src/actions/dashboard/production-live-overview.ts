@@ -17,6 +17,9 @@ import {
     PRODUCTION_ATTENTION_SAMPLE_LIMIT,
     PRODUCTION_DASHBOARD_SAMPLE_LIMIT,
     PRODUCTION_SCRAP_ROW_LIMIT,
+    buildProductionDashboardActiveOrderWhere,
+    buildProductionDashboardLateOrderWhere,
+    buildProductionDashboardOpenIssueWhere,
     composeLateProcessDriver,
     composeProductionAttention,
     composeProductionDowntime,
@@ -153,18 +156,15 @@ export const getProductionLiveOverview = withTenant(
             );
 
             const outputRead = readProductionOutputHealth(prisma, today);
+            const activeOrderWhere = buildProductionDashboardActiveOrderWhere();
+            const lateOrderWhere =
+                buildProductionDashboardLateOrderWhere(generatedAt);
+            const openIssueWhere = buildProductionDashboardOpenIssueWhere();
             const activeRead = Promise.all([
-                prisma.productionOrder.count({
-                    where: { status: ProductionStatus.IN_PROGRESS },
-                }),
-                prisma.productionOrder.count({
-                    where: {
-                        status: ProductionStatus.IN_PROGRESS,
-                        plannedEndDate: { lt: generatedAt },
-                    },
-                }),
+                prisma.productionOrder.count({ where: activeOrderWhere }),
+                prisma.productionOrder.count({ where: lateOrderWhere }),
                 prisma.productionOrder.findMany({
-                    where: { status: ProductionStatus.IN_PROGRESS },
+                    where: activeOrderWhere,
                     orderBy: [{ plannedEndDate: 'asc' }, { id: 'asc' }],
                     take: ACTIVE_ORDER_COMPOSITION_LIMIT + 1,
                     select: {
@@ -269,9 +269,9 @@ export const getProductionLiveOverview = withTenant(
                 }),
             ]);
             const issueRead = Promise.all([
-                prisma.productionIssue.count({ where: { status: 'OPEN' } }),
+                prisma.productionIssue.count({ where: openIssueWhere }),
                 prisma.productionIssue.findMany({
-                    where: { status: 'OPEN' },
+                    where: openIssueWhere,
                     orderBy: [{ reportedAt: 'asc' }, { id: 'asc' }],
                     take: PRODUCTION_ATTENTION_SAMPLE_LIMIT,
                     select: {

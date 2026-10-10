@@ -251,6 +251,23 @@ describe('readWarehouseInventoryThresholdSnapshot', () => {
         ]);
     });
 
+    it('uses a supplied tenant client instead of the default delegate', async () => {
+        const suppliedFindMany = vi.fn().mockResolvedValue([]);
+
+        await expect(
+            readWarehouseInventoryThresholdSnapshot({
+                productVariant: { findMany: suppliedFindMany },
+            } as never),
+        ).resolves.toEqual({
+            lowStockCount: 0,
+            reorderCount: 0,
+            lowStockDrivers: [],
+        });
+
+        expect(suppliedFindMany).toHaveBeenCalledOnce();
+        expect(findMany).not.toHaveBeenCalled();
+    });
+
     it('returns valid zero counts and an empty available driver population', async () => {
         findMany.mockResolvedValue([]);
 
