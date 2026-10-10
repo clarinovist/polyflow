@@ -21,6 +21,12 @@ vi.mock('@/actions/dashboard/mobile-admin', () => ({
     getAdminMobileOverview: m.overview,
 }));
 vi.mock('@/lib/mobile/mobile-portal-page-access', () => ({ requireMobilePortalPageAccess: m.guard }));
+vi.mock('@/auth', () => ({
+    auth: async () => ({ user: { id: 'synthetic-admin', role: 'ADMIN' } }),
+}));
+vi.mock('@/components/layout/mobile-account-menu-server', () => ({
+    MobileAccountMenuServer: () => null,
+}));
 vi.mock('@/lib/analytics/mobile-task-events', () => ({
     trackTaskStarted: m.taskStarted,
     trackMobilePageView: vi.fn(),

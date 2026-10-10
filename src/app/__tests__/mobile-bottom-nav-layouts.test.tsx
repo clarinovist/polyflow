@@ -12,6 +12,9 @@ vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
 vi.mock('@/auth', () => ({
     auth: async () => ({ user: { id: 'synthetic', role: 'PRODUCTION' } }),
 }));
+vi.mock('@/components/layout/mobile-account-menu-server', () => ({
+    MobileAccountMenuServer: () => null,
+}));
 vi.mock('@/lib/mobile/mobile-portal-page-access', () => ({
     requireMobilePortalPageAccess: vi.fn().mockResolvedValue({}),
 }));
