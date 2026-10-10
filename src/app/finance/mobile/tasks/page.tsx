@@ -5,6 +5,7 @@ import {
     FinanceInvoiceFilters,
     FinanceInvoiceList,
     FinancePagination,
+    FinanceSectionNotice,
 } from '../finance-mobile-view';
 
 export default async function FinanceTasksPage({
@@ -26,11 +27,13 @@ export default async function FinanceTasksPage({
         <div className="min-w-0 space-y-4">
             <MobileSectionHeader title="Antrean AR/AP" level={1} />
             <MobileDataFreshness generatedAt={data.generatedAt} />
+            <FinanceSectionNotice sections={data.sections} />
             <FinanceInvoiceFilters query={data.query} />
             <p className="text-sm text-muted-foreground">
-                Menampilkan {data.counts.returned} dari {data.counts.total}{' '}
-                faktur. Setiap jenis dibatasi {data.counts.pageSizePerType} item
-                per halaman; total berasal dari snapshot yang sama.
+                Menampilkan {data.counts.returned} dari{' '}
+                {data.counts.total ?? '—'} faktur. Setiap jenis dibatasi{' '}
+                {data.counts.pageSizePerType} item per halaman; tiap bagian
+                memakai snapshot RepeatableRead mandiri.
             </p>
             <FinanceInvoiceList invoices={data.invoices} />
             <FinancePagination

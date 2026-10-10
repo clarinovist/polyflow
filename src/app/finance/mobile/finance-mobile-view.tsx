@@ -5,8 +5,70 @@ import { formatWIB } from '@/lib/utils/timezone';
 import type {
     FinanceMobileBucket,
     FinanceMobileDueFilter,
+    FinanceMobileSections,
     FinanceMobileType,
 } from '@/services/finance/mobile-finance-service';
+
+const SECTION_LABELS: Record<string, string> = {
+    ar: 'Piutang (AR)',
+    ap: 'Hutang (AP)',
+    journals: 'Draft jurnal',
+    recon: 'Rekonsiliasi bank',
+    fiscal: 'Periode finance',
+    payroll: 'Kesiapan payroll',
+    arNominal: 'Nominal AR',
+    apNominal: 'Nominal AP',
+};
+
+/**
+ * Section state must stay visible without erasing unrelated sections and
+ * without rendering a failed/hidden section as a false zero.
+ */
+export function FinanceSectionNotice({
+    sections,
+}: {
+    sections?: FinanceMobileSections;
+}) {
+    const unavailable = Object.entries(sections ?? {})
+        .filter(([, status]) => status === 'UNAVAILABLE')
+        .map(([key]) => SECTION_LABELS[key] ?? key);
+    const hidden = Object.entries(sections ?? {})
+        .filter(([, status]) => status === 'HIDDEN')
+        .map(([key]) => SECTION_LABELS[key] ?? key);
+    if (unavailable.length === 0 && hidden.length === 0) return null;
+    return (
+        <div
+            role="status"
+            className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+            {unavailable.length > 0 && (
+                <p>
+                    Sebagian data tidak dapat dibaca: {unavailable.join(', ')}.
+                    Bagian lain tetap ditampilkan apa adanya.
+                </p>
+            )}
+            {hidden.length > 0 && (
+                <p className="mt-1">
+                    Tidak dikirim karena izin: {hidden.join(', ')}.
+                </p>
+            )}
+        </div>
+    );
+}
+
+/** Preserve a missing section as an explicit placeholder, never as zero. */
+export function financeMetricValue(value: number | null): string | number {
+    return value ?? '—';
+}
+
+export function financeCountSeverity(
+    value: number | null,
+    present: 'WARNING' | 'CRITICAL',
+    empty: 'SUCCESS' | 'INFO' = 'SUCCESS',
+): 'INFO' | 'SUCCESS' | 'WARNING' | 'CRITICAL' {
+    if (value == null) return 'INFO';
+    return value ? present : empty;
+}
 
 const TYPES: Array<[FinanceMobileType, string]> = [
     ['ALL', 'Semua'],

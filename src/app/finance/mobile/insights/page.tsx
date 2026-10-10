@@ -5,15 +5,24 @@ import {
     MobileSectionHeader,
 } from '@/components/mobile';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
+import {
+    FinanceSectionNotice,
+    financeMetricValue,
+} from '../finance-mobile-view';
+
 export default async function FinanceInsightsPage() {
     const response = await getFinanceMobileOverview();
     if (!response.success)
         return <MobileReadError title="Insight finance belum tersedia" />;
     const { highlights, generatedAt } = response.data;
+    const sections = response.data.sections ?? {};
+    const nominalHidden =
+        sections.arNominal === 'HIDDEN' || sections.apNominal === 'HIDDEN';
     return (
         <div className="space-y-6">
             <MobileSectionHeader title="Finance Insights" level={1} />
             <MobileDataFreshness generatedAt={generatedAt} />
+            <FinanceSectionNotice sections={sections} />
             <div className="grid grid-cols-1 gap-3">
                 {'arAmount' in highlights && (
                     <MobileInsightCard
@@ -45,15 +54,21 @@ export default async function FinanceInsightsPage() {
                     insight={{
                         key: 'draft-journals-count',
                         label: 'Draft Jurnal Pending',
-                        value: highlights.draftJournalCount,
-                        unit: 'jurnal',
-                        severity: highlights.draftJournalCount
-                            ? 'WARNING'
-                            : 'INFO',
+                        value: financeMetricValue(highlights.draftJournalCount),
+                        unit:
+                            highlights.draftJournalCount == null
+                                ? undefined
+                                : 'jurnal',
+                        severity:
+                            highlights.draftJournalCount == null
+                                ? 'INFO'
+                                : highlights.draftJournalCount
+                                  ? 'WARNING'
+                                  : 'INFO',
                     }}
                 />
             </div>
-            {!('arAmount' in highlights) && (
+            {nominalHidden && (
                 <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
                     Nominal tidak dikirim karena izin harga tidak tersedia.
                 </p>

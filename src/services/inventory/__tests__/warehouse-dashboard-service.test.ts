@@ -19,12 +19,16 @@ function variant({
     threshold = 10,
     reorderPoint = 8,
     unit = 'KG',
+    reorderQuantity = null,
+    supplierName = null,
     inventories = [],
 }: {
     id: string;
     threshold?: number | null;
     reorderPoint?: number | null;
     unit?: string;
+    reorderQuantity?: number | null;
+    supplierName?: string | null;
     inventories?: Array<{
         quantity: ReturnType<typeof decimal> | number;
         location: ReturnType<typeof location> | null;
@@ -37,6 +41,10 @@ function variant({
         primaryUnit: unit,
         minStockAlert: threshold == null ? null : decimal(threshold),
         reorderPoint: reorderPoint == null ? null : decimal(reorderPoint),
+        reorderQuantity:
+            reorderQuantity == null ? null : decimal(reorderQuantity),
+        preferredSupplier:
+            supplierName == null ? null : { name: supplierName },
         inventories,
     };
 }
@@ -262,6 +270,7 @@ describe('readWarehouseInventoryThresholdSnapshot', () => {
             lowStockCount: 0,
             reorderCount: 0,
             lowStockDrivers: [],
+            reorderDrivers: [],
         });
 
         expect(suppliedFindMany).toHaveBeenCalledOnce();
@@ -277,6 +286,137 @@ describe('readWarehouseInventoryThresholdSnapshot', () => {
             lowStockCount: 0,
             reorderCount: 0,
             lowStockDrivers: [],
+            reorderDrivers: [],
         });
+    });
+
+    it('keeps reorder drivers empty until a limit is requested', async () => {
+        findMany.mockResolvedValue([
+            variant({
+                id: 'low',
+                reorderPoint: 20,
+                reorderQuantity: 50,
+                supplierName: 'Supplier A',
+                inventories: [
+                    {
+                        quantity: decimal(5),
+                        location: location('INTERNAL', 'RAW_MATERIAL'),
+                    },
+                ],
+            }),
+        ]);
+
+        const unbounded = await readWarehouseInventoryThresholdSnapshot();
+        expect(unbounded.reorderCount).toBe(1);
+        expect(unbounded.reorderDrivers).toEqual([]);
+
+        const limited = await readWarehouseInventoryThresholdSnapshot(
+            undefined,
+            { reorderDriverLimit: 10 },
+        );
+        expect(limited.reorderDrivers).toEqual([
+            {
+                id: 'low',
+                name: 'Varian low',
+                skuCode: 'SKU-low',
+                unit: 'KG',
+                eligibleQuantity: 5,
+                threshold: 20,
+                reorderQuantity: 50,
+                preferredSupplierName: 'Supplier A',
+                shortage: 15,
+            },
+        ]);
+        expect(findMany).toHaveBeenCalledTimes(2);
+    });
+
+    it('counts every reorder qualifier while returning only the requested top-N', async () => {
+        findMany.mockResolvedValue(
+            Array.from({ length: 12 }, (_, index) =>
+                variant({
+                    id: `variant-${String(index).padStart(2, '0')}`,
+                    reorderPoint: 100,
+                    inventories: [
+                        {
+                            quantity: decimal(index * 5),
+                            location: location('INTERNAL', 'RAW_MATERIAL'),
+                        },
+                    ],
+                }),
+            ),
+        );
+
+        const result = await readWarehouseInventoryThresholdSnapshot(
+            undefined,
+            { reorderDriverLimit: 3 },
+        );
+
+        expect(result.reorderCount).toBe(12);
+        expect(result.reorderDrivers).toHaveLength(3);
+        // Largest shortage first (eligibleQuantity - threshold ascending).
+        expect(result.reorderDrivers.map((driver) => driver.id)).toEqual([
+            'variant-00',
+            'variant-01',
+            'variant-02',
+        ]);
+        expect(result.reorderDrivers.map((driver) => driver.shortage)).toEqual([
+            100, 95, 90,
+        ]);
+    });
+
+    it('breaks reorder ties by name then id and ignores non-qualifiers', async () => {
+        const tie = (id: string, name: string) => ({
+            ...variant({
+                id,
+                reorderPoint: 10,
+                inventories: [
+                    {
+                        quantity: decimal(6),
+                        location: location('INTERNAL', 'RAW_MATERIAL'),
+                    },
+                ],
+            }),
+            name,
+        });
+        findMany.mockResolvedValue([
+            tie('z-id', 'Sama'),
+            tie('a-id', 'Sama'),
+            {
+                ...variant({
+                    id: 'at-point',
+                    reorderPoint: 6,
+                    inventories: [
+                        {
+                            quantity: decimal(6),
+                            location: location('INTERNAL', 'FINISHED_GOOD'),
+                        },
+                    ],
+                }),
+            },
+            {
+                ...variant({
+                    id: 'customer-owned',
+                    reorderPoint: 100,
+                    inventories: [
+                        {
+                            quantity: decimal(0),
+                            location: location('CUSTOMER_OWNED', 'RAW_MATERIAL'),
+                        },
+                    ],
+                }),
+            },
+        ]);
+
+        const result = await readWarehouseInventoryThresholdSnapshot(
+            undefined,
+            { reorderDriverLimit: 10 },
+        );
+
+        expect(result.reorderCount).toBe(3);
+        expect(result.reorderDrivers.map((driver) => driver.id)).toEqual([
+            'customer-owned',
+            'a-id',
+            'z-id',
+        ]);
     });
 });

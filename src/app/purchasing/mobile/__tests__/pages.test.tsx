@@ -37,6 +37,14 @@ vi.mock('next/link', () => ({
 const overview = {
     generatedAt: '2026-10-07T03:00:00.000Z',
     filter: 'ALL',
+    sections: {
+        requests: 'AVAILABLE',
+        drafts: 'AVAILABLE',
+        receipts: 'AVAILABLE',
+        reorder: 'AVAILABLE',
+        ap: 'AVAILABLE',
+        apNominal: 'HIDDEN',
+    },
     highlights: {
         pendingRequestCount: 1,
         draftPoCount: 1,
@@ -244,6 +252,45 @@ describe('Purchasing Mobile enrichment pages', () => {
         render(await PurchasingReceiptDetail({ params: Promise.resolve({ id: 'po-1' }) }));
         expect(screen.getByText('6 KG')).toBeTruthy();
         expect(screen.queryByText(/^Rp/)).toBeNull();
+    });
+
+    it('shows a failed section as a placeholder while unrelated sections keep their numbers', async () => {
+        m.overview.mockResolvedValue({
+            success: true,
+            data: {
+                ...overview,
+                highlights: { ...overview.highlights, pendingRequestCount: null },
+                sections: { ...overview.sections, requests: 'UNAVAILABLE' },
+            },
+        });
+        render(await PurchasingHome());
+        expect(screen.getByText(/PR perlu diproses/)).toBeTruthy();
+        expect(screen.getByText('PR Perlu Diproses')).toBeTruthy();
+        expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+        // Unrelated sections keep their real data instead of collapsing.
+        expect(screen.getByText('Draft PO')).toBeTruthy();
+        expect(screen.getByText('2 invoice')).toBeTruthy();
+    });
+
+    it('marks a hidden nominal section without showing zero or a nominal', async () => {
+        render(await PurchasingInsights());
+        expect(screen.getByText(/Tidak dikirim karena izin: Nominal AP/)).toBeTruthy();
+        expect(screen.queryByText(/^Rp/)).toBeNull();
+    });
+
+    it('keeps an unavailable reorder section out of the empty state and never shows zero', async () => {
+        m.overview.mockResolvedValue({
+            success: true,
+            data: {
+                ...overview,
+                highlights: { ...overview.highlights, suggestedReorderCount: null },
+                sections: { ...overview.sections, reorder: 'UNAVAILABLE' },
+                suggestedReorder: { total: null, returned: 0, items: [] },
+            },
+        });
+        render(await PurchasingInsights());
+        expect(screen.queryByText('Tidak ada suggested reorder')).toBeNull();
+        expect(screen.getByText(/Perhitungan reorder belum dapat dibaca/)).toBeTruthy();
     });
 });
 

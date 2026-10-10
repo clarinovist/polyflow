@@ -2,11 +2,10 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
-import { sumInventoryAlertQuantity } from '@/lib/constants/locations';
-import {
-    getWibDayBounds,
-    toBusinessDateString,
-} from '@/lib/utils/timezone';
+import { readWarehouseInventoryThresholdSnapshot } from '@/services/inventory/warehouse-dashboard-service';
+import { buildPurchasingDashboardWaitingReceiptWhere } from '@/services/purchasing/purchasing-dashboard-query';
+import type { MobileSectionStatus } from '@/services/dashboard/mobile-section-state';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 
 export const PURCHASING_MOBILE_SAMPLE_LIMIT = 10;
 
@@ -28,12 +27,22 @@ export type PurchasingMobileTaskKind =
     | 'RECEIPT'
     | 'REORDER';
 
-type TenantDb = Pick<
-    PrismaClient,
-    '$transaction' | 'purchaseRequest' | 'purchaseOrder' | 'purchaseInvoice' | 'productVariant'
+export type PurchasingMobileSectionKey =
+    | 'requests'
+    | 'drafts'
+    | 'receipts'
+    | 'reorder'
+    | 'ap'
+    | 'apNominal';
+
+export type PurchasingMobileSections = Partial<
+    Record<PurchasingMobileSectionKey, MobileSectionStatus>
 >;
 
-type QueryDb = Omit<TenantDb, '$transaction'>;
+type TenantDb = Pick<
+    PrismaClient,
+    '$transaction' | 'purchaseRequest' | 'purchaseOrder' | 'purchaseInvoice'
+>;
 
 export interface PurchasingMobileTaskDto {
     id: string;
@@ -60,22 +69,23 @@ export interface PurchasingMobileReorderDto {
 export interface PurchasingMobileOverviewDto {
     generatedAt: string;
     filter: PurchasingMobileTaskFilter;
+    sections: PurchasingMobileSections;
     highlights: {
-        pendingRequestCount: number;
-        draftPoCount: number;
-        waitingReceiptCount: number;
-        etaExceptionCount: number;
-        suggestedReorderCount: number;
-        overdueApCount: number;
+        pendingRequestCount: number | null;
+        draftPoCount: number | null;
+        waitingReceiptCount: number | null;
+        etaExceptionCount: number | null;
+        suggestedReorderCount: number | null;
+        overdueApCount: number | null;
         overdueApAmount?: number;
     };
     queue: {
-        total: number;
+        total: number | null;
         returned: number;
         items: PurchasingMobileTaskDto[];
     };
     suggestedReorder: {
-        total: number;
+        total: number | null;
         returned: number;
         items: PurchasingMobileReorderDto[];
     };
@@ -162,13 +172,13 @@ function decimalNumber(value: unknown): number {
 function totalForFilter(
     filter: PurchasingMobileTaskFilter,
     counts: {
-        requests: number;
-        drafts: number;
-        receipts: number;
-        eta: number;
-        reorder: number;
+        requests: number | null;
+        drafts: number | null;
+        receipts: number | null;
+        eta: number | null;
+        reorder: number | null;
     },
-): number {
+): number | null {
     switch (filter) {
         case 'REQUESTS':
             return counts.requests;
@@ -180,13 +190,17 @@ function totalForFilter(
             return counts.eta;
         case 'REORDER':
             return counts.reorder;
-        default:
-            return (
-                counts.requests +
-                counts.drafts +
-                counts.receipts +
-                counts.reorder
-            );
+        default: {
+            const values = [
+                counts.requests,
+                counts.drafts,
+                counts.receipts,
+                counts.reorder,
+            ];
+            return values.some((value) => value == null)
+                ? null
+                : values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+        }
     }
 }
 
@@ -209,70 +223,165 @@ function requestWhere(prOwnerId?: string): Prisma.PurchaseRequestWhereInput {
     };
 }
 
-function waitingReceiptWhere(): Prisma.PurchaseOrderWhereInput {
-    return { status: { in: ['SENT', 'PARTIAL_RECEIVED'] } };
-}
-
-function etaWhere(now: Date): Prisma.PurchaseOrderWhereInput {
+/** Canonical waiting-receipt status, composed with the factual ETA exception. */
+function etaWhere(startOfDay: Date): Prisma.PurchaseOrderWhereInput {
     return {
-        status: { in: ['SENT', 'PARTIAL_RECEIVED'] },
-        expectedDate: { lt: now },
+        ...buildPurchasingDashboardWaitingReceiptWhere(),
+        expectedDate: { lt: startOfDay },
     };
 }
 
-async function readReorderRows(
-    db: QueryDb,
-): Promise<PurchasingMobileReorderDto[]> {
-    const variants = await db.productVariant.findMany({
-        where: { archivedAt: null, reorderPoint: { not: null } },
-        select: {
-            id: true,
-            name: true,
-            skuCode: true,
-            primaryUnit: true,
-            reorderPoint: true,
-            reorderQuantity: true,
-            preferredSupplier: { select: { name: true } },
-            inventories: {
-                select: {
-                    quantity: true,
-                    location: {
-                        select: { locationType: true, locationPurpose: true },
-                    },
-                },
-            },
-        },
-        orderBy: [{ name: 'asc' }, { id: 'asc' }],
-    });
+const RECEIPT_SELECT = {
+    id: true,
+    orderNumber: true,
+    status: true,
+    expectedDate: true,
+    updatedAt: true,
+    supplier: { select: { name: true } },
+} as const;
 
-    return variants
-        .map((variant) => {
-            const totalStock = sumInventoryAlertQuantity(
-                variant.inventories,
-            );
-            return {
-                id: variant.id,
-                name: variant.name,
-                skuCode: variant.skuCode,
-                unit: variant.primaryUnit,
-                supplierName: variant.preferredSupplier?.name ?? null,
-                totalStock,
-                reorderPoint: decimalNumber(variant.reorderPoint),
-                reorderQuantity:
-                    variant.reorderQuantity == null
-                        ? null
-                        : decimalNumber(variant.reorderQuantity),
-            };
-        })
-        .filter((variant) => variant.totalStock < variant.reorderPoint)
-        .sort(
-            (a, b) =>
-                a.totalStock -
-                    a.reorderPoint -
-                    (b.totalStock - b.reorderPoint) ||
-                a.name.localeCompare(b.name, 'id') ||
-                a.id.localeCompare(b.id),
-        );
+async function readRequestGroup(
+    tx: Prisma.TransactionClient,
+    prWhere: Prisma.PurchaseRequestWhereInput,
+) {
+    const [count, rows] = await Promise.all([
+        tx.purchaseRequest.count({ where: prWhere }),
+        tx.purchaseRequest.findMany({
+            where: prWhere,
+            take: PURCHASING_MOBILE_SAMPLE_LIMIT,
+            // URGENT is the only elevated domain priority for PRs. Within that
+            // bucket, OPEN precedes APPROVED, then age and id keep the bounded
+            // sample deterministic.
+            orderBy: [
+                { priority: 'desc' },
+                { status: 'desc' },
+                { createdAt: 'asc' },
+                { id: 'asc' },
+            ],
+            select: {
+                id: true,
+                requestNumber: true,
+                status: true,
+                priority: true,
+                createdAt: true,
+                createdBy: { select: { name: true } },
+            },
+        }),
+    ]);
+    return { count, rows };
+}
+
+async function readDraftGroup(tx: Prisma.TransactionClient) {
+    const [count, rows] = await Promise.all([
+        tx.purchaseOrder.count({ where: { status: 'DRAFT' } }),
+        tx.purchaseOrder.findMany({
+            where: { status: 'DRAFT' },
+            take: PURCHASING_MOBILE_SAMPLE_LIMIT,
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                createdAt: true,
+                supplier: { select: { name: true } },
+            },
+        }),
+    ]);
+    return { count, rows };
+}
+
+async function readReceiptGroup(
+    tx: Prisma.TransactionClient,
+    filter: PurchasingMobileTaskFilter,
+    startOfDay: Date,
+) {
+    const [count, etaCount, rows] = await Promise.all([
+        tx.purchaseOrder.count({
+            where: buildPurchasingDashboardWaitingReceiptWhere(),
+        }),
+        tx.purchaseOrder.count({ where: etaWhere(startOfDay) }),
+        filter === 'ETA'
+            ? tx.purchaseOrder.findMany({
+                  where: etaWhere(startOfDay),
+                  take: PURCHASING_MOBILE_SAMPLE_LIMIT,
+                  orderBy: [
+                      { expectedDate: 'asc' },
+                      { updatedAt: 'asc' },
+                      { id: 'asc' },
+                  ],
+                  select: RECEIPT_SELECT,
+              })
+            : Promise.all(
+                  (['PARTIAL_RECEIVED', 'SENT'] as const).map((status) =>
+                      tx.purchaseOrder.findMany({
+                          where: buildPurchasingDashboardWaitingReceiptWhere(
+                              status,
+                          ),
+                          take: PURCHASING_MOBILE_SAMPLE_LIMIT,
+                          orderBy: [
+                              { expectedDate: 'asc' },
+                              { updatedAt: 'asc' },
+                              { id: 'asc' },
+                          ],
+                          select: RECEIPT_SELECT,
+                      }),
+                  ),
+              ).then((groups) => groups.flat()),
+    ]);
+    return { count, etaCount, rows };
+}
+
+async function readReorderGroup(tx: Prisma.TransactionClient) {
+    // Owner read owns eligibility/threshold and the full reorder count; the
+    // consumer only maps owner fields and never re-derives totals from a sample.
+    const snapshot = await readWarehouseInventoryThresholdSnapshot(tx, {
+        reorderDriverLimit: PURCHASING_MOBILE_SAMPLE_LIMIT,
+    });
+    const items: PurchasingMobileReorderDto[] = snapshot.reorderDrivers.map(
+        (driver) => ({
+            id: driver.id,
+            name: driver.name,
+            skuCode: driver.skuCode,
+            unit: driver.unit,
+            supplierName: driver.preferredSupplierName,
+            totalStock: driver.eligibleQuantity,
+            reorderPoint: driver.threshold,
+            reorderQuantity: driver.reorderQuantity,
+        }),
+    );
+    return { count: snapshot.reorderCount, items };
+}
+
+async function readApGroup(
+    tx: Prisma.TransactionClient,
+    where: Prisma.PurchaseInvoiceWhereInput,
+) {
+    return { count: await tx.purchaseInvoice.count({ where }) };
+}
+
+async function readApNominalGroup(
+    tx: Prisma.TransactionClient,
+    where: Prisma.PurchaseInvoiceWhereInput,
+) {
+    const aggregate = await tx.purchaseInvoice.aggregate({
+        where,
+        _sum: { totalAmount: true, paidAmount: true },
+    });
+    return {
+        net:
+            decimalNumber(aggregate._sum.totalAmount) -
+            decimalNumber(aggregate._sum.paidAmount),
+    };
+}
+
+function settledValue<T>(outcome: PromiseSettledResult<T | null>): T | null {
+    return outcome.status === 'fulfilled' ? outcome.value : null;
+}
+
+function outcomeStatus(
+    outcome: PromiseSettledResult<unknown>,
+): MobileSectionStatus {
+    return outcome.status === 'fulfilled' ? 'AVAILABLE' : 'UNAVAILABLE';
 }
 
 export async function readPurchasingMobileOverview(input: {
@@ -285,243 +394,180 @@ export async function readPurchasingMobileOverview(input: {
     const now = input.now ?? new Date();
     const { startOfDay } = getWibDayBounds(toBusinessDateString(now));
     const prWhere = requestWhere(input.prOwnerId);
-    const receiptWhere = waitingReceiptWhere();
-    const overdueWhere = buildOverduePurchaseInvoiceWhere(tenantDb, now);
     const wantsRequests = input.filter === 'ALL' || input.filter === 'REQUESTS';
     const wantsDrafts = input.filter === 'ALL' || input.filter === 'DRAFT_PO';
     const wantsReceipts =
         input.filter === 'ALL' ||
         input.filter === 'RECEIPTS' ||
         input.filter === 'ETA';
-    const wantsReorder =
-        input.filter === 'ALL' || input.filter === 'REORDER';
+    const wantsReorder = input.filter === 'ALL' || input.filter === 'REORDER';
 
-    return tenantDb.$transaction(
-        async (tx) => {
-            const [
-                pendingRequestCount,
-                draftPoCount,
-                waitingReceiptCount,
-                etaExceptionCount,
-                overdueApCount,
-                overdueApAmount,
-                requests,
-                drafts,
-                receipts,
-                reorderRows,
-            ] = await Promise.all([
-                tx.purchaseRequest.count({ where: prWhere }),
-                tx.purchaseOrder.count({ where: { status: 'DRAFT' } }),
-                tx.purchaseOrder.count({ where: receiptWhere }),
-                tx.purchaseOrder.count({ where: etaWhere(startOfDay) }),
-                tx.purchaseInvoice.count({ where: overdueWhere }),
-                input.canViewAmounts
-                    ? tx.purchaseInvoice.aggregate({
-                          where: overdueWhere,
-                          _sum: { totalAmount: true, paidAmount: true },
-                      })
-                    : Promise.resolve(null),
-                wantsRequests
-                    ? tx.purchaseRequest.findMany({
-                          where: prWhere,
-                          take: PURCHASING_MOBILE_SAMPLE_LIMIT,
-                          // URGENT is the only elevated domain priority for PRs.
-                          // Within that bucket, OPEN precedes APPROVED, then age
-                          // and id keep the bounded sample deterministic.
-                          orderBy: [
-                              { priority: 'desc' },
-                              { status: 'desc' },
-                              { createdAt: 'asc' },
-                              { id: 'asc' },
-                          ],
-                          select: {
-                              id: true,
-                              requestNumber: true,
-                              status: true,
-                              priority: true,
-                              createdAt: true,
-                              createdBy: { select: { name: true } },
-                          },
-                      })
-                    : Promise.resolve([]),
-                wantsDrafts
-                    ? tx.purchaseOrder.findMany({
-                          where: { status: 'DRAFT' },
-                          take: PURCHASING_MOBILE_SAMPLE_LIMIT,
-                          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-                          select: {
-                              id: true,
-                              orderNumber: true,
-                              status: true,
-                              createdAt: true,
-                              supplier: { select: { name: true } },
-                          },
-                      })
-                    : Promise.resolve([]),
-                wantsReceipts
-                    ? input.filter === 'ETA'
-                        ? tx.purchaseOrder.findMany({
-                              where: etaWhere(startOfDay),
-                              take: PURCHASING_MOBILE_SAMPLE_LIMIT,
-                              orderBy: [
-                                  { expectedDate: 'asc' },
-                                  { updatedAt: 'asc' },
-                                  { id: 'asc' },
-                              ],
-                              select: {
-                                  id: true,
-                                  orderNumber: true,
-                                  status: true,
-                                  expectedDate: true,
-                                  updatedAt: true,
-                                  supplier: { select: { name: true } },
-                              },
-                          })
-                        : Promise.all(
-                              (['PARTIAL_RECEIVED', 'SENT'] as const).map(
-                                  (status) =>
-                                      tx.purchaseOrder.findMany({
-                                          where: { status },
-                                          take: PURCHASING_MOBILE_SAMPLE_LIMIT,
-                                          orderBy: [
-                                              { expectedDate: 'asc' },
-                                              { updatedAt: 'asc' },
-                                              { id: 'asc' },
-                                          ],
-                                          select: {
-                                              id: true,
-                                              orderNumber: true,
-                                              status: true,
-                                              expectedDate: true,
-                                              updatedAt: true,
-                                              supplier: {
-                                                  select: { name: true },
-                                              },
-                                          },
-                                      }),
-                              ),
-                          ).then((rows) => rows.flat())
-                    : Promise.resolve([]),
-                wantsReorder ? readReorderRows(tx) : Promise.resolve([]),
-            ]);
+    const repeatableRead = <T>(
+        reader: (tx: Prisma.TransactionClient) => Promise<T>,
+    ) =>
+        tenantDb.$transaction(reader, {
+            isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        });
 
-            const requestTasks: PurchasingMobileTaskDto[] = requests.map(
-                (request) => ({
-                    id: request.id,
-                    kind: 'REQUEST',
-                    title: request.requestNumber,
-                    subtitle:
-                        request.createdBy.name ?? 'Pembuat tidak tersedia',
-                    status: request.status,
-                    priority:
-                        request.priority === 'URGENT'
-                            ? 'URGENT'
-                            : request.status === 'OPEN'
-                              ? 'HIGH'
-                              : 'NORMAL',
-                    href: `/purchasing/mobile/requests/${request.id}`,
-                    sortAt: request.createdAt.toISOString(),
-                }),
-            );
-            const draftTasks: PurchasingMobileTaskDto[] = drafts.map((order) => ({
+    // A PostgreSQL statement error aborts its transaction. Give every section
+    // an independent repeatable-read boundary so one failed reader cannot turn
+    // unrelated sections unavailable through transaction-aborted (25P02).
+    const [
+        requestsOutcome,
+        draftsOutcome,
+        receiptsOutcome,
+        reorderOutcome,
+        apOutcome,
+        apNominalOutcome,
+    ] = await Promise.allSettled([
+        wantsRequests
+            ? repeatableRead((tx) => readRequestGroup(tx, prWhere))
+            : Promise.resolve(null),
+        wantsDrafts
+            ? repeatableRead((tx) => readDraftGroup(tx))
+            : Promise.resolve(null),
+        wantsReceipts
+            ? repeatableRead((tx) =>
+                  readReceiptGroup(tx, input.filter, startOfDay),
+              )
+            : Promise.resolve(null),
+        wantsReorder
+            ? repeatableRead((tx) => readReorderGroup(tx))
+            : Promise.resolve(null),
+        repeatableRead((tx) =>
+            readApGroup(tx, buildOverduePurchaseInvoiceWhere(tx, now)),
+        ),
+        input.canViewAmounts
+            ? repeatableRead((tx) =>
+                  readApNominalGroup(
+                      tx,
+                      buildOverduePurchaseInvoiceWhere(tx, now),
+                  ),
+              )
+            : Promise.resolve(null),
+    ]);
+
+    const requests = settledValue(requestsOutcome);
+    const drafts = settledValue(draftsOutcome);
+    const receipts = settledValue(receiptsOutcome);
+    const reorder = settledValue(reorderOutcome);
+    const ap = settledValue(apOutcome);
+    const apNominal = settledValue(apNominalOutcome);
+
+    const sections: PurchasingMobileSections = {};
+    if (wantsRequests) sections.requests = outcomeStatus(requestsOutcome);
+    if (wantsDrafts) sections.drafts = outcomeStatus(draftsOutcome);
+    if (wantsReceipts) sections.receipts = outcomeStatus(receiptsOutcome);
+    if (wantsReorder) sections.reorder = outcomeStatus(reorderOutcome);
+    sections.ap = outcomeStatus(apOutcome);
+    sections.apNominal = input.canViewAmounts
+        ? outcomeStatus(apNominalOutcome)
+        : 'HIDDEN';
+
+    const requestTasks: PurchasingMobileTaskDto[] = (requests?.rows ?? []).map(
+        (request) => ({
+            id: request.id,
+            kind: 'REQUEST',
+            title: request.requestNumber,
+            subtitle: request.createdBy.name ?? 'Pembuat tidak tersedia',
+            status: request.status,
+            priority:
+                request.priority === 'URGENT'
+                    ? 'URGENT'
+                    : request.status === 'OPEN'
+                      ? 'HIGH'
+                      : 'NORMAL',
+            href: `/purchasing/mobile/requests/${request.id}`,
+            sortAt: request.createdAt.toISOString(),
+        }),
+    );
+    const draftTasks: PurchasingMobileTaskDto[] = (drafts?.rows ?? []).map(
+        (order) => ({
+            id: order.id,
+            kind: 'DRAFT_PO',
+            title: order.orderNumber,
+            subtitle: order.supplier.name,
+            status: order.status,
+            priority: 'NORMAL',
+            href: `/purchasing/mobile/orders/${order.id}`,
+            sortAt: order.createdAt.toISOString(),
+        }),
+    );
+    const receiptTasks: PurchasingMobileTaskDto[] = (receipts?.rows ?? []).map(
+        (order) => {
+            const isLate =
+                order.expectedDate != null && order.expectedDate < startOfDay;
+            return {
                 id: order.id,
-                kind: 'DRAFT_PO',
+                kind: 'RECEIPT',
                 title: order.orderNumber,
                 subtitle: order.supplier.name,
-                status: order.status,
-                priority: 'NORMAL',
-                href: `/purchasing/mobile/orders/${order.id}`,
-                sortAt: order.createdAt.toISOString(),
-            }));
-            const receiptTasks: PurchasingMobileTaskDto[] = receipts.map(
-                (order) => {
-                    const isLate =
-                        order.expectedDate != null &&
-                        order.expectedDate < startOfDay;
-                    return {
-                        id: order.id,
-                        kind: 'RECEIPT',
-                        title: order.orderNumber,
-                        subtitle: order.supplier.name,
-                        status: isLate
-                            ? 'ETA_TERLEWAT'
-                            : order.status,
-                        priority: isLate
-                            ? 'URGENT'
-                            : order.status === 'PARTIAL_RECEIVED'
-                              ? 'HIGH'
-                              : 'NORMAL',
-                        href: `/purchasing/mobile/receipts/${order.id}`,
-                        sortAt: (
-                            order.expectedDate ?? order.updatedAt
-                        ).toISOString(),
-                    };
-                },
-            );
-            const reorderTasks: PurchasingMobileTaskDto[] = reorderRows.map(
-                (variant) => ({
-                    id: variant.id,
-                    kind: 'REORDER',
-                    title: variant.name,
-                    subtitle:
-                        variant.supplierName ?? 'Supplier belum ditetapkan',
-                    status: 'DI_BAWAH_REORDER_POINT',
-                    priority: variant.totalStock <= 0 ? 'URGENT' : 'HIGH',
-                    href: null,
-                    sortAt: '9999-12-31T23:59:59.999Z',
-                }),
-            );
-
-            const selected = sortTasks([
-                ...requestTasks,
-                ...draftTasks,
-                ...receiptTasks,
-                ...(wantsReorder ? reorderTasks : []),
-            ]).slice(0, PURCHASING_MOBILE_SAMPLE_LIMIT);
-            const counts = {
-                requests: pendingRequestCount,
-                drafts: draftPoCount,
-                receipts: waitingReceiptCount,
-                eta: etaExceptionCount,
-                reorder: reorderRows.length,
-            };
-            const netOverdue = overdueApAmount
-                ? decimalNumber(overdueApAmount._sum.totalAmount) -
-                  decimalNumber(overdueApAmount._sum.paidAmount)
-                : undefined;
-            const reorderSample = reorderRows.slice(
-                0,
-                PURCHASING_MOBILE_SAMPLE_LIMIT,
-            );
-
-            return {
-                generatedAt: now.toISOString(),
-                filter: input.filter,
-                highlights: {
-                    pendingRequestCount,
-                    draftPoCount,
-                    waitingReceiptCount,
-                    etaExceptionCount,
-                    suggestedReorderCount: reorderRows.length,
-                    overdueApCount,
-                    ...(netOverdue === undefined
-                        ? {}
-                        : { overdueApAmount: netOverdue }),
-                },
-                queue: {
-                    total: totalForFilter(input.filter, counts),
-                    returned: selected.length,
-                    items: selected,
-                },
-                suggestedReorder: {
-                    total: reorderRows.length,
-                    returned: reorderSample.length,
-                    items: reorderSample,
-                },
+                status: isLate ? 'ETA_TERLEWAT' : order.status,
+                priority: isLate
+                    ? 'URGENT'
+                    : order.status === 'PARTIAL_RECEIVED'
+                      ? 'HIGH'
+                      : 'NORMAL',
+                href: `/purchasing/mobile/receipts/${order.id}`,
+                sortAt: (order.expectedDate ?? order.updatedAt).toISOString(),
             };
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
+    // Queue reorder candidacy is exactly suggestedReorder top-N
+    // membership; no zero-stock promotion policy is added here.
+    const reorderItems = reorder?.items ?? [];
+    const reorderTasks: PurchasingMobileTaskDto[] = reorderItems.map(
+        (variant) => ({
+            id: variant.id,
+            kind: 'REORDER',
+            title: variant.name,
+            subtitle: variant.supplierName ?? 'Supplier belum ditetapkan',
+            status: 'DI_BAWAH_REORDER_POINT',
+            priority: variant.totalStock <= 0 ? 'URGENT' : 'HIGH',
+            href: null,
+            sortAt: '9999-12-31T23:59:59.999Z',
+        }),
+    );
+
+    const selected = sortTasks([
+        ...requestTasks,
+        ...draftTasks,
+        ...receiptTasks,
+        ...reorderTasks,
+    ]).slice(0, PURCHASING_MOBILE_SAMPLE_LIMIT);
+    const counts = {
+        requests: requests?.count ?? null,
+        drafts: drafts?.count ?? null,
+        receipts: receipts?.count ?? null,
+        eta: receipts?.etaCount ?? null,
+        reorder: reorder?.count ?? null,
+    };
+    const overdueApAmount = apNominal?.net;
+
+    return {
+        generatedAt: now.toISOString(),
+        filter: input.filter,
+        sections,
+        highlights: {
+            pendingRequestCount: requests?.count ?? null,
+            draftPoCount: drafts?.count ?? null,
+            waitingReceiptCount: receipts?.count ?? null,
+            etaExceptionCount: receipts?.etaCount ?? null,
+            suggestedReorderCount: reorder?.count ?? null,
+            overdueApCount: ap?.count ?? null,
+            ...(overdueApAmount === undefined ? {} : { overdueApAmount }),
+        },
+        queue: {
+            total: totalForFilter(input.filter, counts),
+            returned: selected.length,
+            items: selected,
+        },
+        suggestedReorder: {
+            total: reorder?.count ?? null,
+            returned: reorderItems.length,
+            items: reorderItems,
+        },
+    };
 }
 
 export async function readPurchasingMobileDetail(input: {
@@ -586,10 +632,9 @@ export async function readPurchasingMobileDetail(input: {
     const order = await tenantDb.purchaseOrder.findFirst({
         where: {
             id: input.id,
-            status:
-                input.kind === 'ORDER'
-                    ? 'DRAFT'
-                    : { in: ['SENT', 'PARTIAL_RECEIVED'] },
+            ...(input.kind === 'ORDER'
+                ? { status: 'DRAFT' as const }
+                : buildPurchasingDashboardWaitingReceiptWhere()),
         },
         select: {
             id: true,

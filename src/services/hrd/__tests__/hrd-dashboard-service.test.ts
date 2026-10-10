@@ -3,6 +3,7 @@ import {
     collectHrdDashboardAggregate,
     readHrdDashboardAggregate,
     readHrdDashboardMobileAggregate,
+    readHrdDashboardPayrollReadiness,
     readHrdPendingLeaveDashboardCount,
     type HrdDashboardReader,
 } from '../hrd-dashboard-service';
@@ -533,5 +534,78 @@ describe('readHrdDashboardAggregate', () => {
             },
         });
         expect(db.attendanceRecord).not.toHaveProperty('findMany');
+    });
+});
+
+describe('readHrdDashboardPayrollReadiness', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        setupAvailableZeroes();
+    });
+
+    it('reads only the deterministic latest OPEN period and grouped slip statuses', async () => {
+        db.payrollPeriod.findFirst.mockResolvedValue({
+            id: 'latest',
+            year: 2026,
+            month: 9,
+        });
+        db.payslip.groupBy.mockResolvedValue([
+            { status: 'DRAFT', _count: { _all: 2 } },
+            { status: 'FINALIZED', _count: { _all: 3 } },
+            { status: 'PAID', _count: { _all: 4 } },
+        ]);
+
+        await expect(
+            readHrdDashboardPayrollReadiness(db as never),
+        ).resolves.toEqual({
+            year: 2026,
+            month: 9,
+            total: 9,
+            draft: 2,
+            finalized: 3,
+            paid: 4,
+        });
+        expect(db.payrollPeriod.findFirst).toHaveBeenCalledWith({
+            where: { status: 'OPEN' },
+            select: { id: true, year: true, month: true },
+            orderBy: [{ year: 'desc' }, { month: 'desc' }, { id: 'asc' }],
+        });
+        expect(db.payslip.groupBy).toHaveBeenCalledWith({
+            by: ['status'],
+            where: { payrollPeriodId: 'latest' },
+            _count: { _all: true },
+        });
+        expect(db.employee.count).not.toHaveBeenCalled();
+        expect(db.employeeLoan.aggregate).not.toHaveBeenCalled();
+        expect(db.notification.count).not.toHaveBeenCalled();
+    });
+
+    it('returns null without a slip query when no OPEN period exists', async () => {
+        db.payrollPeriod.findFirst.mockResolvedValue(null);
+
+        await expect(
+            readHrdDashboardPayrollReadiness(db as never),
+        ).resolves.toBeNull();
+        expect(db.payslip.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('keeps an OPEN period with zero generated slips a valid zero', async () => {
+        db.payrollPeriod.findFirst.mockResolvedValue({
+            id: 'empty',
+            year: 2026,
+            month: 10,
+        });
+        db.payslip.groupBy.mockResolvedValue([]);
+
+        await expect(
+            readHrdDashboardPayrollReadiness(db as never),
+        ).resolves.toEqual({
+            year: 2026,
+            month: 10,
+            total: 0,
+            draft: 0,
+            finalized: 0,
+            paid: 0,
+        });
     });
 });

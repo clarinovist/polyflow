@@ -174,9 +174,30 @@ describe('Purchasing Mobile read service', () => {
         expect(m.orderList).toHaveBeenCalledWith(
             expect.objectContaining({ where: { status: 'SENT' } }),
         );
-        expect(m.transaction).toHaveBeenCalledWith(expect.any(Function), {
-            isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        expect(m.transaction).toHaveBeenCalledTimes(5);
+        for (const call of m.transaction.mock.calls) {
+            expect(call[1]).toEqual({
+                isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+            });
+        }
+    });
+
+    it('keeps an unavailable queue source out of the aggregate total instead of reporting a false zero', async () => {
+        m.requestCount.mockRejectedValueOnce(new Error('requests unavailable'));
+
+        const result = await readPurchasingMobileOverview({
+            filter: 'ALL',
+            canViewAmounts: false,
+            now,
         });
+
+        expect(result.sections.requests).toBe('UNAVAILABLE');
+        expect(result.sections.drafts).toBe('AVAILABLE');
+        expect(result.highlights.pendingRequestCount).toBeNull();
+        expect(result.queue.total).toBeNull();
+        expect(result.queue.items.some((item) => item.kind === 'DRAFT_PO')).toBe(
+            true,
+        );
     });
 
     it('scopes PLANNING purchase requests to the actor on count, list, and detail', async () => {
@@ -449,5 +470,198 @@ describe('Purchasing Mobile read service', () => {
             kind: 'ORDER', id: 'po-1', canViewAmounts: false,
         })).rejects.toThrow('Konteks tenant');
         expect(m.orderDetail).not.toHaveBeenCalled();
+    });
+
+    it('composes canonical waiting-receipt and factual ETA predicates for every read', async () => {
+        await readPurchasingMobileOverview({
+            filter: 'ALL', canViewAmounts: false, now,
+        });
+        expect(m.orderCount).toHaveBeenCalledWith({
+            where: { status: { in: ['SENT', 'PARTIAL_RECEIVED'] } },
+        });
+        expect(m.orderList).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { status: 'PARTIAL_RECEIVED' } }),
+        );
+        expect(m.orderList).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { status: 'SENT' } }),
+        );
+        const etaCountWhere = m.orderCount.mock.calls
+            .map(([args]) => args.where)
+            .find((where) => where.expectedDate);
+        expect(etaCountWhere).toEqual({
+            status: { in: ['SENT', 'PARTIAL_RECEIVED'] },
+            expectedDate: { lt: new Date('2026-10-06T17:00:00.000Z') },
+        });
+
+        m.orderCount.mockClear();
+        m.orderList.mockClear();
+        await readPurchasingMobileOverview({
+            filter: 'ETA', canViewAmounts: false, now,
+        });
+        expect(m.orderList).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: {
+                    status: { in: ['SENT', 'PARTIAL_RECEIVED'] },
+                    expectedDate: { lt: new Date('2026-10-06T17:00:00.000Z') },
+                },
+            }),
+        );
+    });
+
+    it('maps owner reorder drivers, keeps the full count, and caps only the sample', async () => {
+        m.reorderList.mockResolvedValue(
+            Array.from({ length: 12 }, (_, index) => ({
+                id: `v-${index}`,
+                name: `Bahan ${index}`,
+                skuCode: `SKU-${index}`,
+                primaryUnit: 'KG',
+                reorderPoint: d(100),
+                reorderQuantity: index === 0 ? d(50) : null,
+                preferredSupplier: index === 0 ? { name: 'Supplier C' } : null,
+                inventories: [
+                    {
+                        quantity: d(index * 5),
+                        location: {
+                            locationType: 'INTERNAL',
+                            locationPurpose: 'RAW_MATERIAL',
+                        },
+                    },
+                ],
+            })),
+        );
+
+        const result = await readPurchasingMobileOverview({
+            filter: 'REORDER', canViewAmounts: false, now,
+        });
+
+        expect(result.highlights.suggestedReorderCount).toBe(12);
+        expect(result.suggestedReorder).toMatchObject({ total: 12, returned: 10 });
+        expect(result.suggestedReorder.items).toHaveLength(10);
+        expect(result.suggestedReorder.items[0]).toEqual({
+            id: 'v-0',
+            name: 'Bahan 0',
+            skuCode: 'SKU-0',
+            unit: 'KG',
+            supplierName: 'Supplier C',
+            totalStock: 0,
+            reorderPoint: 100,
+            reorderQuantity: 50,
+        });
+        // Queue reorder candidacy is exactly the suggested top-N membership.
+        expect(result.queue.items).toHaveLength(10);
+        expect(new Set(result.queue.items.map((item) => item.id))).toEqual(
+            new Set(result.suggestedReorder.items.map((item) => item.id)),
+        );
+    });
+
+    it('isolates a single failed reader while unrelated sections stay available', async () => {
+        m.requestCount.mockRejectedValue(new Error('PR snapshot unavailable'));
+        m.requestList.mockResolvedValue([]);
+
+        const result = await readPurchasingMobileOverview({
+            filter: 'ALL', canViewAmounts: false, now,
+        });
+
+        expect(result.sections.requests).toBe('UNAVAILABLE');
+        expect(result.sections.drafts).toBe('AVAILABLE');
+        expect(result.sections.receipts).toBe('AVAILABLE');
+        expect(result.sections.reorder).toBe('AVAILABLE');
+        expect(result.sections.ap).toBe('AVAILABLE');
+        expect(result.highlights.pendingRequestCount).toBeNull();
+        expect(result.highlights.draftPoCount).toBe(1);
+        expect(result.highlights.overdueApCount).toBe(3);
+        expect(result.queue.items.some((item) => item.kind === 'REQUEST')).toBe(false);
+        expect(result.queue.items.some((item) => item.kind === 'DRAFT_PO')).toBe(true);
+    });
+
+    it('marks nominal AP hidden without capability and unavailable when its aggregate fails', async () => {
+        const hidden = await readPurchasingMobileOverview({
+            filter: 'ALL', canViewAmounts: false, now,
+        });
+        expect(hidden.sections.apNominal).toBe('HIDDEN');
+        expect(hidden.sections.ap).toBe('AVAILABLE');
+        expect('overdueApAmount' in hidden.highlights).toBe(false);
+        expect(m.invoiceAggregate).not.toHaveBeenCalled();
+
+        m.invoiceAggregate.mockRejectedValue(new Error('amount aggregate failed'));
+        const failed = await readPurchasingMobileOverview({
+            filter: 'ALL', canViewAmounts: true, now,
+        });
+        expect(failed.sections.apNominal).toBe('UNAVAILABLE');
+        expect(failed.sections.ap).toBe('AVAILABLE');
+        expect(failed.highlights.overdueApCount).toBe(3);
+        expect('overdueApAmount' in failed.highlights).toBe(false);
+    });
+
+    it('keeps a successful zero read available rather than not configured', async () => {
+        m.requestCount.mockResolvedValue(0);
+        m.requestList.mockResolvedValue([]);
+        m.orderCount.mockResolvedValue(0);
+        m.orderList.mockResolvedValue([]);
+        m.invoiceCount.mockResolvedValue(0);
+        m.reorderList.mockResolvedValue([]);
+
+        const result = await readPurchasingMobileOverview({
+            filter: 'ALL', canViewAmounts: false, now,
+        });
+
+        expect(result.sections).toMatchObject({
+            requests: 'AVAILABLE',
+            drafts: 'AVAILABLE',
+            receipts: 'AVAILABLE',
+            reorder: 'AVAILABLE',
+            ap: 'AVAILABLE',
+            apNominal: 'HIDDEN',
+        });
+        expect(result.highlights).toEqual({
+            pendingRequestCount: 0,
+            draftPoCount: 0,
+            waitingReceiptCount: 0,
+            etaExceptionCount: 0,
+            suggestedReorderCount: 0,
+            overdueApCount: 0,
+        });
+        expect(result.suggestedReorder).toEqual({
+            total: 0,
+            returned: 0,
+            items: [],
+        });
+    });
+
+    it('omits filter-excluded sections instead of marking them unavailable', async () => {
+        const result = await readPurchasingMobileOverview({
+            filter: 'REQUESTS', canViewAmounts: false, now,
+        });
+        expect(result.sections).not.toHaveProperty('drafts');
+        expect(result.sections).not.toHaveProperty('receipts');
+        expect(result.sections).not.toHaveProperty('reorder');
+        expect(result.sections.requests).toBe('AVAILABLE');
+    });
+
+    it('omits item unit price and subtotal selects without price permission', async () => {
+        m.orderDetail.mockResolvedValue({
+            id: 'po-draft',
+            orderNumber: 'PO-DRAFT',
+            status: 'DRAFT',
+            orderDate: now,
+            expectedDate: null,
+            supplier: { name: 'Supplier A' },
+            items: [],
+            goodsReceipts: [],
+            _count: { goodsReceipts: 0 },
+        });
+
+        const detail = await readPurchasingMobileDetail({
+            kind: 'ORDER', id: 'po-draft', canViewAmounts: false,
+        });
+
+        const select = m.orderDetail.mock.calls[0][0].select as {
+            totalAmount?: unknown;
+            items: { select: Record<string, unknown> };
+        };
+        expect(select).not.toHaveProperty('totalAmount');
+        expect(select.items.select).not.toHaveProperty('unitPrice');
+        expect(select.items.select).not.toHaveProperty('subtotal');
+        expect('totalAmount' in detail).toBe(false);
     });
 });

@@ -1,15 +1,72 @@
 import Link from 'next/link';
-import {
-    MobileEmptyState,
-    MobileTaskCard,
-} from '@/components/mobile';
+import { MobileEmptyState, MobileTaskCard } from '@/components/mobile';
 import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import { formatWIB } from '@/lib/utils/timezone';
 import type {
     PurchasingMobileDetailDto,
+    PurchasingMobileSections,
     PurchasingMobileTaskDto,
     PurchasingMobileTaskFilter,
 } from '@/services/purchasing/mobile-purchasing-service';
+
+const SECTION_LABELS: Record<string, string> = {
+    requests: 'PR perlu diproses',
+    drafts: 'Draft PO',
+    receipts: 'Penerimaan',
+    reorder: 'Reorder',
+    ap: 'AP overdue',
+    apNominal: 'Nominal AP',
+};
+
+/**
+ * Section state must stay visible without erasing unrelated sections and
+ * without rendering a failed/hidden section as a false zero.
+ */
+export function PurchasingSectionNotice({
+    sections,
+}: {
+    sections?: PurchasingMobileSections;
+}) {
+    const unavailable = Object.entries(sections ?? {})
+        .filter(([, status]) => status === 'UNAVAILABLE')
+        .map(([key]) => SECTION_LABELS[key] ?? key);
+    const hidden = Object.entries(sections ?? {})
+        .filter(([, status]) => status === 'HIDDEN')
+        .map(([key]) => SECTION_LABELS[key] ?? key);
+    if (unavailable.length === 0 && hidden.length === 0) return null;
+    return (
+        <div
+            role="status"
+            className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+            {unavailable.length > 0 && (
+                <p>
+                    Sebagian data tidak dapat dibaca: {unavailable.join(', ')}.
+                    Bagian lain tetap ditampilkan apa adanya.
+                </p>
+            )}
+            {hidden.length > 0 && (
+                <p className="mt-1">
+                    Tidak dikirim karena izin: {hidden.join(', ')}.
+                </p>
+            )}
+        </div>
+    );
+}
+
+/** Preserve a missing section as an explicit placeholder, never as zero. */
+export function purchasingMetricValue(value: number | null): string | number {
+    return value ?? '—';
+}
+
+export function purchasingCountSeverity(
+    value: number | null,
+    present: 'WARNING' | 'CRITICAL',
+    empty: 'SUCCESS' | 'INFO' = 'SUCCESS',
+): 'INFO' | 'SUCCESS' | 'WARNING' | 'CRITICAL' {
+    if (value == null) return 'INFO';
+    return value ? present : empty;
+}
 
 const FILTERS: Array<{
     value: PurchasingMobileTaskFilter;
@@ -148,7 +205,8 @@ function DetailHeader({
                 {title}
             </h1>
             <p className="text-xs text-muted-foreground">
-                Detail read-only. Persetujuan dan perubahan tetap dilakukan di desktop.
+                Detail read-only. Persetujuan dan perubahan tetap dilakukan di
+                desktop.
             </p>
         </div>
     );
@@ -164,19 +222,52 @@ export function PurchasingMobileDetailView({
             <div className="min-w-0 space-y-5">
                 <DetailHeader title={detail.number} filter="REQUESTS" />
                 <dl className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-4 text-sm [&>div]:min-w-0 [&_dd]:[overflow-wrap:anywhere]">
-                    <div><dt className="text-muted-foreground">Status</dt><dd className="font-semibold">{purchasingStatusLabel(detail.status)}</dd></div>
-                    <div><dt className="text-muted-foreground">Prioritas</dt><dd className="font-semibold">{detail.priority}</dd></div>
-                    <div><dt className="text-muted-foreground">Dibuat</dt><dd>{formatWIB(detail.requestedAt, 'dd MMM yyyy')}</dd></div>
-                    <div><dt className="text-muted-foreground">Pemilik</dt><dd>{detail.createdByName}</dd></div>
-                    {detail.reviewedByName && <div className="col-span-2"><dt className="text-muted-foreground">Reviewer</dt><dd>{detail.reviewedByName}</dd></div>}
+                    <div>
+                        <dt className="text-muted-foreground">Status</dt>
+                        <dd className="font-semibold">
+                            {purchasingStatusLabel(detail.status)}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground">Prioritas</dt>
+                        <dd className="font-semibold">{detail.priority}</dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground">Dibuat</dt>
+                        <dd>{formatWIB(detail.requestedAt, 'dd MMM yyyy')}</dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground">Pemilik</dt>
+                        <dd>{detail.createdByName}</dd>
+                    </div>
+                    {detail.reviewedByName && (
+                        <div className="col-span-2">
+                            <dt className="text-muted-foreground">Reviewer</dt>
+                            <dd>{detail.reviewedByName}</dd>
+                        </div>
+                    )}
                 </dl>
-                <section className="space-y-3" aria-labelledby="request-items-heading">
-                    <h2 id="request-items-heading" className="font-semibold">Item permintaan</h2>
+                <section
+                    className="space-y-3"
+                    aria-labelledby="request-items-heading"
+                >
+                    <h2 id="request-items-heading" className="font-semibold">
+                        Item permintaan
+                    </h2>
                     {detail.items.map((item) => (
-                        <article key={item.id} className="rounded-xl border bg-card p-4">
-                            <h3 className="font-semibold [overflow-wrap:anywhere]">{item.name}</h3>
-                            <p className="text-xs text-muted-foreground">{item.skuCode}</p>
-                            <p className="mt-2 text-sm">{formatQuantity(item.quantity)} {item.unit}</p>
+                        <article
+                            key={item.id}
+                            className="rounded-xl border bg-card p-4"
+                        >
+                            <h3 className="font-semibold [overflow-wrap:anywhere]">
+                                {item.name}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                {item.skuCode}
+                            </p>
+                            <p className="mt-2 text-sm">
+                                {formatQuantity(item.quantity)} {item.unit}
+                            </p>
                         </article>
                     ))}
                 </section>
@@ -189,21 +280,69 @@ export function PurchasingMobileDetailView({
             <div className="min-w-0 space-y-5">
                 <DetailHeader title={detail.number} filter="DRAFT_PO" />
                 <dl className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-4 text-sm [&>div]:min-w-0 [&_dd]:[overflow-wrap:anywhere]">
-                    <div><dt className="text-muted-foreground">Status</dt><dd className="font-semibold">{purchasingStatusLabel(detail.status)}</dd></div>
-                    <div><dt className="text-muted-foreground">Supplier</dt><dd>{detail.supplierName}</dd></div>
-                    <div><dt className="text-muted-foreground">Tanggal PO</dt><dd>{formatWIB(detail.orderedAt, 'dd MMM yyyy')}</dd></div>
-                    <div><dt className="text-muted-foreground">ETA</dt><dd>{detail.expectedAt ? formatWIB(detail.expectedAt, 'dd MMM yyyy') : 'Belum ditetapkan'}</dd></div>
-                    {'totalAmount' in detail && <div className="col-span-2"><dt className="text-muted-foreground">Total</dt><dd className="font-semibold">{formatRupiah(detail.totalAmount)}</dd></div>}
+                    <div>
+                        <dt className="text-muted-foreground">Status</dt>
+                        <dd className="font-semibold">
+                            {purchasingStatusLabel(detail.status)}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground">Supplier</dt>
+                        <dd>{detail.supplierName}</dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground">Tanggal PO</dt>
+                        <dd>{formatWIB(detail.orderedAt, 'dd MMM yyyy')}</dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground">ETA</dt>
+                        <dd>
+                            {detail.expectedAt
+                                ? formatWIB(detail.expectedAt, 'dd MMM yyyy')
+                                : 'Belum ditetapkan'}
+                        </dd>
+                    </div>
+                    {'totalAmount' in detail && (
+                        <div className="col-span-2">
+                            <dt className="text-muted-foreground">Total</dt>
+                            <dd className="font-semibold">
+                                {formatRupiah(detail.totalAmount)}
+                            </dd>
+                        </div>
+                    )}
                 </dl>
-                <section className="space-y-3" aria-labelledby="order-items-heading">
-                    <h2 id="order-items-heading" className="font-semibold">Item PO</h2>
+                <section
+                    className="space-y-3"
+                    aria-labelledby="order-items-heading"
+                >
+                    <h2 id="order-items-heading" className="font-semibold">
+                        Item PO
+                    </h2>
                     {detail.items.map((item) => (
-                        <article key={item.id} className="rounded-xl border bg-card p-4">
-                            <h3 className="font-semibold [overflow-wrap:anywhere]">{item.name}</h3>
-                            <p className="text-xs text-muted-foreground">{item.skuCode}</p>
-                            <p className="mt-2 text-sm">Dipesan {formatQuantity(item.quantity)} {item.unit}</p>
-                            {'unitPrice' in item && <p className="text-sm">Harga satuan {formatRupiah(item.unitPrice)}</p>}
-                            {'subtotal' in item && <p className="text-sm font-semibold">Subtotal {formatRupiah(item.subtotal)}</p>}
+                        <article
+                            key={item.id}
+                            className="rounded-xl border bg-card p-4"
+                        >
+                            <h3 className="font-semibold [overflow-wrap:anywhere]">
+                                {item.name}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                {item.skuCode}
+                            </p>
+                            <p className="mt-2 text-sm">
+                                Dipesan {formatQuantity(item.quantity)}{' '}
+                                {item.unit}
+                            </p>
+                            {'unitPrice' in item && (
+                                <p className="text-sm">
+                                    Harga satuan {formatRupiah(item.unitPrice)}
+                                </p>
+                            )}
+                            {'subtotal' in item && (
+                                <p className="text-sm font-semibold">
+                                    Subtotal {formatRupiah(item.subtotal)}
+                                </p>
+                            )}
                         </article>
                     ))}
                 </section>
@@ -215,22 +354,85 @@ export function PurchasingMobileDetailView({
         <div className="min-w-0 space-y-5">
             <DetailHeader title={detail.number} filter="RECEIPTS" />
             <dl className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-4 text-sm [&>div]:min-w-0 [&_dd]:[overflow-wrap:anywhere]">
-                <div><dt className="text-muted-foreground">Status</dt><dd className="font-semibold">{purchasingStatusLabel(detail.status)}</dd></div>
-                <div><dt className="text-muted-foreground">Supplier</dt><dd>{detail.supplierName}</dd></div>
-                <div><dt className="text-muted-foreground">ETA</dt><dd>{detail.expectedAt ? formatWIB(detail.expectedAt, 'dd MMM yyyy') : 'Belum ditetapkan'}</dd></div>
-                <div><dt className="text-muted-foreground">Penerimaan</dt><dd>{detail.receiptCount} dokumen</dd></div>
-                {detail.latestReceiptAt && <div className="col-span-2"><dt className="text-muted-foreground">Terakhir diterima</dt><dd>{formatWIB(detail.latestReceiptAt, 'dd MMM yyyy HH:mm')}</dd></div>}
+                <div>
+                    <dt className="text-muted-foreground">Status</dt>
+                    <dd className="font-semibold">
+                        {purchasingStatusLabel(detail.status)}
+                    </dd>
+                </div>
+                <div>
+                    <dt className="text-muted-foreground">Supplier</dt>
+                    <dd>{detail.supplierName}</dd>
+                </div>
+                <div>
+                    <dt className="text-muted-foreground">ETA</dt>
+                    <dd>
+                        {detail.expectedAt
+                            ? formatWIB(detail.expectedAt, 'dd MMM yyyy')
+                            : 'Belum ditetapkan'}
+                    </dd>
+                </div>
+                <div>
+                    <dt className="text-muted-foreground">Penerimaan</dt>
+                    <dd>{detail.receiptCount} dokumen</dd>
+                </div>
+                {detail.latestReceiptAt && (
+                    <div className="col-span-2">
+                        <dt className="text-muted-foreground">
+                            Terakhir diterima
+                        </dt>
+                        <dd>
+                            {formatWIB(
+                                detail.latestReceiptAt,
+                                'dd MMM yyyy HH:mm',
+                            )}
+                        </dd>
+                    </div>
+                )}
             </dl>
-            <section className="space-y-3" aria-labelledby="receipt-items-heading">
-                <h2 id="receipt-items-heading" className="font-semibold">Progres penerimaan</h2>
+            <section
+                className="space-y-3"
+                aria-labelledby="receipt-items-heading"
+            >
+                <h2 id="receipt-items-heading" className="font-semibold">
+                    Progres penerimaan
+                </h2>
                 {detail.items.map((item) => (
-                    <article key={item.id} className="rounded-xl border bg-card p-4">
-                        <h3 className="font-semibold [overflow-wrap:anywhere]">{item.name}</h3>
-                        <p className="text-xs text-muted-foreground">{item.skuCode}</p>
+                    <article
+                        key={item.id}
+                        className="rounded-xl border bg-card p-4"
+                    >
+                        <h3 className="font-semibold [overflow-wrap:anywhere]">
+                            {item.name}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                            {item.skuCode}
+                        </p>
                         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                            <p>Dipesan<br /><strong>{formatQuantity(item.orderedQuantity)} {item.unit}</strong></p>
-                            <p>Diterima<br /><strong>{formatQuantity(item.receivedQuantity)} {item.unit}</strong></p>
-                            <p>Sisa<br /><strong>{formatQuantity(item.remainingQuantity)} {item.unit}</strong></p>
+                            <p>
+                                Dipesan
+                                <br />
+                                <strong>
+                                    {formatQuantity(item.orderedQuantity)}{' '}
+                                    {item.unit}
+                                </strong>
+                            </p>
+                            <p>
+                                Diterima
+                                <br />
+                                <strong>
+                                    {formatQuantity(item.receivedQuantity)}{' '}
+                                    {item.unit}
+                                </strong>
+                            </p>
+                            <p>
+                                Sisa
+                                <br />
+                                <strong>
+                                    {formatQuantity(item.remainingQuantity)}{' '}
+                                    {item.unit}
+                                </strong>
+                            </p>
                         </div>
                     </article>
                 ))}

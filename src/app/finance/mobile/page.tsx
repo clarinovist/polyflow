@@ -1,4 +1,3 @@
-import React from 'react';
 import Link from 'next/link';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getFinanceMobileOverview } from '@/actions/finance/mobile-dashboard';
@@ -7,48 +6,73 @@ import {
     MobileInsightCard,
     MobileSectionHeader,
 } from '@/components/mobile';
+import type { MobileSection } from '@/services/dashboard/mobile-section-state';
+import {
+    FinanceSectionNotice,
+    financeCountSeverity,
+    financeMetricValue,
+} from './finance-mobile-view';
+
+function fiscalPeriodLabel(
+    section: MobileSection<{ period: string; status: string }>,
+): string {
+    if (section.status === 'AVAILABLE') return section.data.status;
+    if (section.status === 'NOT_CONFIGURED') return 'Belum dibuat';
+    return '—';
+}
 
 export default async function FinanceMobilePage() {
     const response = await getFinanceMobileOverview();
     if (!response.success)
         return <MobileReadError title="Ringkasan finance belum tersedia" />;
     const { highlights, generatedAt, readiness } = response.data;
+    const sections = response.data.sections ?? {};
+    const payroll = readiness.payroll;
     return (
         <div className="space-y-6">
             <MobileSectionHeader title="Finance Pulse Hari Ini" level={1} />
             <MobileDataFreshness generatedAt={generatedAt} />
+            <FinanceSectionNotice sections={sections} />
             <div className="grid grid-cols-2 gap-3">
                 <MobileInsightCard
                     insight={{
                         key: 'ar-count',
                         label: 'Piutang Terbuka',
-                        value: highlights.arCount,
-                        severity: highlights.arCount ? 'WARNING' : 'SUCCESS',
+                        value: financeMetricValue(highlights.arCount),
+                        severity: financeCountSeverity(
+                            highlights.arCount,
+                            'WARNING',
+                        ),
                     }}
                 />
                 <MobileInsightCard
                     insight={{
                         key: 'ap-count',
                         label: 'Hutang Terbuka',
-                        value: highlights.apCount,
-                        severity: highlights.apCount ? 'CRITICAL' : 'SUCCESS',
+                        value: financeMetricValue(highlights.apCount),
+                        severity: financeCountSeverity(
+                            highlights.apCount,
+                            'CRITICAL',
+                        ),
                     }}
                 />
                 <MobileInsightCard
                     insight={{
                         key: 'draft-journals',
                         label: 'Draft Jurnal',
-                        value: highlights.draftJournalCount,
-                        severity: highlights.draftJournalCount
-                            ? 'WARNING'
-                            : 'INFO',
+                        value: financeMetricValue(highlights.draftJournalCount),
+                        severity: financeCountSeverity(
+                            highlights.draftJournalCount,
+                            'WARNING',
+                            'INFO',
+                        ),
                     }}
                 />
                 <MobileInsightCard
                     insight={{
                         key: 'open-recon',
                         label: 'Rekonsiliasi Bank',
-                        value: highlights.openReconCount,
+                        value: financeMetricValue(highlights.openReconCount),
                         severity: 'INFO',
                     }}
                 />
@@ -72,17 +96,19 @@ export default async function FinanceMobilePage() {
                             Periode Finance bulan ini
                         </dt>
                         <dd className="font-semibold">
-                            {readiness.fiscalPeriod?.status ?? 'Belum dibuat'}
+                            {fiscalPeriodLabel(readiness.fiscalPeriod)}
                         </dd>
                     </div>
                     <div>
                         <dt className="text-muted-foreground">
-                            Payroll bulan ini
+                            Payroll periode OPEN terakhir
                         </dt>
                         <dd className="font-semibold">
-                            {readiness.payroll
-                                ? `${readiness.payroll.status} · ${readiness.payroll.counts.paid}/${readiness.payroll.total} paid`
-                                : 'Belum dibuat'}
+                            {payroll.status === 'AVAILABLE'
+                                ? `${payroll.data.status} · ${payroll.data.counts.paid}/${payroll.data.total} paid`
+                                : payroll.status === 'NOT_CONFIGURED'
+                                  ? 'Belum ada periode OPEN'
+                                  : '—'}
                         </dd>
                     </div>
                 </dl>

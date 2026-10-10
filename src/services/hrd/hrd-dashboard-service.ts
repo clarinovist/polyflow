@@ -176,7 +176,28 @@ async function readPayrollAttention(db: PrismaClient) {
     return { openPeriods, periodsNeedGenerate };
 }
 
-async function readPayrollReadiness(db: PrismaClient) {
+type HrdDashboardPayrollReadinessDb = Pick<
+    PrismaClient,
+    'payrollPeriod' | 'payslip'
+>;
+
+export interface HrdDashboardPayrollReadiness {
+    year: number;
+    month: number;
+    total: number;
+    draft: number;
+    finalized: number;
+    paid: number;
+}
+
+/**
+ * Narrow owner read shared by the HRD and Finance mobile composers: the
+ * deterministic latest OPEN period plus grouped generated-slip status counts.
+ * Returns null when no OPEN period exists (NOT_CONFIGURED at the consumer).
+ */
+export async function readHrdDashboardPayrollReadiness(
+    db: HrdDashboardPayrollReadinessDb,
+): Promise<HrdDashboardPayrollReadiness | null> {
     const latest = await db.payrollPeriod.findFirst({
         where: { status: 'OPEN' },
         select: { id: true, year: true, month: true },
@@ -204,6 +225,10 @@ async function readPayrollReadiness(db: PrismaClient) {
         total: counts.draft + counts.finalized + counts.paid,
         ...counts,
     };
+}
+
+async function readPayrollReadiness(db: PrismaClient) {
+    return readHrdDashboardPayrollReadiness(db);
 }
 
 async function readEmploymentFollowUp(db: PrismaClient, now: Date) {
