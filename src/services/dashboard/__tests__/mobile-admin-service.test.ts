@@ -192,11 +192,33 @@ describe('MobileAdminService', () => {
                 dueDate: { lt: new Date('2026-10-06T17:00:00.000Z') },
                 salesOrder: {
                     customerId: { not: null },
-                    NOT: [
-                        { orderNumber: { startsWith: 'SO-OPEN-' } },
-                        { orderNumber: { startsWith: 'OB-AR-' } },
-                        { notes: { startsWith: 'Opening Balance Entry' } },
-                        { notes: { startsWith: 'Sheet Penjualan Jun:' } },
+                    AND: [
+                        { NOT: { orderNumber: { startsWith: 'SO-OPEN-' } } },
+                        { NOT: { orderNumber: { startsWith: 'OB-AR-' } } },
+                        {
+                            OR: [
+                                { notes: null },
+                                {
+                                    NOT: {
+                                        notes: {
+                                            startsWith: 'Opening Balance Entry',
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            OR: [
+                                { notes: null },
+                                {
+                                    NOT: {
+                                        notes: {
+                                            startsWith: 'Sheet Penjualan Jun:',
+                                        },
+                                    },
+                                },
+                            ],
+                        },
                     ],
                 },
             },

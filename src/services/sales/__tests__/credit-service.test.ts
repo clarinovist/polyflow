@@ -351,11 +351,21 @@ describe("credit-service", () => {
             remainingAmount: { gt: 0 },
             salesOrder: expect.objectContaining({
               customerId: { in: customers.map((item) => item.id) },
-              NOT: expect.arrayContaining([
-                { orderNumber: { startsWith: "SO-OPEN-" } },
-                { orderNumber: { startsWith: "OB-AR-" } },
-                { notes: { startsWith: "Opening Balance Entry" } },
-                { notes: { startsWith: "Sheet Penjualan Jun:" } },
+              AND: expect.arrayContaining([
+                { NOT: { orderNumber: { startsWith: "SO-OPEN-" } } },
+                { NOT: { orderNumber: { startsWith: "OB-AR-" } } },
+                {
+                  OR: expect.arrayContaining([
+                    { notes: null },
+                    { NOT: { notes: { startsWith: "Opening Balance Entry" } } },
+                  ]),
+                },
+                {
+                  OR: expect.arrayContaining([
+                    { notes: null },
+                    { NOT: { notes: { startsWith: "Sheet Penjualan Jun:" } } },
+                  ]),
+                },
               ]),
             }),
           }),

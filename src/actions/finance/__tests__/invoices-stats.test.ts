@@ -174,14 +174,32 @@ describe('getInvoiceStats', () => {
                     invoiceDate: { gte: startDate, lte: endDate },
                     salesOrder: expect.objectContaining({
                         customerId: { not: null },
-                        NOT: expect.arrayContaining([
-                            { orderNumber: { startsWith: 'SO-OPEN-' } },
-                            { orderNumber: { startsWith: 'OB-AR-' } },
-                            { notes: { startsWith: 'Opening Balance Entry' } },
+                        AND: expect.arrayContaining([
+                            { NOT: { orderNumber: { startsWith: 'SO-OPEN-' } } },
+                            { NOT: { orderNumber: { startsWith: 'OB-AR-' } } },
                             {
-                                notes: {
-                                    startsWith: 'Sheet Penjualan Jun:',
-                                },
+                                OR: expect.arrayContaining([
+                                    { notes: null },
+                                    {
+                                        NOT: {
+                                            notes: {
+                                                startsWith: 'Opening Balance Entry',
+                                            },
+                                        },
+                                    },
+                                ]),
+                            },
+                            {
+                                OR: expect.arrayContaining([
+                                    { notes: null },
+                                    {
+                                        NOT: {
+                                            notes: {
+                                                startsWith: 'Sheet Penjualan Jun:',
+                                            },
+                                        },
+                                    },
+                                ]),
                             },
                         ]),
                     }),
@@ -195,7 +213,7 @@ describe('getInvoiceStats', () => {
                     invoiceDate: { gte: startDate, lte: endDate },
                     salesOrder: expect.objectContaining({
                         customerId: { not: null },
-                        NOT: expect.any(Array),
+                        AND: expect.any(Array),
                     }),
                 }),
             }),

@@ -231,7 +231,7 @@ describe('Field Sales database reader', () => {
         ]);
         expect(where.AND[1].salesOrder.AND[1]).toMatchObject({
             customerId: { not: null },
-            NOT: expect.any(Array),
+            AND: expect.any(Array),
         });
         expect(m.invoiceAggregate).not.toHaveBeenCalled();
         expect(m.invoices).not.toHaveBeenCalled();
