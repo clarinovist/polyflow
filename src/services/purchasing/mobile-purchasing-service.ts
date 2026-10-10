@@ -5,6 +5,10 @@ import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-pa
 import { readWarehouseInventoryThresholdSnapshot } from '@/services/inventory/warehouse-dashboard-service';
 import { buildPurchasingDashboardWaitingReceiptWhere } from '@/services/purchasing/purchasing-dashboard-query';
 import type { MobileSectionStatus } from '@/services/dashboard/mobile-section-state';
+import {
+    observeDashboardSection,
+    recordDashboardSectionState,
+} from '@/services/dashboard/dashboard-section-observability';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 
 export const PURCHASING_MOBILE_SAMPLE_LIMIT = 10;
@@ -401,6 +405,14 @@ export async function readPurchasingMobileOverview(input: {
         input.filter === 'RECEIPTS' ||
         input.filter === 'ETA';
     const wantsReorder = input.filter === 'ALL' || input.filter === 'REORDER';
+    if (!input.canViewAmounts) {
+        recordDashboardSectionState({
+            route: 'purchasing-mobile',
+            section: 'overdue-ap-nominal',
+            state: 'HIDDEN',
+            generatedAt: now,
+        });
+    }
 
     const repeatableRead = <T>(
         reader: (tx: Prisma.TransactionClient) => Promise<T>,
@@ -421,29 +433,63 @@ export async function readPurchasingMobileOverview(input: {
         apNominalOutcome,
     ] = await Promise.allSettled([
         wantsRequests
-            ? repeatableRead((tx) => readRequestGroup(tx, prWhere))
+            ? observeDashboardSection({
+                  route: 'purchasing-mobile',
+                  section: 'requests',
+                  generatedAt: now,
+                  read: () =>
+                      repeatableRead((tx) => readRequestGroup(tx, prWhere)),
+              })
             : Promise.resolve(null),
         wantsDrafts
-            ? repeatableRead((tx) => readDraftGroup(tx))
+            ? observeDashboardSection({
+                  route: 'purchasing-mobile',
+                  section: 'drafts',
+                  generatedAt: now,
+                  read: () => repeatableRead((tx) => readDraftGroup(tx)),
+              })
             : Promise.resolve(null),
         wantsReceipts
-            ? repeatableRead((tx) =>
-                  readReceiptGroup(tx, input.filter, startOfDay),
-              )
+            ? observeDashboardSection({
+                  route: 'purchasing-mobile',
+                  section: 'receipts',
+                  generatedAt: now,
+                  read: () =>
+                      repeatableRead((tx) =>
+                          readReceiptGroup(tx, input.filter, startOfDay),
+                      ),
+              })
             : Promise.resolve(null),
         wantsReorder
-            ? repeatableRead((tx) => readReorderGroup(tx))
+            ? observeDashboardSection({
+                  route: 'purchasing-mobile',
+                  section: 'reorder',
+                  generatedAt: now,
+                  read: () => repeatableRead((tx) => readReorderGroup(tx)),
+              })
             : Promise.resolve(null),
-        repeatableRead((tx) =>
-            readApGroup(tx, buildOverduePurchaseInvoiceWhere(tx, now)),
-        ),
+        observeDashboardSection({
+            route: 'purchasing-mobile',
+            section: 'overdue-ap',
+            generatedAt: now,
+            read: () =>
+                repeatableRead((tx) =>
+                    readApGroup(tx, buildOverduePurchaseInvoiceWhere(tx, now)),
+                ),
+        }),
         input.canViewAmounts
-            ? repeatableRead((tx) =>
-                  readApNominalGroup(
-                      tx,
-                      buildOverduePurchaseInvoiceWhere(tx, now),
-                  ),
-              )
+            ? observeDashboardSection({
+                  route: 'purchasing-mobile',
+                  section: 'overdue-ap-nominal',
+                  generatedAt: now,
+                  read: () =>
+                      repeatableRead((tx) =>
+                          readApNominalGroup(
+                              tx,
+                              buildOverduePurchaseInvoiceWhere(tx, now),
+                          ),
+                      ),
+              })
             : Promise.resolve(null),
     ]);
 

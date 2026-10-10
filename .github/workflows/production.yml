@@ -294,6 +294,7 @@ jobs:
           src/actions/dashboard/__tests__/finance-dashboard-postgres.test.ts
           src/actions/dashboard/__tests__/sales-dashboard-postgres.test.ts
           src/services/sales/__tests__/mobile-sales-contract-postgres.test.ts
+          src/services/dashboard/__tests__/dashboard-hardening-postgres.test.ts
           src/services/accounting/__tests__/closing-filter-postgres.test.ts
           src/lib/bot/__tests__/help-guides-postgres.test.ts
           src/lib/bot/__tests__/document-tools-postgres.test.ts

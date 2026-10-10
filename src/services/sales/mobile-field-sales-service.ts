@@ -3,6 +3,10 @@ import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError } from '@/lib/errors/errors';
 import { buildOperationalSalesReceivableOrderWhere } from '@/lib/sales/operational-receivables';
 import {
+    observeDashboardSection,
+    recordDashboardSectionState,
+} from '@/services/dashboard/dashboard-section-observability';
+import {
     availableSection,
     hiddenSection,
     unavailableSection,
@@ -644,6 +648,20 @@ export async function readFieldSalesMobileOverview(input: {
         endOfDay,
     };
     const scope = getFieldSalesScope(input.actor);
+    if (!input.canViewPrices) {
+        recordDashboardSectionState({
+            route: 'field-sales-mobile',
+            section: 'pipeline-nominal',
+            state: 'HIDDEN',
+            generatedAt: now,
+        });
+        recordDashboardSectionState({
+            route: 'field-sales-mobile',
+            section: 'receivables-nominal',
+            state: 'HIDDEN',
+            generatedAt: now,
+        });
+    }
     const reader =
         input.reader ??
         (() => {
@@ -658,12 +676,47 @@ export async function readFieldSalesMobileOverview(input: {
 
     const [route, followUps, compliance, pipeline, customers, receivables] =
         await Promise.allSettled([
-            reader.readRoute(scope, temporal),
-            reader.readFollowUps(scope, temporal),
-            reader.readCompliance(scope, temporal),
-            reader.readPipeline(scope, input.canViewPrices),
-            reader.readActiveCustomers(scope, temporal),
-            reader.readReceivables(scope, temporal, input.canViewPrices),
+            observeDashboardSection({
+                route: 'field-sales-mobile',
+                section: 'route-today',
+                generatedAt: now,
+                read: () => reader.readRoute(scope, temporal),
+            }),
+            observeDashboardSection({
+                route: 'field-sales-mobile',
+                section: 'follow-ups',
+                generatedAt: now,
+                read: () => reader.readFollowUps(scope, temporal),
+            }),
+            observeDashboardSection({
+                route: 'field-sales-mobile',
+                section: 'compliance',
+                generatedAt: now,
+                read: () => reader.readCompliance(scope, temporal),
+            }),
+            observeDashboardSection({
+                route: 'field-sales-mobile',
+                section: 'pipeline',
+                generatedAt: now,
+                read: () => reader.readPipeline(scope, input.canViewPrices),
+            }),
+            observeDashboardSection({
+                route: 'field-sales-mobile',
+                section: 'active-customers',
+                generatedAt: now,
+                read: () => reader.readActiveCustomers(scope, temporal),
+            }),
+            observeDashboardSection({
+                route: 'field-sales-mobile',
+                section: 'receivables',
+                generatedAt: now,
+                read: () =>
+                    reader.readReceivables(
+                        scope,
+                        temporal,
+                        input.canViewPrices,
+                    ),
+            }),
         ]);
 
     return {

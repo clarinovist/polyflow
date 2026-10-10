@@ -1,6 +1,10 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError } from '@/lib/errors/errors';
+import {
+    observeDashboardSection,
+    recordDashboardSectionState,
+} from '@/services/dashboard/dashboard-section-observability';
 import { calculateComplianceRate } from '@/lib/sales/route-compliance';
 import {
     availableSection,
@@ -1062,6 +1066,26 @@ export async function readMarketingMobileOverview(input: {
     const { startOfDay, endOfDay } = getWibDayBounds(businessDate);
     const [year, month] = businessDate.split('-').map(Number);
     const { start: monthStart, end: monthEnd } = getWibMonthBounds(year, month);
+    if (!input.canViewPrices) {
+        recordDashboardSectionState({
+            route: 'marketing-mobile',
+            section: 'team-revenue-nominal',
+            state: 'HIDDEN',
+            generatedAt: now,
+        });
+        recordDashboardSectionState({
+            route: 'marketing-mobile',
+            section: 'pipeline-nominal',
+            state: 'HIDDEN',
+            generatedAt: now,
+        });
+        recordDashboardSectionState({
+            route: 'marketing-mobile',
+            section: 'receivables-nominal',
+            state: 'HIDDEN',
+            generatedAt: now,
+        });
+    }
     const bounds: Bounds = {
         now,
         startOfDay,
@@ -1080,19 +1104,64 @@ export async function readMarketingMobileOverview(input: {
         tasks,
         receivables,
     ] = await Promise.allSettled([
-        transaction(tenantDb, (tx) =>
-            readTeamSection(tx, bounds, input.canViewPrices),
-        ),
-        transaction(tenantDb, (tx) => readComplianceSection(tx, bounds)),
-        transaction(tenantDb, (tx) =>
-            readPipelineSection(tx, bounds, input.canViewPrices),
-        ),
-        transaction(tenantDb, (tx) => readReviewsSection(tx)),
-        transaction(tenantDb, (tx) => readNoFollowUpSection(tx, bounds)),
-        transaction(tenantDb, (tx) => readTasksSection(tx, bounds)),
-        transaction(tenantDb, (tx) =>
-            readReceivablesSection(tx, bounds, input.canViewPrices),
-        ),
+        observeDashboardSection({
+            route: 'marketing-mobile',
+            section: 'team-targets',
+            generatedAt: now,
+            read: () =>
+                transaction(tenantDb, (tx) =>
+                    readTeamSection(tx, bounds, input.canViewPrices),
+                ),
+        }),
+        observeDashboardSection({
+            route: 'marketing-mobile',
+            section: 'route-compliance',
+            generatedAt: now,
+            read: () =>
+                transaction(tenantDb, (tx) =>
+                    readComplianceSection(tx, bounds),
+                ),
+        }),
+        observeDashboardSection({
+            route: 'marketing-mobile',
+            section: 'pipeline-exceptions',
+            generatedAt: now,
+            read: () =>
+                transaction(tenantDb, (tx) =>
+                    readPipelineSection(tx, bounds, input.canViewPrices),
+                ),
+        }),
+        observeDashboardSection({
+            route: 'marketing-mobile',
+            section: 'reviews',
+            generatedAt: now,
+            read: () => transaction(tenantDb, (tx) => readReviewsSection(tx)),
+        }),
+        observeDashboardSection({
+            route: 'marketing-mobile',
+            section: 'missing-follow-up',
+            generatedAt: now,
+            read: () =>
+                transaction(tenantDb, (tx) =>
+                    readNoFollowUpSection(tx, bounds),
+                ),
+        }),
+        observeDashboardSection({
+            route: 'marketing-mobile',
+            section: 'priority-tasks',
+            generatedAt: now,
+            read: () =>
+                transaction(tenantDb, (tx) => readTasksSection(tx, bounds)),
+        }),
+        observeDashboardSection({
+            route: 'marketing-mobile',
+            section: 'overdue-receivables',
+            generatedAt: now,
+            read: () =>
+                transaction(tenantDb, (tx) =>
+                    readReceivablesSection(tx, bounds, input.canViewPrices),
+                ),
+        }),
     ]);
     return {
         generatedAt: now.toISOString(),

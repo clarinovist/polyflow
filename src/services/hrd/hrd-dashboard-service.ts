@@ -1,5 +1,9 @@
 import type { PrismaClient } from '@prisma/client';
 import { wibDateStringFrom } from '@/services/hrd/shift-window';
+import {
+    observeDashboardSection,
+    recordDashboardSectionState,
+} from '@/services/dashboard/dashboard-section-observability';
 
 export type HrdDashboardSection<T> =
     | { status: 'AVAILABLE'; data: T }
@@ -357,18 +361,69 @@ async function collectHrdDashboard(
         hrAlerts,
         recordedAbsenceYesterday,
     ] = await Promise.allSettled([
-        reader.readActiveHeadcount(),
-        reader.readAttendanceToday(workDateValue),
-        reader.readPayrollAttention(),
-        reader.readPayrollReadiness(),
-        reader.readEmploymentFollowUp(now),
-        reader.readPendingLeave(),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'active-headcount',
+            generatedAt: now,
+            read: () => reader.readActiveHeadcount(),
+        }),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'attendance-today',
+            generatedAt: now,
+            read: () => reader.readAttendanceToday(workDateValue),
+        }),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'payroll-attention',
+            generatedAt: now,
+            read: () => reader.readPayrollAttention(),
+        }),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'payroll-readiness',
+            generatedAt: now,
+            read: () => reader.readPayrollReadiness(),
+            state: (value) => (value ? 'AVAILABLE' : 'NOT_CONFIGURED'),
+        }),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'employment-follow-up',
+            generatedAt: now,
+            read: () => reader.readEmploymentFollowUp(now),
+        }),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'pending-leave',
+            generatedAt: now,
+            read: () => reader.readPendingLeave(),
+        }),
         options.audience === 'DESKTOP_ROOT'
-            ? reader.readLoanPortfolio()
+            ? observeDashboardSection({
+                  route: 'hrd-dashboard',
+                  section: 'loan-portfolio',
+                  generatedAt: now,
+                  read: () => reader.readLoanPortfolio(),
+              })
             : Promise.resolve(null),
-        reader.readBpjs(),
-        reader.readHrAlerts(),
-        reader.readRecordedAbsence(yesterdayWorkDateValue),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'bpjs',
+            generatedAt: now,
+            read: () => reader.readBpjs(),
+        }),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'hr-alerts',
+            generatedAt: now,
+            read: () => reader.readHrAlerts(),
+        }),
+        observeDashboardSection({
+            route: 'hrd-dashboard',
+            section: 'recorded-absence',
+            generatedAt: now,
+            read: () => reader.readRecordedAbsence(yesterdayWorkDateValue),
+        }),
     ]);
 
     const healthPayroll: HrdDashboardAggregate['health']['payrollReadiness'] =
@@ -384,6 +439,12 @@ async function collectHrdDashboard(
         hrAlerts: outcomeSection(hrAlerts),
         recordedAbsenceYesterday: outcomeSection(recordedAbsenceYesterday),
     };
+    recordDashboardSectionState({
+        route: 'hrd-dashboard',
+        section: 'drivers',
+        state: 'NOT_CONFIGURED',
+        generatedAt: now,
+    });
     const common = {
         generatedAt: new Date().toISOString(),
         workDate,

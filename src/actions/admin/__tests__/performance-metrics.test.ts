@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getPerformanceMetricsSummary } from '../performance-metrics';
+import {
+    getDashboardSectionDurationSummaries,
+    getPerformanceMetricsSummary,
+} from '../performance-metrics';
 import { prisma, getTenantDb } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 
@@ -45,6 +48,37 @@ describe('getPerformanceMetricsSummary', () => {
         await expect(
             getPerformanceMetricsSummary('production-orders-list'),
         ).rejects.toThrow('Super Admin access required.');
+    });
+
+    it('queries privacy-safe dashboard duration keys through the existing schema', async () => {
+        vi.mocked(prisma.tenant.findMany).mockResolvedValue([
+            { id: 't1', name: 'Tenant A', dbUrl: 'postgres://a' },
+        ] as never);
+        const db = makeMockTenantDb([]);
+        mockGetTenantDb.mockReturnValue(db as never);
+
+        await getDashboardSectionDurationSummaries(
+            'finance-mobile',
+            'payroll-readiness',
+        );
+
+        expect(db.performanceMetric.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({
+                    route: 'dashboard.finance-mobile.payroll-readiness',
+                }),
+            }),
+        );
+    });
+
+    it('rejects dynamic-looking dashboard metric keys', async () => {
+        await expect(
+            getDashboardSectionDurationSummaries(
+                'finance-mobile',
+                'tenant-123/customer-456',
+            ),
+        ).rejects.toThrow('Opaque dashboard metric key required');
+        expect(prisma.tenant.findMany).not.toHaveBeenCalled();
     });
 
     it('returns zeroed summary with null stats when a tenant has no samples', async () => {

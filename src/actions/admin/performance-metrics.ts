@@ -4,6 +4,8 @@ import { prisma, getTenantDb } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 import { AuthorizationError } from '@/lib/errors/errors';
 
+const DASHBOARD_METRIC_PREFIX = 'dashboard.';
+
 export interface PerformanceMetricSummary {
     tenantId: string;
     tenantName: string;
@@ -26,6 +28,28 @@ const MAX_SAMPLES_PER_TENANT = 500;
  * message instead of failing the whole page (Promise.allSettled), matching
  * the pattern in tenant-observability.ts.
  */
+/**
+ * Current PerformanceMetric stores duration only. Dashboard state and age
+ * remain privacy-safe structured logs until a separately approved schema/log
+ * aggregation plan exists; they are never encoded into duration or route.
+ */
+export async function getDashboardSectionDurationSummaries(
+    route: string,
+    section: string,
+    windowHours: number = DEFAULT_WINDOW_HOURS,
+): Promise<PerformanceMetricSummary[]> {
+    if (
+        !/^[a-z][a-z0-9-]{0,63}$/.test(route) ||
+        !/^[a-z][a-z0-9-]{0,63}$/.test(section)
+    ) {
+        throw new AuthorizationError('Opaque dashboard metric key required.');
+    }
+    return getPerformanceMetricsSummary(
+        `${DASHBOARD_METRIC_PREFIX}${route}.${section}`,
+        windowHours,
+    );
+}
+
 export async function getPerformanceMetricsSummary(
     route: string,
     windowHours: number = DEFAULT_WINDOW_HOURS,

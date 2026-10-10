@@ -5,6 +5,10 @@ import {
     PRODUCTION_ALERT_THRESHOLDS_KEY,
 } from '@/lib/production/alert-thresholds';
 import {
+    observeDashboardSection,
+    recordDashboardSectionState,
+} from '@/services/dashboard/dashboard-section-observability';
+import {
     composeProductionDowntime,
     readProductionOutputHealth,
     type ProductionDowntimeData,
@@ -156,10 +160,35 @@ export async function collectProductionMobileOverview(input: {
     const now = input.now ?? new Date();
     const bounds = getWibDayBounds(toBusinessDateString(now));
     const [output, activeSpk, qcPending, downtime] = await Promise.allSettled([
-        input.reader.readOutputToday(bounds),
-        input.reader.readActiveSpk(),
-        input.reader.readQcPending(),
-        input.reader.readDowntime({ now, startOfDay: bounds.startOfDay }),
+        observeDashboardSection({
+            route: 'production-mobile',
+            section: 'output-today',
+            generatedAt: now,
+            read: () => input.reader.readOutputToday(bounds),
+            state: (value) => value.state,
+        }),
+        observeDashboardSection({
+            route: 'production-mobile',
+            section: 'active-spk',
+            generatedAt: now,
+            read: () => input.reader.readActiveSpk(),
+        }),
+        observeDashboardSection({
+            route: 'production-mobile',
+            section: 'qc-pending',
+            generatedAt: now,
+            read: () => input.reader.readQcPending(),
+        }),
+        observeDashboardSection({
+            route: 'production-mobile',
+            section: 'downtime',
+            generatedAt: now,
+            read: () =>
+                input.reader.readDowntime({
+                    now,
+                    startOfDay: bounds.startOfDay,
+                }),
+        }),
     ]);
 
     let outputSection: ProductionMobileOverview['health']['outputToday'] =
@@ -190,6 +219,19 @@ export async function collectProductionMobileOverview(input: {
             longest: composed.longest,
         });
     }
+
+    recordDashboardSectionState({
+        route: 'production-mobile',
+        section: 'target-attainment',
+        state: 'NOT_CONFIGURED',
+        generatedAt: now,
+    });
+    recordDashboardSectionState({
+        route: 'production-mobile',
+        section: 'scrap-severity',
+        state: 'NOT_CONFIGURED',
+        generatedAt: now,
+    });
 
     return {
         generatedAt: now.toISOString(),

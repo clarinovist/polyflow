@@ -16,6 +16,10 @@ import {
     buildPurchasingDashboardWaitingReceiptWhere,
 } from '@/services/purchasing/purchasing-dashboard-query';
 import { readProductionDashboardOperationalCounts } from '@/services/production/production-dashboard-health-service';
+import {
+    observeDashboardSection,
+    recordDashboardSectionState,
+} from '@/services/dashboard/dashboard-section-observability';
 
 const ADMIN_MODULES = [
     'PRODUCTION',
@@ -465,12 +469,28 @@ export class MobileAdminService {
             ),
         );
         const snapshotAt = new Date();
+        for (const moduleKey of entitledModules) {
+            if (!queryableModules.includes(moduleKey)) {
+                recordDashboardSectionState({
+                    route: 'admin-mobile',
+                    section: moduleKey.toLowerCase(),
+                    state: 'UNAVAILABLE',
+                    generatedAt: snapshotAt,
+                });
+            }
+        }
         const settled = await Promise.allSettled(
             queryableModules.map(async (moduleKey) => ({
                 moduleKey,
                 snapshot: await tenantDb.$transaction(
                     (transaction: Prisma.TransactionClient) =>
-                        READERS[moduleKey](transaction, snapshotAt),
+                        observeDashboardSection({
+                            route: 'admin-mobile',
+                            section: moduleKey.toLowerCase(),
+                            generatedAt: snapshotAt,
+                            read: () =>
+                                READERS[moduleKey](transaction, snapshotAt),
+                        }),
                     {
                         isolationLevel:
                             Prisma.TransactionIsolationLevel.RepeatableRead,

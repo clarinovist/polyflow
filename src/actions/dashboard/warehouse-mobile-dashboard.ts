@@ -7,6 +7,10 @@ import { canSeeNavHref } from '@/lib/auth/permission-match';
 import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 import {
+    dashboardSectionState,
+    observeDashboardSection,
+} from '@/services/dashboard/dashboard-section-observability';
+import {
     readWarehouseLoadingAttention,
     readWarehouseMaterialQueue,
     readWarehouseOpenLoadCounts,
@@ -54,12 +58,28 @@ function hidden<T>(): WarehouseMobileSection<T> {
     return { status: 'HIDDEN', data: null };
 }
 async function settleSection<T>(
+    section: string,
+    generatedAt: Date,
     permitted: boolean,
     reader: () => Promise<T>,
 ): Promise<WarehouseMobileSection<T>> {
-    if (!permitted) return hidden();
+    if (!permitted) {
+        return observeDashboardSection({
+            route: 'warehouse-mobile',
+            section,
+            generatedAt,
+            read: async () => hidden<T>(),
+            state: dashboardSectionState,
+        });
+    }
     try {
-        return available(await reader());
+        return await observeDashboardSection({
+            route: 'warehouse-mobile',
+            section,
+            generatedAt,
+            read: async () => available(await reader()),
+            state: dashboardSectionState,
+        });
     } catch {
         return unavailable();
     }
@@ -102,40 +122,77 @@ export const getWarehouseMobileDashboard = withTenant(
                 loadingAttention,
                 openOpname,
             ] = await Promise.all([
-                settleSection(Boolean(outgoingHref), async () => {
-                    const result = await readWarehouseOpenLoadCounts(db);
-                    return {
-                        loading: result.loadingOrders,
-                        pending: result.pendingOrders,
-                    };
-                }),
-                settleSection(Boolean(incomingHref), async () => ({
-                    receivable: await readWarehouseReceivablePOs(db),
-                })),
-                settleSection(true, async () => ({
+                settleSection(
+                    'loads',
+                    snapshotAt,
+                    Boolean(outgoingHref),
+                    async () => {
+                        const result = await readWarehouseOpenLoadCounts(db);
+                        return {
+                            loading: result.loadingOrders,
+                            pending: result.pendingOrders,
+                        };
+                    },
+                ),
+                settleSection(
+                    'receiving',
+                    snapshotAt,
+                    Boolean(incomingHref),
+                    async () => ({
+                        receivable: await readWarehouseReceivablePOs(db),
+                    }),
+                ),
+                settleSection('material-queue', snapshotAt, true, async () => ({
                     count: await readWarehouseMaterialQueue(db),
                 })),
-                settleSection(Boolean(outgoingHref), async () => ({
-                    count: await readWarehouseTodayShipped(db, bounds),
-                })),
-                settleSection(Boolean(incomingHref), async () => ({
-                    count: await readWarehouseTodayReceived(db, bounds),
-                })),
-                settleSection(true, async () => ({
-                    count: await readWarehouseTodayMaterialIssues(db, bounds),
-                })),
-                settleSection(Boolean(outgoingHref), () =>
-                    readWarehouseLoadingAttention(
-                        db,
-                        MOBILE_LOADING_SAMPLE_LIMIT,
-                        (id) => `${outgoingHref}/${id}`,
-                    ),
-                ),
-                settleSection(Boolean(opnameHref), async () => ({
-                    count: await db.stockOpname.count({
-                        where: { status: 'OPEN' },
+                settleSection(
+                    'today-shipped',
+                    snapshotAt,
+                    Boolean(outgoingHref),
+                    async () => ({
+                        count: await readWarehouseTodayShipped(db, bounds),
                     }),
-                })),
+                ),
+                settleSection(
+                    'today-received',
+                    snapshotAt,
+                    Boolean(incomingHref),
+                    async () => ({
+                        count: await readWarehouseTodayReceived(db, bounds),
+                    }),
+                ),
+                settleSection(
+                    'today-material-issues',
+                    snapshotAt,
+                    true,
+                    async () => ({
+                        count: await readWarehouseTodayMaterialIssues(
+                            db,
+                            bounds,
+                        ),
+                    }),
+                ),
+                settleSection(
+                    'loading-attention',
+                    snapshotAt,
+                    Boolean(outgoingHref),
+                    () =>
+                        readWarehouseLoadingAttention(
+                            db,
+                            MOBILE_LOADING_SAMPLE_LIMIT,
+                            (id) => `${outgoingHref}/${id}`,
+                        ),
+                ),
+                settleSection(
+                    'open-opname',
+                    snapshotAt,
+                    Boolean(opnameHref),
+                    async () => ({
+                        count: await db.stockOpname.count({
+                            where: { status: 'OPEN' },
+                        }),
+                    }),
+                ),
             ]);
 
             return {

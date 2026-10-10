@@ -6,6 +6,10 @@ import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 import { buildOverduePurchaseInvoiceWhere } from '@/services/finance/purchase-payable-query';
 import { readHrdDashboardPayrollReadiness } from '@/services/hrd/hrd-dashboard-service';
 import {
+    observeDashboardSection,
+    recordDashboardSectionState,
+} from '@/services/dashboard/dashboard-section-observability';
+import {
     availableSection,
     notConfiguredSection,
     unavailableSection,
@@ -330,6 +334,24 @@ export async function readFinanceMobileOverview(
     const skip = (query.page - 1) * FINANCE_MOBILE_PAGE_SIZE;
     const readAr = query.type !== 'AP';
     const readAp = query.type !== 'AR';
+    if (!query.canViewAmounts) {
+        if (readAr) {
+            recordDashboardSectionState({
+                route: 'finance-mobile',
+                section: 'receivables-ar-nominal',
+                state: 'HIDDEN',
+                generatedAt: now,
+            });
+        }
+        if (readAp) {
+            recordDashboardSectionState({
+                route: 'finance-mobile',
+                section: 'payables-ap-nominal',
+                state: 'HIDDEN',
+                generatedAt: now,
+            });
+        }
+    }
 
     const repeatableRead = <T>(
         reader: (tx: Prisma.TransactionClient) => Promise<T>,
@@ -350,25 +372,61 @@ export async function readFinanceMobileOverview(
         payrollOutcome,
     ] = await Promise.allSettled([
         readAr
-            ? repeatableRead((tx) =>
-                  readArGroup(tx, arWhere(query), {
-                      skip,
-                      canViewAmounts: query.canViewAmounts,
-                  }),
-              )
+            ? observeDashboardSection({
+                  route: 'finance-mobile',
+                  section: 'receivables-ar',
+                  generatedAt: now,
+                  read: () =>
+                      repeatableRead((tx) =>
+                          readArGroup(tx, arWhere(query), {
+                              skip,
+                              canViewAmounts: query.canViewAmounts,
+                          }),
+                      ),
+              })
             : Promise.resolve(null),
         readAp
-            ? repeatableRead((tx) =>
-                  readApGroup(tx, apWhere(query, tx), {
-                      skip,
-                      canViewAmounts: query.canViewAmounts,
-                  }),
-              )
+            ? observeDashboardSection({
+                  route: 'finance-mobile',
+                  section: 'payables-ap',
+                  generatedAt: now,
+                  read: () =>
+                      repeatableRead((tx) =>
+                          readApGroup(tx, apWhere(query, tx), {
+                              skip,
+                              canViewAmounts: query.canViewAmounts,
+                          }),
+                      ),
+              })
             : Promise.resolve(null),
-        repeatableRead((tx) => readDraftJournalCount(tx)),
-        repeatableRead((tx) => readOpenReconciliationCount(tx)),
-        repeatableRead((tx) => readCurrentFiscalPeriod(tx, now)),
-        repeatableRead((tx) => readHrdDashboardPayrollReadiness(tx)),
+        observeDashboardSection({
+            route: 'finance-mobile',
+            section: 'draft-journals',
+            generatedAt: now,
+            read: () => repeatableRead((tx) => readDraftJournalCount(tx)),
+        }),
+        observeDashboardSection({
+            route: 'finance-mobile',
+            section: 'reconciliation',
+            generatedAt: now,
+            read: () => repeatableRead((tx) => readOpenReconciliationCount(tx)),
+        }),
+        observeDashboardSection({
+            route: 'finance-mobile',
+            section: 'fiscal-readiness',
+            generatedAt: now,
+            read: () =>
+                repeatableRead((tx) => readCurrentFiscalPeriod(tx, now)),
+            state: (value) => (value ? 'AVAILABLE' : 'NOT_CONFIGURED'),
+        }),
+        observeDashboardSection({
+            route: 'finance-mobile',
+            section: 'payroll-readiness',
+            generatedAt: now,
+            read: () =>
+                repeatableRead((tx) => readHrdDashboardPayrollReadiness(tx)),
+            state: (value) => (value ? 'AVAILABLE' : 'NOT_CONFIGURED'),
+        }),
     ]);
 
     {
