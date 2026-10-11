@@ -7,9 +7,9 @@ import CtaSectionEnhanced from '@/components/home/cta-section-enhanced';
 import PublicFooterEnhanced from '@/components/home/public-footer-enhanced';
 
 export const metadata: Metadata = {
-    title: 'PolyFlow ERP | Advanced Plastic Converting Software',
+    title: 'PolyFlow | ERP Produksi untuk Pabrik Plastik Berbasis Ekstrusi',
     description:
-        'Unify your warehouse, production, sales, and finance in one powerful platform built for plastic converting businesses.',
+        'PolyFlow menghubungkan pesanan, bahan, produksi, hasil, scrap, stok, pengiriman, dan invoice untuk pabrik plastik berbasis ekstrusi.',
 };
 
 export default function Home() {

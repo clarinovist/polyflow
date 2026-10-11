@@ -3,37 +3,37 @@
 import { motion } from 'framer-motion';
 import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
 import { whyPolyflow as L } from '@/lib/labels/home';
-import { Building2, Workflow, ShieldCheck, Accessibility } from 'lucide-react';
+import { Boxes, Factory, Ruler, Workflow } from 'lucide-react';
 
 const reasons = [
     {
-        title: L.items.multiTenant.title,
-        description: L.items.multiTenant.description,
-        icon: Building2,
+        title: L.items.traceableMaterials.title,
+        description: L.items.traceableMaterials.description,
+        icon: Boxes,
         gradient: 'from-blue-500/20 to-blue-500/5',
         iconColor: 'text-blue-400',
         borderColor: 'hover:border-blue-500/20',
     },
     {
-        title: L.items.soFirst.title,
-        description: L.items.soFirst.description,
+        title: L.items.orderVisibility.title,
+        description: L.items.orderVisibility.description,
         icon: Workflow,
         gradient: 'from-emerald-500/20 to-emerald-500/5',
         iconColor: 'text-emerald-400',
         borderColor: 'hover:border-emerald-500/20',
     },
     {
-        title: L.items.auditTrail.title,
-        description: L.items.auditTrail.description,
-        icon: ShieldCheck,
+        title: L.items.operationalUnits.title,
+        description: L.items.operationalUnits.description,
+        icon: Ruler,
         gradient: 'from-purple-500/20 to-purple-500/5',
         iconColor: 'text-purple-400',
         borderColor: 'hover:border-purple-500/20',
     },
     {
-        title: L.items.accessibility.title,
-        description: L.items.accessibility.description,
-        icon: Accessibility,
+        title: L.items.provenWorkflows.title,
+        description: L.items.provenWorkflows.description,
+        icon: Factory,
         gradient: 'from-amber-500/20 to-amber-500/5',
         iconColor: 'text-amber-400',
         borderColor: 'hover:border-amber-500/20',
@@ -63,7 +63,7 @@ export default function TestimonialSectionEnhanced() {
 
     return (
         <section
-            id="testimonials"
+            id="why-polyflow"
             className="py-24 scroll-mt-24 relative overflow-hidden"
         >
             {/* Background */}
@@ -79,7 +79,11 @@ export default function TestimonialSectionEnhanced() {
                         ? { scale: [1, 1.2, 1], opacity: [0.1, 0.15, 0.1] }
                         : undefined
                 }
-                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+                transition={{
+                    duration: 8,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                }}
             />
             <motion.div
                 className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none"
@@ -108,7 +112,10 @@ export default function TestimonialSectionEnhanced() {
                         initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ delay: animated ? 0.1 : 0, duration: 0.5 }}
+                        transition={{
+                            delay: animated ? 0.1 : 0,
+                            duration: 0.5,
+                        }}
                         className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block"
                     >
                         {L.sectionTitle}
@@ -117,7 +124,10 @@ export default function TestimonialSectionEnhanced() {
                         initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ delay: animated ? 0.2 : 0, duration: 0.6 }}
+                        transition={{
+                            delay: animated ? 0.2 : 0,
+                            duration: 0.6,
+                        }}
                         className="text-3xl md:text-5xl font-bold text-white mb-5"
                     >
                         {L.sectionHeading}
@@ -126,7 +136,10 @@ export default function TestimonialSectionEnhanced() {
                         initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ delay: animated ? 0.3 : 0, duration: 0.6 }}
+                        transition={{
+                            delay: animated ? 0.3 : 0,
+                            duration: 0.6,
+                        }}
                         className="text-zinc-400 max-w-2xl mx-auto text-lg"
                     >
                         {L.sectionDescription}

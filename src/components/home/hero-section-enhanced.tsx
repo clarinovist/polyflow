@@ -149,7 +149,11 @@ export default function HeroSectionEnhanced() {
                         ? undefined
                         : { scale: [1, 1.1, 1], opacity: [0.15, 0.2, 0.15] }
                 }
-                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+                transition={{
+                    duration: 8,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                }}
             />
             <motion.div
                 className="absolute bottom-20 right-1/4 w-[28rem] h-[28rem] bg-purple-500/10 rounded-full blur-[120px] pointer-events-none"
@@ -171,9 +175,23 @@ export default function HeroSectionEnhanced() {
                 <motion.div
                     key={d.id}
                     className="absolute rounded-full bg-white/10"
-                    style={{ width: d.size, height: d.size, left: `${d.x}%`, top: `${d.y}%` }}
-                    animate={prefersReducedMotion ? undefined : { y: [0, -20, 0], opacity: [0.15, 0.4, 0.15] }}
-                    transition={{ duration: 5, repeat: Infinity, delay: d.delay, ease: 'easeInOut' }}
+                    style={{
+                        width: d.size,
+                        height: d.size,
+                        left: `${d.x}%`,
+                        top: `${d.y}%`,
+                    }}
+                    animate={
+                        prefersReducedMotion
+                            ? undefined
+                            : { y: [0, -20, 0], opacity: [0.15, 0.4, 0.15] }
+                    }
+                    transition={{
+                        duration: 5,
+                        repeat: Infinity,
+                        delay: d.delay,
+                        ease: 'easeInOut',
+                    }}
                 />
             ))}
 
@@ -191,7 +209,11 @@ export default function HeroSectionEnhanced() {
                             <motion.div
                                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
                                 animate={{ x: [-200, 200] }}
-                                transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                                transition={{
+                                    duration: 3,
+                                    repeat: Infinity,
+                                    ease: 'linear',
+                                }}
                             />
                         )}
                         <Sparkles className="relative z-10 h-4 w-4 shrink-0 text-blue-400" />
@@ -239,8 +261,8 @@ export default function HeroSectionEnhanced() {
                             className="h-14 w-full max-w-full rounded-full px-6 text-base font-medium text-zinc-400 transition-all duration-300 hover:bg-white/5 hover:text-white sm:w-auto sm:px-8"
                             asChild
                         >
-                            <a href={homeLinks.exploreFeatures}>
-                                {L.exploreFeatures}
+                            <a href={homeLinks.exploreWorkflow}>
+                                {L.exploreWorkflow}
                             </a>
                         </Button>
                     </motion.div>
@@ -275,7 +297,10 @@ export default function HeroSectionEnhanced() {
                 <motion.div
                     initial={false}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: prefersReducedMotion ? 0.2 : 0.8, delay: 0.4 }}
+                    transition={{
+                        duration: prefersReducedMotion ? 0.2 : 0.8,
+                        delay: 0.4,
+                    }}
                     className="mx-auto w-full min-w-0 max-w-md lg:max-w-none"
                 >
                     <PipelinePanel animated={!prefersReducedMotion} />

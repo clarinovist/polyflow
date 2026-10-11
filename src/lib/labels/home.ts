@@ -1,149 +1,159 @@
-/** Shared CTA destinations for the public landing page.
- *  `#contact` is the CTA section (cta-section-enhanced.tsx has id="contact").
- *  Final destination (WhatsApp / form / email) is still pending a product decision —
- *  see docs/plan/2026-08-24-landing-page-design-hardening.md §9. */
+/** Shared destinations for the public landing page. */
 export const homeLinks = {
-    contactSales: 'mailto:marketing@polyflow.uk',
-    exploreFeatures: '#features',
-    testimonials: '#testimonials',
+    contactSales:
+        'mailto:marketing@polyflow.uk?subject=Permintaan%20Demo%20PolyFlow',
+    exploreWorkflow: '#features',
+    whyPolyflow: '#why-polyflow',
     register: '/register',
     login: '/login',
 } as const;
 
 /** Public navigation labels */
 export const navLabels = {
-    features: 'Fitur',
-    testimonials: 'Kenapa PolyFlow',
+    workflow: 'Alur Kerja',
+    whyPolyflow: 'Kenapa PolyFlow',
     tenantLogin: 'Login Tenant',
-    contactSales: 'Hubungi Penjualan',
+    contactSales: 'Jadwalkan Demo',
     openMenu: 'Buka menu',
     closeMenu: 'Tutup menu',
 } as const;
 
 /** Hero section labels */
 export const heroLabels = {
-    badge: 'Dibangun untuk Industri Konversi Plastik',
-    headline: 'Optimalkan operasi',
-    headlineAccent: 'manufaktur',
-    headlineEnd: 'Anda',
+    badge: 'ERP Produksi untuk Pabrik Plastik Berbasis Ekstrusi',
+    headline: 'Kendalikan produksi pabrik plastik',
+    headlineAccent: 'dari bahan baku',
+    headlineEnd: 'sampai barang jadi.',
     tagline:
-        'Sistem ERP Konversi Plastik tingkat lanjut. Satukan gudang, produksi, penjualan, dan keuangan dalam satu platform yang kuat.',
-    contactSales: 'Hubungi Penjualan',
-    exploreFeatures: 'Jelajahi Fitur',
+        'PolyFlow menghubungkan pesanan, bahan, mesin, hasil produksi, scrap, stok, pengiriman, dan invoice dalam satu sistem—dibangun dari penggunaan operasional pada kantong HDPE, tali rafia, dan sedotan.',
+    contactSales: 'Jadwalkan Demo',
+    exploreWorkflow: 'Lihat Alur Kerja',
 } as const;
 
-/** Hero stats strip — small numbers below the CTA */
+/** Anonymous, public-safe proof of current operational use. */
 export const heroStats = [
-    { value: '6', label: 'Modul Terintegrasi' },
-    { value: '1', label: 'Platform Terpadu' },
-    { value: '24/7', label: 'Pelacakan Real-time' },
+    { value: 'HDPE', label: 'Kantong Plastik' },
+    { value: 'Rafia', label: 'Tali & Gulungan' },
+    { value: 'Sedotan', label: 'Ekstrusi & Cutting' },
 ] as const;
 
-/** Hero pipeline panel — the vertical flow diagram on the right side */
+/** Hero pipeline panel — a simplified operational flow. */
 export const heroPipeline = {
-    title: 'Alur Produksi PolyFlow',
+    title: 'Alur Operasional PolyFlow',
     steps: [
-        { num: '01', label: 'Pesanan Penjualan', desc: 'Pesanan diterima' },
-        { num: '02', label: 'Produksi', desc: 'Mesin & daftar bahan' },
-        { num: '03', label: 'Gudang', desc: 'Stok & material' },
-        { num: '04', label: 'Faktur', desc: 'Penagihan & pelunasan' },
+        { num: '01', label: 'Pesanan', desc: 'Kebutuhan pelanggan dicatat' },
+        {
+            num: '02',
+            label: 'Bahan & Resep',
+            desc: 'Material dan formula disiapkan',
+        },
+        {
+            num: '03',
+            label: 'Produksi',
+            desc: 'Proses, output, dan scrap dicatat',
+        },
+        {
+            num: '04',
+            label: 'Stok & Pengiriman',
+            desc: 'Barang jadi siap ditelusuri',
+        },
     ],
 } as const;
 
-/** Features section labels */
+/** Capabilities section labels */
 export const featureLabels = {
-    sectionTitle: 'Modul',
-    sectionHeading: 'Semua Yang Anda Butuhkan',
+    sectionTitle: 'Alur PolyFlow',
+    sectionHeading: 'Satu jejak operasional dari pesanan sampai pengiriman',
     sectionDescription:
-        'Dibangun dari awal untuk operasi konversi plastik. Setiap modul bekerja secara mulus bersama.',
+        'Setiap area bekerja dengan transaksi yang saling terhubung, sehingga bahan, pekerjaan produksi, hasil, stok, dan dokumen komersial dapat ditelusuri.',
     items: {
         warehouse: {
-            title: 'Gudang & Inventaris',
+            title: 'Gudang & Bahan',
             description:
-                'Pelacakan stok real-time, pemesanan ulang otomatis, dan manajemen material presisi di seluruh fasilitas Anda.',
+                'Catat penerimaan, perpindahan, pemakaian, dan opname resin, additive, WIP, bahan pengemas, serta barang jadi per lokasi.',
         },
         production: {
-            title: 'Perencanaan Produksi',
+            title: 'Production Order',
             description:
-                'Optimalkan jadwal manufaktur, lacak waktu aktif mesin, dan kelola pesanan kerja secara mulus.',
+                'Hubungkan BOM atau resep, kebutuhan bahan, tahap proses, mesin, output, dan scrap dalam satu pekerjaan produksi.',
         },
         sales: {
-            title: 'Penjualan & CRM',
+            title: 'Pesanan Pelanggan',
             description:
-                'Kelola hubungan pelanggan, lacak pesanan penjualan, dan ramalkan pipeline dengan wawasan cerdas.',
+                'Hubungkan pesanan dengan kebutuhan produksi, kesiapan stok, surat jalan, dan status pengiriman.',
         },
         finance: {
-            title: 'Keuangan & Akuntansi',
+            title: 'Costing & Finance',
             description:
-                'Pembukuan terintegrasi, penagihan otomatis, dan pelaporan keuangan mendalam untuk seluruh operasi Anda.',
+                'Gunakan jejak transaksi bahan dan produksi sebagai dasar peninjauan costing, invoice, serta laporan finance.',
         },
         analytics: {
-            title: 'Analitik & Laporan',
+            title: 'Tinjauan Operasional',
             description:
-                'Dashboard real-time, analisis tren, dan KPI yang dapat ditindaklanjuti untuk keputusan bisnis yang lebih cerdas.',
+                'Tinjau status order, aktivitas produksi, stok, dan indikator operasional dari transaksi yang telah dicatat.',
         },
         logistics: {
-            title: 'Logistik & Pengiriman',
+            title: 'Pengiriman',
             description:
-                'Pelacakan pengiriman end-to-end, penjadwalan pengiriman, dan manajemen biaya angkutan dalam satu tampilan.',
+                'Catat kesiapan barang, delivery order, kendaraan, dan penyelesaian pengiriman pada alur yang sama.',
         },
     },
 } as const;
 
 /** CTA section labels */
 export const ctaLabels = {
-    badge: 'Mulai Sekarang',
-    heading: 'Siap mengoptimalkan',
-    headingAccent: 'pabrik Anda?',
+    badge: 'Demo Berdasarkan Alur Pabrik Anda',
+    heading: 'Ceritakan proses produksi',
+    headingAccent: 'yang ingin Anda rapikan.',
     description:
-        'Buat workspace untuk perusahaan Anda, atau masuk ke tenant yang sudah ada. Setiap modul siap dipakai sejak hari pertama.',
-    primaryCta: 'Buat Workspace',
+        'Kami akan menyiapkan demo yang berfokus pada produk, tahap mesin, aliran bahan, output, scrap, dan pengiriman yang relevan—bukan presentasi seluruh modul.',
+    primaryCta: 'Diskusikan lewat Email',
     secondaryCta: 'Login Tenant',
 } as const;
 
 /** Public footer labels */
 export const footerLabels = {
     description:
-        'Sistem ERP Konversi Plastik tingkat lanjut yang dibangun untuk operasi manufaktur modern. Optimalkan gudang, produksi, penjualan, dan keuangan Anda.',
+        'ERP produksi untuk pabrik plastik berbasis ekstrusi. Hubungkan pesanan, bahan, proses, hasil, scrap, stok, pengiriman, dan invoice dalam satu sistem.',
     product: 'Produk',
     company: 'Perusahaan',
-    features: 'Fitur',
+    features: 'Alur Kerja',
     testimonials: 'Kenapa PolyFlow',
-    contactSales: 'Hubungi Penjualan',
+    contactSales: 'Jadwalkan Demo',
     register: 'Daftar',
     tenantLogin: 'Login Tenant',
     termsOfService: 'Ketentuan Layanan',
     privacyPolicy: 'Kebijakan Privasi',
     copyright: '© {year} PolyFlow ERP Systems. Hak cipta dilindungi.',
-    craftedFor: 'Dibuat untuk industri konversi plastik.',
+    craftedFor: 'Dibangun dari operasi kantong HDPE, tali rafia, dan sedotan.',
 } as const;
 
-/** Why PolyFlow section labels (replaces fictitious testimonials) */
+/** Workflow-grounded reasons to choose PolyFlow; not customer testimonials. */
 export const whyPolyflow = {
     sectionTitle: 'Kenapa PolyFlow',
-    sectionHeading: 'Dibangun untuk Realitas Pabrik Konversi',
+    sectionHeading: 'Dibangun dari alur pabrik plastik berbasis ekstrusi',
     sectionDescription:
-        'Bukan ERP generik yang dipaksakan. Setiap keputusan desain lahir dari kebutuhan nyata operasi konversi plastik.',
+        'PolyFlow tidak dimulai sebagai ERP manufaktur umum. Model operasionalnya dikembangkan dari penggunaan pada kantong HDPE, tali rafia, dan sedotan.',
     items: {
-        multiTenant: {
-            title: 'Multi-Tenant Sejak Awal',
+        traceableMaterials: {
+            title: 'Bahan dan Stok Dapat Ditelusuri',
             description:
-                'Satu sistem, banyak perusahaan. Setiap tenant punya database terpisah — data tidak pernah bercampur. Tambah perusahaan baru tanpa setup infrastruktur.',
+                'Catat penerimaan, perpindahan, pemakaian bahan, serta hasil produksi beserta lokasi dan referensi transaksinya.',
         },
-        soFirst: {
-            title: 'Alur SO-First',
+        orderVisibility: {
+            title: 'Produksi Terlihat per Order',
             description:
-                'Pesanan penjualan menjadi acuan utama. Produksi, gudang, dan faktur terhubung otomatis—tidak ada entri manual yang terputus di tengah proses.',
+                'Hubungkan production order dengan bahan yang dicatat, tahap proses, hasil, dan scrap tanpa rekap akhir yang terpisah.',
         },
-        auditTrail: {
-            title: 'Jejak Audit Status',
+        operationalUnits: {
+            title: 'Satuan Mengikuti Operasi Pabrik',
             description:
-                'Setiap perubahan status pesanan, pengiriman, faktur, dan jurnal mencatat pelaku, waktu, serta status sebelumnya secara otomatis.',
+                'Kelola produk dalam satuan seperti KG, roll, bal, pack, dan piece berdasarkan konfigurasi master produk.',
         },
-        accessibility: {
-            title: 'Aksesibilitas Bawaan',
+        provenWorkflows: {
+            title: 'Satu Platform, Beberapa Keluarga Produk',
             description:
-                'Dukungan pengurangan animasi tersedia di setiap halaman agar antarmuka tetap nyaman bagi tim yang bekerja di lapangan.',
+                'Workflow yang sama telah digunakan dalam operasi kantong HDPE, tali rafia, dan sedotan tanpa mengklaim semua proses plastik otomatis cocok.',
         },
     },
 } as const;

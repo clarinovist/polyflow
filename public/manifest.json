@@ -1,7 +1,7 @@
 {
     "name": "PolyFlow ERP",
     "short_name": "PolyFlow",
-    "description": "Advanced Plastic Converting ERP System",
+    "description": "ERP produksi untuk pabrik plastik berbasis ekstrusi",
     "start_url": "/mobile",
     "id": "/mobile",
     "scope": "/",

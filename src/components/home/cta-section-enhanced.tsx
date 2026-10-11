@@ -252,7 +252,7 @@ export default function CtaSectionEnhanced() {
                                             className="h-14 px-10 bg-white hover:bg-zinc-100 text-zinc-950 text-lg font-semibold rounded-full shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:shadow-[0_0_50px_rgba(255,255,255,0.2)] transition-all duration-300"
                                             asChild
                                         >
-                                            <a href={homeLinks.register}>
+                                            <a href={homeLinks.contactSales}>
                                                 {L.primaryCta}{' '}
                                                 <ArrowRight className="ml-2 h-5 w-5" />
                                             </a>

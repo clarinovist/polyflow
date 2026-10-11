@@ -31,7 +31,7 @@ for (const [name, Navigation] of [
                 document.activeElement,
             );
             expect(
-                screen.getAllByRole('link', { name: 'Fitur' }).length,
+                screen.getAllByRole('link', { name: 'Alur Kerja' }).length,
             ).toBeGreaterThan(0);
             expect(
                 screen.getAllByRole('link', { name: 'Kenapa PolyFlow' }).length,

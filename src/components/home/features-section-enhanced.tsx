@@ -121,7 +121,10 @@ export default function FeaturesSectionEnhanced() {
                         initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, amount: 0 }}
-                        transition={{ delay: animated ? 0.1 : 0, duration: 0.5 }}
+                        transition={{
+                            delay: animated ? 0.1 : 0,
+                            duration: 0.5,
+                        }}
                         className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block"
                     >
                         {L.sectionTitle}
@@ -130,7 +133,10 @@ export default function FeaturesSectionEnhanced() {
                         initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, amount: 0 }}
-                        transition={{ delay: animated ? 0.2 : 0, duration: 0.6 }}
+                        transition={{
+                            delay: animated ? 0.2 : 0,
+                            duration: 0.6,
+                        }}
                         className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-5"
                     >
                         {L.sectionHeading}
@@ -139,7 +145,10 @@ export default function FeaturesSectionEnhanced() {
                         initial={false}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, amount: 0 }}
-                        transition={{ delay: animated ? 0.3 : 0, duration: 0.6 }}
+                        transition={{
+                            delay: animated ? 0.3 : 0,
+                            duration: 0.6,
+                        }}
                         className="text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto text-lg"
                     >
                         {L.sectionDescription}
@@ -155,7 +164,8 @@ export default function FeaturesSectionEnhanced() {
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 auto-rows-fr"
                 >
                     {features.map((feature, index) => {
-                        const isAnchor = feature.bentoClass.includes('col-span-2');
+                        const isAnchor =
+                            feature.bentoClass.includes('col-span-2');
                         return (
                             <motion.div
                                 key={index}
@@ -187,12 +197,16 @@ export default function FeaturesSectionEnhanced() {
                                                 damping: 20,
                                             }}
                                             className={`w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-800 flex items-center justify-center mb-5 transition-colors duration-300 ${
-                                                isAnchor ? 'lg:w-14 lg:h-14' : ''
+                                                isAnchor
+                                                    ? 'lg:w-14 lg:h-14'
+                                                    : ''
                                             }`}
                                         >
                                             <feature.icon
                                                 className={`h-5 w-5 ${feature.iconColor} ${
-                                                    isAnchor ? 'lg:h-7 lg:w-7' : ''
+                                                    isAnchor
+                                                        ? 'lg:h-7 lg:w-7'
+                                                        : ''
                                                 }`}
                                             />
                                         </motion.div>
@@ -219,20 +233,26 @@ export default function FeaturesSectionEnhanced() {
                                     {/* Anchor card decorative visual — mini production line */}
                                     {isAnchor && (
                                         <div className="relative z-10 mt-6 hidden lg:flex items-center gap-2">
-                                            {['SO', 'Prod', 'WH', 'Inv'].map(
-                                                (tag, i) => (
-                                                    <div key={tag} className="flex items-center gap-2">
-                                                        <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
-                                                            {tag}
+                                            {[
+                                                'Order',
+                                                'Bahan',
+                                                'Proses',
+                                                'Hasil',
+                                            ].map((tag, i) => (
+                                                <div
+                                                    key={tag}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
+                                                        {tag}
+                                                    </span>
+                                                    {i < 3 && (
+                                                        <span className="text-zinc-600 dark:text-zinc-700">
+                                                            →
                                                         </span>
-                                                        {i < 3 && (
-                                                            <span className="text-zinc-600 dark:text-zinc-700">
-                                                                →
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ),
-                                            )}
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>

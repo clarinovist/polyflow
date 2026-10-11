@@ -1,8 +1,8 @@
 # PolyFlow ERP 🏭
 
-**Modern ERP for Plastic Converting Manufacturing**
+**Production ERP for Plastic Extrusion Manufacturing**
 
-PolyFlow is a multi-tenant ERP system designed for plastic converting and manufacturing operations. Built with **Next.js 16**, **Prisma**, and **PostgreSQL**.
+PolyFlow is a multi-tenant ERP system for plastic extrusion operations, connecting orders, materials, production, scrap, inventory, delivery, and invoicing. It is currently used in operational workflows for HDPE bags, raffia twine, and drinking straws. Built with **Next.js 16**, **Prisma**, and **PostgreSQL**.
 
 ---
 
@@ -101,13 +101,13 @@ and the distinction between shared source, historical documents, and local artif
 
 ## Scripts
 
-| Command         | Description                                      |
-| --------------- | ------------------------------------------------ |
-| `npx next dev`  | Start Next.js without production DB sync          |
-| `npm run dev`   | Sync production DB to local, then start Next.js    |
-| `npm run build` | Production build                                 |
-| `npm run test`  | Run tests                                        |
-| `npm run lint`  | Run linter                                       |
+| Command         | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `npx next dev`  | Start Next.js without production DB sync        |
+| `npm run dev`   | Sync production DB to local, then start Next.js |
+| `npm run build` | Production build                                |
+| `npm run test`  | Run tests                                       |
+| `npm run lint`  | Run linter                                      |
 
 ## GitHub Actions dan rilis
 

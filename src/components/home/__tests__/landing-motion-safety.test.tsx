@@ -3,7 +3,7 @@ import { act, type ReactElement } from 'react';
 import { hydrateRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import Home from '@/app/page';
+import Home, { metadata } from '@/app/page';
 import HeroSectionEnhanced from '../hero-section-enhanced';
 import PublicNavEnhanced from '../public-nav-enhanced';
 
@@ -76,14 +76,10 @@ describe('landing motion safety', () => {
         const hero = renderMarkup(<HeroSectionEnhanced />);
         const headline = hero.querySelector('h1');
         const badge = hero.querySelector('h1')?.parentElement?.querySelector('span');
-        const stats = Array.from(
-            hero.querySelectorAll('p'),
-        ).filter((element) =>
-            [
-                'Modul Terintegrasi',
-                'Platform Terpadu',
-                'Pelacakan Real-time',
-            ].includes(element.textContent ?? ''),
+        const stats = Array.from(hero.querySelectorAll('p')).filter((element) =>
+            ['Kantong Plastik', 'Tali & Gulungan', 'Ekstrusi & Cutting'].includes(
+                element.textContent ?? '',
+            ),
         );
 
         expect(headline?.className).toContain('break-words');
@@ -95,15 +91,20 @@ describe('landing motion safety', () => {
         }
     });
 
-    it('uses clear Indonesian proof points and connected-flow terminology', () => {
+    it('uses extrusion positioning, anonymous operational proof, and honest flow terminology', () => {
         const hero = renderMarkup(<HeroSectionEnhanced />);
 
-        expect(hero.textContent).toContain('Industri Konversi Plastik');
-        expect(hero.textContent).toContain('Platform Terpadu');
-        expect(hero.textContent).toContain('24/7');
+        expect(hero.textContent).toContain(
+            'ERP Produksi untuk Pabrik Plastik Berbasis Ekstrusi',
+        );
+        expect(hero.textContent).toContain('kantong HDPE');
+        expect(hero.textContent).toContain('tali rafia');
+        expect(hero.textContent).toContain('sedotan');
         expect(hero.textContent).toContain('Terhubung');
-        expect(hero.textContent).not.toContain('Sistem, Bukan Taburan');
-        expect(hero.textContent).not.toContain('sync');
+        expect(hero.textContent).not.toContain('24/7');
+        expect(hero.textContent).not.toContain('otomatis');
+        // Public proof stays anonymous: only the approved product families appear.
+        expect(hero.textContent).not.toMatch(/PT\s|CV\s|Tbk/);
     });
 
     it('keeps the complete home composition, including footer semantics, visible by default', () => {
@@ -113,12 +114,27 @@ describe('landing motion safety', () => {
         expectInitiallyVisible(home.querySelector('main h1'));
         expectInitiallyVisible(footer?.querySelector('h3') ?? null);
         expectInitiallyVisible(
-            footer?.querySelector('a[href="/register"]') ?? null,
+            footer?.querySelector('a[href^="mailto:"]') ?? null,
         );
         expectInitiallyVisible(
             footer?.querySelector('a[href="/privacy"]') ?? null,
         );
+        expect(home.querySelector('form')).toBeNull();
+        expect(home.querySelector('a[href="#"]')).toBeNull();
+        expect(home.textContent).not.toContain('Buat Workspace');
+        expect(
+            home.querySelector('#contact a[href="/register"]'),
+        ).toBeNull();
         expectInitiallyVisible(footer?.querySelector('p:last-child') ?? null);
+    });
+
+    it('publishes metadata that matches the extrusion positioning', () => {
+        expect(metadata.title).toBe(
+            'PolyFlow | ERP Produksi untuk Pabrik Plastik Berbasis Ekstrusi',
+        );
+        expect(metadata.description).toContain(
+            'pabrik plastik berbasis ekstrusi',
+        );
     });
 
     it('hydrates the complete home composition without console errors', async () => {

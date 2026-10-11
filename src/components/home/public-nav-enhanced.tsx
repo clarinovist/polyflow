@@ -16,8 +16,8 @@ export default function PublicNavEnhanced() {
         usePublicNavState();
 
     const navLinks = [
-        { href: homeLinks.exploreFeatures, label: L.features },
-        { href: homeLinks.testimonials, label: L.testimonials },
+        { href: homeLinks.exploreWorkflow, label: L.workflow },
+        { href: homeLinks.whyPolyflow, label: L.whyPolyflow },
         { href: homeLinks.login, label: L.tenantLogin },
     ];
 

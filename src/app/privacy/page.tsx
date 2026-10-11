@@ -5,7 +5,7 @@ import PublicFooterEnhanced from '@/components/home/public-footer-enhanced';
 export const metadata: Metadata = {
     title: 'Privacy Policy | PolyFlow ERP',
     description:
-        'Privacy Policy for PolyFlow ERP - Advanced Plastic Converting Software',
+        'Privacy Policy for PolyFlow ERP, software produksi untuk pabrik plastik berbasis ekstrusi.',
 };
 
 export default function PrivacyPage() {
@@ -13,7 +13,7 @@ export default function PrivacyPage() {
         <div className="bg-zinc-950 min-h-screen text-foreground">
             <PublicNavEnhanced />
 
-            <main className="container mx-auto px-6 py-16 max-w-4xl">
+            <main className="container mx-auto max-w-4xl px-6 pb-16 pt-28">
                 <h1 className="text-4xl font-bold mb-8">Privacy Policy</h1>
 
                 <div className="prose prose-invert max-w-none space-y-6">

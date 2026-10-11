@@ -43,7 +43,8 @@ export async function generateMetadata(): Promise<Metadata> {
             default: tenantTitle,
             template: `%s | ${tenantName || 'PolyFlow'}`,
         },
-        description: 'Advanced Plastic Converting ERP System',
+        description:
+            'ERP produksi untuk pabrik plastik berbasis ekstrusi yang menghubungkan bahan, produksi, stok, dan pengiriman.',
         manifest: '/manifest.json',
         icons: {
             icon: [{ url: '/polyflow-icon.svg', type: 'image/svg+xml' }],
