@@ -19,6 +19,7 @@ import SalesHome from '../field/sales/page';
 import OrdersPage from '../field/sales/orders/page';
 import ReceivablesPage from '../field/sales/receivables/page';
 import SelectorPage from '../mobile/page';
+import { getAvailableMobilePortals } from '@/lib/mobile/mobile-portal-decision';
 import { HrdAttendanceClient } from '../hrd/mobile/attendance/attendance-client';
 import WarehouseHome from '../warehouse/mobile/page';
 const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), followUps: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), warehouse: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
@@ -385,6 +386,24 @@ describe('mobile read states', () => {
     it('keeps no-portals on a terminal page instead of a redirect loop', async () => {
         m.portals.mockResolvedValue({ success: true, data: [] }); render(await SelectorPage());
         expect(screen.getByRole('status').textContent).toContain('Belum ada portal mobile'); expect(m.redirect).not.toHaveBeenCalled();
+    });
+
+    it('renders all eligible ADMIN portal links without redirecting to one workspace', async () => {
+        m.auth.mockResolvedValue({ user: { id: 'admin', role: 'ADMIN' } });
+        const portals = getAvailableMobilePortals({
+            user: { role: 'ADMIN' },
+            permissions: 'ALL',
+            activeModules: ['CORE', 'SALES', 'INVENTORY', 'PRODUCTION', 'PURCHASING', 'FINANCE', 'HRD', 'MAKLON'],
+            rollout: { 'mobile.portal.admin.enabled': true },
+        });
+        m.portals.mockResolvedValue({ success: true, data: portals });
+        render(await SelectorPage({ searchParams: Promise.resolve({ choose: '1' }) }));
+        expect(portals).toHaveLength(8);
+        for (const portal of portals) {
+            expect(screen.getByRole('link', { name: new RegExp(portal.title) }).getAttribute('href')).toBe(portal.path);
+        }
+        expect(screen.queryByRole('link', { name: /Marketing Supervisor|Maklon Mobile/ })).toBeNull();
+        expect(m.redirect).not.toHaveBeenCalled();
     });
 
     it('keeps an explicit portal choice on the selector when only one portal is available', async () => {

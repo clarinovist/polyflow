@@ -24,6 +24,7 @@ import {
 import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
 import { readHrdDashboardMobileAggregate } from '@/services/hrd/hrd-dashboard-service';
+import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('next/navigation', () => ({
@@ -138,7 +139,16 @@ describe('HRD overview authorization and canonical conformance', () => {
         expect(result.data.attention).not.toHaveProperty('loanPortfolio');
     });
 
-    it.each(['ADMIN', 'FINANCE'])(
+    it.each(['ADMIN', 'HRD'])(
+        'allows %s to read the existing mobile projection',
+        async (role) => {
+            session(role);
+            expect(await getHrdMobileOverview()).toEqual({ success: true, data: aggregateFixture });
+            expect(requireMobilePortalAccess).toHaveBeenCalledWith('hrd-supervisor');
+        },
+    );
+
+    it.each(['FINANCE'])(
         'denies %s access before the aggregate read',
         async (role) => {
             session(role);
@@ -167,6 +177,16 @@ describe('HRD overview authorization and canonical conformance', () => {
             expect(readHrdDashboardMobileAggregate).not.toHaveBeenCalled();
         },
     );
+
+    it.each(['ADMIN', 'HRD'])('stops both %s readers when portal access fails', async (role) => {
+        session(role);
+        vi.mocked(requireMobilePortalAccess).mockRejectedValue(new Error('Portal denied'));
+        expect(await getHrdMobileOverview()).toMatchObject({ success: false });
+        expect(await getHrdMobileTeamAttendance()).toMatchObject({ success: false });
+        expect(readHrdDashboardMobileAggregate).not.toHaveBeenCalled();
+        expect(prisma.employee.findMany).not.toHaveBeenCalled();
+        expect(prisma.attendanceRecord.findMany).not.toHaveBeenCalled();
+    });
 
     it('rejects no session before HRD reads', async () => {
         vi.mocked(auth).mockResolvedValue(null as never);
@@ -273,7 +293,20 @@ describe('HRD team attendance', () => {
         });
     });
 
-    it('keeps team attendance restricted to HRD', async () => {
+    it('allows ADMIN team attendance without payroll or document fields', async () => {
+        session('ADMIN');
+        employees();
+        const result = await getHrdMobileTeamAttendance();
+        expect(result).toMatchObject({ success: true, data: { totalEmployees: 2 } });
+        expect(requireMobilePortalAccess).toHaveBeenCalledWith('hrd-supervisor');
+        if (!result.success) throw new Error(result.error);
+        expect(Object.keys(result.data.records[0]).sort()).toEqual([
+            'id', 'employeeId', 'employeeName', 'employeeCode', 'employeeRole',
+            'shiftName', 'clockInAt', 'clockOutAt', 'status', 'actualHours', 'isLate',
+        ].sort());
+    });
+
+    it('keeps team attendance unavailable to FINANCE', async () => {
         session('FINANCE');
         expect(await getHrdMobileTeamAttendance()).toMatchObject({
             success: false,

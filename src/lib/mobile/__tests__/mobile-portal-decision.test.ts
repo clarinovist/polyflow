@@ -197,7 +197,7 @@ describe('mobile portal decision resolver', () => {
 
     it('does not expose operational portals to ADMIN when adminAccess is NONE', () => {
         expect(
-            getMobilePortalDecision(portal('warehouse'), {
+            getMobilePortalDecision({ ...portal('warehouse'), adminAccess: 'NONE' }, {
                 user: { roles: ['ADMIN', 'WAREHOUSE'] },
                 activeModules: ['INVENTORY'],
                 permissions: 'ALL',

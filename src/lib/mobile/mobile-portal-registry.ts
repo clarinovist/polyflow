@@ -99,7 +99,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 match: 'ANY',
             },
         ],
-        adminAccess: 'NONE',
+        adminAccess: 'EXISTING_GUARDS',
         capabilities: [],
         navigation: [
             { id: 'home', label: 'Beranda', path: '/field/sales' },
@@ -167,7 +167,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 match: 'ANY',
             },
         ],
-        adminAccess: 'NONE',
+        adminAccess: 'EXISTING_GUARDS',
         capabilities: [],
         navigation: [
             { id: 'home', label: 'Beranda', path: '/warehouse/mobile' },
@@ -202,7 +202,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 match: 'ANY',
             },
         ],
-        adminAccess: 'NONE',
+        adminAccess: 'EXISTING_GUARDS',
         capabilities: [],
         navigation: [],
         icon: 'Factory',
@@ -278,7 +278,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 match: 'ANY',
             },
         ],
-        adminAccess: 'NONE',
+        adminAccess: 'EXISTING_GUARDS',
         capabilities: ['feature:mobile-purchasing-actions'],
         navigation: [
             { id: 'home', label: 'Hari Ini', path: '/purchasing/mobile' },
@@ -308,7 +308,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 match: 'ANY',
             },
         ],
-        adminAccess: 'NONE',
+        adminAccess: 'EXISTING_GUARDS',
         capabilities: ['feature:mobile-finance-actions'],
         navigation: [
             { id: 'home', label: 'Hari Ini', path: '/finance/mobile' },
@@ -338,7 +338,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 match: 'ANY',
             },
         ],
-        adminAccess: 'NONE',
+        adminAccess: 'EXISTING_GUARDS',
         capabilities: ['feature:mobile-hrd-actions'],
         navigation: [
             { id: 'home', label: 'Hari Ini', path: '/hrd/mobile' },

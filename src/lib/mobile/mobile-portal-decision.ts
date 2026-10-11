@@ -149,13 +149,14 @@ export function getMobilePortalDecision(
     }
 
     const assignedRoles = getUserRoles(context.user);
+    const isAdmin = hasRole(context.user, 'ADMIN');
     if (
+        !isAdmin &&
         definition.id === 'sales-field' &&
         assignedRoles.includes('MARKETING')
     ) {
         return { allowed: false, reason: 'ROLE' };
     }
-    const isAdmin = hasRole(context.user, 'ADMIN');
     const roleAllowed = isAdmin
         ? definition.adminAccess !== 'NONE'
         : matchesRoles(assignedRoles, definition.roles, definition.roleMatch);

@@ -234,15 +234,19 @@ describe('mobile-access-policy', () => {
 
   // ── getAvailableMobilePortals ──────────────────────────────────────
   describe('getAvailableMobilePortals', () => {
-    it('returns only the registry-declared Admin portal as an optimistic ADMIN candidate', () => {
+    it('returns explicitly admin-enabled portals as optimistic candidates', () => {
+      const expected = [
+        'sales-field', 'marketing-supervisor', 'warehouse', 'production-kiosk',
+        'production-supervisor', 'purchasing', 'finance', 'hrd-supervisor', 'admin',
+      ];
       expect(
         getAvailableMobilePortals({ role: 'ADMIN' }).map((portal) => portal.id),
-      ).toEqual(['admin']);
+      ).toEqual(expected);
       expect(
-        getAvailableMobilePortals({ roles: ['ADMIN', 'WAREHOUSE'] }).map(
+        getAvailableMobilePortals({ roles: ['ADMIN', 'MARKETING'] }).map(
           (portal) => portal.id,
         ),
-      ).toEqual(['admin']);
+      ).toEqual(expected);
     });
 
     it('keeps Super Admin and impersonation out of tenant mobile candidates', () => {
@@ -288,7 +292,7 @@ describe('mobile-access-policy', () => {
     });
     it('keeps legacy field aliases and hides unimplemented portals', () => {
       expect(getAvailableMobilePortals({ role: 'SALES' }, { permissions: ['/sales/mobile'], activeModules: ['SALES'] }).map(p => p.id)).toEqual(['sales-field']);
-      expect(getAvailableMobilePortals({ roles: ['ADMIN', 'WAREHOUSE'] }, { permissions: 'ALL', activeModules: ['INVENTORY', 'MAKLON'] })).toEqual([]);
+      expect(getAvailableMobilePortals({ roles: ['ADMIN', 'WAREHOUSE'] }, { permissions: 'ALL', activeModules: ['INVENTORY', 'MAKLON'] }).map(p => p.id)).toEqual(['warehouse']);
     });
   });
 
@@ -339,8 +343,8 @@ describe('mobile-access-policy', () => {
       expect(getMobileHomeCtaKey(user)).toBe('selector');
     });
 
-    it('single ADMIN role → admin candidate', () => {
-      expect(getMobileHomeCtaKey({ role: 'ADMIN' })).toBe('admin');
+    it('single ADMIN role → portal selector', () => {
+      expect(getMobileHomeCtaKey({ role: 'ADMIN' })).toBe('selector');
     });
 
     it('single SALES role → sales-field', () => {

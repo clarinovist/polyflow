@@ -35,6 +35,9 @@ vi.mock('next/navigation', () => ({
     },
 }));
 
+import { MOBILE_PORTAL_REGISTRY } from '../mobile-portal-registry';
+import { requireMobilePortalPageAccess } from '../mobile-portal-page-access';
+
 import {
     resolveMobilePortalAccess,
     MobilePortalAccessError,
@@ -61,6 +64,36 @@ describe('mobile portal server guard', () => {
         await expect(requireMobilePortalAccess('finance')).resolves.toMatchObject(
             { portal: { id: 'finance' }, capabilities: [] },
         );
+    });
+
+    it.each(MOBILE_PORTAL_REGISTRY.filter(p => p.status !== 'PLANNED'))(
+        'allows ADMIN direct page/read access to $id, not inactive modules', async (portal) => {
+            mocks.auth.mockResolvedValue({ user: { id: 'admin', role: 'ADMIN' } });
+            mocks.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+            mocks.modules.mockResolvedValue(['CORE', portal.moduleKey]);
+            mocks.rollouts.mockResolvedValue({
+                'mobile.portal.admin.enabled': true,
+                'mobile.portal.marketing.enabled': true,
+            });
+            await expect(requireMobilePortalAccess(portal.id)).resolves.toMatchObject({
+                portal: { id: portal.id }, capabilities: [],
+            });
+            await expect(requireMobilePortalPageAccess(portal.id)).resolves.toMatchObject({
+                portal: { id: portal.id }, capabilities: [],
+            });
+            mocks.modules.mockResolvedValue([]);
+            await expect(requireMobilePortalAccess(portal.id)).rejects.toMatchObject({ reason: 'MODULE' });
+            await expect(requireMobilePortalPageAccess(portal.id)).rejects.toThrow('redirect:/mobile?reason=module');
+        },
+    );
+
+    it('denies ADMIN actions without explicit capability while allowing the portal read', async () => {
+        mocks.auth.mockResolvedValue({ user: { id: 'admin', role: 'ADMIN' } });
+        mocks.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+        mocks.modules.mockResolvedValue(['CORE', 'FINANCE']);
+        await expect(requireMobilePortalAccess('finance')).resolves.toMatchObject({ capabilities: [] });
+        await expect(requireMobilePortalAccess('finance', 'feature:mobile-finance-actions'))
+            .rejects.toMatchObject({ reason: 'FEATURE' });
     });
 
     it('denies a revoked direct route after the fresh permission read', async () => {

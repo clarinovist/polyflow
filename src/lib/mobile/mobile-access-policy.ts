@@ -151,17 +151,16 @@ export function getAvailableMobilePortals(
         if (portal.status === 'PLANNED') return [];
         // Role-only discovery is only an optimistic candidate list. Tenant
         // rollout/module/resource checks still run in the selector and route
-        // guards. ADMIN receives only explicitly declared admin portal entries.
-        if (
-            isAdmin &&
-            (!portal.roles.includes('ADMIN') || portal.adminAccess === 'NONE')
-        ) {
-            return [];
+        // guards. ADMIN eligibility follows explicit adminAccess metadata,
+        // not operational role assignments.
+        if (isAdmin) {
+            if (portal.adminAccess === 'NONE') return [];
+        } else {
+            if (portal.id === 'sales-field' && roles.includes('MARKETING')) {
+                return [];
+            }
+            if (!portal.roles.some((role) => roles.includes(role))) return [];
         }
-        if (portal.id === 'sales-field' && roles.includes('MARKETING')) {
-            return [];
-        }
-        if (!portal.roles.some((role) => roles.includes(role))) return [];
         return [
             {
                 id: portal.id,

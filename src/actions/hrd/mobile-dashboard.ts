@@ -19,10 +19,12 @@ import { readHrdDashboardMobileAggregate } from '@/services/hrd/hrd-dashboard-se
 
 const PAGE_SIZE = 20;
 async function requireHrdMobile() {
-    const session = await requireRole(['HRD']);
-    if (!hasRole(session.user, 'HRD'))
+    const session = await requireRole(['ADMIN', 'HRD']);
+    // Tenant admins may read the existing mobile projection, not expand its
+    // fields or bypass the tenant/module/portal guard below.
+    if (!hasRole(session.user, 'ADMIN') && !hasRole(session.user, 'HRD'))
         throw new AuthorizationError(
-            'HRD Mobile hanya tersedia untuk role HRD.',
+            'HRD Mobile hanya tersedia untuk role Admin atau HRD.',
         );
     await requireMobilePortalAccess('hrd-supervisor');
     return session;

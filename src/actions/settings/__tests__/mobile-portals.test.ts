@@ -33,6 +33,21 @@ describe('verified mobile discovery action', () => {
         const res = await getMyMobilePortals(); expect(res.success).toBe(true);
         if (res.success) expect(res.data.map(p => p.id)).toEqual(['finance']);
     });
+    it('discovers the complete eligible ADMIN set with live tenant flags and no extra capabilities', async () => {
+        m.auth.mockResolvedValue({ user: { role: 'ADMIN' } });
+        m.permissions.mockResolvedValue({ success: true, data: 'ALL' });
+        m.modules.mockResolvedValue(['CORE', 'SALES', 'INVENTORY', 'PRODUCTION', 'PURCHASING', 'FINANCE', 'HRD', 'MAKLON']);
+        m.rollouts.mockResolvedValue({ 'mobile.portal.admin.enabled': true });
+        const result = await getMyMobilePortals();
+        expect(result.success).toBe(true);
+        if (!result.success) throw new Error(result.error);
+        expect(result.data.map(p => p.id)).toEqual([
+            'sales-field', 'warehouse', 'production-kiosk', 'production-supervisor',
+            'purchasing', 'finance', 'hrd-supervisor', 'admin',
+        ]);
+        expect(result.data.every(p => p.capabilities.length === 0)).toBe(true);
+    });
+
     it('does not grant a role candidate a revoked module or resource', async () => {
         m.modules.mockResolvedValue(['CORE']); expect(await getMyMobilePortals()).toMatchObject({ success: true, data: [] });
         m.modules.mockResolvedValue(['FINANCE']); m.permissions.mockResolvedValue({ success: true, data: [] });

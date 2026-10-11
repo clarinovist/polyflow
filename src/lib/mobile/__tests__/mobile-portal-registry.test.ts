@@ -106,6 +106,23 @@ describe('mobile-portal-registry', () => {
             ).toBe(true);
         });
 
+        it('explicitly reviews ADMIN access per portal without changing operational roles', () => {
+            expect(Object.fromEntries(MOBILE_PORTAL_REGISTRY.map(p => [p.id, p.adminAccess]))).toEqual({
+                'sales-field': 'EXISTING_GUARDS',
+                'marketing-supervisor': 'READ_ONLY',
+                warehouse: 'EXISTING_GUARDS',
+                'production-kiosk': 'EXISTING_GUARDS',
+                'production-supervisor': 'EXISTING_GUARDS',
+                purchasing: 'EXISTING_GUARDS',
+                finance: 'EXISTING_GUARDS',
+                'hrd-supervisor': 'EXISTING_GUARDS',
+                admin: 'READ_ONLY',
+                maklon: 'NONE',
+            });
+            expect(getMobilePortalById('hrd-supervisor')?.roles).toEqual(['HRD']);
+            expect(getMobilePortalById('maklon')?.status).toBe('PLANNED');
+        });
+
         it('no duplicate IDs', () => {
             const ids = MOBILE_PORTAL_REGISTRY.map((p) => p.id);
             expect(new Set(ids).size).toBe(ids.length);
