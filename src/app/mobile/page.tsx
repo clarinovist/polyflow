@@ -28,7 +28,7 @@ const DENIAL_COPY: Record<string, string> = {
 export default async function MobileSelectorPage({
     searchParams,
 }: {
-    searchParams?: Promise<{ reason?: string }>;
+    searchParams?: Promise<{ reason?: string; choose?: string }>;
 } = {}) {
     const session = await auth();
 
@@ -50,10 +50,16 @@ export default async function MobileSelectorPage({
     if (!result.success)
         return <MobileReadError title="Pilihan portal belum tersedia" />;
     const portals = result.data;
-    const reason = (await searchParams)?.reason;
+    const resolvedSearchParams = await searchParams;
+    const reason = resolvedSearchParams?.reason;
     const denialMessage = reason ? DENIAL_COPY[reason] : undefined;
+    const explicitlyChoosingPortal = resolvedSearchParams?.choose === '1';
 
-    if (portals.length === 1 && !denialMessage) {
+    if (
+        portals.length === 1 &&
+        !denialMessage &&
+        !explicitlyChoosingPortal
+    ) {
         redirect(portals[0].path);
     }
 

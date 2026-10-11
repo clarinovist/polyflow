@@ -55,7 +55,7 @@ export default async function MobileAccountPage() {
             mainClassName="mx-auto w-full max-w-2xl space-y-4 pb-8"
         >
             <Link
-                href="/mobile"
+                href="/mobile?choose=1"
                 className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
                 <ArrowLeft aria-hidden="true" className="h-4 w-4" />

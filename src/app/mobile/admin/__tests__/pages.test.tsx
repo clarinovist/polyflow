@@ -154,7 +154,7 @@ describe('Admin Mobile pages', () => {
         ['/mobile/admin', '/mobile/admin'],
         ['/mobile/admin/attention', '/mobile/admin/attention'],
         ['/mobile/admin/insights', '/mobile/admin/insights'],
-        ['/mobile', '/mobile'],
+        ['/mobile', '/mobile?choose=1'],
     ])('marks exactly one current nav item at %s', async (currentPath, expectedHref) => {
         pathname = currentPath;
         render(await AdminLayout({ children: <h1>Halaman Admin</h1> }));
@@ -178,7 +178,7 @@ describe('Admin Mobile pages', () => {
         const current = screen.getAllByRole('link').filter((link) => link.closest('nav') === nav && link.getAttribute('aria-current') === 'page');
         expect(current).toHaveLength(1);
         expect(current[0].getAttribute('href')).toBe('/mobile/admin/attention');
-        expect(screen.getByRole('link', { name: 'Portal' }).getAttribute('href')).toBe('/mobile');
+        expect(screen.getByRole('link', { name: 'Portal' }).getAttribute('href')).toBe('/mobile?choose=1');
         expect(screen.getByRole('main').className).toContain('min-w-0');
     });
 

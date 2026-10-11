@@ -23,11 +23,12 @@ export function AdminMobileBottomNav() {
         >
             {items.map((item) => {
                 const Icon = ICONS[item.id as keyof typeof ICONS] ?? Grid2X2;
+                const itemPathname = item.path.split('?')[0];
                 const active =
-                    pathname === item.path ||
-                    (item.path !== '/mobile/admin' &&
-                        item.path !== '/mobile' &&
-                        pathname.startsWith(`${item.path}/`));
+                    pathname === itemPathname ||
+                    (itemPathname !== '/mobile/admin' &&
+                        itemPathname !== '/mobile' &&
+                        pathname.startsWith(`${itemPathname}/`));
                 return (
                     <Link
                         key={item.path}

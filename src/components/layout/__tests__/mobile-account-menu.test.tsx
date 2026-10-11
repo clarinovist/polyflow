@@ -78,7 +78,7 @@ describe('mobile company navigation', () => {
         expect(trigger.textContent).toContain('Synthetic User');
         openAccount();
         expect(screen.getByRole('link', { name: 'Akun Saya' }).getAttribute('href')).toBe('/mobile/account');
-        expect(screen.getByRole('link', { name: 'Pilih Portal' }).getAttribute('href')).toBe('/mobile');
+        expect(screen.getByRole('link', { name: 'Pilih Portal' }).getAttribute('href')).toBe('/mobile?choose=1');
     });
 
     it('suppresses contextual self links without hiding logout', () => {

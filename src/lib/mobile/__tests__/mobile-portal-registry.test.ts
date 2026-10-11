@@ -73,7 +73,7 @@ describe('mobile-portal-registry', () => {
                 '/mobile/admin',
                 '/mobile/admin/attention',
                 '/mobile/admin/insights',
-                '/mobile',
+                '/mobile?choose=1',
             ]);
         });
 

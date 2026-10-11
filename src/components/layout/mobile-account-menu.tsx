@@ -127,7 +127,7 @@ export function MobileAccountMenu({
                         )}
                         {!hidePortalLink && (
                             <Link
-                                href="/mobile"
+                                href="/mobile?choose=1"
                                 className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                                 <LayoutGrid className="h-4 w-4" />

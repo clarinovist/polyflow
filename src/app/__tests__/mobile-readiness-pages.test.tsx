@@ -387,6 +387,33 @@ describe('mobile read states', () => {
         expect(screen.getByRole('status').textContent).toContain('Belum ada portal mobile'); expect(m.redirect).not.toHaveBeenCalled();
     });
 
+    it('keeps an explicit portal choice on the selector when only one portal is available', async () => {
+        m.portals.mockResolvedValue({
+            success: true,
+            data: [{
+                id: 'finance', title: 'Finance Mobile', description: 'Ringkasan',
+                path: '/finance/mobile', icon: 'Wallet', status: 'ACTIVE',
+            }],
+        });
+        render(await SelectorPage({
+            searchParams: Promise.resolve({ choose: '1' }),
+        }));
+        expect(screen.getByRole('link', { name: /Finance Mobile/ })).toBeTruthy();
+        expect(m.redirect).not.toHaveBeenCalled();
+    });
+
+    it('still redirects an automatic landing when only one portal is available', async () => {
+        m.portals.mockResolvedValue({
+            success: true,
+            data: [{
+                id: 'finance', title: 'Finance Mobile', description: 'Ringkasan',
+                path: '/finance/mobile', icon: 'Wallet', status: 'ACTIVE',
+            }],
+        });
+        await SelectorPage();
+        expect(m.redirect).toHaveBeenCalledWith('/finance/mobile');
+    });
+
     it('shows a direct-route denial without auto-redirecting the only remaining portal', async () => {
         m.portals.mockResolvedValue({
             success: true,

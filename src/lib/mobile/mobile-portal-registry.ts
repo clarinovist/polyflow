@@ -391,7 +391,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 label: 'Insight',
                 path: '/mobile/admin/insights',
             },
-            { id: 'portals', label: 'Portal', path: '/mobile' },
+            { id: 'portals', label: 'Portal', path: '/mobile?choose=1' },
         ],
         icon: 'ShieldCheck',
     },
