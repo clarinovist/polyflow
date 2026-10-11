@@ -18,6 +18,7 @@ export function InfoHint({
 }) {
     const [open, setOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
+    const pointerActivationRef = useRef(false);
 
     return (
         <Tooltip open={open} onOpenChange={setOpen}>
@@ -31,9 +32,20 @@ export function InfoHint({
                     // Keep Radix hover, focus, Escape, and outside-dismiss behavior.
                     // Pointer activation toggles for touch; keyboard activation keeps
                     // a focus-open hint available instead of immediately closing it.
-                    onPointerDown={(event) => event.preventDefault()}
+                    onPointerDown={(event) => {
+                        pointerActivationRef.current = true;
+                        event.preventDefault();
+                    }}
+                    onPointerCancel={() => {
+                        pointerActivationRef.current = false;
+                    }}
                     onClick={(event) => {
                         event.preventDefault();
+                        if (pointerActivationRef.current) {
+                            pointerActivationRef.current = false;
+                            setOpen((current) => !current);
+                            return;
+                        }
                         if (event.detail === 0) {
                             setOpen(true);
                             return;
