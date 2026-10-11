@@ -16,7 +16,7 @@ vi.mock('@/lib/mobile/mobile-portal-access', () => ({
     requireMobilePortalAccess: m.portal,
 }));
 vi.mock('@/actions/admin/permissions', () => ({
-    getMyExplicitFeaturePermissions: m.prices,
+    canViewPrices: m.prices,
 }));
 vi.mock('@/services/purchasing/mobile-purchasing-service', async (importOriginal) => {
     const actual = await importOriginal<
@@ -42,7 +42,7 @@ beforeEach(() => {
         user: { id: 'planning-1', role: 'PLANNING', roles: ['PLANNING'] },
     });
     m.portal.mockResolvedValue({ portal: { id: 'purchasing' } });
-    m.prices.mockResolvedValue({ success: true, data: [] });
+    m.prices.mockResolvedValue({ success: true, data: false });
     m.overview.mockResolvedValue({ generatedAt: '2026-10-07T00:00:00.000Z' });
     m.detail.mockResolvedValue({ kind: 'ORDER', id: 'po-1' });
 });
@@ -88,7 +88,7 @@ describe('purchasing mobile read actions', () => {
     it('forwards canonical amount permission and fails closed on its read failure', async () => {
         m.prices.mockResolvedValue({
             success: true,
-            data: ['feature:view-prices'],
+            data: true,
         });
         await getPurchasingMobileOverview();
         expect(m.overview).toHaveBeenCalledWith(

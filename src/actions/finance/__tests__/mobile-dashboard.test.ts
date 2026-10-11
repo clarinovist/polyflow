@@ -12,7 +12,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
     guard: vi.fn(),
-    features: vi.fn(),
+    prices: vi.fn(),
     transaction: vi.fn(),
     tenantDb: vi.fn(),
     arAggregate: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('@/lib/auth/finance-access', () => ({
     requireFinanceAccess: mocks.guard,
 }));
 vi.mock('@/actions/admin/permissions', () => ({
-    getMyExplicitFeaturePermissions: mocks.features,
+    canViewPrices: mocks.prices,
 }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/core/prisma', () => ({
@@ -59,9 +59,9 @@ describe('getFinanceMobileOverview', () => {
     beforeEach(() => {
         vi.resetAllMocks();
         mocks.guard.mockResolvedValue({ user: { role: 'FINANCE' } });
-        mocks.features.mockResolvedValue({
+        mocks.prices.mockResolvedValue({
             success: true,
-            data: ['feature:view-prices'],
+            data: true,
         });
         mocks.tenantDb.mockReturnValue(tenantDb);
         mocks.transaction.mockImplementation((fn: (client: unknown) => unknown) =>
@@ -197,7 +197,7 @@ describe('getFinanceMobileOverview', () => {
     });
 
     it('omits every amount query and DTO field without canonical permission', async () => {
-        mocks.features.mockResolvedValue({ success: true, data: [] });
+        mocks.prices.mockResolvedValue({ success: true, data: false });
         mocks.arAggregate.mockResolvedValue({ _count: 1 });
         mocks.apAggregate.mockResolvedValue({ _count: 1 });
         mocks.arList.mockResolvedValue([
@@ -413,9 +413,9 @@ describe('getFinanceMobileInvoiceDetail', () => {
     beforeEach(() => {
         vi.resetAllMocks();
         mocks.guard.mockResolvedValue({ user: { role: 'FINANCE' } });
-        mocks.features.mockResolvedValue({
+        mocks.prices.mockResolvedValue({
             success: true,
-            data: ['feature:view-prices'],
+            data: true,
         });
         mocks.tenantDb.mockReturnValue(tenantDb);
         mocks.transaction.mockImplementation((fn: (client: unknown) => unknown) =>
@@ -424,7 +424,7 @@ describe('getFinanceMobileInvoiceDetail', () => {
     });
 
     it('validates the AR detail with the operational exclusion and hides amounts without permission', async () => {
-        mocks.features.mockResolvedValue({ success: true, data: [] });
+        mocks.prices.mockResolvedValue({ success: true, data: false });
         mocks.arDetail.mockResolvedValue({
             id: 'ar',
             invoiceNumber: 'AR',
@@ -472,7 +472,7 @@ describe('getFinanceMobileInvoiceDetail', () => {
     });
 
     it('keeps the AP Decimal field reference and hides amounts without permission', async () => {
-        mocks.features.mockResolvedValue({ success: true, data: [] });
+        mocks.prices.mockResolvedValue({ success: true, data: false });
         mocks.apDetail.mockResolvedValue({
             id: 'ap',
             invoiceNumber: 'AP',

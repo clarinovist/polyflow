@@ -19,6 +19,7 @@ vi.mock('@/lib/mobile/mobile-portal-access', () => ({ requireMobilePortalAccess:
 vi.mock('@/actions/admin/permissions', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/actions/admin/permissions')>()),
     getMyExplicitFeaturePermissions: async () => ({ success: true, data: ['feature:view-prices'] }),
+    canViewPrices: async () => ({ success: true, data: true }),
 }));
 vi.mock('@/lib/tools/auth-checks', () => ({ requireRole: async (roles: string[]) => ({ user: { id: 'mobile-postgres-test', role: roles[0] } }), requireAuth: async () => ({ user: { id: 'mobile-postgres-test', role: 'PRODUCTION' } }) }));
 const db = process.env.RETURN_CREDIT_TEST_DATABASE_URL ? returnTestClient(process.env.RETURN_CREDIT_TEST_DATABASE_URL) : null;

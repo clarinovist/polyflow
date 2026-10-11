@@ -1,6 +1,6 @@
 'use server';
 
-import { getMyExplicitFeaturePermissions } from '@/actions/admin/permissions';
+import { canViewPrices } from '@/actions/admin/permissions';
 import { requireFinanceAccess } from '@/lib/auth/finance-access';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { withTenant } from '@/lib/core/tenant';
@@ -48,12 +48,10 @@ async function context() {
         throw new BusinessRuleError(
             'Konteks workspace finance tidak tersedia.',
         );
-    const permissions = await getMyExplicitFeaturePermissions();
+    const pricePermission = await canViewPrices();
     return {
         db,
-        canViewAmounts:
-            permissions.success &&
-            permissions.data.includes('feature:view-prices'),
+        canViewAmounts: pricePermission.success && pricePermission.data === true,
     };
 }
 

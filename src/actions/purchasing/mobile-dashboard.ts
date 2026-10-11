@@ -1,6 +1,6 @@
 'use server';
 
-import { getMyExplicitFeaturePermissions } from '@/actions/admin/permissions';
+import { canViewPrices } from '@/actions/admin/permissions';
 import { requirePurchasingAccess } from '@/lib/auth/purchasing-access';
 import { getUserRoles } from '@/lib/auth/roles';
 import { withTenant } from '@/lib/core/tenant';
@@ -38,14 +38,12 @@ async function readContext() {
     const canReadTeamRequests =
         roles.includes('ADMIN') || roles.includes('PROCUREMENT');
     const prOwnerId = canReadTeamRequests ? undefined : session.user.id;
-    // Finance-domain amounts are opt-in. A failed permission read preserves
-    // the operational queue but removes every amount-bearing query/field.
-    const featurePermissions = await getMyExplicitFeaturePermissions();
+    // Use canonical price visibility (active ADMIN or an explicit grant).
+    // Failed permission reads still withhold every amount-bearing query/field.
+    const pricePermission = await canViewPrices();
     return {
         prOwnerId,
-        canViewAmounts:
-            featurePermissions.success &&
-            featurePermissions.data.includes('feature:view-prices'),
+        canViewAmounts: pricePermission.success && pricePermission.data === true,
     };
 }
 
