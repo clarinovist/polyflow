@@ -4,6 +4,7 @@ import { hydrateRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import Home, { metadata } from '@/app/page';
+import { footerLabels, heroLabels, homeLinks } from '@/lib/labels/home';
 import HeroSectionEnhanced from '../hero-section-enhanced';
 import PublicNavEnhanced from '../public-nav-enhanced';
 
@@ -101,6 +102,7 @@ describe('landing motion safety', () => {
         expect(hero.textContent).toContain('tali rafia');
         expect(hero.textContent).toContain('sedotan');
         expect(hero.textContent).toContain('Terhubung');
+        expect(hero.textContent).toContain(heroLabels.tagline);
         expect(hero.textContent).not.toContain('24/7');
         expect(hero.textContent).not.toContain('otomatis');
         // Public proof stays anonymous: only the approved product families appear.
@@ -126,6 +128,34 @@ describe('landing motion safety', () => {
             home.querySelector('#contact a[href="/register"]'),
         ).toBeNull();
         expectInitiallyVisible(footer?.querySelector('p:last-child') ?? null);
+    });
+
+    it('keeps retired claims off the whole landing page and anchors resolvable', () => {
+        const home = renderMarkup(<Home />);
+        const text = home.textContent ?? '';
+
+        for (const retired of [
+            '24/7',
+            'Buat Workspace',
+            'testimonial',
+            '15%',
+            'Rp 2.5',
+            'SLA',
+            '1.000+',
+        ]) {
+            expect(text.toLowerCase()).not.toContain(retired.toLowerCase());
+        }
+        expect(text).toContain(footerLabels.craftedFor);
+
+        expect(home.querySelector('#features')).not.toBeNull();
+        expect(home.querySelector('#why-polyflow')).not.toBeNull();
+        const anchorHrefs = [
+            ...Array.from(home.querySelectorAll('a')).map(
+                (a) => a.getAttribute('href') ?? '',
+            ),
+        ];
+        expect(anchorHrefs).toContain(homeLinks.exploreWorkflow);
+        expect(anchorHrefs).toContain(homeLinks.whyPolyflow);
     });
 
     it('publishes metadata that matches the extrusion positioning', () => {
