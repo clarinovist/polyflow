@@ -97,12 +97,12 @@ const data: WarehouseShiftBoard = {
 };
 
 describe('WarehouseShiftBoardComponent', () => {
-    it('renders condition then attention then direction with server freshness', () => {
+    it('renders health then priority queue then insight with server freshness', () => {
         render(<WarehouseShiftBoardComponent data={data} />);
 
         const health = screen.getByText('Kondisi');
-        const attention = screen.getByText('Perlu perhatian');
-        const drivers = screen.getByText('Arah utama');
+        const attention = screen.getByText('Prioritas shift');
+        const drivers = screen.getByText('Sinyal utama');
         expect(
             health.compareDocumentPosition(attention) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
@@ -121,32 +121,46 @@ describe('WarehouseShiftBoardComponent', () => {
         render(<WarehouseShiftBoardComponent data={data} />);
 
         expect(
-            screen.getByText('Terima').closest('a')?.getAttribute('href'),
+            screen
+                .getByText('Menunggu penerimaan')
+                .closest('a')
+                ?.getAttribute('href'),
         ).toBe('/warehouse/incoming');
-        expect(screen.getByText('SJ-001').closest('a')).toHaveProperty(
-            'className',
-            expect.stringContaining('min-h-11'),
-        );
         expect(
-            screen.getByText('SJ-001').closest('a')?.getAttribute('href'),
+            screen
+                .getByRole('link', { name: /SJ-001.*Verifikasi muat/ })
+                .getAttribute('href'),
         ).toBe('/warehouse/outgoing/sj-1');
         expect(
-            screen.getByText('PO-001').closest('a')?.getAttribute('href'),
+            screen
+                .getByRole('link', { name: /PO-001.*Buka incoming/ })
+                .getAttribute('href'),
         ).toBe('/warehouse/incoming/orders/po-1');
         expect(
-            screen.getByText('SPK-001').closest('a')?.getAttribute('href'),
+            screen
+                .getByRole('link', { name: /SPK-001.*Siapkan bahan/ })
+                .getAttribute('href'),
         ).toBe('/warehouse/materials?orderId=spk-1');
-        expect(screen.getByText('1 dari 8')).toBeTruthy();
-        expect(screen.getAllByText('1 dari 2')).toHaveLength(1);
+        expect(screen.getByText('13 total · 3 ditampilkan')).toBeTruthy();
     });
 
     it('shows explicit null-date copy and each driver in its own unit', () => {
         render(<WarehouseShiftBoardComponent data={data} />);
 
-        expect(screen.getByText('Tanggal harapan belum diisi')).toBeTruthy();
+        expect(screen.getByText(/tanggal harapan belum diisi/i)).toBeTruthy();
         expect(screen.getByText('2 / 10 KG')).toBeTruthy();
         expect(screen.getByText('5 / 20 PCS')).toBeTruthy();
         expect(screen.queryByText(/KG \+ PCS/)).toBeNull();
+        expect(
+            screen
+                .getByText('Stok menipis')
+                .closest('[data-slot="card"]')?.textContent,
+        ).toContain('1');
+        expect(
+            screen
+                .getByText('Perlu dipesan ulang')
+                .closest('[data-slot="card"]')?.textContent,
+        ).toContain('1');
     });
 
     it('renders valid zero and empty states as available rather than unavailable', () => {
@@ -194,20 +208,22 @@ describe('WarehouseShiftBoardComponent', () => {
 
         render(<WarehouseShiftBoardComponent data={zeroData} />);
 
-        expect(screen.getAllByText('Antrean kosong')).toHaveLength(3);
+        expect(screen.getByText('Tidak ada item yang butuh perhatian.')).toBeTruthy();
+        expect(screen.getByText('Stok menipis')).toBeTruthy();
+        expect(screen.getByText('Perlu dipesan ulang')).toBeTruthy();
         expect(screen.getAllByText('Tidak ada peringatan')).toHaveLength(2);
         expect(
             screen.getByText('Tidak ada varian di bawah batas minimum.'),
         ).toBeTruthy();
         expect(screen.queryByText(/tidak tersedia/i)).toBeNull();
-        expect(screen.getByText('Terima').closest('a')).toBeNull();
+        expect(screen.getByText('Menunggu penerimaan').closest('a')).toBeNull();
     });
 
     it('does not emit the removed analytics reorder link', () => {
         render(<WarehouseShiftBoardComponent data={data} />);
 
         expect(
-            screen.queryByRole('link', { name: /Perlu dipesan ulang/i }),
+            screen.queryByRole('link', { name: /Buka Perlu dipesan ulang/i }),
         ).toBeNull();
         expect(
             document.querySelector('a[href="/warehouse/analytics#reorder"]'),
@@ -226,13 +242,14 @@ describe('WarehouseShiftBoardComponent', () => {
 
         render(<WarehouseShiftBoardComponent data={partialData} />);
 
-        expect(screen.getByText('Terima')).toBeTruthy();
+        expect(screen.getByText('Menunggu penerimaan')).toBeTruthy();
         expect(screen.getByText('4 GR')).toBeTruthy();
         expect(
             screen.getByText('Kondisi persediaan tidak tersedia'),
         ).toBeTruthy();
         expect(screen.getByText('Penyumbang stok tidak tersedia')).toBeTruthy();
         expect(screen.queryByText('Stok menipis')).toBeNull();
+        expect(screen.queryByText('Perlu dipesan ulang')).toBeNull();
     });
 
     it('renders whole-board failure without healthy-looking zeroes or operational links', () => {

@@ -140,17 +140,17 @@ describe('FinanceDashboardPage R4B', () => {
         });
     });
 
-    it('orders condition, attention, then direction and renders exactly four condition signals', async () => {
+    it('orders health before the priority queue and insight and renders exactly four condition signals', async () => {
         render(
             await FinanceDashboardPage({ searchParams: Promise.resolve({}) }),
         );
 
         const text = document.body.textContent ?? '';
-        expect(text.indexOf('Kondisi')).toBeLessThan(
-            text.indexOf('Perlu perhatian'),
+        expect(text.indexOf('Ringkasan kesehatan')).toBeLessThan(
+            text.indexOf('Prioritas Finance'),
         );
-        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
-            text.indexOf('Arah utama'),
+        expect(text.indexOf('Prioritas Finance')).toBeLessThan(
+            text.indexOf('Insight ringkas'),
         );
         expect(screen.getByText('Posisi kas')).toBeTruthy();
         expect(screen.getByText('Pendapatan')).toBeTruthy();
@@ -179,13 +179,16 @@ describe('FinanceDashboardPage R4B', () => {
                 .getByText('Posisi kas')
                 .closest('[data-slot="card"]')?.textContent,
         ).toMatch(/Rp.*0/);
-        expect(screen.getByText('27 total · 1 ditampilkan')).toBeTruthy();
-        expect(screen.getByText('1 total · 1 ditampilkan')).toBeTruthy();
-        expect(screen.getByText('6 total · 1 ditampilkan')).toBeTruthy();
-        expect(screen.getByText(/dari 33 belum lunas/)).toBeTruthy();
+        expect(screen.getByRole('link', { name: /Piutang27/ })).toBeTruthy();
+        expect(screen.getByRole('link', { name: /Hutang1/ })).toBeTruthy();
+        expect(screen.getByRole('link', { name: /Jurnal draf6/ })).toBeTruthy();
+        expect(screen.getByText('36 total · 4 ditampilkan')).toBeTruthy();
+        expect(
+            screen.getByText(/Kondisi terkini, bukan filter periode/),
+        ).toBeTruthy();
         expect(screen.getByRole('link', { name: /Terima bayar/ })).toBeTruthy();
         expect(screen.getByText('Filter tanggal')).toBeTruthy();
-        expect(screen.getByRole('link', { name: /Lihat retur penjualan/ })).toBeTruthy();
+        expect(screen.getByRole('link', { name: /Buka retur/ })).toBeTruthy();
     });
 
     it.each([
@@ -238,9 +241,11 @@ describe('FinanceDashboardPage R4B', () => {
                     'Tidak ada item Finance yang butuh perhatian.',
                 ),
             ).toBeNull();
-            expect(screen.getByText('Rekonsiliasi terbuka')).toBeTruthy();
+            if (openBankRecs > 0) {
+                expect(screen.getByText('Rekonsiliasi bank terbuka')).toBeTruthy();
+            }
             if (returnCount > 0) {
-                expect(screen.getByText(/2 draft/)).toBeTruthy();
+                expect(screen.getByText('Retur menunggu tindak lanjut')).toBeTruthy();
             }
         },
     );
@@ -279,8 +284,12 @@ describe('FinanceDashboardPage R4B', () => {
         expect(screen.getAllByText('Belum disiapkan').length).toBeGreaterThan(0);
         expect(screen.getAllByText('Data tidak tersedia').length).toBeGreaterThan(0);
         expect(screen.getByText('Sebagian antrean Finance tidak tersedia')).toBeTruthy();
-        expect(screen.getByText('INV-AR-1')).toBeTruthy();
+        expect(
+            screen.getByRole('link', { name: /INV-AR-1.*Tinjau piutang/ }),
+        ).toBeTruthy();
         expect(screen.getByText('Sinyal periode tidak tersedia')).toBeTruthy();
+        expect(screen.getByText('3 prioritas ditampilkan')).toBeTruthy();
+        expect(screen.queryByText(/35 total/)).toBeNull();
     });
 
     it('does not treat a failed return reader as an empty queue', async () => {
@@ -336,7 +345,7 @@ describe('FinanceDashboardPage R4B', () => {
         expect(screen.getByText('Riwayat belum cukup')).toBeTruthy();
         expect(screen.queryByText('Pendapatan bulanan')).toBeNull();
         expect(screen.getByText('Posisi kas').closest('a')).toBeNull();
-        expect(screen.queryByRole('link', { name: /Lihat retur penjualan/ })).toBeNull();
+        expect(screen.queryByRole('link', { name: /Buka retur/ })).toBeNull();
         expect(mocks.returns).not.toHaveBeenCalled();
     });
 

@@ -51,12 +51,12 @@ const data: HrdShiftBoard = {
 };
 
 describe('HrdShiftBoardComponent', () => {
-    it('renders condition → attention → direction with formulas, freshness, and safe root links', () => {
+    it('renders health → aggregate priority queue → honest driver state with safe root links', () => {
         render(<HrdShiftBoardComponent data={data} />);
 
         const health = screen.getByText('Kondisi');
-        const attention = screen.getByText('Perlu perhatian');
-        const drivers = screen.getByText('Arah utama');
+        const attention = screen.getByText('Prioritas operasional');
+        const drivers = screen.getByText('Pendorong per unit atau sif belum disiapkan');
         expect(
             health.compareDocumentPosition(attention) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
@@ -70,31 +70,30 @@ describe('HrdShiftBoardComponent', () => {
         expect(
             screen.getByText(/1 tidak hadir · 1 cuti\/izin · 2,25 jam lembur/),
         ).toBeTruthy();
-        expect(screen.getByText('5 slip dibuat')).toBeTruthy();
+        expect(screen.getAllByText('5 slip dibuat').length).toBeGreaterThanOrEqual(1);
         expect(
             screen.getByText(/1 draf · 2 diselesaikan · 2 dibayar/),
         ).toBeTruthy();
         expect(screen.getByText('3')).toBeTruthy();
         expect(
             screen
-                .getByText('Cuti/izin menunggu')
-                .closest('a')
-                ?.getAttribute('href'),
+                .getByRole('link', { name: /Pengajuan menunggu keputusan.*Review pengajuan/ })
+                .getAttribute('href'),
         ).toBe('/hrd/leave?status=PENDING');
         expect(
-            screen.getByText('Kasbon aktif').closest('a')?.getAttribute('href'),
+            screen
+                .getByRole('link', { name: /Kasbon aktif1/ })
+                .getAttribute('href'),
         ).toBe('/hrd/loans');
         expect(
             screen
-                .getByText('Periode payroll terbuka')
-                .closest('a')
-                ?.getAttribute('href'),
+                .getByRole('link', { name: /Periode payroll terbuka.*Tinjau periode/ })
+                .getAttribute('href'),
         ).toBe('/hrd/payroll-monthly');
         expect(
             screen
-                .getByText('Tidak hadir tercatat kemarin')
-                .closest('a')
-                ?.getAttribute('href'),
+                .getByRole('link', { name: /Tidak hadir tercatat kemarin.*Buka rekap/ })
+                .getAttribute('href'),
         ).toBe('/hrd/attendance');
         expect(screen.getByText(/Pendorong per unit atau sif belum/)).toBeTruthy();
         expect(screen.getByText(/tidak menyimpulkan penyebab/i)).toBeTruthy();
@@ -135,6 +134,35 @@ describe('HrdShiftBoardComponent', () => {
         expect(screen.queryByText('Absensi tercatat tidak tersedia')).toBeNull();
     });
 
+    it('renders all-clear when every actionable aggregate is available and zero', () => {
+        const zeroAttention: HrdShiftBoard = {
+            ...data,
+            health: {
+                ...data.health,
+                payrollReadiness: section({
+                    year: 2026, month: 10, total: 0, draft: 0, finalized: 0, paid: 0,
+                }),
+                employmentFollowUp: section({
+                    probation: 0, contract: 0, total: 0, horizonDays: 30 as const,
+                }),
+            },
+            attention: {
+                ...data.attention,
+                pendingLeave: section({ count: 0 }),
+                payroll: section({ openPeriods: 0, periodsNeedGenerate: 0 }),
+                hrAlerts: section({ unreadRecipientNotifications: 0 }),
+                recordedAbsenceYesterday: section({ count: 0 }),
+            },
+        };
+
+        render(<HrdShiftBoardComponent data={zeroAttention} />);
+
+        expect(
+            screen.getByText('Tidak ada tindak lanjut HRD pada agregat yang tersedia.'),
+        ).toBeTruthy();
+        expect(screen.getByText('0 status ditampilkan')).toBeTruthy();
+    });
+
     it('renders independent unavailable and payroll not-configured states without synthetic values', () => {
         const partial: HrdShiftBoard = {
             ...data,
@@ -154,7 +182,7 @@ describe('HrdShiftBoardComponent', () => {
         expect(screen.getAllByText('Data tidak tersedia').length).toBeGreaterThan(
             0,
         );
-        expect(screen.getByText('Belum disiapkan')).toBeTruthy();
+        expect(screen.getAllByText('Belum disiapkan').length).toBeGreaterThan(0);
         expect(screen.queryByText('0 hadir')).toBeNull();
         expect(screen.getByText(/Rp\s*250\.000/)).toBeTruthy();
     });
@@ -187,5 +215,8 @@ describe('HrdShiftBoardComponent', () => {
             }),
         ).toBeTruthy();
         expect(screen.queryByText(/turnover/i)).toBeNull();
+        expect(
+            screen.getByText('Perlu tindakan').parentElement?.textContent,
+        ).toContain('6');
     });
 });
