@@ -140,21 +140,24 @@ describe('FinanceDashboardPage R4B', () => {
         });
     });
 
-    it('orders Health, Attention, then Drivers and renders exactly four Health signals', async () => {
+    it('orders condition, attention, then direction and renders exactly four condition signals', async () => {
         render(
             await FinanceDashboardPage({ searchParams: Promise.resolve({}) }),
         );
 
         const text = document.body.textContent ?? '';
-        expect(text.indexOf('Health')).toBeLessThan(text.indexOf('Attention'));
-        expect(text.indexOf('Attention')).toBeLessThan(text.indexOf('Drivers'));
+        expect(text.indexOf('Kondisi')).toBeLessThan(
+            text.indexOf('Perlu perhatian'),
+        );
+        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
+            text.indexOf('Arah utama'),
+        );
         expect(screen.getByText('Posisi kas')).toBeTruthy();
         expect(screen.getByText('Pendapatan')).toBeTruthy();
         expect(screen.getByText('Laba kotor')).toBeTruthy();
         expect(screen.getByText('Laba bersih')).toBeTruthy();
-        expect(screen.getAllByText('AVAILABLE')).toHaveLength(4);
-        expect(screen.getByText(/IDR · stock/)).toBeTruthy();
-        expect(screen.getAllByText(/IDR · flow/)).toHaveLength(3);
+        expect(screen.queryByText('AVAILABLE')).toBeNull();
+        expect(screen.getAllByText('Rupiah')).toHaveLength(4);
         expect(screen.queryByText(/budget/i)).toBeNull();
         expect(screen.queryByText(/forecast/i)).toBeNull();
         expect(screen.queryByText(/margin/i)).toBeNull();
@@ -273,7 +276,7 @@ describe('FinanceDashboardPage R4B', () => {
             await FinanceDashboardPage({ searchParams: Promise.resolve({}) }),
         );
 
-        expect(screen.getAllByText('Belum dikonfigurasi').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Belum disiapkan').length).toBeGreaterThan(0);
         expect(screen.getAllByText('Data tidak tersedia').length).toBeGreaterThan(0);
         expect(screen.getByText('Sebagian antrean Finance tidak tersedia')).toBeTruthy();
         expect(screen.getByText('INV-AR-1')).toBeTruthy();

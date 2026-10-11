@@ -86,7 +86,7 @@ export function WarehouseShiftBoardComponent({
                         Gudang
                     </h1>
                     <p className="text-muted-foreground">
-                        Kondisi, perhatian, dan driver operasional gudang.
+                        Kondisi, perhatian, dan arah utama operasional gudang.
                     </p>
                 </div>
                 <section
@@ -94,7 +94,7 @@ export function WarehouseShiftBoardComponent({
                     aria-labelledby="warehouse-health-heading"
                 >
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="warehouse-health-heading"
@@ -122,7 +122,7 @@ export function WarehouseShiftBoardComponent({
                         Gudang
                     </h1>
                     <p className="text-muted-foreground">
-                        Kondisi, perhatian, dan driver operasional gudang.
+                        Kondisi, perhatian, dan arah utama operasional gudang.
                     </p>
                 </div>
                 <DashboardFreshness generatedAt={generatedAt} />
@@ -134,7 +134,7 @@ export function WarehouseShiftBoardComponent({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="warehouse-health-heading"
@@ -161,11 +161,11 @@ export function WarehouseShiftBoardComponent({
                                 )}
                                 icon={Package}
                                 definition={{
-                                    unit: 'Purchase order',
+                                    unit: 'Pesanan pembelian',
                                     period: 'Saat dashboard diperbarui',
                                     description:
-                                        'PO SENT atau PARTIAL_RECEIVED yang dapat diterima.',
-                                    source: 'Purchasing',
+                                        'Pesanan pembelian yang sudah dikirim ke pemasok atau diterima sebagian dan dapat diterima gudang.',
+                                    source: 'Data pembelian',
                                 }}
                                 href={
                                     health.operational.data.receivablePOs > 0
@@ -188,8 +188,8 @@ export function WarehouseShiftBoardComponent({
                                     unit: 'Surat jalan',
                                     period: 'Saat dashboard diperbarui',
                                     description:
-                                        'Surat jalan PENDING atau LOADING.',
-                                    source: 'Warehouse',
+                                        'Surat jalan yang masih menunggu atau sedang dimuat.',
+                                    source: 'Data gudang',
                                 }}
                                 href={
                                     health.operational.data.openLoadOrders > 0
@@ -212,8 +212,8 @@ export function WarehouseShiftBoardComponent({
                                     unit: 'SPK',
                                     period: 'Saat dashboard diperbarui',
                                     description:
-                                        'SPK RELEASED, IN_PROGRESS, atau WAITING_MATERIAL.',
-                                    source: 'Production',
+                                        'SPK yang sudah dirilis, sedang berjalan, atau menunggu material.',
+                                    source: 'Data produksi',
                                 }}
                                 href={
                                     health.operational.data.materialQueue > 0
@@ -232,8 +232,8 @@ export function WarehouseShiftBoardComponent({
                         <div className="sm:col-span-2 xl:col-span-2">
                             <DashboardSectionState
                                 state="UNAVAILABLE"
-                                title="Alert persediaan tidak tersedia"
-                                description="Hitungan stok menipis dan reorder gagal dimuat dan tidak dianggap nol."
+                                title="Kondisi persediaan tidak tersedia"
+                                description="Hitungan stok menipis dan kebutuhan pesan ulang gagal dimuat dan tidak dianggap nol."
                             />
                         </div>
                     ) : (
@@ -248,8 +248,8 @@ export function WarehouseShiftBoardComponent({
                                     unit: 'Varian',
                                     period: 'Saat dashboard diperbarui',
                                     description:
-                                        'Varian aktif di bawah batas minimum berdasarkan stok INTERNAL RM/FG.',
-                                    source: 'Inventory',
+                                        'Varian aktif dengan persediaan bahan baku atau barang jadi internal di bawah batas minimum.',
+                                    source: 'Data persediaan',
                                 }}
                                 href={
                                     health.inventory.data.lowStock > 0
@@ -259,7 +259,7 @@ export function WarehouseShiftBoardComponent({
                                 supportingText={
                                     health.inventory.data.lowStock > 0
                                         ? 'Tinjau varian'
-                                        : 'Tidak ada alert'
+                                        : 'Tidak ada peringatan'
                                 }
                             />
                             <DashboardHealthCard
@@ -272,13 +272,13 @@ export function WarehouseShiftBoardComponent({
                                     unit: 'Varian',
                                     period: 'Saat dashboard diperbarui',
                                     description:
-                                        'Varian aktif di bawah reorder point berdasarkan stok INTERNAL RM/FG.',
-                                    source: 'Inventory',
+                                        'Varian aktif dengan persediaan bahan baku atau barang jadi internal di bawah titik pesan ulang.',
+                                    source: 'Data persediaan',
                                 }}
                                 supportingText={
                                     health.inventory.data.suggestedReorder > 0
                                         ? 'Koordinasikan dengan pembelian'
-                                        : 'Tidak ada alert'
+                                        : 'Tidak ada peringatan'
                                 }
                             />
                         </>
@@ -337,7 +337,7 @@ export function WarehouseShiftBoardComponent({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="warehouse-attention-heading"
@@ -462,7 +462,7 @@ export function WarehouseShiftBoardComponent({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="warehouse-drivers-heading"
@@ -474,8 +474,8 @@ export function WarehouseShiftBoardComponent({
                 {drivers.status === 'UNAVAILABLE' ? (
                     <DashboardSectionState
                         state="UNAVAILABLE"
-                        title="Driver stok tidak tersedia"
-                        description="Daftar driver berasal dari snapshot stok yang sama dengan hitungan alert dan gagal dimuat."
+                        title="Penyumbang stok tidak tersedia"
+                        description="Daftar penyumbang berasal dari data stok yang sama dengan hitungan persediaan dan gagal dimuat."
                     />
                 ) : (
                     <Card>

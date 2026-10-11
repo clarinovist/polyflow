@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
     DashboardFreshness,
@@ -9,15 +9,23 @@ import {
     TargetProgress,
 } from '../DashboardMetricPrimitives';
 
+class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+}
+
+globalThis.ResizeObserver = ResizeObserverMock;
+
 const definition = {
-    unit: 'IDR',
-    period: 'Bulan berjalan (MTD)',
+    unit: 'Rupiah',
+    period: 'Bulan berjalan',
     description: 'Nilai sintetis untuk regression presentation.',
     source: 'Fixture',
 };
 
 describe('dashboard metric primitives', () => {
-    it('renders an available metric with visible unit, period, definition, and drill-down', () => {
+    it('renders a value-first metric with disclosure and sibling drill-down interactions', () => {
         render(
             <DashboardHealthCard
                 title="Pendapatan"
@@ -27,18 +35,41 @@ describe('dashboard metric primitives', () => {
                 supportingText="Naik dibanding bulan lalu"
             />,
         );
-        expect(screen.getByText('AVAILABLE')).toBeTruthy();
-        expect(screen.getByText('IDR')).toBeTruthy();
-        expect(screen.getByText('Bulan berjalan (MTD)')).toBeTruthy();
-        expect(screen.getByLabelText(/Nilai sintetis.*Sumber: Fixture/)).toBeTruthy();
-        expect(screen.getByText('Pendapatan').closest('a')?.getAttribute('href')).toBe('/finance/reports');
+
+        expect(screen.queryByText('AVAILABLE')).toBeNull();
+        expect(screen.getByText('Rp 1.000')).toBeTruthy();
+        expect(screen.getByText('Bulan berjalan')).toBeTruthy();
+        expect(screen.getByText('Rupiah')).toBeTruthy();
+        expect(
+            screen.queryByText('Nilai sintetis untuk regression presentation.'),
+        ).toBeNull();
+
+        const info = screen.getByRole('button', {
+            name: 'Penjelasan Pendapatan',
+        });
+        fireEvent.click(info, { detail: 1 });
+        expect(screen.getByRole('tooltip').textContent).toContain(
+            'Nilai sintetis untuk regression presentation.',
+        );
+        expect(screen.getByRole('tooltip').textContent).toContain(
+            'Sumber data: Fixture',
+        );
+
+        const link = screen.getByRole('link', { name: 'Buka Pendapatan' });
+        expect(link.getAttribute('href')).toBe('/finance/reports');
+        expect(link.contains(info)).toBe(false);
     });
 
-    it('distinguishes unavailable and not-configured metrics from valid zero', () => {
+    it('distinguishes localized unavailable and not-ready metrics from valid zero', () => {
         const { rerender } = render(
-            <DashboardHealthCard title="Kas" value="Rp 0" definition={definition} state="UNAVAILABLE" />,
+            <DashboardHealthCard
+                title="Kas"
+                value="Rp 0"
+                definition={definition}
+                state="UNAVAILABLE"
+            />,
         );
-        expect(screen.getByText('UNAVAILABLE')).toBeTruthy();
+        expect(screen.queryByText('UNAVAILABLE')).toBeNull();
         expect(screen.getByText('Data tidak tersedia')).toBeTruthy();
         expect(screen.queryByText('Rp 0')).toBeNull();
 
@@ -50,13 +81,12 @@ describe('dashboard metric primitives', () => {
                 href="/warehouse/analytics"
             />,
         );
-        expect(screen.getByText('NOT_CONFIGURED')).toBeTruthy();
-        expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
+        expect(screen.queryByText('NOT_CONFIGURED')).toBeNull();
+        expect(screen.getByText('Belum disiapkan')).toBeTruthy();
         expect(
             screen
-                .getByText('Belum dikonfigurasi')
-                .closest('a')
-                ?.getAttribute('href'),
+                .getByRole('link', { name: 'Buka Valuasi' })
+                .getAttribute('href'),
         ).toBe('/warehouse/analytics');
     });
 

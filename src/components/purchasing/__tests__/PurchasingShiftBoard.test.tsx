@@ -80,9 +80,8 @@ describe('PurchasingShiftBoardComponent', () => {
         ).toBe('/purchasing/requests');
         expect(
             screen
-                .getByText('Hutang overdue')
-                .closest('a')
-                ?.getAttribute('href'),
+                .getByRole('link', { name: 'Buka Hutang jatuh tempo' })
+                .getAttribute('href'),
         ).toBe('/purchasing/invoices?overdue=true');
         expect(
             screen.getByText('INV-001').closest('a')?.getAttribute('href'),
@@ -110,18 +109,24 @@ describe('PurchasingShiftBoardComponent', () => {
         expect(screen.queryByText('Perlu diproses')).not.toBeTruthy();
     });
 
-    it('orders Health, Attention, then Drivers and shows canonical spend copy', () => {
+    it('orders condition, attention, then direction and shows concise spend copy', () => {
         render(<PurchasingShiftBoardComponent data={data} />);
 
         const text = document.body.textContent ?? '';
-        expect(text.indexOf('Health')).toBeLessThan(text.indexOf('Attention'));
-        expect(text.indexOf('Attention')).toBeLessThan(text.indexOf('Drivers'));
+        expect(text.indexOf('Kondisi')).toBeLessThan(
+            text.indexOf('Perlu perhatian'),
+        );
+        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
+            text.indexOf('Arah utama'),
+        );
         expect(screen.getByText(/Diperbarui 15.00 WIB/)).toBeTruthy();
         expect(
-            screen.getByLabelText(/PR OPEN atau APPROVED.*Unit: Purchase request/),
+            screen.getByRole('button', {
+                name: 'Penjelasan PR dalam proses',
+            }),
         ).toBeTruthy();
         expect(
-            screen.getByText(/MTD saat ini dibandingkan dengan bulan penuh sebelumnya/),
+            screen.getByText(/Bulan berjalan dibandingkan dengan bulan penuh sebelumnya/),
         ).toBeTruthy();
         expect(screen.getAllByText(/\+25% vs bulan penuh sebelumnya/)).toHaveLength(
             2,
@@ -175,17 +180,16 @@ describe('PurchasingShiftBoardComponent', () => {
 
         render(<PurchasingShiftBoardComponent data={restricted} />);
 
-        expect(screen.getByText(/Nominal dibatasi; jumlah invoice/)).toBeTruthy();
+        expect(screen.getByText(/Nominal dibatasi; jumlah tagihan/)).toBeTruthy();
         expect(screen.getByText('Penggerak nominal dibatasi')).toBeTruthy();
-        expect(screen.getByText(/1 invoice overdue terdeteksi/)).toBeTruthy();
+        expect(screen.getByText(/1 tagihan jatuh tempo terdeteksi/)).toBeTruthy();
         expect(screen.queryByText('INV-001')).toBeNull();
         expect(screen.queryByText(/250\.000/)).toBeNull();
         expect(screen.queryByText(/1\.000\.000/)).toBeNull();
         expect(
             screen
-                .getByText('Hutang overdue')
-                .closest('a')
-                ?.getAttribute('href'),
+                .getByRole('link', { name: 'Buka Hutang jatuh tempo' })
+                .getAttribute('href'),
         ).toBe('/purchasing/invoices?overdue=true');
         expect(screen.getByText('PR-001')).toBeTruthy();
         expect(screen.getByText('PO-002')).toBeTruthy();

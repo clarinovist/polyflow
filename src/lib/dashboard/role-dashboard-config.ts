@@ -172,18 +172,18 @@ export function buildKpis(
         revenueValue !== null && revenueValue !== undefined
             ? {
                   id: 'revenue',
-                  title: 'Pendapatan Aktual (MTD)',
+                  title: 'Pendapatan Aktual',
                   value: formatRupiah(revenueValue),
-                  subtitle: 'Target: belum dikonfigurasi',
+                  subtitle: 'Target belum tersedia',
                   targetState: 'NOT_CONFIGURED',
                   icon: Wallet,
                   trend: trendFromNumber(revenueTrend),
                   trendValue: monthlyTrendLabel(revenueTrend),
                   unit: 'IDR',
-                  period: 'Bulan berjalan (MTD)',
+                  period: 'Bulan berjalan',
                   definition:
-                      'Pendapatan usaha POSTED; target/on-target ditahan sampai basis target disetujui.',
-                  source: 'Laporan laba rugi Finance',
+                      'Pendapatan usaha yang sudah tercatat. Perbandingan target menunggu target yang disetujui.',
+                  source: 'Laporan laba rugi',
                   href: '/finance/reports/income-statement',
                   resourceHint: '/finance/reports/income-statement',
               }
@@ -193,34 +193,34 @@ export function buildKpis(
         stats.purchasing && stats.purchasing.mtdSpending !== null
             ? {
                   id: 'spending',
-                  title: 'Pengeluaran (MTD)',
+                  title: 'Pengeluaran',
                   value: formatRupiah(stats.purchasing.mtdSpending),
-                  subtitle: `${stats.purchasing.pendingPOs} PO tertunda`,
+                  subtitle: `${stats.purchasing.pendingPOs} pesanan pembelian tertunda`,
                   icon: ShoppingCart,
                   trend: trendFromNumber(stats.purchasing.trend),
                   trendValue: monthlyTrendLabel(stats.purchasing.trend),
                   unit: 'IDR',
-                  period: 'Bulan berjalan (MTD)',
+                  period: 'Bulan berjalan',
                   definition:
-                      'COGS ditambah beban operasional pada periode berjalan.',
-                  source: 'Laporan laba rugi Finance',
+                      'Beban pokok penjualan ditambah beban operasional pada periode berjalan.',
+                  source: 'Laporan laba rugi',
               }
             : null;
 
     const netIncome: DashboardKpi | null = stats.finance
         ? {
               id: 'netIncome',
-              title: 'Laba Bersih (MTD)',
+              title: 'Laba Bersih',
               value: formatRupiah(stats.finance.mtdNetIncome),
-              subtitle: 'Termasuk pendapatan dan beban lain kanonis',
+              subtitle: 'Termasuk pendapatan dan beban lainnya',
               icon: Banknote,
               trend: trendFromNumber(stats.finance.netIncomeTrend),
               trendValue: monthlyTrendLabel(stats.finance.netIncomeTrend),
               unit: 'IDR',
-              period: 'Bulan berjalan (MTD)',
+              period: 'Bulan berjalan',
               definition:
-                  'Laba bersih dari laporan laba rugi POSTED periode berjalan.',
-              source: 'Laporan laba rugi Finance',
+                  'Laba bersih dari transaksi yang sudah tercatat pada periode berjalan.',
+              source: 'Laporan laba rugi',
               href: '/finance/reports/income-statement',
               resourceHint: '/finance/reports/income-statement',
           }
@@ -235,14 +235,14 @@ export function buildKpis(
                   title: 'Kas & Bank',
                   value: formatRupiah(stats.finance.cashBalance),
                   subtitle:
-                      'Saldo akun kas yang ditandai pada Chart of Accounts',
+                      'Saldo akun yang ditandai sebagai kas dan bank',
                   icon: Wallet,
-                  trendValue: 'Posisi as-of, bukan mutasi periode',
+                  trendValue: 'Posisi saldo, bukan perubahan periode',
                   unit: 'IDR',
-                  period: `As-of ${stats.finance.cashAsOfDate} WIB`,
+                  period: `Per ${stats.finance.cashAsOfDate} WIB`,
                   definition:
-                      'Saldo debit bersih akun kas/bank POSTED sampai akhir hari bisnis.',
-                  source: 'Neraca Finance',
+                      'Saldo debit bersih akun kas dan bank yang sudah tercatat sampai akhir hari bisnis.',
+                  source: 'Neraca',
                   href: '/finance/reports/balance-sheet',
                   resourceHint: '/finance/reports/balance-sheet',
               }
@@ -255,13 +255,13 @@ export function buildKpis(
               id: 'machines',
               title: 'Mesin Berjalan Saat Ini',
               value: `${stats.production!.runningMachines} dari ${stats.production!.totalMachines} mesin aktif`,
-              subtitle: 'Snapshot status saat dashboard diperbarui',
+              subtitle: 'Kondisi saat dashboard diperbarui',
               icon: Factory,
               trendValue: 'Saat ini',
               unit: 'Mesin',
               period: 'Saat dashboard diperbarui',
               definition:
-                  'Mesin aktif dengan status berjalan saat snapshot dibuat.',
+                  'Mesin aktif dengan status berjalan saat data diperbarui.',
               source: 'Produksi',
           }
         : null;
@@ -269,16 +269,17 @@ export function buildKpis(
     const productionCompletion: DashboardKpi | null = stats.production
         ? {
               id: 'productionCompletion',
-              title: 'Penyelesaian SPK (MTD)',
+              title: 'Penyelesaian SPK',
               value: `${stats.production!.completionRate.toFixed(1)}%`,
               subtitle: 'SPK selesai dari seluruh SPK bulan berjalan',
               icon: Factory,
-              trendValue: 'Berbasis jumlah dokumen SPK, bukan quantity',
+              trendValue: 'Berdasarkan jumlah dokumen SPK, bukan jumlah barang',
               progressValue: Math.min(100, stats.production!.completionRate),
               progressColor: 'bg-blue-600',
               unit: 'Persen dokumen SPK',
-              period: 'Bulan berjalan (MTD)',
-              definition: 'SPK selesai dibagi seluruh dokumen SPK eligible.',
+              period: 'Bulan berjalan',
+              definition:
+                  'Jumlah SPK selesai dibandingkan dengan seluruh SPK yang memenuhi syarat.',
               source: 'Produksi',
           }
         : null;
@@ -288,13 +289,13 @@ export function buildKpis(
               id: 'inventory',
               title: 'Valuasi Stok',
               value: 'Belum dikonfigurasi',
-              subtitle: `${stats.inventory!.lowStockCount} stok rendah · cost basis menunggu keputusan`,
+              subtitle: `${stats.inventory!.lowStockCount} stok rendah · dasar biaya belum ditetapkan`,
               icon: Package,
-              trendValue: 'NOT_CONFIGURED',
+              trendValue: 'Belum disiapkan',
               unit: 'IDR',
               period: 'Saat dashboard diperbarui',
               definition: 'Valuasi persediaan milik perusahaan.',
-              source: 'Persediaan / Finance',
+              source: 'Persediaan dan keuangan',
               state: 'NOT_CONFIGURED',
               href: '/warehouse/analytics',
               resourceHint: '/warehouse/analytics',
@@ -310,11 +311,13 @@ export function buildKpis(
               icon: Package,
               trend: stats.inventory!.lowStockCount > 0 ? 'down' : 'neutral',
               trendValue:
-                  stats.inventory!.lowStockCount > 0 ? 'Perlu restock' : 'Aman',
+                  stats.inventory!.lowStockCount > 0
+                      ? 'Perlu menambah stok'
+                      : 'Aman',
               unit: 'Varian',
               period: 'Saat dashboard diperbarui',
               definition:
-                  'Varian di bawah batas minimum pada lokasi INTERNAL RM/FG.',
+                  'Varian di bawah batas minimum pada lokasi bahan baku atau barang jadi internal.',
               source: 'Persediaan',
               href:
                   stats.inventory!.lowStockCount > 0
@@ -327,9 +330,9 @@ export function buildKpis(
     const overdueAr: DashboardKpi | null = stats.finance
         ? {
               id: 'overdueAr',
-              title: 'Piutang Overdue',
+              title: 'Piutang Jatuh Tempo',
               value: formatRupiah(stats.finance!.overdueReceivables),
-              subtitle: `${stats.finance.overdueReceivablesCount} invoice overdue`,
+              subtitle: `${stats.finance.overdueReceivablesCount} tagihan melewati jatuh tempo`,
               icon: TrendingUp,
               trend: stats.finance!.overdueReceivables > 0 ? 'down' : 'neutral',
               trendValue:
@@ -340,7 +343,7 @@ export function buildKpis(
               period: 'Jatuh tempo sebelum hari bisnis ini',
               definition:
                   'Sisa piutang operasional yang belum lunas dan telah jatuh tempo.',
-              source: 'Finance',
+              source: 'Keuangan',
               href:
                   stats.finance!.overdueReceivables > 0
                       ? '/finance/invoices/sales?overdue=true'
@@ -352,7 +355,7 @@ export function buildKpis(
     const overdueAp: DashboardKpi | null = stats.finance
         ? {
               id: 'overdueAp',
-              title: 'Hutang Overdue',
+              title: 'Hutang Jatuh Tempo',
               value: formatRupiah(stats.finance!.overduePayables),
               subtitle: `${stats.finance!.invoicesDueThisWeek} jatuh tempo minggu ini`,
               icon: TrendingDown,
@@ -364,8 +367,8 @@ export function buildKpis(
               unit: 'IDR',
               period: 'Jatuh tempo sebelum hari bisnis ini',
               definition:
-                  'Sisa hutang UNPAID, PARTIAL, atau OVERDUE yang positif.',
-              source: 'Finance',
+                  'Sisa hutang yang belum lunas atau baru dibayar sebagian dan telah jatuh tempo.',
+              source: 'Keuangan',
               href:
                   stats.finance!.overduePayables > 0
                       ? '/finance/invoices/purchase?overdue=true'
@@ -377,19 +380,19 @@ export function buildKpis(
     const activeOrders: DashboardKpi | null = stats.sales
         ? {
               id: 'activeOrders',
-              title: 'Pesanan Aktif (MTD)',
+              title: 'Pesanan Aktif',
               value: stats.sales!.activeOrders.toString(),
               subtitle:
                   stats.sales!.pendingInvoices === null
-                      ? 'Nominal Finance tidak tersedia'
-                      : `${stats.sales!.pendingInvoices} invoice tertunda`,
+                      ? 'Nominal keuangan tidak tersedia'
+                      : `${stats.sales!.pendingInvoices} tagihan tertunda`,
               icon: FileText,
               trend: 'neutral',
-              trendValue: 'Sales order berjalan',
+              trendValue: 'Pesanan penjualan berjalan',
               unit: 'Pesanan',
-              period: 'Bulan berjalan (MTD)',
-              definition: 'Sales order pada fase operasional aktif.',
-              source: 'Sales',
+              period: 'Bulan berjalan',
+              definition: 'Pesanan penjualan pada tahap operasional aktif.',
+              source: 'Penjualan',
               href:
                   stats.sales!.activeOrders > 0
                       ? '/sales/orders?status=CONFIRMED,IN_PRODUCTION,READY_TO_SHIP,SHIPPED'
@@ -401,24 +404,24 @@ export function buildKpis(
     const pendingPo: DashboardKpi | null = stats.purchasing
         ? {
               id: 'pendingPo',
-              title: 'PO Tertunda',
+              title: 'Pesanan Pembelian Tertunda',
               value: stats.purchasing.pendingPOs.toString(),
               subtitle:
                   stats.purchasing.mtdSpending === null
-                      ? 'Nominal Finance tidak tersedia'
+                      ? 'Nominal keuangan tidak tersedia'
                       : formatRupiah(stats.purchasing.mtdSpending) +
-                        ' pengeluaran bulan berjalan (MTD)',
+                        ' pengeluaran bulan berjalan',
               icon: ShoppingCart,
               trend: stats.purchasing!.pendingPOs > 0 ? 'neutral' : 'up',
               trendValue:
                   stats.purchasing!.pendingPOs > 0
-                      ? 'Perlu follow-up'
+                      ? 'Perlu ditindaklanjuti'
                       : 'Antrian kosong',
-              unit: 'Purchase order',
+              unit: 'Pesanan pembelian',
               period: 'Saat dashboard diperbarui',
               definition:
-                  'PO draf atau telah dikirim yang masih perlu ditindaklanjuti.',
-              source: 'Purchasing',
+                  'Pesanan pembelian berstatus draf atau telah dikirim yang masih perlu ditindaklanjuti.',
+              source: 'Pembelian',
               href:
                   stats.purchasing!.pendingPOs > 0
                       ? '/purchasing/orders?status=DRAFT,SENT'
@@ -455,17 +458,17 @@ export function buildKpis(
     const downtime: DashboardKpi | null = stats.production
         ? {
               id: 'downtime',
-              title: 'Waktu Henti (MTD)',
+              title: 'Waktu Henti',
               value: `${stats.production!.downtimeHours.toFixed(1)} jam`,
-              subtitle: 'Durasi downtime mesin bulan berjalan',
+              subtitle: 'Durasi waktu henti mesin bulan berjalan',
               icon: Factory,
               trend: stats.production!.downtimeHours > 0 ? 'down' : 'neutral',
               trendValue:
                   stats.production!.downtimeHours > 0
                       ? 'Perlu pemantauan'
-                      : 'Tidak ada downtime',
+                      : 'Tidak ada waktu henti',
               unit: 'Jam',
-              period: 'Bulan berjalan (MTD)',
+              period: 'Bulan berjalan',
               definition: 'Durasi waktu henti mesin yang tercatat.',
               source: 'Produksi',
           }
@@ -536,10 +539,10 @@ export function buildExecutiveAttention(
             stats.finance && stats.finance.overdueReceivables > 0
                 ? {
                       id: 'overdueAr',
-                      module: 'Finance',
-                      title: 'Piutang overdue',
+                      module: 'Keuangan',
+                      title: 'Piutang jatuh tempo',
                       value: formatRupiah(stats.finance.overdueReceivables),
-                      detail: `${stats.finance.overdueReceivablesCount} invoice melewati jatuh tempo`,
+                      detail: `${stats.finance.overdueReceivablesCount} tagihan melewati jatuh tempo`,
                       severity: 'URGENT',
                       href: '/finance/invoices/sales?overdue=true',
                       resourceHint: '/finance/invoices/sales',
@@ -549,10 +552,10 @@ export function buildExecutiveAttention(
             stats.finance && stats.finance.overduePayables > 0
                 ? {
                       id: 'overdueAp',
-                      module: 'Finance · Pembelian',
-                      title: 'Hutang overdue',
+                      module: 'Keuangan · Pembelian',
+                      title: 'Hutang jatuh tempo',
                       value: formatRupiah(stats.finance.overduePayables),
-                      detail: `${stats.finance.overduePayablesCount} invoice melewati jatuh tempo`,
+                      detail: `${stats.finance.overduePayablesCount} tagihan melewati jatuh tempo`,
                       severity: 'URGENT',
                       href: '/finance/invoices/purchase?overdue=true',
                       resourceHint: '/finance/invoices/purchase',
@@ -567,7 +570,8 @@ export function buildExecutiveAttention(
                       value: stats.inventory.lowStockCount.toLocaleString(
                           'id-ID',
                       ),
-                      detail: 'Varian INTERNAL RM/FG di bawah batas minimum',
+                      detail:
+                          'Varian bahan baku atau barang jadi internal di bawah batas minimum',
                       severity: 'URGENT',
                       href: '/warehouse/inventory?lowStock=true',
                       resourceHint: '/warehouse/inventory',
@@ -582,7 +586,8 @@ export function buildExecutiveAttention(
                       value: stats.production.delayedJobs.toLocaleString(
                           'id-ID',
                       ),
-                      detail: 'Dokumen dirilis/berjalan melewati planned end',
+                      detail:
+                          'Dokumen dirilis atau berjalan melewati tanggal selesai rencana',
                       severity: 'HIGH',
                       href: '/production/orders?late=1',
                       resourceHint: '/production/orders',
@@ -593,11 +598,11 @@ export function buildExecutiveAttention(
                 ? {
                       id: 'pendingPo',
                       module: 'Pembelian',
-                      title: 'PO perlu tindak lanjut',
+                      title: 'Pesanan pembelian perlu ditindaklanjuti',
                       value: stats.purchasing.pendingPOs.toLocaleString(
                           'id-ID',
                       ),
-                      detail: 'Purchase order DRAFT atau SENT',
+                      detail: 'Pesanan pembelian berstatus draf atau telah dikirim',
                       severity: 'HIGH',
                       href: '/purchasing/orders?status=DRAFT,SENT',
                       resourceHint: '/purchasing/orders',
@@ -645,7 +650,7 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
             },
             {
                 href: '/sales/orders',
-                label: 'Sales Order',
+                label: 'Pesanan Penjualan',
                 icon: FileText,
                 color: 'text-rose-600',
                 bg: 'bg-rose-50 dark:bg-rose-900/10',

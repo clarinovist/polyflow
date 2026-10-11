@@ -115,7 +115,7 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                     aria-labelledby="maklon-health-heading"
                 >
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="maklon-health-heading"
@@ -156,7 +156,7 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="maklon-health-heading"
@@ -172,10 +172,10 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                         state={health.inProgress.state}
                         icon={Clock3}
                         definition={{
-                            unit: 'SPK · jumlah dokumen',
-                            period: 'Snapshot saat diperbarui',
-                            description: 'SPK Maklon berstatus IN_PROGRESS.',
-                            source: 'Produksi · SPK',
+                            unit: 'SPK',
+                            period: 'Saat dashboard diperbarui',
+                            description: 'SPK Maklon yang sedang berjalan.',
+                            source: 'Data SPK produksi',
                         }}
                     />
                     <DashboardHealthCard
@@ -184,11 +184,11 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                         state={health.completedToday.state}
                         icon={CheckCircle2}
                         definition={{
-                            unit: 'SPK · jumlah dokumen',
+                            unit: 'SPK',
                             period: `Hari bisnis WIB ${workDate}`,
                             description:
-                                'SPK Maklon COMPLETED dengan actualEndDate pada hari bisnis ini.',
-                            source: 'Produksi · SPK',
+                                'SPK Maklon yang selesai pada hari bisnis ini berdasarkan waktu selesai aktual.',
+                            source: 'Data SPK produksi',
                         }}
                     />
                     <DashboardHealthCard
@@ -196,11 +196,11 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                         state={health.outputTodayByUnit.state}
                         icon={PackageCheck}
                         definition={{
-                            unit: 'Kuantitas per primary unit',
+                            unit: 'Kuantitas per satuan utama',
                             period: `Hari bisnis WIB ${workDate}`,
                             description:
-                                'Jumlah eksekusi non-VOIDED berdasarkan startTime; unit berbeda tidak digabung.',
-                            source: 'Eksekusi produksi',
+                                'Jumlah hasil produksi yang tidak dibatalkan berdasarkan waktu mulai; satuan berbeda tidak digabung.',
+                            source: 'Catatan hasil produksi',
                         }}
                         supportingText={
                             health.outputTodayByUnit.state === 'AVAILABLE' ? (
@@ -219,7 +219,7 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="maklon-attention-heading"
@@ -235,11 +235,10 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                         state={attention.waitingMaterial.state}
                         icon={Boxes}
                         definition={{
-                            unit: 'SPK · jumlah dokumen',
-                            period: 'Snapshot saat diperbarui',
-                            description:
-                                'SPK Maklon berstatus WAITING_MATERIAL.',
-                            source: 'Produksi · SPK',
+                            unit: 'SPK',
+                            period: 'Saat dashboard diperbarui',
+                            description: 'SPK Maklon yang sedang menunggu material.',
+                            source: 'Data SPK produksi',
                         }}
                     />
                     <DashboardHealthCard
@@ -248,11 +247,11 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                         state={attention.pastPlannedEnd.state}
                         icon={TimerOff}
                         definition={{
-                            unit: 'SPK · jumlah dokumen',
-                            period: 'Cutoff snapshot saat diperbarui',
+                            unit: 'SPK',
+                            period: 'Saat dashboard diperbarui',
                             description:
-                                'SPK Maklon RELEASED atau IN_PROGRESS dengan plannedEndDate sebelum snapshot.',
-                            source: 'Produksi · SPK',
+                                'SPK Maklon yang sudah dirilis atau sedang berjalan dengan rencana selesai yang telah terlewati.',
+                            source: 'Data SPK produksi',
                         }}
                     />
                 </div>
@@ -264,7 +263,7 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="maklon-drivers-heading"
@@ -275,8 +274,8 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                 </div>
                 <DashboardSectionState
                     state="NOT_CONFIGURED"
-                    title="NOT_CONFIGURED · Driver material belum dikonfigurasi"
-                    description="Driver material menunggu kunci kepemilikan yang dapat direkonsiliasi dan formula yang disetujui; hitungan event mentah tidak dipakai sebagai penyebab."
+                    title="Pendorong material belum disiapkan"
+                    description="Pendorong material menunggu dasar kepemilikan yang dapat dicocokkan dan rumus yang disetujui; hitungan kejadian tidak langsung dianggap sebagai penyebab."
                 />
             </section>
 
@@ -293,13 +292,13 @@ export function MaklonDashboard({ data }: MaklonDashboardProps) {
                 <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
                     <DashboardSectionState
                         state="NOT_CONFIGURED"
-                        title="NOT_CONFIGURED · Rekonsiliasi material dan backlog belum dikonfigurasi"
-                        description="Penerimaan, pemakaian, sisa, retur, dan backlog material menunggu kunci kepemilikan yang dapat direkonsiliasi serta formula yang disetujui."
+                        title="Rekonsiliasi dan antrean material belum disiapkan"
+                        description="Penerimaan, pemakaian, sisa, retur, dan antrean material menunggu dasar kepemilikan yang dapat dicocokkan serta rumus yang disetujui."
                     />
                     <DashboardSectionState
                         state="NOT_CONFIGURED"
-                        title="NOT_CONFIGURED · Metrik keuangan belum dikonfigurasi"
-                        description="Pendapatan jasa, biaya konversi, dan margin ditahan sampai cohort dan sumber keuangan direkonsiliasi serta disetujui."
+                        title="Metrik keuangan belum disiapkan"
+                        description="Pendapatan jasa, biaya konversi, dan margin ditahan sampai kelompok data dan sumber keuangan dicocokkan serta disetujui."
                     />
                 </div>
             </section>

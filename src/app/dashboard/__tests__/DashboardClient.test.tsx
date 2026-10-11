@@ -10,6 +10,14 @@ import DashboardClient from '../DashboardClient';
 
 const refresh = vi.fn();
 
+class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+}
+
+globalThis.ResizeObserver = ResizeObserverMock;
+
 vi.mock('next/navigation', () => ({
     useRouter: () => ({ refresh }),
 }));
@@ -125,7 +133,7 @@ describe('DashboardClient hydration safety', () => {
         expect(html).toContain(presentation.lastUpdated);
     });
 
-    it('orders Health, Attention, then Drivers and exposes metric definitions', () => {
+    it('orders condition, attention, then direction and exposes metric definitions', () => {
         const statsWithTrend: ExecutiveStats = {
             ...stats,
             finance: stats.finance
@@ -149,23 +157,48 @@ describe('DashboardClient hydration safety', () => {
         render(<DashboardClient {...defaultProps} stats={statsWithTrend} />);
 
         const text = document.body.textContent ?? '';
-        expect(text.indexOf('Health')).toBeLessThan(text.indexOf('Attention'));
-        expect(text.indexOf('Attention')).toBeLessThan(text.indexOf('Drivers'));
+        expect(text.indexOf('Kondisi')).toBeLessThan(
+            text.indexOf('Perlu perhatian'),
+        );
+        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
+            text.indexOf('Arah utama'),
+        );
+        expect(screen.queryByText('Health')).toBeNull();
+        expect(screen.queryByText('Attention')).toBeNull();
+        expect(screen.queryByText('Drivers')).toBeNull();
+        const revenueInfo = screen.getByRole('button', {
+            name: 'Penjelasan Pendapatan Aktual',
+        });
+        expect(revenueInfo).toBeDefined();
         expect(
-            screen.getByLabelText(/Pendapatan usaha POSTED.*Unit: IDR/),
-        ).toBeDefined();
+            screen.queryByText(/POSTED|target\/on-target|COGS/i),
+        ).toBeNull();
+        fireEvent.click(revenueInfo, { detail: 1 });
+        expect(
+            screen.getByRole('tooltip').textContent,
+        ).toContain('Pendapatan usaha yang sudah tercatat');
+        expect(screen.getByRole('tooltip').textContent).not.toMatch(
+            /POSTED|target\/on-target|COGS/i,
+        );
         expect(screen.getByText('Tren laba rugi bulanan')).toBeDefined();
-        expect(screen.getByText(/Target: belum dikonfigurasi/)).toBeDefined();
+        expect(screen.getByText(/Target belum tersedia/)).toBeDefined();
     });
 
-    it('withholds drivers until four comparable points exist', () => {
+    it('withholds directions until four comparable points exist', () => {
         render(<DashboardClient {...defaultProps} />);
 
-        expect(screen.queryByText('Drivers')).toBeNull();
+        expect(screen.queryByText('Arah utama')).toBeNull();
         expect(screen.queryByText('Tren laba rugi bulanan')).toBeNull();
+        expect(screen.getByText('Tidak ada pengecualian aktif')).toBeDefined();
+        expect(
+            screen.getByText(
+                'Tidak ada sinyal lintas divisi yang memerlukan perhatian pada kondisi saat ini.',
+            ),
+        ).toBeDefined();
+        expect(screen.queryByText(/exception|signal|snapshot/i)).toBeNull();
     });
 
-    it('withholds drivers when canonical series are not aligned', () => {
+    it('withholds directions when canonical series are not aligned', () => {
         render(
             <DashboardClient
                 {...defaultProps}
@@ -191,7 +224,7 @@ describe('DashboardClient hydration safety', () => {
             />,
         );
 
-        expect(screen.queryByText('Drivers')).toBeNull();
+        expect(screen.queryByText('Arah utama')).toBeNull();
     });
 
     it('renders NOT_CONFIGURED valuation honestly for a permitted warehouse role', () => {
@@ -203,7 +236,7 @@ describe('DashboardClient hydration safety', () => {
             />,
         );
 
-        expect(screen.getByText('Belum dikonfigurasi')).toBeDefined();
+        expect(screen.getByText('Belum disiapkan')).toBeDefined();
         expect(
             screen.getByText(/Metrik ditahan sampai definisi bisnis disetujui/),
         ).toBeDefined();
@@ -240,10 +273,13 @@ describe('DashboardClient hydration safety', () => {
         const attention = screen
             .getByRole('heading', { name: 'Tindakan berikutnya' })
             .closest('section')?.textContent ?? '';
-        expect(attention.indexOf('Piutang overdue')).toBeLessThan(
-            attention.indexOf('Hutang overdue'),
+        expect(attention.indexOf('Piutang jatuh tempo')).toBeLessThan(
+            attention.indexOf('Hutang jatuh tempo'),
         );
-        expect(attention).toContain('2 invoice melewati jatuh tempo');
+        expect(attention).toContain('2 tagihan melewati jatuh tempo');
+        expect(attention).not.toMatch(
+            /overdue|invoice|INTERNAL RM\/FG|planned end|DRAFT|SENT/i,
+        );
         expect(attention).toContain('4');
         expect(attention).not.toContain('32.000');
     });
@@ -388,7 +424,7 @@ describe('DashboardClient hydration safety', () => {
         expect(
             screen.getByText(/Produksi tidak ditampilkan/),
         ).toBeDefined();
-        expect(screen.queryByText('Penyelesaian SPK (MTD)')).toBeNull();
+        expect(screen.queryByText('Penyelesaian SPK')).toBeNull();
         expect(screen.queryByText('0.0 jam')).toBeNull();
     });
 

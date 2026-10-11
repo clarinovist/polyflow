@@ -118,7 +118,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                     aria-labelledby="hrd-health-heading"
                 >
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="hrd-health-heading"
@@ -157,7 +157,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="hrd-health-heading"
@@ -180,10 +180,10 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                         icon={Users}
                         definition={{
                             unit: 'Karyawan',
-                            period: 'Snapshot saat diperbarui',
+                            period: 'Saat dashboard diperbarui',
                             description:
-                                'Karyawan dengan status master ACTIVE.',
-                            source: 'HRD employee master',
+                                'Karyawan yang berstatus aktif pada data kepegawaian.',
+                            source: 'Data karyawan HRD',
                         }}
                         href="/hrd/employees"
                     />
@@ -198,15 +198,15 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                         icon={UserCheck}
                         definition={{
                             unit: 'Karyawan unik',
-                            period: `WorkDate WIB ${workDate}`,
+                            period: `Hari kerja WIB ${workDate}`,
                             description:
-                                'Status tersimpan; bukan attendance rate dan tidak membuat NO_RECORD.',
-                            source: 'Attendance',
+                                'Jumlah karyawan unik yang memiliki status absensi tersimpan; bukan tingkat kehadiran dan tidak membuat status untuk karyawan tanpa catatan.',
+                            source: 'Data absensi',
                         }}
                         href="/hrd/attendance"
                         supportingText={
                             health.attendanceToday.status === 'AVAILABLE'
-                                ? `${health.attendanceToday.data.absent} absent · ${health.attendanceToday.data.onLeave} cuti/izin · ${formatHours(health.attendanceToday.data.overtimeHours)} jam lembur pada record PRESENT`
+                                ? `${health.attendanceToday.data.absent} tidak hadir · ${health.attendanceToday.data.onLeave} cuti/izin · ${formatHours(health.attendanceToday.data.overtimeHours)} jam lembur pada catatan hadir`
                                 : undefined
                         }
                     />
@@ -223,21 +223,21 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                             unit: 'Slip tergenerasi',
                             period:
                                 health.payrollReadiness.status === 'AVAILABLE'
-                                    ? `${health.payrollReadiness.data.month}/${health.payrollReadiness.data.year} · periode OPEN terbaru`
-                                    : 'Periode OPEN terbaru',
+                                    ? `${health.payrollReadiness.data.month}/${health.payrollReadiness.data.year} · periode terbuka terbaru`
+                                    : 'Periode terbuka terbaru',
                             description:
-                                'Status review slip yang sudah dibuat; bukan kelengkapan seluruh karyawan.',
-                            source: 'Monthly payroll',
+                                'Status peninjauan slip yang sudah dibuat; bukan ukuran kelengkapan seluruh karyawan.',
+                            source: 'Payroll bulanan',
                         }}
                         href="/hrd/payroll-monthly"
                         supportingText={
                             health.payrollReadiness.status === 'AVAILABLE'
-                                ? `${health.payrollReadiness.data.draft} draft · ${health.payrollReadiness.data.finalized} finalized · ${health.payrollReadiness.data.paid} paid`
+                                ? `${health.payrollReadiness.data.draft} draf · ${health.payrollReadiness.data.finalized} diselesaikan · ${health.payrollReadiness.data.paid} dibayar`
                                 : undefined
                         }
                     />
                     <DashboardHealthCard
-                        title="Tindak lanjut kontrak/probation"
+                        title="Tindak lanjut kontrak atau masa percobaan"
                         value={
                             health.employmentFollowUp.status === 'AVAILABLE'
                                 ? health.employmentFollowUp.data.total.toLocaleString(
@@ -249,15 +249,15 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                         icon={AlertTriangle}
                         definition={{
                             unit: 'Karyawan aktif',
-                            period: 'Jatuh tempo atau overdue s.d. 30 hari ke depan',
+                            period: 'Sudah jatuh tempo atau 30 hari ke depan',
                             description:
-                                'PROBATION memakai probationEndDate; CONTRACT memakai contractEndDate.',
-                            source: 'HRD employee master',
+                                'Masa percobaan memakai tanggal akhir percobaan; kontrak memakai tanggal akhir kontrak.',
+                            source: 'Data karyawan HRD',
                         }}
                         href="/hrd/alerts"
                         supportingText={
                             health.employmentFollowUp.status === 'AVAILABLE'
-                                ? `${health.employmentFollowUp.data.probation} probation · ${health.employmentFollowUp.data.contract} kontrak`
+                                ? `${health.employmentFollowUp.data.probation} masa percobaan · ${health.employmentFollowUp.data.contract} kontrak`
                                 : undefined
                         }
                     />
@@ -270,7 +270,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="hrd-attention-heading"
@@ -286,7 +286,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                 <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
                     <AttentionCard
                         title="Cuti/izin menunggu"
-                        description="Pengajuan berstatus PENDING."
+                        description="Pengajuan yang masih menunggu keputusan."
                         icon={CalendarDays}
                         href="/hrd/leave?status=PENDING"
                         state={attention.pendingLeave.status}
@@ -310,7 +310,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                     />
                     <AttentionCard
                         title="Periode payroll terbuka"
-                        description="Periode OPEN; zero-slip tetap valid dan perlu ditindaklanjuti."
+                        description="Periode terbuka; periode tanpa slip tetap valid dan perlu ditindaklanjuti."
                         icon={CalendarRange}
                         href="/hrd/payroll-monthly"
                         state={attention.payroll.status}
@@ -322,7 +322,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                     />
                     <AttentionCard
                         title="Peserta BPJS aktif"
-                        description="Karyawan ACTIVE dengan flag peserta BPJS."
+                        description="Karyawan aktif yang tercatat sebagai peserta BPJS."
                         icon={Shield}
                         href="/hrd/bpjs"
                         state={attention.bpjs.status}
@@ -345,8 +345,8 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                         }
                     />
                     <AttentionCard
-                        title="ABSENT tercatat kemarin"
-                        description={`Karyawan unik dengan status tersimpan ABSENT pada workDate WIB ${yesterdayWorkDate}.`}
+                        title="Tidak hadir tercatat kemarin"
+                        description={`Karyawan unik dengan status tidak hadir pada hari kerja WIB ${yesterdayWorkDate}.`}
                         icon={UserX}
                         href="/hrd/attendance"
                         state={attention.recordedAbsenceYesterday.status}
@@ -366,7 +366,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="hrd-drivers-heading"
@@ -377,8 +377,8 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                 </div>
                 <DashboardSectionState
                     state="NOT_CONFIGURED"
-                    title="Driver unit/sif belum dikonfigurasi"
-                    description="Peringkat penyebab menunggu kontrak organisasi dan penjadwalan yang disetujui pemilik domain; dashboard tidak membuat ranking kausal dari hitungan mentah."
+                    title="Pendorong per unit atau sif belum disiapkan"
+                    description="Urutan penyebab menunggu struktur organisasi dan jadwal yang disetujui; dashboard tidak menyimpulkan penyebab hanya dari hitungan."
                 />
             </section>
 

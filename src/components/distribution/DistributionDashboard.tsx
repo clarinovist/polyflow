@@ -38,14 +38,14 @@ const QUICK_ACTIONS: Record<
     DistributionDashboardQuickActionHref,
     { label: string; icon: LucideIcon }
 > = {
-    '/sales/orders': { label: 'Sales Order', icon: ShoppingCart },
+    '/sales/orders': { label: 'Pesanan penjualan', icon: ShoppingCart },
     '/purchasing/orders': {
         label: 'Order Pembelian (PO)',
         icon: PackageSearch,
     },
     '/sales/deliveries': { label: 'Surat Jalan', icon: Truck },
     '/warehouse/inventory': { label: 'Stok', icon: Warehouse },
-    '/sales/invoices': { label: 'Invoice & Piutang', icon: Receipt },
+    '/sales/invoices': { label: 'Tagihan dan piutang', icon: Receipt },
 };
 
 function formatCount(value: number): string {
@@ -112,7 +112,7 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                     aria-labelledby="distribution-health-heading"
                 >
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="distribution-health-heading"
@@ -151,11 +151,11 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                         : undefined
                 }
                 definition={{
-                    unit: 'SO · jumlah dokumen',
-                    period: 'Snapshot saat diperbarui',
+                    unit: 'Pesanan',
+                    period: 'Saat dashboard diperbarui',
                     description:
-                        'Sales Order berstatus CONFIRMED, IN_PRODUCTION, READY_TO_SHIP, atau SHIPPED.',
-                    source: 'Sales · Sales Order',
+                        'Pesanan penjualan yang sudah dikonfirmasi, sedang diproduksi, siap dikirim, atau sudah dikirim.',
+                    source: 'Data pesanan Sales',
                 }}
             />,
             <DashboardHealthCard
@@ -174,10 +174,10 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                         : undefined
                 }
                 definition={{
-                    unit: 'SO · jumlah dokumen',
-                    period: 'Snapshot saat diperbarui',
-                    description: 'Sales Order dengan status READY_TO_SHIP.',
-                    source: 'Sales · Sales Order',
+                    unit: 'Pesanan',
+                    period: 'Saat dashboard diperbarui',
+                    description: 'Pesanan penjualan yang siap dikirim.',
+                    source: 'Data pesanan Sales',
                 }}
             />,
         );
@@ -203,18 +203,18 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                         : undefined
                 }
                 definition={{
-                    unit: 'PO · jumlah dokumen',
-                    period: 'Snapshot saat diperbarui',
+                    unit: 'Pesanan pembelian',
+                    period: 'Saat dashboard diperbarui',
                     description:
-                        'Purchase Order berstatus SENT atau PARTIAL_RECEIVED; DRAFT, RECEIVED, CANCELLED, dan CLOSED tidak termasuk.',
-                    source: 'Purchasing · Purchase Order',
+                        'Pesanan pembelian yang sudah dikirim ke pemasok atau diterima sebagian; pesanan draf, selesai diterima, dibatalkan, dan ditutup tidak termasuk.',
+                    source: 'Data pesanan pembelian',
                 }}
                 supportingText={
                     data.health.purchaseOrders.state === 'AVAILABLE' ? (
                         <span>
-                            SENT{' '}
+                            Dikirim ke pemasok{' '}
                             {formatCount(data.health.purchaseOrders.data.sent)}{' '}
-                            · PARTIAL_RECEIVED{' '}
+                            · diterima sebagian{' '}
                             {formatCount(
                                 data.health.purchaseOrders.data.partialReceived,
                             )}
@@ -244,11 +244,11 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                         : undefined
                 }
                 definition={{
-                    unit: 'Varian · jumlah',
-                    period: 'Snapshot saat diperbarui',
+                    unit: 'Varian',
+                    period: 'Saat dashboard diperbarui',
                     description:
-                        'Varian aktif di bawah minStockAlert positif; hanya lokasi INTERNAL RAW_MATERIAL dan FINISHED_GOOD.',
-                    source: 'Inventory · threshold gudang kanonis',
+                        'Varian aktif di bawah batas stok minimum pada lokasi bahan baku dan barang jadi internal.',
+                    source: 'Data persediaan gudang',
                 }}
             />,
             <DashboardHealthCard
@@ -267,11 +267,11 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                         : undefined
                 }
                 definition={{
-                    unit: 'Varian · jumlah',
-                    period: 'Snapshot saat diperbarui',
+                    unit: 'Varian',
+                    period: 'Saat dashboard diperbarui',
                     description:
-                        'Varian aktif di bawah reorderPoint positif pada scope persediaan internal kanonis.',
-                    source: 'Inventory · threshold gudang kanonis',
+                        'Varian aktif di bawah titik pesan ulang pada persediaan internal.',
+                    source: 'Data persediaan gudang',
                 }}
             />,
         );
@@ -297,7 +297,7 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="distribution-health-heading"
@@ -330,11 +330,11 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                             title="Piutang jatuh tempo"
                             icon={FileClock}
                             definition={{
-                                unit: 'Invoice · jumlah dokumen',
+                                unit: 'Tagihan',
                                 period: `Jatuh tempo sebelum awal hari WIB ${data.businessDate}`,
                                 description:
-                                    'Invoice Sales outstanding dengan remaining positif; cohort opening balance dan histori dikecualikan.',
-                                source: 'Finance/Sales · piutang operasional',
+                                    'Tagihan penjualan dengan sisa piutang positif; saldo awal dan riwayat lama tidak termasuk.',
+                                source: 'Data piutang operasional',
                             }}
                         />
                         <CountMetric
@@ -355,11 +355,11 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                             title="Hutang jatuh tempo"
                             icon={FileClock}
                             definition={{
-                                unit: 'Invoice · jumlah dokumen',
+                                unit: 'Tagihan',
                                 period: `Jatuh tempo sebelum awal hari WIB ${data.businessDate}`,
                                 description:
-                                    'Invoice pembelian UNPAID, PARTIAL, atau OVERDUE dengan sisa tagihan positif.',
-                                source: 'Finance/Purchasing · hutang operasional',
+                                    'Tagihan pembelian yang belum lunas atau jatuh tempo dengan sisa tagihan positif.',
+                                source: 'Data hutang operasional',
                             }}
                         />
                     </div>
@@ -377,7 +377,7 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="distribution-attention-heading"
@@ -400,11 +400,11 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                             title="Siap kirim tanpa DO terbuka"
                             icon={Truck}
                             definition={{
-                                unit: 'SO · jumlah dokumen',
-                                period: 'Snapshot saat diperbarui',
+                                unit: 'Pesanan',
+                                period: 'Saat dashboard diperbarui',
                                 description:
-                                    'Sales Order READY_TO_SHIP tanpa Delivery Order PENDING atau LOADING.',
-                                source: 'Sales · Sales Order dan Delivery Order',
+                                    'Pesanan penjualan yang siap dikirim tetapi belum memiliki surat jalan terbuka atau sedang dimuat.',
+                                source: 'Data pesanan dan surat jalan Sales',
                             }}
                         />
                         {data.health.purchaseOrders.state !== 'HIDDEN' && (
@@ -431,22 +431,22 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                                         : undefined
                                 }
                                 definition={{
-                                    unit: 'PO · jumlah dokumen',
-                                    period: 'Snapshot saat diperbarui',
+                                    unit: 'Pesanan pembelian',
+                                    period: 'Saat dashboard diperbarui',
                                     description:
-                                        'Tekanan operasional faktual dari PO SENT atau PARTIAL_RECEIVED yang masih menunggu penerimaan.',
-                                    source: 'Purchasing · Purchase Order',
+                                        'Pesanan pembelian yang sudah dikirim ke pemasok atau diterima sebagian dan masih menunggu penerimaan.',
+                                    source: 'Data pesanan pembelian',
                                 }}
                                 supportingText={
                                     data.health.purchaseOrders.state ===
                                     'AVAILABLE' ? (
                                         <span>
-                                            SENT{' '}
+                                            Dikirim ke pemasok{' '}
                                             {formatCount(
                                                 data.health.purchaseOrders.data
                                                     .sent,
                                             )}{' '}
-                                            · PARTIAL_RECEIVED{' '}
+                                            · diterima sebagian{' '}
                                             {formatCount(
                                                 data.health.purchaseOrders.data
                                                     .partialReceived,
@@ -458,10 +458,10 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                         )}
                         {data.health.inventory.state !== 'HIDDEN' && (
                             <DashboardHealthCard
-                                title="Tekanan threshold stok internal"
+                                title="Stok internal di bawah batas"
                                 value={
                                     data.health.inventory.state === 'AVAILABLE'
-                                        ? `${formatCount(data.health.inventory.data.lowStock)} stok rendah · ${formatCount(data.health.inventory.data.reorder)} reorder`
+                                        ? `${formatCount(data.health.inventory.data.lowStock)} stok rendah · ${formatCount(data.health.inventory.data.reorder)} perlu dipesan ulang`
                                         : undefined
                                 }
                                 state={metricState(data.health.inventory.state)}
@@ -473,11 +473,11 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                                         : undefined
                                 }
                                 definition={{
-                                    unit: 'Varian · jumlah',
-                                    period: 'Snapshot saat diperbarui',
+                                    unit: 'Varian',
+                                    period: 'Saat dashboard diperbarui',
                                     description:
-                                        'Hitungan faktual varian internal di bawah minStockAlert atau reorderPoint yang dikonfigurasi.',
-                                    source: 'Inventory · threshold gudang kanonis',
+                                        'Varian internal yang berada di bawah batas stok minimum atau titik pesan ulang yang sudah disiapkan.',
+                                    source: 'Data persediaan gudang',
                                 }}
                             />
                         )}
@@ -491,7 +491,7 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="distribution-drivers-heading"
@@ -502,8 +502,8 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                 </div>
                 <DashboardSectionState
                     state="NOT_CONFIGURED"
-                    title="NOT_CONFIGURED · Driver operasional belum dikonfigurasi"
-                    description="Driver kondisi menunggu definisi operasional dan discriminator yang disetujui; hitungan status tidak diubah menjadi ranking kausal."
+                    title="Pendorong operasional belum disiapkan"
+                    description="Pendorong kondisi menunggu definisi operasional yang disetujui; hitungan status tidak diubah menjadi urutan penyebab."
                 />
             </section>
 
@@ -520,13 +520,13 @@ export function DistributionDashboard({ data }: DistributionDashboardProps) {
                 <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
                     <DashboardSectionState
                         state="NOT_CONFIGURED"
-                        title="NOT_CONFIGURED · Fulfillment dan pengecualian lifecycle ditahan"
-                        description="Fulfillment, pengiriman terlambat, PO terlambat, dan SO tertahan stok menunggu keputusan lifecycle dan reservasi yang disetujui."
+                        title="Pemenuhan dan pengecualian alur belum disiapkan"
+                        description="Pemenuhan, keterlambatan pengiriman dan pembelian, serta pesanan tertahan stok menunggu aturan alur dan reservasi yang disetujui."
                     />
                     <DashboardSectionState
                         state="NOT_CONFIGURED"
-                        title="NOT_CONFIGURED · Metrik keuangan ditahan"
-                        description="Pendapatan dan margin tidak ditampilkan karena tidak ada discriminator baris dan cohort keuangan yang disetujui."
+                        title="Metrik keuangan belum disiapkan"
+                        description="Pendapatan dan margin tidak ditampilkan sampai kelompok data keuangan yang digunakan disetujui."
                     />
                 </div>
             </section>

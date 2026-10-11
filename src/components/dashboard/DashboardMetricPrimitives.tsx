@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { AlertCircle, Info } from 'lucide-react';
+import { AlertCircle, ArrowRight } from 'lucide-react';
+import { InfoHint } from '@/components/common/InfoHint';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -19,29 +20,22 @@ export interface DashboardMetricDefinition {
 }
 
 export function DashboardMetricInfo({
+    title,
     definition,
 }: {
+    title: string;
     definition: DashboardMetricDefinition;
 }) {
-    const label = [
-        definition.description,
-        'Unit: ' + definition.unit + '.',
-        'Periode: ' + definition.period + '.',
-        definition.source ? 'Sumber: ' + definition.source + '.' : null,
-    ]
-        .filter(Boolean)
-        .join(' ');
     return (
-        <p
-            aria-label={label}
-            className="flex min-w-0 items-start gap-1.5 text-xs leading-relaxed text-muted-foreground"
-        >
-            <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 break-words">
-                {definition.description}
-                {definition.source ? ' · ' + definition.source : ''}
-            </span>
-        </p>
+        <InfoHint label={`Penjelasan ${title}`}>
+            <p>{definition.description}</p>
+            {definition.source && (
+                <p>
+                    <span className="font-semibold">Sumber data:</span>{' '}
+                    {definition.source}
+                </p>
+            )}
+        </InfoHint>
     );
 }
 
@@ -85,7 +79,7 @@ export function DashboardSectionState({
 }) {
     const unavailable = state === 'UNAVAILABLE';
     const heading =
-        title ?? (unavailable ? 'Data tidak tersedia' : 'Belum dikonfigurasi');
+        title ?? (unavailable ? 'Data tidak tersedia' : 'Belum disiapkan');
     const detail =
         description ??
         (unavailable
@@ -164,33 +158,42 @@ export function DashboardHealthCard({
     className?: string;
 }) {
     const actionable = state !== 'UNAVAILABLE' && Boolean(href);
-    const card = (
+
+    return (
         <Card
             className={cn(
-                'h-full min-w-0 gap-4 overflow-hidden py-4 shadow-sm transition-shadow',
+                'relative h-full min-w-0 gap-4 overflow-hidden py-4 shadow-sm transition-shadow',
                 actionable &&
-                    'cursor-pointer hover:border-primary/25 hover:shadow-md',
+                    'group hover:border-primary/25 hover:shadow-md',
                 className,
             )}
         >
-            <CardHeader className="min-w-0 gap-2 px-4">
+            <CardHeader className="min-w-0 gap-3 px-4">
                 <div className="flex min-w-0 items-start justify-between gap-3">
-                    <CardTitle className="min-w-0 text-sm font-medium leading-snug text-muted-foreground">
-                        {title}
-                    </CardTitle>
-                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                        <Badge
-                            variant="outline"
-                            className={cn(
-                                'h-auto whitespace-normal text-[10px] font-semibold',
-                                state === 'AVAILABLE' &&
-                                    'border-emerald-500/40 text-emerald-700 dark:text-emerald-300',
-                                state === 'UNAVAILABLE' &&
-                                    'border-amber-500/40 text-amber-700 dark:text-amber-300',
-                            )}
+                    {actionable ? (
+                        <Link
+                            href={href!}
+                            aria-label={`Buka ${title}`}
+                            className="before:absolute before:inset-0 before:z-10 before:rounded-xl focus-visible:outline-none focus-visible:before:ring-2 focus-visible:before:ring-ring focus-visible:before:ring-offset-2"
                         >
-                            {state}
-                        </Badge>
+                            <CardTitle className="min-w-0 text-sm font-medium leading-snug text-muted-foreground">
+                                {title}
+                            </CardTitle>
+                            <ArrowRight
+                                aria-hidden="true"
+                                className="absolute bottom-4 right-4 z-10 h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                            />
+                        </Link>
+                    ) : (
+                        <CardTitle className="min-w-0 text-sm font-medium leading-snug text-muted-foreground">
+                            {title}
+                        </CardTitle>
+                    )}
+                    <div className="relative z-20 flex shrink-0 items-center gap-1">
+                        <DashboardMetricInfo
+                            title={title}
+                            definition={definition}
+                        />
                         {Icon && (
                             <Icon
                                 aria-hidden="true"
@@ -199,46 +202,38 @@ export function DashboardHealthCard({
                         )}
                     </div>
                 </div>
-                <div className="flex min-w-0 flex-wrap gap-1.5">
-                    <Badge
-                        variant="outline"
-                        className="h-auto max-w-full whitespace-normal break-words text-left font-normal"
-                    >
-                        {definition.unit}
-                    </Badge>
+                {state === 'AVAILABLE' ? (
+                    <div className="min-w-0 break-words text-xl font-bold tracking-tight text-foreground tabular-nums md:text-2xl">
+                        {value ?? '—'}
+                    </div>
+                ) : (
+                    <DashboardSectionState state={state} />
+                )}
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     <Badge
                         variant="secondary"
                         className="h-auto max-w-full whitespace-normal break-words text-left font-normal"
                     >
                         {definition.period}
                     </Badge>
+                    <Badge
+                        variant="outline"
+                        className="h-auto max-w-full whitespace-normal break-words text-left font-normal"
+                    >
+                        {definition.unit}
+                    </Badge>
                 </div>
-                <DashboardMetricInfo definition={definition} />
             </CardHeader>
-            <CardContent className="min-w-0 px-4">
-                {state === 'AVAILABLE' ? (
-                    <>
-                        <div className="min-w-0 break-words text-xl font-bold tracking-tight text-foreground tabular-nums md:text-2xl">
-                            {value ?? '—'}
+            {state === 'AVAILABLE' && (supportingText || progress) && (
+                <CardContent className="min-w-0 px-4">
+                    {supportingText && (
+                        <div className="min-w-0 text-xs leading-relaxed text-muted-foreground">
+                            {supportingText}
                         </div>
-                        {supportingText && (
-                            <div className="mt-2 min-w-0 text-xs leading-relaxed text-muted-foreground">
-                                {supportingText}
-                            </div>
-                        )}
-                        {progress && <TargetProgress {...progress} />}
-                    </>
-                ) : (
-                    <DashboardSectionState state={state} />
-                )}
-            </CardContent>
+                    )}
+                    {progress && <TargetProgress {...progress} />}
+                </CardContent>
+            )}
         </Card>
-    );
-    return actionable ? (
-        <Link href={href!} className="block h-full min-w-0">
-            {card}
-        </Link>
-    ) : (
-        card
     );
 }

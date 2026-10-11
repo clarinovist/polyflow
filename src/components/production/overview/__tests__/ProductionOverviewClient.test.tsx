@@ -139,12 +139,16 @@ describe('ProductionOverviewClient R4C', () => {
         swr.error = undefined;
     });
 
-    it('orders Health → Attention → Drivers, preserves mixed units, totals, and bounded samples', () => {
+    it('orders condition → attention → direction, preserves mixed units, totals, and bounded samples', () => {
         render(<ProductionOverviewClient initialData={fixture()} />);
 
         const text = document.body.textContent ?? '';
-        expect(text.indexOf('Health')).toBeLessThan(text.indexOf('Attention'));
-        expect(text.indexOf('Attention')).toBeLessThan(text.indexOf('Drivers'));
+        expect(text.indexOf('Kondisi')).toBeLessThan(
+            text.indexOf('Perlu perhatian'),
+        );
+        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
+            text.indexOf('Arah utama'),
+        );
         expect(screen.getByText('18 SPK')).toBeTruthy();
         expect(screen.getByText('7 terlambat')).toBeTruthy();
         expect(screen.getByText('18 total · 1 ditampilkan')).toBeTruthy();
@@ -221,8 +225,12 @@ describe('ProductionOverviewClient R4C', () => {
 
         render(<ProductionOverviewClient initialData={data} />);
 
-        expect(screen.getByText('Sebagian Attention Production tidak tersedia')).toBeTruthy();
-        expect(screen.getByText('Sebagian Drivers Production tidak tersedia')).toBeTruthy();
+        expect(
+            screen.getByText('Sebagian perhatian Production tidak tersedia'),
+        ).toBeTruthy();
+        expect(
+            screen.getByText('Sebagian arah utama Production tidak tersedia'),
+        ).toBeTruthy();
         expect(screen.getAllByText('Data tidak tersedia').length).toBeGreaterThan(0);
         expect(screen.getByText('Material attention')).toBeTruthy();
         expect(screen.queryByLabelText('Ringkasan hasil hari ini')).toBeNull();

@@ -215,7 +215,7 @@ function outputValue(
     return processTotals
         .map(
             (total) =>
-                `${total.processKey} · ${formatQuantity(total.quantity)} ${formatUnitLabel(total.unit)}`,
+                `${PROCESS_LABEL[total.processKey]} · ${formatQuantity(total.quantity)} ${formatUnitLabel(total.unit)}`,
         )
         .join(' · ');
 }
@@ -289,7 +289,7 @@ export function ProductionOverviewClient({
                 <DashboardSectionState
                     state="UNAVAILABLE"
                     title="Pembaruan gagal · data terakhir tetap ditampilkan"
-                    description="Data di bawah mungkin stale. Waktu pembaruan tidak diubah sampai server berhasil mengirim snapshot baru."
+                    description="Data di bawah mungkin belum terbaru. Waktu pembaruan tidak berubah sampai server berhasil mengirim data baru."
                 />
             )}
 
@@ -299,7 +299,7 @@ export function ProductionOverviewClient({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="production-health-heading"
@@ -308,8 +308,8 @@ export function ProductionOverviewClient({
                         Kondisi produksi utama
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Snapshot server saat ini. Kuantitas selalu dipisahkan
-                        menurut proses, barang, dan satuan.
+                        Kondisi saat ini. Kuantitas selalu dipisahkan menurut
+                        proses, barang, dan satuan.
                     </p>
                 </div>
                 <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-3">
@@ -323,11 +323,11 @@ export function ProductionOverviewClient({
                         icon={Factory}
                         state={health?.output.state ?? 'UNAVAILABLE'}
                         definition={{
-                            unit: 'Kuantitas per proses · barang · unit',
+                            unit: 'Kuantitas per proses, barang, dan satuan',
                             period: 'Hari bisnis WIB',
                             description:
-                                'Hanya execution non-VOIDED. Nilai KG, PCS, dan unit lain tidak pernah dijumlahkan.',
-                            source: 'ProductionExecution',
+                                'Hanya hasil produksi yang tidak dibatalkan. Nilai KG, PCS, dan satuan lain tidak pernah dijumlahkan.',
+                            source: 'Catatan hasil produksi',
                         }}
                         supportingText={
                             health?.output.state === 'AVAILABLE' ? (
@@ -357,11 +357,11 @@ export function ProductionOverviewClient({
                         icon={Gauge}
                         state={health?.activeSpk.state ?? 'UNAVAILABLE'}
                         definition={{
-                            unit: 'SPK · jumlah dokumen',
-                            period: 'Snapshot saat ini',
+                            unit: 'SPK',
+                            period: 'Saat dashboard diperbarui',
                             description:
-                                'Seluruh SPK IN_PROGRESS; subset terlambat memakai plannedEndDate sebelum waktu server.',
-                            source: 'ProductionOrder',
+                                'Seluruh SPK yang sedang berjalan; SPK terlambat adalah yang rencana selesainya sudah terlewati.',
+                            source: 'Daftar SPK produksi',
                         }}
                         supportingText={
                             health?.activeSpk.state === 'AVAILABLE' &&
@@ -381,7 +381,7 @@ export function ProductionOverviewClient({
                         }
                     />
                     <DashboardHealthCard
-                        title="Downtime terbuka terlama"
+                        title="Waktu henti terbuka terlama"
                         value={
                             health?.downtime.state === 'AVAILABLE'
                                 ? health.downtime.longest
@@ -394,11 +394,11 @@ export function ProductionOverviewClient({
                         icon={TimerOff}
                         state={health?.downtime.state ?? 'UNAVAILABLE'}
                         definition={{
-                            unit: 'Menit · satu insiden',
-                            period: 'Snapshot saat ini',
+                            unit: 'Menit per insiden',
+                            period: 'Saat dashboard diperbarui',
                             description:
-                                'Durasi satu insiden terbuka terlama, dibandingkan dengan threshold tenant per insiden.',
-                            source: 'MachineDowntime + AppSetting tenant',
+                                'Durasi satu insiden terbuka terlama, dibandingkan dengan batas waktu tiap insiden.',
+                            source: 'Catatan waktu henti mesin dan pengaturan perusahaan',
                         }}
                         supportingText={
                             health?.downtime.state === 'AVAILABLE' ? (
@@ -406,7 +406,7 @@ export function ProductionOverviewClient({
                                     {health.downtime.longest
                                         ? `${health.downtime.longest.machineCode} · ${health.downtime.longest.reason}`
                                         : 'Semua insiden sudah ditutup.'}{' '}
-                                    Threshold:{' '}
+                                    Batas perhatian:{' '}
                                     {health.downtime.thresholdMinutes ?? '—'}
                                     {' menit.'}
                                 </span>
@@ -436,7 +436,7 @@ export function ProductionOverviewClient({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="production-attention-heading"
@@ -445,8 +445,8 @@ export function ProductionOverviewClient({
                         Pekerjaan dan perhatian per proses
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Total mencakup populasi eligible; daftar adalah sampel
-                        global deterministik dan dibatasi untuk polling 30
+                        Total mencakup seluruh data yang memenuhi syarat; daftar
+                        menampilkan prioritas teratas dan diperbarui setiap 30
                         detik.
                     </p>
                 </div>
@@ -473,8 +473,8 @@ export function ProductionOverviewClient({
                 {attention?.state === 'UNAVAILABLE' && (
                     <DashboardSectionState
                         state="UNAVAILABLE"
-                        title="Sebagian Attention Production tidak tersedia"
-                        description="Reader gagal tidak dianggap sebagai semua aman. Item yang berhasil dibaca tetap ditampilkan."
+                        title="Sebagian perhatian Production tidak tersedia"
+                        description="Data yang gagal dimuat tidak dianggap sebagai semua aman. Item yang berhasil dibaca tetap ditampilkan."
                     />
                 )}
 
@@ -524,7 +524,9 @@ export function ProductionOverviewClient({
                                                     {order.orderNumber} ·{' '}
                                                     {order.machineCode} ·{' '}
                                                     {order.operatorName} ·{' '}
-                                                    {order.processKey}
+                                                    {PROCESS_LABEL[
+                                                        order.processKey
+                                                    ]}
                                                 </p>
                                             </div>
                                             {order.isLate && (
@@ -654,31 +656,31 @@ export function ProductionOverviewClient({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="production-drivers-heading"
                         className="text-lg font-semibold"
                     >
-                        Snapshot hambatan utama
+                        Hambatan utama saat ini
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Angka mentah saat ini, bukan target gap, rate, atau
-                        inferensi penyebab.
+                        Ringkasan kondisi saat ini, bukan perbandingan target
+                        atau kesimpulan penyebab.
                     </p>
                 </div>
                 {drivers?.state === 'UNAVAILABLE' && (
                     <DashboardSectionState
                         state="UNAVAILABLE"
-                        title="Sebagian Drivers Production tidak tersedia"
-                        description="Driver yang gagal tidak dianggap sebagai tidak ada hambatan."
+                        title="Sebagian arah utama Production tidak tersedia"
+                        description="Data yang gagal dimuat tidak dianggap sebagai tidak ada hambatan."
                     />
                 )}
                 <div className="grid min-w-0 gap-4 lg:grid-cols-2">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-sm">
-                                Insiden downtime terbuka terlama
+                                Insiden waktu henti terbuka terlama
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -704,7 +706,7 @@ export function ProductionOverviewClient({
                                 </div>
                             ) : drivers?.state === 'AVAILABLE' ? (
                                 <p className="text-sm text-muted-foreground">
-                                    Tidak ada insiden downtime terbuka.
+                                    Tidak ada insiden waktu henti terbuka.
                                 </p>
                             ) : (
                                 <DashboardSectionState state="UNAVAILABLE" />

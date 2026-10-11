@@ -124,7 +124,7 @@ function AttentionSection({
                 <DashboardSectionState
                     state="UNAVAILABLE"
                     title="Sebagian antrean Sales tidak tersedia"
-                    description="Reader yang gagal tidak dianggap sebagai antrean kosong. Data lain yang berhasil tetap ditampilkan."
+                    description="Data yang gagal dimuat tidak dianggap sebagai antrean kosong. Data lain yang berhasil tetap ditampilkan."
                 />
             )}
             <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4">
@@ -248,7 +248,7 @@ function AttentionSection({
                                     >
                                         {item.status === 'LOADING'
                                             ? 'Muat'
-                                            : 'Pending'}
+                                            : 'Menunggu'}
                                     </Badge>
                                 </div>
                             ))}
@@ -258,7 +258,7 @@ function AttentionSection({
                 {attention.overdueInvoices &&
                     attention.overdueInvoices.returned > 0 && (
                         <QueueCard
-                            title="Invoice jatuh tempo"
+                            title="Tagihan jatuh tempo"
                             total={attention.overdueInvoices.total}
                             returned={attention.overdueInvoices.returned}
                             icon={AlertTriangle}
@@ -413,7 +413,7 @@ function AttentionSection({
                 {!hasItems && attention.state === 'AVAILABLE' && (
                     <Card className="md:col-span-2 xl:col-span-3">
                         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                            Tidak ada item yang butuh perhatian pada scope ini.
+                            Tidak ada item yang butuh perhatian pada cakupan ini.
                         </CardContent>
                     </Card>
                 )}
@@ -449,16 +449,13 @@ export default async function SalesCommandBoardPage(props: {
                 />
                 {board?.state === 'HIDDEN' ? (
                     <div className="flex min-w-0 items-start gap-3 rounded-lg border border-dashed bg-muted/30 p-3 text-sm">
-                        <Badge variant="outline" className="shrink-0">
-                            HIDDEN
-                        </Badge>
                         <div className="min-w-0">
                             <p className="font-medium text-foreground">
                                 Modul Sales tidak aktif
                             </p>
                             <p className="text-muted-foreground">
-                                Dashboard Sales disembunyikan dan reader tidak
-                                dijalankan.
+                                Dashboard Sales tidak ditampilkan dan data
+                                modul tidak dimuat.
                             </p>
                         </div>
                     </div>
@@ -488,10 +485,10 @@ export default async function SalesCommandBoardPage(props: {
                 <div className="min-w-0">
                     <PageHeader
                         title={salesLabels.salesDashboard}
-                        description="Health, attention, dan drivers Sales dari source canonical."
+                        description="Ringkasan kondisi, perhatian, dan arah utama Sales."
                     />
                     <div className="mt-2 flex flex-wrap gap-2">
-                        <Badge variant="secondary">Scope: {scope.label}</Badge>
+                        <Badge variant="secondary">Cakupan: {scope.label}</Badge>
                         <Badge variant="outline">Periode: {period.label}</Badge>
                     </div>
                 </div>
@@ -504,7 +501,7 @@ export default async function SalesCommandBoardPage(props: {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="sales-health-heading"
@@ -525,31 +522,20 @@ export default async function SalesCommandBoardPage(props: {
                             icon={HandCoins}
                             state={health.revenue.state}
                             definition={{
-                                unit: 'IDR',
+                                unit: 'Rupiah',
                                 period: period.label,
                                 description:
-                                    'SO non-batal (termasuk fase quotation) dikurangi retur terproses pada periode retur. ' +
+                                    'Nilai pesanan yang tidak dibatalkan, termasuk penawaran, dikurangi retur yang diproses dalam periode retur. ' +
                                     scope.label +
                                     '.',
-                                source: 'Sales revenue basis · SALES_ORDER',
+                                source: 'Ringkasan omzet Sales',
                             }}
                             href={
                                 health.revenue.state === 'AVAILABLE'
                                     ? (links.performance ?? undefined)
                                     : undefined
                             }
-                            supportingText={
-                                <span>
-                                    Target/on-target:{' '}
-                                    <Badge
-                                        variant="outline"
-                                        className="h-auto whitespace-normal text-[10px]"
-                                    >
-                                        NOT_CONFIGURED
-                                    </Badge>{' '}
-                                    menunggu rekonsiliasi Finance + Sales.
-                                </span>
-                            }
+                            supportingText="Target belum disiapkan; menunggu rekonsiliasi Finance dan Sales."
                         />
                     )}
                     {health.orders.state !== 'HIDDEN' && (
@@ -559,20 +545,20 @@ export default async function SalesCommandBoardPage(props: {
                             icon={ShoppingCart}
                             state={health.orders.state}
                             definition={{
-                                unit: 'Sales order',
+                                unit: 'Pesanan',
                                 period: period.label,
                                 description:
-                                    'Count SO non-batal pada cohort yang sama dengan omzet, termasuk fase quotation. ' +
+                                    'Jumlah pesanan yang tidak dibatalkan pada kelompok yang sama dengan omzet, termasuk penawaran. ' +
                                     scope.label +
                                     '.',
-                                source: 'SalesOrder',
+                                source: 'Daftar pesanan Sales',
                             }}
                             href={
                                 health.orders.state === 'AVAILABLE'
                                     ? (links.orders ?? undefined)
                                     : undefined
                             }
-                            supportingText="Target attainment ditahan; tidak ada target sintetis."
+                            supportingText="Target belum disiapkan; angka ini tidak dibandingkan dengan target perkiraan."
                         />
                     )}
                     {health.visits.state !== 'HIDDEN' && (
@@ -585,17 +571,17 @@ export default async function SalesCommandBoardPage(props: {
                                 unit: 'Kunjungan',
                                 period: period.label,
                                 description:
-                                    'Kunjungan non-REJECTED. ' +
+                                    'Kunjungan yang tidak ditolak. ' +
                                     scope.label +
                                     '.',
-                                source: 'SalesVisit',
+                                source: 'Catatan kunjungan Sales',
                             }}
                             href={
                                 health.visits.state === 'AVAILABLE'
                                     ? (links.visits ?? undefined)
                                     : undefined
                             }
-                            supportingText="Compliance/target ditahan sampai denominator eligible disetujui."
+                            supportingText="Target kunjungan belum disiapkan sampai dasar perbandingannya disetujui."
                         />
                     )}
                     {health.pipeline.state !== 'HIDDEN' && (
@@ -618,13 +604,13 @@ export default async function SalesCommandBoardPage(props: {
                             icon={Kanban}
                             state={health.pipeline.state}
                             definition={{
-                                unit: canViewNominal ? 'IDR' : 'Penawaran',
+                                unit: canViewNominal ? 'Rupiah' : 'Penawaran',
                                 period: period.label,
                                 description:
-                                    'QUOTATION + QUOTATION_SENT dalam scope ' +
+                                    'Penawaran aktif yang masih disusun atau sudah dikirim dalam cakupan ' +
                                     scope.operationalLabel +
                                     '.',
-                                source: 'Sales pipeline',
+                                source: 'Ringkasan penawaran Sales',
                             }}
                             href={
                                 health.pipeline.state === 'AVAILABLE'
@@ -635,7 +621,7 @@ export default async function SalesCommandBoardPage(props: {
                                 (health.pipeline.count ?? 0).toLocaleString(
                                     'id-ID',
                                 ) +
-                                ' penawaran aktif · termasuk dalam SO actual; conversion ditahan'
+                                ' penawaran aktif · termasuk dalam jumlah pesanan; tingkat konversi belum disiapkan'
                             }
                         />
                     )}
@@ -648,7 +634,7 @@ export default async function SalesCommandBoardPage(props: {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="sales-attention-heading"
@@ -657,9 +643,9 @@ export default async function SalesCommandBoardPage(props: {
                         Butuh perhatian
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Scope antrean: {scope.operationalLabel}. Total berasal
-                        dari seluruh populasi eligible; daftar adalah sampel
-                        lima teratas.
+                        Cakupan antrean: {scope.operationalLabel}. Total mencakup
+                        seluruh data yang memenuhi syarat; daftar menampilkan
+                        lima prioritas teratas.
                     </p>
                 </div>
                 {attention ? (
@@ -672,7 +658,7 @@ export default async function SalesCommandBoardPage(props: {
                     <DashboardSectionState
                         state="UNAVAILABLE"
                         title="Antrean Sales tidak tersedia"
-                        description="Kegagalan reader tidak dianggap sebagai antrean kosong."
+                        description="Kegagalan memuat data tidak dianggap sebagai antrean kosong."
                     />
                 )}
 
@@ -737,7 +723,7 @@ export default async function SalesCommandBoardPage(props: {
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="sales-drivers-heading"
@@ -749,8 +735,8 @@ export default async function SalesCommandBoardPage(props: {
                 {driverUnavailable && (
                     <DashboardSectionState
                         state="UNAVAILABLE"
-                        title="Sebagian driver Sales tidak tersedia"
-                        description="Reader yang gagal tidak dianggap sebagai tidak adanya driver bisnis. Driver lain yang berhasil tetap ditampilkan."
+                        title="Sebagian arah utama Sales tidak tersedia"
+                        description="Data yang gagal dimuat tidak dianggap sebagai tidak adanya pendorong bisnis. Pendorong lain yang berhasil tetap ditampilkan."
                     />
                 )}
                 {hasDrivers ? (
@@ -785,9 +771,8 @@ export default async function SalesCommandBoardPage(props: {
                                         ))}
                                     </ol>
                                     <p className="mt-3 text-xs text-muted-foreground">
-                                        Enam bulan selesai sebelum bulan cutoff;
-                                        setiap titik memakai basis SO minus
-                                        retur yang sama.
+                                        Enam bulan penuh terakhir; setiap bulan
+                                        memakai dasar omzet bersih yang sama.
                                     </p>
                                 </CardContent>
                             </Card>
@@ -809,7 +794,7 @@ export default async function SalesCommandBoardPage(props: {
                                             'id-ID',
                                         )}{' '}
                                         penawaran ditolak pada {period.label}.
-                                        Scope: {scope.operationalLabel}.
+                                        Cakupan: {scope.operationalLabel}.
                                     </p>
                                     {canViewNominal &&
                                         topLostReason.totalValue != null && (
@@ -825,7 +810,7 @@ export default async function SalesCommandBoardPage(props: {
                                             href={links.pipeline}
                                             className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline"
                                         >
-                                            Buka pipeline{' '}
+                                            Buka daftar penawaran{' '}
                                             <ArrowRight className="h-3 w-3" />
                                         </Link>
                                     )}
@@ -835,11 +820,13 @@ export default async function SalesCommandBoardPage(props: {
                     </div>
                 ) : driverUnavailable ? null : (
                     <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-sm">
-                        <p className="font-medium">Driver belum cukup matang</p>
+                        <p className="font-medium">
+                            Arah utama belum cukup matang
+                        </p>
                         <p className="text-muted-foreground">
-                            Tren membutuhkan minimal empat titik comparable dan
-                            loss reason membutuhkan penawaran ditolak dalam
-                            scope ini.
+                            Tren membutuhkan minimal empat periode yang dapat
+                            dibandingkan, dan alasan kehilangan membutuhkan
+                            penawaran yang ditolak dalam cakupan ini.
                         </p>
                     </div>
                 )}

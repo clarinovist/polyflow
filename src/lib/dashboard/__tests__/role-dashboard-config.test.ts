@@ -126,7 +126,7 @@ describe('role-dashboard-config', () => {
             '/purchasing/orders?status=DRAFT,SENT',
         );
         expect(kpi('SALES', 'activeOrders')).toMatchObject({
-            title: 'Pesanan Aktif (MTD)',
+            title: 'Pesanan Aktif',
             href: '/sales/orders?status=CONFIRMED,IN_PRODUCTION,READY_TO_SHIP,SHIPPED',
             resourceHint: '/sales/orders',
         });
@@ -200,16 +200,16 @@ describe('role-dashboard-config', () => {
         expect(machines).toMatchObject({
             title: 'Mesin Berjalan Saat Ini',
             value: '2 dari 5 mesin aktif',
-            subtitle: 'Snapshot status saat dashboard diperbarui',
+            subtitle: 'Kondisi saat dashboard diperbarui',
             trendValue: 'Saat ini',
         });
         expect(machines?.progressValue).toBeUndefined();
         expect(machines?.subtitle).not.toContain('Yield');
         expect(productionCompletion).toMatchObject({
-            title: 'Penyelesaian SPK (MTD)',
+            title: 'Penyelesaian SPK',
             value: '80.0%',
             subtitle: 'SPK selesai dari seluruh SPK bulan berjalan',
-            trendValue: 'Berbasis jumlah dokumen SPK, bukan quantity',
+            trendValue: 'Berdasarkan jumlah dokumen SPK, bukan jumlah barang',
             progressValue: 80,
         });
         expect(production.some((item) => /yield/i.test(item.title))).toBe(false);
@@ -219,7 +219,7 @@ describe('role-dashboard-config', () => {
         expect(kpi('WAREHOUSE', 'inventory')).toMatchObject({
             title: 'Valuasi Stok',
             value: 'Belum dikonfigurasi',
-            trendValue: 'NOT_CONFIGURED',
+            trendValue: 'Belum disiapkan',
             href: '/warehouse/analytics',
         });
         expect(kpi('SALES', 'inventory')?.value).not.toContain('Rp');
@@ -370,11 +370,11 @@ describe('role-dashboard-config', () => {
             trendValue: 'Ada keterlambatan',
         });
         expect(kpi('PROCUREMENT', 'pendingPo')?.subtitle).toBe(
-            'Rp 40.000.000 pengeluaran bulan berjalan (MTD)',
+            'Rp 40.000.000 pengeluaran bulan berjalan',
         );
         expect(kpi('PRODUCTION', 'downtime')).toMatchObject({
-            title: 'Waktu Henti (MTD)',
-            subtitle: 'Durasi downtime mesin bulan berjalan',
+            title: 'Waktu Henti',
+            subtitle: 'Durasi waktu henti mesin bulan berjalan',
             trendValue: 'Perlu pemantauan',
         });
 

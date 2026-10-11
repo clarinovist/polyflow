@@ -51,12 +51,12 @@ const data: HrdShiftBoard = {
 };
 
 describe('HrdShiftBoardComponent', () => {
-    it('renders Health → Attention → Drivers with formulas, freshness, and safe root links', () => {
+    it('renders condition → attention → direction with formulas, freshness, and safe root links', () => {
         render(<HrdShiftBoardComponent data={data} />);
 
-        const health = screen.getByText('Health');
-        const attention = screen.getByText('Attention');
-        const drivers = screen.getByText('Drivers');
+        const health = screen.getByText('Kondisi');
+        const attention = screen.getByText('Perlu perhatian');
+        const drivers = screen.getByText('Arah utama');
         expect(
             health.compareDocumentPosition(attention) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
@@ -68,10 +68,12 @@ describe('HrdShiftBoardComponent', () => {
         expect(screen.getByText(/Diperbarui/)).toBeTruthy();
         expect(screen.getByText('8 hadir')).toBeTruthy();
         expect(
-            screen.getByText(/1 absent · 1 cuti\/izin · 2,25 jam lembur/),
+            screen.getByText(/1 tidak hadir · 1 cuti\/izin · 2,25 jam lembur/),
         ).toBeTruthy();
         expect(screen.getByText('5 slip dibuat')).toBeTruthy();
-        expect(screen.getByText(/1 draft · 2 finalized · 2 paid/)).toBeTruthy();
+        expect(
+            screen.getByText(/1 draf · 2 diselesaikan · 2 dibayar/),
+        ).toBeTruthy();
         expect(screen.getByText('3')).toBeTruthy();
         expect(
             screen
@@ -90,12 +92,12 @@ describe('HrdShiftBoardComponent', () => {
         ).toBe('/hrd/payroll-monthly');
         expect(
             screen
-                .getByText('ABSENT tercatat kemarin')
+                .getByText('Tidak hadir tercatat kemarin')
                 .closest('a')
                 ?.getAttribute('href'),
         ).toBe('/hrd/attendance');
-        expect(screen.getByText(/Driver unit\/sif belum/)).toBeTruthy();
-        expect(screen.getByText(/ranking kausal/i)).toBeTruthy();
+        expect(screen.getByText(/Pendorong per unit atau sif belum/)).toBeTruthy();
+        expect(screen.getByText(/tidak menyimpulkan penyebab/i)).toBeTruthy();
     });
 
     it('renders valid zeroes as AVAILABLE rather than unavailable', () => {
@@ -152,7 +154,7 @@ describe('HrdShiftBoardComponent', () => {
         expect(screen.getAllByText('Data tidak tersedia').length).toBeGreaterThan(
             0,
         );
-        expect(screen.getByText('Belum dikonfigurasi')).toBeTruthy();
+        expect(screen.getByText('Belum disiapkan')).toBeTruthy();
         expect(screen.queryByText('0 hadir')).toBeNull();
         expect(screen.getByText(/Rp\s*250\.000/)).toBeTruthy();
     });
@@ -178,7 +180,12 @@ describe('HrdShiftBoardComponent', () => {
             expect(screen.queryByText(forbidden)).toBeNull();
         }
         expect(screen.queryByText(/requestId=/)).toBeNull();
-        expect(screen.getByText(/bukan attendance rate/i)).toBeTruthy();
+        expect(screen.queryByText(/attendance rate/i)).toBeNull();
+        expect(
+            screen.getByRole('button', {
+                name: 'Penjelasan Status absensi tercatat hari ini',
+            }),
+        ).toBeTruthy();
         expect(screen.queryByText(/turnover/i)).toBeNull();
     });
 });

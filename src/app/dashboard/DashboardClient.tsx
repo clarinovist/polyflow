@@ -220,7 +220,7 @@ export default function DashboardClient({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2 id="health-heading" className="text-lg font-semibold">
                         Kondisi utama
@@ -239,7 +239,7 @@ export default function DashboardClient({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="attention-heading"
@@ -267,11 +267,11 @@ export default function DashboardClient({
                 ) : (
                     <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-sm">
                         <p className="font-medium text-foreground">
-                            Tidak ada exception aktif
+                            Tidak ada pengecualian aktif
                         </p>
                         <p className="text-muted-foreground">
-                            Tidak ada signal lintas divisi yang memerlukan
-                            perhatian pada snapshot ini.
+                            Tidak ada sinyal lintas divisi yang memerlukan
+                            perhatian pada kondisi saat ini.
                         </p>
                     </div>
                 )}
@@ -331,7 +331,7 @@ export default function DashboardClient({
                 >
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Drivers
+                            Arah utama
                         </p>
                         <h2
                             id="drivers-heading"

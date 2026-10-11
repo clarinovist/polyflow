@@ -97,12 +97,12 @@ const data: WarehouseShiftBoard = {
 };
 
 describe('WarehouseShiftBoardComponent', () => {
-    it('renders Health then Attention then Drivers with server freshness', () => {
+    it('renders condition then attention then direction with server freshness', () => {
         render(<WarehouseShiftBoardComponent data={data} />);
 
-        const health = screen.getByText('Health');
-        const attention = screen.getByText('Attention');
-        const drivers = screen.getByText('Drivers');
+        const health = screen.getByText('Kondisi');
+        const attention = screen.getByText('Perlu perhatian');
+        const drivers = screen.getByText('Arah utama');
         expect(
             health.compareDocumentPosition(attention) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
@@ -195,7 +195,7 @@ describe('WarehouseShiftBoardComponent', () => {
         render(<WarehouseShiftBoardComponent data={zeroData} />);
 
         expect(screen.getAllByText('Antrean kosong')).toHaveLength(3);
-        expect(screen.getAllByText('Tidak ada alert')).toHaveLength(2);
+        expect(screen.getAllByText('Tidak ada peringatan')).toHaveLength(2);
         expect(
             screen.getByText('Tidak ada varian di bawah batas minimum.'),
         ).toBeTruthy();
@@ -229,9 +229,9 @@ describe('WarehouseShiftBoardComponent', () => {
         expect(screen.getByText('Terima')).toBeTruthy();
         expect(screen.getByText('4 GR')).toBeTruthy();
         expect(
-            screen.getByText('Alert persediaan tidak tersedia'),
+            screen.getByText('Kondisi persediaan tidak tersedia'),
         ).toBeTruthy();
-        expect(screen.getByText('Driver stok tidak tersedia')).toBeTruthy();
+        expect(screen.getByText('Penyumbang stok tidak tersedia')).toBeTruthy();
         expect(screen.queryByText('Stok menipis')).toBeNull();
     });
 

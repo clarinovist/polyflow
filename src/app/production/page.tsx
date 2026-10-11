@@ -20,7 +20,7 @@ export default async function ProductionDashboardPage() {
             <div className="flex min-w-0 flex-col gap-6">
                 <PageHeader
                     title="Hari Ini — Produksi"
-                    description="Health, attention, dan drivers operasional Production."
+                    description="Kondisi, perhatian, dan arah utama operasional produksi."
                 />
                 <DashboardSectionState
                     state="UNAVAILABLE"
@@ -35,7 +35,7 @@ export default async function ProductionDashboardPage() {
         <div className="flex min-w-0 flex-col gap-6">
             <PageHeader
                 title="Hari Ini — Produksi"
-                description="Health, attention, dan drivers operasional Production."
+                description="Kondisi, perhatian, dan arah utama operasional produksi."
             />
             <ProductionOverviewClient initialData={data} />
         </div>

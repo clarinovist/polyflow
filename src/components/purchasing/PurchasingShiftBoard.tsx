@@ -25,6 +25,18 @@ interface PurchasingShiftBoardProps {
     data: PurchasingShiftBoard | null;
 }
 
+const PURCHASE_REQUEST_STATUS_LABEL: Record<string, string> = {
+    OPEN: 'Terbuka',
+    APPROVED: 'Disetujui',
+    REJECTED: 'Ditolak',
+    CONVERTED: 'Sudah dibuatkan PO',
+};
+
+function purchaseRequestStatusLabel(status: unknown): string {
+    const value = String(status);
+    return PURCHASE_REQUEST_STATUS_LABEL[value] ?? 'Perlu ditinjau';
+}
+
 function AttentionSection({
     title,
     items,
@@ -73,7 +85,7 @@ export function PurchasingShiftBoardComponent({
                         Pembelian
                     </h1>
                     <p className="text-muted-foreground">
-                        Kondisi, perhatian, dan driver pengadaan.
+                        Kondisi, perhatian, dan arah utama pengadaan.
                     </p>
                 </div>
                 <section
@@ -81,7 +93,7 @@ export function PurchasingShiftBoardComponent({
                     aria-labelledby="purchasing-health-heading"
                 >
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="purchasing-health-heading"
@@ -121,7 +133,7 @@ export function PurchasingShiftBoardComponent({
                         Pembelian
                     </h1>
                     <p className="text-muted-foreground">
-                        Kondisi, perhatian, dan driver pengadaan.
+                        Kondisi, perhatian, dan arah utama pengadaan.
                     </p>
                 </div>
                 <DashboardFreshness generatedAt={generatedAt} />
@@ -133,7 +145,7 @@ export function PurchasingShiftBoardComponent({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="purchasing-health-heading"
@@ -148,11 +160,11 @@ export function PurchasingShiftBoardComponent({
                         value={counts.pendingPrs.toLocaleString('id-ID')}
                         icon={ClipboardList}
                         definition={{
-                            unit: 'Purchase request',
+                            unit: 'Permintaan pembelian',
                             period: 'Saat dashboard diperbarui',
                             description:
-                                'PR OPEN atau APPROVED yang belum selesai diproses.',
-                            source: 'Purchasing',
+                                'Permintaan pembelian terbuka atau sudah disetujui yang belum selesai diproses.',
+                            source: 'Data pembelian',
                         }}
                         href={
                             counts.pendingPrs > 0
@@ -172,11 +184,11 @@ export function PurchasingShiftBoardComponent({
                         ).toLocaleString('id-ID')}
                         icon={Truck}
                         definition={{
-                            unit: 'Purchase order',
+                            unit: 'Pesanan pembelian',
                             period: 'Saat dashboard diperbarui',
                             description:
-                                'PO SENT atau PARTIAL_RECEIVED yang masih menunggu barang.',
-                            source: 'Purchasing',
+                                'Pesanan pembelian yang sudah dikirim ke pemasok atau baru diterima sebagian dan masih menunggu barang.',
+                            source: 'Data pembelian',
                         }}
                         href={
                             counts.awaitingReceiptPos + counts.partialPos > 0
@@ -188,19 +200,19 @@ export function PurchasingShiftBoardComponent({
                         }
                     />
                     <DashboardHealthCard
-                        title="Hutang overdue"
+                        title="Hutang jatuh tempo"
                         value={
                             nominalAvailable
                                 ? formatRupiah(counts.overdueApAmount ?? 0)
-                                : `${counts.overdueApCount.toLocaleString('id-ID')} invoice`
+                                : `${counts.overdueApCount.toLocaleString('id-ID')} tagihan`
                         }
                         icon={AlertTriangle}
                         definition={{
-                            unit: nominalAvailable ? 'IDR' : 'Invoice',
+                            unit: nominalAvailable ? 'Rupiah' : 'Tagihan',
                             period: 'Jatuh tempo sebelum hari bisnis ini',
                             description:
-                                'Sisa hutang positif dengan status UNPAID, PARTIAL, atau OVERDUE.',
-                            source: 'Finance',
+                                'Tagihan dengan sisa hutang positif yang belum lunas atau sudah jatuh tempo.',
+                            source: 'Data keuangan',
                         }}
                         href={
                             counts.overdueApCount > 0
@@ -209,8 +221,8 @@ export function PurchasingShiftBoardComponent({
                         }
                         supportingText={
                             nominalAvailable
-                                ? `${counts.overdueApCount} invoice perlu ditindaklanjuti`
-                                : 'Nominal dibatasi; jumlah invoice operasional tetap tersedia.'
+                                ? `${counts.overdueApCount} tagihan perlu ditindaklanjuti`
+                                : 'Nominal dibatasi; jumlah tagihan operasional tetap tersedia.'
                         }
                     />
                     <DashboardHealthCard
@@ -222,11 +234,11 @@ export function PurchasingShiftBoardComponent({
                         }
                         icon={ShoppingCart}
                         definition={{
-                            unit: 'IDR',
-                            period: 'Bulan berjalan (MTD, WIB)',
+                            unit: 'Rupiah',
+                            period: 'Bulan berjalan (WIB)',
                             description:
-                                'Total komitmen PO berdasarkan orderDate bulan WIB berjalan, selain DRAFT dan CANCELLED.',
-                            source: 'Purchasing',
+                                'Total komitmen pesanan pembelian berdasarkan tanggal pemesanan bulan berjalan, selain pesanan draf dan dibatalkan.',
+                            source: 'Data pembelian',
                         }}
                         state={nominalAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
                         supportingText={
@@ -234,10 +246,10 @@ export function PurchasingShiftBoardComponent({
                                 <>
                                     <span>{priorMonthComparison}</span>
                                     <span className="mt-1 block">
-                                        MTD saat ini dibandingkan dengan bulan
-                                        penuh sebelumnya; bukan hari berjalan
-                                        yang setara. Target/budget belum
-                                        dikonfigurasi.
+                                        Bulan berjalan dibandingkan dengan
+                                        bulan penuh sebelumnya; bukan jumlah
+                                        hari yang setara. Target atau anggaran
+                                        belum disiapkan.
                                     </span>
                                 </>
                             ) : undefined
@@ -252,7 +264,7 @@ export function PurchasingShiftBoardComponent({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="purchasing-attention-heading"
@@ -288,7 +300,9 @@ export function PurchasingShiftBoardComponent({
                                                 variant="outline"
                                                 className="ml-2 text-[10px]"
                                             >
-                                                {String(item.status)}
+                                                {purchaseRequestStatusLabel(
+                                                    item.status,
+                                                )}
                                             </Badge>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -433,7 +447,7 @@ export function PurchasingShiftBoardComponent({
                                     <DashboardSectionState
                                         state="UNAVAILABLE"
                                         title="Nominal dibatasi"
-                                        description={`${counts.overdueApCount} invoice overdue terdeteksi. Detail dan nominal memerlukan izin lihat harga.`}
+                                        description={`${counts.overdueApCount} tagihan jatuh tempo terdeteksi. Detail dan nominal memerlukan izin lihat harga.`}
                                     />
                                 </div>
                             )}
@@ -519,7 +533,7 @@ export function PurchasingShiftBoardComponent({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="purchasing-drivers-heading"
@@ -545,8 +559,8 @@ export function PurchasingShiftBoardComponent({
                                               )}
                                     </p>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        {priorMonthComparison}. MTD dibanding
-                                        bulan penuh sebelumnya.
+                                        {priorMonthComparison}. Bulan berjalan
+                                        dibanding bulan penuh sebelumnya.
                                     </p>
                                 </div>
                                 <div className="min-w-0">

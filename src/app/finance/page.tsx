@@ -76,7 +76,7 @@ function QueueSummaryCard({
             </CardHeader>
             <CardContent className="min-w-0 px-4">
                 {unavailable ? (
-                    <Badge variant="outline">UNAVAILABLE</Badge>
+                    <Badge variant="outline">Data tidak tersedia</Badge>
                 ) : (
                     <>
                         <div className="flex flex-wrap items-baseline gap-2">
@@ -177,7 +177,7 @@ function AttentionSection({
                 <DashboardSectionState
                     state="UNAVAILABLE"
                     title="Sebagian antrean Finance tidak tersedia"
-                    description="Reader yang gagal tidak dianggap nol atau antrean kosong. Data lain yang berhasil tetap ditampilkan."
+                    description="Data yang gagal dimuat tidak dianggap nol atau antrean kosong. Data lain yang berhasil tetap ditampilkan."
                 />
             )}
             <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -413,13 +413,13 @@ export default async function FinanceDashboardPage({
             <div className="min-w-0 space-y-6">
                 <PageHeader
                     title="Papan Keuangan"
-                    description="Health, attention, dan drivers Finance dari laporan canonical."
+                    description="Ringkasan kondisi, perhatian, dan arah utama keuangan."
                 />
                 {board?.state === 'HIDDEN' ? (
                     <DashboardSectionState
                         state="NOT_CONFIGURED"
                         title="Modul Finance tidak aktif"
-                        description="Dashboard disembunyikan dan reader nominal tidak dijalankan."
+                        description="Dashboard tidak ditampilkan dan data nominal tidak dimuat."
                     />
                 ) : (
                     <DashboardSectionState
@@ -451,7 +451,7 @@ export default async function FinanceDashboardPage({
                 <div className="min-w-0">
                     <PageHeader
                         title="Papan Keuangan"
-                        description="Health, attention, dan drivers Finance dari laporan canonical."
+                        description="Ringkasan kondisi, perhatian, dan arah utama keuangan."
                     />
                     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
                         <FinanceDateFilter />
@@ -504,7 +504,7 @@ export default async function FinanceDashboardPage({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Health
+                        Kondisi
                     </p>
                     <h2
                         id="finance-health-heading"
@@ -513,8 +513,8 @@ export default async function FinanceDashboardPage({
                         Kondisi keuangan utama
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Posisi kas adalah stock sampai tanggal as-of; laba rugi
-                        adalah flow selama periode terpilih.
+                        Posisi kas berlaku sampai tanggal acuan; laba rugi
+                        mencakup transaksi selama periode terpilih.
                     </p>
                 </div>
                 <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-3">
@@ -528,11 +528,11 @@ export default async function FinanceDashboardPage({
                         icon={Wallet}
                         state={health.cash.state}
                         definition={{
-                            unit: 'IDR · stock',
-                            period: `As-of ${period.asOfLabel}`,
+                            unit: 'Rupiah',
+                            period: `Sampai ${period.asOfLabel}`,
                             description:
-                                'Saldo debit bersih akun yang eksplisit ditandai sebagai kas/bank, POSTED sampai akhir hari bisnis WIB.',
-                            source: 'Neraca Finance canonical',
+                                'Saldo debit bersih akun kas dan bank dari transaksi yang sudah dibukukan sampai akhir hari bisnis WIB.',
+                            source: 'Neraca keuangan',
                         }}
                         href={
                             health.cash.state === 'AVAILABLE'
@@ -550,11 +550,11 @@ export default async function FinanceDashboardPage({
                         icon={BarChart3}
                         state={health.revenue.state}
                         definition={{
-                            unit: 'IDR · flow',
+                            unit: 'Rupiah',
                             period: period.label,
                             description:
-                                'Pendapatan POSTED non-closing menurut category COA pada periode terpilih.',
-                            source: 'Laporan laba rugi Finance canonical',
+                                'Pendapatan dari transaksi yang sudah dibukukan, selain jurnal penutupan, menurut kelompok akun pada periode terpilih.',
+                            source: 'Laporan laba rugi',
                         }}
                         href={
                             health.revenue.state === 'AVAILABLE'
@@ -572,11 +572,11 @@ export default async function FinanceDashboardPage({
                         icon={TrendingUp}
                         state={health.grossProfit.state}
                         definition={{
-                            unit: 'IDR · flow',
+                            unit: 'Rupiah',
                             period: period.label,
                             description:
-                                'Pendapatan dikurangi HPP dari satu hasil laporan laba rugi canonical.',
-                            source: 'Laporan laba rugi Finance canonical',
+                                'Pendapatan dikurangi harga pokok penjualan dari laporan laba rugi yang sama.',
+                            source: 'Laporan laba rugi',
                         }}
                         href={
                             health.grossProfit.state === 'AVAILABLE'
@@ -594,11 +594,11 @@ export default async function FinanceDashboardPage({
                         icon={Banknote}
                         state={health.netProfit.state}
                         definition={{
-                            unit: 'IDR · flow',
+                            unit: 'Rupiah',
                             period: period.label,
                             description:
-                                'Laba bersih POSTED non-closing setelah beban operasi dan pendapatan/beban lain.',
-                            source: 'Laporan laba rugi Finance canonical',
+                                'Laba bersih dari transaksi yang sudah dibukukan, selain jurnal penutupan, setelah beban operasi serta pendapatan dan beban lain.',
+                            source: 'Laporan laba rugi',
                         }}
                         href={
                             health.netProfit.state === 'AVAILABLE'
@@ -615,7 +615,7 @@ export default async function FinanceDashboardPage({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Attention
+                        Perlu perhatian
                     </p>
                     <h2
                         id="finance-attention-heading"
@@ -624,9 +624,8 @@ export default async function FinanceDashboardPage({
                         Antrean dan sinyal tutup buku
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Total berasal dari seluruh populasi eligible; daftar
-                        adalah sampel maksimal lima teratas secara global dan
-                        deterministik.
+                        Total mencakup seluruh data yang memenuhi syarat; daftar
+                        menampilkan maksimal lima prioritas teratas.
                     </p>
                 </div>
 
@@ -642,7 +641,13 @@ export default async function FinanceDashboardPage({
                                             {periodSignals.currentPeriod.name}
                                         </span>
                                         <Badge>
-                                            {periodSignals.currentPeriod.status}
+                                            {periodSignals.currentPeriod.status ===
+                                            'OPEN'
+                                                ? 'Terbuka'
+                                                : periodSignals.currentPeriod
+                                                        .status === 'CLOSED'
+                                                  ? 'Ditutup'
+                                                  : 'Terkunci'}
                                         </Badge>
                                         <span className="text-muted-foreground">
                                             {periodSignals.daysToMonthEnd} hari
@@ -655,7 +660,7 @@ export default async function FinanceDashboardPage({
                                     </span>
                                 )}
                                 <span className="text-muted-foreground">
-                                    {periodSignals.openCount} periode OPEN ·{' '}
+                                    {periodSignals.openCount} periode terbuka ·{' '}
                                     {periodSignals.reconThisMonth} rekonsiliasi
                                     selesai bulan ini
                                 </span>
@@ -673,7 +678,7 @@ export default async function FinanceDashboardPage({
                     <DashboardSectionState
                         state="UNAVAILABLE"
                         title="Sinyal periode tidak tersedia"
-                        description="Kegagalan reader periode tidak meruntuhkan Health atau antrean Finance."
+                        description="Kegagalan memuat data periode tidak menghapus kondisi atau antrean Finance."
                     />
                 )}
 
@@ -690,7 +695,7 @@ export default async function FinanceDashboardPage({
                     <DashboardSectionState
                         state="UNAVAILABLE"
                         title="Antrean Finance tidak tersedia"
-                        description="Kegagalan reader tidak dianggap sebagai antrean kosong."
+                        description="Kegagalan memuat data tidak dianggap sebagai antrean kosong."
                     />
                 )}
 
@@ -698,7 +703,7 @@ export default async function FinanceDashboardPage({
                     <DashboardSectionState
                         state="UNAVAILABLE"
                         title="Antrean retur penjualan tidak tersedia"
-                        description="Kegagalan reader retur tidak dianggap sebagai antrean kosong."
+                        description="Kegagalan memuat data retur tidak dianggap sebagai antrean kosong."
                     />
                 )}
                 {links.returns && !returnReaderFailed && (
@@ -712,26 +717,26 @@ export default async function FinanceDashboardPage({
             >
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Drivers
+                        Arah utama
                     </p>
                     <h2
                         id="finance-drivers-heading"
                         className="text-lg font-semibold"
                     >
-                        Actual bulanan canonical
+                        Realisasi bulanan
                     </h2>
                 </div>
                 {drivers.state === 'UNAVAILABLE' ? (
                     <DashboardSectionState
                         state="UNAVAILABLE"
-                        title="Driver Finance tidak tersedia"
-                        description="Kegagalan reader tidak dianggap sebagai riwayat kosong."
+                        title="Arah utama Finance tidak tersedia"
+                        description="Kegagalan memuat data tidak dianggap sebagai riwayat kosong."
                     />
                 ) : drivers.state === 'NOT_CONFIGURED' ? (
                     <DashboardSectionState
                         state="NOT_CONFIGURED"
                         title="Riwayat belum cukup"
-                        description="Driver membutuhkan minimal empat titik bulanan comparable."
+                        description="Riwayat membutuhkan minimal empat bulan yang dapat dibandingkan."
                     />
                 ) : (
                     <div className="grid min-w-0 gap-4 lg:grid-cols-2">
@@ -772,8 +777,8 @@ export default async function FinanceDashboardPage({
                                         ))}
                                     </ol>
                                     <p className="mt-3 text-xs text-muted-foreground">
-                                        Actual bulanan POSTED non-closing dari
-                                        laporan laba rugi canonical.
+                                        Realisasi bulanan dari transaksi yang
+                                        sudah dibukukan, selain jurnal penutupan.
                                     </p>
                                 </CardContent>
                             </Card>

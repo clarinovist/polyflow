@@ -144,23 +144,29 @@ describe('SalesCommandBoardPage R4A', () => {
         });
     });
 
-    it('orders Health, Attention, then Drivers with canonical definitions and target withheld', async () => {
+    it('orders condition, attention, then direction with disclosed definitions and target withheld', async () => {
         render(await SalesCommandBoardPage({ searchParams: Promise.resolve({}) }));
 
         const text = document.body.textContent ?? '';
-        expect(text.indexOf('Health')).toBeLessThan(text.indexOf('Attention'));
-        expect(text.indexOf('Attention')).toBeLessThan(text.indexOf('Drivers'));
+        expect(text.indexOf('Kondisi')).toBeLessThan(
+            text.indexOf('Perlu perhatian'),
+        );
+        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
+            text.indexOf('Arah utama'),
+        );
         expect(screen.getByText('Omzet SO bersih')).toBeTruthy();
-        expect(screen.getByText('NOT_CONFIGURED')).toBeTruthy();
+        expect(screen.getAllByText(/Target belum disiapkan/)).toHaveLength(2);
         expect(screen.queryByText(/forecast/i)).toBeNull();
         expect(screen.queryByText(/conversion rate/i)).toBeNull();
-        expect(screen.getAllByText(/Scope: Seluruh perusahaan/)).toHaveLength(2);
+        expect(screen.getAllByText(/Cakupan: Seluruh perusahaan/)).toHaveLength(2);
         expect(screen.getByText(/Diperbarui 15.00 WIB/)).toBeTruthy();
+        const info = screen.getByRole('button', {
+            name: 'Penjelasan Omzet SO bersih',
+        });
+        expect(info.getAttribute('aria-expanded')).toBe('false');
         expect(
-            screen.getByLabelText(
-                /SO non-batal \(termasuk fase quotation\) dikurangi retur terproses.*Unit: IDR/,
-            ),
-        ).toBeTruthy();
+            screen.queryByText(/Nilai pesanan yang tidak dibatalkan/),
+        ).toBeNull();
     });
 
     it('keeps queue totals distinct from returned sample and preserves quick actions', async () => {
@@ -205,7 +211,9 @@ describe('SalesCommandBoardPage R4A', () => {
         expect(screen.queryByText('Omzet SO bersih')).toBeNull();
         expect(screen.getByText('Pipeline aktif')).toBeTruthy();
         expect(screen.queryByText('Rp 1.000.000')).toBeNull();
-        expect(screen.queryByRole('link', { name: /Buka pipeline/ })).toBeNull();
+        expect(
+            screen.queryByRole('link', { name: /Buka daftar penawaran/ }),
+        ).toBeNull();
     });
 
     it('shows honest partial failure rather than empty/zero', async () => {
@@ -224,7 +232,9 @@ describe('SalesCommandBoardPage R4A', () => {
 
         expect(screen.getByText('Data tidak tersedia')).toBeTruthy();
         expect(screen.getByText('Sebagian antrean Sales tidak tersedia')).toBeTruthy();
-        expect(screen.getByText('Sebagian driver Sales tidak tersedia')).toBeTruthy();
+        expect(
+            screen.getByText('Sebagian arah utama Sales tidak tersedia'),
+        ).toBeTruthy();
         expect(screen.getByText('SO-READY-21')).toBeTruthy();
     });
 

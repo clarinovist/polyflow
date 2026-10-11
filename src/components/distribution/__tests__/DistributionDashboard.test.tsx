@@ -60,12 +60,12 @@ function fixture(): DistributionDashboardData {
 }
 
 describe('DistributionDashboard', () => {
-    it('renders Health → Attention → Drivers with exact whole-tenant copy, definitions, freshness, and counts', () => {
+    it('renders condition → attention → direction with concise copy, freshness, and counts', () => {
         render(<DistributionDashboard data={fixture()} />);
 
-        const health = screen.getByText('Health');
-        const attention = screen.getByText('Attention');
-        const drivers = screen.getByText('Drivers');
+        const health = screen.getByText('Kondisi');
+        const attention = screen.getByText('Perlu perhatian');
+        const drivers = screen.getByText('Arah utama');
         expect(
             health.compareDocumentPosition(attention) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
@@ -82,7 +82,7 @@ describe('DistributionDashboard', () => {
         expect(screen.getByText('Siap dikirim')).toBeTruthy();
         expect(screen.getByText('PO menunggu penerimaan')).toBeTruthy();
         expect(
-            screen.getAllByText(/SENT 4 · PARTIAL_RECEIVED 1/),
+            screen.getAllByText(/Dikirim ke pemasok 4 · diterima sebagian 1/),
         ).toHaveLength(2);
         expect(screen.getByText('Stok rendah')).toBeTruthy();
         expect(screen.getByText('Perlu dipesan ulang')).toBeTruthy();
@@ -91,18 +91,16 @@ describe('DistributionDashboard', () => {
         expect(screen.getByText('Siap kirim tanpa DO terbuka')).toBeTruthy();
         expect(screen.getByText('Antrean penerimaan PO')).toBeTruthy();
         expect(
-            screen.getByText('Tekanan threshold stok internal'),
+            screen.getByText('Stok internal di bawah batas'),
         ).toBeTruthy();
         expect(
-            screen.getByText(/masih menunggu penerimaan/),
+            screen.getByRole('button', {
+                name: 'Penjelasan Antrean penerimaan PO',
+            }),
         ).toBeTruthy();
-        expect(
-            screen.getByText(/di bawah minStockAlert atau reorderPoint/),
-        ).toBeTruthy();
-        expect(screen.getByText(/CONFIRMED, IN_PRODUCTION/)).toBeTruthy();
-        expect(
-            screen.getByText(/hanya lokasi INTERNAL RAW_MATERIAL/),
-        ).toBeTruthy();
+        expect(screen.queryByText(/minStockAlert|reorderPoint/)).toBeNull();
+        expect(screen.queryByText(/CONFIRMED|IN_PRODUCTION/)).toBeNull();
+        expect(screen.queryByText(/RAW_MATERIAL/)).toBeNull();
         expect(screen.getByText(/123\.456\.789/)).toBeTruthy();
     });
 
@@ -138,10 +136,10 @@ describe('DistributionDashboard', () => {
         render(<DistributionDashboard data={data} />);
 
         expect(screen.getAllByText('0')).toHaveLength(3);
-        expect(screen.getAllByText('UNAVAILABLE')).toHaveLength(2);
+        expect(screen.getAllByText('Data tidak tersedia')).toHaveLength(2);
         expect(screen.queryByText('Stok rendah')).toBeNull();
         expect(
-            screen.queryByText('Tekanan threshold stok internal'),
+            screen.queryByText('Stok internal di bawah batas'),
         ).toBeNull();
         expect(screen.getByText('Antrean penerimaan PO')).toBeTruthy();
         expect(screen.queryByText('Piutang jatuh tempo')).toBeNull();
@@ -162,23 +160,23 @@ describe('DistributionDashboard', () => {
         expect(screen.queryByRole('link')).toBeNull();
     });
 
-    it('keeps Drivers and unsupported operations/finance visibly NOT_CONFIGURED', () => {
+    it('keeps directions and unsupported operations/finance visibly not ready', () => {
         render(<DistributionDashboard data={fixture()} />);
 
         expect(
-            screen.getByText(/Driver operasional belum dikonfigurasi/),
+            screen.getByText(/Pendorong operasional belum disiapkan/),
         ).toBeTruthy();
         expect(
-            screen.getByText(/Fulfillment dan pengecualian lifecycle ditahan/),
+            screen.getByText(/Pemenuhan dan pengecualian alur belum disiapkan/),
         ).toBeTruthy();
         expect(
-            screen.getByText(/pengiriman terlambat, PO terlambat/),
+            screen.getByText(/keterlambatan pengiriman dan pembelian/),
         ).toBeTruthy();
         expect(
-            screen.getByText(/Metrik keuangan ditahan/),
+            screen.getByText(/Metrik keuangan belum disiapkan/),
         ).toBeTruthy();
         expect(
-            screen.getByText(/tidak ada discriminator baris/),
+            screen.getByText(/kelompok data keuangan/),
         ).toBeTruthy();
     });
 

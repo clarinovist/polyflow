@@ -26,12 +26,18 @@ export function InfoHint({
                     ref={triggerRef}
                     type="button"
                     aria-label={label}
-                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [@media(pointer:coarse)]:size-11"
-                    // Radix closes on pointer-down/click by default. Keep its hover,
-                    // focus, Escape and outside-dismiss behavior, but allow tap toggling.
+                    aria-expanded={open}
+                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [@media(any-pointer:coarse)]:size-11"
+                    // Keep Radix hover, focus, Escape, and outside-dismiss behavior.
+                    // Pointer activation toggles for touch; keyboard activation keeps
+                    // a focus-open hint available instead of immediately closing it.
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={(event) => {
                         event.preventDefault();
+                        if (event.detail === 0) {
+                            setOpen(true);
+                            return;
+                        }
                         setOpen((current) => !current);
                     }}
                 >

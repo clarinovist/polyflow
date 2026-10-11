@@ -28,6 +28,16 @@ describe('ProductionDashboardPage R4C', () => {
         render(await ProductionDashboardPage());
 
         expect(screen.getByText('Dashboard Production tidak tersedia')).toBeTruthy();
+        expect(
+            screen.getByText(
+                'Kondisi, perhatian, dan arah utama operasional produksi.',
+            ),
+        ).toBeTruthy();
+        expect(
+            screen.queryByText(
+                'Health, attention, dan drivers operasional Production.',
+            ),
+        ).toBeNull();
         expect(screen.queryByText(/Production client/)).toBeNull();
         expect(screen.queryByText(/0 SPK/)).toBeNull();
     });
@@ -41,6 +51,11 @@ describe('ProductionDashboardPage R4C', () => {
 
         expect(
             screen.getByText('Production client 2026-10-09T08:00:00.000Z'),
+        ).toBeTruthy();
+        expect(
+            screen.getByText(
+                'Kondisi, perhatian, dan arah utama operasional produksi.',
+            ),
         ).toBeTruthy();
         expect(screen.queryByText('Dashboard Production tidak tersedia')).toBeNull();
     });

@@ -46,12 +46,12 @@ function dataFixture(): MaklonDashboardData {
 }
 
 describe('MaklonDashboard', () => {
-    it('renders Health → Attention → Drivers with freshness, exact definitions, unit groups, and safe quick actions', () => {
+    it('renders condition → attention → direction with freshness, unit groups, and safe quick actions', () => {
         render(<MaklonDashboard data={dataFixture()} />);
 
-        const health = screen.getByText('Health');
-        const attention = screen.getByText('Attention');
-        const drivers = screen.getByText('Drivers');
+        const health = screen.getByText('Kondisi');
+        const attention = screen.getByText('Perlu perhatian');
+        const drivers = screen.getByText('Arah utama');
         expect(
             health.compareDocumentPosition(attention) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
@@ -67,7 +67,9 @@ describe('MaklonDashboard', () => {
         expect(screen.getByText('Menunggu material')).toBeTruthy();
         expect(screen.getByText('Lewat rencana selesai')).toBeTruthy();
         expect(
-            screen.getByText(/RELEASED atau IN_PROGRESS.*plannedEndDate/i),
+            screen.getByRole('button', {
+                name: 'Penjelasan Lewat rencana selesai',
+            }),
         ).toBeTruthy();
         expect(screen.getByText(/123\.456\.789,1234/)).toBeTruthy();
         expect(screen.getByText('BAL')).toBeTruthy();
@@ -128,20 +130,20 @@ describe('MaklonDashboard', () => {
 
         render(<MaklonDashboard data={data} />);
 
-        expect(screen.getAllByText('UNAVAILABLE')).toHaveLength(3);
+        expect(screen.getAllByText('Data tidak tersedia')).toHaveLength(3);
         expect(screen.getByText('3')).toBeTruthy();
         expect(screen.getByText('4')).toBeTruthy();
         expect(screen.queryByText('0')).toBeNull();
         expect(
-            screen.getByText(/Driver material belum dikonfigurasi/),
+            screen.getByText(/Pendorong material belum disiapkan/),
         ).toBeTruthy();
         expect(
             screen.getByText(
-                /Rekonsiliasi material dan backlog belum dikonfigurasi/,
+                /Rekonsiliasi dan antrean material belum disiapkan/,
             ),
         ).toBeTruthy();
         expect(
-            screen.getByText(/Metrik keuangan belum dikonfigurasi/),
+            screen.getByText(/Metrik keuangan belum disiapkan/),
         ).toBeTruthy();
     });
 
@@ -158,20 +160,20 @@ describe('MaklonDashboard', () => {
         expect(screen.queryByText('0')).toBeNull();
     });
 
-    it('explains both withheld material and financial blocks as NOT_CONFIGURED', () => {
+    it('explains both withheld material and financial blocks in plain language', () => {
         render(<MaklonDashboard data={dataFixture()} />);
 
         expect(
             screen.getByText(
-                /NOT_CONFIGURED · Rekonsiliasi material dan backlog belum dikonfigurasi/,
+                /Rekonsiliasi dan antrean material belum disiapkan/,
             ),
         ).toBeTruthy();
         expect(
-            screen.getByText(/Penerimaan, pemakaian, sisa, retur, dan backlog/),
+            screen.getByText(/Penerimaan, pemakaian, sisa, retur, dan antrean/),
         ).toBeTruthy();
         expect(
             screen.getByText(
-                /NOT_CONFIGURED · Metrik keuangan belum dikonfigurasi/,
+                /Metrik keuangan belum disiapkan/,
             ),
         ).toBeTruthy();
         expect(
