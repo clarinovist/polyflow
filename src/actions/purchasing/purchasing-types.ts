@@ -22,6 +22,7 @@ export interface PurchasingShiftBoard {
         awaitingReceiptPos: number;
         partialPos: number;
         overdueApCount: number;
+        suggestedReorderCount: number;
         overdueApAmount?: number;
         monthlySpend?: number;
     };

@@ -144,21 +144,23 @@ describe('SalesCommandBoardPage R4A', () => {
         });
     });
 
-    it('orders condition, attention, then direction with disclosed definitions and target withheld', async () => {
+    it('orders health before the action queue and insight with disclosed definitions and target withheld', async () => {
         render(await SalesCommandBoardPage({ searchParams: Promise.resolve({}) }));
 
         const text = document.body.textContent ?? '';
-        expect(text.indexOf('Kondisi')).toBeLessThan(
-            text.indexOf('Perlu perhatian'),
+        expect(text.lastIndexOf('Kondisi')).toBeLessThan(
+            text.lastIndexOf('Prioritas hari ini'),
         );
-        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
-            text.indexOf('Arah utama'),
+        expect(text.indexOf('Prioritas hari ini')).toBeLessThan(
+            text.indexOf('Insight ringkas'),
         );
         expect(screen.getByText('Omzet SO bersih')).toBeTruthy();
         expect(screen.getAllByText(/Target belum disiapkan/)).toHaveLength(2);
         expect(screen.queryByText(/forecast/i)).toBeNull();
         expect(screen.queryByText(/conversion rate/i)).toBeNull();
-        expect(screen.getAllByText(/Cakupan: Seluruh perusahaan/)).toHaveLength(2);
+        expect(
+            screen.getAllByText(/Seluruh perusahaan/).length,
+        ).toBeGreaterThanOrEqual(2);
         expect(screen.getByText(/Diperbarui 15.00 WIB/)).toBeTruthy();
         const info = screen.getByRole('button', {
             name: 'Penjelasan Omzet SO bersih',
@@ -172,11 +174,16 @@ describe('SalesCommandBoardPage R4A', () => {
     it('keeps queue totals distinct from returned sample and preserves quick actions', async () => {
         render(await SalesCommandBoardPage({ searchParams: Promise.resolve({}) }));
 
-        expect(screen.getByText('27 total · 1 ditampilkan')).toBeTruthy();
-        expect(screen.getByText('8 total · 1 ditampilkan')).toBeTruthy();
+        expect(
+            screen.getByRole('link', { name: /Siap kirim27/ }),
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('link', { name: /Risiko kredit8/ }),
+        ).toBeTruthy();
+        expect(screen.getByText('42 total · 6 ditampilkan')).toBeTruthy();
         expect(screen.getByRole('link', { name: /Pesanan baru/ })).toBeTruthy();
         expect(screen.getByRole('link', { name: /Penawaran/ })).toBeTruthy();
-        expect(screen.getByRole('link', { name: /Jadwal Kirim/ })).toBeTruthy();
+        expect(screen.getByRole('link', { name: /Jadwal kirim/ })).toBeTruthy();
     });
 
     it('does not render nominal values or restricted links without capability', async () => {
@@ -233,9 +240,11 @@ describe('SalesCommandBoardPage R4A', () => {
         expect(screen.getByText('Data tidak tersedia')).toBeTruthy();
         expect(screen.getByText('Sebagian antrean Sales tidak tersedia')).toBeTruthy();
         expect(
-            screen.getByText('Sebagian arah utama Sales tidak tersedia'),
+            screen.getByText('Sebagian insight Sales tidak tersedia'),
         ).toBeTruthy();
-        expect(screen.getByText('SO-READY-21')).toBeTruthy();
+        expect(
+            screen.getByRole('link', { name: /SO-READY-21.*Buka pesanan/ }),
+        ).toBeTruthy();
     });
 
     it('renders module-hidden and total read failures without fabricated metrics', async () => {

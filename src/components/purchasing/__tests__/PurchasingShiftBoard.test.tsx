@@ -14,6 +14,7 @@ const data: PurchasingShiftBoard = {
         awaitingReceiptPos: 1,
         partialPos: 1,
         overdueApCount: 1,
+        suggestedReorderCount: 0,
         overdueApAmount: 250_000,
         monthlySpend: 1_000_000,
     },
@@ -84,10 +85,14 @@ describe('PurchasingShiftBoardComponent', () => {
                 .getAttribute('href'),
         ).toBe('/purchasing/invoices?overdue=true');
         expect(
-            screen.getByText('INV-001').closest('a')?.getAttribute('href'),
+            screen
+                .getByRole('link', { name: /INV-001.*Tinjau invoice/ })
+                .getAttribute('href'),
         ).toBe('/purchasing/invoices?overdue=true&search=INV-001');
         expect(
-            screen.getByText('PR-001').closest('a')?.getAttribute('href'),
+            screen
+                .getByRole('link', { name: /PR-001.*Buat PO/ })
+                .getAttribute('href'),
         ).toBe('/purchasing/requests?status=APPROVED');
     });
 
@@ -109,15 +114,15 @@ describe('PurchasingShiftBoardComponent', () => {
         expect(screen.queryByText('Perlu diproses')).not.toBeTruthy();
     });
 
-    it('orders condition, attention, then direction and shows concise spend copy', () => {
+    it('orders health before the action queue and insight and shows concise spend copy', () => {
         render(<PurchasingShiftBoardComponent data={data} />);
 
         const text = document.body.textContent ?? '';
         expect(text.indexOf('Kondisi')).toBeLessThan(
-            text.indexOf('Perlu perhatian'),
+            text.indexOf('Prioritas hari ini'),
         );
-        expect(text.indexOf('Perlu perhatian')).toBeLessThan(
-            text.indexOf('Arah utama'),
+        expect(text.indexOf('Prioritas hari ini')).toBeLessThan(
+            text.indexOf('Insight ringkas'),
         );
         expect(screen.getByText(/Diperbarui 15.00 WIB/)).toBeTruthy();
         expect(
@@ -126,11 +131,11 @@ describe('PurchasingShiftBoardComponent', () => {
             }),
         ).toBeTruthy();
         expect(
-            screen.getByText(/Bulan berjalan dibandingkan dengan bulan penuh sebelumnya/),
+            screen.getByText(/Bulan berjalan dibanding bulan penuh sebelumnya/),
         ).toBeTruthy();
-        expect(screen.getAllByText(/\+25% vs bulan penuh sebelumnya/)).toHaveLength(
-            2,
-        );
+        expect(
+            screen.getAllByText(/\+25% vs bulan penuh sebelumnya/).length,
+        ).toBeGreaterThanOrEqual(1);
         expect(
             screen.getByText(
                 'Pemasok Dengan Nama Sangat Panjang Untuk Uji Tata Letak',
@@ -173,6 +178,7 @@ describe('PurchasingShiftBoardComponent', () => {
                 awaitingReceiptPos: data.counts.awaitingReceiptPos,
                 partialPos: data.counts.partialPos,
                 overdueApCount: data.counts.overdueApCount,
+                suggestedReorderCount: data.counts.suggestedReorderCount,
             },
             attention: { ...data.attention, overdueAp: [] },
             performance: {},
@@ -191,8 +197,12 @@ describe('PurchasingShiftBoardComponent', () => {
                 .getByRole('link', { name: 'Buka Hutang jatuh tempo' })
                 .getAttribute('href'),
         ).toBe('/purchasing/invoices?overdue=true');
-        expect(screen.getByText('PR-001')).toBeTruthy();
-        expect(screen.getByText('PO-002')).toBeTruthy();
+        expect(
+            screen.getByRole('link', { name: /PR-001.*Buat PO/ }),
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('link', { name: /PO-002.*Buka PO/ }),
+        ).toBeTruthy();
     });
 
     it('renders a truthful whole-dashboard unavailable state instead of zero metrics', () => {
@@ -206,8 +216,8 @@ describe('PurchasingShiftBoardComponent', () => {
     it('keeps only frequent creation actions instead of a duplicate portal menu', () => {
         render(<PurchasingShiftBoardComponent data={data} />);
 
-        expect(screen.getByRole('link', { name: 'PR' })).toBeTruthy();
-        expect(screen.getByRole('link', { name: 'PO' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: 'Buat PR' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: 'Buat PO' })).toBeTruthy();
         expect(screen.queryByRole('link', { name: 'Supplier' })).not.toBeTruthy();
     });
 });

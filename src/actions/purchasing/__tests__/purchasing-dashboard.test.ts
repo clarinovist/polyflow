@@ -187,6 +187,7 @@ describe('getPurchasingShiftBoard', () => {
                 awaitingReceiptPos: 3,
                 partialPos: 1,
                 overdueApCount: 2,
+                suggestedReorderCount: 1,
             });
             expect(res.data.attention.agingPrs[0]).toMatchObject({
                 requestNumber: 'PR-001',
@@ -296,6 +297,7 @@ describe('getPurchasingShiftBoard', () => {
                 counts: {
                     pendingPrs: 4,
                     overdueApCount: 2,
+                    suggestedReorderCount: 1,
                 },
                 attention: { overdueAp: [] },
                 performance: {},

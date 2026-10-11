@@ -192,6 +192,7 @@ export const getPurchasingShiftBoard = withTenant(
                     awaitingReceiptPos,
                     partialPos,
                     overdueApCount,
+                    suggestedReorderCount: suggestedReorderRaw.length,
                     ...(canViewNominal
                         ? {
                               overdueApAmount: overdueApAmount ?? 0,

@@ -1,7 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+    AlertCircle,
+    AlertTriangle,
+    ArrowRight,
+    BarChart3,
+    CircleDollarSign,
+    ClipboardList,
+    PackageCheck,
+    Plus,
+    Truck,
+    WalletCards,
+} from 'lucide-react';
+import type { PurchasingShiftBoard } from '@/actions/purchasing/purchasing-types';
 import {
     DashboardFreshness,
     DashboardHealthCard,
@@ -9,21 +21,28 @@ import {
 } from '@/components/dashboard/DashboardMetricPrimitives';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatRupiah } from '@/lib/utils/utils';
-import {
-    ClipboardList,
-    Truck,
-    AlertTriangle,
-    ArrowRight,
-    Plus,
-    ShoppingCart,
-} from 'lucide-react';
-import type { PurchasingShiftBoard } from '@/actions/purchasing/purchasing-types';
-import { PR_AGING_THRESHOLD_DAYS } from '@/actions/purchasing/purchasing-types';
 
-interface PurchasingShiftBoardProps {
-    data: PurchasingShiftBoard | null;
-}
+type QueueTone = 'critical' | 'warning' | 'neutral';
+
+type QueueItem = {
+    id: string;
+    category: string;
+    title: string;
+    subtitle: string;
+    age?: string;
+    value?: string;
+    tone: QueueTone;
+    href?: string;
+    action: string;
+};
+
+type QueueFilter = {
+    label: string;
+    total: number;
+    href?: string;
+};
 
 const PURCHASE_REQUEST_STATUS_LABEL: Record<string, string> = {
     OPEN: 'Terbuka',
@@ -37,41 +56,354 @@ function purchaseRequestStatusLabel(status: unknown): string {
     return PURCHASE_REQUEST_STATUS_LABEL[value] ?? 'Perlu ditinjau';
 }
 
-function AttentionSection({
-    title,
-    items,
-    emptyMessage,
-    renderItem,
-}: {
-    title: string;
-    items: Array<Record<string, unknown>>;
-    emptyMessage: string;
-    renderItem: (item: Record<string, unknown>) => React.ReactNode;
-}) {
-    return (
-        <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                {title}
-            </h3>
-            {items.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-2">
-                    {emptyMessage}
-                </p>
-            ) : (
-                <div className="space-y-1">
-                    {items.map((item) => (
-                        <div
-                            key={String(item.id)}
-                            className="flex min-h-[44px] min-w-0 items-center justify-between rounded-md bg-muted/30 px-3 py-2 transition-colors hover:bg-muted/50 [&>*]:min-w-0 [&_span]:break-words"
-                        >
-                            {renderItem(item)}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+function queueDotClass(tone: QueueTone) {
+    if (tone === 'critical') return 'bg-destructive ring-destructive/10';
+    if (tone === 'warning') return 'bg-amber-500 ring-amber-500/10';
+    return 'bg-zinc-400 ring-zinc-400/10 dark:bg-zinc-500';
+}
+
+function categoryClass(tone: QueueTone) {
+    if (tone === 'critical') return 'bg-destructive/10 text-destructive';
+    if (tone === 'warning') {
+        return 'bg-amber-500/10 text-amber-700 dark:text-amber-300';
+    }
+    return 'bg-muted text-muted-foreground';
+}
+
+function QueueSummaryChip({ filter }: { filter: QueueFilter }) {
+    const className =
+        'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border bg-background px-3 text-xs font-semibold text-muted-foreground transition hover:border-foreground/25 hover:text-foreground';
+    const body = (
+        <>
+            <span>{filter.label}</span>
+            <span className="tabular-nums">{filter.total}</span>
+        </>
     );
+
+    return filter.href ? (
+        <Link href={filter.href} className={className}>
+            {body}
+        </Link>
+    ) : (
+        <span className={className}>{body}</span>
+    );
+}
+
+function QueueRow({ item }: { item: QueueItem }) {
+    const body = (
+        <>
+            <div className="flex min-w-0 gap-3">
+                <span
+                    aria-hidden="true"
+                    className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ${queueDotClass(item.tone)}`}
+                />
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                            variant="outline"
+                            className={`h-6 rounded-full border-0 px-2 text-[10px] uppercase tracking-wide ${categoryClass(item.tone)}`}
+                        >
+                            {item.category}
+                        </Badge>
+                        {item.age && (
+                            <span className="text-[11px] font-medium text-muted-foreground">
+                                {item.age}
+                            </span>
+                        )}
+                    </div>
+                    <p className="mt-2 truncate text-sm font-semibold sm:text-[15px]">
+                        {item.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {item.subtitle}
+                    </p>
+                </div>
+            </div>
+            <p className="pl-5 text-sm font-semibold tabular-nums sm:pl-0 sm:text-right">
+                {item.value ?? '—'}
+            </p>
+            <span className="ml-5 inline-flex min-h-11 items-center justify-start gap-1 text-xs font-semibold text-primary sm:ml-0 sm:min-w-28 sm:justify-end">
+                {item.action}
+                <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+        </>
+    );
+    const className =
+        'group grid min-w-0 gap-3 border-b px-4 py-4 last:border-b-0 hover:bg-muted/35 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:px-5';
+
+    return item.href ? (
+        <li>
+            <Link href={item.href} className={className}>
+                {body}
+            </Link>
+        </li>
+    ) : (
+        <li className={className}>{body}</li>
+    );
+}
+
+function buildQueue(
+    data: PurchasingShiftBoard,
+    nominalAvailable: boolean,
+): QueueItem[] {
+    const items: QueueItem[] = [];
+
+    if (nominalAvailable) {
+        for (const item of data.attention.overdueAp) {
+            items.push({
+                id: `overdue-${item.id}`,
+                category: 'Hutang',
+                title: `${item.invoiceNumber} · ${item.supplierName}`,
+                subtitle:
+                    'Tagihan melewati jatuh tempo dan perlu ditindaklanjuti.',
+                value: formatRupiah(item.remaining),
+                tone: 'critical',
+                href: `/purchasing/invoices?overdue=true&search=${encodeURIComponent(item.invoiceNumber)}`,
+                action: 'Tinjau invoice',
+            });
+        }
+    }
+
+    for (const item of data.attention.agingPrs) {
+        items.push({
+            id: `pr-${item.id}`,
+            category: 'PR menua',
+            title: item.requestNumber,
+            subtitle: `${purchaseRequestStatusLabel(item.status)} · belum selesai diproses`,
+            age: `${item.daysOld} hari`,
+            tone: 'critical',
+            href: `/purchasing/requests?status=${item.status}`,
+            action: item.status === 'APPROVED' ? 'Buat PO' : 'Tinjau PR',
+        });
+    }
+
+    for (const item of data.attention.partialPos) {
+        items.push({
+            id: `partial-${item.id}`,
+            category: 'PO parsial',
+            title: `${item.orderNumber} · ${item.supplierName}`,
+            subtitle:
+                'Sebagian barang sudah diterima; masih ada sisa penerimaan.',
+            tone: 'warning',
+            href: `/purchasing/orders/${item.id}`,
+            action: 'Pantau terima',
+        });
+    }
+
+    for (const item of data.attention.awaitingReceipt) {
+        items.push({
+            id: `receipt-${item.id}`,
+            category: 'Menunggu terima',
+            title: `${item.orderNumber} · ${item.supplierName}`,
+            subtitle: 'Pesanan sudah dikirim dan menunggu penerimaan gudang.',
+            tone: 'warning',
+            href: `/purchasing/orders/${item.id}`,
+            action: 'Buka PO',
+        });
+    }
+
+    for (const item of data.attention.draftPos) {
+        items.push({
+            id: `draft-${item.id}`,
+            category: 'PO draf',
+            title: `${item.orderNumber} · ${item.supplierName}`,
+            subtitle: 'Pesanan pembelian draf belum diselesaikan.',
+            age: `${item.daysOld} hari`,
+            tone: 'neutral',
+            href: `/purchasing/orders/${item.id}`,
+            action: 'Lanjutkan',
+        });
+    }
+
+    for (const item of data.attention.suggestedReorder) {
+        items.push({
+            id: `reorder-${item.id}`,
+            category: 'Reorder',
+            title: `${item.name} · ${item.skuCode}`,
+            subtitle: item.supplierName
+                ? `Pemasok pilihan: ${item.supplierName}`
+                : 'Belum memiliki pemasok pilihan.',
+            value: `${item.totalStock.toLocaleString('id-ID')} / ${item.reorderPoint?.toLocaleString('id-ID') ?? '—'}`,
+            tone: 'neutral',
+            href: '/purchasing/requests',
+            action: 'Buat PR',
+        });
+    }
+
+    return items;
+}
+
+function queueFilters(data: PurchasingShiftBoard): QueueFilter[] {
+    return [
+        {
+            label: 'Hutang',
+            total: data.counts.overdueApCount,
+            href: '/purchasing/invoices?overdue=true',
+        },
+        {
+            label: 'PR menua',
+            total: data.attention.agingPrs.length,
+            href: '/purchasing/requests',
+        },
+        {
+            label: 'PO parsial',
+            total: data.counts.partialPos,
+            href: '/purchasing/orders?status=PARTIAL_RECEIVED',
+        },
+        {
+            label: 'Menunggu terima',
+            total: data.counts.awaitingReceiptPos,
+            href: '/purchasing/orders?status=SENT',
+        },
+        {
+            label: 'PO draf',
+            total: data.counts.draftPos,
+            href: '/purchasing/orders?status=DRAFT',
+        },
+        {
+            label: 'Reorder',
+            total: data.counts.suggestedReorderCount,
+            href: '/purchasing/requests',
+        },
+    ];
+}
+
+function PurchasingInsight({
+    data,
+    priorMonthComparison,
+}: {
+    data: PurchasingShiftBoard;
+    priorMonthComparison: string;
+}) {
+    const nominalAvailable = data.nominalAccess === 'AVAILABLE';
+
+    return (
+        <aside
+            aria-labelledby="purchasing-drivers-heading"
+            className="min-w-0 space-y-5"
+        >
+            <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
+                <CardHeader className="p-5 pb-0">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                Insight ringkas
+                            </p>
+                            <CardTitle
+                                id="purchasing-drivers-heading"
+                                className="mt-1 text-lg font-semibold"
+                            >
+                                Penggerak belanja
+                            </CardTitle>
+                        </div>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                            <BarChart3 aria-hidden="true" className="h-4 w-4" />
+                        </span>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-5 pt-0">
+                    {nominalAvailable ? (
+                        <>
+                            <p className="mt-5 text-sm font-medium text-muted-foreground">
+                                Komitmen PO bulan ini
+                            </p>
+                            <p className="mt-1 break-words text-2xl font-bold tracking-tight tabular-nums">
+                                {data.performance.monthlySpend === undefined
+                                    ? '—'
+                                    : formatRupiah(
+                                          data.performance.monthlySpend,
+                                      )}
+                            </p>
+                            <Badge
+                                variant="secondary"
+                                className="mt-3 h-auto max-w-full whitespace-normal rounded-full text-left"
+                            >
+                                {priorMonthComparison}
+                            </Badge>
+                            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                                Bulan berjalan dibanding bulan penuh sebelumnya;
+                                bukan jumlah hari yang setara.
+                            </p>
+                        </>
+                    ) : (
+                        <div className="mt-5">
+                            <DashboardSectionState
+                                state="UNAVAILABLE"
+                                title="Penggerak nominal dibatasi"
+                                description="Belanja dan perbandingan periode memerlukan izin lihat harga."
+                            />
+                        </div>
+                    )}
+                    <Button
+                        asChild
+                        variant="outline"
+                        className="mt-5 min-h-11 w-full justify-between"
+                    >
+                        <Link href="/purchasing/analytics">
+                            Analitik lengkap
+                            <ArrowRight
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                            />
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+
+            <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
+                <CardContent className="p-5">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            Sinyal utama
+                        </p>
+                        <AlertTriangle
+                            aria-hidden="true"
+                            className="h-4 w-4 text-amber-600 dark:text-amber-300"
+                        />
+                    </div>
+                    {nominalAvailable ? (
+                        <>
+                            <p className="mt-4 text-sm font-medium text-muted-foreground">
+                                Pemasok dengan belanja tertinggi
+                            </p>
+                            <p className="mt-1 break-words text-xl font-bold tracking-tight">
+                                {data.performance.topSupplierName ?? '—'}
+                            </p>
+                            <p className="mt-2 text-sm font-semibold tabular-nums">
+                                {data.performance.topSupplierSpend == null
+                                    ? 'Belum ada belanja'
+                                    : formatRupiah(
+                                          data.performance.topSupplierSpend,
+                                      )}
+                            </p>
+                        </>
+                    ) : (
+                        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                            Ranking pemasok disembunyikan karena memerlukan
+                            akses nominal.
+                        </p>
+                    )}
+                    <Button
+                        asChild
+                        variant="outline"
+                        className="mt-5 min-h-11 w-full justify-between"
+                    >
+                        <Link href="/purchasing/suppliers">
+                            Buka pemasok
+                            <ArrowRight
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                            />
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </aside>
+    );
+}
+
+interface PurchasingShiftBoardProps {
+    data: PurchasingShiftBoard | null;
 }
 
 export function PurchasingShiftBoardComponent({
@@ -85,21 +417,21 @@ export function PurchasingShiftBoardComponent({
                         Pembelian
                     </h1>
                     <p className="text-muted-foreground">
-                        Kondisi, perhatian, dan arah utama pengadaan.
+                        Prioritas pengadaan dan kondisi pembelian.
                     </p>
                 </div>
                 <section
                     className="space-y-3"
                     aria-labelledby="purchasing-health-heading"
                 >
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         Kondisi
                     </p>
                     <h2
                         id="purchasing-health-heading"
                         className="text-lg font-semibold"
                     >
-                        Kondisi utama
+                        Ringkasan kesehatan
                     </h2>
                     <DashboardSectionState
                         state="UNAVAILABLE"
@@ -111,7 +443,7 @@ export function PurchasingShiftBoardComponent({
         );
     }
 
-    const { counts, attention, performance, generatedAt } = data;
+    const { counts, performance, generatedAt } = data;
     const nominalAvailable = data.nominalAccess === 'AVAILABLE';
     const priorMonthComparison =
         performance.previousFullMonthChangePercent === null
@@ -120,23 +452,62 @@ export function PurchasingShiftBoardComponent({
               ? 'Perbandingan bulan sebelumnya tidak tersedia.'
               : `${performance.previousFullMonthChangePercent >= 0 ? '+' : ''}${performance.previousFullMonthChangePercent.toLocaleString(
                     'id-ID',
-                    {
-                        maximumFractionDigits: 1,
-                    },
+                    { maximumFractionDigits: 1 },
                 )}% vs bulan penuh sebelumnya`;
+    const queue = buildQueue(data, nominalAvailable);
+    const visibleQueue = queue.slice(0, 8);
+    const filters = queueFilters(data);
+    const totalQueue = filters.reduce((sum, filter) => sum + filter.total, 0);
 
     return (
-        <div className="min-w-0 space-y-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mx-auto flex max-w-[1600px] min-w-0 flex-col space-y-6 md:space-y-8">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
-                    <h1 className="text-3xl font-bold tracking-tight">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        Command center
+                    </p>
+                    <h1 className="mt-2 text-3xl font-bold tracking-tight">
                         Pembelian
                     </h1>
-                    <p className="text-muted-foreground">
-                        Kondisi, perhatian, dan arah utama pengadaan.
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                        Exception pengadaan, komitmen belanja, dan risiko
+                        pemasok yang perlu ditindaklanjuti.
                     </p>
+                    <div className="mt-4">
+                        <DashboardFreshness generatedAt={generatedAt} />
+                    </div>
                 </div>
-                <DashboardFreshness generatedAt={generatedAt} />
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <Button
+                        asChild
+                        size="lg"
+                        className="min-h-11 gap-2 shadow-sm"
+                    >
+                        <Link href="/purchasing/requests">
+                            <Plus className="h-4 w-4" /> Buat PR
+                        </Link>
+                    </Button>
+                    <Button
+                        asChild
+                        size="lg"
+                        variant="outline"
+                        className="min-h-11 gap-2"
+                    >
+                        <Link href="/purchasing/orders/create">
+                            <Plus className="h-4 w-4" /> Buat PO
+                        </Link>
+                    </Button>
+                    <Button
+                        asChild
+                        size="lg"
+                        variant="ghost"
+                        className="min-h-11 gap-2"
+                    >
+                        <Link href="/purchasing/analytics">
+                            <BarChart3 className="h-4 w-4" /> Analitik
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             <section
@@ -144,14 +515,14 @@ export function PurchasingShiftBoardComponent({
                 aria-labelledby="purchasing-health-heading"
             >
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         Kondisi
                     </p>
                     <h2
                         id="purchasing-health-heading"
                         className="text-lg font-semibold"
                     >
-                        Kondisi utama
+                        Ringkasan kesehatan
                     </h2>
                 </div>
                 <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -187,7 +558,7 @@ export function PurchasingShiftBoardComponent({
                             unit: 'Pesanan pembelian',
                             period: 'Saat dashboard diperbarui',
                             description:
-                                'Pesanan pembelian yang sudah dikirim ke pemasok atau baru diterima sebagian dan masih menunggu barang.',
+                                'Pesanan yang sudah dikirim atau diterima sebagian dan masih menunggu barang.',
                             source: 'Data pembelian',
                         }}
                         href={
@@ -195,9 +566,7 @@ export function PurchasingShiftBoardComponent({
                                 ? '/purchasing/orders?status=SENT,PARTIAL_RECEIVED'
                                 : undefined
                         }
-                        supportingText={
-                            counts.partialPos + ' diterima sebagian'
-                        }
+                        supportingText={`${counts.partialPos} diterima sebagian`}
                     />
                     <DashboardHealthCard
                         title="Hutang jatuh tempo"
@@ -206,7 +575,7 @@ export function PurchasingShiftBoardComponent({
                                 ? formatRupiah(counts.overdueApAmount ?? 0)
                                 : `${counts.overdueApCount.toLocaleString('id-ID')} tagihan`
                         }
-                        icon={AlertTriangle}
+                        icon={WalletCards}
                         definition={{
                             unit: nominalAvailable ? 'Rupiah' : 'Tagihan',
                             period: 'Jatuh tempo sebelum hari bisnis ini',
@@ -232,377 +601,125 @@ export function PurchasingShiftBoardComponent({
                                 ? undefined
                                 : formatRupiah(counts.monthlySpend)
                         }
-                        icon={ShoppingCart}
+                        icon={CircleDollarSign}
                         definition={{
                             unit: 'Rupiah',
                             period: 'Bulan berjalan (WIB)',
                             description:
-                                'Total komitmen pesanan pembelian berdasarkan tanggal pemesanan bulan berjalan, selain pesanan draf dan dibatalkan.',
+                                'Total komitmen pesanan pembelian bulan berjalan, selain pesanan draf dan dibatalkan.',
                             source: 'Data pembelian',
                         }}
                         state={nominalAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
                         supportingText={
-                            nominalAvailable ? (
-                                <>
-                                    <span>{priorMonthComparison}</span>
-                                    <span className="mt-1 block">
-                                        Bulan berjalan dibandingkan dengan
-                                        bulan penuh sebelumnya; bukan jumlah
-                                        hari yang setara. Target atau anggaran
-                                        belum disiapkan.
-                                    </span>
-                                </>
-                            ) : undefined
+                            nominalAvailable ? priorMonthComparison : undefined
                         }
                     />
                 </div>
             </section>
 
-            <section
-                className="min-w-0 space-y-3"
-                aria-labelledby="purchasing-attention-heading"
-            >
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Perlu perhatian
-                    </p>
-                    <h2
-                        id="purchasing-attention-heading"
-                        className="text-lg font-semibold"
-                    >
-                        Butuh perhatian
-                    </h2>
-                </div>
-
-                {/* Butuh Perhatian */}
-                <Card>
-                    <CardContent className="min-w-0 space-y-4 p-4">
-                        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                            <AttentionSection
-                                title={`PR menua (≥${PR_AGING_THRESHOLD_DAYS} hari)`}
-                                items={attention.agingPrs.map((d) => ({
-                                    id: d.id,
-                                    requestNumber: d.requestNumber,
-                                    daysOld: d.daysOld,
-                                    status: d.status,
-                                }))}
-                                emptyMessage="Tidak ada PR menua"
-                                renderItem={(item) => (
-                                    <Link
-                                        href={`/purchasing/requests?status=${String(item.status)}`}
-                                        className="group/link flex min-w-0 flex-1 items-center justify-between gap-2"
-                                    >
-                                        <div className="min-w-0">
-                                            <span className="text-sm font-mono font-bold">
-                                                {String(item.requestNumber)}
-                                            </span>
-                                            <Badge
-                                                variant="outline"
-                                                className="ml-2 text-[10px]"
-                                            >
-                                                {purchaseRequestStatusLabel(
-                                                    item.status,
-                                                )}
-                                            </Badge>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-muted-foreground">
-                                                {Number(item.daysOld)}h
-                                            </span>
-                                            <span className="text-[10px] text-primary font-semibold hidden sm:inline">
-                                                Buat PO
-                                            </span>
-                                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
-                                        </div>
-                                    </Link>
-                                )}
-                            />
-
-                            <AttentionSection
-                                title="PO draf menua"
-                                items={attention.draftPos.map((d) => ({
-                                    id: d.id,
-                                    orderNumber: d.orderNumber,
-                                    supplierName: d.supplierName,
-                                    daysOld: d.daysOld,
-                                }))}
-                                emptyMessage="Tidak ada PO draf"
-                                renderItem={(item) => (
-                                    <Link
-                                        href={`/purchasing/orders/${String(item.id)}`}
-                                        className="group/link flex min-w-0 flex-1 items-center justify-between gap-2"
-                                    >
-                                        <div className="min-w-0">
-                                            <span className="text-sm font-mono font-bold">
-                                                {String(item.orderNumber)}
-                                            </span>
-                                            <span className="ml-2 text-xs text-muted-foreground">
-                                                {String(item.supplierName)}
-                                            </span>
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-2">
-                                            <span className="text-xs text-muted-foreground">
-                                                {Number(item.daysOld)}h
-                                            </span>
-                                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
-                                        </div>
-                                    </Link>
-                                )}
-                            />
-
-                            <AttentionSection
-                                title="PO menunggu terima gudang"
-                                items={attention.awaitingReceipt.map((d) => ({
-                                    id: d.id,
-                                    orderNumber: d.orderNumber,
-                                    supplierName: d.supplierName,
-                                }))}
-                                emptyMessage="Tidak ada PO menunggu terima"
-                                renderItem={(item) => (
-                                    <Link
-                                        href={`/purchasing/orders/${String(item.id)}`}
-                                        className="group/link flex min-w-0 flex-1 items-center justify-between gap-2"
-                                    >
-                                        <div className="min-w-0">
-                                            <span className="text-sm font-mono font-bold">
-                                                {String(item.orderNumber)}
-                                            </span>
-                                            <span className="ml-2 text-xs text-muted-foreground">
-                                                {String(item.supplierName)}
-                                            </span>
-                                        </div>
-                                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover/link:text-primary transition-colors" />
-                                    </Link>
-                                )}
-                            />
-
-                            <AttentionSection
-                                title="PO diterima sebagian — sisa kuantitas"
-                                items={attention.partialPos.map((d) => ({
-                                    id: d.id,
-                                    orderNumber: d.orderNumber,
-                                    supplierName: d.supplierName,
-                                }))}
-                                emptyMessage="Tidak ada PO diterima sebagian"
-                                renderItem={(item) => (
-                                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                                        <Link
-                                            href={`/purchasing/orders/${String(item.id)}`}
-                                            className="min-w-0 flex-1 group/link"
-                                        >
-                                            <span className="text-sm font-mono font-bold">
-                                                {String(item.orderNumber)}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground ml-2">
-                                                {String(item.supplierName)}
-                                            </span>
-                                        </Link>
-                                        <Link
-                                            href="/warehouse/incoming"
-                                            className="inline-flex min-h-11 shrink-0 items-center px-2 text-[10px] font-semibold text-primary hover:underline"
-                                        >
-                                            Gudang
-                                        </Link>
-                                    </div>
-                                )}
-                            />
-
-                            {nominalAvailable ? (
-                                <AttentionSection
-                                    title="Hutang jatuh tempo"
-                                    items={attention.overdueAp.map((d) => ({
-                                        id: d.id,
-                                        invoiceNumber: d.invoiceNumber,
-                                        supplierName: d.supplierName,
-                                        remaining: d.remaining,
-                                    }))}
-                                    emptyMessage="Tidak ada hutang jatuh tempo"
-                                    renderItem={(item) => (
-                                        <Link
-                                            href={`/purchasing/invoices?overdue=true&search=${encodeURIComponent(String(item.invoiceNumber))}`}
-                                            className="group/link flex min-w-0 flex-1 items-center justify-between gap-2"
-                                        >
-                                            <div className="min-w-0">
-                                                <span className="text-sm font-mono font-bold">
-                                                    {String(item.invoiceNumber)}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground ml-2">
-                                                    {String(item.supplierName)}
-                                                </span>
-                                            </div>
-                                            <span className="text-xs font-medium text-destructive shrink-0 ml-2">
-                                                {formatRupiah(
-                                                    Number(item.remaining),
-                                                )}
-                                            </span>
-                                        </Link>
-                                    )}
-                                />
-                            ) : (
-                                <div className="space-y-2">
-                                    <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-                                        <AlertTriangle className="h-4 w-4 text-amber-500" />
-                                        Hutang jatuh tempo
-                                    </h3>
-                                    <DashboardSectionState
-                                        state="UNAVAILABLE"
-                                        title="Nominal dibatasi"
-                                        description={`${counts.overdueApCount} tagihan jatuh tempo terdeteksi. Detail dan nominal memerlukan izin lihat harga.`}
+            <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(22rem,0.85fr)]">
+                <section
+                    aria-labelledby="purchasing-attention-heading"
+                    className="min-w-0"
+                >
+                    <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
+                        <div className="border-b p-4 sm:p-5">
+                            <div className="flex items-start gap-3">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                                    <AlertCircle
+                                        aria-hidden="true"
+                                        className="h-4 w-4"
                                     />
-                                </div>
-                            )}
-
-                            {attention.suggestedReorder.length > 0 && (
-                                <AttentionSection
-                                    title="Perlu dipesan ulang (gudang)"
-                                    items={attention.suggestedReorder.map(
-                                        (d) => ({
-                                            id: d.id,
-                                            name: d.name,
-                                            skuCode: d.skuCode,
-                                            supplierName: d.supplierName,
-                                            totalStock: d.totalStock,
-                                            reorderPoint: d.reorderPoint,
-                                        }),
-                                    )}
-                                    emptyMessage=""
-                                    renderItem={(item) => (
-                                        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                                            <div className="min-w-0 flex-1">
-                                                <span className="text-sm font-medium truncate block">
-                                                    {String(item.name)}
-                                                </span>
-                                                <span className="text-[10px] text-muted-foreground">
-                                                    {String(item.skuCode)}
-                                                    {item.supplierName
-                                                        ? ` · ${String(item.supplierName)}`
-                                                        : ''}
-                                                    {' · '}Stok:{' '}
-                                                    <span className="tabular-nums">
-                                                        {Number(
-                                                            item.totalStock,
-                                                        )}
-                                                    </span>{' '}
-                                                    / Titik pesan ulang:{' '}
-                                                    {item.reorderPoint != null
-                                                        ? Number(
-                                                              item.reorderPoint,
-                                                          ).toLocaleString(
-                                                              'id-ID',
-                                                          )
-                                                        : '—'}
-                                                </span>
-                                            </div>
-                                            <Link
-                                                href="/purchasing/requests"
-                                                className="flex min-h-11 shrink-0 items-center gap-0.5 px-2 text-[10px] font-semibold text-primary hover:underline"
-                                            >
-                                                Buat PR{' '}
-                                                <ArrowRight className="h-3 w-3" />
-                                            </Link>
-                                        </div>
-                                    )}
-                                />
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Aksi frekuensi tinggi, bukan pengulangan menu portal. */}
-                <div className="flex flex-wrap gap-3">
-                    <Link href="/purchasing/requests">
-                        <Button size="sm" className="min-h-11">
-                            <Plus className="h-4 w-4 mr-1" /> PR
-                        </Button>
-                    </Link>
-                    <Link href="/purchasing/orders/create">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="min-h-11"
-                        >
-                            <Plus className="h-4 w-4 mr-1" /> PO
-                        </Button>
-                    </Link>
-                </div>
-            </section>
-
-            <section
-                className="min-w-0 space-y-3"
-                aria-labelledby="purchasing-drivers-heading"
-            >
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Arah utama
-                    </p>
-                    <h2
-                        id="purchasing-drivers-heading"
-                        className="text-lg font-semibold"
-                    >
-                        Penggerak belanja
-                    </h2>
-                </div>
-                {/* Ringkas Performa */}
-                <Card>
-                    <CardContent className="p-4">
-                        {nominalAvailable ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                </span>
                                 <div className="min-w-0">
-                                    <p className="text-muted-foreground">
-                                        Komitmen PO bulan ini
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                        Prioritas hari ini
                                     </p>
-                                    <p className="font-semibold tabular-nums break-words">
-                                        {performance.monthlySpend === undefined
-                                            ? '—'
-                                            : formatRupiah(
-                                                  performance.monthlySpend,
-                                              )}
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        {priorMonthComparison}. Bulan berjalan
-                                        dibanding bulan penuh sebelumnya.
-                                    </p>
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-muted-foreground">
-                                        Pemasok dengan belanja tertinggi
-                                    </p>
-                                    <p className="font-semibold break-words">
-                                        {performance.topSupplierName ?? '—'}
-                                    </p>
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-muted-foreground">
-                                        Belanja pada pemasok tertinggi
-                                    </p>
-                                    <p className="font-semibold tabular-nums break-words">
-                                        {performance.topSupplierSpend == null
-                                            ? '—'
-                                            : formatRupiah(
-                                                  performance.topSupplierSpend,
-                                              )}
+                                    <h2
+                                        id="purchasing-attention-heading"
+                                        className="mt-0.5 text-xl font-semibold tracking-tight"
+                                    >
+                                        Butuh tindakan
+                                    </h2>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        Diurutkan berdasarkan dampak, usia, dan
+                                        hambatan ke proses berikutnya.
                                     </p>
                                 </div>
                             </div>
-                        ) : (
-                            <DashboardSectionState
-                                state="UNAVAILABLE"
-                                title="Penggerak nominal dibatasi"
-                                description="Belanja, perbandingan periode, dan pemasok dengan belanja tertinggi memerlukan izin lihat harga. Antrean operasional tetap tersedia."
-                            />
-                        )}
-                        <div className="mt-3">
-                            <Link
-                                href="/purchasing/analytics"
-                                className="flex min-h-11 items-center gap-1 text-xs text-primary hover:underline"
+                            <div
+                                className="scrollbar-none -mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1"
+                                aria-label="Ringkasan antrean Pembelian"
                             >
-                                Analitik lengkap{' '}
-                                <ArrowRight className="h-3 w-3" />
-                            </Link>
+                                {filters.map((filter) => (
+                                    <QueueSummaryChip
+                                        key={filter.label}
+                                        filter={filter}
+                                    />
+                                ))}
+                            </div>
                         </div>
-                    </CardContent>
-                </Card>
-            </section>
+
+                        {!nominalAvailable && counts.overdueApCount > 0 && (
+                            <div className="border-b p-4 sm:p-5">
+                                <DashboardSectionState
+                                    state="UNAVAILABLE"
+                                    title="Nominal dibatasi"
+                                    description={`${counts.overdueApCount} tagihan jatuh tempo terdeteksi. Detail dan nominal memerlukan izin lihat harga.`}
+                                />
+                            </div>
+                        )}
+
+                        {visibleQueue.length > 0 ? (
+                            <ul aria-label="Daftar prioritas Pembelian">
+                                {visibleQueue.map((item) => (
+                                    <QueueRow key={item.id} item={item} />
+                                ))}
+                            </ul>
+                        ) : (
+                            <div className="p-8 text-center">
+                                <PackageCheck
+                                    aria-hidden="true"
+                                    className="mx-auto h-6 w-6 text-muted-foreground"
+                                />
+                                <p className="mt-3 font-medium">
+                                    Tidak ada item yang butuh perhatian
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Antrean pengadaan saat ini sedang kosong.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-3 border-t bg-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                            <p className="text-xs text-muted-foreground">
+                                {totalQueue > visibleQueue.length
+                                    ? `${totalQueue} total · ${visibleQueue.length} ditampilkan`
+                                    : `${visibleQueue.length} prioritas ditampilkan`}
+                            </p>
+                            <Button
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                className="min-h-11 justify-start gap-1 px-0 sm:justify-center sm:px-3"
+                            >
+                                <Link href="/purchasing/orders">
+                                    Buka daftar PO
+                                    <ArrowRight
+                                        aria-hidden="true"
+                                        className="h-3.5 w-3.5"
+                                    />
+                                </Link>
+                            </Button>
+                        </div>
+                    </Card>
+                </section>
+
+                <PurchasingInsight
+                    data={data}
+                    priorMonthComparison={priorMonthComparison}
+                />
+            </div>
         </div>
     );
 }
