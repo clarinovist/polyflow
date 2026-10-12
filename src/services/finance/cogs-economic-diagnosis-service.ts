@@ -574,8 +574,8 @@ async function shipmentSnapshot(
                         AND COALESCE(rj.active, 0) = 1 AND COALESCE(rj.posted_auto, 0) = 1
                         AND COALESCE(rj.debit, 0) = COALESCE(rj.credit, 0)
                         AND COALESCE(rj.debit, 0) > 0
-                        AND COALESCE(rj.cogs_credit, 0) = COALESCE(j.cogs_debit, 0)
-                        AND COALESCE(rj.asset_debit, 0) = COALESCE(j.asset_credit, 0)) AS valid_count
+                        AND COALESCE(rj.cogs_credit, 0) > 0
+                        AND COALESCE(rj.asset_debit, 0) = COALESCE(rj.cogs_credit, 0)) AS valid_count
                 FROM "StockMovement" r
                 LEFT JOIN LATERAL (
                     SELECT COUNT(*) FILTER (WHERE x.status <> 'VOIDED') AS active,
@@ -607,7 +607,8 @@ async function shipmentSnapshot(
             SELECT *,
                 CASE
                     WHEN "orderType" = 'MAKLON_JASA' THEN 'SHIPMENT_OFF_BALANCE_EXCLUDED'
-                    WHEN "validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1 THEN 'SHIPMENT_REVERSAL_EXCLUDED'
+                    WHEN "validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1
+                        AND "cogsDebit" > 0 AND "assetCredit" = "cogsDebit" THEN 'SHIPMENT_REVERSAL_EXCLUDED'
                     WHEN "crossPeriodReversalCount" > 0 THEN 'SHIPMENT_REVERSAL_CROSS_PERIOD'
                     WHEN "reversalPairCount" > 0 THEN 'SHIPMENT_REVERSAL_INVALID'
                     WHEN "draftJournals" > 0 AND "postedAutoJournals" = 0 THEN 'SHIPMENT_JOURNAL_NOT_POSTED'
