@@ -557,24 +557,19 @@ async function shipmentSnapshot(
                 ) x
             ) j ON TRUE
             LEFT JOIN LATERAL (
+                SELECT COUNT(*) AS match_count FROM "StockMovement" o
+                WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
+                    AND o."productVariantId" = m."productVariantId"
+                    AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
+                    AND o.quantity = m.quantity AND o.reference = m.reference
+            ) source_match ON TRUE
+            LEFT JOIN LATERAL (
                 SELECT COUNT(*) AS pair_count,
-                    COUNT(*) FILTER (WHERE (SELECT COUNT(*) FROM "StockMovement" o
-                        WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
-                            AND o."productVariantId" = m."productVariantId"
-                            AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
-                            AND o.quantity = m.quantity AND o.reference = m.reference) = 1) AS unique_count,
+                    COUNT(*) FILTER (WHERE source_match.match_count = 1) AS unique_count,
                     COUNT(*) FILTER (WHERE (r."createdAt" < ${start} OR r."createdAt" > ${end})
-                        AND (SELECT COUNT(*) FROM "StockMovement" o
-                            WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
-                                AND o."productVariantId" = m."productVariantId"
-                                AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
-                                AND o.quantity = m.quantity AND o.reference = m.reference) = 1) AS cross_period_unique_count,
+                        AND source_match.match_count = 1) AS cross_period_unique_count,
                     COUNT(*) FILTER (WHERE r."createdAt" >= ${start} AND r."createdAt" <= ${end}
-                        AND (SELECT COUNT(*) FROM "StockMovement" o
-                            WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
-                                AND o."productVariantId" = m."productVariantId"
-                                AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
-                                AND o.quantity = m.quantity AND o.reference = m.reference) = 1
+                        AND source_match.match_count = 1
                         AND COALESCE(rj.active, 0) = 1 AND COALESCE(rj.posted_auto, 0) = 1
                         AND COALESCE(rj.debit, 0) = COALESCE(rj.credit, 0)
                         AND COALESCE(rj.debit, 0) > 0
