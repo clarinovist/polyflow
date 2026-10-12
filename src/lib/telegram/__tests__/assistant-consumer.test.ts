@@ -308,6 +308,7 @@ describe('Telegram assistant durable consumer', () => {
         ).resolves.toBe(1);
 
         expect(sendMessage).not.toHaveBeenCalled();
+        expect(editMessageText).toHaveBeenCalledTimes(1);
         expect(submit).toHaveBeenCalledWith(
             expect.objectContaining({
                 requestId: row.requestId,
@@ -382,7 +383,7 @@ describe('Telegram assistant durable consumer', () => {
         expect(mocks.audit).not.toHaveBeenCalledWith(
             expect.objectContaining({ action: 'ASSISTANT_SUBMITTED' }),
         );
-        expect(editMessageText).toHaveBeenCalledTimes(1);
+        expect(editMessageText).not.toHaveBeenCalled();
         expect(
             mocks.updateMany.mock.calls.some(
                 ([call]) =>
@@ -393,7 +394,7 @@ describe('Telegram assistant durable consumer', () => {
         ).toBe(false);
     });
 
-    it('does nothing after a Telegram call if another owner changes the claim', async () => {
+    it('does not deliver after a worker call if another owner changes the claim', async () => {
         let activeClaim = '';
         mocks.updateMany.mockImplementation(async ({ where, data }) => {
             if (where.OR) {
@@ -409,10 +410,11 @@ describe('Telegram assistant durable consumer', () => {
             ...row,
             claimToken: where.claimToken,
         }));
-        const editMessageText = vi.fn(async () => {
+        const editMessageText = vi.fn();
+        const submit = vi.fn(async () => {
             activeClaim = 'owner-b';
+            return workerSnapshot();
         });
-        const submit = vi.fn();
         const bindConversation = vi.fn();
 
         await consumeTelegramAssistantBatch({
@@ -429,8 +431,8 @@ describe('Telegram assistant durable consumer', () => {
             } as never,
         });
 
-        expect(editMessageText).toHaveBeenCalledOnce();
-        expect(submit).not.toHaveBeenCalled();
+        expect(submit).toHaveBeenCalledOnce();
+        expect(editMessageText).not.toHaveBeenCalled();
         expect(bindConversation).not.toHaveBeenCalled();
         expect(mocks.audit).not.toHaveBeenCalledWith(
             expect.objectContaining({

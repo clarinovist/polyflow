@@ -265,15 +265,17 @@ async function processClaimed(
     }
 
     await renewLease(id, claimToken, currentTime());
-    const placeholderMessageId = await ensureOwnedPlaceholder({
-        id,
-        claimToken,
-        chatId: row.telegramChatId,
-        text: PLACEHOLDER,
-        existingMessageId: row.placeholderMessageId,
-        telegram,
-        currentTime,
-    });
+    const placeholderMessageId = row.placeholderMessageId
+        ? row.placeholderMessageId
+        : await ensureOwnedPlaceholder({
+              id,
+              claimToken,
+              chatId: row.telegramChatId,
+              text: PLACEHOLDER,
+              existingMessageId: null,
+              telegram,
+              currentTime,
+          });
     const envelope: AssistantSubmissionEnvelope = {
         protocolVersion: 1,
         requestId: row.requestId,
