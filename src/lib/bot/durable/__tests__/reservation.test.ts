@@ -204,8 +204,15 @@ const existingByRequest = new Map<string, { id: number }>();
 const submissionById = new Map<number, { knownRequestId: string }>();
 let nextSubmissionId = 100;
 
+type TestSubmissionStatus =
+    | { status: 'queued' }
+    | { status: 'done'; type: 'input'; entry: number; answer: number }
+    | { status: 'unanswered'; reason: string };
+type TestSubmission = {
+    status: ReturnType<typeof vi.fn<() => Promise<TestSubmissionStatus>>>;
+};
 const harness = {
-    submission: vi.fn(async (id: number) => {
+    submission: vi.fn(async (id: number): Promise<TestSubmission | undefined> => {
         if (!submissionById.has(id)) return undefined;
         return {
             status: vi.fn(async () => ({ status: 'queued' as const })),

@@ -1,11 +1,11 @@
-import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const roots: string[] = [];
-const children: ChildProcessWithoutNullStreams[] = [];
+const children: ChildProcess[] = [];
 afterEach(() => {
     for (const child of children.splice(0)) {
         if (!child.killed) child.kill('SIGKILL');

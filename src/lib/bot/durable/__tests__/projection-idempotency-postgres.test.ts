@@ -151,7 +151,7 @@ describe.skipIf(!enabled)('durable projection idempotency on isolated PostgreSQL
                 ).toBe(2);
                 expect(
                     await mainDb!.helpInteraction.count({
-                        where: { tenantId_userId_channel_requestId: { tenantId, userId, channel: 'web', requestId } },
+                        where: { tenantId, userId, channel: 'web', requestId },
                     }),
                 ).toBe(1);
                 expect(
@@ -169,7 +169,7 @@ describe.skipIf(!enabled)('durable projection idempotency on isolated PostgreSQL
             await tenantDb!.helpConversation.deleteMany({ where: { id: publicConversationId } });
             await tenantDb!.user.deleteMany({ where: { id: userId } });
             await mainDb!.helpInteraction.deleteMany({
-                where: { tenantId_userId_channel_requestId: { tenantId, userId, channel: 'web', requestId } },
+                where: { tenantId, userId, channel: 'web', requestId },
             });
             await mainDb!.tenant.delete({ where: { id: tenantId } });
         }

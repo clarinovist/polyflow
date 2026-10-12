@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { reserveDurableAdmission } from '../admission';
@@ -24,7 +24,7 @@ function isolatedClient(url: string | undefined): PrismaClient | null {
 const database = isolatedClient(connection);
 afterAll(async () => database?.$disconnect());
 
-const children: ChildProcessWithoutNullStreams[] = [];
+const children: ChildProcess[] = [];
 afterEach(() => {
     for (const child of children.splice(0)) {
         if (!child.killed) child.kill('SIGKILL');

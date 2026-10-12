@@ -2,6 +2,9 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, mkdir, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+// Node 26 exposes node:sqlite, but the root app typecheck uses Node typings
+// that do not yet declare it. Keep the native runtime contract explicit.
+// @ts-expect-error -- node:sqlite is available in the pinned Node 26 runtime.
 import { DatabaseSync } from 'node:sqlite';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
