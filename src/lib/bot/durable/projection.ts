@@ -261,10 +261,11 @@ export async function projectDurableSubmission(input: {
                     action: 'VIRTUAL_CS_QUERY_ALLOWED',
                     entityType: 'VirtualCS',
                     entityId: input.requestId,
-                    details: 'WEB | durable assistant submission',
+                    details: `${input.authority.channel.toUpperCase()} | durable assistant submission`,
                     changes: JSON.stringify({
                         requestId: input.requestId,
                         runtime: 'pi-durable',
+                        channel: input.authority.channel,
                     }),
                 },
                 update: {},

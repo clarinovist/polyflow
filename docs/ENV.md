@@ -51,6 +51,26 @@ Production migrations run once in the release workflow from the tested immutable
 | `SYSTEMONE_API_KEY` | When JEV enabled | Server-only TypeSafe API credential | — |
 | `ASSISTANT_JEV_TIMEOUT_MS` | No | Timeout per JEV evaluation, clamped to 1–15 seconds | `6000` |
 
+## Telegram Assistant V1 (CENTRAL-only)
+
+| Variable | Runtime | Description | Default |
+| --- | --- | --- | --- |
+| `TELEGRAM_ASSISTANT_BOT_TOKEN` | App + worker | Dedicated interactive assistant bot token; never reuse historical `TELEGRAM_BOT_TOKEN` | — |
+| `TELEGRAM_ASSISTANT_BOT_KEY` | App + worker | Stable non-secret bot namespace used with `update_id` idempotency | — |
+| `TELEGRAM_ASSISTANT_WEBHOOK_SECRET` | App | Mandatory Telegram secret header, minimum 32 characters | — |
+| `TELEGRAM_ASSISTANT_SELECTION_HMAC_SECRET` | App | HMAC key for membership/version callbacks, minimum 32 characters | — |
+| `TELEGRAM_ASSISTANT_BOT_USERNAME` | App | Assistant bot username without `@` | — |
+| `TELEGRAM_ASSISTANT_PUBLIC_BASE_URL` | App | Public root origin used when configuring the new `/api/integrations/telegram/webhook` | — |
+| `TELEGRAM_ASSISTANT_KILL_SWITCH` | App + worker | ACK webhook without new work and stop consumer claims | `false` |
+| `TELEGRAM_ASSISTANT_CONSUMER_INTERVAL_MS` | Worker | Bounded background consumer interval | `2000` |
+
+The old `/api/telegram/webhook` and Telegram Mini App remain retired. Legacy
+`TelegramIdentity`, `TelegramLinkToken`, and `TELEGRAM_BOT_TOKEN` remain historical
+notification infrastructure and are not authority for the assistant. Delivery uses a
+persisted placeholder and stable request ID; there is a known narrow send/persist crash
+window where Telegram accepted `sendMessage` before its message ID committed, so a retry
+may create one extra placeholder. It still cannot duplicate assistant/tool execution.
+
 JEV receives a minimized/redacted question for preflight routing and never evaluates the
 final answer or raw tool evidence. It also never controls tenant access, permissions, tool
 authorization, or mutations. Keep its key in runtime secrets and never

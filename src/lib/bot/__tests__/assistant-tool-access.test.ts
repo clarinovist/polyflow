@@ -15,6 +15,27 @@ const context: AssistantUserContext = {
 };
 
 describe('assistant tool execution allowlist', () => {
+    it('offers stock only to a reverified inventory resource, including Telegram', () => {
+        const telegram = {
+            ...context,
+            userId: 'warehouse-user',
+            roles: ['WAREHOUSE'],
+            activeRole: 'WAREHOUSE',
+            tenantId: 'tenant-a',
+            channel: 'telegram' as const,
+            allowedResources: ['/warehouse/inventory'],
+        };
+        expect(
+            getAvailableAssistantTools(telegram, true).map((tool) => tool.name),
+        ).toContain('get_product_stock');
+        expect(
+            getAvailableAssistantTools(
+                { ...telegram, allowedResources: ['/sales/orders'] },
+                true,
+            ).map((tool) => tool.name),
+        ).not.toContain('get_product_stock');
+    });
+
     it('exposes business tools only after current permissions are verified', () => {
         const verified = getAvailableAssistantTools(context, true);
         const unverified = getAvailableAssistantTools(context, false);

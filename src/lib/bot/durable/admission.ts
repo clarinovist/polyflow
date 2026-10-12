@@ -183,7 +183,9 @@ export function assertDurableBinding(
         binding.durableConversationId !== expected.durableConversationId ||
         binding.storageVersion !== expected.storageVersion ||
         binding.pathname !== expected.pathname ||
-        binding.profile !== expected.profile
+        binding.profile !== expected.profile ||
+        (input.authority.channel === 'telegram' &&
+            !input.authority.telegramAuthority)
     ) {
         throw new AssistantWorkerProtocolError(
             'CONTEXT_MISMATCH',

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { ThemeSettings } from '@/components/settings/ThemeSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
+import { TelegramAssistantIntegration } from '@/components/settings/TelegramAssistantIntegration';
 
 export function GeneralSettings({
     tenantName,
@@ -62,6 +63,8 @@ export function GeneralSettings({
                 userAvatarUrl={userAvatarUrl}
                 authMode={authMode}
             />
+
+            <TelegramAssistantIntegration authMode={authMode} />
 
             <ThemeSettings />
 

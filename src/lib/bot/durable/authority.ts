@@ -16,6 +16,7 @@ import {
     type AssistantAuthority,
 } from './protocol';
 import { runInActiveTenant } from './tenant-runtime';
+import { verifyTelegramWorkerAuthority } from '@/services/telegram/assistant-link-service';
 
 export type VerifiedDurableAuthority = {
     authority: AssistantAuthority;
@@ -30,10 +31,21 @@ export async function verifyDurableAuthority(input: {
     tenantId: string;
     userId: string;
     channel: AssistantAuthority['channel'];
+    telegramAuthority?: AssistantAuthority['telegramAuthority'];
     publicConversationId?: string;
     workContext: AssistantWorkContextHint;
 }): Promise<VerifiedDurableAuthority> {
     return runInActiveTenant(input.tenantId, input.userId, async () => {
+        if (input.channel === 'telegram') {
+            if (!input.telegramAuthority) {
+                throw new AssistantWorkerProtocolError(
+                    'PERMISSION_DENIED',
+                    'Telegram authority is required.',
+                    403,
+                );
+            }
+            await verifyTelegramWorkerAuthority(input.telegramAuthority);
+        }
         const verified = await verifyAssistantSessionUser({ id: input.userId });
         if (!verified) {
             throw new AssistantWorkerProtocolError(
@@ -139,6 +151,7 @@ export async function verifyDurableAuthority(input: {
             tenantId: input.tenantId,
             userId: input.userId,
             channel: input.channel,
+            telegramAuthority: input.telegramAuthority,
             accessScopeHash,
             workContextKey: contextKey,
             pathname: workContext.pathname,
@@ -153,6 +166,16 @@ export async function withBoundAuthority<T>(
     operation: (verified: VerifiedDurableAuthority) => Promise<T>,
 ): Promise<T> {
     return runInActiveTenant(expected.tenantId, expected.userId, async () => {
+        if (expected.channel === 'telegram') {
+            if (!expected.telegramAuthority) {
+                throw new AssistantWorkerProtocolError(
+                    'PERMISSION_DENIED',
+                    'Telegram authority is required.',
+                    403,
+                );
+            }
+            await verifyTelegramWorkerAuthority(expected.telegramAuthority);
+        }
         const verified = await verifyAssistantSessionUser({
             id: expected.userId,
         });

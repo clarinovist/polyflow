@@ -27,6 +27,83 @@ describe('durable assistant protocol', () => {
         expect(result.success && result.data).not.toHaveProperty('dbUrl');
     });
 
+    it('requires server-bound Telegram authority only for Telegram channel', () => {
+        const telegram = assistantSubmissionEnvelopeSchema.safeParse({
+            protocolVersion: 1,
+            requestId,
+            tenantId: 'tenant-opaque',
+            userId: 'user-opaque',
+            channel: 'telegram',
+            telegramAuthority: {
+                botKey: 'assistant-v1',
+                telegramUserId: '123',
+                telegramChatId: '123',
+                linkId: 'link-opaque',
+                globalAccountId: 'account-opaque',
+                membershipId: 'membership-opaque',
+                tenantId: 'tenant-opaque',
+                tenantUserId: 'user-opaque',
+                selectionVersion: 4,
+                globalRevocationVersion: 1,
+                membershipVersion: 2,
+                centralAuthVersion: 3,
+            },
+            question: 'cek stok',
+            workContext: { pathname: '/warehouse/inventory' },
+        });
+        expect(telegram.success).toBe(true);
+        expect(
+            assistantSubmissionEnvelopeSchema.safeParse({
+                protocolVersion: 1,
+                requestId,
+                tenantId: 'tenant-b',
+                userId: 'user-opaque',
+                channel: 'telegram',
+                telegramAuthority: telegram.success
+                    ? telegram.data.telegramAuthority
+                    : undefined,
+                question: 'cek stok',
+                workContext: { pathname: '/' },
+            }).success,
+        ).toBe(false);
+        expect(
+            assistantSubmissionEnvelopeSchema.safeParse({
+                protocolVersion: 1,
+                requestId,
+                tenantId: 'tenant-opaque',
+                userId: 'user-opaque',
+                channel: 'telegram',
+                question: 'cek stok',
+                workContext: { pathname: '/' },
+            }).success,
+        ).toBe(false);
+        expect(
+            assistantSubmissionEnvelopeSchema.safeParse({
+                protocolVersion: 1,
+                requestId,
+                tenantId: 'tenant-opaque',
+                userId: 'user-opaque',
+                channel: 'web',
+                telegramAuthority: {
+                    botKey: 'assistant-v1',
+                    telegramUserId: '123',
+                    telegramChatId: '123',
+                    linkId: 'link-opaque',
+                    globalAccountId: 'account-opaque',
+                    membershipId: 'membership-opaque',
+                    tenantId: 'tenant-opaque',
+                    tenantUserId: 'user-opaque',
+                    selectionVersion: 4,
+                    globalRevocationVersion: 1,
+                    membershipVersion: 2,
+                    centralAuthVersion: 3,
+                },
+                question: 'cek stok',
+                workContext: { pathname: '/' },
+            }).success,
+        ).toBe(false);
+    });
+
     it('rejects malformed ids and unsafe authority paths', () => {
         expect(
             assistantSubmissionEnvelopeSchema.safeParse({

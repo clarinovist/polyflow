@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const emptyStringAsUndefined = (value: unknown) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value;
+const optionalTelegramString = <T extends z.ZodTypeAny>(schema: T) =>
+    z.preprocess(emptyStringAsUndefined, schema.optional());
+
 const runtimeSchema = z.object({
     ASSISTANT_WORKER_TOKEN: z.string().min(32),
     ASSISTANT_STORAGE_ROOT: z.string().min(1).default('/data/tenants'),
@@ -26,6 +31,31 @@ const runtimeSchema = z.object({
     LLM_MODEL: z.string().min(1),
     LLM_CONTEXT_WINDOW: z.coerce.number().int().min(4096).default(65536),
     LLM_MAX_TOKENS: z.coerce.number().int().min(256).default(4096),
+    TELEGRAM_ASSISTANT_BOT_TOKEN: optionalTelegramString(
+        z.string().min(20),
+    ),
+    TELEGRAM_ASSISTANT_BOT_KEY: optionalTelegramString(
+        z.string().regex(/^[A-Za-z0-9_-]{1,80}$/),
+    ),
+    TELEGRAM_ASSISTANT_WEBHOOK_SECRET: optionalTelegramString(
+        z.string().min(32),
+    ),
+    TELEGRAM_ASSISTANT_SELECTION_HMAC_SECRET: optionalTelegramString(
+        z.string().min(32),
+    ),
+    TELEGRAM_ASSISTANT_BOT_USERNAME: optionalTelegramString(
+        z.string().regex(/^[A-Za-z0-9_]{5,32}$/),
+    ),
+    TELEGRAM_ASSISTANT_PUBLIC_BASE_URL: optionalTelegramString(z.string().url()),
+    TELEGRAM_ASSISTANT_KILL_SWITCH: z
+        .enum(['true', 'false', '1', '0', 'on', 'off'])
+        .default('false'),
+    TELEGRAM_ASSISTANT_CONSUMER_INTERVAL_MS: z.coerce
+        .number()
+        .int()
+        .min(500)
+        .max(60_000)
+        .default(2_000),
 });
 
 export type AssistantWorkerRuntimeConfig = z.infer<typeof runtimeSchema>;

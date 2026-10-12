@@ -11,6 +11,8 @@ import {
     createAssistantWorkerServer,
     listenAssistantWorker,
 } from '../../src/lib/bot/durable/worker-server';
+import { loadTelegramAssistantConfig } from '../../src/lib/telegram/assistant-config';
+import { consumeTelegramAssistantBatch } from '../../src/lib/telegram/assistant-consumer';
 
 async function main() {
     const config = loadAssistantWorkerRuntimeConfig();
@@ -54,9 +56,41 @@ async function main() {
     console.log(`[ASSISTANT_WORKER_READY] port=${address.port}`);
 
     let shuttingDown = false;
+    let telegramTimer: NodeJS.Timeout | undefined;
+    try {
+        const telegramConfig = loadTelegramAssistantConfig();
+        const tick = async () => {
+            try {
+                await consumeTelegramAssistantBatch({
+                    config: telegramConfig,
+                    shouldClaim: () => !shuttingDown,
+                });
+            } catch (error) {
+                console.error('[TELEGRAM_ASSISTANT_CONSUMER_FAILED]', {
+                    code:
+                        error && typeof error === 'object' && 'code' in error
+                            ? String(error.code)
+                            : 'UNKNOWN',
+                });
+            } finally {
+                if (!shuttingDown) {
+                    telegramTimer = setTimeout(
+                        () => void tick(),
+                        config.TELEGRAM_ASSISTANT_CONSUMER_INTERVAL_MS,
+                    );
+                    telegramTimer.unref();
+                }
+            }
+        };
+        void tick();
+    } catch {
+        console.log('[TELEGRAM_ASSISTANT_CONSUMER_DISABLED]');
+    }
+
     async function shutdown(signal: string) {
         if (shuttingDown) return;
         shuttingDown = true;
+        if (telegramTimer) clearTimeout(telegramTimer);
         console.log(`[ASSISTANT_WORKER_SHUTDOWN] signal=${signal}`);
         server.closeIdleConnections();
         await new Promise<void>((resolve) => {

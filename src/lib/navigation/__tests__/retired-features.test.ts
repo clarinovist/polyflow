@@ -74,7 +74,7 @@ describe('retired feature boundary', () => {
         expect(retiredFeatureResponse(request('/api/telegram/webhook'))!.status).toBe(410);
     });
 
-    it.each(['/dashboard', '/api/chat', '/api/bot/query', '/api/cron/digest', '/api/auth/session', '/telegram-other', '/ceo-notes-other', '/api/telegram/mini-app-other'])('leaves live routes and similar prefixes untouched: %s', (path) => {
+    it.each(['/dashboard', '/api/chat', '/api/bot/query', '/api/cron/digest', '/api/auth/session', '/api/integrations/telegram/webhook', '/api/integrations/telegram/link-token', '/telegram-other', '/ceo-notes-other', '/api/telegram/mini-app-other'])('leaves live routes and similar prefixes untouched: %s', (path) => {
         expect(retiredFeatureResponse(request(path))).toBeNull();
     });
 

@@ -11,21 +11,43 @@ export const assistantChannelSchema = z.enum([
     'telegram',
     'telegram_mini_app',
 ]);
-export const assistantAuthoritySchema = z.object({
-    schemaVersion: z.literal(ASSISTANT_PROTOCOL_VERSION),
-    publicConversationId: z.string().min(1).max(100),
+const telegramAuthoritySchema = z.object({
+    botKey: z.string().min(1).max(80),
+    telegramUserId: z.string().regex(/^\d{1,20}$/),
+    telegramChatId: z.string().regex(/^\d{1,20}$/),
+    linkId: z.string().min(1).max(100),
+    globalAccountId: z.string().min(1).max(100),
+    membershipId: z.string().min(1).max(100),
     tenantId: z.string().min(1).max(100),
-    userId: z.string().min(1).max(100),
-    channel: assistantChannelSchema,
-    accessScopeHash: z.string().regex(/^[a-f0-9]{64}$/),
-    workContextKey: z.string().min(1).max(500),
-    pathname: z
-        .string()
-        .startsWith('/')
-        .max(300)
-        .refine((value) => !value.startsWith('//') && !value.includes('\\')),
-    profile: z.enum(['general', 'finance', 'production']),
+    tenantUserId: z.string().min(1).max(100),
+    selectionVersion: z.number().int().nonnegative(),
+    globalRevocationVersion: z.number().int().nonnegative(),
+    membershipVersion: z.number().int().nonnegative(),
+    centralAuthVersion: z.number().int().nonnegative(),
 });
+
+export const assistantAuthoritySchema = z
+    .object({
+        schemaVersion: z.literal(ASSISTANT_PROTOCOL_VERSION),
+        publicConversationId: z.string().min(1).max(100),
+        tenantId: z.string().min(1).max(100),
+        userId: z.string().min(1).max(100),
+        channel: assistantChannelSchema,
+        telegramAuthority: telegramAuthoritySchema.optional(),
+        accessScopeHash: z.string().regex(/^[a-f0-9]{64}$/),
+        workContextKey: z.string().min(1).max(500),
+        pathname: z
+            .string()
+            .startsWith('/')
+            .max(300)
+            .refine(
+                (value) => !value.startsWith('//') && !value.includes('\\'),
+            ),
+        profile: z.enum(['general', 'finance', 'production']),
+    })
+    .superRefine((value, context) => {
+        validateTelegramAuthority(value, context);
+    });
 export type AssistantAuthority = z.infer<typeof assistantAuthoritySchema>;
 
 export const restrictedTelegramEnvelopeSchema = z
@@ -48,19 +70,61 @@ export type RestrictedTelegramSnapshot = {
     error?: AssistantWorkerError;
 };
 
-export const assistantSubmissionEnvelopeSchema = z.object({
-    protocolVersion: z.literal(ASSISTANT_PROTOCOL_VERSION),
-    requestId: assistantRequestIdSchema,
-    publicConversationId: z.string().min(1).max(100).optional(),
-    tenantId: z.string().min(1).max(100),
-    userId: z.string().min(1).max(100),
-    channel: assistantChannelSchema,
-    question: z.string().trim().min(1).max(2000),
-    workContext: z.object({ pathname: z.string().trim().min(1).max(300) }),
-});
+export const assistantSubmissionEnvelopeSchema = z
+    .object({
+        protocolVersion: z.literal(ASSISTANT_PROTOCOL_VERSION),
+        requestId: assistantRequestIdSchema,
+        publicConversationId: z.string().min(1).max(100).optional(),
+        tenantId: z.string().min(1).max(100),
+        userId: z.string().min(1).max(100),
+        channel: assistantChannelSchema,
+        telegramAuthority: telegramAuthoritySchema.optional(),
+        question: z.string().trim().min(1).max(2000),
+        workContext: z.object({ pathname: z.string().trim().min(1).max(300) }),
+    })
+    .superRefine((value, context) => {
+        validateTelegramAuthority(value, context);
+    });
 export type AssistantSubmissionEnvelope = z.infer<
     typeof assistantSubmissionEnvelopeSchema
 >;
+
+function validateTelegramAuthority(
+    value: {
+        channel: z.infer<typeof assistantChannelSchema>;
+        tenantId: string;
+        userId: string;
+        telegramAuthority?: z.infer<typeof telegramAuthoritySchema>;
+    },
+    context: z.RefinementCtx,
+): void {
+    if (value.channel === 'telegram' && !value.telegramAuthority) {
+        context.addIssue({
+            code: 'custom',
+            path: ['telegramAuthority'],
+            message: 'Telegram authority is required.',
+        });
+    }
+    if (
+        value.channel === 'telegram' &&
+        value.telegramAuthority &&
+        (value.telegramAuthority.tenantId !== value.tenantId ||
+            value.telegramAuthority.tenantUserId !== value.userId)
+    ) {
+        context.addIssue({
+            code: 'custom',
+            path: ['telegramAuthority'],
+            message: 'Telegram authority must match the envelope tenant actor.',
+        });
+    }
+    if (value.channel !== 'telegram' && value.telegramAuthority) {
+        context.addIssue({
+            code: 'custom',
+            path: ['telegramAuthority'],
+            message: 'Telegram authority is not valid for this channel.',
+        });
+    }
+}
 
 export type DurableSubmissionStatus =
     | 'queued'

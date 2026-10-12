@@ -3237,9 +3237,11 @@ model GlobalAccount {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  memberships    TenantMembership[]
-  invitations    TenantInvitation[]
-  identityEvents CentralIdentityEvent[]
+  memberships              TenantMembership[]
+  invitations              TenantInvitation[]
+  identityEvents           CentralIdentityEvent[]
+  telegramAssistantLink    TelegramAssistantLink?
+  telegramAssistantTokens  TelegramAssistantLinkToken[]
 
   @@unique([issuer, subject])
   @@index([email])
@@ -4676,6 +4678,45 @@ enum TelegramIdentityStatus {
   REVOKED
 }
 
+enum TelegramAssistantLinkStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum TelegramAssistantLinkTokenStatus {
+  PENDING
+  CONSUMED
+  REVOKED
+}
+
+enum TelegramAssistantUpdateStatus {
+  RESERVED
+  PROCESSING
+  WAITING
+  DONE
+  FAILED
+  IGNORED
+}
+
+enum TelegramAssistantAuditAction {
+  LINK_TOKEN_CREATED
+  LINK_TOKEN_CONSUMED
+  LINK_TOKEN_REJECTED
+  LINK_ACTIVATED
+  WORKSPACES_LISTED
+  TENANT_SELECTED
+  TENANT_SELECTION_REJECTED
+  LINK_REVOKED
+  WEBHOOK_RESERVED
+  WEBHOOK_DUPLICATE
+  WEBHOOK_REJECTED
+  KILL_SWITCH_ACK
+  ASSISTANT_SUBMITTED
+  DELIVERY_SENT
+  DELIVERY_FAILED
+  AUTHORITY_DENIED
+}
+
 enum TelegramNotificationStatus {
   SENT
   FAILED
@@ -4743,13 +4784,116 @@ model TelegramLinkToken {
   @@index([token])
 }
 
+/// Historical notification webhook rows and V1 assistant ingress reservations.
+/// Raw Telegram updates are never stored; only bounded, normalized fields needed
+/// to resume command/question delivery are persisted. botKey defaults to legacy
+/// so the additive migration remains rollback-safe for old rows.
 model TelegramUpdateLog {
-  id        String   @id @default(uuid())
-  updateId  String   @unique
-  type      String?
-  createdAt DateTime @default(now())
+  id                      String                         @id @default(uuid())
+  botKey                  String                         @default("legacy")
+  updateId                String
+  type                    String?
+  status                  TelegramAssistantUpdateStatus @default(RESERVED)
+  telegramUserId          String?
+  telegramChatId          String?
+  callbackQueryId         String?
+  callbackMembershipId    String?
+  callbackSelectionVersion Int?
+  sourceMessageId         String?
+  requestId               String                         @unique @default(uuid())
+  question                String?                        @db.Text
+  responseText            String?                        @db.Text
+  replyMarkup             Json?
+  placeholderMessageId    String?
+  assistantConversationId String?
+  authorityLinkId         String?
+  authorityGlobalAccountId String?
+  authorityMembershipId   String?
+  authorityTenantId       String?
+  authorityTenantUserId   String?
+  authoritySelectionVersion Int?
+  authorityGlobalRevocationVersion Int?
+  authorityMembershipVersion Int?
+  authorityCentralAuthVersion Int?
+  attempts                Int                            @default(0)
+  availableAt             DateTime                       @default(now())
+  leaseUntil              DateTime?
+  claimToken              String?
+  lastErrorCode           String?
+  processedAt             DateTime?
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
 
+  @@unique([botKey, updateId])
+  @@index([status, availableAt])
   @@index([createdAt])
+}
+
+/// MAIN/control-DB authority for the CENTRAL-only assistant. Legacy
+/// TelegramIdentity remains tenant-local notification infrastructure and is not
+/// consulted by this model or by assistant authorization.
+model TelegramAssistantLink {
+  id                   String                       @id @default(uuid())
+  botKey               String
+  telegramUserId       String
+  telegramChatId       String
+  globalAccountId      String                       @unique
+  status               TelegramAssistantLinkStatus @default(ACTIVE)
+  selectedTenantId     String?
+  selectedMembershipId String?
+  selectedTenantUserId String?
+  activeConversationId String?
+  selectionVersion     Int                          @default(0)
+  linkedAt             DateTime                     @default(now())
+  revokedAt            DateTime?
+  lastActiveAt         DateTime?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+
+  globalAccount GlobalAccount @relation(fields: [globalAccountId], references: [id], onDelete: Restrict)
+
+  @@unique([botKey, telegramUserId])
+  @@index([status])
+  @@index([selectedTenantId, selectedMembershipId])
+}
+
+/// Short-lived single-use token. tokenDigest is the only persisted token
+/// representation; callers must never write the raw token to logs or storage.
+model TelegramAssistantLinkToken {
+  id              String                           @id @default(uuid())
+  tokenDigest     String                           @unique
+  globalAccountId String
+  status          TelegramAssistantLinkTokenStatus @default(PENDING)
+  expiresAt       DateTime
+  usedAt          DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+
+  globalAccount GlobalAccount @relation(fields: [globalAccountId], references: [id], onDelete: Restrict)
+
+  @@index([globalAccountId, status, expiresAt])
+  @@index([expiresAt])
+}
+
+/// Explicit MAIN/control-DB audit. Identifiers are hashed at the application
+/// boundary and details are restricted to non-secret operational metadata.
+model TelegramAssistantAuditLog {
+  id                 String                       @id @default(uuid())
+  action             TelegramAssistantAuditAction
+  outcome            String
+  botKey             String?
+  telegramUserIdHash String?
+  globalAccountId    String?
+  tenantId           String?
+  membershipId       String?
+  updateIdHash       String?
+  details            Json?
+  createdAt          DateTime                     @default(now())
+
+  @@index([action, createdAt])
+  @@index([globalAccountId, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 model TelegramNotificationPreference {

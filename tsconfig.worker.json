@@ -16,6 +16,8 @@
         "src/lib/core/**/*.ts",
         "src/lib/auth/**/*.ts",
         "src/services/auth/**/*.ts",
+        "src/services/telegram/**/*.ts",
+        "src/lib/telegram/assistant-*.ts",
         "src/generated/**/*.ts",
         "src/types/**/*.d.ts",
         "global.d.ts",

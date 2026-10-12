@@ -21,6 +21,27 @@ import { upsertDurableToolAudit } from './projection';
 
 const MAX_AGENT_TURNS = 4;
 
+function sameTelegramAuthority(
+    left: AssistantAuthority['telegramAuthority'],
+    right: AssistantAuthority['telegramAuthority'],
+): boolean {
+    if (!left || !right) return left === right;
+    return (
+        left.botKey === right.botKey &&
+        left.telegramUserId === right.telegramUserId &&
+        left.telegramChatId === right.telegramChatId &&
+        left.linkId === right.linkId &&
+        left.globalAccountId === right.globalAccountId &&
+        left.membershipId === right.membershipId &&
+        left.tenantId === right.tenantId &&
+        left.tenantUserId === right.tenantUserId &&
+        left.selectionVersion === right.selectionVersion &&
+        left.globalRevocationVersion === right.globalRevocationVersion &&
+        left.membershipVersion === right.membershipVersion &&
+        left.centralAuthVersion === right.centralAuthVersion
+    );
+}
+
 function defineTurnLimit(): Extension {
     return {
         name: 'polyflow-turn-limit',
@@ -150,6 +171,10 @@ export class TenantHarnessManager {
                     stored.publicConversationId !==
                         authority.publicConversationId ||
                     stored.channel !== authority.channel ||
+                    !sameTelegramAuthority(
+                        stored.telegramAuthority,
+                        authority.telegramAuthority,
+                    ) ||
                     stored.accessScopeHash !== authority.accessScopeHash ||
                     stored.workContextKey !== authority.workContextKey
                 ) {
