@@ -1,7 +1,10 @@
-export type GuardrailDecision = {
-    allowed: boolean;
-    reason?: string;
-};
+export type GuardrailDecision =
+    | { allowed: true; code: 'ALLOW' }
+    | {
+          allowed: false;
+          code: 'EMPTY' | 'MUTATION' | 'OUT_OF_SCOPE';
+          reason: string;
+      };
 
 /**
  * intent_v2 guardrail: distinguishes how-to/panduan from mutation commands.
@@ -29,6 +32,10 @@ const MUTATION_COMMAND_PATTERNS = [
     /\b(jalankan|run|eksekusi|execute)\b.*\b(script|bash|terminal|ssh|command|cmd)/i,
     // Direct create with specific data identifiers
     /\b(buat|create|tambah|insert)\b.+\b(SO|PO|SPK|SJ|invoice|faktur)\b\s*[-:#]?\s*\w+/i,
+    // Approval/posting/void commands against a concrete document.
+    /\b(approve|setujui|posting|post|void|batalkan|tutup)\b.+\b(SO|PO|SPK|SJ|invoice|faktur|order)\b\s*[-:#]?\s*[A-Za-z0-9_-]+/i,
+    // External side effects are outside the read-only assistant contract.
+    /\b(kirim|send)\b.+\b(email|pesan|message|whatsapp|telegram)\b/i,
 ];
 
 // Patterns that indicate how-to/guidance intent (should ALLOW)
@@ -47,45 +54,71 @@ const OUT_OF_SCOPE_PATTERNS = [
     /\b(bola|sepakbola|liga|prediksi|skor|pertandingan)\b/i,
     /\b(crypto|bitcoin|trading|saham|investasi)\b/i,
     /\b(ikan|kucing|anjing|hewan peliharaan)\b/i,
+    /\b(puisi|pantun|cerpen|novel|lirik)\b/i,
+    /\b(daftar|buat|bikin|urus)\s+(?:nomor\s+)?npwp\b/i,
+    /\b(npwp|pajak)\s+pribadi\b/i,
+    /\bdaftar\s+pajak\b/i,
+    /\b(libur nasional|tanggal merah|hari libur)\b/i,
 ];
 
 export function enforceGuardrails(question: string): GuardrailDecision {
     const trimmed = question.trim();
 
     if (!trimmed) {
-        return { allowed: false, reason: 'Pertanyaan kosong.' };
+        return {
+            allowed: false,
+            code: 'EMPTY',
+            reason: 'Pertanyaan kosong.',
+        };
     }
 
-    // Check if it's a how-to question first — these are always allowed
-    const isHowTo = HOWTO_INDICATORS.some((pattern) => pattern.test(trimmed));
-    if (isHowTo) {
-        return { allowed: true };
-    }
-
-    const isReadOnlyWork = READ_ONLY_WORK_PATTERNS.some((pattern) =>
-        pattern.test(trimmed),
-    );
-    if (isReadOnlyWork) return { allowed: true };
-
-    // Check for direct mutation commands
-    for (const pattern of MUTATION_COMMAND_PATTERNS) {
-        if (pattern.test(trimmed)) {
-            return {
-                allowed: false,
-                reason: 'Saya hanya bisa bantu baca data dan panduan penggunaan. Untuk melakukan perubahan data, silakan langsung melalui menu Polyflow.',
-            };
-        }
-    }
-
-    // Check for out-of-scope topics
+    // Scope applies before how-to framing: asking how to perform an unrelated
+    // activity does not bring it into Polyflow's support boundary.
     for (const pattern of OUT_OF_SCOPE_PATTERNS) {
         if (pattern.test(trimmed)) {
             return {
                 allowed: false,
+                code: 'OUT_OF_SCOPE',
                 reason: 'Maaf, pertanyaan tersebut di luar cakupan bantuan Polyflow. Saya bisa bantu seputar penggunaan sistem ERP pabrik ini.',
             };
         }
     }
 
-    return { allowed: true };
+    // How-to for an in-scope operation is guidance, not a mutation command.
+    const isHowTo = HOWTO_INDICATORS.some((pattern) => pattern.test(trimmed));
+    if (isHowTo) {
+        return { allowed: true, code: 'ALLOW' };
+    }
+
+    // Explicit side effects always win over a read-only work-product phrase.
+    // A compound request such as "buatkan ringkasan lalu kirim email" must
+    // not bypass the external-action guard.
+    for (const pattern of MUTATION_COMMAND_PATTERNS.slice(1)) {
+        if (pattern.test(trimmed)) {
+            return {
+                allowed: false,
+                code: 'MUTATION',
+                reason: 'Saya hanya bisa bantu baca data dan panduan penggunaan. Untuk melakukan perubahan data, silakan langsung melalui menu Polyflow.',
+            };
+        }
+    }
+
+    const isReadOnlyWork = READ_ONLY_WORK_PATTERNS.some((pattern) =>
+        pattern.test(trimmed),
+    );
+    if (isReadOnlyWork) return { allowed: true, code: 'ALLOW' };
+
+    // Generic imperative create remains after the read-only exception so
+    // "buatkan ringkasan" stays allowed.
+    for (const pattern of MUTATION_COMMAND_PATTERNS.slice(0, 1)) {
+        if (pattern.test(trimmed)) {
+            return {
+                allowed: false,
+                code: 'MUTATION',
+                reason: 'Saya hanya bisa bantu baca data dan panduan penggunaan. Untuk melakukan perubahan data, silakan langsung melalui menu Polyflow.',
+            };
+        }
+    }
+
+    return { allowed: true, code: 'ALLOW' };
 }

@@ -6,6 +6,7 @@ describe('enforceGuardrails (intent_v2)', () => {
     it('rejects empty question', () => {
         const decision = enforceGuardrails('   ');
         expect(decision.allowed).toBe(false);
+        expect(decision.code).toBe('EMPTY');
         expect(decision.reason).toBe('Pertanyaan kosong.');
     });
 
@@ -46,6 +47,7 @@ describe('enforceGuardrails (intent_v2)', () => {
     it('blocks mutation: buatkan SO untuk Budi', () => {
         const decision = enforceGuardrails('buatkan SO untuk Budi');
         expect(decision.allowed).toBe(false);
+        expect(decision.code).toBe('MUTATION');
         expect(decision.reason).toContain('perubahan data');
     });
 
@@ -68,12 +70,27 @@ describe('enforceGuardrails (intent_v2)', () => {
     it('blocks out-of-scope: resep masakan', () => {
         const decision = enforceGuardrails('resep masakan nasi goreng');
         expect(decision.allowed).toBe(false);
+        expect(decision.code).toBe('OUT_OF_SCOPE');
         expect(decision.reason).toContain('di luar cakupan');
     });
 
     it('blocks out-of-scope: politik', () => {
         const decision = enforceGuardrails('siapa presiden Indonesia?');
         expect(decision.allowed).toBe(false);
+    });
+
+    it('allows NPWP field guidance inside Polyflow', () => {
+        expect(
+            enforceGuardrails('Bagaimana cara input NPWP customer?'),
+        ).toMatchObject({ allowed: true, code: 'ALLOW' });
+    });
+
+    it('blocks side effects composed with a read-only summary', () => {
+        expect(
+            enforceGuardrails(
+                'Buatkan ringkasan lalu kirim email ke customer',
+            ),
+        ).toMatchObject({ allowed: false, code: 'MUTATION' });
     });
 
     // Borderline: direct mutation without howto framing
