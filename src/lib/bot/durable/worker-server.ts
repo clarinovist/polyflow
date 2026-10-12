@@ -139,13 +139,23 @@ async function route(
     }
     const routeRequestId = match[1];
     const operation = match[2];
-    const body = assistantSubmissionEnvelopeSchema.parse(
-        await readJsonBody(request, MAX_BODY_BYTES),
-    );
-    if (body.channel !== 'web') {
+    const rawBody = await readJsonBody(request, MAX_BODY_BYTES);
+    if (
+        isRecord(rawBody) &&
+        rawBody.channel === 'telegram' &&
+        !isRecord(rawBody.telegramAuthority)
+    ) {
         throw new AssistantWorkerProtocolError(
             'PERMISSION_DENIED',
-            'This assistant endpoint accepts web authority only.',
+            'Tenant-aware Telegram requires bound authority.',
+            403,
+        );
+    }
+    const body = assistantSubmissionEnvelopeSchema.parse(rawBody);
+    if (body.channel === 'telegram_mini_app') {
+        throw new AssistantWorkerProtocolError(
+            'PERMISSION_DENIED',
+            'This assistant endpoint does not accept Mini App authority.',
             403,
         );
     }
@@ -232,6 +242,10 @@ async function readJsonBody(request: IncomingMessage, maxBytes: number) {
             400,
         );
     }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function writeSse(response: ServerResponse, event: unknown) {
