@@ -18,6 +18,9 @@ import {
 } from '@/lib/constants/performance';
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
 import { BudgetService } from '@/services/finance/budget-service';
+import {
+    getInventoryAdjustmentReportDetails as getInventoryAdjustmentReportDetailsService,
+} from '@/services/accounting/inventory-adjustment-report-service';
 
 export const getChartOfAccounts = withTenant(
     async function getChartOfAccounts() {
@@ -107,6 +110,24 @@ export const getIncomeStatement = withTenant(async function getIncomeStatement(
         return serializeData(data);
     });
 });
+
+export const getInventoryAdjustmentReportDetails = withTenant(
+    async function getInventoryAdjustmentReportDetails(
+        accountId: string,
+        startDate: Date,
+        endDate: Date,
+    ) {
+        return safeAction(async () => {
+            await requireFinanceAccess();
+            const data = await getInventoryAdjustmentReportDetailsService(
+                accountId,
+                new Date(startDate),
+                new Date(endDate),
+            );
+            return serializeData(data);
+        });
+    },
+);
 
 export const getCashFlowStatement = withTenant(
     async function getCashFlowStatement(startDate: Date, endDate: Date) {

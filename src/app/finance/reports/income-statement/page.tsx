@@ -26,8 +26,20 @@ import {
     format,
 } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, RotateCw, Download } from 'lucide-react';
+import {
+    ChevronLeft,
+    ChevronRight,
+    RotateCw,
+    Download,
+    Info,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { InventoryAdjustmentDetailsDialog } from '@/components/finance/reports/InventoryAdjustmentDetailsDialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { reportLabels } from '@/lib/labels';
@@ -61,11 +73,63 @@ interface IncomeStatementData {
     netIncome: number;
 }
 
+function AdjustmentInfoPopover({
+    item,
+    onViewDetails,
+}: {
+    item: IncomeStatementItem;
+    onViewDetails: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const explanation =
+        item.type === 'EXPENSE'
+            ? 'Stok yang dicatat lebih kecil daripada stok sistem, umumnya dari hasil opname. Selisih ini mengurangi nilai persediaan dan laba.'
+            : 'Stok yang dicatat lebih besar daripada stok sistem, umumnya dari hasil opname. Selisih ini menambah nilai persediaan dan laba, bukan pendapatan penjualan.';
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-muted-foreground hover:text-foreground"
+                    aria-label={`Info ${item.name}`}
+                >
+                    <Info className="h-4 w-4" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 space-y-3">
+                <div className="space-y-1">
+                    <p className="font-semibold">{item.name}</p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                        {explanation}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                        setOpen(false);
+                        onViewDetails();
+                    }}
+                >
+                    Lihat rincian
+                </Button>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 export default function IncomeStatementPage() {
     const [data, setData] = useState<IncomeStatementData | null>(null);
     const [loading, setLoading] = useState(true);
     const [date, setDate] = useState<Date>(new Date());
     const [hideZero, setHideZero] = useState(true);
+    const [selectedAdjustment, setSelectedAdjustment] =
+        useState<IncomeStatementItem | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -100,6 +164,12 @@ export default function IncomeStatementPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const periodStart = startOfMonth(date);
+    const periodEnd = endOfMonth(date);
+
+    const isInventoryAdjustment = (item: IncomeStatementItem) =>
+        ['7-103', '81100', '8-203', '91100'].includes(item.code);
 
     const handleDownload = () => {
         if (!data) return;
@@ -530,10 +600,28 @@ export default function IncomeStatementPage() {
                                                 // Expense-type other accounts reduce income
                                                 const isExpense =
                                                     item.type === 'EXPENSE';
+                                                const isAdjustment =
+                                                    isInventoryAdjustment(item);
                                                 return (
                                                     <TableRow key={item.id}>
                                                         <TableCell className="pl-8">
-                                                            {item.name}
+                                                            <div className="flex items-center gap-1">
+                                                                <span>
+                                                                    {item.name}
+                                                                </span>
+                                                                {isAdjustment && (
+                                                                    <AdjustmentInfoPopover
+                                                                        item={
+                                                                            item
+                                                                        }
+                                                                        onViewDetails={() =>
+                                                                            setSelectedAdjustment(
+                                                                                item,
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </div>
                                                         </TableCell>
                                                         <TableCell className="font-mono text-sm text-muted-foreground">
                                                             {item.code}
@@ -541,11 +629,30 @@ export default function IncomeStatementPage() {
                                                         <TableCell
                                                             className={`text-right font-mono ${isExpense ? 'text-red-500' : ''}`}
                                                         >
-                                                            {isExpense
-                                                                ? `(${formatRupiah(Math.abs(item.netBalance))})`
-                                                                : formatRupiah(
-                                                                      item.netBalance,
-                                                                  )}
+                                                            {isAdjustment ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="min-h-11 rounded-md px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                                                    onClick={() =>
+                                                                        setSelectedAdjustment(
+                                                                            item,
+                                                                        )
+                                                                    }
+                                                                    aria-label={`Lihat rincian ${item.name}`}
+                                                                >
+                                                                    {isExpense
+                                                                        ? `(${formatRupiah(Math.abs(item.netBalance))})`
+                                                                        : formatRupiah(
+                                                                              item.netBalance,
+                                                                          )}
+                                                                </button>
+                                                            ) : isExpense ? (
+                                                                `(${formatRupiah(Math.abs(item.netBalance))})`
+                                                            ) : (
+                                                                formatRupiah(
+                                                                    item.netBalance,
+                                                                )
+                                                            )}
                                                         </TableCell>
                                                     </TableRow>
                                                 );
@@ -571,6 +678,16 @@ export default function IncomeStatementPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <InventoryAdjustmentDetailsDialog
+                account={selectedAdjustment}
+                startDate={periodStart}
+                endDate={periodEnd}
+                open={selectedAdjustment !== null}
+                onOpenChange={(open) => {
+                    if (!open) setSelectedAdjustment(null);
+                }}
+            />
 
             {/* Margin Analysis Cards */}
             <div className="grid gap-4 md:grid-cols-3">

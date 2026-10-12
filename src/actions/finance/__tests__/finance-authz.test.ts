@@ -108,6 +108,14 @@ vi.mock('@/services/accounting/reports-service', () => ({
     getIncomeStatement: vi.fn().mockResolvedValue({ totalRevenue: 0, totalOpEx: 0, netIncome: 0 }),
 }));
 
+vi.mock('@/services/accounting/inventory-adjustment-report-service', () => ({
+    getInventoryAdjustmentReportDetails: vi.fn().mockResolvedValue({
+        accountId: 'a1',
+        direction: 'GAIN',
+        events: [],
+    }),
+}));
+
 vi.mock('@/services/finance/fixed-asset-service', () => ({
     FixedAssetService: {
         getAssets: vi.fn().mockResolvedValue([]),
@@ -1216,6 +1224,30 @@ describe('Pass 5: coverage — accounting.ts read/query functions', () => {
         setupAuth('FINANCE');
         const { getIncomeStatement } = await import('../accounting');
         await expectAllowed(() => getIncomeStatement(new Date('2026-01-01'), new Date('2026-01-31')));
+    });
+
+    it('getInventoryAdjustmentReportDetails: FINANCE allowed', async () => {
+        setupAuth('FINANCE');
+        const { getInventoryAdjustmentReportDetails } = await import('../accounting');
+        await expectAllowed(() =>
+            getInventoryAdjustmentReportDetails(
+                'a1',
+                new Date('2026-01-01'),
+                new Date('2026-01-31'),
+            ),
+        );
+    });
+
+    it('getInventoryAdjustmentReportDetails: SALES denied', async () => {
+        setupAuth('SALES');
+        const { getInventoryAdjustmentReportDetails } = await import('../accounting');
+        await expectDenied(() =>
+            getInventoryAdjustmentReportDetails(
+                'a1',
+                new Date('2026-01-01'),
+                new Date('2026-01-31'),
+            ),
+        );
     });
 
     it('getCashFlowStatement: FINANCE allowed', async () => {
