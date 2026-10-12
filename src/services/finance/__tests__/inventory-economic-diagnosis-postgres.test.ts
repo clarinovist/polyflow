@@ -274,14 +274,11 @@ async function seedBase() {
             purchaseOrderId: 'purchase-order',
             locationId: 'warehouse',
             receivedDate: middle,
-            status: 'COMPLETED',
             items: {
                 create: {
                     productVariantId: 'raw-variant',
                     purchaseOrderItemId: 'purchase-line',
                     receivedQty: 10,
-                    acceptedQty: 10,
-                    rejectedQty: 0,
                     unitCost: 100,
                 },
             },
