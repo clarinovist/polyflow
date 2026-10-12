@@ -856,7 +856,9 @@ async function movementSnapshot(
                 (b.flow <> 'purchase_return'
                     AND b.type <> 'TRANSFER'
                     AND NOT b."offBalance") "directJournalExpected",
-                (NOT b."suppressedSource" AND NOT COALESCE(
+                (NOT EXISTS (
+                    SELECT 1 FROM valid_reversal_sources v WHERE v.id = b.id
+                ) AND NOT COALESCE(
                     b.reference LIKE 'VOID:%'
                     AND b."pairedSourceId" IS NOT NULL
                     AND b."inverseJournal"
