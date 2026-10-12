@@ -13,6 +13,7 @@ const TOOL_LABELS: Record<string, string> = {
     query_finance: 'Mencari transaksi Buku Besar',
     get_finance_reconciliation: 'Merekonsiliasi laba-rugi dan COGS',
     diagnose_cogs_economic_completeness: 'Mendiagnosis kelengkapan ekonomi COGS',
+    diagnose_inventory_economic_completeness: 'Mendiagnosis kelengkapan ekonomi inventory',
     get_active_production: 'Mengecek produksi berjalan',
     get_general_stock_overview: 'Melihat ringkasan stok',
     get_critical_stock_overview: 'Mengecek stok kritis',

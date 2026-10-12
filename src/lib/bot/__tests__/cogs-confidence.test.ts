@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calculateConfidence } from '../clarifier';
 import { buildAssistantProfileInstructions } from '../assistant-profiles';
-import { DURABLE_COGS_INSTRUCTIONS } from '../durable/prompt';
+import { DURABLE_COGS_INSTRUCTIONS, DURABLE_INVENTORY_INSTRUCTIONS } from '../durable/prompt';
 import type { ToolEvidence } from '../assistant-types';
 
 const evidence = (confidenceCap?: ToolEvidence['confidenceCap']): ToolEvidence => ({
@@ -42,5 +42,22 @@ describe('coverage-aware COGS assistant semantics', () => {
         expect(durableCompact).toMatch(/terkonfirmasi.*needs_review/i);
         expect(durableCompact).toMatch(/jangan gabungkan nominal sales, movement valuation, jurnal GL/i);
         expect(durableCompact).toMatch(/laporan vs jurnal.*cost coverage seluruh shipment.*simetri retur.*WIP\/inventory/i);
+    });
+
+    it('keeps the inventory answer order and safety semantics aligned in web and durable prompts', () => {
+        const web = buildAssistantProfileInstructions({
+            pathname: '/finance/reports/general-ledger',
+            profile: 'finance',
+        }).replace(/\s+/g, ' ');
+        const durable = DURABLE_INVENTORY_INSTRUCTIONS.replace(/\s+/g, ' ');
+        for (const prompt of [web, durable]) {
+            expect(prompt).toMatch(/diagnose_inventory_economic_completeness/i);
+            expect(prompt).toMatch(/konsistensi.*inventory GL.*movement\/journal coverage.*valuation.*jurnal inventory tanpa source.*WIP.*return, transfer, adjustment, dan reversal.*Maklon\/off-balance.*confirmed vs needs_review.*opening, cross-period, valuation, lineage, dan truncation/i);
+            expect(prompt).toMatch(/Adjustment.*bukan otomatis consumption/i);
+            expect(prompt).toMatch(/material issue.*bukan otomatis COGS/i);
+            expect(prompt).toMatch(/manual.*journal.*bukan otomatis error|manual inventory journal.*bukan otomatis error/i);
+        }
+        expect(web).toMatch(/Quantity inventory per variant\/unit.*tidak boleh dijumlahkan lintas unit.*disamakan dengan nilai/i);
+        expect(durable).toMatch(/Quantity per variant\/unit.*persisted movement valuation.*posted inventory GL.*WIP.*opening economic value.*basis berbeda/i);
     });
 });

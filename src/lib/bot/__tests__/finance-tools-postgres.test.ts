@@ -17,12 +17,13 @@ import { prisma as db, tenantContext, tenantIdContext } from '@/lib/core/prisma'
 import { getToolByName } from '../tool-registry';
 import { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
 import { diagnoseCogsEconomicCompleteness } from '@/services/finance/cogs-economic-diagnosis-service';
+import { diagnoseInventoryEconomicCompleteness } from '@/services/finance/inventory-economic-diagnosis-service';
 import { Prisma } from '@prisma/client';
 import { evidenceToText } from '../evidence';
 import type { AssistantUserContext } from '../assistant-types';
 
 const ctx: AssistantUserContext = {
-    userId: 'test-finance', roles: ['FINANCE'], allowedResources: ['/finance'],
+    userId: 'test-finance', roles: ['FINANCE'], allowedResources: ['/finance', '/warehouse/inventory/history'],
     tenantId: 'test-tenant', channel: 'web', locale: 'id-ID',
 };
 const execute = (name: string, args: unknown) => tenantContext.run(db, () =>
@@ -168,6 +169,28 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('finance tools on disposable Pos
         expect(await db.payment.count()).toBe(1); expect(await db.journalEntry.count()).toBe(1);
     });
 
+    it('executes inventory economic diagnosis through the real read-only tool boundary without writes', async () => {
+        const before = {
+            accounts: await db.account.count(),
+            journals: await db.journalEntry.count(),
+            movements: await db.stockMovement.count(),
+        };
+        const direct = await db.$transaction(tx => diagnoseInventoryEconomicCompleteness(tx, period));
+        expect(direct).toMatchObject({
+            gl: { accountCount: 0 },
+            movementCoverage: { count: 0 },
+            coverage: { mandatoryComplete: true, confidenceCap: 0.9 },
+        });
+        const evidence = await execute('diagnose_inventory_economic_completeness', period);
+        expect(evidence).toMatchObject({ completeness: 'complete', confidenceCap: 0.9 });
+        expect(evidenceToText(evidence)).toContain('Quantity tidak dijumlahkan lintas variant/unit');
+        expect({
+            accounts: await db.account.count(),
+            journals: await db.journalEntry.count(),
+            movements: await db.stockMovement.count(),
+        }).toEqual(before);
+    });
+
     it('executes COGS economic diagnosis SQL on the disposable tenant without writes', async () => {
         const before = {
             accounts: await db.account.count(),
@@ -235,7 +258,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('finance tools on disposable Pos
         expect(await db.invoice.count()).toBe(1);
     });
 
-    it('executes through real READ ONLY REPEATABLE READ and PostgreSQL refuses a write', async () => {
+    it.each([
+        ['get_invoice_status', { searchTerm: 'INV-FINANCE' }],
+        ['diagnose_inventory_economic_completeness', period],
+    ] as const)('%s executes through real READ ONLY REPEATABLE READ and PostgreSQL refuses a write', async (toolName, input) => {
         const original = db.$transaction.bind(db);
         const spy = vi.spyOn(db, '$transaction').mockImplementationOnce((async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>, options: object) => original(async tx => {
             const result = await fn(tx);
@@ -246,7 +272,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('finance tools on disposable Pos
             await tx.$executeRaw`ROLLBACK TO SAVEPOINT write_probe`;
             return result;
         }, options)) as typeof db.$transaction);
-        try { await execute('get_invoice_status', { searchTerm: 'INV-FINANCE' }); }
+        try { await execute(toolName, input); }
         finally { spy.mockRestore(); }
         expect(Number((await db.invoice.findUniqueOrThrow({ where: { id: 'invoice' } })).paidAmount)).toBe(0);
     });

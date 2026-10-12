@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import type { diagnoseInvoice, findInvoices } from '@/services/finance/invoice-diagnosis-service';
 import type { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
 import type { diagnoseCogsEconomicCompleteness } from '@/services/finance/cogs-economic-diagnosis-service';
+import type { diagnoseInventoryEconomicCompleteness } from '@/services/finance/inventory-economic-diagnosis-service';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { createEvidence } from './evidence';
 
@@ -76,6 +77,35 @@ export function reconciliationEvidence(result: Awaited<ReturnType<typeof reconci
         // Detail rows remain in facts for DeepSeek diagnosis. Do not promote
         // every sampled journal/invoice to UI entity chips on an aggregate P&L
         // answer; users can ask for document-level follow-up when needed.
+        entities: [],
+    });
+}
+
+export function inventoryEconomicDiagnosisEvidence(
+    result: Awaited<ReturnType<typeof diagnoseInventoryEconomicCompleteness>>,
+) {
+    const { range, gl, movementCoverage, flows, coverage, findings } = result;
+    const findingFacts = findings.map(finding => ({
+        label: `${finding.code} — CONFIRMED / NEEDS_REVIEW`,
+        value: `${finding.count} kejadian; flow ${finding.flow}; basis ${finding.amountBasis}; nominal ${money(finding.nominal)}${finding.glActivityPercentage == null ? '' : ` (${finding.glActivityPercentage.toFixed(2)}% dari total debit+kredit inventory GL periode)`}. ${finding.reason} Batas bukti: ${finding.evidenceLimit} Sampel ${finding.samples.length}: ${finding.samples.map(sample => `${sample.sourceId}${sample.unit ? ` [${sample.unit}]` : ''}`).join(', ') || '-'}.`,
+    }));
+    return createEvidence({
+        summary: `Diagnosis Inventory GL vs economic stock flow ${range.startDate} s.d. ${range.endDate} WIB (read-only): ${findings.length} kelompok kondisi terkonfirmasi; implikasi accounting tetap needs_review.`,
+        source: 'tenant-data',
+        completeness: coverage.mandatoryComplete ? 'complete' : 'partial',
+        confidenceCap: coverage.confidenceCap,
+        facts: [
+            { label: 'Urutan jawaban wajib inventory', value: 'Mulai dari penyebab material terbesar dalam basis yang sebanding → konsistensi mapped inventory GL → movement/journal coverage → valuation → jurnal tanpa source → WIP → return/transfer/adjustment/reversal → off-balance → confirmed vs needs_review → batas opening/cross-period/lineage/truncation.' },
+            { label: 'Makna confidence inventory', value: `Coverage cap ${coverage.confidenceCap.toFixed(2)} adalah batas cakupan evidence, BUKAN probabilitas accounting benar.` },
+            { label: 'Inventory GL mapped', value: `${gl.accountCount} akun dari ${gl.mappedProductCount} mapping produk; produk tanpa mapping ${gl.unmappedProductCount}; opening ${money(gl.openingBalance)}; debit periode ${money(gl.periodDebit)}; kredit periode ${money(gl.periodCredit)}; closing ${money(gl.closingBalance)}; roll-forward GL gap ${money(gl.rollforwardGap)}. Closing-reference tetap masuk balance-sheet GL (${gl.closingReferenceCount} jurnal), bukan dikecualikan seperti P&L.` },
+            { label: 'Movement dan journal coverage', value: `${movementCoverage.count} movement; covered ${movementCoverage.coveredCount}; tanpa jurnal ${movementCoverage.withoutJournalCount}; zero/unavailable valuation ${movementCoverage.unvaluedCount}; journal invalid ${movementCoverage.invalidJournalCount}; value mismatch ${movementCoverage.valueMismatchCount}; semantic role/source unattributed ${movementCoverage.semanticRoleUnknownCount}; reversal valid ${movementCoverage.validReversalCount}, invalid ${movementCoverage.invalidReversalCount}, cross-period ${movementCoverage.crossPeriodReversalCount}.` },
+            { label: 'Flow ekonomi inventory', value: `Receipt ${flows.receipts}; shipment ${flows.shipments}; issue produksi ${flows.productionIssues}; output produksi ${flows.productionOutputs}; GOOD return ${flows.goodReturns}; DAMAGED return tanpa restock ${flows.damagedReturns}; purchase return ${flows.purchaseReturns}; adjustment gain/loss ${flows.adjustmentGains}/${flows.adjustmentLosses}; transfer internal ${flows.internalTransfers}; off-balance ${flows.offBalanceExcluded}; issue tanpa output periode sama ${flows.materialCostRemainsInWip}. Issue material bukan otomatis COGS dan adjustment bukan otomatis consumption.` },
+            { label: 'Quantity per variant/unit', value: `${movementCoverage.quantities.length ? movementCoverage.quantities.map(row => `${row.productVariantId} [${row.unit}]: in ${row.inbound}, out ${row.outbound}, transfer ${row.transfer}`).join('; ') : 'Tidak ada quantity movement pada periode.'} Quantity tidak dijumlahkan lintas variant/unit dan tidak disamakan dengan nilai.` },
+            { label: 'Cakupan wajib inventory', value: `${coverage.mandatoryComplete ? 'Semua dimensi covered.' : 'Economic coverage masih partial.'} ${coverage.dimensions.map(item => `${item.code}=${item.status} (${item.reason})`).join('; ')}` },
+            { label: 'Completeness reasons', value: coverage.completenessReasons.join('; ') || 'Tidak ada gap coverage wajib.' },
+            ...findingFacts,
+            ...result.limitations.map((value, index) => ({ label: `Batas inventory ${index + 1}`, value })),
+        ],
         entities: [],
     });
 }

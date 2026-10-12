@@ -4,11 +4,12 @@ import { tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { diagnoseInvoice, findInvoices } from '@/services/finance/invoice-diagnosis-service';
 import { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
 import { diagnoseCogsEconomicCompleteness } from '@/services/finance/cogs-economic-diagnosis-service';
+import { diagnoseInventoryEconomicCompleteness } from '@/services/finance/inventory-economic-diagnosis-service';
 import { financeRangeSchema, invoiceSearchSchema } from '@/services/finance/finance-diagnostic-input';
 import type { AssistantToolDefinition, AssistantUserContext, ToolEvidence } from './assistant-types';
 import { checkToolAuthorization } from './tool-authorization';
 import { documentSearchMeta } from './document-search';
-import { cogsEconomicDiagnosisEvidence, invoiceDiagnosisEvidence, invoiceSelectionEvidence, reconciliationEvidence } from './finance-evidence';
+import { cogsEconomicDiagnosisEvidence, inventoryEconomicDiagnosisEvidence, invoiceDiagnosisEvidence, invoiceSelectionEvidence, reconciliationEvidence } from './finance-evidence';
 import { inspectPurchaseInvoice, inspectSalesReturnCredit } from '@/services/finance/assistant-document-diagnosis';
 import { purchaseInvoiceEvidence, salesReturnCreditEvidence } from './document-diagnosis-evidence';
 import { financeLedgerQuerySchema } from '@/services/business-query/finance-ledger-query';
@@ -75,4 +76,6 @@ export const financeTools: AssistantToolDefinition[] = [
         '/finance/reports/income-statement', financeRangeSchema, async (tx, input) => reconciliationEvidence(await reconcileFinance(tx, input))),
     financeTool('diagnose_cogs_economic_completeness', 'Diagnosis deterministic read-only kelengkapan ekonomi COGS untuk tanggal WIB eksplisit (maksimal 366 hari): shipment/valuasi/jurnal, retur fisik-vs-komersial, dan jembatan agregat issue-WIP-output-shipment-return-adjustment. Gunakan untuk pertanyaan apakah HPP/COGS lengkap. Temuan adalah kondisi confirmed; implikasi accounting needs_review; jangan gabungkan basis nominal/movement/jurnal.',
         '/finance/reports/income-statement', financeRangeSchema, async (tx, input) => cogsEconomicDiagnosisEvidence(await diagnoseCogsEconomicCompleteness(tx, input))),
+    financeTool('diagnose_inventory_economic_completeness', 'Diagnosis deterministic read-only Inventory GL vs economic stock flow untuk tanggal WIB eksplisit (maksimal 366 hari): exact mapped inventory accounts, movement valuation/journal coverage, receipt, shipment, issue/output WIP, return, adjustment, transfer, reversal, dan off-balance. Gunakan untuk pertanyaan selisih nilai inventory/persediaan. Quantity, persisted movement cost, posted GL, dan opening economic value adalah basis berbeda; kondisi confirmed dan implikasi accounting needs_review.',
+        ['/finance/reports/general-ledger', '/warehouse/inventory/history'], financeRangeSchema, async (tx, input) => inventoryEconomicDiagnosisEvidence(await diagnoseInventoryEconomicCompleteness(tx, input))),
 ];

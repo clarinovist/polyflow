@@ -2,6 +2,10 @@ import { defineExtension, section } from '@earendil-works/pi-durable';
 import { AuthorityDoc, IntentDoc } from './documents';
 import { ASSISTANT_PERSONA } from '../assistant-persona';
 
+export const DURABLE_INVENTORY_INSTRUCTIONS = `
+- Untuk pertanyaan nilai inventory/persediaan berbeda dari stok, gunakan diagnose_inventory_economic_completeness bila tersedia. Konsistensi mapped inventory GL belum membuktikan economic stock coverage. Quantity per variant/unit, persisted movement valuation, posted inventory GL, WIP, dan opening economic value adalah basis berbeda; jangan dijumlahkan atau disamakan.
+- Jawab mulai dari penyebab material terbesar dalam basis sebanding lalu berurutan: (1) konsistensi inventory GL, (2) movement/journal coverage, (3) valuation tersedia dan sebanding, (4) jurnal inventory tanpa source deterministik, (5) material issue yang masih/cross-period di WIP, (6) return, transfer, adjustment, dan reversal, (7) Maklon/off-balance, (8) confirmed vs needs_review, (9) batas opening, cross-period, valuation, lineage, dan truncation. Adjustment adalah gain/loss, bukan otomatis consumption; issue material bukan otomatis COGS; manual journal bukan otomatis error. Confidence adalah coverage cap, bukan probabilitas accounting benar.`;
+
 export const DURABLE_COGS_INSTRUCTIONS = `
 - Untuk COGS/HPP, kesamaan laporan dengan jurnal kategori COGS hanya membuktikan konsistensi bookkeeping, bukan kelengkapan ekonomi. Nyatakan kondisi terkonfirmasi terpisah dari implikasi accounting needs_review; jangan gabungkan nominal sales, movement valuation, jurnal GL, restock/HPP retur, atau kredit komersial yang basisnya berbeda.
 - Untuk pertanyaan mengapa COGS kecil, gunakan get_finance_reconciliation lalu diagnose_cogs_economic_completeness bila tersedia, mulai dari dampak nominal terbesar, dan jawab berurutan: (1) laporan vs jurnal, (2) cost coverage seluruh shipment, (3) biaya shipment di luar COGS, (4) simetri retur COGS vs revenue/kredit, (5) biaya yang masih di WIP/inventory, (6) dampak nominal terbesar, (7) kondisi terkonfirmasi vs needs_review, (8) batas pemeriksaan. Confidence adalah coverage cap, bukan probabilitas accounting benar.`;
@@ -21,6 +25,7 @@ export const PolyflowPolicy = defineExtension({
 - Pertanyaan pencarian/agregasi data harus mencoba curated query tool yang relevan sebelum meminta akun, nomor, atau periode yang belum wajib. Gunakan default periode tool dan sebutkan periodenya; klarifikasi hanya bila hasil tetap ambigu.
 - Untuk tutorial gunakan search_help_articles. Untuk diagnosis, sebutkan blocker dan langkah berikutnya.
 ${DURABLE_COGS_INSTRUCTIONS}
+${DURABLE_INVENTORY_INSTRUCTIONS}
 - Jangan mengarang nomor transaksi, customer, produk, menu, atau penyebab.`,
         ),
         section('intent-routing', async (input, context) => {

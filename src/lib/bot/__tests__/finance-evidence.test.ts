@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '@prisma/client';
-import { cogsEconomicDiagnosisEvidence, invoiceSelectionEvidence, invoiceDiagnosisEvidence, reconciliationEvidence } from '../finance-evidence';
+import { cogsEconomicDiagnosisEvidence, inventoryEconomicDiagnosisEvidence, invoiceSelectionEvidence, invoiceDiagnosisEvidence, reconciliationEvidence } from '../finance-evidence';
 import { evidenceToText } from '../evidence';
 const dec = (n: number) => new Prisma.Decimal(n);
 const invoice = { id: 'i', invoiceNumber: 'INV-1', status: 'PAID' as const, totalAmount: dec(100), paidAmount: dec(100), creditedAmount: dec(0), priceAdjustmentAmount: dec(0), invoiceDate: new Date('2026-08-31T17:00:00Z'), dueDate: null, salesOrder: { customer: { name: 'Customer' } } };
@@ -67,6 +67,30 @@ describe('finance evidence delivered to the model', () => {
         expect(text).toContain('Jangan menyatakan equality atau lineage per unit');
         expect(text).toContain('movement-1');
     });
+    it('renders inventory diagnosis in material-first order without mixing quantity, movement value and GL', () => {
+        const evidence = inventoryEconomicDiagnosisEvidence({
+            range,
+            gl: { accountCount: 2, mappedProductCount: 2, unmappedProductCount: 1, openingBalance: 1000, periodDebit: 600, periodCredit: 400, closingBalance: 1200, rollforwardGap: 0, journalCount: 4, manualJournalCount: 1, orphanJournalCount: 1, closingReferenceCount: 1, scopeBasis: 'persisted_product_inventory_account_mapping' },
+            movementCoverage: { count: 5, coveredCount: 2, unvaluedCount: 1, withoutJournalCount: 1, invalidJournalCount: 0, valueMismatchCount: 1, semanticRoleUnknownCount: 1, validReversalCount: 1, invalidReversalCount: 0, crossPeriodReversalCount: 1, quantities: [{ productVariantId: 'kg', unit: 'KG', inbound: 10, outbound: 2, transfer: 1 }, { productVariantId: 'pcs', unit: 'PCS', inbound: 3, outbound: 1, transfer: 0 }] },
+            flows: { receipts: 1, shipments: 1, productionIssues: 1, productionOutputs: 0, goodReturns: 1, damagedReturns: 1, purchaseReturns: 1, adjustmentGains: 1, adjustmentLosses: 1, internalTransfers: 1, offBalanceExcluded: 1, materialCostRemainsInWip: 1 },
+            coverage: { mandatoryComplete: false, confidenceCap: 0.75, dimensions: [{ code: 'MOVEMENT_VALUATION', status: 'partial', reason: 'cost unavailable' }], completenessReasons: ['MOVEMENT_VALUATION: cost unavailable'] },
+            findings: [{ code: 'INVENTORY_MOVEMENT_WITHOUT_JOURNAL', conditionStatus: 'confirmed', accountingConclusion: 'needs_review', area: 'movement', flow: 'receipt', amountBasis: 'persisted_movement_value', count: 1, amount: 300, nominal: 300, glActivityPercentage: null, sourceId: 'movement-1', materiality: 300, reason: 'Movement has no journal.', evidenceLimit: 'Accounting correction needs review.', samples: [{ sourceId: 'movement-1', flow: 'receipt', unit: 'KG', amount: 300, materiality: 300, reason: 'sample' }] }],
+            limitations: ['Current Inventory is not a historical snapshot.'],
+        });
+        const text = evidenceToText(evidence);
+        expect(evidence).toMatchObject({ completeness: 'partial', confidenceCap: 0.75, entities: [] });
+        expect(evidence.facts[0].label).toBe('Urutan jawaban wajib inventory');
+        expect(text).toContain('CONFIRMED / NEEDS_REVIEW');
+        expect(text).toContain('Coverage cap 0.75');
+        expect(text).toContain('BUKAN probabilitas');
+        expect(text).toContain('Closing-reference tetap masuk');
+        expect(text).toContain('Issue material bukan otomatis COGS');
+        expect(text).toContain('KG');
+        expect(text).toContain('PCS');
+        expect(text).toContain('tidak dijumlahkan lintas variant/unit');
+        expect(text).toContain('movement-1 [KG]');
+    });
+
     it('caps account evidence, preserves report totals and signals any partial dimension', () => {
         const accounts = Array.from({ length: 22 }, (_, n) => ({ id: `a${n}`, code: `A${n}`, name: 'Account', type: 'EXPENSE' as const, category: 'COGS' as const, netBalance: n }));
         const input = { ...recon, report: { ...report, cogs: accounts } };
