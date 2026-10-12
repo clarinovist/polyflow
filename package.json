@@ -33,9 +33,9 @@
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1121.0",
         "@aws-sdk/s3-request-presigner": "^3.1121.0",
-        "@earendil-works/chord": "1.0.0",
-        "@earendil-works/pi-ai": "1.0.0",
-        "@earendil-works/pi-durable": "1.0.0",
+        "@earendil-works/chord": "1.1.0",
+        "@earendil-works/pi-ai": "1.1.0",
+        "@earendil-works/pi-durable": "1.1.0",
         "@hookform/resolvers": "^5.9.1",
         "@prisma/client": "^5.22.0",
         "@radix-ui/react-accordion": "^1.2.12",
