@@ -9,6 +9,7 @@ import { canViewPrices } from '@/actions/admin/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
 import { Card, CardContent } from '@/components/ui/card';
 import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable';
+import { stockAlertTotalsByVariant } from '@/components/warehouse/inventory/inventory-display';
 import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
 
@@ -165,18 +166,12 @@ export default async function WarehouseInventoryPage({
         console.error('Failed to calculate ABC:', e);
     }
 
-    const tableVariantQuantities = new Map<string, number[]>();
-    for (const item of processedInventory) {
-        const quantities =
-            tableVariantQuantities.get(item.productVariantId) ?? [];
-        quantities.push(toDecimalNumber(item.quantity));
-        tableVariantQuantities.set(item.productVariantId, quantities);
-    }
-    const tableVariantTotals = Object.fromEntries(
-        Array.from(tableVariantQuantities, ([id, quantities]) => [
-            id,
-            sumQuantities(quantities),
-        ]),
+    const tableVariantTotals = stockAlertTotalsByVariant(
+        tableInventory.map((item) => ({
+            productVariantId: item.productVariantId,
+            quantity: item.quantity,
+            location: item.location,
+        })),
     );
 
     const isTableGlobalLowStock = (item: TableInventoryItem) => {
@@ -200,18 +195,12 @@ export default async function WarehouseInventoryPage({
         displayInventory = displayInventory.filter(isTableGlobalLowStock);
     }
 
-    const liveVariantQuantities = new Map<string, number[]>();
-    for (const item of liveInventory) {
-        const quantities =
-            liveVariantQuantities.get(item.productVariantId) ?? [];
-        quantities.push(toDecimalNumber(item.quantity));
-        liveVariantQuantities.set(item.productVariantId, quantities);
-    }
-    const liveVariantTotals = Object.fromEntries(
-        Array.from(liveVariantQuantities, ([id, quantities]) => [
-            id,
-            sumQuantities(quantities),
-        ]),
+    const liveVariantTotals = stockAlertTotalsByVariant(
+        liveInventory.map((item) => ({
+            productVariantId: item.productVariantId,
+            quantity: item.quantity,
+            location: item.location,
+        })),
     );
 
     const isLiveGlobalLowStock = (item: InventoryWithRelations) => {

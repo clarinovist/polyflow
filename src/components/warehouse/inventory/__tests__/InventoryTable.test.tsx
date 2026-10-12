@@ -63,4 +63,32 @@ describe('InventoryTable', () => {
         expect(screen.getAllByText('8 PCS').length).toBeGreaterThan(0);
         expect(screen.queryByText('nilai internal')).toBeNull();
     });
+
+    it('exports an out-of-scope-only variant as zero canonical alert stock', () => {
+        const item = {
+            ...stockItem,
+            quantity: 25,
+            productVariant: {
+                ...stockItem.productVariant,
+                minStockAlert: 100,
+            },
+            location: {
+                ...stockItem.location,
+                locationPurpose: 'WIP',
+            },
+        };
+        render(
+            <InventoryTable
+                {...props}
+                inventory={[item]}
+                variantTotals={{ 'product-a': 0 }}
+            />,
+        );
+
+        expect(document.body.textContent).toContain('0/100 KG');
+        fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+        expect(vi.mocked(downloadCsv).mock.calls[0][2][0].at(-1)).toBe(
+            'Stok Menipis — total gudang RM + FG 0/100 KG',
+        );
+    });
 });

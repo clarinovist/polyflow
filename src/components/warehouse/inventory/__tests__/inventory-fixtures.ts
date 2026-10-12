@@ -9,7 +9,12 @@ export const stockItem: InventoryItem = {
         minStockAlert: 5, price: 4000,
         product: { id: 'parent-a', name: 'Produk sintetis', productType: 'RAW_MATERIAL' },
     },
-    location: { id: 'loc-a', name: 'Lokasi A', locationType: 'INTERNAL' },
+    location: {
+        id: 'loc-a',
+        name: 'Lokasi A',
+        locationType: 'INTERNAL',
+        locationPurpose: 'RAW_MATERIAL',
+    },
 };
 export const stockLocations = [
     { id: 'loc-a', name: 'Lokasi A', totalSkus: 1, lowStockCount: 0 },

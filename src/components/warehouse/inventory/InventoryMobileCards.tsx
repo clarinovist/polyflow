@@ -220,14 +220,30 @@ export function InventoryMobileCards({
                                             Historis
                                         </Badge>
                                     ) : isLowStock ? (
-                                        <Badge
-                                            variant="destructive"
-                                            className="text-[10px] h-5 px-1.5 whitespace-nowrap"
-                                        >
-                                            {warehouseComponentLabels.lowStock}{' '}
-                                            ({formatQuantity(totalStockValue)}/
-                                            {formatQuantity(thresholdValue)})
-                                        </Badge>
+                                        <div className="text-right">
+                                            <Badge
+                                                variant="destructive"
+                                                className="text-[10px] h-5 px-1.5 whitespace-nowrap"
+                                            >
+                                                {
+                                                    warehouseComponentLabels.lowStock
+                                                }{' '}
+                                                (
+                                                {formatQuantity(
+                                                    totalStockValue,
+                                                )}
+                                                /
+                                                {formatQuantity(thresholdValue)}{' '}
+                                                {
+                                                    item.productVariant
+                                                        .primaryUnit
+                                                }
+                                                )
+                                            </Badge>
+                                            <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+                                                Total gudang RM + FG
+                                            </p>
+                                        </div>
                                     ) : null}
                                 </div>
                             </CardHeader>

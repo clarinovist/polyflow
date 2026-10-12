@@ -60,4 +60,64 @@ describe('stock page historical boundary', () => {
         expect(tableProps().customerOwnedValue).toBeUndefined();
         expect(tableProps().inventory[0].quantity).toBe(100);
     });
+
+    it('uses canonical RM and FG stock for low-stock status even when a location is filtered', async () => {
+        const baseVariant = {
+            ...stockItem.productVariant,
+            minStockAlert: 100,
+        };
+        const inventory = [
+            {
+                ...stockItem,
+                id: 'rm',
+                locationId: 'rm',
+                quantity: 50.8,
+                productVariant: baseVariant,
+                location: {
+                    ...stockItem.location,
+                    id: 'rm',
+                    locationPurpose: 'RAW_MATERIAL',
+                },
+            },
+            {
+                ...stockItem,
+                id: 'fg',
+                locationId: 'fg',
+                quantity: 0,
+                productVariant: baseVariant,
+                location: {
+                    ...stockItem.location,
+                    id: 'fg',
+                    locationPurpose: 'FINISHED_GOOD',
+                },
+            },
+            {
+                ...stockItem,
+                id: 'wip',
+                locationId: 'wip',
+                quantity: 13.0508,
+                productVariant: baseVariant,
+                location: {
+                    ...stockItem.location,
+                    id: 'wip',
+                    locationPurpose: 'WIP',
+                },
+            },
+        ];
+        mocks.stats.mockResolvedValue({ success: true, data: inventory });
+        mocks.locations.mockResolvedValue({
+            success: true,
+            data: inventory.map((item) => item.location),
+        });
+
+        render(
+            await Page({
+                searchParams: Promise.resolve({ locationId: 'fg' }),
+            }),
+        );
+
+        expect(tableProps().inventory).toHaveLength(1);
+        expect(tableProps().inventory[0].quantity).toBe(0);
+        expect(tableProps().variantTotals).toEqual({ 'product-a': 50.8 });
+    });
 });

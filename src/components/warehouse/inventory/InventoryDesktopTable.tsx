@@ -447,14 +447,24 @@ export function InventoryDesktopTable({
                                                         warehouseComponentLabels.lowStock
                                                     }
                                                 </Badge>
-                                                <div className="text-xs text-destructive font-medium whitespace-nowrap">
+                                                <div
+                                                    className="text-xs text-destructive font-medium whitespace-nowrap"
+                                                    aria-label={`Total stok gudang RM dan FG ${formatQuantity(totalStockValue)} dari ambang ${formatQuantity(thresholdValue)} ${item.productVariant.primaryUnit}`}
+                                                >
                                                     {formatQuantity(
                                                         totalStockValue,
                                                     )}
                                                     /
                                                     {formatQuantity(
                                                         thresholdValue,
-                                                    )}
+                                                    )}{' '}
+                                                    {
+                                                        item.productVariant
+                                                            .primaryUnit
+                                                    }
+                                                </div>
+                                                <div className="text-[10px] leading-tight text-muted-foreground whitespace-nowrap">
+                                                    Total gudang RM + FG
                                                 </div>
                                             </div>
                                         ) : (

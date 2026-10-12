@@ -300,7 +300,7 @@ export function InventoryTable({
                 historical
                     ? 'Historis; ambang master terkini'
                     : isLowStock
-                      ? `Stok Menipis (${formatQuantity(totalStock)}/${formatQuantity(threshold)})`
+                      ? `Stok Menipis — total gudang RM + FG ${formatQuantity(totalStock)}/${formatQuantity(threshold)} ${item.productVariant.primaryUnit}`
                       : 'Di atas ambang minimum',
             ];
         });

@@ -60,10 +60,103 @@ describe('inventory display contract', () => {
         const lowStock = Array.from(
             document.querySelectorAll('[data-slot=badge], td div'),
         ).find((element) =>
-            element.textContent?.includes('66,8508/100'),
+            element.textContent?.includes('66,8508/100 KG'),
         );
-        expect(lowStock?.textContent).toContain('66,8508/100');
+        expect(lowStock?.textContent).toContain('66,8508/100 KG');
+        expect(screen.getByText('Total gudang RM + FG')).toBeTruthy();
         expect(document.body.textContent).not.toContain('66.85079999999999');
+    });
+
+    it('sums only canonical RM and FG warehouse stock for the alert ratio', async () => {
+        const { stockAlertTotalsByVariant } = await import(
+            '../inventory-display'
+        );
+        const stockRows = [
+            {
+                ...stockItem,
+                id: 'rm',
+                quantity: 50.8,
+                location: {
+                    ...stockItem.location,
+                    locationPurpose: 'RAW_MATERIAL',
+                },
+            },
+            {
+                ...stockItem,
+                id: 'fg',
+                quantity: 0,
+                location: {
+                    ...stockItem.location,
+                    id: 'fg',
+                    locationPurpose: 'FINISHED_GOOD',
+                },
+            },
+            {
+                ...stockItem,
+                id: 'wip',
+                quantity: 13.0508,
+                location: {
+                    ...stockItem.location,
+                    id: 'wip',
+                    locationPurpose: 'WIP',
+                },
+            },
+            {
+                ...stockItem,
+                id: 'mixing',
+                quantity: 4,
+                location: {
+                    ...stockItem.location,
+                    id: 'mixing',
+                    locationPurpose: 'MIXING',
+                },
+            },
+            {
+                ...stockItem,
+                id: 'customer',
+                quantity: 99,
+                location: {
+                    ...stockItem.location,
+                    id: 'customer',
+                    locationType: 'CUSTOMER_OWNED' as const,
+                    locationPurpose: 'RAW_MATERIAL',
+                },
+            },
+        ];
+
+        expect(stockAlertTotalsByVariant(stockRows)).toEqual({
+            'product-a': 50.8,
+        });
+    });
+
+    it('returns zero when a variant has stock only outside the canonical alert scope', async () => {
+        const { stockAlertTotalsByVariant } = await import(
+            '../inventory-display'
+        );
+        const excludedRows = [
+            {
+                ...stockItem,
+                location: {
+                    ...stockItem.location,
+                    locationPurpose: 'WIP',
+                },
+            },
+            {
+                ...stockItem,
+                id: 'customer',
+                quantity: 25,
+                location: {
+                    ...stockItem.location,
+                    id: 'customer',
+                    locationType: 'CUSTOMER_OWNED' as const,
+                    locationPurpose: 'RAW_MATERIAL',
+                },
+            },
+        ];
+
+        expect(stockAlertTotalsByVariant(excludedRows)).toEqual({
+            'product-a': 0,
+        });
     });
 
     it('preserves all non-location query parameters in location links', () => {

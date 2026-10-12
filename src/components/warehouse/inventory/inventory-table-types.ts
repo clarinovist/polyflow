@@ -31,6 +31,7 @@ export interface InventoryItem {
         id: string;
         name: string;
         locationType?: 'INTERNAL' | 'CUSTOMER_OWNED';
+        locationPurpose?: string | null;
     };
     reservedQuantity?: number;
     waitingQuantity?: number;
