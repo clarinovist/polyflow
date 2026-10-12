@@ -58,6 +58,9 @@ def release_sha():
 age = newest_age(DB_DIR, "*.sql.gz")
 db_count = recent_database_count()
 sources = assistant_sources()
+mismatch_marker = ASSISTANT_DIR / ".assistant-registry-mismatch"
+assistant_mismatch = mismatch_marker.exists()
+assistant_state = "registry_storage_mismatch" if assistant_mismatch else ("healthy_with_sources" if sources > 0 else "idle_not_initialized")
 assistant_age = newest_age(ASSISTANT_DIR, "assistant.sqlite")
 failure = DB_DIR / ".last-failure"
 success = DB_DIR / ".last-success"
@@ -65,13 +68,13 @@ last_job = "failed" if failure.exists() and (not success.exists() or failure.sta
 disk = disk_percent()
 disk_level = "critical" if disk >= 90 else "warning" if disk >= 80 else "normal"
 services = {"web": container_health("polyflow-app"), "worker": container_health("polyflow-assistant-worker"), "database": container_health("polyflow-db")}
-backup_status = "critical" if last_job != "success" or age is None or age > MAX_AGE or db_count < 3 or (sources > 0 and (assistant_age is None or assistant_age > MAX_AGE)) else "healthy"
+backup_status = "critical" if last_job != "success" or age is None or age > MAX_AGE or db_count < 3 or assistant_mismatch or (sources > 0 and (assistant_age is None or assistant_age > MAX_AGE)) else "healthy"
 service_status = "healthy" if all(value == "healthy" for value in services.values()) else "critical"
 status = "critical" if backup_status == "critical" or disk_level == "critical" or service_status == "critical" else "warning" if disk_level == "warning" else "healthy"
 payload = {"generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "status": status,
     "releaseSha": release_sha(), "services": services,
     "backup": {"status": backup_status, "databaseCount": db_count, "latestAgeSeconds": age,
-        "assistantSources": sources, "lastJob": last_job},
+        "assistantSources": sources, "assistantState": assistant_state, "lastJob": last_job},
     "disk": {"usedPercent": disk, "level": disk_level},
     "recovery": {"rpoHours": 24, "rtoHours": 2,
         "lastRestoreDrill": {"status": "passed", "durationSeconds": 111, "databaseCount": 3}}}

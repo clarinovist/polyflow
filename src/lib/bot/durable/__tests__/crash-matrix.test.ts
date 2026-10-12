@@ -4,17 +4,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-// 11-point crash matrix (plan §5): every point kills the process at a
-// different stage and asserts resume dedupes to ONE submission with ONE
-// logical tool execution and a terminal answer. Deterministic
-// subprocess/temp-SQLite pattern: seed exits 73, resume re-submits the same
-// requestId and settles.
-//
-// Points that need a live run in flight (stream/tool/during) are modelled
-// here as hard-exit-before-settle: the durable log retains whatever was
-// committed, and resume must never create a second submission for the same
-// requestId. True mid-byte SIGKILL timing is covered by the CI crash suite
-// on disposable infrastructure; these scoped tests pin the dedupe contract.
+// Reopen/dedupe simulation for the planned crash labels. These cases all
+// submit then exit before settle; they pin requestId reuse but do not claim
+// phase-accurate crash timing. `real-crash.test.ts` separately sends SIGKILL
+// after observed sqlite_admitted, tool_started, and sqlite_final barriers.
 const roots: string[] = [];
 afterEach(() => {
     for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });

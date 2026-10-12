@@ -4,6 +4,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const REQUEST_ID = '22222222-2222-4222-8222-222222222222';
 
 const submissionStore = new Map<string, TestRow>();
+const bindingStore = new Map<string, TestBinding>();
+const operationOrder: string[] = [];
+
+type TestBinding = {
+    id: string;
+    publicConversationId: string;
+    tenantId: string;
+    userId: string;
+    channel: string;
+    accessScopeHash: string;
+    workContextKey: string;
+    storageKey: string;
+    durableConversationId: string;
+    storageVersion: number;
+    pathname: string;
+    profile: string;
+    createdAt: Date;
+    updatedAt: Date;
+};
 
 type TestRow = {
     id: string;
@@ -17,7 +36,9 @@ type TestRow = {
     durableConversationId: string | null;
     status: string;
     attempts: number;
+    lastError: string | null;
     createdAt: Date;
+    updatedAt: Date;
 };
 
 function rowKey(input: {
@@ -33,31 +54,56 @@ function hashQuestion(question: string) {
     return createHash('sha256').update(question).digest('hex');
 }
 
-const main = {
-    tenant: { findFirst: vi.fn() },
-    tenantModule: { findMany: vi.fn() },
-    assistantDurableBinding: {
-        findFirst: vi.fn(),
-        findUnique: vi.fn(),
-        upsert: vi.fn(),
-    },
-    assistantDurableSubmission: {
-        findUnique: vi.fn(
-            async (args: {
-                where: {
-                    tenantId_userId_channel_requestId: {
-                        tenantId: string;
-                        userId: string;
-                        channel: string;
-                        requestId: string;
-                    };
+const assistantDurableBinding = {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(
+        async (args: { where: { publicConversationId: string } }) =>
+            bindingStore.get(args.where.publicConversationId) ?? null,
+    ),
+    create: vi.fn(async (args: { data: Omit<TestBinding, 'id' | 'createdAt' | 'updatedAt'> }) => {
+        operationOrder.push('binding.create');
+        if (bindingStore.has(args.data.publicConversationId)) {
+            const error = new Error('Unique constraint failed');
+            (error as { code?: string }).code = 'P2002';
+            throw error;
+        }
+        const row: TestBinding = {
+            ...args.data,
+            id: `binding-${bindingStore.size + 1}`,
+            createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
+        };
+        bindingStore.set(row.publicConversationId, row);
+        return row;
+    }),
+};
+
+const assistantDurableSubmission = {
+    findUnique: vi.fn(
+        async (args: {
+            where: {
+                tenantId_userId_channel_requestId: {
+                    tenantId: string;
+                    userId: string;
+                    channel: string;
+                    requestId: string;
                 };
-            }) =>
-                submissionStore.get(
-                    rowKey(args.where.tenantId_userId_channel_requestId),
-                ) ?? null,
-        ),
-        create: vi.fn(async (args: { data: Omit<TestRow, 'id' | 'createdAt'> }) => {
+            };
+        }) =>
+            submissionStore.get(
+                rowKey(args.where.tenantId_userId_channel_requestId),
+            ) ?? null,
+    ),
+    create: vi.fn(
+        async (args: {
+            data: Omit<TestRow, 'id' | 'createdAt' | 'updatedAt' | 'durableSubmissionId' | 'durableConversationId' | 'lastError'>;
+        }) => {
+            operationOrder.push('reservation.create');
+            if (!bindingStore.has(args.data.publicConversationId)) {
+                const error = new Error('Foreign key constraint failed');
+                (error as { code?: string }).code = 'P2003';
+                throw error;
+            }
             const key = rowKey(args.data);
             if (submissionStore.has(key)) {
                 const error = new Error('Unique constraint failed');
@@ -67,46 +113,61 @@ const main = {
             const row: TestRow = {
                 ...args.data,
                 id: `row-${submissionStore.size + 1}`,
-                attempts: args.data.attempts ?? 1,
+                durableSubmissionId: null,
+                durableConversationId: null,
+                lastError: null,
                 createdAt: new Date('2026-10-03T00:00:00Z'),
+                updatedAt: new Date('2026-10-03T00:00:00Z'),
             };
             submissionStore.set(key, row);
             return row;
-        }),
-        update: vi.fn(
-            async (args: { where: { id: string }; data: { attempts?: { increment: number } } }) => {
-                const row = [...submissionStore.values()].find(
-                    (item) => item.id === args.where.id,
-                );
-                if (!row) throw new Error('NOT_FOUND');
-                if (args.data.attempts)
-                    row.attempts += args.data.attempts.increment;
-                return row;
-            },
-        ),
-        updateMany: vi.fn(
-            async (args: {
-                where: {
-                    tenantId: string;
-                    userId: string;
-                    channel: string;
-                    requestId: string;
-                    publicConversationId: string;
-                };
-                data: Partial<TestRow>;
-            }) => {
-                const row = submissionStore.get(rowKey(args.where));
-                if (
-                    !row ||
-                    row.publicConversationId !==
-                        args.where.publicConversationId
-                )
-                    return { count: 0 };
-                Object.assign(row, args.data);
-                return { count: 1 };
-            },
-        ),
-    },
+        },
+    ),
+    update: vi.fn(
+        async (args: {
+            where: { id: string };
+            data: { attempts?: { increment: number } };
+        }) => {
+            const row = [...submissionStore.values()].find(
+                (item) => item.id === args.where.id,
+            );
+            if (!row) throw new Error('NOT_FOUND');
+            if (args.data.attempts) row.attempts += args.data.attempts.increment;
+            return row;
+        },
+    ),
+    updateMany: vi.fn(
+        async (args: {
+            where: {
+                tenantId: string;
+                userId: string;
+                channel: string;
+                requestId: string;
+                publicConversationId: string;
+            };
+            data: Partial<TestRow>;
+        }) => {
+            const row = submissionStore.get(rowKey(args.where));
+            if (
+                !row ||
+                row.publicConversationId !== args.where.publicConversationId
+            )
+                return { count: 0 };
+            Object.assign(row, args.data);
+            return { count: 1 };
+        },
+    ),
+};
+
+const main = {
+    tenant: { findFirst: vi.fn() },
+    tenantModule: { findMany: vi.fn() },
+    assistantDurableBinding,
+    assistantDurableSubmission,
+    $transaction: vi.fn(
+        async (operation: (transaction: object) => Promise<unknown>) =>
+            operation({ assistantDurableBinding, assistantDurableSubmission }),
+    ),
 };
 
 const tenantDb = {
@@ -201,12 +262,18 @@ vi.mock('../fast-path', () => ({
     evaluateDurableFastPath: vi.fn(async () => undefined),
     submitDurableFastPath: vi.fn(),
 }));
+vi.mock('../projection', () => ({
+    projectDurableSubmission: vi.fn(async () => ({
+        answer: 'reconciled final',
+        citations: [],
+        safety: { allowed: true },
+        interactionId: 'interaction-1',
+    })),
+}));
 vi.mock('../authority', async (importOriginal) => {
-    const original =
-        await importOriginal<typeof import('../authority')>();
+    const original = await importOriginal<typeof import('../authority')>();
     return {
         ...original,
-        saveDurableBinding: vi.fn(async () => undefined),
         verifyDurableAuthority: vi.fn(
             async (input: {
                 tenantId: string;
@@ -263,33 +330,39 @@ function envelope(overrides?: {
 
 beforeEach(() => {
     submissionStore.clear();
+    bindingStore.clear();
+    operationOrder.length = 0;
     existingByRequest.clear();
     submissionById.clear();
     nextSubmissionId = 100;
     vi.clearAllMocks();
-    main.assistantDurableBinding.findUnique.mockResolvedValue({
-        publicConversationId: 'public-conversation',
-        durableConversationId: '7',
-    });
 });
 
 describe('durable submission reservation (crash-safe admission)', () => {
-    it('reserves pending before admission and fills durable IDs after', async () => {
+    it('creates the binding parent before reserving the child', async () => {
         const snapshot = await runtime.submit(envelope());
         expect(snapshot.status).toBe('queued');
+        expect(operationOrder).toEqual([
+            'binding.create',
+            'reservation.create',
+        ]);
+        expect(main.$transaction).toHaveBeenCalledTimes(1);
         const stored = submissionStore.get(
             'tenant-one:user-one:web:' + REQUEST_ID,
         );
-        expect(stored?.status).toBe('queued');
-        expect(stored?.durableSubmissionId).toBe('100');
-        expect(stored?.durableConversationId).toBe('7');
-        expect(conversation.submit).toHaveBeenCalledTimes(1);
+        expect(stored).toMatchObject({
+            status: 'queued',
+            durableSubmissionId: '100',
+            durableConversationId: '7',
+        });
+        expect(bindingStore.get('public-conversation')).toMatchObject({
+            durableConversationId: '7',
+            tenantId: 'tenant-one',
+        });
     });
 
-    it('retry on the same requestId reuses the single submission, never admits twice', async () => {
+    it('retry on the same requestId reuses the single submission', async () => {
         await runtime.submit(envelope());
-        // Simulate a crash after admission but before observing: the SQLite
-        // submission survives, the PG row is filled. Retry must dedupe.
         existingByRequest.set(REQUEST_ID, { id: 100 });
         const retry = await runtime.submit(envelope());
         expect(retry.status).toBe('queued');
@@ -301,9 +374,50 @@ describe('durable submission reservation (crash-safe admission)', () => {
         expect(stored?.attempts).toBe(2);
     });
 
-    it('reconciles a pending reservation with an already-admitted SQLite submission', async () => {
-        // Crash window: PG row reserved (pending, no durable IDs) but the
-        // process died before/while admitting; SQLite actually admitted id 55.
+    it('fails closed when a pending reservation has no parent binding', async () => {
+        const pending: TestRow = {
+            id: 'row-inconsistent',
+            requestId: REQUEST_ID,
+            questionHash: hashQuestion('berapa stok tersedia?'),
+            publicConversationId: 'public-conversation',
+            tenantId: 'tenant-one',
+            userId: 'user-one',
+            channel: 'web',
+            durableSubmissionId: null,
+            durableConversationId: null,
+            status: 'pending',
+            attempts: 1,
+            lastError: null,
+            createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
+        };
+        submissionStore.set('tenant-one:user-one:web:' + REQUEST_ID, pending);
+
+        await expect(runtime.submit(envelope())).rejects.toMatchObject({
+            code: 'INTERNAL',
+            status: 500,
+        });
+        expect(manager.acquire).not.toHaveBeenCalled();
+        expect(conversation.submit).not.toHaveBeenCalled();
+    });
+
+    it('reconciles a pending reservation with an admitted SQLite submission', async () => {
+        bindingStore.set('public-conversation', {
+            id: 'binding-pending',
+            publicConversationId: 'public-conversation',
+            tenantId: 'tenant-one',
+            userId: 'user-one',
+            channel: 'web',
+            accessScopeHash: 'a'.repeat(64),
+            workContextKey: 'general:/',
+            storageKey: hashQuestion('tenant-one'),
+            durableConversationId: '7',
+            storageVersion: 1,
+            pathname: '/',
+            profile: 'general',
+            createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
+        });
         const pending: TestRow = {
             id: 'row-pending',
             requestId: REQUEST_ID,
@@ -316,7 +430,9 @@ describe('durable submission reservation (crash-safe admission)', () => {
             durableConversationId: null,
             status: 'pending',
             attempts: 1,
+            lastError: null,
             createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
         };
         submissionStore.set('tenant-one:user-one:web:' + REQUEST_ID, pending);
         existingByRequest.set(REQUEST_ID, { id: 55 });
@@ -324,10 +440,111 @@ describe('durable submission reservation (crash-safe admission)', () => {
 
         const retry = await runtime.submit(envelope());
         expect(retry.status).toBe('queued');
-        // No second admission: the reconciled SQLite submission is reused.
         expect(conversation.submit).not.toHaveBeenCalled();
         expect(pending.durableSubmissionId).toBe('55');
         expect(pending.status).toBe('queued');
+    });
+
+    it('persists the terminal status when reconciliation finds a done submission', async () => {
+        bindingStore.set('public-conversation', {
+            id: 'binding-terminal',
+            publicConversationId: 'public-conversation',
+            tenantId: 'tenant-one',
+            userId: 'user-one',
+            channel: 'web',
+            accessScopeHash: 'a'.repeat(64),
+            workContextKey: 'general:/',
+            storageKey: hashQuestion('tenant-one'),
+            durableConversationId: '7',
+            storageVersion: 1,
+            pathname: '/',
+            profile: 'general',
+            createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
+        });
+        const pending: TestRow = {
+            id: 'row-terminal',
+            requestId: REQUEST_ID,
+            questionHash: hashQuestion('berapa stok tersedia?'),
+            publicConversationId: 'public-conversation',
+            tenantId: 'tenant-one',
+            userId: 'user-one',
+            channel: 'web',
+            durableSubmissionId: null,
+            durableConversationId: null,
+            status: 'pending',
+            attempts: 1,
+            lastError: null,
+            createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
+        };
+        submissionStore.set('tenant-one:user-one:web:' + REQUEST_ID, pending);
+        existingByRequest.set(REQUEST_ID, { id: 55 });
+        submissionById.set(55, { knownRequestId: REQUEST_ID });
+        harness.submission.mockImplementationOnce(async () => ({
+            status: vi.fn(async () => ({
+                status: 'done',
+                type: 'input',
+                entry: 1,
+                answer: 2,
+            })),
+        }));
+
+        const retry = await runtime.submit(envelope());
+        expect(retry.status).toBe('done');
+        expect(conversation.submit).not.toHaveBeenCalled();
+        expect(pending.durableSubmissionId).toBe('55');
+        expect(pending.status).toBe('done');
+    });
+
+    it('persists the terminal status when reconciliation finds an aborted submission', async () => {
+        bindingStore.set('public-conversation', {
+            id: 'binding-aborted',
+            publicConversationId: 'public-conversation',
+            tenantId: 'tenant-one',
+            userId: 'user-one',
+            channel: 'web',
+            accessScopeHash: 'a'.repeat(64),
+            workContextKey: 'general:/',
+            storageKey: hashQuestion('tenant-one'),
+            durableConversationId: '7',
+            storageVersion: 1,
+            pathname: '/',
+            profile: 'general',
+            createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
+        });
+        const pending: TestRow = {
+            id: 'row-aborted',
+            requestId: REQUEST_ID,
+            questionHash: hashQuestion('berapa stok tersedia?'),
+            publicConversationId: 'public-conversation',
+            tenantId: 'tenant-one',
+            userId: 'user-one',
+            channel: 'web',
+            durableSubmissionId: null,
+            durableConversationId: null,
+            status: 'pending',
+            attempts: 1,
+            lastError: null,
+            createdAt: new Date('2026-10-03T00:00:00Z'),
+            updatedAt: new Date('2026-10-03T00:00:00Z'),
+        };
+        submissionStore.set('tenant-one:user-one:web:' + REQUEST_ID, pending);
+        existingByRequest.set(REQUEST_ID, { id: 56 });
+        submissionById.set(56, { knownRequestId: REQUEST_ID });
+        harness.submission.mockImplementationOnce(async () => ({
+            status: vi.fn(async () => ({
+                status: 'unanswered',
+                reason: 'aborted',
+            })),
+        }));
+
+        const retry = await runtime.submit(envelope());
+        expect(retry.status).toBe('aborted');
+        expect(conversation.submit).not.toHaveBeenCalled();
+        expect(pending.durableSubmissionId).toBe('56');
+        expect(pending.status).toBe('aborted');
     });
 
     it('rejects a reused requestId with a different question hash', async () => {
@@ -350,5 +567,16 @@ describe('durable submission reservation (crash-safe admission)', () => {
             ),
         ).rejects.toMatchObject({ code: 'CONTEXT_MISMATCH' });
         expect(conversation.submit).toHaveBeenCalledTimes(1);
+    });
+
+    it('serializes concurrent first requests without overwriting the binding', async () => {
+        const otherRequest = '33333333-3333-4333-8333-333333333333';
+        await Promise.all([
+            runtime.submit(envelope()),
+            runtime.submit(envelope({ requestId: otherRequest })),
+        ]);
+        expect(bindingStore).toHaveLength(1);
+        expect(submissionStore).toHaveLength(2);
+        expect(assistantDurableBinding.create).toHaveBeenCalledTimes(1);
     });
 });

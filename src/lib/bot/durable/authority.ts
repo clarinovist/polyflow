@@ -211,34 +211,3 @@ export async function assertBoundAuthority(
 ): Promise<VerifiedDurableAuthority> {
     return withBoundAuthority(expected, async (verified) => verified);
 }
-
-export async function saveDurableBinding(
-    authority: AssistantAuthority,
-    durableConversationId: number,
-): Promise<void> {
-    await getMainPrisma().assistantDurableBinding.upsert({
-        where: { publicConversationId: authority.publicConversationId },
-        create: {
-            publicConversationId: authority.publicConversationId,
-            tenantId: authority.tenantId,
-            userId: authority.userId,
-            channel: authority.channel,
-            accessScopeHash: authority.accessScopeHash,
-            workContextKey: authority.workContextKey,
-            storageKey: tenantStorageKey(authority.tenantId),
-            durableConversationId: String(durableConversationId),
-            storageVersion: ASSISTANT_PROTOCOL_VERSION,
-            pathname: authority.pathname,
-            profile: authority.profile,
-        },
-        update: {
-            accessScopeHash: authority.accessScopeHash,
-            workContextKey: authority.workContextKey,
-            storageKey: tenantStorageKey(authority.tenantId),
-            durableConversationId: String(durableConversationId),
-            storageVersion: ASSISTANT_PROTOCOL_VERSION,
-            pathname: authority.pathname,
-            profile: authority.profile,
-        },
-    });
-}

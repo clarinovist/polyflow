@@ -10,11 +10,19 @@ import { getToolLabel } from '../tool-labels';
 import type { AssistantStreamEvent } from '../assistant-types';
 import {
     AssistantWorkerProtocolError,
+    type AssistantAuthority,
     type AssistantSubmissionEnvelope,
     type DurableSubmissionSnapshot,
 } from './protocol';
-import { verifyDurableAuthority, saveDurableBinding } from './authority';
+import { verifyDurableAuthority } from './authority';
 import { TenantHarnessManager } from './harness-manager';
+import {
+    assertDurableBinding,
+    conversationAdmissionLockKey,
+    DurableAdmissionLocks,
+    requestAdmissionLockKey,
+    reserveDurableAdmission,
+} from './admission';
 import { projectDurableSubmission } from './projection';
 import { IntentDoc } from './documents';
 import {
@@ -26,83 +34,167 @@ import { getAvailableAssistantTools } from '../assistant-tool-access';
 import { evaluateDurableFastPath, submitDurableFastPath } from './fast-path';
 
 export class DurableAssistantRuntime {
+    private readonly admissionLocks = new DurableAdmissionLocks();
+
     constructor(private readonly manager: TenantHarnessManager) {}
 
     async submit(
         input: AssistantSubmissionEnvelope,
     ): Promise<DurableSubmissionSnapshot> {
+        return this.admissionLocks.run(requestAdmissionLockKey(input), () =>
+            this.submitLocked(input),
+        );
+    }
+
+    private async submitLocked(
+        input: AssistantSubmissionEnvelope,
+    ): Promise<DurableSubmissionSnapshot> {
         const questionHash = createHash('sha256')
             .update(input.question)
             .digest('hex');
-        // Crash-safe reservation FIRST (PG), before any SQLite admission.
-        // A hard crash after this point leaves a `pending` row (no durable
-        // IDs) that the retry reuses instead of admitting a duplicate run.
-        const reserved = await this.reserveSubmission(input, questionHash);
+        const existing =
+            await getMainPrisma().assistantDurableSubmission.findUnique({
+                where: {
+                    tenantId_userId_channel_requestId: {
+                        tenantId: input.tenantId,
+                        userId: input.userId,
+                        channel: input.channel,
+                        requestId: input.requestId,
+                    },
+                },
+            });
         const effectiveInput = {
             ...input,
             publicConversationId:
-                input.publicConversationId ??
-                reserved.publicConversationId,
+                input.publicConversationId ?? existing?.publicConversationId,
         };
         const verified = await verifyDurableAuthority(effectiveInput);
         if (
-            reserved.publicConversationId !==
-            verified.authority.publicConversationId
+            existing &&
+            (existing.publicConversationId !==
+                verified.authority.publicConversationId ||
+                existing.questionHash !== questionHash)
         ) {
             throw new AssistantWorkerProtocolError(
                 'CONTEXT_MISMATCH',
-                'requestId is bound to an inaccessible conversation.',
-                403,
+                'requestId is already bound to a different submission.',
+                409,
             );
         }
-        // A pending reservation without durable IDs is an interrupted first
-        // attempt, not a completed submission: fall through to admission and
-        // reconcile via SQLite submissionByRequest below.
-        const known =
-            reserved.durableSubmissionId && reserved.durableConversationId
-                ? reserved
-                : null;
-        if (known) {
-            return this.resumeKnownSubmission(input, verified.authority, known);
-        }
-        const binding =
-            await getMainPrisma().assistantDurableBinding.findUnique({
-                where: {
-                    publicConversationId:
-                        verified.authority.publicConversationId,
-                },
+        if (existing?.durableSubmissionId && existing.durableConversationId) {
+            const existingBinding =
+                await getMainPrisma().assistantDurableBinding.findUnique({
+                    where: {
+                        publicConversationId:
+                            verified.authority.publicConversationId,
+                    },
+                });
+            if (!existingBinding) {
+                throw new AssistantWorkerProtocolError(
+                    'INTERNAL',
+                    'Durable admission registry is inconsistent.',
+                    500,
+                );
+            }
+            assertDurableBinding(existingBinding, {
+                authority: verified.authority,
+                durableConversationId: existing.durableConversationId,
             });
-        const lease = await this.manager.acquire(
-            verified.authority,
-            binding ? Number(binding.durableConversationId) : undefined,
-        );
-        try {
-            await saveDurableBinding(
+            const observed =
+                await getMainPrisma().assistantDurableSubmission.update({
+                    where: { id: existing.id },
+                    data: { attempts: { increment: 1 } },
+                });
+            return this.resumeKnownSubmission(
+                input,
                 verified.authority,
-                Number(lease.conversation.id),
+                observed,
             );
+        }
+        if (existing) {
+            const interruptedBinding =
+                await getMainPrisma().assistantDurableBinding.findUnique({
+                    where: {
+                        publicConversationId:
+                            verified.authority.publicConversationId,
+                    },
+                });
+            if (!interruptedBinding) {
+                throw new AssistantWorkerProtocolError(
+                    'INTERNAL',
+                    'Durable admission registry is inconsistent.',
+                    500,
+                );
+            }
+        }
+
+        // Serialize only creation/assertion of the SQLite conversation and its
+        // PG parent+reservation. Release this lock before model or tool work.
+        const prepared = await this.admissionLocks.run(
+            conversationAdmissionLockKey(
+                verified.authority.publicConversationId,
+            ),
+            async () => {
+                // Re-read after waiting for the per-conversation lock. Another
+                // request may have created the binding while this one waited.
+                const binding =
+                    await getMainPrisma().assistantDurableBinding.findUnique({
+                        where: {
+                            publicConversationId:
+                                verified.authority.publicConversationId,
+                        },
+                    });
+                const lease = await this.manager.acquire(
+                    verified.authority,
+                    binding ? Number(binding.durableConversationId) : undefined,
+                );
+                try {
+                    const admission = await reserveDurableAdmission({
+                        database: getMainPrisma(),
+                        envelope: input,
+                        authority: verified.authority,
+                        questionHash,
+                        durableConversationId: String(lease.conversation.id),
+                    });
+                    return { lease, reserved: admission.reservation };
+                } catch (error) {
+                    lease.release();
+                    throw error;
+                }
+            },
+        );
+        const { lease, reserved } = prepared;
+        try {
+            if (
+                reserved.durableSubmissionId &&
+                reserved.durableConversationId
+            ) {
+                lease.release();
+                return this.resumeKnownSubmission(
+                    input,
+                    verified.authority,
+                    reserved,
+                );
+            }
+
             // Reconcile: a crash may have admitted to SQLite after the
-            // reservation but before the PG update. submissionByRequest on
-            // the commit line is the single dedupe truth — reuse it instead
-            // of submitting twice. Covers both model submits and fast path
-            // (submitDurableFastPath already double-checks internally).
+            // reservation but before the PG update. The serialized commit
+            // line is the single dedupe truth.
             const reconciled = await lease.conversation.commit(async (tx) => {
-                const existing = await tx.submissionByRequest(
+                const found = await tx.submissionByRequest(
                     lease.conversation.id,
                     input.requestId,
                 );
-                return existing
+                return found
                     ? {
-                          durableSubmissionId: String(existing.id),
+                          durableSubmissionId: String(found.id),
                           durableConversationId: String(lease.conversation.id),
-                          state: existing,
                       }
                     : null;
             }, BACKGROUND_CONTEXT);
             if (reconciled) {
                 await this.fillReservation(input, verified.authority, {
-                    durableSubmissionId: reconciled.durableSubmissionId,
-                    durableConversationId: reconciled.durableConversationId,
+                    ...reconciled,
                     status: 'queued',
                 });
                 const submission = await lease.harness.submission(
@@ -111,7 +203,7 @@ export class DurableAssistantRuntime {
                 );
                 if (submission) {
                     const state = await submission.status(BACKGROUND_CONTEXT);
-                    return this.snapshotLiveSubmission(
+                    const snapshot = await this.snapshotLiveSubmission(
                         input,
                         verified.authority,
                         { createdAt: reserved.createdAt },
@@ -119,8 +211,21 @@ export class DurableAssistantRuntime {
                         Number(lease.conversation.id),
                         state,
                     );
+                    if (
+                        snapshot.status === 'done' ||
+                        snapshot.status === 'unanswered' ||
+                        snapshot.status === 'aborted'
+                    ) {
+                        await this.updateRegistryStatus(
+                            input,
+                            verified.authority,
+                            snapshot.status,
+                        );
+                    }
+                    return snapshot;
                 }
             }
+
             const fastPath = await evaluateDurableFastPath({
                 question: input.question,
                 authority: verified.authority,
@@ -189,7 +294,10 @@ export class DurableAssistantRuntime {
                                   needsClarification:
                                       preflight.data.needsClarification,
                               }
-                            : { status: 'unavailable', deterministicIntent },
+                            : {
+                                  status: 'unavailable',
+                                  deterministicIntent,
+                              },
                     );
                 }, BACKGROUND_CONTEXT);
             }
@@ -210,9 +318,6 @@ export class DurableAssistantRuntime {
                       },
                       BACKGROUND_CONTEXT,
                   );
-            // Fill the PG reservation AFTER admission. A crash here leaves
-            // the reservation pending; the retry reconciles via
-            // submissionByRequest instead of admitting twice.
             await this.fillReservation(input, verified.authority, {
                 durableSubmissionId: String(submission.id),
                 durableConversationId: String(lease.conversation.id),
@@ -229,89 +334,21 @@ export class DurableAssistantRuntime {
         }
     }
 
-    /** Reserve the PG registry row before any SQLite admission. Idempotent
-     * on (tenant,user,channel,requestId). A mismatched question or
-     * conversation binding is a hard 409 — never silently reused. */
-    private async reserveSubmission(
+    private async updateRegistryStatus(
         input: AssistantSubmissionEnvelope,
-        questionHash: string,
-    ) {
-        const key = {
-            tenantId: input.tenantId,
-            userId: input.userId,
-            channel: input.channel,
-            requestId: input.requestId,
-        };
-        const existing =
-            await getMainPrisma().assistantDurableSubmission.findUnique({
-                where: { tenantId_userId_channel_requestId: key },
-            });
-        // Concurrent retries racing the reservation share one row via the
-        // unique key; the loser path below reuses the winner when it matches.
-        // Two rows can never both be "first": create-or-reuse is atomic per
-        // requestId. Attempts increment is observational only.
-        if (existing) {
-            if (
-                existing.questionHash !== questionHash ||
-                (input.publicConversationId &&
-                    existing.publicConversationId !==
-                        input.publicConversationId)
-            ) {
-                throw new AssistantWorkerProtocolError(
-                    'CONTEXT_MISMATCH',
-                    'requestId is already bound to a different submission.',
-                    409,
-                );
-            }
-            await getMainPrisma().assistantDurableSubmission.update({
-                where: { id: existing.id },
-                data: { attempts: { increment: 1 } },
-            });
-            return {
-                ...existing,
-                attempts: existing.attempts + 1,
-            };
-        }
-        // First attempt: create the pending reservation. verifyDurableAuthority
-        // resolves/creates the public HelpConversation first when the caller
-        // did not supply one, so the deferrable binding FK is satisfied at
-        // commit time on PostgreSQL (deferred check) and trivially satisfied
-        // on disposable/test dialects.
-        const verified = await verifyDurableAuthority(input);
-        try {
-            return await getMainPrisma().assistantDurableSubmission.create({
-                data: {
-                    requestId: input.requestId,
-                    questionHash,
-                    publicConversationId:
-                        verified.authority.publicConversationId,
-                    tenantId: input.tenantId,
-                    userId: input.userId,
-                    channel: input.channel,
-                    status: 'pending',
-                    attempts: 1,
-                },
-            });
-        } catch (error) {
-            // Lost a concurrent reservation race: reuse the winner when it
-            // matches, otherwise surface the conflict.
-            const raced =
-                await getMainPrisma().assistantDurableSubmission.findUnique({
-                    where: { tenantId_userId_channel_requestId: key },
-                });
-            if (
-                !raced ||
-                raced.questionHash !== questionHash ||
-                (input.publicConversationId &&
-                    raced.publicConversationId !== input.publicConversationId)
-            )
-                throw error;
-            await getMainPrisma().assistantDurableSubmission.update({
-                where: { id: raced.id },
-                data: { attempts: { increment: 1 } },
-            });
-            return { ...raced, attempts: raced.attempts + 1 };
-        }
+        authority: { publicConversationId: string },
+        status: 'done' | 'unanswered' | 'aborted',
+    ): Promise<void> {
+        await getMainPrisma().assistantDurableSubmission.updateMany({
+            where: {
+                tenantId: input.tenantId,
+                userId: input.userId,
+                channel: input.channel,
+                requestId: input.requestId,
+                publicConversationId: authority.publicConversationId,
+            },
+            data: { status },
+        });
     }
 
     private async fillReservation(
@@ -343,7 +380,7 @@ export class DurableAssistantRuntime {
      * observe the single durable submission — never admit a second one. */
     private async resumeKnownSubmission(
         input: AssistantSubmissionEnvelope,
-        authority: { publicConversationId: string },
+        authority: AssistantAuthority,
         known: {
             durableSubmissionId: string | null;
             durableConversationId: string | null;
@@ -367,16 +404,30 @@ export class DurableAssistantRuntime {
             await getMainPrisma().assistantDurableBinding.findUnique({
                 where: { publicConversationId: authority.publicConversationId },
             });
-        const boundConversationId = binding
-            ? Number(binding.durableConversationId)
-            : Number(known.durableConversationId);
-        if (binding && known.durableConversationId !== null && binding.durableConversationId !== known.durableConversationId) {
+        if (!binding) {
+            throw new AssistantWorkerProtocolError(
+                'INTERNAL',
+                'Durable admission registry is inconsistent.',
+                500,
+            );
+        }
+        assertDurableBinding(binding, {
+            authority,
+            durableConversationId: String(
+                known.durableConversationId ?? binding.durableConversationId,
+            ),
+        });
+        if (
+            known.durableConversationId !== null &&
+            binding.durableConversationId !== known.durableConversationId
+        ) {
             throw new AssistantWorkerProtocolError(
                 'CONTEXT_MISMATCH',
                 'requestId is already bound to a different submission.',
                 409,
             );
         }
+        const boundConversationId = Number(binding.durableConversationId);
         const lease = await this.manager.acquire(
             authority as never,
             boundConversationId,
@@ -704,6 +755,10 @@ export class DurableAssistantRuntime {
             ...input,
             publicConversationId: record.publicConversationId,
             workContext: { pathname: binding.pathname },
+        });
+        assertDurableBinding(binding, {
+            authority: verified.authority,
+            durableConversationId: record.durableConversationId as string,
         });
         const lease = await this.manager.acquire(
             verified.authority,
