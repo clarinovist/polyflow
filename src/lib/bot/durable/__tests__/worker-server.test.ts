@@ -27,6 +27,20 @@ function fixtures() {
         wait: vi.fn(),
         abort: vi.fn(),
     };
+    const restrictedTelegram = {
+        inspect: vi.fn(async () => ({ ready: true, blockedTasks: 0 })),
+        submit: vi.fn(async (body) => ({
+            requestId: body.requestId,
+            status: 'done',
+            accepted: true,
+            response: {
+                requestId: body.requestId,
+                answer: 'public kb only',
+                citations: ['kb:public-only'],
+                safety: { allowed: true },
+            },
+        })),
+    };
     const manager = {
         inspect: vi.fn(async () => ({
             ready: true,
@@ -34,7 +48,7 @@ function fixtures() {
             blockedTasks: 0,
         })),
     };
-    return { runtime, manager };
+    return { runtime, manager, restrictedTelegram };
 }
 
 const request = {
@@ -47,15 +61,21 @@ const request = {
     workContext: { pathname: '/' },
 };
 
+function serverFixture() {
+    const fixture = fixtures();
+    const server = createAssistantWorkerServer({
+        runtime: fixture.runtime as never,
+        manager: fixture.manager as never,
+        token: 'x'.repeat(32),
+        restrictedTelegram: fixture.restrictedTelegram as never,
+    });
+    servers.push(server);
+    return { fixture, server };
+}
+
 describe('assistant worker HTTP boundary', () => {
     it('allows health checks but rejects unauthenticated submissions', async () => {
-        const f = fixtures();
-        const server = createAssistantWorkerServer({
-            runtime: f.runtime as never,
-            manager: f.manager as never,
-            token: 'x'.repeat(32),
-        });
-        servers.push(server);
+        const { fixture, server } = serverFixture();
         const { port } = await listenAssistantWorker(server, '127.0.0.1', 0);
         expect(
             await fetch(`http://127.0.0.1:${port}/health/ready`).then((r) =>
@@ -68,17 +88,11 @@ describe('assistant worker HTTP boundary', () => {
             body: JSON.stringify(request),
         });
         expect(response.status).toBe(401);
-        expect(f.runtime.submit).not.toHaveBeenCalled();
+        expect(fixture.runtime.submit).not.toHaveBeenCalled();
     });
 
     it('validates body size and authenticated submission protocol', async () => {
-        const f = fixtures();
-        const server = createAssistantWorkerServer({
-            runtime: f.runtime as never,
-            manager: f.manager as never,
-            token: 'x'.repeat(32),
-        });
-        servers.push(server);
+        const { fixture, server } = serverFixture();
         const { port } = await listenAssistantWorker(server, '127.0.0.1', 0);
         const response = await fetch(`http://127.0.0.1:${port}/v1/submissions`, {
             method: 'POST',
@@ -90,7 +104,7 @@ describe('assistant worker HTTP boundary', () => {
         });
         expect(response.status).toBe(202);
         expect(response.headers.get('cache-control')).toBe('private, no-store');
-        expect(f.runtime.submit).toHaveBeenCalledWith(request);
+        expect(fixture.runtime.submit).toHaveBeenCalledWith(request);
 
         const tooLarge = await fetch(
             `http://127.0.0.1:${port}/v1/submissions`,
@@ -104,5 +118,76 @@ describe('assistant worker HTTP boundary', () => {
             },
         );
         expect(tooLarge.status).toBe(413);
+    });
+
+    it('fails readiness when restricted Telegram has blocked tasks', async () => {
+        const { fixture, server } = serverFixture();
+        fixture.restrictedTelegram.inspect = vi.fn(async () => ({
+            ready: false,
+            blockedTasks: 1,
+        }));
+        const { port } = await listenAssistantWorker(server, '127.0.0.1', 0);
+        const response = await fetch(
+            `http://127.0.0.1:${port}/health/ready`,
+        );
+        expect(response.status).toBe(503);
+        expect(await response.json()).toMatchObject({
+            ready: false,
+            restrictedBlockedTasks: 1,
+        });
+    });
+
+    it('isolates restricted Telegram and rejects Telegram on generic authority', async () => {
+        const { fixture, server } = serverFixture();
+        const { port } = await listenAssistantWorker(server, '127.0.0.1', 0);
+        const headers = {
+            Authorization: `Bearer ${'x'.repeat(32)}`,
+            'Content-Type': 'application/json',
+        };
+        const restricted = await fetch(
+            `http://127.0.0.1:${port}/v1/restricted-telegram/submissions`,
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    protocolVersion: 1,
+                    requestId: request.requestId,
+                    integrationScope: 'a'.repeat(64),
+                    question: 'cara stok opname',
+                }),
+            },
+        );
+        expect(restricted.status).toBe(200);
+        expect(fixture.restrictedTelegram.submit).toHaveBeenCalledTimes(1);
+
+        const genericTelegram = await fetch(
+            `http://127.0.0.1:${port}/v1/submissions`,
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ ...request, channel: 'telegram' }),
+            },
+        );
+        expect(genericTelegram.status).toBe(403);
+        expect(fixture.runtime.submit).not.toHaveBeenCalled();
+
+        const malformed = await fetch(
+            `http://127.0.0.1:${port}/v1/restricted-telegram/submissions`,
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    protocolVersion: 1,
+                    requestId: 'not-a-uuid',
+                    integrationScope: 'not-a-hash',
+                    question: 'x',
+                    tenantId: 'must-be-rejected',
+                }),
+            },
+        );
+        expect(malformed.status).toBe(400);
+        expect(await malformed.json()).toMatchObject({
+            error: { code: 'INVALID_REQUEST' },
+        });
     });
 });

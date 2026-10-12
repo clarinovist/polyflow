@@ -4,13 +4,16 @@ import {
     type ServerResponse,
 } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { ZodError } from 'zod';
 import {
     assistantSubmissionEnvelopeSchema,
+    restrictedTelegramEnvelopeSchema,
     AssistantWorkerProtocolError,
 } from './protocol';
 import { verifyAssistantServiceAuthorization } from './service-auth';
 import { DurableAssistantRuntime } from './runtime';
 import type { TenantHarnessManager } from './harness-manager';
+import type { RestrictedTelegramRuntime } from './restricted-telegram';
 
 const MAX_BODY_BYTES = 16 * 1024;
 const PRIVATE_HEADERS = {
@@ -22,6 +25,7 @@ export function createAssistantWorkerServer(input: {
     runtime: DurableAssistantRuntime;
     manager: TenantHarnessManager;
     token: string;
+    restrictedTelegram?: RestrictedTelegramRuntime;
 }) {
     const server = createServer(async (request, response) => {
         response.setHeader('Cache-Control', PRIVATE_HEADERS['Cache-Control']);
@@ -45,11 +49,17 @@ export function createAssistantWorkerServer(input: {
             const protocolError =
                 error instanceof AssistantWorkerProtocolError
                     ? error
-                    : new AssistantWorkerProtocolError(
-                          'INTERNAL',
-                          'Assistant worker could not process the request.',
-                          500,
-                      );
+                    : error instanceof ZodError
+                      ? new AssistantWorkerProtocolError(
+                            'INVALID_REQUEST',
+                            'Assistant request is invalid.',
+                            400,
+                        )
+                      : new AssistantWorkerProtocolError(
+                            'INTERNAL',
+                            'Assistant worker could not process the request.',
+                            500,
+                        );
             json(response, protocolError.status, protocolError.toJSON());
         }
     });
@@ -66,6 +76,7 @@ async function route(
         runtime: DurableAssistantRuntime;
         manager: TenantHarnessManager;
         token: string;
+        restrictedTelegram?: RestrictedTelegramRuntime;
     },
 ) {
     const url = new URL(request.url ?? '/', 'http://assistant-worker.internal');
@@ -73,8 +84,17 @@ async function route(
         return json(response, 200, { status: 'ok' });
     }
     if (request.method === 'GET' && url.pathname === '/health/ready') {
-        const inspection = await input.manager.inspect();
-        return json(response, inspection.ready ? 200 : 503, inspection);
+        const [inspection, restricted] = await Promise.all([
+            input.manager.inspect(),
+            input.restrictedTelegram?.inspect() ??
+                Promise.resolve({ ready: true, blockedTasks: 0 }),
+        ]);
+        const ready = inspection.ready && restricted.ready;
+        return json(response, ready ? 200 : 503, {
+            ...inspection,
+            ready,
+            restrictedBlockedTasks: restricted.blockedTasks,
+        });
     }
     if (
         !verifyAssistantServiceAuthorization(
@@ -87,6 +107,24 @@ async function route(
             'Invalid service authorization.',
             401,
         );
+    }
+
+    if (
+        request.method === 'POST' &&
+        url.pathname === '/v1/restricted-telegram/submissions'
+    ) {
+        if (!input.restrictedTelegram) {
+            throw new AssistantWorkerProtocolError(
+                'UNAVAILABLE',
+                'Restricted Telegram runtime is unavailable.',
+                503,
+                true,
+            );
+        }
+        const body = restrictedTelegramEnvelopeSchema.parse(
+            await readJsonBody(request, MAX_BODY_BYTES),
+        );
+        return json(response, 200, await input.restrictedTelegram.submit(body));
     }
 
     const match = url.pathname.match(
@@ -104,6 +142,13 @@ async function route(
     const body = assistantSubmissionEnvelopeSchema.parse(
         await readJsonBody(request, MAX_BODY_BYTES),
     );
+    if (body.channel !== 'web') {
+        throw new AssistantWorkerProtocolError(
+            'PERMISSION_DENIED',
+            'This assistant endpoint accepts web authority only.',
+            403,
+        );
+    }
     if (routeRequestId && body.requestId !== routeRequestId) {
         throw new AssistantWorkerProtocolError(
             'INVALID_REQUEST',

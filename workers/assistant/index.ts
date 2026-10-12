@@ -5,6 +5,7 @@ import {
     POLYFLOW_MODEL_PROVIDER,
 } from '../../src/lib/bot/durable/model';
 import { DurableAssistantRuntime } from '../../src/lib/bot/durable/runtime';
+import { RestrictedTelegramRuntime } from '../../src/lib/bot/durable/restricted-telegram';
 import { loadAssistantWorkerRuntimeConfig } from '../../src/lib/bot/durable/runtime-config';
 import {
     createAssistantWorkerServer,
@@ -33,10 +34,17 @@ async function main() {
         },
     });
     const runtime = new DurableAssistantRuntime(manager);
+    const restrictedTelegram = new RestrictedTelegramRuntime({
+        root: config.ASSISTANT_STORAGE_ROOT,
+        models,
+        model: { provider: POLYFLOW_MODEL_PROVIDER, modelId: config.LLM_MODEL },
+    });
+    await restrictedTelegram.inspect();
     const server = createAssistantWorkerServer({
         runtime,
         manager,
         token: config.ASSISTANT_WORKER_TOKEN,
+        restrictedTelegram,
     });
     const address = await listenAssistantWorker(
         server,
@@ -50,8 +58,19 @@ async function main() {
         if (shuttingDown) return;
         shuttingDown = true;
         console.log(`[ASSISTANT_WORKER_SHUTDOWN] signal=${signal}`);
-        server.close();
-        await manager.close();
+        server.closeIdleConnections();
+        await new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => {
+                server.closeAllConnections();
+                resolve();
+            }, 30_000);
+            timeout.unref();
+            server.close(() => {
+                clearTimeout(timeout);
+                resolve();
+            });
+        });
+        await Promise.all([manager.close(), restrictedTelegram.close()]);
         await disconnectAllTenants();
         process.exit(0);
     }

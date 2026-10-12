@@ -108,14 +108,19 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
             data: { ...result, interactionId },
         });
     } catch (error) {
-        console.error('[BOT_QUERY] Failed:', error);
+        const protocol =
+            error instanceof AssistantWorkerProtocolError ? error : undefined;
+        console.error('[BOT_QUERY] Failed:', {
+            code: protocol?.code ?? 'INTERNAL',
+            status: protocol?.status ?? 500,
+        });
 
         await logVirtualCsEvent({
             channel: 'telegram',
             product: POLYFLOW_PRODUCT_ID,
             question,
             allowed: false,
-            blockedReason: 'Internal Server Error',
+            blockedReason: protocol?.code ?? 'Internal Server Error',
             success: false,
             tenantId,
             requesterName: body?.requesterName,
@@ -125,9 +130,10 @@ export const POST = withTenantRoute(async function POST(req: NextRequest) {
         return NextResponse.json(
             {
                 success: false,
-                error: 'Internal Server Error',
+                error: protocol?.message ?? 'Internal Server Error',
+                ...(protocol ? { code: protocol.code } : {}),
             },
-            { status: 500 },
+            { status: protocol?.status ?? 500 },
         );
     }
 });
@@ -149,5 +155,6 @@ async function submitRestrictedTelegram(input: {
     return runRestrictedTelegramSubmission({
         requestId: input.requestId,
         question: input.question,
+        tenantId: input.tenantId,
     });
 }

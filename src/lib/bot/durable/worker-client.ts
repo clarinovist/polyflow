@@ -3,6 +3,8 @@ import {
     AssistantWorkerProtocolError,
     type AssistantSubmissionEnvelope,
     type DurableSubmissionSnapshot,
+    type RestrictedTelegramEnvelope,
+    type RestrictedTelegramSnapshot,
 } from './protocol';
 
 const DEFAULT_TIMEOUT_MS = 125_000;
@@ -28,6 +30,21 @@ export class AssistantWorkerClient {
 
     submit(envelope: AssistantSubmissionEnvelope) {
         return this.request('/v1/submissions', envelope, 202);
+    }
+
+    async submitRestrictedTelegram(
+        envelope: RestrictedTelegramEnvelope,
+    ): Promise<RestrictedTelegramSnapshot> {
+        const response = await this.fetchBody(
+            '/v1/restricted-telegram/submissions',
+            envelope,
+            undefined,
+            AbortSignal.timeout(
+                this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+            ),
+        );
+        if (!response.ok) throw await workerError(response);
+        return (await response.json()) as RestrictedTelegramSnapshot;
     }
 
     status(envelope: AssistantSubmissionEnvelope) {
@@ -122,6 +139,15 @@ export class AssistantWorkerClient {
         const timeout = applyTimeout
             ? AbortSignal.timeout(this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
             : undefined;
+        return this.fetchBody(path, body, signal, timeout);
+    }
+
+    private fetchBody(
+        path: string,
+        body: AssistantSubmissionEnvelope | RestrictedTelegramEnvelope,
+        signal?: AbortSignal,
+        timeout?: AbortSignal,
+    ) {
         return (this.options.fetch ?? fetch)(new URL(path, this.options.url), {
             method: 'POST',
             headers: {

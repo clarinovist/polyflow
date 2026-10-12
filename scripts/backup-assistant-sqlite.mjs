@@ -1,14 +1,15 @@
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const sourceRoot = process.env.ASSISTANT_STORAGE_ROOT ?? '/data/tenants';
 const backupRoot = process.env.ASSISTANT_BACKUP_ROOT ?? '/backups';
-const mismatchMarker = path.join(
-    backupRoot,
-    '.assistant-registry-mismatch',
-);
+const mismatchMarker = path.join(backupRoot, '.assistant-registry-mismatch');
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+const RESTRICTED_TELEGRAM_STORAGE_KEY = createHash('sha256')
+    .update('polyflow:restricted-telegram-public:v1')
+    .digest('hex');
 await mkdir(backupRoot, { recursive: true, mode: 0o700 });
 const tenants = await readdir(sourceRoot, { withFileTypes: true }).catch(
     () => [],
@@ -53,6 +54,12 @@ for (const tenant of tenants) {
     }
 }
 const registryKeys = await registryStorageKeys();
+if (!sourceKeys.includes(RESTRICTED_TELEGRAM_STORAGE_KEY)) {
+    console.error(
+        `assistant_restricted_storage_missing sources=${sourceKeys.length}`,
+    );
+    process.exit(1);
+}
 if (registryKeys !== null) {
     const sourceSet = new Set(sourceKeys);
     const snapshotSet = new Set(snapshotKeys);
@@ -60,23 +67,18 @@ if (registryKeys !== null) {
     const missingSnapshots = registryKeys.filter(
         (key) => !snapshotSet.has(key),
     );
-    const extraSnapshots = snapshotKeys.filter(
-        (key) => !sourceSet.has(key),
-    );
+    const extraSnapshots = snapshotKeys.filter((key) => !sourceSet.has(key));
     if (
         missingSources.length > 0 ||
         missingSnapshots.length > 0 ||
         extraSnapshots.length > 0
     ) {
-        const detail =
-            `assistant_registry_storage_mismatch registry=${registryKeys.length} sources=${sourceKeys.length} snapshots=${snapshotKeys.length} missing_sources=${missingSources.length} missing_snapshots=${missingSnapshots.length} extra_snapshots=${extraSnapshots.length}`;
+        const detail = `assistant_registry_storage_mismatch registry=${registryKeys.length} sources=${sourceKeys.length} snapshots=${snapshotKeys.length} missing_sources=${missingSources.length} missing_snapshots=${missingSnapshots.length} extra_snapshots=${extraSnapshots.length}`;
         await mkdir(backupRoot, { recursive: true, mode: 0o700 });
         const { writeFile } = await import('node:fs/promises');
-        await writeFile(
-            mismatchMarker,
-            `${detail} stamp=${stamp}\n`,
-            { mode: 0o600 },
-        );
+        await writeFile(mismatchMarker, `${detail} stamp=${stamp}\n`, {
+            mode: 0o600,
+        });
         console.error(detail);
         process.exit(1);
     }
@@ -100,7 +102,8 @@ async function registryStorageKeys() {
             .filter((key) => /^[a-f0-9]{64}$/.test(key));
     }
     if (!process.env.DATABASE_URL) {
-        if (process.env.ASSISTANT_ALLOW_UNCHECKED_BACKUP === 'true') return null;
+        if (process.env.ASSISTANT_ALLOW_UNCHECKED_BACKUP === 'true')
+            return null;
         const { writeFile } = await import('node:fs/promises');
         const detail = `assistant_registry_unavailable stamp=${stamp}`;
         await writeFile(mismatchMarker, `${detail}\n`, { mode: 0o600 });
@@ -119,7 +122,8 @@ async function registryStorageKeys() {
             );
         return [...new Set(keys)];
     } catch {
-        if (process.env.ASSISTANT_ALLOW_UNCHECKED_BACKUP === 'true') return null;
+        if (process.env.ASSISTANT_ALLOW_UNCHECKED_BACKUP === 'true')
+            return null;
         const { writeFile } = await import('node:fs/promises');
         const detail = `assistant_registry_unavailable stamp=${stamp}`;
         await writeFile(mismatchMarker, `${detail}\n`, { mode: 0o600 });

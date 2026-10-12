@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { mkdtemp, mkdir, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,6 +16,9 @@ const script = path.resolve(
     process.cwd(),
     'scripts/backup-assistant-sqlite.mjs',
 );
+const restrictedKey = createHash('sha256')
+    .update('polyflow:restricted-telegram-public:v1')
+    .digest('hex');
 
 afterEach(async () => {
     await Promise.all(
@@ -30,7 +34,7 @@ describe('durable assistant SQLite backup', () => {
         roots.push(root);
         const sourceRoot = path.join(root, 'sources');
         const backupRoot = path.join(root, 'backups');
-        const storageKey = 'a'.repeat(64);
+        const storageKey = restrictedKey;
         const sourceDirectory = path.join(sourceRoot, storageKey);
         await mkdir(sourceDirectory, { recursive: true });
         const source = path.join(sourceDirectory, 'assistant.sqlite');
@@ -73,12 +77,83 @@ describe('durable assistant SQLite backup', () => {
         }
     });
 
-    it('fails closed when registry validation is configured but unreachable', async () => {
+    it('requires the reserved restricted source even when the registry is empty', async () => {
         const root = await mkdtemp(path.join(tmpdir(), 'assistant-backup-'));
         roots.push(root);
         const sourceRoot = path.join(root, 'sources');
         const backupRoot = path.join(root, 'backups');
         await mkdir(sourceRoot, { recursive: true });
+        let failed = false;
+        try {
+            await execute(process.execPath, [script], {
+                env: {
+                    ...process.env,
+                    ASSISTANT_STORAGE_ROOT: sourceRoot,
+                    ASSISTANT_BACKUP_ROOT: backupRoot,
+                    ASSISTANT_TEST_REGISTRY_KEYS: '',
+                },
+            });
+        } catch (error) {
+            failed = true;
+            const output =
+                (error as { stdout?: string; stderr?: string }).stdout ?? '';
+            const stderr =
+                (error as { stdout?: string; stderr?: string }).stderr ?? '';
+            expect(output + stderr).toContain(
+                'assistant_restricted_storage_missing',
+            );
+        }
+        expect(failed).toBe(true);
+    });
+
+    it('requires the reserved restricted source when runtime storage already exists', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'assistant-backup-'));
+        roots.push(root);
+        const sourceRoot = path.join(root, 'sources');
+        const backupRoot = path.join(root, 'backups');
+        const ordinaryKey = 'a'.repeat(64);
+        const sourceDirectory = path.join(sourceRoot, ordinaryKey);
+        await mkdir(sourceDirectory, { recursive: true });
+        const database = new DatabaseSync(
+            path.join(sourceDirectory, 'assistant.sqlite'),
+        );
+        database.exec('CREATE TABLE fixture (value TEXT NOT NULL);');
+        database.close();
+        let failed = false;
+        try {
+            await execute(process.execPath, [script], {
+                env: {
+                    ...process.env,
+                    ASSISTANT_STORAGE_ROOT: sourceRoot,
+                    ASSISTANT_BACKUP_ROOT: backupRoot,
+                    ASSISTANT_TEST_REGISTRY_KEYS: ordinaryKey,
+                },
+            });
+        } catch (error) {
+            failed = true;
+            const output =
+                (error as { stdout?: string; stderr?: string }).stdout ?? '';
+            const stderr =
+                (error as { stdout?: string; stderr?: string }).stderr ?? '';
+            expect(output + stderr).toContain(
+                'assistant_restricted_storage_missing',
+            );
+        }
+        expect(failed).toBe(true);
+    });
+
+    it('fails closed when registry validation is configured but unreachable', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'assistant-backup-'));
+        roots.push(root);
+        const sourceRoot = path.join(root, 'sources');
+        const backupRoot = path.join(root, 'backups');
+        const sourceDirectory = path.join(sourceRoot, restrictedKey);
+        await mkdir(sourceDirectory, { recursive: true });
+        const database = new DatabaseSync(
+            path.join(sourceDirectory, 'assistant.sqlite'),
+        );
+        database.exec('CREATE TABLE fixture (value TEXT NOT NULL);');
+        database.close();
         let failed = false;
         try {
             await execute(process.execPath, [script], {
@@ -108,7 +183,7 @@ describe('durable assistant SQLite backup', () => {
         roots.push(root);
         const sourceRoot = path.join(root, 'sources');
         const backupRoot = path.join(root, 'backups');
-        const storageKey = 'a'.repeat(64);
+        const storageKey = restrictedKey;
         const sourceDirectory = path.join(sourceRoot, storageKey);
         await mkdir(sourceDirectory, { recursive: true });
         const source = path.join(sourceDirectory, 'assistant.sqlite');

@@ -28,6 +28,26 @@ export const assistantAuthoritySchema = z.object({
 });
 export type AssistantAuthority = z.infer<typeof assistantAuthoritySchema>;
 
+export const restrictedTelegramEnvelopeSchema = z
+    .object({
+        protocolVersion: z.literal(ASSISTANT_PROTOCOL_VERSION),
+        requestId: assistantRequestIdSchema,
+        integrationScope: z.string().regex(/^[a-f0-9]{64}$/),
+        question: z.string().trim().min(1).max(2000),
+    })
+    .strict();
+export type RestrictedTelegramEnvelope = z.infer<
+    typeof restrictedTelegramEnvelopeSchema
+>;
+
+export type RestrictedTelegramSnapshot = {
+    requestId: string;
+    status: 'done' | 'unanswered';
+    accepted: true;
+    response?: AssistantResponse;
+    error?: AssistantWorkerError;
+};
+
 export const assistantSubmissionEnvelopeSchema = z.object({
     protocolVersion: z.literal(ASSISTANT_PROTOCOL_VERSION),
     requestId: assistantRequestIdSchema,

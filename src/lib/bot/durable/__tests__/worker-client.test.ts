@@ -59,6 +59,37 @@ describe('AssistantWorkerClient', () => {
         expect(calls[3].url).toContain(`${envelope.requestId}/abort`);
     });
 
+    it('submits restricted Telegram through its dedicated worker endpoint', async () => {
+        const fetchMock = vi.fn(async () =>
+            Response.json({
+                requestId: envelope.requestId,
+                status: 'done',
+                accepted: true,
+                response: {
+                    requestId: envelope.requestId,
+                    answer: 'public kb only',
+                    citations: ['kb:public-only'],
+                    safety: { allowed: true },
+                },
+            }),
+        );
+        const client = new AssistantWorkerClient({
+            url: 'http://worker.internal:3010',
+            token: 'x'.repeat(32),
+            fetch: fetchMock as typeof fetch,
+        });
+        const result = await client.submitRestrictedTelegram({
+            protocolVersion: 1,
+            requestId: envelope.requestId,
+            integrationScope: 'a'.repeat(64),
+            question: 'cara stok opname',
+        });
+        expect(result.status).toBe('done');
+        expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+            '/v1/restricted-telegram/submissions',
+        );
+    });
+
     it('never turns a worker error into a legacy request', async () => {
         const client = new AssistantWorkerClient({
             url: 'http://worker.internal:3010',
