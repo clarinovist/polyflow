@@ -449,14 +449,26 @@ export class DurableAssistantRuntime {
                 );
             }
             const state = await submission.status(BACKGROUND_CONTEXT);
-            return this.snapshotLiveSubmission(
+            const snapshot = await this.snapshotLiveSubmission(
                 input,
-                authority as never,
+                authority,
                 known,
                 lease.harness,
                 Number(lease.conversation.id),
                 state,
             );
+            if (
+                snapshot.status === 'done' ||
+                snapshot.status === 'unanswered' ||
+                snapshot.status === 'aborted'
+            ) {
+                await this.updateRegistryStatus(
+                    input,
+                    authority,
+                    snapshot.status,
+                );
+            }
+            return snapshot;
         } finally {
             lease.release();
         }
@@ -656,6 +668,10 @@ export class DurableAssistantRuntime {
             }
             const aborted =
                 settled.status === 'unanswered' && settled.reason === 'aborted';
+            await getMainPrisma().assistantDurableSubmission.update({
+                where: { id: record.id },
+                data: { status: aborted ? 'aborted' : 'unanswered' },
+            });
             return {
                 requestId: input.requestId,
                 publicConversationId: record.publicConversationId,

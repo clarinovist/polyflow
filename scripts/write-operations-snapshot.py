@@ -34,10 +34,26 @@ def command_output(args):
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def assistant_sources():
+def assistant_source_keys():
     value = command_output(["docker", "exec", "polyflow-assistant-worker", "sh", "-c",
-        "find /data/tenants -mindepth 2 -maxdepth 2 -type f -name assistant.sqlite -print 2>/dev/null | awk 'END {print NR+0}'"])
-    return int(value or 0)
+        "find /data/tenants -mindepth 2 -maxdepth 2 -type f -name assistant.sqlite -print 2>/dev/null"])
+    keys = []
+    for item in value.splitlines():
+        candidate = Path(item).parent.name
+        if re.fullmatch(r"[a-f0-9]{64}", candidate):
+            keys.append(candidate)
+    return sorted(set(keys))
+
+
+def assistant_backups_complete(keys):
+    if not keys:
+        return True
+    now = time.time()
+    for key in keys:
+        snapshots = list(ASSISTANT_DIR.glob(f"*/{key}/assistant.sqlite")) if ASSISTANT_DIR.exists() else []
+        if not snapshots or now - max(item.stat().st_mtime for item in snapshots) > MAX_AGE:
+            return False
+    return True
 
 
 def container_health(name):
@@ -57,10 +73,12 @@ def release_sha():
 
 age = newest_age(DB_DIR, "*.sql.gz")
 db_count = recent_database_count()
-sources = assistant_sources()
+source_keys = assistant_source_keys()
+sources = len(source_keys)
 mismatch_marker = ASSISTANT_DIR / ".assistant-registry-mismatch"
 assistant_mismatch = mismatch_marker.exists()
-assistant_state = "registry_storage_mismatch" if assistant_mismatch else ("healthy_with_sources" if sources > 0 else "idle_not_initialized")
+assistant_complete = assistant_backups_complete(source_keys)
+assistant_state = "registry_storage_mismatch" if assistant_mismatch else ("healthy_with_sources" if sources > 0 and assistant_complete else ("backup_incomplete" if sources > 0 else "idle_not_initialized"))
 assistant_age = newest_age(ASSISTANT_DIR, "assistant.sqlite")
 failure = DB_DIR / ".last-failure"
 success = DB_DIR / ".last-success"
@@ -68,7 +86,7 @@ last_job = "failed" if failure.exists() and (not success.exists() or failure.sta
 disk = disk_percent()
 disk_level = "critical" if disk >= 90 else "warning" if disk >= 80 else "normal"
 services = {"web": container_health("polyflow-app"), "worker": container_health("polyflow-assistant-worker"), "database": container_health("polyflow-db")}
-backup_status = "critical" if last_job != "success" or age is None or age > MAX_AGE or db_count < 3 or assistant_mismatch or (sources > 0 and (assistant_age is None or assistant_age > MAX_AGE)) else "healthy"
+backup_status = "critical" if last_job != "success" or age is None or age > MAX_AGE or db_count < 3 or assistant_mismatch or not assistant_complete else "healthy"
 service_status = "healthy" if all(value == "healthy" for value in services.values()) else "critical"
 status = "critical" if backup_status == "critical" or disk_level == "critical" or service_status == "critical" else "warning" if disk_level == "warning" else "healthy"
 payload = {"generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "status": status,

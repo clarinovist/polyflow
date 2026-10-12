@@ -46,6 +46,7 @@ describe('durable assistant SQLite backup', () => {
                 ...process.env,
                 ASSISTANT_STORAGE_ROOT: sourceRoot,
                 ASSISTANT_BACKUP_ROOT: backupRoot,
+                ASSISTANT_ALLOW_UNCHECKED_BACKUP: 'true',
             },
         });
         expect(result.stdout).toContain(
@@ -70,6 +71,36 @@ describe('durable assistant SQLite backup', () => {
         } finally {
             snapshot.close();
         }
+    });
+
+    it('fails closed when registry validation is configured but unreachable', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'assistant-backup-'));
+        roots.push(root);
+        const sourceRoot = path.join(root, 'sources');
+        const backupRoot = path.join(root, 'backups');
+        await mkdir(sourceRoot, { recursive: true });
+        let failed = false;
+        try {
+            await execute(process.execPath, [script], {
+                env: {
+                    ...process.env,
+                    ASSISTANT_STORAGE_ROOT: sourceRoot,
+                    ASSISTANT_BACKUP_ROOT: backupRoot,
+                    DATABASE_URL:
+                        'postgresql://postgres@127.0.0.1:1/unreachable?connect_timeout=1',
+                    ASSISTANT_ALLOW_UNCHECKED_BACKUP: 'false',
+                },
+                timeout: 10_000,
+            });
+        } catch (error) {
+            failed = true;
+            const output =
+                (error as { stdout?: string; stderr?: string }).stdout ?? '';
+            const stderr =
+                (error as { stdout?: string; stderr?: string }).stderr ?? '';
+            expect(output + stderr).toContain('assistant_registry_unavailable');
+        }
+        expect(failed).toBe(true);
     });
 
     it('fails closed when the registry holds a storage key with no source', async () => {

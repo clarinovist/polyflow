@@ -99,7 +99,14 @@ async function registryStorageKeys() {
             .map((key) => key.trim())
             .filter((key) => /^[a-f0-9]{64}$/.test(key));
     }
-    if (!process.env.DATABASE_URL) return null;
+    if (!process.env.DATABASE_URL) {
+        if (process.env.ASSISTANT_ALLOW_UNCHECKED_BACKUP === 'true') return null;
+        const { writeFile } = await import('node:fs/promises');
+        const detail = `assistant_registry_unavailable stamp=${stamp}`;
+        await writeFile(mismatchMarker, `${detail}\n`, { mode: 0o600 });
+        console.error(detail);
+        process.exit(1);
+    }
     const { PrismaClient } = await import('@prisma/client');
     const prisma = new PrismaClient();
     try {
@@ -112,7 +119,12 @@ async function registryStorageKeys() {
             );
         return [...new Set(keys)];
     } catch {
-        return null;
+        if (process.env.ASSISTANT_ALLOW_UNCHECKED_BACKUP === 'true') return null;
+        const { writeFile } = await import('node:fs/promises');
+        const detail = `assistant_registry_unavailable stamp=${stamp}`;
+        await writeFile(mismatchMarker, `${detail}\n`, { mode: 0o600 });
+        console.error(detail);
+        process.exit(1);
     } finally {
         await prisma.$disconnect().catch(() => {});
     }

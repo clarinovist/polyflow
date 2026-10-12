@@ -50,7 +50,7 @@ interface SystemDiagnostics {
             status: 'healthy' | 'warning' | 'critical';
             releaseSha: string | null;
             services: { web: string; worker: string; database: string };
-            backup: { status: string; databaseCount: number; latestAgeSeconds: number | null; assistantSources: number; assistantState: 'idle_not_initialized' | 'healthy_with_sources' | 'registry_storage_mismatch'; lastJob: string };
+            backup: { status: string; databaseCount: number; latestAgeSeconds: number | null; assistantSources: number; assistantState: 'idle_not_initialized' | 'healthy_with_sources' | 'backup_incomplete' | 'registry_storage_mismatch'; lastJob: string };
             disk: { usedPercent: number; level: string };
             recovery: { rpoHours: number; rtoHours: number; lastRestoreDrill: { status: string; durationSeconds: number; databaseCount: number } };
         };

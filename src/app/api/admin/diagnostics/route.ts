@@ -14,7 +14,7 @@ interface OperationsSnapshot {
         databaseCount: number;
         latestAgeSeconds: number | null;
         assistantSources: number;
-        assistantState: 'idle_not_initialized' | 'healthy_with_sources' | 'registry_storage_mismatch';
+        assistantState: 'idle_not_initialized' | 'healthy_with_sources' | 'backup_incomplete' | 'registry_storage_mismatch';
         lastJob: 'success' | 'failed' | 'unknown';
     };
     disk: { usedPercent: number; level: 'normal' | 'warning' | 'critical' };
@@ -44,8 +44,12 @@ function isOperationsSnapshot(value: unknown): value is OperationsSnapshot {
         Number.isInteger(backup?.databaseCount) && (backup?.databaseCount ?? -1) >= 0 &&
         (backup?.latestAgeSeconds === null || (typeof backup?.latestAgeSeconds === 'number' && backup.latestAgeSeconds >= 0)) &&
         Number.isInteger(backup?.assistantSources) && (backup?.assistantSources ?? -1) >= 0 &&
-        ['idle_not_initialized', 'healthy_with_sources', 'registry_storage_mismatch'].includes(backup?.assistantState ?? '') &&
-        (backup?.assistantState === 'registry_storage_mismatch' || ((backup?.assistantSources ?? 0) === 0 ? backup?.assistantState === 'idle_not_initialized' : backup?.assistantState === 'healthy_with_sources')) &&
+        ['idle_not_initialized', 'healthy_with_sources', 'backup_incomplete', 'registry_storage_mismatch'].includes(backup?.assistantState ?? '') &&
+        (backup?.assistantState === 'registry_storage_mismatch' ||
+            backup?.assistantState === 'backup_incomplete' ||
+            ((backup?.assistantSources ?? 0) === 0
+                ? backup?.assistantState === 'idle_not_initialized'
+                : backup?.assistantState === 'healthy_with_sources')) &&
         ['success', 'failed', 'unknown'].includes(backup?.lastJob ?? '') &&
         typeof disk?.usedPercent === 'number' && disk.usedPercent >= 0 && disk.usedPercent <= 100 &&
         ['normal', 'warning', 'critical'].includes(disk?.level ?? '') &&
