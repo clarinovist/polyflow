@@ -58,8 +58,8 @@ export function toDisplayQuantity(
     return baseQuantity / conversionFactor;
 }
 
-export function formatQuantity(value: number, fractionDigits = 2) {
-    return Number(value || 0).toLocaleString(undefined, {
+export function formatQuantity(value: number, fractionDigits = 4) {
+    return Number(value || 0).toLocaleString('id-ID', {
         minimumFractionDigits: 0,
         maximumFractionDigits: fractionDigits,
     });
@@ -70,7 +70,7 @@ export function formatProductionQuantity(
     config: UnitConfig,
     options: { showBaseWhenAlternate?: boolean; fractionDigits?: number } = {},
 ) {
-    const { showBaseWhenAlternate = true, fractionDigits = 2 } = options;
+    const { showBaseWhenAlternate = true, fractionDigits = 4 } = options;
     const meta = getProductionUnitMeta(config);
     const base = Number(baseQuantity || 0);
 
@@ -98,7 +98,7 @@ export function getEnteredQuantityDisplay(
     item: EnteredQuantitySnapshot,
     options: { showBaseWhenAlternate?: boolean; fractionDigits?: number } = {},
 ) {
-    const { showBaseWhenAlternate = true, fractionDigits = 2 } = options;
+    const { showBaseWhenAlternate = true, fractionDigits = 4 } = options;
     const baseQuantity = unitNumber(item.quantity, 0);
     const snapshotQty =
         item.enteredQuantity !== undefined && item.enteredQuantity !== null

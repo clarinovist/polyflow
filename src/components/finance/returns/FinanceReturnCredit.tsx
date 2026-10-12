@@ -15,7 +15,7 @@ import { toBusinessDateString } from '@/lib/utils/timezone';
 import { ManualReturnCreditForm } from './ManualReturnCreditForm';
 import { ReturnCreditConfirmation } from './ReturnCreditConfirmation';
 import Link from 'next/link';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import { IssueCustomerCreditForm } from './IssueCustomerCreditForm';
 
 /** Explicit quantities per invoice basis. No inferred first-invoice/FIFO allocation. */
@@ -212,7 +212,7 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                                 {line.invoiceNumber} ·{' '}
                                 {line.quantity === null
                                     ? 'Alokasi nominal manual'
-                                    : `Qty ${line.quantity}`}{' '}
+                                    : `Qty ${formatQuantity(Number(line.quantity))}`}{' '}
                                 · Rp {line.totalAmount}
                             </p>
                         ))}
@@ -258,8 +258,8 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                 </p>
                 {row.items.map((item) => (
                     <p key={item.id}>
-                        {item.productVariant.name}: qty retur {item.returnedQty}
-                        ;{' '}
+                        {item.productVariant.name}: qty retur{' '}
+                        {formatQuantity(Number(item.returnedQty))};{' '}
                         {item.receipt
                             ? `HPP penerimaan Rp ${item.receipt.restockValue}`
                             : 'bukti penerimaan historis belum tersedia'}
@@ -346,9 +346,13 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                                     {basis.sourceItemId}
                                 </Label>
                                 <p>
-                                    Qty asal {basis.quantity}, sisa alokasi{' '}
-                                    {basis.availableQuantity}; netto Rp{' '}
-                                    {basis.netAmount}, pajak Rp{' '}
+                                    Qty asal{' '}
+                                    {formatQuantity(Number(basis.quantity))},
+                                    sisa alokasi{' '}
+                                    {formatQuantity(
+                                        Number(basis.availableQuantity),
+                                    )}
+                                    ; netto Rp {basis.netAmount}, pajak Rp{' '}
                                     {basis.taxAmount}, diskon asal Rp{' '}
                                     {basis.discountAmount}
                                 </p>

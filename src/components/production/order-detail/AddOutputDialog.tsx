@@ -26,6 +26,7 @@ import type {
 import { addProductionOutput } from '@/actions/production/production';
 import { productionLabels } from '@/lib/labels';
 import { formatWIB, toBusinessDateString } from '@/lib/utils/timezone';
+import { formatQuantity } from '@/lib/utils/utils';
 import { productionOutputDateSchema } from '@/lib/schemas/production-output-date';
 import type { ExtendedProductionOrder } from './types';
 
@@ -495,7 +496,10 @@ export function AddOutputDialog({
                                                 <span>
                                                     Entri {index + 1} ·{' '}
                                                     <b>
-                                                        {quantity} {displayUnit}
+                                                        {formatQuantity(
+                                                            quantity,
+                                                        )}{' '}
+                                                        {displayUnit}
                                                     </b>
                                                 </span>
                                                 <Button

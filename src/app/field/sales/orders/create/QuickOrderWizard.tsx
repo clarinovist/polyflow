@@ -19,7 +19,7 @@ import { createSalesOrder } from '@/actions/sales/sales';
 import { quickCreateCustomer } from '@/actions/sales/customer';
 import { quickCreateProduct } from '@/actions/product';
 import { toast } from 'sonner';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import {
     Dialog,
     DialogContent,
@@ -577,8 +577,8 @@ export function QuickOrderWizard({
                                                     </p>
                                                     <p className="text-[10px] text-muted-foreground">
                                                         {locationStock !== null
-                                                            ? `Stok gudang: ${locationStock} (total: ${totalStock})`
-                                                            : `Stok: ${totalStock}`}
+                                                            ? `Stok gudang: ${formatQuantity(locationStock)} (total: ${formatQuantity(totalStock)})`
+                                                            : `Stok: ${formatQuantity(totalStock)}`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -667,9 +667,7 @@ export function QuickOrderWizard({
                                                         } else {
                                                             const num =
                                                                 Number(val);
-                                                            if (
-                                                                !isNaN(num)
-                                                            ) {
+                                                            if (!isNaN(num)) {
                                                                 updateItem(
                                                                     item.productVariantId,
                                                                     'quantity',
@@ -682,9 +680,7 @@ export function QuickOrderWizard({
                                                         }
                                                     }}
                                                     onBlur={() => {
-                                                        if (
-                                                            item.quantity < 1
-                                                        ) {
+                                                        if (item.quantity < 1) {
                                                             updateItem(
                                                                 item.productVariantId,
                                                                 'quantity',
@@ -796,7 +792,7 @@ export function QuickOrderWizard({
                                             {product.name}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            {item.quantity} ×{' '}
+                                            {formatQuantity(item.quantity)} ×{' '}
                                             {formatRupiah(item.unitPrice)}
                                         </p>
                                     </div>

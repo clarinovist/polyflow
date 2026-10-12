@@ -448,8 +448,13 @@ export function InventoryDesktopTable({
                                                     }
                                                 </Badge>
                                                 <div className="text-xs text-destructive font-medium whitespace-nowrap">
-                                                    {totalStockValue}/
-                                                    {thresholdValue}
+                                                    {formatQuantity(
+                                                        totalStockValue,
+                                                    )}
+                                                    /
+                                                    {formatQuantity(
+                                                        thresholdValue,
+                                                    )}
                                                 </div>
                                             </div>
                                         ) : (

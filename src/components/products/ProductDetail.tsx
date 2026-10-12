@@ -43,6 +43,7 @@ import {
     type CostAnomalyFlag,
     type CostSource,
 } from '@/lib/utils/current-cost';
+import { formatQuantity } from '@/lib/utils/utils';
 import {
     formatCostGapLabel,
     getCostAlertMessage,
@@ -754,7 +755,11 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                                             'Unknown'}
                                                     </TableCell>
                                                     <TableCell className="text-right font-medium">
-                                                        {Number(inv.quantity)}{' '}
+                                                        {formatQuantity(
+                                                            Number(
+                                                                inv.quantity,
+                                                            ),
+                                                        )}{' '}
                                                         {v.primaryUnit}
                                                     </TableCell>
                                                 </TableRow>

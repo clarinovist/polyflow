@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Wallet, Factory, Calendar, AlertTriangle } from 'lucide-react';
+import { formatQuantity } from '@/lib/utils/utils';
 
 function fmtIdr(n: number) {
     return new Intl.NumberFormat('id-ID', {
@@ -202,7 +203,7 @@ export default async function MyHomePage() {
                                     </div>
                                     <div className="text-right">
                                         <div className="text-xs font-bold">
-                                            {p.quantity} Kg
+                                            {formatQuantity(p.quantity)} Kg
                                         </div>
                                         {p.pieceEarnings != null && (
                                             <div className="text-[10px] text-emerald-600">

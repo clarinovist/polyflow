@@ -8,6 +8,7 @@ import { cancelProductionRun, getRunCost, getRunReadiness, checkRunRmAvailabilit
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { RouteFlowChain, type RouteFlowChainStep } from '@/components/production/routing/RouteFlowChain';
+import { formatQuantity } from '@/lib/utils/utils';
 
 type RunDetail = {
   id: string;
@@ -93,7 +94,7 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <div>Produk: {run.productVariant?.product?.name} {run.productVariant?.name} ({run.productVariant?.skuCode}) · Target {String(run.plannedQuantity)}</div>
+          <div>Produk: {run.productVariant?.product?.name} {run.productVariant?.name} ({run.productVariant?.skuCode}) · Target {formatQuantity(Number(run.plannedQuantity))}</div>
 
           {rmCheck && (
             <div className={`p-2.5 rounded text-xs border ${rmCheck.ready ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
@@ -102,7 +103,7 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
                 <div key={i} className="mt-1 flex flex-wrap gap-1.5 items-center">
                   <Badge variant="outline" className="text-[10px] font-mono h-4">{s.skuCode || '?'}</Badge>
                   <span>{s.name || 'Bahan baku'}</span>
-                  <span className="text-[11px]">butuh {s.needed} · ada {s.available} · kurang {s.shortage}</span>
+                  <span className="text-[11px]">butuh {formatQuantity(s.needed)} · ada {formatQuantity(s.available)} · kurang {formatQuantity(s.shortage)}</span>
                 </div>
               ))}
               {!rmCheck.ready && rmCheck.shortages.length > 5 && <div className="mt-1 text-[11px]">+{rmCheck.shortages.length - 5} lagi...</div>}
@@ -113,7 +114,7 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
             <div className="p-2 rounded bg-muted text-xs">
               <div className="font-semibold">Costing (no double count internal WIP)</div>
               <div>External RM: {cost.externalMaterialCost.toFixed(2)} · Internal WIP (info): {cost.internalWipValue.toFixed(2)} · Conversion: {cost.conversionCost.toFixed(2)} · Scrap adjustment: {cost.scrapCost.toFixed(2)}</div>
-              <div>Total HPP no double: {cost.totalHppNoDoubleCount.toFixed(2)} · Output {cost.totalOutputQty} · HPP/unit {cost.hppPerUnit.toFixed(2)}</div>
+              <div>Total HPP no double: {cost.totalHppNoDoubleCount.toFixed(2)} · Output {formatQuantity(cost.totalOutputQty)} · HPP/unit {cost.hppPerUnit.toFixed(2)}</div>
               <div>Rekonsiliasi output movement: {cost.outputMovementValuation.toFixed(2)} · delta {cost.reconciliationDelta.toFixed(2)}</div>
             </div>
           )}
@@ -136,10 +137,10 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
               label: s.label,
               stepCode: s.stepCode,
               processCode: s.process?.code ?? '',
-              outputSkuLabel: order ? `${order.orderNumber} · ${String(order.plannedQuantity)}→${order.actualQuantity ? String(order.actualQuantity) : '-'}` : s.stepCode,
+              outputSkuLabel: order ? `${order.orderNumber} · ${formatQuantity(Number(order.plannedQuantity))}→${order.actualQuantity ? formatQuantity(Number(order.actualQuantity)) : '-'}` : s.stepCode,
               outputLocationName: order?.location?.name ?? undefined,
               status: (order?.status ?? r?.status ?? undefined) as RouteFlowChainStep['status'],
-              readinessLabel: order ? `${readinessLabel} avail ${r?.available ?? '-'}${r?.reason ? ` · ${r.reason}` : ''}${order.machine ? ` · Mesin ${order.machine.name}` : ''}` : undefined,
+              readinessLabel: order ? `${readinessLabel} avail ${r ? formatQuantity(r.available) : '-'}${r?.reason ? ` · ${r.reason}` : ''}${order.machine ? ` · Mesin ${order.machine.name}` : ''}` : undefined,
               extraLine: undefined,
             } as RouteFlowChainStep;
           }) as RouteFlowChainStep[])}
@@ -161,7 +162,7 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
                     {r && <Badge variant={r.canStart ? 'default' : 'secondary'} className="text-[10px]">{r.status}</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {o.sourceLocation?.name ?? '?'} → {o.location?.name ?? '?'} · Plan {String(o.plannedQuantity)} · Aktual {o.actualQuantity ? String(o.actualQuantity) : '-'} {r ? `· WIP avail ${r.available}` : ''}
+                    {o.sourceLocation?.name ?? '?'} → {o.location?.name ?? '?'} · Plan {formatQuantity(Number(o.plannedQuantity))} · Aktual {o.actualQuantity ? formatQuantity(Number(o.actualQuantity)) : '-'} {r ? `· WIP avail ${formatQuantity(r.available)}` : ''}
                   </div>
                   {r?.reason && !r.canStart && <div className="text-xs text-amber-600">{r.reason}</div>}
                 </div>

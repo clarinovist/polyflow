@@ -25,6 +25,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { MaterialRequirement } from '../hooks/use-bom-material-preview';
+import { formatQuantity } from '@/lib/utils/utils';
 
 interface RawMaterial {
     id: string;
@@ -411,16 +412,18 @@ export function MaterialPreviewPanel({
                                                             <span
                                                                 className={`text-xs ${isLowStock ? 'text-red-600 dark:text-red-400 font-bold' : ''}`}
                                                             >
-                                                                {info?.currentStock ??
-                                                                    0}
+                                                                {formatQuantity(
+                                                                    info?.currentStock ??
+                                                                        0,
+                                                                )}
                                                             </span>
                                                             {info.totalStock !==
                                                                 info.currentStock && (
                                                                 <span className="text-xs text-muted-foreground">
                                                                     Total:{' '}
-                                                                    {
-                                                                        info.totalStock
-                                                                    }{' '}
+                                                                    {formatQuantity(
+                                                                        info.totalStock,
+                                                                    )}{' '}
                                                                     {info.unit}
                                                                 </span>
                                                             )}

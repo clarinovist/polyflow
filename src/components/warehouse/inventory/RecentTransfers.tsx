@@ -12,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import type { getStockMovements } from '@/actions/inventory/inventory';
 import { warehouseComponentLabels } from '@/lib/labels';
+import { formatQuantity } from '@/lib/utils/utils';
 import Link from 'next/link';
 
 // Infer type from action return type
@@ -75,7 +76,9 @@ export function RecentTransfers({
                                         variant="secondary"
                                         className="text-[10px] h-5 px-1.5 font-bold shrink-0"
                                     >
-                                        {Number(movement.quantity)}
+                                        {formatQuantity(
+                                            Number(movement.quantity),
+                                        )}
                                     </Badge>
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">

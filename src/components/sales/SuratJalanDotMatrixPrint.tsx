@@ -3,6 +3,7 @@
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
+import { formatQuantity, sumQuantities } from '@/lib/utils/utils';
 
 type DeliveryItem = {
     id?: string;
@@ -66,10 +67,9 @@ export function SuratJalanDotMatrixPrint({
     const customer = order.salesOrder?.customer;
     const items = order.items ?? [];
 
-    const totalQty = items.reduce((sum, item) => {
-        const qty = Number(item.enteredQuantity ?? item.quantity ?? 0);
-        return sum + qty;
-    }, 0);
+    const totalQty = sumQuantities(
+        items.map((item) => Number(item.enteredQuantity ?? item.quantity ?? 0)),
+    );
 
     const { paperSize } = COMPANY;
 
@@ -194,7 +194,9 @@ export function SuratJalanDotMatrixPrint({
                             return (
                                 <tr key={item.id || idx}>
                                     <td className="col-name">{productName}</td>
-                                    <td className="col-qty">{qty}</td>
+                                    <td className="col-qty">
+                                        {formatQuantity(qty)}
+                                    </td>
                                     <td className="col-unit">{unit}</td>
                                     <td className="col-note">
                                         {item.notes || ''}
@@ -220,7 +222,9 @@ export function SuratJalanDotMatrixPrint({
                             <td className="text-right" colSpan={1}>
                                 TOTAL :
                             </td>
-                            <td className="col-qty">{totalQty}</td>
+                            <td className="col-qty">
+                                {formatQuantity(totalQty)}
+                            </td>
                             <td colSpan={2}></td>
                         </tr>
                     </tfoot>

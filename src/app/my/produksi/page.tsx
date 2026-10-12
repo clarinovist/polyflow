@@ -2,6 +2,7 @@ import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { redirect } from 'next/navigation';
 import { getMyProductions, getMyWeeklyPayroll } from '@/actions/employee/self';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatQuantity } from '@/lib/utils/utils';
 
 function fmtIdr(n: number) {
     return new Intl.NumberFormat('id-ID', {
@@ -128,7 +129,7 @@ export default async function MyProduksiPage({
                                     </div>
                                     <div className="text-right ml-3 shrink-0">
                                         <div className="text-xs font-bold">
-                                            {p.quantity} Kg
+                                            {formatQuantity(p.quantity)} Kg
                                         </div>
                                         {p.pieceEarnings != null && (
                                             <div className="text-[10px] text-emerald-600">

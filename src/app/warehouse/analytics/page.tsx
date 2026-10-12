@@ -19,7 +19,13 @@ const getStockAging = withTenantPage(() =>
 import { canViewPrices } from '@/actions/admin/permissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn, toDecimalNumber } from '@/lib/utils/utils';
+import {
+    cn,
+    formatQuantity,
+    isQuantityLessThan,
+    sumQuantities,
+    toDecimalNumber,
+} from '@/lib/utils/utils';
 import {
     AlertTriangle,
     CircleHelp,
@@ -49,13 +55,15 @@ export function computeLowStockVariantIds(
         } | null;
     }>,
 ): Set<string> {
-    const totals = new Map<string, number>();
+    const quantities = new Map<string, number[]>();
     const thresholds = new Map<string, number>();
 
     for (const item of inventory) {
         if (!isLowStockAlertLocation(item.location)) continue;
         const id = item.productVariantId;
-        totals.set(id, (totals.get(id) || 0) + toDecimalNumber(item.quantity));
+        const variantQuantities = quantities.get(id) ?? [];
+        variantQuantities.push(toDecimalNumber(item.quantity));
+        quantities.set(id, variantQuantities);
         if (item.productVariant?.minStockAlert != null && !thresholds.has(id)) {
             thresholds.set(
                 id,
@@ -65,9 +73,10 @@ export function computeLowStockVariantIds(
     }
 
     const low = new Set<string>();
-    for (const [id, total] of totals) {
+    for (const [id, variantQuantities] of quantities) {
         const threshold = thresholds.get(id) || 0;
-        if (threshold > 0 && total < threshold) low.add(id);
+        const total = sumQuantities(variantQuantities);
+        if (threshold > 0 && isQuantityLessThan(total, threshold)) low.add(id);
     }
     return low;
 }
@@ -275,12 +284,17 @@ export default async function AnalyticsDashboard() {
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <span className="text-[10px] text-muted-foreground">
-                                                        Stok: {item.totalStock}{' '}
+                                                        Stok:{' '}
+                                                        {formatQuantity(
+                                                            item.totalStock,
+                                                        )}{' '}
                                                         / Reorder:{' '}
                                                         {item.reorderPoint !=
                                                         null
-                                                            ? Number(
-                                                                  item.reorderPoint,
+                                                            ? formatQuantity(
+                                                                  Number(
+                                                                      item.reorderPoint,
+                                                                  ),
                                                               )
                                                             : '—'}
                                                     </span>
@@ -333,8 +347,10 @@ export default async function AnalyticsDashboard() {
                                                     variant="outline"
                                                     className="text-[10px] text-orange-600 border-orange-200"
                                                 >
-                                                    {item.buckets['90+']
-                                                        ?.quantity || 0}{' '}
+                                                    {formatQuantity(
+                                                        item.buckets['90+']
+                                                            ?.quantity || 0,
+                                                    )}{' '}
                                                     unit &gt;90h
                                                 </Badge>
                                                 <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-primary" />

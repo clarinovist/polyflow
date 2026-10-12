@@ -3,7 +3,11 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { formatRupiah, formatQuantity } from '@/lib/utils/utils';
+import {
+    formatRupiah,
+    formatQuantity,
+    isQuantityLessThan,
+} from '@/lib/utils/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -91,7 +95,10 @@ export function InventoryTable({
         (item: InventoryItem) => {
             const threshold = item.productVariant.minStockAlert;
             if (!threshold) return false;
-            return variantTotals[item.productVariantId] < threshold;
+            return isQuantityLessThan(
+                variantTotals[item.productVariantId],
+                threshold,
+            );
         },
         [variantTotals],
     );
@@ -293,7 +300,7 @@ export function InventoryTable({
                 historical
                     ? 'Historis; ambang master terkini'
                     : isLowStock
-                      ? `Stok Menipis (${totalStock}/${threshold})`
+                      ? `Stok Menipis (${formatQuantity(totalStock)}/${formatQuantity(threshold)})`
                       : 'Di atas ambang minimum',
             ];
         });

@@ -37,7 +37,7 @@ import {
     RefreshCw,
     Wrench,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/utils';
+import { cn, formatQuantity } from '@/lib/utils/utils';
 import { productionComponentLabels } from '@/lib/labels';
 import type { CappedIssueItem } from '@/services/production/material-service';
 import {
@@ -1344,16 +1344,18 @@ export function BatchIssueMaterialDialog({
                             Stok tidak mencukupi untuk{' '}
                             <b>{adjustingItem?.name}</b>.
                             <br />
-                            Dibutuhkan: <b>{adjustingItem?.needed}</b>.
-                            Tersedia: <b>{adjustingItem?.current}</b>.
+                            Dibutuhkan:{' '}
+                            <b>{formatQuantity(adjustingItem?.needed)}</b>.
+                            Tersedia:{' '}
+                            <b>{formatQuantity(adjustingItem?.current)}</b>.
                             <br />
                             Menambahkan selisih:{' '}
                             <b>
                                 {adjustingItem
-                                    ? (
+                                    ? formatQuantity(
                                           adjustingItem.needed -
-                                          adjustingItem.current
-                                      ).toFixed(2)
+                                              adjustingItem.current,
+                                      )
                                     : 0}
                             </b>
                         </div>

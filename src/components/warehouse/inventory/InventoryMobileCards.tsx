@@ -225,7 +225,8 @@ export function InventoryMobileCards({
                                             className="text-[10px] h-5 px-1.5 whitespace-nowrap"
                                         >
                                             {warehouseComponentLabels.lowStock}{' '}
-                                            ({totalStockValue}/{thresholdValue})
+                                            ({formatQuantity(totalStockValue)}/
+                                            {formatQuantity(thresholdValue)})
                                         </Badge>
                                     ) : null}
                                 </div>

@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Wallet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getEmployeeWeeklyPayroll } from '@/actions/hrd/payroll';
+import { formatQuantity } from '@/lib/utils/utils';
 
 type PayrollRecord = {
     date: Date;
@@ -210,7 +211,7 @@ export function Employee360PayrollWeeklyTab({
                                     Kg Dibayar
                                 </div>
                                 <div className="text-xl font-bold">
-                                    {payroll.totalKgPaid}
+                                    {formatQuantity(payroll.totalKgPaid)}
                                 </div>
                             </div>
                         ) : (
@@ -243,7 +244,9 @@ export function Employee360PayrollWeeklyTab({
                                             Kg Exception
                                         </div>
                                         <div className="text-lg font-bold text-rose-700 dark:text-rose-400">
-                                            {payroll.totalKgUnpaid}
+                                            {formatQuantity(
+                                                payroll.totalKgUnpaid,
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -320,7 +323,9 @@ export function Employee360PayrollWeeklyTab({
                                                 {line.machineType ?? '-'}
                                             </TableCell>
                                             <TableCell className="text-right font-mono text-sm">
-                                                {line.quantityKg}
+                                                {formatQuantity(
+                                                    line.quantityKg,
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-right font-mono text-sm">
                                                 {line.ratePerKg != null

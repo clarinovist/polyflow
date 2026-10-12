@@ -33,6 +33,71 @@ describe('InvoiceDotMatrixPrint persisted totals', () => {
         expect(screen.getByRole('alert').textContent).toContain('tanpa snapshot');
         expect(screen.queryByText('Test item')).toBeNull();
     });
+    it('formats decimal quantities and suppresses mixed-unit totals', () => {
+        const baseItem = snapshotFixture().items[0];
+        const decimalSnapshot = snapshotFixture({
+            items: [
+                {
+                    ...baseItem,
+                    sourceItemId: 'decimal-a',
+                    quantity: 50.8,
+                    enteredQuantity: 50.8,
+                    enteredUnit: 'KG',
+                    netAmount: '800.00',
+                    taxAmount: '80.00',
+                    totalAmount: '880.00',
+                },
+                {
+                    ...baseItem,
+                    sourceItemId: 'decimal-b',
+                    quantity: 16.0508,
+                    enteredQuantity: 16.0508,
+                    enteredUnit: 'KG',
+                    netAmount: '800.00',
+                    taxAmount: '80.00',
+                    totalAmount: '880.00',
+                },
+            ],
+            taxAmount: '160.00',
+            commercialTotal: '1780.00',
+        });
+        const { unmount } = render(
+            <InvoiceDotMatrixPrint
+                invoice={{ ...invoice, commercialSnapshot: decimalSnapshot }}
+                showButton={false}
+                companyConfig={company}
+            />,
+        );
+        expect(document.querySelector('tfoot .col-qty')?.textContent).toBe(
+            '66,8508',
+        );
+        unmount();
+
+        const mixedSnapshot = snapshotFixture({
+            items: [
+                baseItem,
+                {
+                    ...baseItem,
+                    sourceItemId: 'mixed-unit',
+                    enteredUnit: 'PCS',
+                    netAmount: '800.00',
+                    taxAmount: '80.00',
+                    totalAmount: '880.00',
+                },
+            ],
+            taxAmount: '160.00',
+            commercialTotal: '1780.00',
+        });
+        render(
+            <InvoiceDotMatrixPrint
+                invoice={{ ...invoice, commercialSnapshot: mixedSnapshot }}
+                showButton={false}
+                companyConfig={company}
+            />,
+        );
+        expect(document.querySelector('tfoot .col-qty')?.textContent).toBe('—');
+    });
+
     it('prints rounded total without adjustment row, unchanged VAT and exact remaining', () => {
         render(<InvoiceDotMatrixPrint invoice={invoice} showButton={false} companyConfig={company} />);
         expect(screen.queryByText('PEMBULATAN :')).toBeNull();

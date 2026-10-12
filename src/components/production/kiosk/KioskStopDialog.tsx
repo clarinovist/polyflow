@@ -22,6 +22,7 @@ import {
 } from '@/lib/utils/production-units';
 import { Unit } from '@prisma/client';
 import { kioskLabels } from '@/lib/labels';
+import { formatQuantity } from '@/lib/utils/utils';
 
 interface KioskStopDialogProps {
     open: boolean;
@@ -154,7 +155,8 @@ export function KioskStopDialog({
                             {kioskLabels.produced}
                         </span>
                         <span className="text-2xl font-black text-primary">
-                            {currentProduced} {unitMeta.primaryUnit}
+                            {formatQuantity(currentProduced)}{' '}
+                            {unitMeta.primaryUnit}
                         </span>
                     </div>
                     <div className="flex flex-col">
@@ -162,7 +164,8 @@ export function KioskStopDialog({
                             {kioskLabels.target}
                         </span>
                         <span className="text-2xl font-black">
-                            {targetQuantity} {unitMeta.primaryUnit}
+                            {formatQuantity(targetQuantity)}{' '}
+                            {unitMeta.primaryUnit}
                         </span>
                     </div>
                 </div>
@@ -181,7 +184,7 @@ export function KioskStopDialog({
                                 >
                                     <div className="flex flex-col">
                                         <span className="font-medium text-emerald-600">
-                                            +{log.quantity}
+                                            +{formatQuantity(log.quantity)}
                                         </span>
                                         <span className="text-[10px] text-muted-foreground">
                                             #{logs.length - idx}
@@ -204,10 +207,10 @@ export function KioskStopDialog({
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
                         <span className="font-semibold">Sebelum berhenti:</span>{' '}
-                        pastikan bahan tambahan yang dipakai di luar rencana sudah
-                        diajukan melalui aksi Bahan Tambahan. SPK tidak dapat
-                        ditandai selesai selama permintaan masih menunggu review
-                        gudang.
+                        pastikan bahan tambahan yang dipakai di luar rencana
+                        sudah diajukan melalui aksi Bahan Tambahan. SPK tidak
+                        dapat ditandai selesai selama permintaan masih menunggu
+                        review gudang.
                     </div>
                     <div className="space-y-2">
                         <Label

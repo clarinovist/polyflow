@@ -16,6 +16,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { formatQuantity } from '@/lib/utils/utils';
 
 type Sources = {
     returnItemId: string;
@@ -142,7 +143,7 @@ export function ReturnReceiveDialog({
                                 {item.sources.map((source) => (
                                     <option key={source.id} value={source.id}>
                                         {source.reference} · qty{' '}
-                                        {source.quantity}
+                                        {formatQuantity(source.quantity)}
                                     </option>
                                 ))}
                             </select>

@@ -12,7 +12,12 @@ import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable'
 import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
 
-import { serializeData, toDecimalNumber } from '@/lib/utils/utils';
+import {
+    isQuantityLessThan,
+    serializeData,
+    sumQuantities,
+    toDecimalNumber,
+} from '@/lib/utils/utils';
 import { withTenantPage } from '@/lib/core/tenant';
 import { InventoryQuickActions } from '@/components/warehouse/inventory/InventoryQuickActions';
 import { ContextualHelp } from '@/components/support/contextual-help';
@@ -160,14 +165,18 @@ export default async function WarehouseInventoryPage({
         console.error('Failed to calculate ABC:', e);
     }
 
-    const tableVariantTotals = processedInventory.reduce(
-        (acc: Record<string, number>, item) => {
-            const id = item.productVariantId;
-            const qty = toDecimalNumber(item.quantity);
-            acc[id] = (acc[id] || 0) + qty;
-            return acc;
-        },
-        {} as Record<string, number>,
+    const tableVariantQuantities = new Map<string, number[]>();
+    for (const item of processedInventory) {
+        const quantities =
+            tableVariantQuantities.get(item.productVariantId) ?? [];
+        quantities.push(toDecimalNumber(item.quantity));
+        tableVariantQuantities.set(item.productVariantId, quantities);
+    }
+    const tableVariantTotals = Object.fromEntries(
+        Array.from(tableVariantQuantities, ([id, quantities]) => [
+            id,
+            sumQuantities(quantities),
+        ]),
     );
 
     const isTableGlobalLowStock = (item: TableInventoryItem) => {
@@ -178,7 +187,10 @@ export default async function WarehouseInventoryPage({
             liveItem?.productVariant.minStockAlert,
         );
         if (!threshold) return false;
-        return tableVariantTotals[item.productVariantId] < threshold;
+        return isQuantityLessThan(
+            tableVariantTotals[item.productVariantId],
+            threshold,
+        );
     };
 
     let displayInventory = processedInventory;
@@ -188,19 +200,27 @@ export default async function WarehouseInventoryPage({
         displayInventory = displayInventory.filter(isTableGlobalLowStock);
     }
 
-    const liveVariantTotals = liveInventory.reduce(
-        (acc: Record<string, number>, item: InventoryWithRelations) => {
-            const id = item.productVariantId;
-            acc[id] = (acc[id] || 0) + toDecimalNumber(item.quantity);
-            return acc;
-        },
-        {} as Record<string, number>,
+    const liveVariantQuantities = new Map<string, number[]>();
+    for (const item of liveInventory) {
+        const quantities =
+            liveVariantQuantities.get(item.productVariantId) ?? [];
+        quantities.push(toDecimalNumber(item.quantity));
+        liveVariantQuantities.set(item.productVariantId, quantities);
+    }
+    const liveVariantTotals = Object.fromEntries(
+        Array.from(liveVariantQuantities, ([id, quantities]) => [
+            id,
+            sumQuantities(quantities),
+        ]),
     );
 
     const isLiveGlobalLowStock = (item: InventoryWithRelations) => {
         const threshold = toDecimalNumber(item.productVariant.minStockAlert);
         if (!threshold) return false;
-        return liveVariantTotals[item.productVariantId] < threshold;
+        return isQuantityLessThan(
+            liveVariantTotals[item.productVariantId],
+            threshold,
+        );
     };
 
     const locationSummaries = locations.map((loc) => {
@@ -218,10 +238,11 @@ export default async function WarehouseInventoryPage({
 
     const displayedTotalStock =
         activeLocationIds.length > 0
-            ? displayInventory.reduce((acc, item) => {
-                  const qty = toDecimalNumber(item.quantity);
-                  return acc + qty;
-              }, 0)
+            ? sumQuantities(
+                  displayInventory.map((item) =>
+                      toDecimalNumber(item.quantity),
+                  ),
+              )
             : dashboardStats.totalStock;
 
     const internalDisplayValue = displayInventory.reduce((acc, item) => {

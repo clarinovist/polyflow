@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/popover';
 import { getStatusLabel, purchasingLabels } from '@/lib/labels';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { formatQuantity } from '@/lib/utils/utils';
 
 type ReceiptWithRelations = {
     id: string;
@@ -233,7 +234,7 @@ export function GoodsReceiptTable({
                                                     </span>
                                                 </div>
                                                 <div className="text-right whitespace-nowrap font-medium">
-                                                    {item.receivedQty}{' '}
+                                                    {formatQuantity(item.receivedQty)}{' '}
                                                     {
                                                         item.productVariant
                                                             .primaryUnit
@@ -348,7 +349,7 @@ export function GoodsReceiptTable({
                                                     </span>
                                                 </span>
                                                 <span className="shrink-0 font-medium">
-                                                    {item.receivedQty}{' '}
+                                                    {formatQuantity(item.receivedQty)}{' '}
                                                     {item.productVariant.primaryUnit}
                                                 </span>
                                             </li>

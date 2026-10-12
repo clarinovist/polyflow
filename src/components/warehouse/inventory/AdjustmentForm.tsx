@@ -13,6 +13,7 @@ import {
     BulkAdjustStockValues,
 } from '@/lib/schemas/inventory';
 import { adjustStockBulk } from '@/actions/inventory/inventory';
+import { formatQuantity } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import {
     Form,
@@ -166,7 +167,7 @@ export function AdjustmentForm({
                     ?.quantity || 0;
             if (qty > currentStock) {
                 toast.error(
-                    `Stok tidak cukup. Maksimal tersedia: ${currentStock}`,
+                    `Stok tidak cukup. Maksimal tersedia: ${formatQuantity(currentStock)}`,
                 );
                 return;
             }
@@ -625,7 +626,9 @@ export function AdjustmentForm({
                                                                     : '- OUT'}
                                                             </Badge>
                                                             <span className="font-semibold text-sm">
-                                                                {field.quantity}{' '}
+                                                                {formatQuantity(
+                                                                    field.quantity,
+                                                                )}{' '}
                                                                 {details.unit}
                                                             </span>
                                                             {field.reason && (

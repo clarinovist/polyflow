@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
+import { formatQuantity } from '@/lib/utils/utils';
 import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
@@ -146,7 +147,9 @@ export function GoodsReceiptDetailClient({
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-right tabular-nums">
-                                                    {item.receivedQty}{' '}
+                                                    {formatQuantity(
+                                                        item.receivedQty,
+                                                    )}{' '}
                                                     {
                                                         item.productVariant
                                                             .primaryUnit
@@ -324,7 +327,9 @@ export function GoodsReceiptDetailClient({
                         entityLabel={receipt.receiptNumber}
                         entityType="goodsReceiptId"
                         checkpoint="RECEIPT"
-                        attachments={safeAttachments.filter((a) => a.checkpoint === 'RECEIPT')}
+                        attachments={safeAttachments.filter(
+                            (a) => a.checkpoint === 'RECEIPT',
+                        )}
                         onAttachmentChange={() => window.location.reload()}
                     />
                 </div>

@@ -60,12 +60,44 @@ export function formatRupiahParts(value: number | null | undefined): {
     return { prefix: 'Rp', amount, isNegative };
 }
 
+export const QUANTITY_FRACTION_DIGITS = 4;
+const QUANTITY_SCALE = 10 ** QUANTITY_FRACTION_DIGITS;
+
+export function toQuantityUnits(value: number | null | undefined): number {
+    if (value === null || value === undefined || !Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.round(
+        Number(value.toFixed(QUANTITY_FRACTION_DIGITS)) * QUANTITY_SCALE,
+    );
+}
+
+export function normalizeQuantity(value: number | null | undefined): number {
+    return toQuantityUnits(value) / QUANTITY_SCALE;
+}
+
+export function sumQuantities(
+    values: Iterable<number | null | undefined>,
+): number {
+    let totalUnits = 0;
+    for (const value of values) totalUnits += toQuantityUnits(value);
+    return totalUnits / QUANTITY_SCALE;
+}
+
+export function isQuantityLessThan(
+    value: number | null | undefined,
+    threshold: number | null | undefined,
+): boolean {
+    return toQuantityUnits(value) < toQuantityUnits(threshold);
+}
+
 export function formatQuantity(value: number | null | undefined): string {
     if (value === null || value === undefined) return '-';
     return new Intl.NumberFormat('id-ID', {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 4,
-    }).format(value);
+        maximumFractionDigits: QUANTITY_FRACTION_DIGITS,
+    }).format(normalizeQuantity(value));
 }
 
 export { serializeData } from '@/lib/serialization/server-to-client';

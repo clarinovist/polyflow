@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import { updateFieldSalesOrder } from '@/actions/sales/field-actions';
 
 interface EditableItem {
@@ -149,11 +149,12 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
         }
 
         const belowDelivered = items.find(
-            (item) => item.deliveredQty > 0 && item.quantity < item.deliveredQty,
+            (item) =>
+                item.deliveredQty > 0 && item.quantity < item.deliveredQty,
         );
         if (belowDelivered) {
             toast.error(
-                `Qty ${belowDelivered.productName} tidak boleh kurang dari ${belowDelivered.deliveredQty} (sudah terkirim).`,
+                `Qty ${belowDelivered.productName} tidak boleh kurang dari ${formatQuantity(belowDelivered.deliveredQty)} (sudah terkirim).`,
             );
             return;
         }
@@ -259,7 +260,8 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                                             variant="secondary"
                                             className="shrink-0 text-[11px]"
                                         >
-                                            Terkirim: {item.deliveredQty}
+                                            Terkirim:{' '}
+                                            {formatQuantity(item.deliveredQty)}
                                         </Badge>
                                     ) : (
                                         <Button

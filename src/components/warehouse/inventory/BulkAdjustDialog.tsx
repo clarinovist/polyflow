@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatQuantity } from '@/lib/utils/utils';
 import {
     Select,
     SelectContent,
@@ -171,7 +172,9 @@ export function BulkAdjustDialog({
                 toast.error(`Gagal: ${result.error}`);
             }
         } catch (_error) {
-            toast.error('Hasil penyesuaian belum dapat dipastikan. Periksa mutasi sebelum mencoba lagi; draft tetap disimpan.');
+            toast.error(
+                'Hasil penyesuaian belum dapat dipastikan. Periksa mutasi sebelum mencoba lagi; draft tetap disimpan.',
+            );
         } finally {
             setIsSubmitting(false);
         }
@@ -309,7 +312,7 @@ export function BulkAdjustDialog({
                                                 </div>
                                             </div>
                                             <div className="col-span-2 text-right text-sm">
-                                                {item.quantity}{' '}
+                                                {formatQuantity(item.quantity)}{' '}
                                                 <span className="text-xs text-muted-foreground">
                                                     {
                                                         item.productVariant

@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import {
@@ -727,7 +727,9 @@ export function PurchaseOrderDetailClient({
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-right">
-                                                    {item.quantity}{' '}
+                                                    {formatQuantity(
+                                                        item.quantity,
+                                                    )}{' '}
                                                     {
                                                         item.productVariant
                                                             .primaryUnit
@@ -745,7 +747,9 @@ export function PurchaseOrderDetailClient({
                                                                   : 'text-amber-600 dark:text-amber-400'
                                                         }
                                                     >
-                                                        {item.receivedQty}
+                                                        {formatQuantity(
+                                                            item.receivedQty,
+                                                        )}
                                                         {item.receivedQty >
                                                             item.quantity && (
                                                             <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 px-1 rounded">

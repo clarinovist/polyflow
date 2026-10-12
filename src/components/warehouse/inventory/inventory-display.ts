@@ -1,3 +1,4 @@
+import { sumQuantities } from '@/lib/utils/utils';
 import type { InventoryItem } from './inventory-table-types';
 
 /** Display fallback only: do not recompute reservation/costing rules here. */
@@ -9,9 +10,19 @@ export function availableStock(item: {
 }
 
 export function stockTotalsByUnit(items: InventoryItem[]) {
-    return items.reduce<Record<string, number>>((totals, item) => {
+    const quantitiesByUnit = new Map<string, number[]>();
+
+    for (const item of items) {
         const unit = item.productVariant.primaryUnit;
-        totals[unit] = (totals[unit] ?? 0) + item.quantity;
-        return totals;
-    }, {});
+        const quantities = quantitiesByUnit.get(unit) ?? [];
+        quantities.push(item.quantity);
+        quantitiesByUnit.set(unit, quantities);
+    }
+
+    return Object.fromEntries(
+        Array.from(quantitiesByUnit, ([unit, quantities]) => [
+            unit,
+            sumQuantities(quantities),
+        ]),
+    );
 }

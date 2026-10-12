@@ -20,6 +20,7 @@ import {
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { formatQuantity } from '@/lib/utils/utils';
 
 interface EmployeePayrollPageProps {
     params: Promise<{ id: string }>;
@@ -182,7 +183,7 @@ export default async function EmployeePayrollPage({
                                     Kg Dibayar
                                 </div>
                                 <div className="text-2xl font-bold">
-                                    {payroll.totalKgPaid}
+                                    {formatQuantity(payroll.totalKgPaid)}
                                 </div>
                             </div>
                         ) : (
@@ -208,7 +209,8 @@ export default async function EmployeePayrollPage({
                                         {formatIdr(payroll.totalPieceEarnings)}
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-1">
-                                        {payroll.totalKgPaid} kg dibayar
+                                        {formatQuantity(payroll.totalKgPaid)} kg
+                                        dibayar
                                     </div>
                                 </div>
                                 {payroll.totalKgUnpaid > 0 && (
@@ -217,7 +219,9 @@ export default async function EmployeePayrollPage({
                                             Kg Exception
                                         </div>
                                         <div className="text-xl font-bold text-rose-700 dark:text-rose-400">
-                                            {payroll.totalKgUnpaid}
+                                            {formatQuantity(
+                                                payroll.totalKgUnpaid,
+                                            )}
                                         </div>
                                         <div className="text-xs text-muted-foreground mt-1">
                                             tanpa absen / rate missing
@@ -286,7 +290,9 @@ export default async function EmployeePayrollPage({
                                                 {line.machineType ?? '-'}
                                             </TableCell>
                                             <TableCell className="text-right font-mono">
-                                                {line.quantityKg}
+                                                {formatQuantity(
+                                                    line.quantityKg,
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-right font-mono">
                                                 {line.ratePerKg != null

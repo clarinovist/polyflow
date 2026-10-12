@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
 import { terbilang } from '@/lib/utils/terbilang';
+import { formatQuantity, sumQuantities } from '@/lib/utils/utils';
 import { InvoiceStatus } from '@prisma/client';
 import {
     invoiceSnapshotOrder,
@@ -94,8 +95,8 @@ export function InvoiceDotMatrixPrint({
     );
     const quantityUnits = new Set(items.map(item => item.enteredUnit));
     const totalQty = quantityUnits.size <= 1
-        ? items.reduce((sum, item) => sum + Number(item.enteredQuantity ?? item.quantity), 0)
-        : '—';
+        ? sumQuantities(items.map(item => Number(item.enteredQuantity ?? item.quantity)))
+        : null;
     const discountAmount = Number(so?.discountAmount || 0);
     const shippingCost = Number(so?.shippingCost || 0);
     const grandTotal = Number(invoice.totalAmount);
@@ -271,7 +272,7 @@ export function InvoiceDotMatrixPrint({
                             return (
                                 <tr key={item.id || idx}>
                                     <td className="col-name">{productName}</td>
-                                    <td className="col-qty">{qty}</td>
+                                    <td className="col-qty">{formatQuantity(qty)}</td>
                                     <td className="col-unit">{unit}</td>
                                     <td className="col-price">
                                         {formatNumberWithDots(unitPrice)}
@@ -301,7 +302,9 @@ export function InvoiceDotMatrixPrint({
                             <td colSpan={1} className="text-right">
                                 TOTAL :
                             </td>
-                            <td className="col-qty">{totalQty}</td>
+                            <td className="col-qty">
+                                {totalQty === null ? '—' : formatQuantity(totalQty)}
+                            </td>
                             <td colSpan={4}></td>
                         </tr>
                     </tfoot>

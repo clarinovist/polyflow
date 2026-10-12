@@ -13,6 +13,7 @@ import {
     BulkTransferStockValues,
 } from '@/lib/schemas/inventory';
 import { transferStockBulk } from '@/actions/inventory/inventory';
+import { formatQuantity } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import {
     Form,
@@ -152,7 +153,7 @@ export function TransferForm({
         }
         if (qty > selectedProduct.quantity) {
             toast.error(
-                `Stok tidak cukup. Maksimal tersedia: ${selectedProduct.quantity}`,
+                `Stok tidak cukup. Maksimal tersedia: ${formatQuantity(selectedProduct.quantity)}`,
             );
             return;
         }
@@ -531,7 +532,9 @@ export function TransferForm({
                                                         </div>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-sm font-bold">
-                                                                {field.quantity}{' '}
+                                                                {formatQuantity(
+                                                                    field.quantity,
+                                                                )}{' '}
                                                                 {details.unit}
                                                             </span>
                                                             <Button

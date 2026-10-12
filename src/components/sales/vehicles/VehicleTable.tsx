@@ -28,6 +28,7 @@ import { VehicleDialog } from './VehicleDialog';
 import { salesLabels } from '@/lib/labels';
 import type { FleetSummary } from '@/services/sales/fleet-summary-service';
 import { FleetMileageSummary, KirBadge } from './FleetReading';
+import { formatQuantity } from '@/lib/utils/utils';
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
     MOBIL_BOX: 'Mobil Box',
@@ -195,7 +196,7 @@ export function VehicleTable({ vehicles, summaries = [] }: VehicleTableProps) {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             {v.capacityKg
-                                                ? `${v.capacityKg} Kg`
+                                                ? `${formatQuantity(Number(v.capacityKg))} Kg`
                                                 : '-'}
                                         </TableCell>
                                         <TableCell>
@@ -325,7 +326,7 @@ export function VehicleTable({ vehicles, summaries = [] }: VehicleTableProps) {
                                         <span className="text-muted-foreground">
                                             Kapasitas:{' '}
                                         </span>
-                                        {v.capacityKg} Kg
+                                        {formatQuantity(Number(v.capacityKg))} Kg
                                     </div>
                                 )}
                             </div>

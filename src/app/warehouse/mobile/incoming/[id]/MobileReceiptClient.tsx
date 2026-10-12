@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { createGoodsReceipt } from '@/actions/purchasing/purchasing';
 import { toast } from 'sonner';
+import { formatQuantity } from '@/lib/utils/utils';
 import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
@@ -232,11 +233,11 @@ export function MobileReceiptClient({
                                 </div>
                                 <div className="text-right shrink-0">
                                     <p className="text-xs text-muted-foreground">
-                                        Pesan: {item.quantity}
+                                        Pesan: {formatQuantity(item.quantity)}
                                     </p>
                                     {item.receivedQty > 0 && (
                                         <p className="text-[10px] text-emerald-600">
-                                            Sudah terima: {item.receivedQty}
+                                            Sudah terima: {formatQuantity(item.receivedQty)}
                                         </p>
                                     )}
                                 </div>
@@ -368,7 +369,7 @@ export function MobileReceiptClient({
                                         >
                                             <span className="truncate pr-2">{i.name}</span>
                                             <span className="font-semibold shrink-0">
-                                                {i.receivedQty} {i.receivedQty > i.pendingQty ? `(over +${i.receivedQty - i.pendingQty})` : ''}
+                                                {formatQuantity(i.receivedQty)} {i.receivedQty > i.pendingQty ? `(over +${formatQuantity(i.receivedQty - i.pendingQty)})` : ''}
                                             </span>
                                         </div>
                                     ))}

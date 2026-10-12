@@ -19,7 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import {
     AlertTriangle,
     TrendingDown,
@@ -641,7 +641,9 @@ export function MarginReportClient({
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right tabular-nums">
-                                                        {row.quantity}
+                                                        {formatQuantity(
+                                                            row.quantity,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-right tabular-nums">
                                                         {formatRupiah(

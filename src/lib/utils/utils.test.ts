@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatRupiah, toDecimalNumber } from './utils';
+import {
+    formatQuantity,
+    formatRupiah,
+    isQuantityLessThan,
+    sumQuantities,
+    toDecimalNumber,
+} from './utils';
 
 describe('formatRupiah', () => {
     it('returns dash for null and undefined', () => {
@@ -37,6 +43,31 @@ describe('formatRupiah', () => {
     it('formats large negative value with parentheses', () => {
         const result = formatRupiah(-128196020);
         expect(result).toMatch(/^\(Rp\u00a0128\.196\.020\)$/);
+    });
+});
+
+describe('quantity precision contract', () => {
+    it('formats Indonesian quantities with at most four decimals', () => {
+        expect(formatQuantity(50.8)).toBe('50,8');
+        expect(formatQuantity(16.0508)).toBe('16,0508');
+        expect(formatQuantity(100)).toBe('100');
+        expect(formatQuantity(null)).toBe('-');
+        expect(formatQuantity(undefined)).toBe('-');
+        expect(formatQuantity(Number.NaN)).toBe('0');
+        expect(formatQuantity(Number.POSITIVE_INFINITY)).toBe('0');
+    });
+
+    it('hides binary floating-point artifacts after aggregation', () => {
+        const raw = 50.8 + 16.0508;
+
+        expect(raw).toBe(66.85079999999999);
+        expect(sumQuantities([50.8, 16.0508])).toBe(66.8508);
+        expect(formatQuantity(raw)).toBe('66,8508');
+    });
+
+    it('compares stock thresholds at the four-decimal domain scale', () => {
+        expect(isQuantityLessThan(0.1 + 0.2, 0.3)).toBe(false);
+        expect(isQuantityLessThan(0.2999, 0.3)).toBe(true);
     });
 });
 

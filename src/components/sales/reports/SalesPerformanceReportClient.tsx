@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { BarChart3, Users, Package, TrendingUp, MapPin } from 'lucide-react';
@@ -312,7 +312,7 @@ export function SalesPerformanceReportClient({
                                                     {p.name}
                                                 </TableCell>
                                                 <TableCell className="text-center">
-                                                    {p.quantity}
+                                                    {formatQuantity(p.quantity)}
                                                 </TableCell>
                                                 <TableCell className="text-right font-semibold">
                                                     {formatRupiah(p.revenue)}
@@ -591,7 +591,9 @@ export function SalesPerformanceReportClient({
                                                                 }
                                                             </TableCell>
                                                             <TableCell className="text-right tabular-nums">
-                                                                {row.quantity}
+                                                                {formatQuantity(
+                                                                    row.quantity,
+                                                                )}
                                                             </TableCell>
                                                             <TableCell className="text-right font-semibold">
                                                                 {formatRupiah(
@@ -662,7 +664,9 @@ export function SalesPerformanceReportClient({
                                                         {row.productName}
                                                     </TableCell>
                                                     <TableCell className="text-right text-sm">
-                                                        {row.quantity}
+                                                        {formatQuantity(
+                                                            row.quantity,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-right text-sm font-semibold">
                                                         {formatRupiah(

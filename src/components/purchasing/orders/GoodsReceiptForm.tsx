@@ -33,6 +33,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { formatQuantity } from '@/lib/utils/utils';
 import { useRouter } from 'next/navigation';
 import {
     Card,
@@ -263,24 +264,26 @@ export function GoodsReceiptForm({
                                                     <div className="mt-1 flex gap-2 flex-wrap">
                                                         <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">
                                                             Dipesan:{' '}
-                                                            {
-                                                                originalItem?.orderedQty
-                                                            }
+                                                            {formatQuantity(
+                                                                originalItem?.orderedQty,
+                                                            )}
                                                         </span>
                                                         <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded">
                                                             Diterima Sblm:{' '}
-                                                            {
-                                                                originalItem?.receivedQty
-                                                            }
+                                                            {formatQuantity(
+                                                                originalItem?.receivedQty,
+                                                            )}
                                                         </span>
                                                         {isOver && (
                                                             <span className="text-[10px] bg-amber-200 text-amber-800 px-1 rounded font-bold">
                                                                 Over:{' '}
-                                                                {wouldBeTotal}{' '}
+                                                                {formatQuantity(
+                                                                    wouldBeTotal,
+                                                                )}{' '}
                                                                 &gt;{' '}
-                                                                {
-                                                                    originalItem?.orderedQty
-                                                                }
+                                                                {formatQuantity(
+                                                                    originalItem?.orderedQty,
+                                                                )}
                                                             </span>
                                                         )}
                                                     </div>

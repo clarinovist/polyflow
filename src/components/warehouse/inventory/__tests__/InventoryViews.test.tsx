@@ -23,6 +23,49 @@ describe('inventory display contract', () => {
         const row = screen.getAllByRole('row')[1];
         expect(within(row).getAllByRole('cell')[5].textContent).toContain(expected);
     });
+    it.each(['desktop', 'mobile'])('formats low-stock totals without floating-point artifacts on %s', (view) => {
+        const item = {
+            ...stockItem,
+            productVariant: {
+                ...stockItem.productVariant,
+                minStockAlert: 100,
+            },
+        };
+        const props = {
+            ...common,
+            variantTotals: { 'product-a': 50.8 + 16.0508 },
+            isGlobalLowStock: () => true,
+            paginatedInventory: [item],
+        };
+
+        if (view === 'mobile') {
+            render(<InventoryMobileCards {...props} />);
+        } else {
+            render(
+                <InventoryDesktopTable
+                    {...props}
+                    processedInventoryCount={1}
+                    isLocationSpecific={false}
+                    showPrices={false}
+                    isAllSelected={false}
+                    isSomeSelected={false}
+                    sortField="stock"
+                    sortOrder="desc"
+                    toggleSelectAll={vi.fn()}
+                    handleSort={vi.fn()}
+                />,
+            );
+        }
+
+        const lowStock = Array.from(
+            document.querySelectorAll('[data-slot=badge], td div'),
+        ).find((element) =>
+            element.textContent?.includes('66,8508/100'),
+        );
+        expect(lowStock?.textContent).toContain('66,8508/100');
+        expect(document.body.textContent).not.toContain('66.85079999999999');
+    });
+
     it('preserves all non-location query parameters in location links', () => {
         render(<WarehouseNavigator locations={stockLocations} activeLocationIds={['loc-a']} totalSkus={2} totalLowStock={0} />);
         for (const name of [/Semua Lokasi/, /Lokasi B/]) {

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { formatRupiah } from '@/lib/utils/utils';
+import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import {
     confirmSalesOrder,
     deliverSalesOrder,
@@ -373,12 +373,14 @@ export function OrderDetailClient({
                                     </p>
                                 )}
                                 <p className="text-xs text-muted-foreground">
-                                    {item.skuCode} • {item.quantity} ×{' '}
+                                    {item.skuCode} •{' '}
+                                    {formatQuantity(item.quantity)} ×{' '}
                                     {formatRupiah(item.unitPrice)}
                                 </p>
                                 {item.deliveredQty > 0 && (
                                     <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                                        Terkirim: {item.deliveredQty} Qty
+                                        Terkirim:{' '}
+                                        {formatQuantity(item.deliveredQty)} Qty
                                     </p>
                                 )}
                             </div>
@@ -421,7 +423,9 @@ export function OrderDetailClient({
                                 {(doItem.status === 'PENDING' ||
                                     doItem.status === 'LOADING') && (
                                     <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                                        {salesLabels.sjPendingHint}. Konfirmasi pengiriman melalui petugas gudang yang berwenang.
+                                        {salesLabels.sjPendingHint}. Konfirmasi
+                                        pengiriman melalui petugas gudang yang
+                                        berwenang.
                                     </p>
                                 )}
                                 {(doItem.carrier || doItem.trackingNumber) && (
@@ -458,7 +462,8 @@ export function OrderDetailClient({
                                                 {item.variantName})
                                             </span>
                                             <span className="font-semibold text-foreground shrink-0">
-                                                {item.quantity} Qty
+                                                {formatQuantity(item.quantity)}{' '}
+                                                Qty
                                             </span>
                                         </div>
                                     ))}
@@ -630,7 +635,10 @@ export function OrderDetailClient({
 
                         {primaryOpenDo && (
                             <p className="w-full rounded-xl border p-3 text-sm">
-                                Surat jalan {primaryOpenDo.orderNumber} masih terbuka. Informasi pengiriman tersedia di atas; konfirmasi kirim melalui petugas gudang yang berwenang.
+                                Surat jalan {primaryOpenDo.orderNumber} masih
+                                terbuka. Informasi pengiriman tersedia di atas;
+                                konfirmasi kirim melalui petugas gudang yang
+                                berwenang.
                             </p>
                         )}
                         {openDeliveryOrders.length > 1 && (
@@ -891,7 +899,9 @@ export function OrderDetailClient({
                                                         <p className="text-[10px] text-muted-foreground">
                                                             {item.variantName} •
                                                             Qty Order:{' '}
-                                                            {item.quantity}
+                                                            {formatQuantity(
+                                                                item.quantity,
+                                                            )}
                                                         </p>
                                                     </div>
                                                 </div>

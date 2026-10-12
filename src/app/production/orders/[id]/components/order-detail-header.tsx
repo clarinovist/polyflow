@@ -10,6 +10,7 @@ import { ExtendedProductionOrder } from '@/components/production/order-detail/ty
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
+import { formatQuantity } from '@/lib/utils/utils';
 import { OrderStatusActions } from './order-status-actions';
 import { ReassignMachineButton } from '@/components/production/ReassignMachineButton';
 import {
@@ -113,8 +114,8 @@ export function OrderDetailHeader({
                             {runStub?.route?.version ?? ''}
                         </span>
                         <InfoHint label="Info SPK dari routing">
-                            Kesiapan dan lokasi sumber SPK ini diambil dari tahap
-                            routing.
+                            Kesiapan dan lokasi sumber SPK ini diambil dari
+                            tahap routing.
                         </InfoHint>
                     </div>
                     {processLabel && (
@@ -232,7 +233,8 @@ export function OrderDetailHeader({
                                     className="h-2 w-28"
                                 />
                                 <span className="text-xs font-medium text-muted-foreground">
-                                    {actualQty} / {plannedQty}{' '}
+                                    {formatQuantity(actualQty)} /{' '}
+                                    {formatQuantity(plannedQty)}{' '}
                                     {order.bom.productVariant.primaryUnit} (
                                     {progress.toFixed(0)}%)
                                 </span>

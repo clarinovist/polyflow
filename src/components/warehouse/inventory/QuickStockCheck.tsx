@@ -11,7 +11,7 @@ import {
 import { ProductCombobox } from '@/components/products/product-combobox';
 import { Search, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils/utils';
+import { cn, formatQuantity } from '@/lib/utils/utils';
 import { getRealtimeStock } from '@/actions/inventory/inventory';
 import { warehouseComponentLabels } from '@/lib/labels';
 
@@ -134,7 +134,7 @@ export function QuickStockCheck({ products, locations }: QuickStockCheckProps) {
                                                             : 'text-muted-foreground opacity-70',
                                                     )}
                                                 >
-                                                    {qty}
+                                                    {formatQuantity(qty)}
                                                 </Badge>
                                             </div>
                                         );

@@ -213,6 +213,25 @@ describe("computeLowStockVariantIds", () => {
     expect(result.has("pv-6")).toBe(true);
   });
 
+  it("does not flag an exact threshold hidden behind floating-point noise", () => {
+    const inventory = [
+      {
+        productVariantId: "pv-float",
+        quantity: 0.1,
+        productVariant: { minStockAlert: 0.3 },
+        location: { locationType: "INTERNAL", locationPurpose: "RAW_MATERIAL" },
+      },
+      {
+        productVariantId: "pv-float",
+        quantity: 0.2,
+        productVariant: { minStockAlert: 0.3 },
+        location: { locationType: "INTERNAL", locationPurpose: "FINISHED_GOOD" },
+      },
+    ];
+
+    expect(computeLowStockVariantIds(inventory).has("pv-float")).toBe(false);
+  });
+
   it("ignores items with a null location", () => {
     // Arrange
     const inventory = [
