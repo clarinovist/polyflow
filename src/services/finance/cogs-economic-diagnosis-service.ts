@@ -516,8 +516,9 @@ async function shipmentSnapshot(
                 COALESCE(j.cogs_debit, 0) AS "cogsDebit",
                 COALESCE(j.asset_credit, 0) AS "assetCredit",
                 COALESCE(rev.pair_count, 0) AS "reversalPairCount",
+                COALESCE(rev.unique_count, 0) AS "uniqueReversalCount",
                 COALESCE(rev.valid_count, 0) AS "validReversalCount",
-                COALESCE(rev.cross_period_count, 0) AS "crossPeriodReversalCount"
+                COALESCE(rev.cross_period_unique_count, 0) AS "crossPeriodReversalCount"
             FROM "StockMovement" m
             JOIN "SalesOrder" so ON so.id = m."salesOrderId"
             LEFT JOIN LATERAL (
@@ -557,9 +558,23 @@ async function shipmentSnapshot(
             ) j ON TRUE
             LEFT JOIN LATERAL (
                 SELECT COUNT(*) AS pair_count,
-                    COUNT(*) FILTER (WHERE r."createdAt" >= ${start} AND r."createdAt" <= ${end}) AS in_period_count,
-                    COUNT(*) FILTER (WHERE r."createdAt" < ${start} OR r."createdAt" > ${end}) AS cross_period_count,
+                    COUNT(*) FILTER (WHERE (SELECT COUNT(*) FROM "StockMovement" o
+                        WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
+                            AND o."productVariantId" = m."productVariantId"
+                            AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
+                            AND o.quantity = m.quantity AND o.reference = m.reference) = 1) AS unique_count,
+                    COUNT(*) FILTER (WHERE (r."createdAt" < ${start} OR r."createdAt" > ${end})
+                        AND (SELECT COUNT(*) FROM "StockMovement" o
+                            WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
+                                AND o."productVariantId" = m."productVariantId"
+                                AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
+                                AND o.quantity = m.quantity AND o.reference = m.reference) = 1) AS cross_period_unique_count,
                     COUNT(*) FILTER (WHERE r."createdAt" >= ${start} AND r."createdAt" <= ${end}
+                        AND (SELECT COUNT(*) FROM "StockMovement" o
+                            WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
+                                AND o."productVariantId" = m."productVariantId"
+                                AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
+                                AND o.quantity = m.quantity AND o.reference = m.reference) = 1
                         AND COALESCE(rj.active, 0) = 1 AND COALESCE(rj.posted_auto, 0) = 1
                         AND COALESCE(rj.debit, 0) = COALESCE(rj.credit, 0)
                         AND COALESCE(rj.debit, 0) > 0
@@ -601,7 +616,7 @@ async function shipmentSnapshot(
             SELECT *,
                 CASE
                     WHEN "orderType" = 'MAKLON_JASA' THEN 'SHIPMENT_OFF_BALANCE_EXCLUDED'
-                    WHEN "validReversalCount" = 1 AND "reversalPairCount" = 1 THEN 'SHIPMENT_REVERSAL_EXCLUDED'
+                    WHEN "validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1 THEN 'SHIPMENT_REVERSAL_EXCLUDED'
                     WHEN "crossPeriodReversalCount" > 0 THEN 'SHIPMENT_REVERSAL_CROSS_PERIOD'
                     WHEN "reversalPairCount" > 0 THEN 'SHIPMENT_REVERSAL_INVALID'
                     WHEN "draftJournals" > 0 AND "postedAutoJournals" = 0 THEN 'SHIPMENT_JOURNAL_NOT_POSTED'
@@ -662,16 +677,16 @@ async function shipmentSnapshot(
         SELECT jsonb_build_object(
             'metrics', jsonb_build_object(
                 'cohortCount', COUNT(*),
-                'activeCount', COUNT(*) FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "reversalPairCount" = 1)),
+                'activeCount', COUNT(*) FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1)),
                 'coveredCount', COUNT(*) FILTER (WHERE code = 'SHIPMENT_COVERED_COGS'),
                 'reversedCount', COUNT(*) FILTER (WHERE code = 'SHIPMENT_REVERSAL_EXCLUDED'),
                 'offBalanceCount', COUNT(*) FILTER (WHERE code = 'SHIPMENT_OFF_BALANCE_EXCLUDED'),
-                'quantity', COALESCE(SUM(quantity) FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
-                'nominalRevenue', COALESCE(SUM("nominalRevenue") FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
-                'postedCogs', COALESCE(SUM("cogsDebit") FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
-                'explicitMovementValue', COALESCE(SUM(cost * quantity) FILTER (WHERE cost IS NOT NULL AND "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
-                'explicitMovementKnownCount', COUNT(*) FILTER (WHERE cost IS NOT NULL AND "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "reversalPairCount" = 1)),
-                'historicalFallbackUnknownCount', COUNT(*) FILTER (WHERE cost IS NULL AND "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "reversalPairCount" = 1)),
+                'quantity', COALESCE(SUM(quantity) FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
+                'nominalRevenue', COALESCE(SUM("nominalRevenue") FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
+                'postedCogs', COALESCE(SUM("cogsDebit") FILTER (WHERE "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
+                'explicitMovementValue', COALESCE(SUM(cost * quantity) FILTER (WHERE cost IS NOT NULL AND "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1)), 0)::text,
+                'explicitMovementKnownCount', COUNT(*) FILTER (WHERE cost IS NOT NULL AND "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1)),
+                'historicalFallbackUnknownCount', COUNT(*) FILTER (WHERE cost IS NULL AND "orderType" <> 'MAKLON_JASA' AND NOT ("validReversalCount" = 1 AND "uniqueReversalCount" = 1 AND "reversalPairCount" = 1)),
                 'legacyAttributionCount', COUNT(*) FILTER (WHERE "deliveryMatchCount" <> 1),
                 'incompleteSalesValue', COALESCE(SUM("nominalRevenue") FILTER (WHERE code NOT IN ('SHIPMENT_COVERED_COGS', 'SHIPMENT_REVERSAL_EXCLUDED', 'SHIPMENT_OFF_BALANCE_EXCLUDED')), 0)::text
             ),

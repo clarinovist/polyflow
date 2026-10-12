@@ -240,9 +240,17 @@ describe.skipIf(!db)('COGS economic diagnosis on disposable PostgreSQL', () => {
             id: 'later-reversal', type: 'IN', quantity: 1, reference: `VOID: ${reference} [SOURCE:delivery]`,
             createdAt: new Date('2026-09-01T00:00:00.000Z'), salesOrderId: 'order', toLocationId: 'warehouse',
         });
+        const late = await movement({
+            id: 'late-original', quantity: 3, reference, salesOrderId: 'order', fromLocationId: 'warehouse',
+        });
+        await movement({
+            id: 'late-original-reversal', type: 'IN', quantity: 3, reference: `VOID: ${reference} [SOURCE:delivery]`,
+            createdAt: new Date('2026-09-01T00:00:00.000Z'), salesOrderId: 'order', toLocationId: 'warehouse',
+        });
+        expect(late.id).toBe('late-original');
         const result = await diagnose();
         const zero = result.findings.find(row => row.code === 'ZERO_VALUED_SALES_SHIPMENT');
-        expect(result.shipments).toMatchObject({ count: 22, activeCount: 22, reversedCount: 0, incompleteSalesValue: 2_200 });
+        expect(result.shipments).toMatchObject({ count: 23, activeCount: 23, reversedCount: 0, incompleteSalesValue: 2_500 });
         expect(zero).toMatchObject({ count: 21, amount: 2_100 });
         expect(zero?.samples).toHaveLength(20);
         expect(result.findings.map(row => row.code)).toContain('SHIPMENT_REVERSAL_CROSS_PERIOD');
