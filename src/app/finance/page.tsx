@@ -20,9 +20,87 @@ import {
     Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { endOfMonth, parseISO, startOfMonth } from 'date-fns';
+import { parseISO } from 'date-fns';
+import {
+    getWibDayBounds,
+    getWibMonthBounds,
+    toBusinessDateString,
+} from '@/lib/utils/timezone';
 
 export const dynamic = 'force-dynamic';
+
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDashboardDateParam(
+    value: string | undefined,
+    edge: 'start' | 'end',
+): Date | undefined {
+    if (!value) return undefined;
+    if (DATE_ONLY_PATTERN.test(value)) {
+        try {
+            const bounds = getWibDayBounds(value);
+            return edge === 'start' ? bounds.startOfDay : bounds.endOfDay;
+        } catch {
+            return undefined;
+        }
+    }
+    const parsed = parseISO(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : undefined;
+}
+
+function defaultFinanceMonthRange(now: Date): {
+    startDate: Date;
+    endDate: Date;
+} {
+    const [year, month] = toBusinessDateString(now).split('-').map(Number);
+    const bounds = getWibMonthBounds(year, month);
+    return { startDate: bounds.start, endDate: bounds.end };
+}
+
+function isLegacyMonthPickerRange(
+    startValue: string | undefined,
+    endValue: string | undefined,
+): boolean {
+    if (!startValue || !endValue) return false;
+    // The affected legacy URLs were produced in a UTC browser and therefore
+    // have the exact UTC start/end-of-month shape below. Keep the compatibility
+    // clamp deliberately narrow: date-only values, offset calendar ranges, and
+    // arbitrary instants must never be changed.
+    return (
+        /^\d{4}-\d{2}-01T00:00:00\.000Z$/.test(startValue) &&
+        /^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/.test(endValue)
+    );
+}
+
+function clampLegacyMonthEnd(
+    startDate: Date,
+    endDate: Date,
+    isLegacyRange: boolean,
+): Date {
+    if (!isLegacyRange) return endDate;
+    const [startYear, startMonth, startDay] = toBusinessDateString(startDate)
+        .split('-')
+        .map(Number);
+    const [endYear, endMonth, endDay] = toBusinessDateString(endDate)
+        .split('-')
+        .map(Number);
+    const nextYear = startMonth === 12 ? startYear + 1 : startYear;
+    const nextMonth = startMonth === 12 ? 1 : startMonth + 1;
+
+    // Older MonthPicker URLs stored browser-local endOfMonth() as an ISO
+    // instant. From a UTC browser, 31 Oct 23:59:59.999Z is 1 Nov in WIB.
+    // Clamp only that exact full-month rollover shape; arbitrary ranges remain
+    // untouched.
+    if (
+        startDay === 1 &&
+        endDay === 1 &&
+        endYear === nextYear &&
+        endMonth === nextMonth
+    ) {
+        return getWibMonthBounds(startYear, startMonth).end;
+    }
+    return endDate;
+}
 
 type ActionData<T> = T extends { data?: infer D } ? NonNullable<D> : never;
 export type FinanceDashboardData = ActionData<
@@ -42,10 +120,23 @@ export default async function FinanceDashboardPage({
 }) {
     const params = await searchParams;
     const now = new Date();
-    const startDate = params.startDate
-        ? parseISO(params.startDate)
-        : startOfMonth(now);
-    const endDate = params.endDate ? parseISO(params.endDate) : endOfMonth(now);
+    const fallback = defaultFinanceMonthRange(now);
+    const parsedStartDate = parseDashboardDateParam(params.startDate, 'start');
+    const parsedEndDate = parseDashboardDateParam(params.endDate, 'end');
+    const hasCompleteValidRange =
+        parsedStartDate != null &&
+        parsedEndDate != null &&
+        parsedStartDate.getTime() <= parsedEndDate.getTime();
+    const startDate = hasCompleteValidRange
+        ? parsedStartDate
+        : fallback.startDate;
+    const endDate = hasCompleteValidRange
+        ? clampLegacyMonthEnd(
+              parsedStartDate,
+              parsedEndDate,
+              isLegacyMonthPickerRange(params.startDate, params.endDate),
+          )
+        : fallback.endDate;
     // The board action performs the fresh exact-root authorization. Do not run
     // any secondary nominal queue reader until that boundary succeeds.
     const boardResult = await getFinanceShiftBoard({ startDate, endDate });

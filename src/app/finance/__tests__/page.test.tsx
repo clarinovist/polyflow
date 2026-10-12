@@ -266,6 +266,110 @@ describe('FinanceDashboardPage R4B', () => {
         });
     });
 
+    it('clamps legacy UTC end-of-month timestamps before they roll into November WIB', async () => {
+        render(
+            await FinanceDashboardPage({
+                searchParams: Promise.resolve({
+                    startDate: '2026-10-01T00:00:00.000Z',
+                    endDate: '2026-10-31T23:59:59.999Z',
+                }),
+            }),
+        );
+
+        expect(mocks.board).toHaveBeenCalledWith({
+            startDate: new Date('2026-10-01T00:00:00.000Z'),
+            endDate: new Date('2026-10-31T16:59:59.999Z'),
+        });
+    });
+
+    it('preserves an explicit date-only range that intentionally includes 1 November', async () => {
+        render(
+            await FinanceDashboardPage({
+                searchParams: Promise.resolve({
+                    startDate: '2026-10-01',
+                    endDate: '2026-11-01',
+                }),
+            }),
+        );
+
+        expect(mocks.board).toHaveBeenCalledWith({
+            startDate: new Date('2026-09-30T17:00:00.000Z'),
+            endDate: new Date('2026-11-01T16:59:59.999Z'),
+        });
+    });
+
+    it('preserves arbitrary ISO ranges that span into the next month', async () => {
+        render(
+            await FinanceDashboardPage({
+                searchParams: Promise.resolve({
+                    startDate: '2026-10-01T06:15:30.123Z',
+                    endDate: '2026-11-01T05:30:45.456Z',
+                }),
+            }),
+        );
+
+        expect(mocks.board).toHaveBeenCalledWith({
+            startDate: new Date('2026-10-01T06:15:30.123Z'),
+            endDate: new Date('2026-11-01T05:30:45.456Z'),
+        });
+    });
+
+    it('preserves a legitimate legacy-shaped Jakarta ISO range without clamping', async () => {
+        render(
+            await FinanceDashboardPage({
+                searchParams: Promise.resolve({
+                    startDate: '2026-09-30T17:00:00.000Z',
+                    endDate: '2026-11-01T16:59:59.999Z',
+                }),
+            }),
+        );
+
+        expect(mocks.board).toHaveBeenCalledWith({
+            startDate: new Date('2026-09-30T17:00:00.000Z'),
+            endDate: new Date('2026-11-01T16:59:59.999Z'),
+        });
+    });
+
+    it('parses date-only filter params as inclusive WIB business-day bounds', async () => {
+        render(
+            await FinanceDashboardPage({
+                searchParams: Promise.resolve({
+                    startDate: '2026-10-01',
+                    endDate: '2026-10-31',
+                }),
+            }),
+        );
+
+        expect(mocks.board).toHaveBeenCalledWith({
+            startDate: new Date('2026-09-30T17:00:00.000Z'),
+            endDate: new Date('2026-10-31T16:59:59.999Z'),
+        });
+    });
+
+    it('falls back to one canonical WIB month for incomplete or invalid filter pairs', async () => {
+        render(
+            await FinanceDashboardPage({
+                searchParams: Promise.resolve({
+                    startDate: '2026-10-01',
+                    endDate: 'bad',
+                }),
+            }),
+        );
+
+        const range = mocks.board.mock.calls.at(-1)?.[0];
+        expect(range.startDate).toBeInstanceOf(Date);
+        expect(range.endDate).toBeInstanceOf(Date);
+        expect(range.startDate.getTime()).toBeLessThan(range.endDate.getTime());
+        expect(
+            new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Jakarta',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            }).format(range.startDate),
+        ).toMatch(/-01$/);
+    });
+
     it('distinguishes NOT_CONFIGURED, UNAVAILABLE, and partial Attention from zero/empty', async () => {
         const data = dashboardData();
         if (data.state !== 'AVAILABLE' || !data.health || !data.attention)

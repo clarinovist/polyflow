@@ -3,6 +3,19 @@
 import { useState, useTransition } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { MonthPicker } from '@/components/ui/month-picker';
+import { format, parseISO } from 'date-fns';
+
+function parseFilterDate(value: string | null): Date {
+    if (!value) return new Date();
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value)
+        ? parseISO(value)
+        : new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : new Date();
+}
+
+export function toCalendarDateParam(date: Date): string {
+    return format(date, 'yyyy-MM-dd');
+}
 
 export function FinanceDateFilter() {
     const router = useRouter();
@@ -12,16 +25,19 @@ export function FinanceDateFilter() {
 
     // Initialize state from URL or current date
     const startDateParam = searchParams.get('startDate');
-    const [currentDate, setCurrentDate] = useState<Date>(
-        startDateParam ? new Date(startDateParam) : new Date(),
+    const [currentDate, setCurrentDate] = useState<Date>(() =>
+        parseFilterDate(startDateParam),
     );
 
     function handleMonthChange(range: { from: Date; to: Date }) {
         setCurrentDate(range.from);
 
         const params = new URLSearchParams(searchParams);
-        params.set('startDate', range.from.toISOString());
-        params.set('endDate', range.to.toISOString());
+        // Preserve the calendar dates selected by the user. ISO instants shift
+        // an end-of-month selection into the next WIB business day when the
+        // browser runs in UTC (31 Oct 23:59 UTC = 1 Nov WIB).
+        params.set('startDate', toCalendarDateParam(range.from));
+        params.set('endDate', toCalendarDateParam(range.to));
 
         startTransition(() => {
             router.replace(`${pathname}?${params.toString()}`);
