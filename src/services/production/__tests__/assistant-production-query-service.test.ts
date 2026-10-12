@@ -1,7 +1,9 @@
+import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     diagnoseProductionOrder,
     getProductionBriefing,
+    getProductionOutputForBusinessDate,
     type ProductionReadClient,
 } from '../assistant-production-query-service';
 
@@ -14,6 +16,7 @@ const tx = {
     location: { findMany: vi.fn() },
     inventory: { findMany: vi.fn() },
     stockReservation: { findMany: vi.fn() },
+    productionExecution: { findMany: vi.fn() },
 } as unknown as ProductionReadClient;
 
 const productionOrder = tx.productionOrder as unknown as {
@@ -28,6 +31,9 @@ const inventory = tx.inventory as unknown as {
     findMany: ReturnType<typeof vi.fn>;
 };
 const stockReservation = tx.stockReservation as unknown as {
+    findMany: ReturnType<typeof vi.fn>;
+};
+const productionExecution = tx.productionExecution as unknown as {
     findMany: ReturnType<typeof vi.fn>;
 };
 
@@ -165,6 +171,213 @@ describe('assistant production query service', () => {
         );
         expect(inventory.findMany).not.toHaveBeenCalled();
         expect(stockReservation.findMany).not.toHaveBeenCalled();
+    });
+
+    it('aggregates actual daily output by process, product and unit within exact WIB bounds', async () => {
+        productionExecution.findMany.mockResolvedValue([
+            {
+                productionOrderId: 'order-1',
+                quantityProduced: new Prisma.Decimal('1.25'),
+                scrapQuantity: new Prisma.Decimal(0),
+                scrapProngkolQty: new Prisma.Decimal(0),
+                scrapDaunQty: new Prisma.Decimal(0),
+                endTime: null,
+                productionOrder: {
+                    bom: {
+                        category: 'EXTRUSION',
+                        productVariant: {
+                            id: 'variant-kg',
+                            name: 'Variant KG',
+                            skuCode: 'KG-1',
+                            primaryUnit: 'KG',
+                            product: { name: 'Produk KG' },
+                        },
+                    },
+                },
+            },
+            {
+                productionOrderId: 'order-2',
+                quantityProduced: new Prisma.Decimal('2.75'),
+                scrapQuantity: new Prisma.Decimal(0),
+                scrapProngkolQty: new Prisma.Decimal(0),
+                scrapDaunQty: new Prisma.Decimal(0),
+                endTime: new Date('2026-10-12T01:00:00.000Z'),
+                productionOrder: {
+                    bom: {
+                        category: 'EXTRUSION',
+                        productVariant: {
+                            id: 'variant-kg',
+                            name: 'Variant KG',
+                            skuCode: 'KG-1',
+                            primaryUnit: 'KG',
+                            product: { name: 'Produk KG' },
+                        },
+                    },
+                },
+            },
+            {
+                productionOrderId: 'order-3',
+                quantityProduced: new Prisma.Decimal('3'),
+                scrapQuantity: new Prisma.Decimal(0),
+                scrapProngkolQty: new Prisma.Decimal(0),
+                scrapDaunQty: new Prisma.Decimal(0),
+                endTime: new Date('2026-10-12T02:00:00.000Z'),
+                productionOrder: {
+                    bom: {
+                        category: 'PACKING',
+                        productVariant: {
+                            id: 'variant-bal',
+                            name: 'Variant BAL',
+                            skuCode: 'BAL-1',
+                            primaryUnit: 'BAL',
+                            product: { name: 'Produk BAL' },
+                        },
+                    },
+                },
+            },
+            {
+                productionOrderId: 'order-4',
+                quantityProduced: new Prisma.Decimal('5'),
+                scrapQuantity: new Prisma.Decimal(0),
+                scrapProngkolQty: new Prisma.Decimal(0),
+                scrapDaunQty: new Prisma.Decimal(0),
+                endTime: new Date('2026-10-12T03:00:00.000Z'),
+                productionOrder: {
+                    bom: {
+                        category: 'PACKING',
+                        productVariant: {
+                            id: 'variant-kg-2',
+                            name: 'Variant KG Packing',
+                            skuCode: 'KG-2',
+                            primaryUnit: 'KG',
+                            product: { name: 'Produk KG Packing' },
+                        },
+                    },
+                },
+            },
+        ]);
+
+        const result = await getProductionOutputForBusinessDate(
+            tx,
+            '2026-10-12',
+        );
+
+        expect(productionExecution.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: {
+                    status: { not: 'VOIDED' },
+                    startTime: {
+                        gte: new Date('2026-10-11T17:00:00.000Z'),
+                        lte: new Date('2026-10-12T16:59:59.999Z'),
+                    },
+                },
+            }),
+        );
+        expect(result).toMatchObject({
+            date: '2026-10-12',
+            entries: 4,
+            orders: 4,
+            totals: [
+                { process: 'EXTRUSION', unit: 'KG', produced: '4' },
+                { process: 'PACKING', unit: 'BAL', produced: '3' },
+                { process: 'PACKING', unit: 'KG', produced: '5' },
+            ],
+        });
+        expect(result.groups).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    process: 'EXTRUSION',
+                    productVariantId: 'variant-kg',
+                    unit: 'KG',
+                    produced: '4',
+                    entries: 2,
+                    orders: 2,
+                }),
+            ]),
+        );
+        expect(result.totals).not.toContainEqual(
+            expect.objectContaining({ produced: '12' }),
+        );
+    });
+
+    it('excludes empty running shells without falling back to SPK targets', async () => {
+        productionExecution.findMany.mockResolvedValue([
+            {
+                productionOrderId: 'order-1',
+                quantityProduced: new Prisma.Decimal(0),
+                scrapQuantity: new Prisma.Decimal(0),
+                scrapProngkolQty: new Prisma.Decimal(0),
+                scrapDaunQty: new Prisma.Decimal(0),
+                endTime: null,
+                productionOrder: {
+                    bom: {
+                        category: 'EXTRUSION',
+                        productVariant: {
+                            id: 'variant-kg',
+                            name: 'Variant KG',
+                            skuCode: 'KG-1',
+                            primaryUnit: 'KG',
+                            product: { name: 'Produk KG' },
+                        },
+                    },
+                },
+            },
+        ]);
+
+        await expect(
+            getProductionOutputForBusinessDate(tx, '2026-10-12'),
+        ).resolves.toEqual({
+            date: '2026-10-12',
+            entries: 0,
+            orders: 0,
+            groups: [],
+            totals: [],
+        });
+        expect(productionOrder.findMany).not.toHaveBeenCalled();
+    });
+
+    it('retains running output, completed zero output, and scrap-only rows', async () => {
+        const row = (overrides: Record<string, unknown>) => ({
+            productionOrderId: 'order-1',
+            quantityProduced: new Prisma.Decimal(0),
+            scrapQuantity: new Prisma.Decimal(0),
+            scrapProngkolQty: new Prisma.Decimal(0),
+            scrapDaunQty: new Prisma.Decimal(0),
+            endTime: null,
+            productionOrder: {
+                bom: {
+                    category: 'EXTRUSION',
+                    productVariant: {
+                        id: 'variant-kg',
+                        name: 'Variant KG',
+                        skuCode: 'KG-1',
+                        primaryUnit: 'KG',
+                        product: { name: 'Produk KG' },
+                    },
+                },
+            },
+            ...overrides,
+        });
+        productionExecution.findMany.mockResolvedValue([
+            row({ quantityProduced: new Prisma.Decimal(2) }),
+            row({ endTime: new Date('2026-10-12T01:00:00.000Z') }),
+            row({ scrapProngkolQty: new Prisma.Decimal(1) }),
+        ]);
+
+        const result = await getProductionOutputForBusinessDate(
+            tx,
+            '2026-10-12',
+        );
+
+        expect(result).toMatchObject({
+            entries: 3,
+            orders: 1,
+            totals: [{ process: 'EXTRUSION', unit: 'KG', produced: '2' }],
+        });
+        expect(result.groups[0]).toMatchObject({
+            produced: '2',
+            entries: 3,
+        });
     });
 
     it('returns a bounded briefing with deterministic database ordering and truncation', async () => {

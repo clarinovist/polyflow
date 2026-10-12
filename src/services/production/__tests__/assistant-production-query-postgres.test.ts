@@ -20,6 +20,7 @@ if (connection) {
 import {
     diagnoseProductionOrder,
     getProductionBriefing,
+    getProductionOutputForBusinessDate,
 } from '../assistant-production-query-service';
 
 const userId = 'assistant-production-user';
@@ -212,6 +213,69 @@ describe.skipIf(!connection)(
                 remaining: 25,
                 available: 10,
                 shortage: 15,
+            });
+        });
+
+        it('filters actual output by exact WIB day and excludes VOIDED rows', async () => {
+            await createOrder({ id: 'order-1', orderNumber: 'SPK-001' });
+            await db.productionExecution.createMany({
+                data: [
+                    {
+                        id: 'execution-before',
+                        productionOrderId: 'order-1',
+                        quantityProduced: 99,
+                        startTime: new Date('2026-10-11T16:59:59.999Z'),
+                    },
+                    {
+                        id: 'execution-empty-shell',
+                        productionOrderId: 'order-1',
+                        quantityProduced: 0,
+                        startTime: new Date('2026-10-11T18:00:00.000Z'),
+                        endTime: null,
+                    },
+                    {
+                        id: 'execution-start',
+                        productionOrderId: 'order-1',
+                        quantityProduced: 1.25,
+                        startTime: new Date('2026-10-11T17:00:00.000Z'),
+                    },
+                    {
+                        id: 'execution-end',
+                        productionOrderId: 'order-1',
+                        quantityProduced: 2.75,
+                        startTime: new Date('2026-10-12T16:59:59.999Z'),
+                    },
+                    {
+                        id: 'execution-voided',
+                        productionOrderId: 'order-1',
+                        quantityProduced: 100,
+                        startTime: new Date('2026-10-12T00:00:00.000Z'),
+                        status: 'VOIDED',
+                    },
+                    {
+                        id: 'execution-after',
+                        productionOrderId: 'order-1',
+                        quantityProduced: 88,
+                        startTime: new Date('2026-10-12T17:00:00.000Z'),
+                    },
+                ],
+            });
+
+            const result = await db.$transaction((tx) =>
+                getProductionOutputForBusinessDate(tx, '2026-10-12'),
+            );
+
+            expect(result).toMatchObject({
+                date: '2026-10-12',
+                entries: 2,
+                orders: 1,
+                totals: [{ process: 'OTHER', unit: 'KG', produced: '4' }],
+            });
+            expect(result.groups[0]).toMatchObject({
+                productVariantId,
+                produced: '4',
+                entries: 2,
+                orders: 1,
             });
         });
 

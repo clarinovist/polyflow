@@ -441,7 +441,8 @@ export const toolRegistry: AssistantToolDefinition[] = [
     },
     {
         name: 'get_active_production',
-        description: 'Daftar SPK/produksi aktif.',
+        description:
+            'Daftar SPK yang sedang aktif beserta targetnya saat ini. Bukan output/realisasi produksi aktual dan jangan digunakan untuk pertanyaan bertanggal seperti produksi hari ini atau kemarin.',
         requiredResources: ['/production/orders'],
         sensitivity: 'normal',
         inputSchema: z.object({}),

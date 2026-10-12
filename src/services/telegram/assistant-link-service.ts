@@ -436,6 +436,25 @@ export class TelegramAssistantLinkService {
         }
     }
 
+    async hasActiveLink(input: {
+        botKey: string;
+        telegramUserId: string;
+        telegramChatId: string;
+    }): Promise<boolean> {
+        try {
+            await this.requireActiveLink(input);
+            return true;
+        } catch (error) {
+            if (
+                error instanceof TelegramAssistantLinkError &&
+                error.code === 'LINK_REQUIRED'
+            ) {
+                return false;
+            }
+            throw error;
+        }
+    }
+
     async listActiveWorkspaces(input: {
         botKey: string;
         telegramUserId: string;

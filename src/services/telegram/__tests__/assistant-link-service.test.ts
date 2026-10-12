@@ -258,6 +258,39 @@ describe('TelegramAssistantLinkService', () => {
         expect([...f.tokens.keys()][0]).toMatch(/^[a-f0-9]{64}$/);
     });
 
+    it('reports active-link status only for the exact active bot, user, chat and account binding', async () => {
+        const f = fixture();
+        await expect(f.service.hasActiveLink(identity)).resolves.toBe(false);
+        const created = await f.service.createLinkToken({
+            globalAccountId: 'account-a',
+        });
+        await f.service.consumeLinkToken({ ...identity, token: created.token });
+
+        await expect(f.service.hasActiveLink(identity)).resolves.toBe(true);
+        await expect(
+            f.service.hasActiveLink({ ...identity, telegramChatId: '99999' }),
+        ).resolves.toBe(false);
+        await expect(
+            f.service.hasActiveLink({ ...identity, botKey: 'other-bot' }),
+        ).resolves.toBe(false);
+
+        f.account.status = 'SUSPENDED';
+        await expect(f.service.hasActiveLink(identity)).resolves.toBe(false);
+        f.account.status = 'ACTIVE';
+        [...f.links.values()][0].status = 'REVOKED';
+        await expect(f.service.hasActiveLink(identity)).resolves.toBe(false);
+    });
+
+    it('propagates unexpected active-link lookup failures', async () => {
+        const f = fixture();
+        f.tx.telegramAssistantLink.findUnique.mockRejectedValueOnce(
+            new Error('database unavailable'),
+        );
+        await expect(f.service.hasActiveLink(identity)).rejects.toThrow(
+            'database unavailable',
+        );
+    });
+
     it('rejects expired tokens before linking', async () => {
         const f = fixture();
         const created = await f.service.createLinkToken({

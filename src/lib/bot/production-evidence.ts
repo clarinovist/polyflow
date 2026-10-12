@@ -1,5 +1,6 @@
 import { createEvidence } from './evidence';
 import type {
+    DailyProductionOutput,
     ProductionBriefing,
     ProductionOrderDiagnosis,
 } from '@/services/production/assistant-production-query-service';
@@ -10,6 +11,35 @@ function quantity(value: number): string {
         maximumFractionDigits: 4,
     }).format(value);
 }
+
+function decimalQuantity(value: string): string {
+    const negative = value.startsWith('-');
+    const [wholeRaw, fractionRaw = ''] = (
+        negative ? value.slice(1) : value
+    ).split('.');
+    const whole = wholeRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const fraction = fractionRaw.replace(/0+$/, '');
+    return `${negative ? '-' : ''}${whole}${fraction ? `,${fraction}` : ''}`;
+}
+
+function businessDateLabel(value: string): string {
+    return new Intl.DateTimeFormat('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+    }).format(new Date(`${value}T00:00:00.000Z`));
+}
+
+const PROCESS_LABEL: Record<
+    DailyProductionOutput['totals'][number]['process'],
+    string
+> = {
+    MIXING: 'Mixing',
+    EXTRUSION: 'Extrusion',
+    PACKING: 'Packing',
+    OTHER: 'Lainnya',
+};
 
 function date(value: Date | null): string {
     return value ? `${toBusinessDateString(value)} WIB` : 'Belum ditentukan';
@@ -95,6 +125,58 @@ export function productionDiagnosisEvidence(result: ProductionOrderDiagnosis) {
         ],
         source: 'tenant-data',
         completeness: order.materialCheck,
+    });
+}
+
+export function dailyProductionOutputEvidence(result: DailyProductionOutput) {
+    const detailLimit = 20;
+    const shownGroups = result.groups.slice(0, detailLimit);
+    const truncated = result.groups.length > shownGroups.length;
+    const dateLabel = businessDateLabel(result.date);
+
+    if (result.entries === 0) {
+        return createEvidence({
+            summary: `Belum ada output produksi aktual yang tercatat untuk ${dateLabel} WIB.`,
+            facts: [
+                {
+                    label: 'Cakupan',
+                    value: 'ProductionExecution non-VOIDED berdasarkan tanggal mulai pencatatan dalam hari bisnis WIB. Target dan aktual kumulatif SPK tidak dipakai sebagai pengganti output harian.',
+                },
+            ],
+            source: 'tenant-data',
+        });
+    }
+
+    return createEvidence({
+        summary: `Output produksi aktual ${dateLabel} WIB: ${result.entries} entri dari ${result.orders} SPK.`,
+        facts: [
+            ...result.totals.map((total) => ({
+                label: `${PROCESS_LABEL[total.process]} — ${total.unit}`,
+                value: decimalQuantity(total.produced),
+            })),
+            ...shownGroups.map((group) => ({
+                label: `${PROCESS_LABEL[group.process]} — ${group.productName} · ${group.variantName} (${group.sku})`,
+                value: `${decimalQuantity(group.produced)} ${group.unit}; ${group.entries} entri; ${group.orders} SPK`,
+            })),
+            ...(truncated
+                ? [
+                      {
+                          label: 'Batas rincian',
+                          value: `Menampilkan ${shownGroups.length} dari ${result.groups.length} kelompok produk; total proses dan satuan di atas tetap dihitung dari seluruh entri.`,
+                      },
+                  ]
+                : []),
+            {
+                label: 'Batas interpretasi',
+                value: 'Angka antarunit dan antarproses tidak dijumlahkan menjadi satu grand total karena dapat mewakili satuan berbeda atau tahapan berurutan dari aliran produksi yang sama. Unit mengikuti primary unit varian saat ini.',
+            },
+            {
+                label: 'Cakupan',
+                value: 'ProductionExecution non-VOIDED berdasarkan tanggal mulai pencatatan dalam hari bisnis WIB. Target dan aktual kumulatif SPK tidak dipakai sebagai pengganti output harian.',
+            },
+        ],
+        source: 'tenant-data',
+        completeness: truncated ? 'partial' : 'complete',
     });
 }
 

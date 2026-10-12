@@ -686,6 +686,83 @@ describe('Telegram assistant durable consumer', () => {
         );
     });
 
+    it.each([
+        {
+            linked: false,
+            expected: 'Buat token tautan dari akun pusat Polyflow',
+        },
+        {
+            linked: true,
+            expected: 'Akun Telegram ini sudah tertaut',
+        },
+    ])(
+        'handles /start without consuming a token when linked=$linked',
+        async ({ linked, expected }) => {
+            mocks.findFirst.mockResolvedValueOnce({
+                ...row,
+                question: '/start',
+                placeholderMessageId: null,
+            });
+            const sendMessage = vi.fn(async () => ({ messageId: '901' }));
+            const hasActiveLink = vi.fn(async () => linked);
+            const consumeLinkTokenDigest = vi.fn();
+
+            await consumeTelegramAssistantBatch({
+                config,
+                telegram: {
+                    sendMessage,
+                    editMessageText: vi.fn(),
+                    answerCallbackQuery: vi.fn(),
+                } as never,
+                links: {
+                    hasActiveLink,
+                    consumeLinkTokenDigest,
+                } as never,
+            });
+
+            expect(hasActiveLink).toHaveBeenCalledWith({
+                botKey: 'assistant-v1',
+                telegramUserId: '123',
+                telegramChatId: '123',
+            });
+            expect(consumeLinkTokenDigest).not.toHaveBeenCalled();
+            expect(sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({ text: expect.stringContaining(expected) }),
+            );
+            expect(JSON.stringify(sendMessage.mock.calls)).not.toContain(
+                'Akun berhasil ditautkan',
+            );
+        },
+    );
+
+    it('propagates /start link-status lookup failures for retry', async () => {
+        mocks.findFirst.mockResolvedValueOnce({
+            ...row,
+            question: '/start',
+            placeholderMessageId: null,
+        });
+        const sendMessage = vi.fn();
+        await consumeTelegramAssistantBatch({
+            config,
+            telegram: {
+                sendMessage,
+                editMessageText: vi.fn(),
+                answerCallbackQuery: vi.fn(),
+            } as never,
+            links: {
+                hasActiveLink: vi.fn(async () => {
+                    throw new Error('database unavailable');
+                }),
+            } as never,
+        });
+        expect(sendMessage).not.toHaveBeenCalled();
+        expect(mocks.updateMany).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({ status: 'FAILED' }),
+            }),
+        );
+    });
+
     it('executes /start token linking and persists one workspace menu placeholder', async () => {
         mocks.findFirst.mockResolvedValueOnce({
             ...row,

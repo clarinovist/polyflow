@@ -1,9 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { tenantContext, tenantIdContext } from '@/lib/core/prisma';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 import {
     diagnoseProductionOrder,
     getProductionBriefing,
+    getProductionOutputForBusinessDate,
 } from '@/services/production/assistant-production-query-service';
 import type {
     AssistantToolDefinition,
@@ -12,9 +14,17 @@ import type {
 } from './assistant-types';
 import { checkToolAuthorization } from './tool-authorization';
 import {
+    dailyProductionOutputEvidence,
     productionBriefingEvidence,
     productionDiagnosisEvidence,
 } from './production-evidence';
+
+function previousWibBusinessDate(now = new Date()): string {
+    const today = toBusinessDateString(now);
+    const [year, month, day] = today.split('-').map(Number);
+    const previous = new Date(Date.UTC(year, month - 1, day - 1));
+    return previous.toISOString().slice(0, 10);
+}
 
 function productionTool<T extends z.ZodType>(
     name: string,
@@ -88,6 +98,25 @@ export const productionTools: AssistantToolDefinition[] = [
         async (tx, input) =>
             productionDiagnosisEvidence(
                 await diagnoseProductionOrder(tx, input.searchTerm),
+            ),
+    ),
+    productionTool(
+        'get_daily_production_output',
+        'Output produksi aktual read-only untuk satu tanggal bisnis WIB. Gunakan untuk pertanyaan produksi hari ini, kemarin, atau tanggal tertentu; membaca ProductionExecution non-VOIDED, bukan target SPK. Tanpa argumen, default kemarin WIB. Hasil memisahkan proses dan satuan serta tidak membuat grand total lintas proses/satuan.',
+        ['/production/output-report'],
+        z.object({
+            date: z
+                .string()
+                .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal harus YYYY-MM-DD')
+                .optional()
+                .describe('Tanggal bisnis WIB YYYY-MM-DD; kosong berarti kemarin WIB.'),
+        }),
+        async (tx, input) =>
+            dailyProductionOutputEvidence(
+                await getProductionOutputForBusinessDate(
+                    tx,
+                    input.date ?? previousWibBusinessDate(),
+                ),
             ),
     ),
     productionTool(

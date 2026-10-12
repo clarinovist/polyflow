@@ -5,6 +5,7 @@ const transaction = vi.fn();
 const executeRaw = vi.fn();
 const diagnose = vi.fn();
 const briefing = vi.fn();
+const dailyOutput = vi.fn();
 
 vi.mock('@/lib/core/prisma', () => ({
     tenantContext: {
@@ -16,6 +17,8 @@ vi.mock('@/lib/core/prisma', () => ({
 vi.mock('@/services/production/assistant-production-query-service', () => ({
     diagnoseProductionOrder: (...args: unknown[]) => diagnose(...args),
     getProductionBriefing: (...args: unknown[]) => briefing(...args),
+    getProductionOutputForBusinessDate: (...args: unknown[]) =>
+        dailyOutput(...args),
 }));
 
 import { productionTools } from '../production-tools';
@@ -38,6 +41,13 @@ describe('production tools read-only boundary', () => {
         );
         diagnose.mockResolvedValue({ kind: 'missing', candidates: [] });
         briefing.mockResolvedValue({ items: [], total: 0, truncated: false });
+        dailyOutput.mockResolvedValue({
+            date: '2026-10-12',
+            entries: 0,
+            orders: 0,
+            groups: [],
+            totals: [],
+        });
     });
 
     it('executes diagnosis in a repeatable-read, read-only transaction', async () => {
@@ -85,6 +95,92 @@ describe('production tools read-only boundary', () => {
         } finally {
             log.mockRestore();
         }
+    });
+
+    it('uses yesterday WIB by default and requires output-report permission', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-10-13T00:30:00.000Z'));
+        try {
+            const tool = productionTools.find(
+                (candidate) =>
+                    candidate.name === 'get_daily_production_output',
+            )!;
+            await expect(
+                tool.execute(
+                    {},
+                    {
+                        ...ctx,
+                        allowedResources: ['/production/output-report'],
+                    },
+                ),
+            ).resolves.toMatchObject({
+                summary: expect.stringContaining('12 Oktober 2026'),
+            });
+            expect(dailyOutput).toHaveBeenCalledWith(
+                expect.objectContaining({ $executeRaw: executeRaw }),
+                '2026-10-12',
+            );
+            await expect(
+                tool.execute(
+                    { date: '2026-10-11' },
+                    { ...ctx, allowedResources: ['/production/orders'] },
+                ),
+            ).rejects.toThrow(/akses produksi/i);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('keeps mixed process and unit totals separate in daily evidence', async () => {
+        dailyOutput.mockResolvedValueOnce({
+            date: '2026-10-12',
+            entries: 3,
+            orders: 2,
+            groups: [
+                {
+                    process: 'EXTRUSION',
+                    productVariantId: 'variant-kg',
+                    productName: 'Sedotan',
+                    variantName: 'Bening',
+                    sku: 'SED-1',
+                    unit: 'KG',
+                    produced: '4',
+                    entries: 2,
+                    orders: 1,
+                },
+                {
+                    process: 'PACKING',
+                    productVariantId: 'variant-bal',
+                    productName: 'Rafia',
+                    variantName: 'Gulungan',
+                    sku: 'RAF-1',
+                    unit: 'BAL',
+                    produced: '3',
+                    entries: 1,
+                    orders: 1,
+                },
+            ],
+            totals: [
+                { process: 'EXTRUSION', unit: 'KG', produced: '4' },
+                { process: 'PACKING', unit: 'BAL', produced: '3' },
+            ],
+        });
+        const tool = productionTools.find(
+            (candidate) => candidate.name === 'get_daily_production_output',
+        )!;
+        const evidence = await tool.execute(
+            { date: '2026-10-12' },
+            { ...ctx, allowedResources: ['/production/output-report'] },
+        );
+
+        expect(evidence.facts).toEqual(
+            expect.arrayContaining([
+                { label: 'Extrusion — KG', value: '4' },
+                { label: 'Packing — BAL', value: '3' },
+            ]),
+        );
+        expect(evidence.summary).not.toContain('7');
+        expect(JSON.stringify(evidence)).toContain('tidak dijumlahkan');
     });
 
     it('exposes priority briefing without warehouse access', async () => {

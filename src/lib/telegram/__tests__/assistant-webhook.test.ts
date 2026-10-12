@@ -250,14 +250,24 @@ describe('Telegram assistant webhook boundary', () => {
             request({
                 ...update,
                 update_id: 101,
+                message: { ...update.message, text: '/start' },
+            }),
+            config,
+        );
+        expect(mocks.create.mock.calls[1][0].data.question).toBe('/start');
+
+        await handleTelegramAssistantWebhook(
+            request({
+                ...update,
+                update_id: 102,
                 message: { ...update.message, text: '/start raw-secret-token' },
             }),
             config,
         );
-        expect(mocks.create.mock.calls[1][0].data.question).toMatch(
+        expect(mocks.create.mock.calls[2][0].data.question).toMatch(
             /^\/start-digest [a-f0-9]{64}$/,
         );
-        expect(mocks.create.mock.calls[1][0].data.question).not.toContain(
+        expect(mocks.create.mock.calls[2][0].data.question).not.toContain(
             'raw-secret-token',
         );
 

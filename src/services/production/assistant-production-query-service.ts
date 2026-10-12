@@ -1,5 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { isEligibleMaterialSourceLocation } from '@/lib/locations/resolve-location';
+import {
+    processKeyFromCategory,
+    type ProcessKey,
+} from '@/lib/production/process-keys';
+import { getWibDayBounds, parseBusinessDate } from '@/lib/utils/timezone';
 
 const BRIEFING_LIMIT = 20;
 
@@ -55,6 +60,32 @@ export type ProductionBriefing = {
     items: ProductionBriefingItem[];
     total: number;
     truncated: boolean;
+};
+
+export type DailyProductionOutputGroup = {
+    process: ProcessKey;
+    productVariantId: string;
+    productName: string;
+    variantName: string;
+    sku: string;
+    unit: string;
+    produced: string;
+    entries: number;
+    orders: number;
+};
+
+export type DailyProductionOutputTotal = {
+    process: ProcessKey;
+    unit: string;
+    produced: string;
+};
+
+export type DailyProductionOutput = {
+    date: string;
+    entries: number;
+    orders: number;
+    groups: DailyProductionOutputGroup[];
+    totals: DailyProductionOutputTotal[];
 };
 
 function numberOf(value: DecimalLike | null | undefined): number {
@@ -315,6 +346,140 @@ export async function diagnoseProductionOrder(
                   }
                 : {}),
         },
+    };
+}
+
+export async function getProductionOutputForBusinessDate(
+    tx: ProductionReadClient,
+    inputDate: string,
+): Promise<DailyProductionOutput> {
+    const date = parseBusinessDate(inputDate);
+    const { startOfDay, endOfDay } = getWibDayBounds(date);
+    const executions = await tx.productionExecution.findMany({
+        where: {
+            status: { not: 'VOIDED' },
+            startTime: { gte: startOfDay, lte: endOfDay },
+        },
+        select: {
+            productionOrderId: true,
+            quantityProduced: true,
+            scrapQuantity: true,
+            scrapProngkolQty: true,
+            scrapDaunQty: true,
+            endTime: true,
+            productionOrder: {
+                select: {
+                    bom: {
+                        select: {
+                            category: true,
+                            productVariant: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    skuCode: true,
+                                    primaryUnit: true,
+                                    product: { select: { name: true } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    const actualOutputs = executions.filter(
+        (execution) =>
+            execution.endTime !== null ||
+            !execution.quantityProduced.isZero() ||
+            !execution.scrapQuantity.isZero() ||
+            !execution.scrapProngkolQty.isZero() ||
+            !execution.scrapDaunQty.isZero(),
+    );
+
+    type Group = {
+        process: ProcessKey;
+        productVariantId: string;
+        productName: string;
+        variantName: string;
+        sku: string;
+        unit: string;
+        produced: Prisma.Decimal;
+        entries: number;
+        orders: Set<string>;
+    };
+    const groups = new Map<string, Group>();
+    const totals = new Map<
+        string,
+        { process: ProcessKey; unit: string; produced: Prisma.Decimal }
+    >();
+    const orderIds = new Set<string>();
+
+    for (const execution of actualOutputs) {
+        const variant = execution.productionOrder.bom.productVariant;
+        const process = processKeyFromCategory(
+            execution.productionOrder.bom.category,
+        );
+        const groupKey = JSON.stringify([
+            process,
+            variant.id,
+            variant.primaryUnit,
+        ]);
+        const group = groups.get(groupKey) ?? {
+            process,
+            productVariantId: variant.id,
+            productName: variant.product.name,
+            variantName: variant.name,
+            sku: variant.skuCode,
+            unit: variant.primaryUnit,
+            produced: new Prisma.Decimal(0),
+            entries: 0,
+            orders: new Set<string>(),
+        };
+        group.produced = group.produced.plus(execution.quantityProduced);
+        group.entries += 1;
+        group.orders.add(execution.productionOrderId);
+        groups.set(groupKey, group);
+
+        const totalKey = JSON.stringify([process, variant.primaryUnit]);
+        const total = totals.get(totalKey) ?? {
+            process,
+            unit: variant.primaryUnit,
+            produced: new Prisma.Decimal(0),
+        };
+        total.produced = total.produced.plus(execution.quantityProduced);
+        totals.set(totalKey, total);
+        orderIds.add(execution.productionOrderId);
+    }
+
+    return {
+        date,
+        entries: actualOutputs.length,
+        orders: orderIds.size,
+        groups: [...groups.values()]
+            .map(({ produced, orders, ...group }) => ({
+                ...group,
+                produced: produced.toString(),
+                orders: orders.size,
+            }))
+            .sort(
+                (a, b) =>
+                    a.process.localeCompare(b.process) ||
+                    a.unit.localeCompare(b.unit) ||
+                    a.productName.localeCompare(b.productName, 'id-ID') ||
+                    a.variantName.localeCompare(b.variantName, 'id-ID') ||
+                    a.productVariantId.localeCompare(b.productVariantId),
+            ),
+        totals: [...totals.values()]
+            .map(({ produced, ...total }) => ({
+                ...total,
+                produced: produced.toString(),
+            }))
+            .sort(
+                (a, b) =>
+                    a.process.localeCompare(b.process) ||
+                    a.unit.localeCompare(b.unit),
+            ),
     };
 }
 

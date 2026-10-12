@@ -496,8 +496,11 @@ async function handleCommand(input: {
         }
         const [command, argument] = input.row.question.split(/\s+/, 2);
         if (command.toLowerCase() === '/start') {
+            const linked = await input.links.hasActiveLink(identity);
             return {
-                text: `Buat token tautan dari akun pusat Polyflow, lalu kirim /start <token>. Bot: @${input.config.TELEGRAM_ASSISTANT_BOT_USERNAME}`,
+                text: linked
+                    ? 'Akun Telegram ini sudah tertaut. Pilih atau ganti workspace aktif dengan /tenant.'
+                    : `Buat token tautan dari akun pusat Polyflow, lalu kirim /start <token>. Bot: @${input.config.TELEGRAM_ASSISTANT_BOT_USERNAME}`,
             };
         }
         if (command.toLowerCase() === '/start-digest') {

@@ -113,6 +113,7 @@ describe('Permission matrix: Role × Tool', () => {
           expect(allowed.map((tool) => tool.name)).toEqual(
             expect.arrayContaining([
               'diagnose_production_blocker',
+              'get_daily_production_output',
               'get_production_priority_briefing',
             ]),
           );
