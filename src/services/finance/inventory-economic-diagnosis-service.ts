@@ -616,7 +616,7 @@ async function glSnapshot(
                 'amount', amount::text, 'materiality', materiality::text,
                 'reason', reason, 'evidenceLimit', "evidenceLimit",
                 'samples', samples
-            ) ORDER BY "amountBasis", materiality DESC, code FROM grouped),
+            ) ORDER BY "amountBasis", materiality DESC, code) FROM grouped),
             '[]'::jsonb),
             'quantities', '[]'::jsonb
         ) payload
@@ -1171,14 +1171,14 @@ async function movementSnapshot(
                 'amount', amount::text, 'materiality', materiality::text,
                 'reason', reason, 'evidenceLimit', "evidenceLimit",
                 'samples', samples
-            ) ORDER BY "amountBasis", materiality DESC, code FROM grouped),
+            ) ORDER BY "amountBasis", materiality DESC, code) FROM grouped),
             '[]'::jsonb),
             'quantities', COALESCE((SELECT jsonb_agg(jsonb_build_object(
                 'productVariantId', "productVariantId", 'unit', unit,
                 'inbound', COALESCE(inbound, 0)::text,
                 'outbound', COALESCE(outbound, 0)::text,
                 'transfer', COALESCE(transfer, 0)::text
-            ) ORDER BY unit, "productVariantId" FROM quantity_groups),
+            ) ORDER BY unit, "productVariantId") FROM quantity_groups),
             '[]'::jsonb)
         ) payload
         FROM analyzed
