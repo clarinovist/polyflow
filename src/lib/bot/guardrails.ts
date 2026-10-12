@@ -1,10 +1,8 @@
-export type GuardrailDecision =
-    | { allowed: true; code: 'ALLOW' }
-    | {
-          allowed: false;
-          code: 'EMPTY' | 'MUTATION' | 'OUT_OF_SCOPE';
-          reason: string;
-      };
+export type GuardrailDecision = {
+    allowed: boolean;
+    code: 'ALLOW' | 'EMPTY' | 'MUTATION' | 'OUT_OF_SCOPE';
+    reason?: string;
+};
 
 /**
  * intent_v2 guardrail: distinguishes how-to/panduan from mutation commands.

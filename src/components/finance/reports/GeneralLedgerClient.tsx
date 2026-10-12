@@ -39,6 +39,7 @@ import { reportLabels } from '@/lib/labels';
 import {
     businessDateToEntryDate,
     parseBusinessDate,
+    toBusinessDateString,
 } from '@/lib/utils/timezone';
 
 interface LedgerEntry {
@@ -307,10 +308,10 @@ export function GeneralLedgerClient({
                         : 'ledger_lines',
                 keywords: [query],
                 startDate: dateRange?.from
-                    ? format(dateRange.from, 'yyyy-MM-dd')
+                    ? toBusinessDateString(dateRange.from)
                     : undefined,
                 endDate: dateRange?.to
-                    ? format(dateRange.to, 'yyyy-MM-dd')
+                    ? toBusinessDateString(dateRange.to)
                     : undefined,
                 limit: 30,
             });
