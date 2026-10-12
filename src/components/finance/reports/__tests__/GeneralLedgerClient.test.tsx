@@ -172,12 +172,25 @@ describe('GeneralLedgerClient async period safety', () => {
             }),
             { target: { value: 'expenses' } },
         );
+        expect(
+            screen.getByPlaceholderText('Contoh: solar ali temanggung'),
+        ).toBeTruthy();
+        expect(
+            screen.getByText(
+                'Tulis jenis biaya terlebih dahulu. Contoh: solar ali temanggung.',
+            ),
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('option', { name: 'Hanya biaya' }),
+        ).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: 'Cari' }));
 
         expect(
             await screen.findByText('Solar muatan Ali Temanggung'),
         ).toBeTruthy();
-        expect(screen.getByText(/Beban neto.*500\.000/)).toBeTruthy();
+        expect(screen.getByText(/Beban neto/)).toBeTruthy();
+        expect(screen.getByText(/Rp.*500\.000/)).toBeTruthy();
+        expect(screen.getByText('1 transaksi')).toBeTruthy();
         expect(mockQueryGeneralLedger).toHaveBeenCalledWith(
             expect.objectContaining({
                 dataset: 'ledger_expenses',

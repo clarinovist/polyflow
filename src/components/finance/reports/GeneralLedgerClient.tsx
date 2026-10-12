@@ -473,85 +473,136 @@ export function GeneralLedgerClient({
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        {reportLabels.generalLedger}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {reportLabels.generalLedgerDesc}
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                    {reportLabels.generalLedger}
+                </h1>
+                <p className="text-muted-foreground">
+                    {reportLabels.generalLedgerDesc}
+                </p>
+            </div>
+
+            <div className="rounded-lg border bg-card/50 p-3 shadow-sm">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                     <form
-                        className="flex flex-1 flex-wrap gap-2"
+                        className="min-w-0 flex-1 space-y-2"
                         onSubmit={(event) => {
                             event.preventDefault();
                             void executeSearch();
                         }}
                     >
-                        <div className="relative">
-                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                aria-label="Cari transaksi Buku Besar"
-                                placeholder="Cari akun, jurnal, keterangan, referensi..."
-                                value={searchTerm}
-                                onChange={(event) =>
-                                    setSearchTerm(event.target.value)
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                                <label
+                                    htmlFor="general-ledger-search"
+                                    className="text-xs font-medium text-muted-foreground"
+                                >
+                                    Pencarian
+                                </label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        id="general-ledger-search"
+                                        aria-label="Cari transaksi Buku Besar"
+                                        aria-describedby="general-ledger-search-help"
+                                        placeholder={
+                                            searchMode === 'expenses'
+                                                ? 'Contoh: solar ali temanggung'
+                                                : 'Cari akun, jurnal, keterangan, referensi...'
+                                        }
+                                        value={searchTerm}
+                                        onChange={(event) =>
+                                            setSearchTerm(event.target.value)
+                                        }
+                                        className="h-10 w-full pl-9"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5 sm:w-[150px]">
+                                <label
+                                    htmlFor="general-ledger-search-mode"
+                                    className="text-xs font-medium text-muted-foreground"
+                                >
+                                    Cakupan
+                                </label>
+                                <select
+                                    id="general-ledger-search-mode"
+                                    aria-label="Mode pencarian Buku Besar"
+                                    value={searchMode}
+                                    onChange={(event) =>
+                                        setSearchMode(
+                                            event.target.value as
+                                                | 'lines'
+                                                | 'expenses',
+                                        )
+                                    }
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                    <option value="lines">Semua jurnal</option>
+                                    <option value="expenses">
+                                        Hanya biaya
+                                    </option>
+                                </select>
+                            </div>
+                            <Button
+                                type="submit"
+                                variant="secondary"
+                                className="h-10 sm:px-5"
+                                disabled={
+                                    searchTerm.trim().length < 2 ||
+                                    searchLoading
                                 }
-                                className="pl-9 w-full sm:w-[320px]"
-                            />
+                            >
+                                {searchLoading ? 'Mencari...' : 'Cari'}
+                            </Button>
                         </div>
-                        <select
-                            aria-label="Mode pencarian Buku Besar"
-                            value={searchMode}
-                            onChange={(event) =>
-                                setSearchMode(
-                                    event.target.value as 'lines' | 'expenses',
-                                )
-                            }
-                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        <p
+                            id="general-ledger-search-help"
+                            className="text-xs text-muted-foreground"
                         >
-                            <option value="lines">Semua jurnal</option>
-                            <option value="expenses">
-                                Hanya biaya (kata pertama = jenis biaya)
-                            </option>
-                        </select>
-                        <Button
-                            type="submit"
-                            variant="secondary"
-                            disabled={
-                                searchTerm.trim().length < 2 || searchLoading
-                            }
-                        >
-                            {searchLoading ? 'Mencari...' : 'Cari'}
-                        </Button>
+                            {searchMode === 'expenses'
+                                ? 'Tulis jenis biaya terlebih dahulu. Contoh: solar ali temanggung.'
+                                : 'Cari berdasarkan akun, nomor jurnal, keterangan, referensi, atau detail jurnal.'}
+                        </p>
                     </form>
-                    <DatePickerWithRange
-                        date={dateRange}
-                        onDateChange={handleDateRangeChange}
-                    />
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={fetchSummary}
-                        aria-label="Muat ulang Buku Besar"
-                    >
-                        <RotateCw className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleDownload}
-                        aria-label="Unduh Buku Besar"
-                        disabled={
-                            !summary ||
-                            summary.accounts.length === 0 ||
-                            exporting
-                        }
-                    >
-                        <Download className="h-4 w-4" />
-                    </Button>
+
+                    <div className="flex shrink-0 flex-col gap-1.5 xl:border-l xl:pl-3">
+                        <span className="text-xs font-medium text-muted-foreground">
+                            Periode & tindakan
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DatePickerWithRange
+                                className="[&_button]:h-10"
+                                date={dateRange}
+                                onDateChange={handleDateRangeChange}
+                            />
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10"
+                                onClick={fetchSummary}
+                                aria-label="Muat ulang Buku Besar"
+                                title="Muat ulang Buku Besar"
+                            >
+                                <RotateCw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10"
+                                onClick={handleDownload}
+                                aria-label="Unduh Buku Besar"
+                                title="Unduh Buku Besar"
+                                disabled={
+                                    !summary ||
+                                    summary.accounts.length === 0 ||
+                                    exporting
+                                }
+                            >
+                                <Download className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -678,19 +729,29 @@ function LedgerSearchResults({
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="flex flex-wrap items-center justify-between gap-2">
-                    <span>Hasil pencarian Buku Besar</span>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <CardTitle>Hasil pencarian Buku Besar</CardTitle>
+                        {result && (
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Periode {result.period.startDate} s.d.{' '}
+                                {result.period.endDate}
+                            </p>
+                        )}
+                    </div>
                     {result && (
-                        <span className="text-sm font-normal text-muted-foreground">
-                            {result.period.startDate} s.d.{' '}
-                            {result.period.endDate}
-                            {' · '}
-                            {result.dataset === 'ledger_expenses'
-                                ? `Beban neto ${formatRupiah(result.netAmount)}`
-                                : `${result.totalCount} baris`}
-                        </span>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                            <span className="rounded-full border bg-muted/40 px-2.5 py-1 text-muted-foreground">
+                                {result.totalCount} transaksi
+                            </span>
+                            {result.dataset === 'ledger_expenses' && (
+                                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-700 dark:text-emerald-300">
+                                    Beban neto {formatRupiah(result.netAmount)}
+                                </span>
+                            )}
+                        </div>
                     )}
-                </CardTitle>
+                </div>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -719,9 +780,9 @@ function LedgerSearchResults({
                     </div>
                 ) : result ? (
                     <div className="space-y-3">
-                        <p className="text-sm text-muted-foreground">
-                            {result.basis} Hasil berdasarkan kecocokan teks
-                            pencatatan.{' '}
+                        <p className="text-xs text-muted-foreground">
+                            Hasil berdasarkan kecocokan teks pencatatan pada
+                            jurnal POSTED.{' '}
                             {result.truncated &&
                                 `Menampilkan ${result.rows.length} dari ${result.totalCount} baris.`}
                         </p>
