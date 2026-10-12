@@ -6,24 +6,27 @@ per hari kerja pada `14:17 UTC` (`21:17 WIB`, Senin–Jumat), atau saat operator
 menjalankan dispatch manual untuk kebutuhan mendesak.
 
 Push biasa menjalankan **Push CI** (`ci.yml`): lint + typecheck + seluruh test suite
-(tanpa coverage) untuk umpan balik sebelum rilis, tanpa build image atau deploy.
-Test PostgreSQL contract melewati diri sendiri (`describe.skipIf`) tanpa DB. Push
-yang seluruh delta-nya dokumen aman melewati langkah berat lewat classifier yang
-sama (`scripts/ci/changes.mjs`). Pengaturan ini mengurangi frekuensi pipeline rilis,
-bukan kualitas pemeriksaannya. Setiap scheduled/manual release tetap menjalankan
-seluruh gate sebelum image dipromosikan atau VPS diubah.
+(tanpa coverage), ditambah PostgreSQL contract pada service database disposable yang
+sama dengan gate rilis. Ini memberi umpan balik sebelum rilis tanpa build image atau
+deploy; integration test tidak lagi dianggap lolos hanya karena `describe.skipIf`.
+Push yang seluruh delta-nya dokumen aman melewati langkah berat lewat classifier yang
+sama (`scripts/ci/changes.mjs`). Production Pipeline menunggu Push CI event `push`
+yang sukses untuk SHA `main` yang persis sama sebelum mengalokasikan runner gate berat.
+Setiap scheduled/manual release tetap mengulang seluruh gate sebelum image dipromosikan
+atau VPS diubah.
 
 ## Jalur release
 
 | Event | Hasil |
 | --- | --- |
-| Push ke `main` | Push CI (lint + typecheck; skip langkah berat untuk docs-only); tidak build/deploy; commit menunggu release berikutnya |
-| Schedule hari kerja | Full gates, Release Please, build image, lalu deploy HEAD `main` |
-| Manual **Run workflow** pada `main` | Full gates, build image, lalu deploy; Release Please dilewati |
+| Push ke `main` | Push CI (lint, typecheck, unit suite, PostgreSQL contract; skip langkah berat untuk docs-only); tidak build/deploy; commit menunggu release berikutnya |
+| Schedule hari kerja | Tunggu Push CI exact-SHA sukses, full gates, Release Please, build image, lalu deploy HEAD `main` |
+| Manual **Run workflow** pada `main` | Tunggu Push CI exact-SHA sukses, full gates, build image, lalu deploy; Release Please dilewati |
 
 Workflow harus dijalankan pada `main`. Deploy memerlukan:
 
 - konsistensi AGENTS dan versi Node;
+- Push CI event `push` exact-SHA yang sukses;
 - lint;
 - dua shard seluruh test dan merge coverage global **71/63/75/72**;
 - validasi Nginx;
@@ -79,8 +82,11 @@ sendiri bukan bukti container terbaru aktif.
 
 ## Branch protection
 
-`main` dilindungi: push wajib memiliki required check `Classify changes` dan
-`Lint & Typecheck` (job `ci.yml`) yang sukses, serta dilarang force-push dan
-delete. Owner tetap dapat bypass (`enforce_admins: false`) bila perlu. Push
-docs-only tetap diterima — `Lint & Typecheck` melewati langkah berat lewat
-classifier yang sama.
+`main` akan memakai required check stabil `Push CI Status` (job `ci.yml`) setelah
+commit workflow ini menghasilkan context tersebut pada GitHub. Status ini menerima
+hanya lint/typecheck + test + PostgreSQL contract sukses untuk perubahan penuh, atau
+pola skip `Test`/`PostgreSQL Contract` yang persis untuk docs-only. Selama rollout,
+required check lama `Classify changes` dan `Lint & Typecheck` tetap aktif sampai
+`Push CI Status` pada SHA ini sukses, lalu protection dipindahkan ke context stabil
+itu. Owner tetap dapat bypass (`enforce_admins: false`) bila perlu, tetapi Production
+Pipeline tetap menolak SHA tanpa Push CI exact-SHA sukses.

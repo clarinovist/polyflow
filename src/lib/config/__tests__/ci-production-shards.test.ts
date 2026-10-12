@@ -34,8 +34,8 @@ describe('production two-shard release gate', () => {
     it('uses two independent runners, unchanged default workers and full discovery', () => {
         const shards = jobs['test-shards'];
         expect(shards).toBeDefined();
-        expect(shards.needs).toBe('agents-consistency');
-        expect(shards.if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
+        expect(shards.needs).toBe('release-readiness');
+        expect(shards.if).toBe("${{ needs.release-readiness.outputs.full == 'true' }}");
         expect(shards.strategy).toEqual({
             'fail-fast': false,
             matrix: { include: [{ shard: '1/2', artifact: 'shard-1' }, { shard: '2/2', artifact: 'shard-2' }] },
@@ -56,8 +56,8 @@ describe('production two-shard release gate', () => {
 
     it('keeps the stable test job as a mandatory merged global coverage gate', () => {
         expect(jobs.test.name).toBe('Test & Validate');
-        expect(jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
-        expect(jobs.test.if).toBe("${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}");
+        expect(jobs.test.needs).toEqual(['release-readiness', 'test-shards']);
+        expect(jobs.test.if).toBe("${{ always() && needs.release-readiness.result == 'success' && needs.release-readiness.outputs.full == 'true' }}");
         expect(step(jobs.test, 'Run Tests with Coverage').run).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
         expect(jobs.test.steps.map(item => item.name)).toContain('Validate Nginx configuration');
         const download = jobs.test.steps.find(item => item.uses?.startsWith('actions/download-artifact'));

@@ -3,7 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkDocuments, checkStatus, safeDocuments, selectChanges } from '../../../../scripts/ci/changes.mjs';
+import { checkDocuments, checkPushStatus, checkStatus, safeDocuments, selectChanges } from '../../../../scripts/ci/changes.mjs';
 
 const root = process.cwd();
 let temp: string;
@@ -169,9 +169,19 @@ describe('dokumen dan output CLI', () => {
 });
 
 interface Needs { [name: string]: { result: string; outputs?: { full?: unknown } } }
+function pushResults(full: unknown): Needs {
+    const expected = full === 'true' ? 'success' : 'skipped';
+    return {
+        classify: { result: 'success', outputs: { full } },
+        'lint-typecheck': { result: 'success' },
+        test: { result: expected },
+        'postgres-contract': { result: expected },
+    };
+}
 function results(eventName: 'schedule' | 'workflow_dispatch' = 'schedule'): Needs {
     return { 'agents-consistency': { result: 'success', outputs: { full: 'true' } },
         ...Object.fromEntries([
+            'release-readiness',
             'test-shards',
             'test',
             'lint',
@@ -183,13 +193,39 @@ function results(eventName: 'schedule' | 'workflow_dispatch' = 'schedule'): Need
         'release-please': { result: eventName === 'schedule' ? 'success' : 'skipped' } };
 }
 
+describe('status akhir Push CI', () => {
+    it.each([['true', 'push lengkap'], ['false', 'push dokumen aman']] as const)
+    ('menerima jalur full=%s yang lengkap', (full, summary) => {
+        expect(checkPushStatus(pushResults(full))).toBe(summary);
+    });
+    it.each(['failure', 'cancelled', 'skipped'])('menolak lint/typecheck %s', status => {
+        const needs = pushResults('true'); needs['lint-typecheck'].result = status;
+        expect(() => checkPushStatus(needs)).toThrow();
+    });
+    it.each(['failure', 'cancelled', 'skipped'])('menolak gate full dengan status %s', status => {
+        for (const name of ['test', 'postgres-contract']) {
+            const needs = pushResults('true'); needs[name].result = status;
+            expect(() => checkPushStatus(needs)).toThrow();
+        }
+    });
+    it.each(['success', 'failure', 'cancelled'])('menolak gate docs-only yang tidak skipped: %s', status => {
+        for (const name of ['test', 'postgres-contract']) {
+            const needs = pushResults('false'); needs[name].result = status;
+            expect(() => checkPushStatus(needs)).toThrow();
+        }
+    });
+    it.each(['', undefined, null, true, false, 'True'])('menolak klasifikasi invalid %j', full => {
+        expect(() => checkPushStatus(pushResults(full))).toThrow();
+    });
+});
+
 describe('status akhir CI', () => {
     it.each(['schedule', 'workflow_dispatch'] as const)('menerima rilis lengkap %s', eventName => {
         expect(() => checkStatus(results(eventName), eventName)).not.toThrow();
     });
     it.each(['failure', 'cancelled', 'skipped'])('menolak gate wajib dengan status %s', status => {
         for (const eventName of ['schedule', 'workflow_dispatch'] as const) {
-            for (const name of ['agents-consistency', 'test-shards', 'test', 'lint', 'build-and-push',
+            for (const name of ['agents-consistency', 'release-readiness', 'test-shards', 'test', 'lint', 'build-and-push',
                 'return-contract', 'assistant-contract', 'deploy']) {
                 const needs = results(eventName);
                 needs[name].result = status;

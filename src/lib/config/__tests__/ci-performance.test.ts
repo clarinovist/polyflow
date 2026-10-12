@@ -51,7 +51,9 @@ describe('CI performance guardrails', () => {
             'return-contract',
             'assistant-contract',
         ]);
-        expect(production.jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
+        expect(production.jobs.test.needs).toEqual(['release-readiness', 'test-shards']);
+        expect(production.jobs['release-readiness'].needs).toBe('agents-consistency');
+        expect(production.jobs['release-readiness'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
         for (const name of [
             'test-shards',
             'lint',
@@ -59,8 +61,8 @@ describe('CI performance guardrails', () => {
             'return-contract',
             'assistant-contract',
         ]) {
-            expect(production.jobs[name].needs).toBe('agents-consistency');
-            expect(production.jobs[name].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
+            expect(production.jobs[name].needs).toBe('release-readiness');
+            expect(production.jobs[name].if).toBe("${{ needs.release-readiness.outputs.full == 'true' }}");
             expect(production.jobs[name]['continue-on-error']).toBeUndefined();
         }
         const command = production.jobs.test.steps.find(step => step.name === 'Run Tests with Coverage')!.run;
@@ -73,11 +75,13 @@ describe('CI performance guardrails', () => {
         expect(contract.services.postgres.ports).toEqual(['55439:5432']);
         for (const step of contract.steps) expect(step['continue-on-error']).toBeUndefined();
         const commands = contract.steps.map((step: { run?: string }) => step.run ?? '').join('\n');
-        expect(commands).toContain('setup-return-test-db.mjs');
         expect(commands).toContain('tsc --noEmit');
-        expect(commands).toContain('quick-sales-return-postgres.test.ts');
-        expect(commands).toContain('sales-return-receipt-postgres.test.ts');
-        expect(commands).toContain('manual-return-credit-postgres.test.ts');
+        expect(commands).toContain('bash scripts/ci/run-postgres-contracts.sh');
+        const shared = readFileSync(resolve('scripts/ci/run-postgres-contracts.sh'), 'utf8');
+        expect(shared).toContain('setup-return-test-db.mjs');
+        expect(shared).toContain('quick-sales-return-postgres.test.ts');
+        expect(shared).toContain('sales-return-receipt-postgres.test.ts');
+        expect(shared).toContain('manual-return-credit-postgres.test.ts');
     });
 
     it('preserves global coverage thresholds and discovery', () => {

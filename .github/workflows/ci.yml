@@ -1,18 +1,19 @@
 name: Push CI
 
-# Fast feedback on push to main: lint + typecheck. Full coverage, PostgreSQL
-# contracts and the image build stay in the release pipeline (production.yml).
-# Docs-only pushes skip the heavy steps via the shared classifier in
-# scripts/ci/changes.mjs, so documentation edits do not pay for a full install.
+# Fast feedback on push to main: lint, typecheck, tests, and the same disposable
+# PostgreSQL contract suite used by the release pipeline. Full coverage and image
+# builds stay in production.yml. Docs-only pushes skip the heavy steps through
+# scripts/ci/changes.mjs, so documentation edits do not pay for an install or DB.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Push beruntun membatalkan run lama: hanya push terakhir yang dijalankan.
+# Push beruntun membatalkan push lama, tetapi dispatch manual tidak boleh
+# membatalkan bukti event push yang diwajibkan Production Pipeline.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -74,9 +75,8 @@ jobs:
         if: needs.classify.outputs.full == 'true'
         run: npx next typegen && npx tsc --noEmit
 
-  # A+: full test suite on push (no coverage). PostgreSQL contract tests
-  # self-skip via describe.skipIf when no DB URL is set, so this job needs no
-  # database service. Skipped entirely on docs-only pushes.
+  # Fast unit/mock feedback without coverage. Real PostgreSQL contracts live in
+  # the separate job below so a skipped integration test cannot make CI green.
   test:
     name: Test
     needs: classify
@@ -96,3 +96,59 @@ jobs:
         run: npx prisma generate
       - name: Run test suite
         run: npm run test
+
+  postgres-contract:
+    name: PostgreSQL Contract
+    needs: classify
+    if: ${{ needs.classify.result == 'success' && needs.classify.outputs.full == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RETURN_CREDIT_TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_return_credit_scope_test
+      CENTRAL_IDENTITY_TEST_ADMIN_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/postgres
+      TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_recognition_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Run release PostgreSQL contracts
+        run: bash scripts/ci/run-postgres-contracts.sh
+
+  # Stable required check for both full and docs-only pushes. Conditional jobs
+  # may be skipped only in the classifier-approved docs-only pattern.
+  status:
+    name: Push CI Status
+    if: ${{ always() }}
+    needs: [classify, lint-typecheck, test, postgres-contract]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate Push CI results
+        env:
+          PUSH_CI_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci/changes.mjs push-status

@@ -36,12 +36,14 @@ describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
         expect(initial.steps.find(step => step.uses?.startsWith('actions/setup-node'))?.with).toEqual({ 'node-version-file': '.nvmrc' });
     });
     it('heavy jobs paralel hanya setelah palang sukses dan full=true', () => {
+        expect(jobs['release-readiness'].needs).toBe('agents-consistency');
+        expect(jobs['release-readiness'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
         for (const name of heavy.filter(name => name !== 'test')) {
-            expect(jobs[name].needs).toBe('agents-consistency');
-            expect(jobs[name].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
+            expect(jobs[name].needs).toBe('release-readiness');
+            expect(jobs[name].if).toBe("${{ needs.release-readiness.outputs.full == 'true' }}");
         }
-        expect(jobs.test.needs).toEqual(['agents-consistency', 'test-shards']);
-        expect(jobs.test.if).toBe("${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}");
+        expect(jobs.test.needs).toEqual(['release-readiness', 'test-shards']);
+        expect(jobs.test.if).toBe("${{ always() && needs.release-readiness.result == 'success' && needs.release-readiness.outputs.full == 'true' }}");
         expect(jobs.test.steps[0].run).toContain('"$SHARDS_RESULT" != "success"');
     });
     it('semua gate dan release identity tetap wajib untuk schedule maupun dispatch manual', () => {
@@ -64,7 +66,7 @@ describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
     it('status akhir selalu mengevaluasi seluruh gate tanpa npm install atau secrets', () => {
         const status = jobs.status;
         expect(status.name).toBe('Status CI'); expect(status.if).toBe('${{ always() }}');
-        expect(status.needs).toEqual(['agents-consistency', ...heavy, 'deploy', 'release-please']);
+        expect(status.needs).toEqual(['agents-consistency', 'release-readiness', ...heavy, 'deploy', 'release-please']);
         expect(status.permissions).toEqual({ contents: 'read', actions: 'read' });
         expect(status.steps[0].with).toEqual({ ref: '${{ github.sha }}', 'persist-credentials': false });
         const step = status.steps.find(step => step.name === 'Validasi hasil jalur CI')!;
@@ -81,7 +83,7 @@ describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
     it.each(['schedule', 'workflow_dispatch'])('menjalankan shell status aktual untuk %s', eventName => {
         const needs: Record<string, { result: string; outputs?: { full: string } }> = {
             'agents-consistency': { result: 'success', outputs: { full: 'true' } },
-            ...Object.fromEntries([...heavy, 'deploy'].map(name => [name, { result: 'success' }])),
+            ...Object.fromEntries(['release-readiness', ...heavy, 'deploy'].map(name => [name, { result: 'success' }])),
             'release-please': { result: eventName === 'schedule' ? 'success' : 'skipped' },
         };
         const command = jobs.status.steps.find(step => step.name === 'Validasi hasil jalur CI')!.run!;

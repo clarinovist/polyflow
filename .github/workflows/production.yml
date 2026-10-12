@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   # ─────────────────────────────────────────────
-  # 1. Automated Release PR (runs independently)
+  # 1. Automated Release PR (runs independently from release readiness)
   # ─────────────────────────────────────────────
   release-please:
     name: Release Please
@@ -67,6 +67,33 @@ jobs:
         id: changes
         run: node scripts/ci/changes.mjs
 
+  # Require successful push feedback for this exact main SHA before allocating
+  # release runners. The check waits for a concurrently-started Push CI run and
+  # fails closed on a missing, cancelled, failed, or malformed result.
+  release-readiness:
+    name: Exact-SHA Push CI Readiness
+    needs: agents-consistency
+    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      full: ${{ needs.agents-consistency.outputs.full }}
+      push-run-id: ${{ steps.readiness.outputs.run-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require successful exact-SHA Push CI
+        id: readiness
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await require('./scripts/ci/release-readiness.cjs').check({ github, context, core });
+
   # ─────────────────────────────────────────────
   # 2a. Lint
   #     Split out of `test` deliberately: ESLint (~74s) and vitest (~166s) share
@@ -77,8 +104,8 @@ jobs:
   # ─────────────────────────────────────────────
   lint:
     name: Lint
-    needs: agents-consistency
-    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    needs: release-readiness
+    if: ${{ needs.release-readiness.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
@@ -112,8 +139,8 @@ jobs:
   # ─────────────────────────────────────────────
   test-shards:
     name: Test shard ${{ matrix.shard }}
-    needs: agents-consistency
-    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    needs: release-readiness
+    if: ${{ needs.release-readiness.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
@@ -159,8 +186,8 @@ jobs:
   # Stable required gate: both shards, global thresholds, then Nginx validation.
   test:
     name: Test & Validate
-    needs: [agents-consistency, test-shards]
-    if: ${{ always() && needs.agents-consistency.result == 'success' && needs.agents-consistency.outputs.full == 'true' }}
+    needs: [release-readiness, test-shards]
+    if: ${{ always() && needs.release-readiness.result == 'success' && needs.release-readiness.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
@@ -234,14 +261,14 @@ jobs:
             -v ${{ github.workspace }}/certs:/etc/letsencrypt:ro \
             nginx:alpine nginx -t
 
-  # Real transaction gate for the one-step receipt + receivable workflow.
+  # Same real PostgreSQL suite as Push CI. This remains a release gate so the
+  # release runner independently proves the checked-out SHA and environment.
   return-contract:
-    # ID stays `return-contract` (referenced by needs/heavyJobs/tests); the
-    # display name now reflects that full TypeScript validation also lives here.
     name: Return PostgreSQL Contract & Typecheck
-    needs: agents-consistency
-    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    needs: release-readiness
+    if: ${{ needs.release-readiness.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15-alpine
@@ -256,55 +283,30 @@ jobs:
           --health-retries 10
     env:
       RETURN_CREDIT_TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_return_credit_scope_test
+      CENTRAL_IDENTITY_TEST_ADMIN_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/postgres
+      TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_recognition_test
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
       - run: npx prisma generate
-      - run: node scripts/ci/setup-return-test-db.mjs
       - name: Generate route types and validate TypeScript
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: npx next typegen && npx tsc --noEmit
-      - name: Set up disposable central identity databases
-        env:
-          CENTRAL_IDENTITY_TEST_ADMIN_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/postgres
-        run: node scripts/ci/setup-central-identity-test-dbs.mjs
-      - name: Receipt, credit, identity and SPK metadata contracts
-        env:
-          CENTRAL_IDENTITY_TEST_ADMIN_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/postgres
-          TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_recognition_test
-        run: >-
-          npx vitest run --maxWorkers=1 --no-file-parallelism
-          src/services/auth/__tests__/central-identity-postgres.test.ts
-          src/services/finance/__tests__/quick-sales-return-postgres.test.ts
-          src/services/finance/__tests__/return-credit-proposal-postgres.test.ts
-          src/services/finance/__tests__/sales-return-receipt-postgres.test.ts
-          src/services/finance/__tests__/manual-return-credit-postgres.test.ts
-          src/services/finance/__tests__/invoice-status-settlement-postgres.test.ts
-          src/services/finance/__tests__/invoice-date-correction-postgres.test.ts
-          src/services/finance/__tests__/customer-credit-postgres.test.ts
-          src/services/production/__tests__/order-context-postgres.test.ts
-          src/services/sales/__tests__/trip-distance-postgres.test.ts
-          src/actions/inventory/__tests__/deliveries-postgres.test.ts
-          src/actions/finance/__tests__/mobile-readiness-postgres.test.ts
-          src/actions/dashboard/__tests__/finance-dashboard-postgres.test.ts
-          src/actions/dashboard/__tests__/sales-dashboard-postgres.test.ts
-          src/services/sales/__tests__/mobile-sales-contract-postgres.test.ts
-          src/services/dashboard/__tests__/dashboard-hardening-postgres.test.ts
-          src/services/accounting/__tests__/closing-filter-postgres.test.ts
-          src/services/finance/__tests__/cogs-economic-diagnosis-postgres.test.ts
-          src/lib/bot/__tests__/help-guides-postgres.test.ts
-          src/lib/bot/__tests__/document-tools-postgres.test.ts
-          src/lib/core/__tests__/prisma-proxy-postgres.test.ts
+      - name: Run release PostgreSQL contracts
+        run: bash scripts/ci/run-postgres-contracts.sh
 
   assistant-contract:
     name: Durable Assistant PostgreSQL & Crash Contract
-    needs: agents-consistency
-    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    needs: release-readiness
+    if: ${{ needs.release-readiness.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -381,8 +383,8 @@ jobs:
   # ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Image
-    needs: agents-consistency
-    if: ${{ needs.agents-consistency.outputs.full == 'true' }}
+    needs: release-readiness
+    if: ${{ needs.release-readiness.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
     outputs:
       digest: ${{ steps.image.outputs.digest }}
@@ -536,7 +538,7 @@ jobs:
   status:
     name: Status CI
     if: ${{ always() }}
-    needs: [agents-consistency, test-shards, test, lint, build-and-push, return-contract, assistant-contract, deploy, release-please]
+    needs: [agents-consistency, release-readiness, test-shards, test, lint, build-and-push, return-contract, assistant-contract, deploy, release-please]
     runs-on: ubuntu-26.04
     permissions:
       contents: read

@@ -9,6 +9,7 @@ export const safeDocuments = Object.freeze([
 ]);
 const shaPattern = /^[a-f0-9]{40}$/;
 const heavyJobs = [
+    'release-readiness',
     'test-shards',
     'test',
     'lint',
@@ -75,6 +76,21 @@ export function checkDocuments(root) {
     }
 }
 
+/** Status Push CI stabil untuk full maupun pola skip docs-only yang eksplisit. */
+export function checkPushStatus(needs) {
+    const initial = needs?.classify;
+    const full = initial?.outputs?.full;
+    if (initial?.result !== 'success' || !['true', 'false'].includes(full)) {
+        throw new Error('Klasifikasi Push CI gagal atau tidak lengkap.');
+    }
+    if (needs?.['lint-typecheck']?.result !== 'success') throw new Error('Lint/typecheck Push CI gagal.');
+    const expected = full === 'true' ? 'success' : 'skipped';
+    for (const name of ['test', 'postgres-contract']) {
+        if (needs?.[name]?.result !== expected) throw new Error('Hasil gate Push CI tidak sesuai jalur.');
+    }
+    return full === 'true' ? 'push lengkap' : 'push dokumen aman';
+}
+
 /** Status akhir bukan pengganti gate deploy; kegagalan/skip tak sah harus merah. */
 export function checkStatus(needs, eventName) {
     const initial = needs?.['agents-consistency'];
@@ -95,6 +111,11 @@ export function main(root, mode, env = process.env) {
         if (mode === 'status') {
             const result = checkStatus(JSON.parse(env.CI_NEEDS), env.GITHUB_EVENT_NAME);
             console.log('Status CI lulus: ' + result);
+            return 0;
+        }
+        if (mode === 'push-status') {
+            const result = checkPushStatus(JSON.parse(env.PUSH_CI_NEEDS));
+            console.log('Push CI lulus: ' + result);
             return 0;
         }
         if (mode !== undefined) throw new Error('Mode tidak dikenal.');
