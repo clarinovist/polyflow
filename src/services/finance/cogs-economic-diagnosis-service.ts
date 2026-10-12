@@ -506,6 +506,7 @@ async function shipmentSnapshot(
     return tx.$queryRaw<SnapshotRow[]>(Prisma.sql`
         WITH base AS (
             SELECT m.id, m.quantity, m.cost, m.reference, m."createdAt", so."orderType",
+                COUNT(*) OVER (PARTITION BY m."salesOrderId", m."productVariantId", m."fromLocationId", m.quantity, m.reference) AS "sourceVectorCount",
                 d.id AS "deliveryOrderId",
                 COALESCE(dmatch.match_count, 0) AS "deliveryMatchCount",
                 COALESCE(sales.nominal, 0) AS "nominalRevenue",
@@ -557,19 +558,12 @@ async function shipmentSnapshot(
                 ) x
             ) j ON TRUE
             LEFT JOIN LATERAL (
-                SELECT COUNT(*) AS match_count FROM "StockMovement" o
-                WHERE o.type = 'OUT' AND o."salesOrderId" = m."salesOrderId"
-                    AND o."productVariantId" = m."productVariantId"
-                    AND o."fromLocationId" = m."fromLocationId" AND o."toLocationId" IS NULL
-                    AND o.quantity = m.quantity AND o.reference = m.reference
-            ) source_match ON TRUE
-            LEFT JOIN LATERAL (
                 SELECT COUNT(*) AS pair_count,
-                    COUNT(*) FILTER (WHERE source_match.match_count = 1) AS unique_count,
+                    COUNT(*) FILTER (WHERE m."sourceVectorCount" = 1) AS unique_count,
                     COUNT(*) FILTER (WHERE (r."createdAt" < ${start} OR r."createdAt" > ${end})
-                        AND source_match.match_count = 1) AS cross_period_unique_count,
+                        AND m."sourceVectorCount" = 1) AS cross_period_unique_count,
                     COUNT(*) FILTER (WHERE r."createdAt" >= ${start} AND r."createdAt" <= ${end}
-                        AND source_match.match_count = 1
+                        AND m."sourceVectorCount" = 1
                         AND COALESCE(rj.active, 0) = 1 AND COALESCE(rj.posted_auto, 0) = 1
                         AND COALESCE(rj.debit, 0) = COALESCE(rj.credit, 0)
                         AND COALESCE(rj.debit, 0) > 0
