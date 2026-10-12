@@ -60,8 +60,9 @@ describe('AssistantWorkerClient', () => {
     });
 
     it('submits restricted Telegram through its dedicated worker endpoint', async () => {
-        const fetchMock = vi.fn(async () =>
-            Response.json({
+        const fetchMock = vi.fn(
+            async (_url: URL | RequestInfo, _init?: RequestInit) =>
+                Response.json({
                 requestId: envelope.requestId,
                 status: 'done',
                 accepted: true,
