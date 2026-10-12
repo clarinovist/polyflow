@@ -706,7 +706,7 @@ async function returnSnapshot(
                     WHERE audit."entityType" = 'SalesReturn' AND audit."entityId" = r.id
                         AND audit."toStatus" = 'COMPLETED'
                         AND audit."createdAt" >= ${start} AND audit."createdAt" <= ${end}))
-                AND ${nonClosingReferenceSql(Prisma.sql`r.returnNumber`)}
+                AND ${nonClosingReferenceSql(Prisma.sql`r."returnNumber"`)}
         ), base AS (
             SELECT r.id, r.status, r."totalAmount", r."physicalInRange", r."completedInRange",
                 COALESCE(receipts.good_count, 0) AS "goodReceiptCount",
