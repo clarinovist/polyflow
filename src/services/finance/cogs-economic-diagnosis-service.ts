@@ -504,9 +504,16 @@ async function shipmentSnapshot(
     end: Date,
 ): Promise<SnapshotRow[]> {
     return tx.$queryRaw<SnapshotRow[]>(Prisma.sql`
-        WITH base AS (
-            SELECT m.id, m.quantity, m.cost, m.reference, m."createdAt", so."orderType",
-                COUNT(*) OVER (PARTITION BY m."salesOrderId", m."productVariantId", m."fromLocationId", m.quantity, m.reference) AS "sourceVectorCount",
+        WITH movements AS (
+            SELECT m.*, COUNT(*) OVER (PARTITION BY m."salesOrderId", m."productVariantId", m."fromLocationId", m.quantity, m.reference) AS "sourceVectorCount"
+            FROM "StockMovement" m
+            WHERE m.type = 'OUT' AND m."salesOrderId" IS NOT NULL
+                AND m."fromLocationId" IS NOT NULL AND m."toLocationId" IS NULL
+                AND m."goodsReceiptId" IS NULL AND m."productionOrderId" IS NULL
+                AND m."createdAt" >= ${start} AND m."createdAt" <= ${end}
+                AND ${nonClosingReferenceSql(Prisma.sql`m.reference`)}
+        ), base AS (
+            SELECT m.id, m.quantity, m.cost, m.reference, m."createdAt", m."sourceVectorCount", so."orderType",
                 d.id AS "deliveryOrderId",
                 COALESCE(dmatch.match_count, 0) AS "deliveryMatchCount",
                 COALESCE(sales.nominal, 0) AS "nominalRevenue",
@@ -520,7 +527,7 @@ async function shipmentSnapshot(
                 COALESCE(rev.unique_count, 0) AS "uniqueReversalCount",
                 COALESCE(rev.valid_count, 0) AS "validReversalCount",
                 COALESCE(rev.cross_period_unique_count, 0) AS "crossPeriodReversalCount"
-            FROM "StockMovement" m
+            FROM movements m
             JOIN "SalesOrder" so ON so.id = m."salesOrderId"
             LEFT JOIN LATERAL (
                 SELECT candidate.id AS delivery_id, COUNT(*) OVER () AS match_count
@@ -596,11 +603,6 @@ async function shipmentSnapshot(
                     AND r.quantity = m.quantity
                     AND r.reference = ('VOID: ' || m.reference || ' [SOURCE:' || d.id || ']')
             ) rev ON TRUE
-            WHERE m.type = 'OUT' AND m."salesOrderId" IS NOT NULL
-                AND m."fromLocationId" IS NOT NULL AND m."toLocationId" IS NULL
-                AND m."goodsReceiptId" IS NULL AND m."productionOrderId" IS NULL
-                AND m."createdAt" >= ${start} AND m."createdAt" <= ${end}
-                AND ${nonClosingReferenceSql(Prisma.sql`m.reference`)}
         ), classified AS (
             SELECT *,
                 CASE
