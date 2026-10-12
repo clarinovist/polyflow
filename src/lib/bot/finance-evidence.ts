@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { diagnoseInvoice, findInvoices } from '@/services/finance/invoice-diagnosis-service';
 import type { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
+import type { diagnoseCogsEconomicCompleteness } from '@/services/finance/cogs-economic-diagnosis-service';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { createEvidence } from './evidence';
 
@@ -64,6 +65,7 @@ export function reconciliationEvidence(result: Awaited<ReturnType<typeof reconci
             ...totals.map(([label, value]) => ({ label, value: money(value) })),
             { label: 'Sumber COGS', value: `${cogs.count} jurnal, neto seluruhnya ${money(cogs.total)}; sampel ${cogs.rows.length} terbesar berdasarkan absolut neto. Penyesuaian negatif tetap disertakan.` },
             { label: 'Selisih laporan vs sumber COGS', value: money(result.cogsDifference) },
+            { label: 'Batas kesimpulan COGS', value: 'Kesamaan ini hanya membuktikan konsistensi pembukuan/kategori COGS POSTED yang tercakup. Ini BUKAN bukti semua shipment, retur, issue produksi, output, adjustment, atau off-balance telah lengkap secara ekonomi; gunakan diagnose_cogs_economic_completeness.' },
             { label: 'Cohort invoice bermasalah', value: `${invoices.count} invoice; nilai dokumen ${money(invoices.total)}; sampel ${invoices.rows.length}. Filter tanggal invoice, bukan tanggal jurnal. Ini BUKAN tambahan laba atau estimasi laba hilang.` },
             { label: 'Batas pemeriksaan invoice', value: 'Screening jumlah/status jurnal penjualan dan agregat pembayaran saja; bukan audit nominal/periode semua jurnal. Gunakan diagnose_invoice_payment dengan nomor persis untuk pendalaman. DRAFT tanpa jurnal POSTED tidak dianggap laba hilang.' },
             { label: 'Cakupan dokumen', value: `${cogs.truncated || invoices.truncated || accounts.length > 20 ? 'Sampel dipotong; total dan jumlah tetap seluruh cohort.' : 'Sampel mencakup seluruh hasil.'} Tidak ada perbaikan otomatis atau perubahan data.` },
@@ -74,6 +76,35 @@ export function reconciliationEvidence(result: Awaited<ReturnType<typeof reconci
         // Detail rows remain in facts for DeepSeek diagnosis. Do not promote
         // every sampled journal/invoice to UI entity chips on an aggregate P&L
         // answer; users can ask for document-level follow-up when needed.
+        entities: [],
+    });
+}
+
+export function cogsEconomicDiagnosisEvidence(
+    result: Awaited<ReturnType<typeof diagnoseCogsEconomicCompleteness>>,
+) {
+    const { range, bookkeeping, coverage, findings, shipments, returns, productionFlow } = result;
+    const findingFacts = findings.map(finding => ({
+        label: `${finding.code} — CONFIRMED / NEEDS_REVIEW`,
+        value: `${finding.count} kejadian; basis ${finding.amountBasis}; nominal ${money(finding.nominal)}${finding.revenuePercentage == null ? '' : ` (${finding.revenuePercentage.toFixed(2)}% dari nominal sales shipment)`}. ${finding.reason} Batas bukti: ${finding.evidenceLimit} Sampel ${finding.samples.length}: ${finding.samples.map(sample => sample.sourceId).join(', ') || '-'}.`,
+    }));
+    return createEvidence({
+        summary: `Diagnosis kelengkapan ekonomi COGS ${range.startDate} s.d. ${range.endDate} WIB (read-only): ${findings.length} kelompok kondisi terkonfirmasi; implikasi accounting tetap needs_review.`,
+        source: 'tenant-data',
+        completeness: coverage.mandatoryComplete ? 'complete' : 'partial',
+        confidenceCap: coverage.confidenceCap,
+        facts: [
+            { label: 'Urutan jawaban wajib', value: 'Ringkasan → temuan terkonfirmasi → implikasi needs_review → batas pemeriksaan → langkah berikutnya.' },
+            { label: 'Makna confidence', value: `Coverage cap ${coverage.confidenceCap.toFixed(2)} adalah batas cakupan evidence, BUKAN probabilitas pembukuan benar.` },
+            { label: 'Laporan vs jurnal COGS', value: `Laporan ${money(bookkeeping.reportCogs)}; jurnal POSTED kategori COGS ${money(bookkeeping.journalCogs)}; selisih ${money(bookkeeping.difference)}. Cocok hanya berarti konsisten secara pembukuan, belum tentu lengkap secara ekonomi.` },
+            { label: 'Cakupan wajib', value: `${coverage.mandatoryComplete ? 'Semua dimensi covered.' : 'Belum semua dimensi covered.'} ${coverage.dimensions.map(item => `${item.code}=${item.status} (${item.reason})`).join('; ')}` },
+            { label: 'Shipment', value: `${shipments.count} movement; aktif ${shipments.activeCount}; COGS tertutup ${shipments.coveredCount}; reversal ${shipments.reversedCount}; off-balance ${shipments.offBalanceCount}; qty ${shipments.quantity}; nominal sales ${money(shipments.nominalSalesValue)}; nilai sales dengan cost coverage belum lengkap ${money(shipments.incompleteSalesValue)}; jurnal COGS ${money(shipments.postedCogsValue)}; explicit movement value ${money(shipments.explicitMovementValue.amount)} pada ${shipments.explicitMovementValue.knownCount} movement. Basis nominal, movement, dan jurnal tidak boleh digabung.` },
+            { label: 'Retur fisik vs komersial', value: `Cohort receipt dalam periode ${returns.cohortBasis.physicalReceiptInRange}; cohort transisi COMPLETED dalam periode ${returns.cohortBasis.completedStateUpdatedInRange}; GOOD ${returns.goodReceiptCount}, DAMAGED ${returns.damagedReceiptCount}; restock/HPP ${money(returns.physicalRestockValue)}; kredit komersial aktif ${money(returns.activeCommercialCreditValue)}; revenue asal POSTED ${money(returns.originalPostedRevenue)}; completed tanpa kredit aktif ${returns.completedWithoutActiveCreditCount}; cross-period ${returns.crossPeriodCount}. Kredit komersial tidak ditambahkan ke restock/HPP.` },
+            { label: 'Aliran produksi agregat', value: `Issue ${productionFlow.materialIssue.count} (movement ${money(productionFlow.materialIssue.movementValue)}, GL ${money(productionFlow.materialIssue.journalValue)}); output ${productionFlow.wipToOutput.outputCount} (movement ${money(productionFlow.wipToOutput.movementValue)}, GL ${money(productionFlow.wipToOutput.journalValue)}); shipment/COGS ${productionFlow.shipmentCogs.count} / ${money(productionFlow.shipmentCogs.journalValue)}; unattributed ${productionFlow.unattributedShipmentCount}. Jangan menyatakan equality atau lineage per unit.` },
+            { label: 'Side flow produksi', value: `Scrap ${productionFlow.sideFlows.scrapCount}; return-in ${productionFlow.sideFlows.returnInCount}; adjustment ${productionFlow.sideFlows.adjustmentCount}; Maklon off-balance ${productionFlow.sideFlows.maklonOffBalanceCount}; output dengan issue di luar periode ${productionFlow.crossPeriod.outputWithIssueOutsideRange}; issue dengan output di luar periode ${productionFlow.crossPeriod.issueWithOutputOutsideRange}.` },
+            ...findingFacts,
+            ...result.limitations.map((value, index) => ({ label: `Batas pemeriksaan ${index + 1}`, value })),
+        ],
         entities: [],
     });
 }

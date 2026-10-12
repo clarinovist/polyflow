@@ -296,6 +296,7 @@ jobs:
           src/services/sales/__tests__/mobile-sales-contract-postgres.test.ts
           src/services/dashboard/__tests__/dashboard-hardening-postgres.test.ts
           src/services/accounting/__tests__/closing-filter-postgres.test.ts
+          src/services/finance/__tests__/cogs-economic-diagnosis-postgres.test.ts
           src/lib/bot/__tests__/help-guides-postgres.test.ts
           src/lib/bot/__tests__/document-tools-postgres.test.ts
           src/lib/core/__tests__/prisma-proxy-postgres.test.ts

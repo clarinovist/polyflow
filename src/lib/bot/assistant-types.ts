@@ -44,6 +44,8 @@ export type ToolEvidence = {
     source: ToolEvidenceSource;
     checkedAt: string;
     completeness: 'complete' | 'partial';
+    /** Deterministic evidence-coverage ceiling, not probability of correctness. */
+    confidenceCap?: 0.6 | 0.75 | 0.85 | 0.9;
     /** Internal audit only; never rendered as model context or an evidence chip. */
     searchMeta?: import('./document-search').DocumentSearchMeta;
 };

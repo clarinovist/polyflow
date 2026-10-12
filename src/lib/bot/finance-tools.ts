@@ -3,11 +3,12 @@ import { z } from 'zod';
 import { tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { diagnoseInvoice, findInvoices } from '@/services/finance/invoice-diagnosis-service';
 import { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
+import { diagnoseCogsEconomicCompleteness } from '@/services/finance/cogs-economic-diagnosis-service';
 import { financeRangeSchema, invoiceSearchSchema } from '@/services/finance/finance-diagnostic-input';
 import type { AssistantToolDefinition, AssistantUserContext, ToolEvidence } from './assistant-types';
 import { checkToolAuthorization } from './tool-authorization';
 import { documentSearchMeta } from './document-search';
-import { invoiceDiagnosisEvidence, invoiceSelectionEvidence, reconciliationEvidence } from './finance-evidence';
+import { cogsEconomicDiagnosisEvidence, invoiceDiagnosisEvidence, invoiceSelectionEvidence, reconciliationEvidence } from './finance-evidence';
 import { inspectPurchaseInvoice, inspectSalesReturnCredit } from '@/services/finance/assistant-document-diagnosis';
 import { purchaseInvoiceEvidence, salesReturnCreditEvidence } from './document-diagnosis-evidence';
 import { financeLedgerQuerySchema } from '@/services/business-query/finance-ledger-query';
@@ -70,6 +71,8 @@ export const financeTools: AssistantToolDefinition[] = [
             const result = await diagnoseInvoice(tx, input.searchTerm);
             return { ...invoiceDiagnosisEvidence(result), searchMeta: documentSearchMeta(input.searchTerm, result.selection.total, 'total') };
         }),
-    financeTool('get_finance_reconciliation', 'Rekonsiliasi laba-rugi/COGS read-only untuk tanggal WIB eksplisit (maksimal 366 hari): angka laporan existing, akun, jurnal sumber terbesar dan screening invoice. Bukan ringkasan AR/AP atau perbaikan data.',
+    financeTool('get_finance_reconciliation', 'Rekonsiliasi laba-rugi/COGS read-only untuk tanggal WIB eksplisit (maksimal 366 hari): angka laporan existing, akun, jurnal sumber terbesar dan screening invoice. Hanya membuktikan konsistensi bookkeeping/kategori COGS, bukan kelengkapan ekonomi. Bukan ringkasan AR/AP atau perbaikan data.',
         '/finance/reports/income-statement', financeRangeSchema, async (tx, input) => reconciliationEvidence(await reconcileFinance(tx, input))),
+    financeTool('diagnose_cogs_economic_completeness', 'Diagnosis deterministic read-only kelengkapan ekonomi COGS untuk tanggal WIB eksplisit (maksimal 366 hari): shipment/valuasi/jurnal, retur fisik-vs-komersial, dan jembatan agregat issue-WIP-output-shipment-return-adjustment. Gunakan untuk pertanyaan apakah HPP/COGS lengkap. Temuan adalah kondisi confirmed; implikasi accounting needs_review; jangan gabungkan basis nominal/movement/jurnal.',
+        '/finance/reports/income-statement', financeRangeSchema, async (tx, input) => cogsEconomicDiagnosisEvidence(await diagnoseCogsEconomicCompleteness(tx, input))),
 ];

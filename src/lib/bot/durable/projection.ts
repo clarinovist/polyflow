@@ -11,6 +11,7 @@ import { resolveOutcome } from '../chat-audit';
 import { readDurablePresentation } from './response';
 import type { AssistantAuthority } from './protocol';
 import type { AssistantResponse, ToolEvidence } from '../assistant-types';
+import { calculateConfidence } from '../clarifier';
 import { withBoundAuthority } from './authority';
 
 function json(value: unknown): Prisma.InputJsonValue {
@@ -127,6 +128,13 @@ export async function projectDurableSubmission(input: {
               ...durablePresentation,
               requestId: input.requestId,
               conversationId: input.authority.publicConversationId,
+              confidence:
+                  evidences.some(
+                      (evidence) => evidence.confidenceCap !== undefined,
+                  )
+                      ? calculateConfidence(evidences, false)
+                      : (durablePresentation.confidence ??
+                        calculateConfidence(evidences, false)),
               historySaved: true,
           }
         : {
@@ -141,7 +149,7 @@ export async function projectDurableSubmission(input: {
                   checkedAt: evidence.checkedAt,
               })),
               conversationId: input.authority.publicConversationId,
-              confidence: evidences.length > 0 ? 0.85 : 0.5,
+              confidence: calculateConfidence(evidences, false),
               safety: { allowed: true },
               historySaved: true,
           };

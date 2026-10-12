@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/core/prisma', () => ({ prisma: {}, tenantContext: new AsyncLocalStorage(), tenantIdContext: new AsyncLocalStorage() }));
 vi.mock('@/services/finance/invoice-diagnosis-service', () => ({ findInvoices: vi.fn().mockResolvedValue({ kind: 'missing', invoices: [], total: 0, truncated: false }), diagnoseInvoice: vi.fn().mockResolvedValue({ selection: { kind: 'missing', invoices: [], total: 0, truncated: false } }) }));
 vi.mock('@/services/finance/finance-reconciliation-service', () => ({ reconcileFinance: vi.fn() }));
+vi.mock('@/services/finance/cogs-economic-diagnosis-service', () => ({ diagnoseCogsEconomicCompleteness: vi.fn() }));
 vi.mock('@/services/business-query/engine', () => ({
     executeBusinessQuery: vi.fn(),
 }));
 import { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
+import { diagnoseCogsEconomicCompleteness } from '@/services/finance/cogs-economic-diagnosis-service';
 import { executeBusinessQuery } from '@/services/business-query/engine';
 import { tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { getToolByName, getToolsForContext, toolsToOpenAiFormat } from '../tool-registry';
@@ -20,9 +22,9 @@ const db = { $transaction: transaction } as unknown as PrismaClient;
 const run = (fn: () => unknown, tenantId = 'one') => tenantContext.run(db, () => tenantIdContext.run(tenantId, fn));
 beforeEach(() => vi.clearAllMocks());
 const newNames = ['get_purchase_invoice', 'diagnose_purchase_invoice', 'diagnose_sales_return_credit'];
-const names = ['get_invoice_status', 'diagnose_invoice_payment', 'get_finance_reconciliation', 'query_finance', ...newNames];
+const names = ['get_invoice_status', 'diagnose_invoice_payment', 'get_finance_reconciliation', 'diagnose_cogs_economic_completeness', 'query_finance', ...newNames];
 const args = (name: string) =>
-    name === 'get_finance_reconciliation'
+    name === 'get_finance_reconciliation' || name === 'diagnose_cogs_economic_completeness'
         ? { startDate: '2026-08-01', endDate: '2026-08-31' }
         : name === 'query_finance'
           ? { dataset: 'ledger_expenses', keywords: ['solar', 'ali'] }
@@ -91,6 +93,20 @@ describe('finance execution boundary', () => {
         expect(result).toMatchObject({ facts: expect.arrayContaining([{ label: 'Laba bersih', value: expect.stringContaining('640,00') }]) });
         expect(reconcileFinance).toHaveBeenCalledWith(tx, args('get_finance_reconciliation'));
 
+        vi.mocked(diagnoseCogsEconomicCompleteness).mockResolvedValue({
+            range: { startDate: '2026-08-01', endDate: '2026-08-31', start: new Date('2026-08-01Z'), end: new Date('2026-08-31Z') },
+            bookkeeping: { reportCogs: 0, journalCogs: 0, difference: 0 },
+            coverage: { mandatoryComplete: false, confidenceCap: 0.75, dimensions: [{ code: 'SHIPMENT_HISTORICAL_VALUATION', status: 'partial', reason: 'fallback unknown' }] },
+            findings: [{ code: 'SHIPMENT_JOURNAL_MISSING', conditionStatus: 'confirmed', accountingConclusion: 'needs_review', area: 'shipment', amountBasis: 'explicit_movement_cost', count: 1, amount: 100, nominal: 100, revenuePercentage: 10, sourceId: 'movement-1', materiality: 100, reason: 'confirmed', evidenceLimit: 'review', samples: [{ sourceId: 'movement-1', materiality: 100, amount: 100, reason: 'sample' }] }],
+            shipments: { count: 1, activeCount: 1, coveredCount: 0, reversedCount: 0, offBalanceCount: 0, quantity: 1, nominalSalesValue: 1000, incompleteSalesValue: 1000, postedCogsValue: 0, explicitMovementValue: { amount: 100, knownCount: 1 }, historicalFallbackUnknownCount: 0 },
+            returns: { count: 0, cohortBasis: { physicalReceiptInRange: 0, completedStateUpdatedInRange: 0 }, goodReceiptCount: 0, damagedReceiptCount: 0, physicalRestockValue: 0, activeCommercialCreditValue: 0, originalPostedRevenue: 0, completedWithoutActiveCreditCount: 0, crossPeriodCount: 0 },
+            productionFlow: { materialIssue: { count: 0, quantity: 0, movementValue: 0, journalValue: 0 }, wipToOutput: { outputCount: 0, quantity: 0, movementValue: 0, journalValue: 0 }, shipmentCogs: { count: 1, journalValue: 0, attribution: 'aggregate_only' }, returnCost: { count: 0, restockValue: 0 }, sideFlows: { scrapCount: 0, returnInCount: 0, adjustmentCount: 0, maklonOffBalanceCount: 0 }, crossPeriod: { outputWithIssueOutsideRange: 0, issueWithOutputOutsideRange: 0 }, unattributedShipmentCount: 1 },
+            limitations: ['No exact lineage'],
+        });
+        const diagnosis = await run(() => getToolByName('diagnose_cogs_economic_completeness')!.execute(args('diagnose_cogs_economic_completeness'), ctx));
+        expect(diagnosis).toMatchObject({ completeness: 'partial', confidenceCap: 0.75, facts: expect.arrayContaining([{ label: expect.stringContaining('CONFIRMED'), value: expect.stringContaining('confirmed') }]) });
+        expect(diagnoseCogsEconomicCompleteness).toHaveBeenCalledWith(tx, args('diagnose_cogs_economic_completeness'));
+
         vi.mocked(executeBusinessQuery).mockResolvedValue({
             dataset: 'ledger_expenses', keywords: ['solar', 'ali'],
             period: { startDate: '2026-10-01', endDate: '2026-10-12', preset: 'CURRENT_MONTH' },
@@ -110,29 +126,38 @@ describe('finance execution boundary', () => {
     });
     it('has the new progress label and keeps AR/AP summary available', () => {
         expect(getToolLabel('get_finance_reconciliation')).toMatch(/laba|COGS/i);
+        expect(getToolLabel('diagnose_cogs_economic_completeness')).toMatch(/ekonomi|COGS/i);
         expect(getToolLabel('query_finance')).toMatch(/Buku Besar/i);
         expect(getToolsForContext(ctx).map(t => t.name)).toEqual(expect.arrayContaining(names));
         expect(getToolByName('get_finance_summary')?.description).toBeTruthy();
-        expect(getToolsForContext({ ...ctx, allowedResources: ['/sales'] }).map(t => t.name)).not.toContain('get_finance_reconciliation');
+        const nonFinance = getToolsForContext({ ...ctx, allowedResources: ['/sales'] }).map(t => t.name);
+        expect(nonFinance).not.toContain('get_finance_reconciliation');
+        expect(nonFinance).not.toContain('diagnose_cogs_economic_completeness');
     });
 });
 
 describe('finance input schema', () => {
     it('retains required string dates in OpenAI conversion', () => {
-        const tool = getToolByName('get_finance_reconciliation')!;
-        expect(tool).toBeDefined();
-        expect(toolsToOpenAiFormat([tool])[0].function.parameters).toMatchObject({ required: ['startDate', 'endDate'], properties: { startDate: { type: 'string', description: expect.stringContaining('WIB') }, endDate: { type: 'string' } } });
+        for (const name of ['get_finance_reconciliation', 'diagnose_cogs_economic_completeness']) {
+            const tool = getToolByName(name)!;
+            expect(tool).toBeDefined();
+            expect(toolsToOpenAiFormat([tool])[0].function.parameters).toMatchObject({ required: ['startDate', 'endDate'], properties: { startDate: { type: 'string', description: expect.stringContaining('WIB') }, endDate: { type: 'string' } } });
+        }
     });
     it.each([
         ['2026-02-30', '2026-03-01'], ['2026-08-02', '2026-08-01'], ['2025-01-01', '2026-01-02'],
         ['2026-08-01T00:00:00Z', '2026-08-31'], ['', '2026-08-31'], ['2026-13-01', '2026-13-02'],
     ])('rejects invalid or unbounded dates %s to %s', (startDate, endDate) => {
-        const tool = getToolByName('get_finance_reconciliation')!;
-        expect(tool).toBeDefined(); expect(tool.inputSchema.safeParse({ startDate, endDate }).success).toBe(false);
+        for (const name of ['get_finance_reconciliation', 'diagnose_cogs_economic_completeness']) {
+            const tool = getToolByName(name)!;
+            expect(tool).toBeDefined(); expect(tool.inputSchema.safeParse({ startDate, endDate }).success).toBe(false);
+        }
     });
     it('accepts leap day and exactly 366 inclusive days', () => {
-        const schema = getToolByName('get_finance_reconciliation')!.inputSchema;
-        expect(schema.safeParse({ startDate: '2024-02-29', endDate: '2025-02-28' }).success).toBe(true);
+        for (const name of ['get_finance_reconciliation', 'diagnose_cogs_economic_completeness']) {
+            const schema = getToolByName(name)!.inputSchema;
+            expect(schema.safeParse({ startDate: '2024-02-29', endDate: '2025-02-28' }).success).toBe(true);
+        }
     });
     it.each(['', '   ', 'a'.repeat(121)])('rejects empty/oversized search input', searchTerm => {
         expect(getToolByName('get_invoice_status')!.inputSchema.safeParse({ searchTerm }).success).toBe(false);

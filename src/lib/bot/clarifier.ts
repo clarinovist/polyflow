@@ -230,6 +230,17 @@ export function calculateConfidence(
     if (!toolResults.length) return 0.3;
     // Evidence coverage, not probability of correctness. Repeating a KB search
     // must not inflate confidence to 100% or outweigh partial business evidence.
+    const caps = toolResults.flatMap((result) =>
+        result.confidenceCap === undefined ? [] : [result.confidenceCap],
+    );
+    if (caps.length) {
+        const uncappedPartial = toolResults.some(
+            (result) =>
+                result.confidenceCap === undefined &&
+                result.completeness === 'partial',
+        );
+        return Math.min(...caps, ...(uncappedPartial ? [0.3] : []));
+    }
     return toolResults.every((result) => result.completeness === 'complete')
         ? 0.7
         : 0.3;

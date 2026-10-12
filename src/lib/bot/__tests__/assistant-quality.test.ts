@@ -42,6 +42,10 @@ describe('anonymized assistant misunderstanding regressions', () => {
         expect(calculateConfidence([kb], false)).toBeLessThan(0.8);
         expect(calculateConfidence([], false)).toBe(0.3);
         expect(calculateConfidence([{ ...kb, completeness: 'partial' }], false)).toBe(0.3);
+        expect(calculateConfidence([{ ...kb, completeness: 'partial', confidenceCap: 0.6 }], false)).toBe(0.6);
+        expect(calculateConfidence([{ ...kb, confidenceCap: 0.75 }, { ...kb, confidenceCap: 0.9 }], false)).toBe(0.75);
+        expect(calculateConfidence([{ ...kb, confidenceCap: 0.85 }, { ...kb, completeness: 'partial' }], false)).toBe(0.3);
+        expect(calculateConfidence([{ ...kb, confidenceCap: 0.85 }], true)).toBe(0.3);
     });
     it.each([
         'Belum dapat dipastikan dari data yang tersedia.',

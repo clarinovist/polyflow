@@ -16,6 +16,7 @@ vi.mock('@/lib/core/prisma', async () => {
 import { prisma as db, tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { getToolByName } from '../tool-registry';
 import { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
+import { diagnoseCogsEconomicCompleteness } from '@/services/finance/cogs-economic-diagnosis-service';
 import { Prisma } from '@prisma/client';
 import { evidenceToText } from '../evidence';
 import type { AssistantUserContext } from '../assistant-types';
@@ -165,6 +166,34 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('finance tools on disposable Pos
         expect(text).toContain('PAYMENT_JOURNAL_MISSING:payment'); expect(text).toContain('CLOSED');
         expect(await db.invoice.findUnique({ where: { id: 'invoice' } })).toEqual(before);
         expect(await db.payment.count()).toBe(1); expect(await db.journalEntry.count()).toBe(1);
+    });
+
+    it('executes COGS economic diagnosis SQL on the disposable tenant without writes', async () => {
+        const before = {
+            accounts: await db.account.count(),
+            invoices: await db.invoice.count(),
+            journals: await db.journalEntry.count(),
+            movements: await db.stockMovement.count(),
+        };
+        const result = await db.$transaction(tx =>
+            diagnoseCogsEconomicCompleteness(tx, period),
+        );
+        expect(result.bookkeeping).toEqual({
+            reportCogs: 0,
+            journalCogs: 0,
+            difference: 0,
+        });
+        expect(result).toMatchObject({
+            shipments: { count: 0 },
+            returns: { count: 0 },
+            productionFlow: { materialIssue: { count: 0 } },
+        });
+        expect({
+            accounts: await db.account.count(),
+            invoices: await db.invoice.count(),
+            journals: await db.journalEntry.count(),
+            movements: await db.stockMovement.count(),
+        }).toEqual(before);
     });
 
     it('requires clarification for partial collisions but prefers exact id/number and escapes wildcards', async () => {

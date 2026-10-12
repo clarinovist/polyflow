@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '@prisma/client';
-import { invoiceSelectionEvidence, invoiceDiagnosisEvidence, reconciliationEvidence } from '../finance-evidence';
+import { cogsEconomicDiagnosisEvidence, invoiceSelectionEvidence, invoiceDiagnosisEvidence, reconciliationEvidence } from '../finance-evidence';
 import { evidenceToText } from '../evidence';
 const dec = (n: number) => new Prisma.Decimal(n);
 const invoice = { id: 'i', invoiceNumber: 'INV-1', status: 'PAID' as const, totalAmount: dec(100), paidAmount: dec(100), creditedAmount: dec(0), priceAdjustmentAmount: dec(0), invoiceDate: new Date('2026-08-31T17:00:00Z'), dueDate: null, salesOrder: { customer: { name: 'Customer' } } };
@@ -42,7 +42,30 @@ describe('finance evidence delivered to the model', () => {
         expect(evidenceToText(evidence)).toContain('640,00'); expect(evidenceToText(evidence)).toContain('-Rp');
         expect(evidenceToText(evidence)).toContain('BUKAN tambahan laba'); expect(evidenceToText(evidence)).toContain('Tanggal jurnal');
         expect(evidenceToText(evidence)).toContain('bukan audit nominal/periode');
+        expect(evidenceToText(evidence)).toContain('BUKAN bukti semua shipment');
+        expect(evidenceToText(evidence)).toContain('diagnose_cogs_economic_completeness');
         expect(evidence.entities).toEqual([]);
+    });
+    it('renders focused COGS diagnosis in required order without combining incompatible bases', () => {
+        const evidence = cogsEconomicDiagnosisEvidence({
+            range,
+            bookkeeping: { reportCogs: 0, journalCogs: 0, difference: 0 },
+            coverage: { mandatoryComplete: false, confidenceCap: 0.75, dimensions: [{ code: 'SHIPMENT_HISTORICAL_VALUATION', status: 'partial', reason: 'fallback source unknown' }] },
+            findings: [{ code: 'SHIPMENT_JOURNAL_MISSING', conditionStatus: 'confirmed', accountingConclusion: 'needs_review', area: 'shipment', amountBasis: 'explicit_movement_cost', count: 1, amount: 300, nominal: 300, revenuePercentage: 30, sourceId: 'movement-1', materiality: 300, reason: 'Movement has no journal.', evidenceLimit: 'Accounting correction needs review.', samples: [{ sourceId: 'movement-1', materiality: 300, amount: 300, reason: 'sample' }] }],
+            shipments: { count: 2, activeCount: 1, coveredCount: 0, reversedCount: 0, offBalanceCount: 1, quantity: 2, nominalSalesValue: 1000, incompleteSalesValue: 1000, postedCogsValue: 0, explicitMovementValue: { amount: 300, knownCount: 1 }, historicalFallbackUnknownCount: 1 },
+            returns: { count: 1, cohortBasis: { physicalReceiptInRange: 1, completedStateUpdatedInRange: 1 }, goodReceiptCount: 1, damagedReceiptCount: 1, physicalRestockValue: 100, activeCommercialCreditValue: 200, originalPostedRevenue: 1000, completedWithoutActiveCreditCount: 1, crossPeriodCount: 1 },
+            productionFlow: { materialIssue: { count: 1, quantity: 2, movementValue: 250, journalValue: 300 }, wipToOutput: { outputCount: 1, quantity: 1, movementValue: 400, journalValue: 400 }, shipmentCogs: { count: 1, journalValue: 300, attribution: 'aggregate_only' }, returnCost: { count: 1, restockValue: 100 }, sideFlows: { scrapCount: 1, returnInCount: 1, adjustmentCount: 1, maklonOffBalanceCount: 1 }, crossPeriod: { outputWithIssueOutsideRange: 1, issueWithOutputOutsideRange: 0 }, unattributedShipmentCount: 1 },
+            limitations: ['No lot lineage.'],
+        });
+        const text = evidenceToText(evidence);
+        expect(evidence).toMatchObject({ completeness: 'partial', confidenceCap: 0.75, entities: [] });
+        expect(evidence.facts[0].label).toBe('Urutan jawaban wajib');
+        expect(text).toContain('CONFIRMED / NEEDS_REVIEW');
+        expect(text).toContain('Coverage cap 0.75');
+        expect(text).toContain('BUKAN probabilitas');
+        expect(text).toContain('Kredit komersial tidak ditambahkan ke restock/HPP');
+        expect(text).toContain('Jangan menyatakan equality atau lineage per unit');
+        expect(text).toContain('movement-1');
     });
     it('caps account evidence, preserves report totals and signals any partial dimension', () => {
         const accounts = Array.from({ length: 22 }, (_, n) => ({ id: `a${n}`, code: `A${n}`, name: 'Account', type: 'EXPENSE' as const, category: 'COGS' as const, netBalance: n }));
