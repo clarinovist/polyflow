@@ -49,6 +49,12 @@ const SECTION_LABELS = {
     finance: 'Finance',
 } as const;
 
+export function getProfitLossTooltipOrder(item: { dataKey?: unknown }): number {
+    if (item.dataKey === 'revenue') return 0;
+    if (item.dataKey === 'netIncome') return 1;
+    return 2;
+}
+
 interface DashboardClientProps {
     stats: ExecutiveStats | null;
     userName: string;
@@ -411,6 +417,9 @@ export default function DashboardClient({
                                             width={50}
                                         />
                                         <Tooltip
+                                            itemSorter={
+                                                getProfitLossTooltipOrder
+                                            }
                                             contentStyle={{
                                                 borderRadius: '8px',
                                                 border: 'none',

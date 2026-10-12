@@ -6,7 +6,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { getDashboardPresentation } from '@/lib/dashboard/role-dashboard-config';
-import DashboardClient from '../DashboardClient';
+import DashboardClient, {
+    getProfitLossTooltipOrder,
+} from '../DashboardClient';
 
 const refresh = vi.fn();
 
@@ -182,6 +184,20 @@ describe('DashboardClient hydration safety', () => {
         );
         expect(screen.getByText('Tren laba rugi bulanan')).toBeDefined();
         expect(screen.getByText(/Target belum tersedia/)).toBeDefined();
+    });
+
+    it('keeps Pendapatan above Laba bersih in the chart tooltip', () => {
+        const payload = [
+            { dataKey: 'netIncome', name: 'Laba bersih' },
+            { dataKey: 'revenue', name: 'Pendapatan' },
+        ];
+
+        expect(payload.sort((a, b) =>
+            getProfitLossTooltipOrder(a) - getProfitLossTooltipOrder(b),
+        )).toEqual([
+            { dataKey: 'revenue', name: 'Pendapatan' },
+            { dataKey: 'netIncome', name: 'Laba bersih' },
+        ]);
     });
 
     it('withholds directions until four comparable points exist', () => {
