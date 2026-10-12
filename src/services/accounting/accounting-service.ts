@@ -50,6 +50,8 @@ import {
     getGeneralLedgerSummary,
     getGeneralLedgerAccountEntries,
 } from './general-ledger-service';
+import type { FinanceLedgerQueryInput } from '@/services/business-query/finance-ledger-query';
+import { executeBusinessQuery } from '@/services/business-query/engine';
 
 export type { CreateJournalEntryInput } from './types';
 
@@ -307,6 +309,11 @@ export class AccountingService {
         endDate?: Date,
     ) {
         return getGeneralLedgerAccountEntries(accountId, startDate, endDate);
+    }
+
+    /** Allowlisted, bounded search shared by Buku Besar and the assistant. */
+    static async queryFinanceLedger(input: FinanceLedgerQueryInput) {
+        return executeBusinessQuery(input);
     }
 
     /**

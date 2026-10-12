@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/finance/reports/GeneralLedgerClient', () => ({
-    GeneralLedgerClient: () => null,
+    GeneralLedgerClient: (props: unknown) => props,
 }));
 
 import GeneralLedgerPage from '../page';
@@ -17,12 +17,24 @@ describe('GeneralLedgerPage', () => {
         const second = await GeneralLedgerPage({
             searchParams: Promise.resolve({
                 account: 'acc-ar',
+                from: '2026-09-01',
                 to: '2026-09-09',
+                q: 'solar ali',
+                mode: 'expenses',
             }),
         });
 
-        expect(first.key).toBe('acc-ap:2026-09-08');
-        expect(second.key).toBe('acc-ar:2026-09-09');
+        expect(first.key).toBe('acc-ap::2026-09-08::');
+        expect(second.key).toBe(
+            'acc-ar:2026-09-01:2026-09-09:solar ali:expenses',
+        );
         expect(second.key).not.toBe(first.key);
+        expect(second.props).toMatchObject({
+            initialAccountId: 'acc-ar',
+            initialFromDate: '2026-09-01',
+            initialToDate: '2026-09-09',
+            initialSearch: 'solar ali',
+            initialSearchMode: 'expenses',
+        });
     });
 });

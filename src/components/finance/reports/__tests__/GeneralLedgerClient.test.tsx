@@ -8,10 +8,12 @@ const {
     mockGetGeneralLedger,
     mockGetGeneralLedgerSummary,
     mockGetGeneralLedgerAccountEntries,
+    mockQueryGeneralLedger,
 } = vi.hoisted(() => ({
     mockGetGeneralLedger: vi.fn(),
     mockGetGeneralLedgerSummary: vi.fn(),
     mockGetGeneralLedgerAccountEntries: vi.fn(),
+    mockQueryGeneralLedger: vi.fn(),
 }));
 
 vi.mock('@/actions/finance/accounting', () => ({
@@ -20,6 +22,7 @@ vi.mock('@/actions/finance/accounting', () => ({
         mockGetGeneralLedgerSummary(...args),
     getGeneralLedgerAccountEntries: (...args: unknown[]) =>
         mockGetGeneralLedgerAccountEntries(...args),
+    queryGeneralLedger: (...args: unknown[]) => mockQueryGeneralLedger(...args),
 }));
 
 vi.mock('@/components/ui/date-range-picker', () => ({
@@ -63,6 +66,46 @@ const summaryResult = (name = account.name) => ({
         accounts: [{ ...account, name }],
         grandTotalDebit: 0,
         grandTotalCredit: 0,
+    },
+});
+
+const searchResult = (description = 'Solar muatan Ali Temanggung') => ({
+    success: true,
+    data: {
+        dataset: 'ledger_expenses',
+        keywords: ['solar', 'ali', 'temanggung'],
+        period: {
+            startDate: '2026-09-01',
+            endDate: '2026-09-30',
+            preset: null,
+        },
+        basis: 'Journal POSTED, akun EXPENSE, closing dikecualikan.',
+        totalCount: 1,
+        totalDebit: 500000,
+        totalCredit: 0,
+        netAmount: 500000,
+        truncated: false,
+        rows: [
+            {
+                id: 'line-search',
+                journalEntryId: 'journal-search',
+                accountId: 'expense-search',
+                accountCode: '6101',
+                accountName: 'Biaya Kendaraan',
+                accountType: 'EXPENSE',
+                entryNumber: 'JE-SOLAR',
+                entryDate: '2026-09-10T00:00:00.000Z',
+                description,
+                journalDescription: description,
+                reference: 'TEMANGGUNG',
+                referenceType: 'PETTY_CASH',
+                debit: 500000,
+                credit: 0,
+                netAmount: 500000,
+                matchingDetails: [],
+                matchedOn: ['keterangan jurnal', 'referensi'],
+            },
+        ],
     },
 });
 
@@ -110,6 +153,83 @@ describe('GeneralLedgerClient async period safety', () => {
         mockGetGeneralLedgerAccountEntries.mockReset();
         mockGetGeneralLedgerSummary.mockResolvedValue(summaryResult());
         mockGetGeneralLedgerAccountEntries.mockResolvedValue(detailResult());
+        mockQueryGeneralLedger.mockResolvedValue(searchResult());
+    });
+
+    it('searches server-side across journal content in the selected period', async () => {
+        render(<GeneralLedgerClient />);
+        await screen.findByText(`(${account.code}) ${account.name}`);
+
+        fireEvent.change(
+            screen.getByRole('textbox', {
+                name: 'Cari transaksi Buku Besar',
+            }),
+            { target: { value: 'biaya solar untuk Ali Temanggung' } },
+        );
+        fireEvent.change(
+            screen.getByRole('combobox', {
+                name: 'Mode pencarian Buku Besar',
+            }),
+            { target: { value: 'expenses' } },
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Cari' }));
+
+        expect(
+            await screen.findByText('Solar muatan Ali Temanggung'),
+        ).toBeTruthy();
+        expect(screen.getByText(/Beban neto.*500\.000/)).toBeTruthy();
+        expect(mockQueryGeneralLedger).toHaveBeenCalledWith(
+            expect.objectContaining({
+                dataset: 'ledger_expenses',
+                keywords: ['biaya solar untuk Ali Temanggung'],
+                limit: 30,
+            }),
+        );
+    });
+
+    it('runs a validated initial search link once', async () => {
+        render(
+            <GeneralLedgerClient
+                initialFromDate="2026-09-01"
+                initialToDate="2026-09-30"
+                initialSearch="solar ali temanggung"
+                initialSearchMode="expenses"
+            />,
+        );
+
+        expect(
+            await screen.findByText('Solar muatan Ali Temanggung'),
+        ).toBeTruthy();
+        expect(mockQueryGeneralLedger).toHaveBeenCalledTimes(1);
+        expect(mockQueryGeneralLedger).toHaveBeenCalledWith(
+            expect.objectContaining({
+                dataset: 'ledger_expenses',
+                keywords: ['solar ali temanggung'],
+                startDate: '2026-09-01',
+                endDate: '2026-09-30',
+            }),
+        );
+    });
+
+    it('shows a separate search error and retries without hiding the ledger', async () => {
+        mockQueryGeneralLedger
+            .mockResolvedValueOnce({ success: false, error: 'network' })
+            .mockResolvedValueOnce(searchResult('Hasil retry search'));
+        render(<GeneralLedgerClient />);
+        await screen.findByText(`(${account.code}) ${account.name}`);
+        fireEvent.change(
+            screen.getByRole('textbox', {
+                name: 'Cari transaksi Buku Besar',
+            }),
+            { target: { value: 'solar' } },
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Cari' }));
+        expect(
+            await screen.findByText('Gagal mencari transaksi Buku Besar.'),
+        ).toBeTruthy();
+        expect(screen.getByText(`(${account.code}) ${account.name}`)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Coba lagi' }));
+        expect(await screen.findByText('Hasil retry search')).toBeTruthy();
     });
 
     it('opens the selected account at the validated WIB cutoff', async () => {

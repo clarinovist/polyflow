@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/core/prisma', () => ({ prisma: {}, tenantContext: new AsyncLocalStorage(), tenantIdContext: new AsyncLocalStorage() }));
 vi.mock('@/services/finance/invoice-diagnosis-service', () => ({ findInvoices: vi.fn().mockResolvedValue({ kind: 'missing', invoices: [], total: 0, truncated: false }), diagnoseInvoice: vi.fn().mockResolvedValue({ selection: { kind: 'missing', invoices: [], total: 0, truncated: false } }) }));
 vi.mock('@/services/finance/finance-reconciliation-service', () => ({ reconcileFinance: vi.fn() }));
+vi.mock('@/services/business-query/engine', () => ({
+    executeBusinessQuery: vi.fn(),
+}));
 import { reconcileFinance } from '@/services/finance/finance-reconciliation-service';
+import { executeBusinessQuery } from '@/services/business-query/engine';
 import { tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { getToolByName, getToolsForContext, toolsToOpenAiFormat } from '../tool-registry';
 import { getToolLabel } from '../tool-labels';
@@ -16,8 +20,13 @@ const db = { $transaction: transaction } as unknown as PrismaClient;
 const run = (fn: () => unknown, tenantId = 'one') => tenantContext.run(db, () => tenantIdContext.run(tenantId, fn));
 beforeEach(() => vi.clearAllMocks());
 const newNames = ['get_purchase_invoice', 'diagnose_purchase_invoice', 'diagnose_sales_return_credit'];
-const names = ['get_invoice_status', 'diagnose_invoice_payment', 'get_finance_reconciliation', ...newNames];
-const args = (name: string) => name === 'get_finance_reconciliation' ? { startDate: '2026-08-01', endDate: '2026-08-31' } : { searchTerm: 'INV' };
+const names = ['get_invoice_status', 'diagnose_invoice_payment', 'get_finance_reconciliation', 'query_finance', ...newNames];
+const args = (name: string) =>
+    name === 'get_finance_reconciliation'
+        ? { startDate: '2026-08-01', endDate: '2026-08-31' }
+        : name === 'query_finance'
+          ? { dataset: 'ledger_expenses', keywords: ['solar', 'ali'] }
+          : { searchTerm: 'INV' };
 
 describe('finance execution boundary', () => {
     it.each(names)('%s rejects missing or mismatched live tenant and unauthorized callers before querying', async name => {
@@ -81,9 +90,27 @@ describe('finance execution boundary', () => {
         const result = await run(() => getToolByName('get_finance_reconciliation')!.execute(args('get_finance_reconciliation'), ctx));
         expect(result).toMatchObject({ facts: expect.arrayContaining([{ label: 'Laba bersih', value: expect.stringContaining('640,00') }]) });
         expect(reconcileFinance).toHaveBeenCalledWith(tx, args('get_finance_reconciliation'));
+
+        vi.mocked(executeBusinessQuery).mockResolvedValue({
+            dataset: 'ledger_expenses', keywords: ['solar', 'ali'],
+            period: { startDate: '2026-10-01', endDate: '2026-10-12', preset: 'CURRENT_MONTH' },
+            basis: 'POSTED expense', totalCount: 0, totalDebit: 0, totalCredit: 0, netAmount: 0, rows: [], truncated: false,
+        });
+        const search = (await run(() =>
+            getToolByName('query_finance')!.execute(
+                args('query_finance'),
+                ctx,
+            ),
+        )) as { summary: string };
+        expect(search.summary).toContain('Tidak ditemukan');
+        expect(executeBusinessQuery).toHaveBeenCalledWith(
+            expect.objectContaining({ dataset: 'ledger_expenses', keywords: ['solar', 'ali'] }),
+            { db: tx },
+        );
     });
     it('has the new progress label and keeps AR/AP summary available', () => {
         expect(getToolLabel('get_finance_reconciliation')).toMatch(/laba|COGS/i);
+        expect(getToolLabel('query_finance')).toMatch(/Buku Besar/i);
         expect(getToolsForContext(ctx).map(t => t.name)).toEqual(expect.arrayContaining(names));
         expect(getToolByName('get_finance_summary')?.description).toBeTruthy();
         expect(getToolsForContext({ ...ctx, allowedResources: ['/sales'] }).map(t => t.name)).not.toContain('get_finance_reconciliation');
@@ -109,5 +136,11 @@ describe('finance input schema', () => {
     });
     it.each(['', '   ', 'a'.repeat(121)])('rejects empty/oversized search input', searchTerm => {
         expect(getToolByName('get_invoice_status')!.inputSchema.safeParse({ searchTerm }).success).toBe(false);
+    });
+    it('exposes bounded finance query schema without tenant or SQL fields', () => {
+        const tool = getToolByName('query_finance')!;
+        expect(tool.inputSchema.safeParse({ dataset: 'ledger_expenses', keywords: ['solar'] }).success).toBe(true);
+        expect(tool.inputSchema.safeParse({ dataset: 'ledger_expenses', keywords: ['solar'], sql: 'select 1' }).success).toBe(false);
+        expect(tool.inputSchema.safeParse({ dataset: 'ledger_expenses', keywords: ['solar'], tenantId: 'other' }).success).toBe(false);
     });
 });

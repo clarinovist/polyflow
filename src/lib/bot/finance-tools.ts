@@ -10,6 +10,9 @@ import { documentSearchMeta } from './document-search';
 import { invoiceDiagnosisEvidence, invoiceSelectionEvidence, reconciliationEvidence } from './finance-evidence';
 import { inspectPurchaseInvoice, inspectSalesReturnCredit } from '@/services/finance/assistant-document-diagnosis';
 import { purchaseInvoiceEvidence, salesReturnCreditEvidence } from './document-diagnosis-evidence';
+import { financeLedgerQuerySchema } from '@/services/business-query/finance-ledger-query';
+import { executeBusinessQuery } from '@/services/business-query/engine';
+import { financeLedgerQueryEvidence } from './business-query-evidence';
 
 function financeTool<T extends z.ZodType>(
     name: string, description: string, resource: string | string[], inputSchema: T,
@@ -48,6 +51,8 @@ function financeTool<T extends z.ZodType>(
 }
 
 export const financeTools: AssistantToolDefinition[] = [
+    financeTool('query_finance', 'Cari dan agregasikan baris Buku Besar read-only secara generik. Gunakan ledger_expenses untuk pertanyaan biaya/beban dan ledger_lines untuk pencarian jurnal umum. Pada ledger_expenses taruh subjek/kategori biaya sebagai keyword pertama. Semua keyword harus cocok tetapi boleh tersebar di akun, keterangan, nomor jurnal, referensi, atau detail. Jika tanggal tidak disebut gunakan CURRENT_MONTH dahulu; jangan minta akun/periode sebelum mencoba. Hasil POSTED dengan bukti transaksi; bukan raw SQL.',
+        '/finance/reports/general-ledger', financeLedgerQuerySchema, async (tx, input) => financeLedgerQueryEvidence(await executeBusinessQuery(input, { db: tx }))),
     financeTool('get_purchase_invoice', 'Cek status purchase invoice/BILL, total dan dibayar, PO dan jumlah GR terkait melalui nomor/ID. Bukan invoice penjualan. Hasil ambigu perlu nomor persis.',
         '/finance/invoices/purchase', invoiceSearchSchema, async (tx, input) => purchaseInvoiceEvidence(await inspectPurchaseInvoice(tx, input.searchTerm, false), input.searchTerm)),
     financeTool('diagnose_purchase_invoice', 'Diagnosis read-only kenapa purchase invoice/BILL masih DRAFT: asal walk-in, review Finance, PO/GR, seluruh tagihan PO vs nilai diterima, pembayaran dan jurnal. Tidak melakukan approval/posting.',

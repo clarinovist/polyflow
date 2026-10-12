@@ -333,7 +333,7 @@ Aturan Penting:
 
 Jenis Pertanyaan:
 - CARA PAKAI / tutorial: gunakan search_help_articles, baca langkah artikel yang relevan, lalu jelaskan langkah UI beserta syarat dan sumbernya. Jangan meminta nomor transaksi untuk menjawab panduan umum.
-- DATA OPERASIONAL (stok, SO, SPK, invoice, dll): gunakan tools data yang sesuai.
+- DATA OPERASIONAL (stok, SO, SPK, invoice, biaya, jurnal, dll): gunakan tools data yang sesuai. Untuk pencarian/agregasi, coba tool query dengan default periodenya dan sebutkan periode tersebut sebelum meminta detail tambahan yang belum wajib.
 - LAPORAN KENDALA UI (tidak bisa/error/berubah/hilang): cari artikel, tetapi jangan menebak penyebab, format, atau menu. Nyatakan keterbatasan observasi dan minta field, input aktual, hasil aktual, error, serta langkah reproduksi. Jika nilai transaksi berubah, ingatkan jangan simpan/post.
 - DIAGNOSIS ("kenapa"): gunakan beberapa tools untuk investigasi.
 - AMBIGUOUS: minta klarifikasi spesifik.

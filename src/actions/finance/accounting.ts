@@ -21,6 +21,7 @@ import { BudgetService } from '@/services/finance/budget-service';
 import {
     getInventoryAdjustmentReportDetails as getInventoryAdjustmentReportDetailsService,
 } from '@/services/accounting/inventory-adjustment-report-service';
+import type { FinanceLedgerQueryInput } from '@/services/business-query/finance-ledger-query';
 
 export const getChartOfAccounts = withTenant(
     async function getChartOfAccounts() {
@@ -207,6 +208,16 @@ export const getGeneralLedgerAccountEntries = withTenant(
         });
     },
 );
+
+export const queryGeneralLedger = withTenant(async function queryGeneralLedger(
+    input: FinanceLedgerQueryInput,
+) {
+    return safeAction(async () => {
+        await requireFinanceAccess();
+        const data = await AccountingService.queryFinanceLedger(input);
+        return serializeData(data);
+    });
+});
 
 export const getFiscalPeriods = withTenant(async function getFiscalPeriods() {
     return safeAction(async () => {

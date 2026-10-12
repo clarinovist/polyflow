@@ -95,6 +95,64 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('finance tools on disposable Pos
         expect((await execute('get_finance_reconciliation', period)).completeness).toBe('partial');
     });
 
+    it('queries expense keywords across account, journal and detail fields without writes', async () => {
+        await seedLedger();
+        await db.journalEntry.create({
+            data: {
+                id: 'fuel',
+                entryNumber: 'JE-FUEL',
+                entryDate: new Date('2026-08-15T00:00:00Z'),
+                description: 'Muatan Ali',
+                reference: 'TEMANGGUNG',
+                status: 'POSTED',
+                details: {
+                    create: [
+                        {
+                            type: 'FUEL',
+                            description: 'Solar',
+                            amount: 450,
+                        },
+                    ],
+                },
+                lines: {
+                    create: [
+                        { accountId: 'opex', debit: 500, credit: 50 },
+                        { accountId: 'ar', debit: 50, credit: 500 },
+                    ],
+                },
+            },
+        });
+        await entry('DRAFT-FUEL', 'opex', 999, {
+            status: 'DRAFT',
+            description: 'Solar Ali Temanggung',
+        });
+        await entry('CLOSING-FUEL', 'opex', 999, {
+            reference: 'CLOSING-SOLAR-ALI-TEMANGGUNG',
+        });
+
+        const before = await db.journalEntry.count();
+        const result = await execute('query_finance', {
+            dataset: 'ledger_expenses',
+            keywords: ['solar', 'ali', 'temanggung'],
+            startDate: '2026-08-01',
+            endDate: '2026-08-31',
+        });
+        expect(result.summary).toContain('450,00');
+        expect(result.facts).toEqual(
+            expect.arrayContaining([
+                { label: 'Jumlah baris cocok', value: '1' },
+                { label: 'Beban neto', value: expect.stringContaining('450,00') },
+            ]),
+        );
+        expect(result.entities).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ type: 'GeneralLedgerSearch' }),
+                expect.objectContaining({ type: 'JournalEntry', id: 'fuel' }),
+            ]),
+        );
+        expect(await db.journalEntry.count()).toBe(before);
+    });
+
     it('diagnoses paid vs Payment mismatch and unposted revenue without writing business data', async () => {
         await seedLedger();
         await db.invoice.update({ where: { id: 'invoice' }, data: { status: 'PAID', paidAmount: 100 } });

@@ -76,6 +76,7 @@ vi.mock('@/services/accounting/accounting-service', () => ({
         getGeneralLedger: vi.fn().mockResolvedValue({}),
         getGeneralLedgerSummary: vi.fn().mockResolvedValue({}),
         getGeneralLedgerAccountEntries: vi.fn().mockResolvedValue({}),
+        queryFinanceLedger: vi.fn().mockResolvedValue({}),
         getFiscalPeriods: vi.fn().mockResolvedValue([]),
         createFiscalPeriod: vi.fn().mockResolvedValue({ id: 'p1' }),
         closeFiscalPeriod: vi.fn().mockResolvedValue({ id: 'p1' }),
@@ -1290,6 +1291,28 @@ describe('Pass 5: coverage — accounting.ts read/query functions', () => {
         setupAuth('SALES');
         const { getGeneralLedgerAccountEntries } = await import('../accounting');
         await expectDenied(() => getGeneralLedgerAccountEntries('acc1', new Date('2026-01-01'), new Date('2026-01-31')));
+    });
+
+    it('queryGeneralLedger: FINANCE allowed', async () => {
+        setupAuth('FINANCE');
+        const { queryGeneralLedger } = await import('../accounting');
+        await expectAllowed(() =>
+            queryGeneralLedger({
+                dataset: 'ledger_expenses',
+                keywords: ['solar'],
+            }),
+        );
+    });
+
+    it('queryGeneralLedger: SALES denied', async () => {
+        setupAuth('SALES');
+        const { queryGeneralLedger } = await import('../accounting');
+        await expectDenied(() =>
+            queryGeneralLedger({
+                dataset: 'ledger_expenses',
+                keywords: ['solar'],
+            }),
+        );
     });
 
     it('getFiscalPeriods: FINANCE allowed', async () => {

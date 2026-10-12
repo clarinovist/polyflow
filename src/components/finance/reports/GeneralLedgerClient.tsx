@@ -5,7 +5,9 @@ import {
     getGeneralLedger,
     getGeneralLedgerSummary,
     getGeneralLedgerAccountEntries,
+    queryGeneralLedger,
 } from '@/actions/finance/accounting';
+import type { FinanceLedgerQueryResult } from '@/services/business-query/finance-ledger-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,7 +23,13 @@ import { format } from 'date-fns';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
-import { RotateCw, Download, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import {
+    RotateCw,
+    Download,
+    Search,
+    ChevronRight,
+    ChevronDown,
+} from 'lucide-react';
 import {
     downloadCsv,
     rupiahForCsv,
@@ -99,13 +107,16 @@ function currentMonthRange(): DateRange {
     };
 }
 
-function initialDateRange(toDate?: string): DateRange {
-    if (!toDate) return currentMonthRange();
+function initialDateRange(fromDate?: string, toDate?: string): DateRange {
+    if (!fromDate && !toDate) return currentMonthRange();
     try {
-        const validTo = parseBusinessDate(toDate);
         return {
-            from: undefined,
-            to: businessDateToEntryDate(validTo),
+            from: fromDate
+                ? businessDateToEntryDate(parseBusinessDate(fromDate))
+                : undefined,
+            to: toDate
+                ? businessDateToEntryDate(parseBusinessDate(toDate))
+                : undefined,
         };
     } catch {
         return currentMonthRange();
@@ -114,25 +125,41 @@ function initialDateRange(toDate?: string): DateRange {
 
 interface GeneralLedgerClientProps {
     initialAccountId?: string;
+    initialFromDate?: string;
     initialToDate?: string;
+    initialSearch?: string;
+    initialSearchMode?: 'lines' | 'expenses';
 }
 
 export function GeneralLedgerClient({
     initialAccountId,
+    initialFromDate,
     initialToDate,
+    initialSearch,
+    initialSearchMode = 'lines',
 }: GeneralLedgerClientProps = {}) {
     const [summary, setSummary] = useState<SummaryData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(initialSearch ?? '');
+    const [searchMode, setSearchMode] = useState<'lines' | 'expenses'>(
+        initialSearchMode,
+    );
+    const [searchResult, setSearchResult] =
+        useState<FinanceLedgerQueryResult | null>(null);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(() =>
-        initialDateRange(initialToDate),
+        initialDateRange(initialFromDate, initialToDate),
     );
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [details, setDetails] = useState<Record<string, AccountDetail>>({});
-    const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
+    const [detailErrors, setDetailErrors] = useState<Record<string, string>>(
+        {},
+    );
     const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
     const requestGenerationRef = useRef(0);
+    const searchGenerationRef = useRef(0);
 
     const loadAccountDetail = useCallback(
         async (accountId: string, generation: number) => {
@@ -245,7 +272,11 @@ export function GeneralLedgerClient({
     const handleDateRangeChange = useCallback(
         (nextRange: DateRange | undefined) => {
             requestGenerationRef.current += 1;
+            searchGenerationRef.current += 1;
             setLoading(true);
+            setSearchResult(null);
+            setSearchError(null);
+            setSearchLoading(false);
             setDetails({});
             setDetailErrors({});
             setDetailLoadingId(null);
@@ -254,6 +285,62 @@ export function GeneralLedgerClient({
         },
         [],
     );
+
+    const executeSearch = useCallback(async () => {
+        const query = searchTerm.trim();
+        if (query.length < 2) {
+            searchGenerationRef.current += 1;
+            setSearchResult(null);
+            setSearchError(null);
+            setSearchLoading(false);
+            return;
+        }
+
+        const generation = ++searchGenerationRef.current;
+        setSearchLoading(true);
+        setSearchError(null);
+        try {
+            const result = await queryGeneralLedger({
+                dataset:
+                    searchMode === 'expenses'
+                        ? 'ledger_expenses'
+                        : 'ledger_lines',
+                keywords: [query],
+                startDate: dateRange?.from
+                    ? format(dateRange.from, 'yyyy-MM-dd')
+                    : undefined,
+                endDate: dateRange?.to
+                    ? format(dateRange.to, 'yyyy-MM-dd')
+                    : undefined,
+                limit: 30,
+            });
+            if (generation !== searchGenerationRef.current) return;
+            if (result && 'success' in result && result.success) {
+                setSearchResult(
+                    result.data as unknown as FinanceLedgerQueryResult,
+                );
+            } else {
+                setSearchResult(null);
+                setSearchError('Gagal mencari transaksi Buku Besar.');
+            }
+        } catch (error) {
+            if (generation !== searchGenerationRef.current) return;
+            console.error('Failed to search general ledger', error);
+            setSearchResult(null);
+            setSearchError('Gagal mencari transaksi Buku Besar.');
+        } finally {
+            if (generation === searchGenerationRef.current) {
+                setSearchLoading(false);
+            }
+        }
+    }, [dateRange, searchMode, searchTerm]);
+
+    useEffect(() => {
+        if (!initialSearch) return;
+        void executeSearch();
+        // Initial URL search should run once for the validated initial state.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const toggleAccount = useCallback(
         async (accountId: string) => {
@@ -383,15 +470,6 @@ export function GeneralLedgerClient({
         }).format(amount);
     };
 
-    // Account-level search only — transaction text lives server-side now.
-    const lowerSearch = searchTerm.trim().toLowerCase();
-    const filteredAccounts = (summary?.accounts ?? []).filter(
-        (account) =>
-            !lowerSearch ||
-            account.code.toLowerCase().includes(lowerSearch) ||
-            account.name.toLowerCase().includes(lowerSearch),
-    );
-
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -403,27 +481,68 @@ export function GeneralLedgerClient({
                         {reportLabels.generalLedgerDesc}
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari kode atau nama akun..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 w-[280px]"
-                        />
-                    </div>
+                <div className="flex flex-wrap gap-2">
+                    <form
+                        className="flex flex-1 flex-wrap gap-2"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            void executeSearch();
+                        }}
+                    >
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                aria-label="Cari transaksi Buku Besar"
+                                placeholder="Cari akun, jurnal, keterangan, referensi..."
+                                value={searchTerm}
+                                onChange={(event) =>
+                                    setSearchTerm(event.target.value)
+                                }
+                                className="pl-9 w-full sm:w-[320px]"
+                            />
+                        </div>
+                        <select
+                            aria-label="Mode pencarian Buku Besar"
+                            value={searchMode}
+                            onChange={(event) =>
+                                setSearchMode(
+                                    event.target.value as 'lines' | 'expenses',
+                                )
+                            }
+                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                            <option value="lines">Semua jurnal</option>
+                            <option value="expenses">
+                                Hanya biaya (kata pertama = jenis biaya)
+                            </option>
+                        </select>
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            disabled={
+                                searchTerm.trim().length < 2 || searchLoading
+                            }
+                        >
+                            {searchLoading ? 'Mencari...' : 'Cari'}
+                        </Button>
+                    </form>
                     <DatePickerWithRange
                         date={dateRange}
                         onDateChange={handleDateRangeChange}
                     />
-                    <Button variant="outline" size="icon" onClick={fetchSummary}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={fetchSummary}
+                        aria-label="Muat ulang Buku Besar"
+                    >
                         <RotateCw className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="outline"
                         size="icon"
                         onClick={handleDownload}
+                        aria-label="Unduh Buku Besar"
                         disabled={
                             !summary ||
                             summary.accounts.length === 0 ||
@@ -434,6 +553,16 @@ export function GeneralLedgerClient({
                     </Button>
                 </div>
             </div>
+
+            {(searchResult || searchError || searchLoading) && (
+                <LedgerSearchResults
+                    result={searchResult}
+                    loading={searchLoading}
+                    error={searchError}
+                    fmt={fmt}
+                    onRetry={() => void executeSearch()}
+                />
+            )}
 
             {loading ? (
                 <Card>
@@ -484,21 +613,28 @@ export function GeneralLedgerClient({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredAccounts.map((account) => (
-                                        <AccountRow
-                                            key={account.id}
-                                            account={account}
-                                            fmt={fmt}
-                                            expanded={expandedId === account.id}
-                                            detail={details[account.id]}
-                                            detailLoading={
-                                                detailLoadingId === account.id
-                                            }
-                                            detailError={detailErrors[account.id]}
-                                            onToggle={toggleAccount}
-                                            onRetry={retryAccount}
-                                        />
-                                    ))}
+                                    {(summary?.accounts ?? []).map(
+                                        (account) => (
+                                            <AccountRow
+                                                key={account.id}
+                                                account={account}
+                                                fmt={fmt}
+                                                expanded={
+                                                    expandedId === account.id
+                                                }
+                                                detail={details[account.id]}
+                                                detailLoading={
+                                                    detailLoadingId ===
+                                                    account.id
+                                                }
+                                                detailError={
+                                                    detailErrors[account.id]
+                                                }
+                                                onToggle={toggleAccount}
+                                                onRetry={retryAccount}
+                                            />
+                                        ),
+                                    )}
                                     <TableRow className="bg-slate-100 dark:bg-slate-800 font-bold border-t-2">
                                         <TableCell colSpan={3}>TOTAL</TableCell>
                                         <TableCell className="text-right font-mono">
@@ -522,6 +658,141 @@ export function GeneralLedgerClient({
                 </Card>
             )}
         </div>
+    );
+}
+
+function LedgerSearchResults({
+    result,
+    loading,
+    error,
+    fmt,
+    onRetry,
+}: {
+    result: FinanceLedgerQueryResult | null;
+    loading: boolean;
+    error: string | null;
+    fmt: (amount: number) => string;
+    onRetry: () => void;
+}) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex flex-wrap items-center justify-between gap-2">
+                    <span>Hasil pencarian Buku Besar</span>
+                    {result && (
+                        <span className="text-sm font-normal text-muted-foreground">
+                            {result.period.startDate} s.d.{' '}
+                            {result.period.endDate}
+                            {' · '}
+                            {result.dataset === 'ledger_expenses'
+                                ? `Beban neto ${formatRupiah(result.netAmount)}`
+                                : `${result.totalCount} baris`}
+                        </span>
+                    )}
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                {loading ? (
+                    <div className="py-6 text-center text-muted-foreground">
+                        Mencari transaksi...
+                    </div>
+                ) : error ? (
+                    <div
+                        role="alert"
+                        className="flex items-center justify-center gap-3 py-5 text-sm text-destructive"
+                    >
+                        <span>{error}</span>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onRetry}
+                        >
+                            Coba lagi
+                        </Button>
+                    </div>
+                ) : result && result.rows.length === 0 ? (
+                    <div className="py-6 text-center text-muted-foreground">
+                        Tidak ada transaksi POSTED yang cocok. Coba kata kunci
+                        lebih spesifik atau perluas periode.
+                    </div>
+                ) : result ? (
+                    <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                            {result.basis} Hasil berdasarkan kecocokan teks
+                            pencatatan.{' '}
+                            {result.truncated &&
+                                `Menampilkan ${result.rows.length} dari ${result.totalCount} baris.`}
+                        </p>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[100px]">
+                                            Tanggal
+                                        </TableHead>
+                                        <TableHead className="w-[130px]">
+                                            No. Jurnal
+                                        </TableHead>
+                                        <TableHead className="w-[230px]">
+                                            Akun
+                                        </TableHead>
+                                        <TableHead>
+                                            Keterangan / Referensi
+                                        </TableHead>
+                                        <TableHead className="text-right w-[130px]">
+                                            Debit
+                                        </TableHead>
+                                        <TableHead className="text-right w-[130px]">
+                                            Kredit
+                                        </TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {result.rows.map((row) => (
+                                        <TableRow key={row.id}>
+                                            <TableCell className="whitespace-nowrap">
+                                                {format(
+                                                    new Date(row.entryDate),
+                                                    'dd/MM/yyyy',
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm">
+                                                {row.entryNumber}
+                                            </TableCell>
+                                            <TableCell>
+                                                ({row.accountCode}){' '}
+                                                {row.accountName}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div>{row.description}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {row.reference ??
+                                                        'Tanpa referensi'}{' '}
+                                                    · cocok pada{' '}
+                                                    {row.matchedOn.join(', ') ||
+                                                        'data jurnal'}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {row.debit > 0
+                                                    ? fmt(row.debit)
+                                                    : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {row.credit > 0
+                                                    ? fmt(row.credit)
+                                                    : '-'}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                ) : null}
+            </CardContent>
+        </Card>
     );
 }
 

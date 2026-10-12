@@ -10,6 +10,7 @@ const TOOL_LABELS: Record<string, string> = {
     get_product_stock: 'Mengecek stok barang',
     get_sales_order_lines: 'Membuka detail sales order',
     get_finance_summary: 'Merangkum data keuangan',
+    query_finance: 'Mencari transaksi Buku Besar',
     get_finance_reconciliation: 'Merekonsiliasi laba-rugi dan COGS',
     get_active_production: 'Mengecek produksi berjalan',
     get_general_stock_overview: 'Melihat ringkasan stok',
