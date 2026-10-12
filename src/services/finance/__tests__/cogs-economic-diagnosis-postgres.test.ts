@@ -242,7 +242,7 @@ describe.skipIf(!db)('COGS economic diagnosis on disposable PostgreSQL', () => {
         });
         const result = await diagnose();
         expect(result.shipments).toMatchObject({ count: 22, activeCount: 22, reversedCount: 0, incompleteSalesValue: 2_200 });
-        const zeroOrMissing = result.findings.find(row => ['ZERO_VALUED_SALES_SHIPMENT', 'SHIPMENT_JOURNAL_MISSING'].includes(row.code));
+        const zeroOrMissing = result.findings.find(row => ['ZERO_VALUED_SALES_SHIPMENT', 'SHIPMENT_JOURNAL_MISSING', 'SHIPMENT_REVERSAL_INVALID'].includes(row.code));
         expect(zeroOrMissing).toMatchObject({ count: 22, amount: 2_200 });
         expect(zeroOrMissing?.samples).toHaveLength(20);
         expect(result.findings.map(row => row.code)).toContain('SHIPMENT_REVERSAL_INVALID');
