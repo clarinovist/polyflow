@@ -937,8 +937,8 @@ async function productionSnapshot(
             JOIN "Bom" b ON b.id = po."bomId"
             JOIN "ProductVariant" pv ON pv.id = m."productVariantId"
             JOIN "Product" p ON p.id = pv."productId"
-            CROSS JOIN params window
-            WHERE m."createdAt" >= window."historyStart" AND m."createdAt" <= window."historyEnd"
+            CROSS JOIN params bounds
+            WHERE m."createdAt" >= bounds."historyStart" AND m."createdAt" <= bounds."historyEnd"
         ), paired AS (
             SELECT m.*, legacy.candidate_count AS "legacyCandidateCount",
                 CASE WHEN m."markerId" IS NOT NULL THEN m."markerId"
