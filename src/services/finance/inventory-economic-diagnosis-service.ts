@@ -643,7 +643,7 @@ async function movementSnapshot(
                 COALESCE(so."orderType"::text = 'MAKLON_JASA', false) "salesMaklon",
                 COALESCE(mrt.match_count, 0) "maklonReturnMatchCount",
                 sri.condition::text "returnCondition",
-                substring(m.reference from '\[SOURCE:([^\]]+)\]') "markerId"
+                substring(m.reference from '\\[SOURCE:([^\\]]+)\\]') "markerId"
             FROM "StockMovement" m
             JOIN "ProductVariant" pv ON pv.id = m."productVariantId"
             JOIN "Product" p ON p.id = pv."productId"
@@ -672,7 +672,7 @@ async function movementSnapshot(
             WHERE m."createdAt" >= ${start} AND m."createdAt" <= ${end}
         ), history_moves AS (
             SELECT m.*,
-                substring(m.reference from '\[SOURCE:([^\]]+)\]') "markerId"
+                substring(m.reference from '\\[SOURCE:([^\\]]+)\\]') "markerId"
             FROM "StockMovement" m
             WHERE m."createdAt" >= ${historyStart}
                 AND m."createdAt" <= ${historyEnd}
