@@ -802,10 +802,10 @@ async function movementSnapshot(
                 COALESCE(j."cogsCredit", 0) "cogsCredit",
                 COALESCE(j."assetDebit", 0) "assetDebit",
                 COALESCE(j."assetCredit", 0) "assetCredit",
-                (p."receiptMaklon" OR p."productionMaklon" OR p."salesMaklon"
+                COALESCE(p."receiptMaklon" OR p."productionMaklon" OR p."salesMaklon"
                     OR p."maklonReturnMatchCount" = 1
                     OR p."fromLocationType" = 'CUSTOMER_OWNED'
-                    OR p."toLocationType" = 'CUSTOMER_OWNED') "offBalance",
+                    OR p."toLocationType" = 'CUSTOMER_OWNED', false) "offBalance",
                 ABS(COALESCE(p.cost * p.quantity, 0)) "movementValue",
                 CASE
                     WHEN p."goodsReceiptId" IS NOT NULL OR p.type = 'PURCHASE'

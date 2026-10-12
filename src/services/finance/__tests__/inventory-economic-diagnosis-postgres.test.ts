@@ -495,9 +495,9 @@ describe.skipIf(!db)(
             const result = await diagnose();
             expect(result.gl).toMatchObject({
                 accountCount: 2,
-                periodDebit: 1550,
+                periodDebit: 1350,
                 periodCredit: 450,
-                closingBalance: 1100,
+                closingBalance: 900,
                 orphanJournalCount: 1,
                 closingReferenceCount: 1,
             });
