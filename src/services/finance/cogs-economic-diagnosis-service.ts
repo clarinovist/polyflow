@@ -524,9 +524,9 @@ async function shipmentSnapshot(
                 COALESCE(j.cogs_debit, 0) AS "cogsDebit",
                 COALESCE(j.asset_credit, 0) AS "assetCredit",
                 COALESCE(rev.pair_count, 0) AS "reversalPairCount",
-                COALESCE(rev.unique_count, 0) AS "uniqueReversalCount",
-                COALESCE(rev.valid_count, 0) AS "validReversalCount",
-                COALESCE(rev.cross_period_unique_count, 0) AS "crossPeriodReversalCount"
+                CASE WHEN m."sourceVectorCount" = 1 THEN COALESCE(rev.pair_count, 0) ELSE 0 END AS "uniqueReversalCount",
+                CASE WHEN m."sourceVectorCount" = 1 THEN COALESCE(rev.valid_count, 0) ELSE 0 END AS "validReversalCount",
+                CASE WHEN m."sourceVectorCount" = 1 THEN COALESCE(rev.cross_period_count, 0) ELSE 0 END AS "crossPeriodReversalCount"
             FROM movements m
             JOIN "SalesOrder" so ON so.id = m."salesOrderId"
             LEFT JOIN LATERAL (
@@ -566,11 +566,8 @@ async function shipmentSnapshot(
             ) j ON TRUE
             LEFT JOIN LATERAL (
                 SELECT COUNT(*) AS pair_count,
-                    COUNT(*) FILTER (WHERE m."sourceVectorCount" = 1) AS unique_count,
-                    COUNT(*) FILTER (WHERE (r."createdAt" < ${start} OR r."createdAt" > ${end})
-                        AND m."sourceVectorCount" = 1) AS cross_period_unique_count,
+                    COUNT(*) FILTER (WHERE r."createdAt" < ${start} OR r."createdAt" > ${end}) AS cross_period_count,
                     COUNT(*) FILTER (WHERE r."createdAt" >= ${start} AND r."createdAt" <= ${end}
-                        AND m."sourceVectorCount" = 1
                         AND COALESCE(rj.active, 0) = 1 AND COALESCE(rj.posted_auto, 0) = 1
                         AND COALESCE(rj.debit, 0) = COALESCE(rj.credit, 0)
                         AND COALESCE(rj.debit, 0) > 0
