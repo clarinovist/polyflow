@@ -776,15 +776,17 @@ model StockOpnameItem {
 }
 
 model StockOpnameEntry {
-  id           String          @id @default(uuid())
-  opnameItemId String
-  quantity     Decimal         @db.Decimal(15, 4)
-  label        String?
-  createdAt    DateTime        @default(now())
-  createdById  String?
-  opnameItem   StockOpnameItem @relation(fields: [opnameItemId], references: [id], onDelete: Cascade)
-  createdBy    User?           @relation(fields: [createdById], references: [id])
+  id               String          @id @default(uuid())
+  opnameItemId     String
+  clientMutationId String?
+  quantity         Decimal         @db.Decimal(15, 4)
+  label            String?
+  createdAt        DateTime        @default(now())
+  createdById      String?
+  opnameItem       StockOpnameItem @relation(fields: [opnameItemId], references: [id], onDelete: Cascade)
+  createdBy        User?           @relation(fields: [createdById], references: [id])
 
+  @@unique([opnameItemId, clientMutationId])
   @@index([opnameItemId, createdAt])
 }
 

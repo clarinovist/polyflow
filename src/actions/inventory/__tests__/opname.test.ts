@@ -49,6 +49,7 @@ vi.mock('@/lib/core/prisma', () => {
         stockOpnameEntry,
         inventory,
         $executeRaw: vi.fn(),
+        $queryRaw: vi.fn(),
     };
 
     return {
@@ -432,6 +433,7 @@ describe('addOpnameEntry', () => {
             id: 'item-1',
             opname: { status: 'OPEN' },
         } as never);
+        vi.mocked(prisma.stockOpnameEntry.findUnique).mockResolvedValue(null);
         vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(2 as never);
         vi.mocked(prisma.stockOpnameEntry.create).mockResolvedValue({
             id: 'entry-new',
@@ -446,7 +448,11 @@ describe('addOpnameEntry', () => {
         vi.mocked(prisma.stockOpnameItem.update).mockResolvedValue({} as never);
 
         // Act
-        const result = await addOpnameEntry('item-1', 45.3);
+        const result = await addOpnameEntry(
+            'item-1',
+            45.3,
+            '11111111-1111-4111-8111-111111111111',
+        );
 
         // Assert
         expect(result.success).toBe(true);
@@ -458,6 +464,8 @@ describe('addOpnameEntry', () => {
             expect.objectContaining({
                 data: expect.objectContaining({
                     opnameItemId: 'item-1',
+                    clientMutationId:
+                        '11111111-1111-4111-8111-111111111111',
                     quantity: 45.3,
                 }),
             }),
@@ -470,10 +478,86 @@ describe('addOpnameEntry', () => {
         expect(revalidatePath).not.toHaveBeenCalled();
     });
 
+    it('mengembalikan entri existing tanpa membuat duplikat saat mutation ID dikirim ulang', async () => {
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            id: 'item-1',
+            opname: { status: 'OPEN' },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.findUnique).mockResolvedValue({
+            id: 'entry-existing',
+            quantity: makeFakeDecimal(45.3),
+            label: null,
+            createdAt: new Date('2026-07-31T10:00:00Z'),
+            createdById: 'user-1',
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(3 as never);
+        vi.mocked(prisma.stockOpnameEntry.aggregate).mockResolvedValue({
+            _sum: { quantity: makeFakeDecimal(126.3) },
+        } as never);
+        vi.mocked(prisma.stockOpnameItem.update).mockResolvedValue({} as never);
+
+        const result = await addOpnameEntry(
+            'item-1',
+            45.3,
+            '11111111-1111-4111-8111-111111111111',
+        );
+
+        expect(result).toEqual({
+            success: true,
+            data: expect.objectContaining({
+                id: 'entry-existing',
+                countedQuantity: 126.3,
+                entryCount: 3,
+            }),
+        });
+        expect(prisma.stockOpnameEntry.findUnique).toHaveBeenCalledWith({
+            where: {
+                opnameItemId_clientMutationId: {
+                    opnameItemId: 'item-1',
+                    clientMutationId:
+                        '11111111-1111-4111-8111-111111111111',
+                },
+            },
+            select: expect.any(Object),
+        });
+        expect(prisma.stockOpnameEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('menolak mutation ID yang dipakai ulang untuk data berbeda', async () => {
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            id: 'item-1',
+            opname: { status: 'OPEN' },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.findUnique).mockResolvedValue({
+            id: 'entry-existing',
+            quantity: makeFakeDecimal(40),
+            label: null,
+            createdAt: new Date('2026-07-31T10:00:00Z'),
+            createdById: 'user-1',
+        } as never);
+
+        await expect(
+            addOpnameEntry(
+                'item-1',
+                45.3,
+                '11111111-1111-4111-8111-111111111111',
+            ),
+        ).rejects.toThrow('ID entri sudah digunakan untuk data yang berbeda');
+        expect(prisma.stockOpnameEntry.create).not.toHaveBeenCalled();
+    });
+
     it('addOpnameEntry menolak jumlah nol atau negatif', async () => {
-        await expect(addOpnameEntry('item-1', 0)).rejects.toThrow('Jumlah harus lebih dari 0');
-        await expect(addOpnameEntry('item-1', -5)).rejects.toThrow('Jumlah harus lebih dari 0');
-        await expect(addOpnameEntry('item-1', NaN)).rejects.toThrow('Jumlah harus lebih dari 0');
+        const mutationId = '11111111-1111-4111-8111-111111111111';
+        await expect(addOpnameEntry('item-1', 0, mutationId)).rejects.toThrow('Jumlah harus lebih dari 0');
+        await expect(addOpnameEntry('item-1', -5, mutationId)).rejects.toThrow('Jumlah harus lebih dari 0');
+        await expect(addOpnameEntry('item-1', NaN, mutationId)).rejects.toThrow('Jumlah harus lebih dari 0');
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('addOpnameEntry menolak mutation ID yang tidak valid', async () => {
+        await expect(addOpnameEntry('item-1', 10, 'bukan-uuid')).rejects.toThrow(
+            'ID entri tidak valid',
+        );
         expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
@@ -483,7 +567,13 @@ describe('addOpnameEntry', () => {
             opname: { status: 'COMPLETED' },
         } as never);
 
-        await expect(addOpnameEntry('item-1', 10)).rejects.toThrow('Hanya sesi OPEN yang dapat diupdate');
+        await expect(
+            addOpnameEntry(
+                'item-1',
+                10,
+                '11111111-1111-4111-8111-111111111111',
+            ),
+        ).rejects.toThrow('Hanya sesi OPEN yang dapat diupdate');
     });
 
     it('addOpnameEntry menolak saat entri sudah mencapai batas maksimum', async () => {
@@ -493,12 +583,27 @@ describe('addOpnameEntry', () => {
         } as never);
         vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(500 as never);
 
-        await expect(addOpnameEntry('item-1', 10)).rejects.toThrow('Maksimal 500 entri per item');
+        vi.mocked(prisma.stockOpnameEntry.findUnique).mockResolvedValue(null);
+
+        await expect(
+            addOpnameEntry(
+                'item-1',
+                10,
+                '11111111-1111-4111-8111-111111111111',
+            ),
+        ).rejects.toThrow('Maksimal 500 entri per item');
     });
 
     it('addOpnameEntry menolak label yang terlalu panjang', async () => {
         const longLabel = 'x'.repeat(101);
-        await expect(addOpnameEntry('item-1', 10, longLabel)).rejects.toThrow('Label maksimal 100 karakter');
+        await expect(
+            addOpnameEntry(
+                'item-1',
+                10,
+                '11111111-1111-4111-8111-111111111111',
+                longLabel,
+            ),
+        ).rejects.toThrow('Label maksimal 100 karakter');
     });
 });
 

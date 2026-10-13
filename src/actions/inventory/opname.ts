@@ -17,6 +17,8 @@ const MAX_NOTES_LENGTH = 500;
 const MAX_REMARKS_LENGTH = 500;
 const MAX_LABEL_LENGTH = 100;
 const MAX_ENTRIES_PER_ITEM = 500;
+const CLIENT_ENTRY_ID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function revalidateOpnamePaths(opnameId?: string) {
     revalidatePath('/warehouse/opname');
@@ -204,11 +206,16 @@ export const createOpnameSession = withTenant(
 export const addOpnameEntry = withTenant(async function addOpnameEntry(
     opnameItemId: string,
     quantity: number,
+    entryId: string,
     label?: string,
 ) {
     return safeAction(async () => {
         if (!Number.isFinite(quantity) || quantity <= 0) {
             throw new BusinessRuleError('Jumlah harus lebih dari 0');
+        }
+
+        if (!CLIENT_ENTRY_ID_PATTERN.test(entryId)) {
+            throw new BusinessRuleError('ID entri tidak valid');
         }
 
         if (label && label.length > MAX_LABEL_LENGTH) {
@@ -222,6 +229,16 @@ export const addOpnameEntry = withTenant(async function addOpnameEntry(
         ]);
 
         const result = await prisma.$transaction(async (tx) => {
+            // Serialize writes for one item. Besides keeping the 500-entry cap
+            // reliable, this makes replaying the same client-generated entry ID
+            // safe when the first response was lost.
+            await tx.$queryRaw(Prisma.sql`
+                SELECT "id"
+                FROM "StockOpnameItem"
+                WHERE "id" = ${opnameItemId}
+                FOR UPDATE
+            `);
+
             const opnameItem = await tx.stockOpnameItem.findUnique({
                 where: { id: opnameItemId },
                 include: {
@@ -239,33 +256,65 @@ export const addOpnameEntry = withTenant(async function addOpnameEntry(
                 throw new BusinessRuleError('Hanya sesi OPEN yang dapat diupdate');
             }
 
+            const existingEntry = await tx.stockOpnameEntry.findUnique({
+                where: {
+                    opnameItemId_clientMutationId: {
+                        opnameItemId,
+                        clientMutationId: entryId,
+                    },
+                },
+                select: {
+                    id: true,
+                    quantity: true,
+                    label: true,
+                    createdAt: true,
+                    createdById: true,
+                },
+            });
+
+            if (
+                existingEntry &&
+                (toDecimalNumber(existingEntry.quantity) !==
+                    Number(new Prisma.Decimal(quantity).toFixed(4)) ||
+                    existingEntry.label !== (label ?? null) ||
+                    existingEntry.createdById !== authSession.user.id)
+            ) {
+                throw new BusinessRuleError(
+                    'ID entri sudah digunakan untuk data yang berbeda',
+                );
+            }
+
             const existingCount = await tx.stockOpnameEntry.count({
                 where: { opnameItemId },
             });
 
-            if (existingCount >= MAX_ENTRIES_PER_ITEM) {
+            if (!existingEntry && existingCount >= MAX_ENTRIES_PER_ITEM) {
                 throw new BusinessRuleError(
                     `Maksimal ${MAX_ENTRIES_PER_ITEM} entri per item`,
                 );
             }
 
-            const created = await tx.stockOpnameEntry.create({
-                data: {
-                    opnameItemId,
-                    quantity,
-                    label: label ?? null,
-                    createdById: authSession.user.id,
-                },
-            });
+            const savedEntry =
+                existingEntry ??
+                (await tx.stockOpnameEntry.create({
+                    data: {
+                        opnameItemId,
+                        clientMutationId: entryId,
+                        quantity,
+                        label: label ?? null,
+                        createdById: authSession.user.id,
+                    },
+                }));
 
             const agg = await tx.stockOpnameEntry.aggregate({
                 where: { opnameItemId },
                 _sum: { quantity: true },
             });
 
-            const total = agg._sum.quantity != null
-                ? toDecimalNumber(agg._sum.quantity)
-                : quantity;
+            const total =
+                agg._sum.quantity != null
+                    ? toDecimalNumber(agg._sum.quantity)
+                    : quantity;
 
             await tx.stockOpnameItem.update({
                 where: { id: opnameItemId },
@@ -273,12 +322,15 @@ export const addOpnameEntry = withTenant(async function addOpnameEntry(
             });
 
             return {
-                id: created.id,
-                quantity: toDecimalNumber(created.quantity) || quantity,
-                label: created.label ?? label ?? null,
-                createdAt: created.createdAt,
+                id: savedEntry.id,
+                quantity:
+                    toDecimalNumber(savedEntry.quantity) || quantity,
+                label: savedEntry.label ?? label ?? null,
+                createdAt: savedEntry.createdAt,
                 countedQuantity: total,
-                entryCount: existingCount + 1,
+                entryCount: existingEntry
+                    ? existingCount
+                    : existingCount + 1,
             };
         });
 

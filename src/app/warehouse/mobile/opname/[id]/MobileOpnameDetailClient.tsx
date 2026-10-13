@@ -54,6 +54,8 @@ import { formatWibDate } from '@/lib/utils/timezone';
 import { FinalizeOpnameDialog } from '@/components/warehouse/inventory/opname/FinalizeOpnameDialog';
 
 const MAX_VARIANT_RESULTS = 50;
+const CLIENT_ENTRY_ID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type OpnameItem = {
     id: string;
@@ -115,6 +117,7 @@ function replaceOptimisticEntry(
 
 export function MobileOpnameDetailClient({
     session,
+    currentUserId = '',
     attachments = [],
 }: MobileOpnameDetailClientProps) {
     const safeAttachments = Array.isArray(attachments) ? attachments : [];
@@ -136,6 +139,12 @@ export function MobileOpnameDetailClient({
     const [entriesByItem, setEntriesByItem] = useState<
         Record<string, OpnameEntryView[]>
     >({});
+    const [entryDraftsRestored, setEntryDraftsRestored] = useState(false);
+    const entryDraftStorageKey = useMemo(
+        () =>
+            `polyflow:opname-entry-drafts:v1:${currentUserId || 'anonymous'}:${session.id}`,
+        [currentUserId, session.id],
+    );
     const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>(
         {},
     );
@@ -259,6 +268,134 @@ export function MobileOpnameDetailClient({
         });
     }, [session]);
 
+    // Failed/pending detail rows otherwise exist only in React memory. Keep
+    // them across a refresh so a stale Server Action reference can recover
+    // without forcing the operator to re-enter or guess the physical count.
+    useEffect(() => {
+        if (!isOpen) {
+            try {
+                sessionStorage.removeItem(entryDraftStorageKey);
+            } catch {
+                // Browser privacy/storage policies may block sessionStorage.
+            }
+            setEntryDraftsRestored(true);
+            return;
+        }
+
+        try {
+            const rawDrafts = sessionStorage.getItem(entryDraftStorageKey);
+            if (!rawDrafts) return;
+
+            const parsed = JSON.parse(rawDrafts) as unknown;
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                sessionStorage.removeItem(entryDraftStorageKey);
+                return;
+            }
+
+            const validItemIds = new Set(
+                (session.items ?? []).map((item) => item.id),
+            );
+            const restored: Record<string, OpnameEntryView[]> = {};
+
+            for (const [itemId, value] of Object.entries(parsed)) {
+                if (!validItemIds.has(itemId) || !Array.isArray(value)) {
+                    continue;
+                }
+
+                restored[itemId] = value.flatMap((candidate) => {
+                    if (!candidate || typeof candidate !== 'object') return [];
+                    const entry = candidate as Record<string, unknown>;
+                    if (
+                        typeof entry.id !== 'string' ||
+                        !CLIENT_ENTRY_ID_PATTERN.test(entry.id) ||
+                        typeof entry.quantity !== 'number' ||
+                        !Number.isFinite(entry.quantity) ||
+                        entry.quantity <= 0 ||
+                        (entry.label !== null &&
+                            entry.label !== undefined &&
+                            typeof entry.label !== 'string')
+                    ) {
+                        return [];
+                    }
+
+                    return [
+                        {
+                            id: entry.id,
+                            quantity: entry.quantity,
+                            label:
+                                typeof entry.label === 'string'
+                                    ? entry.label
+                                    : null,
+                            status: 'failed' as const,
+                            error:
+                                typeof entry.error === 'string'
+                                    ? entry.error
+                                    : 'Status kirim belum pasti. Coba lagi untuk mencocokkan dengan server.',
+                        },
+                    ];
+                });
+            }
+
+            setEntriesByItem((prev) => {
+                const next = { ...prev };
+                for (const [itemId, drafts] of Object.entries(restored)) {
+                    const current = next[itemId] ?? [];
+                    next[itemId] = [
+                        ...current,
+                        ...drafts.filter(
+                            (draft) =>
+                                !current.some(
+                                    (entry) => entry.id === draft.id,
+                                ),
+                        ),
+                    ];
+                }
+                return next;
+            });
+        } catch {
+            try {
+                sessionStorage.removeItem(entryDraftStorageKey);
+            } catch {
+                // Browser privacy/storage policies may block sessionStorage.
+            }
+        } finally {
+            setEntryDraftsRestored(true);
+        }
+    }, [entryDraftStorageKey, isOpen, session.items]);
+
+    useEffect(() => {
+        if (!entryDraftsRestored || !isOpen) return;
+
+        const drafts = Object.fromEntries(
+            Object.entries(entriesByItem).flatMap(([itemId, entries]) => {
+                const unsynced = entries.filter(
+                    (entry) =>
+                        entry.status === 'pending' ||
+                        entry.status === 'failed',
+                );
+                return unsynced.length > 0 ? [[itemId, unsynced]] : [];
+            }),
+        );
+
+        try {
+            if (Object.keys(drafts).length === 0) {
+                sessionStorage.removeItem(entryDraftStorageKey);
+            } else {
+                sessionStorage.setItem(
+                    entryDraftStorageKey,
+                    JSON.stringify(drafts),
+                );
+            }
+        } catch {
+            // The active in-memory guard remains authoritative for this page.
+        }
+    }, [
+        entriesByItem,
+        entryDraftStorageKey,
+        entryDraftsRestored,
+        isOpen,
+    ]);
+
     // Dirty detection
     const dirtyItems = useMemo(() => {
         const dirty: string[] = [];
@@ -288,6 +425,20 @@ export function MobileOpnameDetailClient({
     }, [session.items, counts, notes, entriesByItem]);
 
     const hasChanges = dirtyItems.length > 0;
+    const unsyncedEntryCount = useMemo(
+        () =>
+            Object.values(entriesByItem).reduce(
+                (total, entries) =>
+                    total +
+                    entries.filter(
+                        (entry) =>
+                            entry.status === 'pending' ||
+                            entry.status === 'failed',
+                    ).length,
+                0,
+            ),
+        [entriesByItem],
+    );
 
     // Autosave: dirty payload (items without entries only)
     const autosaveDirtyPayload = useMemo(() => {
@@ -405,19 +556,9 @@ export function MobileOpnameDetailClient({
     };
 
     const openFinalizeDialog = () => {
-        const unsavedEntryCount = Object.values(entriesByItem).reduce(
-            (total, entries) =>
-                total +
-                entries.filter(
-                    (entry) =>
-                        entry.status === 'pending' || entry.status === 'failed',
-                ).length,
-            0,
-        );
-
-        if (unsavedEntryCount > 0) {
+        if (unsyncedEntryCount > 0) {
             toast.error(
-                `Masih ada ${unsavedEntryCount} entri yang belum tersimpan. Kirim ulang dulu.`,
+                `Masih ada ${unsyncedEntryCount} entri yang belum tersinkron. Kirim ulang dulu.`,
             );
             return;
         }
@@ -466,17 +607,27 @@ export function MobileOpnameDetailClient({
             }));
 
             try {
-                const result = await addOpnameEntry(itemId, quantity, label);
+                const result = await addOpnameEntry(
+                    itemId,
+                    quantity,
+                    clientId,
+                    label,
+                );
                 if (!result.success) {
+                    const error = result.error || 'Gagal menambah entri';
                     setEntriesByItem((prev) => ({
                         ...prev,
                         [itemId]: (prev[itemId] ?? []).map((entry) =>
                             entry.id === clientId
-                                ? { ...entry, status: 'failed' as const }
+                                ? {
+                                      ...entry,
+                                      status: 'failed' as const,
+                                      error,
+                                  }
                                 : entry,
                         ),
                     }));
-                    toast.error(result.error || 'Gagal menambah entri');
+                    toast.error(error);
                     return;
                 }
 
@@ -499,15 +650,21 @@ export function MobileOpnameDetailClient({
                     [itemId]: String(result.data.countedQuantity),
                 }));
             } catch {
+                const error =
+                    'Gagal sinkron. Periksa koneksi; bila aplikasi baru diperbarui, muat ulang halaman lalu coba lagi. Rincian ini tetap disimpan di perangkat.';
                 setEntriesByItem((prev) => ({
                     ...prev,
                     [itemId]: (prev[itemId] ?? []).map((entry) =>
                         entry.id === clientId
-                            ? { ...entry, status: 'failed' as const }
+                            ? {
+                                  ...entry,
+                                  status: 'failed' as const,
+                                  error,
+                              }
                             : entry,
                     ),
                 }));
-                toast.error('Gagal menambah entri');
+                toast.error(error);
             }
         },
         [],
@@ -535,9 +692,12 @@ export function MobileOpnameDetailClient({
                 const result = await addOpnameEntry(
                     itemId,
                     entry.quantity,
+                    entryId,
                     entry.label ?? undefined,
                 );
                 if (!result.success) {
+                    const error =
+                        result.error || 'Gagal mengirim ulang entri';
                     setEntriesByItem((prev) => ({
                         ...prev,
                         [itemId]: (prev[itemId] ?? []).map((candidate) =>
@@ -545,11 +705,12 @@ export function MobileOpnameDetailClient({
                                 ? {
                                       ...candidate,
                                       status: 'failed' as const,
+                                      error,
                                   }
                                 : candidate,
                         ),
                     }));
-                    toast.error(result.error || 'Gagal mengirim ulang entri');
+                    toast.error(error);
                     return;
                 }
 
@@ -572,15 +733,21 @@ export function MobileOpnameDetailClient({
                     [itemId]: String(result.data.countedQuantity),
                 }));
             } catch {
+                const error =
+                    'Gagal sinkron. Periksa koneksi; bila aplikasi baru diperbarui, muat ulang halaman lalu coba lagi. Rincian ini tetap disimpan di perangkat.';
                 setEntriesByItem((prev) => ({
                     ...prev,
                     [itemId]: (prev[itemId] ?? []).map((candidate) =>
                         candidate.id === entryId
-                            ? { ...candidate, status: 'failed' as const }
+                            ? {
+                                  ...candidate,
+                                  status: 'failed' as const,
+                                  error,
+                              }
                             : candidate,
                     ),
                 }));
-                toast.error('Gagal mengirim ulang entri');
+                toast.error(error);
             }
         },
         [entriesByItem],
@@ -1181,33 +1348,36 @@ export function MobileOpnameDetailClient({
             {/* Sticky Actions */}
             {isOpen && (
                 <div className="fixed bottom-16 left-0 right-0 z-40 bg-background border-t p-3 pb-[env(safe-area-inset-bottom)]">
-                    {(autosaveStatus === 'saving' ||
+                    {(unsyncedEntryCount > 0 ||
+                        autosaveStatus === 'saving' ||
                         autosaveStatus === 'saved' ||
                         autosaveStatus === 'error') && (
-                        <div className="mb-2 text-center">
-                            {autosaveStatus === 'saving' && (
-                                <span className="text-[10px] text-muted-foreground">
-                                    Menyimpan…
+                        <div className="mb-2 text-center" aria-live="polite">
+                            {unsyncedEntryCount > 0 ? (
+                                <span className="text-xs font-medium text-destructive">
+                                    {unsyncedEntryCount} rincian belum tersinkron
                                 </span>
-                            )}
-                            {autosaveStatus === 'saved' && lastSavedAt && (
+                            ) : autosaveStatus === 'saving' ? (
                                 <span className="text-[10px] text-muted-foreground">
-                                    Tersimpan otomatis ·{' '}
+                                    Menyimpan hitungan…
+                                </span>
+                            ) : autosaveStatus === 'saved' && lastSavedAt ? (
+                                <span className="text-[10px] text-muted-foreground">
+                                    Hitungan tersimpan otomatis ·{' '}
                                     {lastSavedAt.toLocaleTimeString('id-ID', {
                                         hour: '2-digit',
                                         minute: '2-digit',
                                     })}
                                 </span>
-                            )}
-                            {autosaveStatus === 'error' && (
+                            ) : autosaveStatus === 'error' ? (
                                 <button
                                     type="button"
                                     onClick={() => autosaveFlush()}
-                                    className="text-[10px] text-red-600 underline"
+                                    className="min-h-11 text-xs text-red-600 underline"
                                 >
                                     Gagal autosave, tap untuk coba lagi
                                 </button>
-                            )}
+                            ) : null}
                         </div>
                     )}
                     <div className="flex gap-2">
@@ -1226,7 +1396,9 @@ export function MobileOpnameDetailClient({
                         </Button>
                         <Button
                             onClick={openFinalizeDialog}
-                            disabled={isFinalizing}
+                            disabled={
+                                isFinalizing || unsyncedEntryCount > 0
+                            }
                             className="flex-1 h-11"
                         >
                             {isFinalizing ? (

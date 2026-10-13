@@ -13,6 +13,7 @@ export interface OpnameEntryView {
     quantity: number;
     label?: string | null;
     status: 'saved' | 'pending' | 'failed';
+    error?: string;
 }
 
 interface OpnameEntryEditorProps {
@@ -127,23 +128,33 @@ export function OpnameEntryEditor({
                                 'border-destructive bg-destructive/5',
                         )}
                     >
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <span className="w-6 shrink-0 text-xs text-muted-foreground">
-                                {idx + 1}.
-                            </span>
-                            <span className="font-mono font-medium">
-                                {formatQuantity(entry.quantity)} {unit}
-                            </span>
-                            {entry.label && (
-                                <span className="truncate text-xs text-muted-foreground">
-                                    {entry.label}
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                                <span className="w-6 shrink-0 text-xs text-muted-foreground">
+                                    {idx + 1}.
                                 </span>
-                            )}
-                            {entry.status === 'pending' && (
-                                <Loader2
-                                    data-testid="pending-spinner"
-                                    className="h-4 w-4 animate-spin text-muted-foreground"
-                                />
+                                <span className="font-mono font-medium">
+                                    {formatQuantity(entry.quantity)} {unit}
+                                </span>
+                                {entry.label && (
+                                    <span className="truncate text-xs text-muted-foreground">
+                                        {entry.label}
+                                    </span>
+                                )}
+                                {entry.status === 'pending' && (
+                                    <Loader2
+                                        data-testid="pending-spinner"
+                                        className="h-4 w-4 animate-spin text-muted-foreground"
+                                    />
+                                )}
+                            </div>
+                            {entry.status === 'failed' && entry.error && (
+                                <p
+                                    role="alert"
+                                    className="mt-1 pl-8 text-xs text-destructive"
+                                >
+                                    {entry.error}
+                                </p>
                             )}
                         </div>
 
@@ -155,7 +166,7 @@ export function OpnameEntryEditor({
                                     size="sm"
                                     data-testid={`retry-button-${entry.id}`}
                                     onClick={() => onRetry(entry.id)}
-                                    className="h-8 gap-1"
+                                    className="min-h-11 gap-1"
                                 >
                                     <RotateCcw className="h-3 w-3" />
                                     Coba lagi

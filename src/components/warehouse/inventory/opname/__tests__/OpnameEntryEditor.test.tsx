@@ -150,10 +150,15 @@ describe('OpnameEntryEditor', () => {
         expect(onRemove).toHaveBeenCalledWith('e2');
     });
 
-    it('memanggil onRetry dengan id entri yang benar', () => {
+    it('menampilkan alasan gagal secara aksesibel dan memanggil retry dengan id yang benar', () => {
         // Arrange
         const entries: OpnameEntryView[] = [
-            { id: 'f1', quantity: 5, status: 'failed' },
+            {
+                id: 'f1',
+                quantity: 5,
+                status: 'failed',
+                error: 'Koneksi terputus',
+            },
         ];
         const { onRetry } = renderEditor({ entries });
 
@@ -161,7 +166,11 @@ describe('OpnameEntryEditor', () => {
         fireEvent.click(screen.getByTestId('retry-button-f1'));
 
         // Assert
+        expect(screen.getByRole('alert').textContent).toBe('Koneksi terputus');
         expect(onRetry).toHaveBeenCalledWith('f1');
+        expect(screen.getByTestId('retry-button-f1').className).toContain(
+            'min-h-11',
+        );
     });
 
     it('menyembunyikan kontrol input saat readOnly', () => {
