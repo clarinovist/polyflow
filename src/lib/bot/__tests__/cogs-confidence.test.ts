@@ -36,7 +36,7 @@ describe('coverage-aware COGS assistant semantics', () => {
         const durableCompact = durable.replace(/\s+/g, ' ');
         expect(webCompact).toMatch(/konsistensi bookkeeping.*bukan kelengkapan ekonomi/i);
         expect(webCompact).toMatch(/terkonfirmasi.*needs_review/i);
-        expect(webCompact).toMatch(/Jangan gabungkan nominal sales, movement valuation, jurnal GL/i);
+        expect(webCompact).toMatch(/Jangan gabungkan nilai penjualan, biaya pergerakan barang, jurnal persediaan/i);
         expect(webCompact).toMatch(/laporan vs jurnal.*cost coverage seluruh shipment.*simetri retur.*WIP\/inventory/i);
         expect(durableCompact).toMatch(/konsistensi bookkeeping.*bukan kelengkapan ekonomi/i);
         expect(durableCompact).toMatch(/terkonfirmasi.*needs_review/i);
@@ -44,7 +44,7 @@ describe('coverage-aware COGS assistant semantics', () => {
         expect(durableCompact).toMatch(/laporan vs jurnal.*cost coverage seluruh shipment.*simetri retur.*WIP\/inventory/i);
     });
 
-    it('keeps the inventory answer order and safety semantics aligned in web and durable prompts', () => {
+    it('keeps a plain-language default and technical detail only on explicit request in web and durable prompts', () => {
         const web = buildAssistantProfileInstructions({
             pathname: '/finance/reports/general-ledger',
             profile: 'finance',
@@ -52,12 +52,16 @@ describe('coverage-aware COGS assistant semantics', () => {
         const durable = DURABLE_INVENTORY_INSTRUCTIONS.replace(/\s+/g, ' ');
         for (const prompt of [web, durable]) {
             expect(prompt).toMatch(/diagnose_inventory_economic_completeness/i);
-            expect(prompt).toMatch(/konsistensi.*inventory GL.*movement\/journal coverage.*valuation.*jurnal inventory tanpa source.*WIP.*return, transfer, adjustment, dan reversal.*Maklon\/off-balance.*confirmed vs needs_review.*opening, cross-period, valuation, lineage, dan truncation/i);
-            expect(prompt).toMatch(/Adjustment.*bukan otomatis consumption/i);
-            expect(prompt).toMatch(/material issue.*bukan otomatis COGS/i);
-            expect(prompt).toMatch(/manual.*journal.*bukan otomatis error|manual inventory journal.*bukan otomatis error/i);
+            expect(prompt).toMatch(/Kesimpulan.*Penyebab utama.*Yang perlu diperiksa.*Batas pemeriksaan/i);
+            expect(prompt).toMatch(/bahasa bisnis sehari-hari/i);
+            expect(prompt).toMatch(/jika pengguna.*meminta detail teknis|bila pengguna.*meminta detail teknis/i);
+            expect(prompt).toMatch(/Detail teknis untuk Finance/i);
+            expect(prompt).toMatch(/Penyesuaian stok bukan otomatis pemakaian bahan/i);
+            expect(prompt).toMatch(/belum tentu langsung menjadi HPP|bukan otomatis HPP/i);
+            expect(prompt).toMatch(/bukan otomatis salah/i);
         }
-        expect(web).toMatch(/Quantity inventory per variant\/unit.*tidak boleh dijumlahkan lintas unit.*disamakan dengan nilai/i);
-        expect(durable).toMatch(/Quantity per variant\/unit.*persisted movement valuation.*posted inventory GL.*WIP.*opening economic value.*basis berbeda/i);
+        expect(web).toMatch(/Jumlah barang.*tidak boleh dijumlahkan lintas satuan.*disamakan dengan nilai rupiah/i);
+        expect(durable).toMatch(/Jangan tampilkan kode kondisi.*confidence cap.*amount basis.*sample ID/i);
+        expect(durable).toMatch(/inventory GL = catatan nilai persediaan di pembukuan/i);
     });
 });

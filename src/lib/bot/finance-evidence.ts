@@ -81,30 +81,145 @@ export function reconciliationEvidence(result: Awaited<ReturnType<typeof reconci
     });
 }
 
+const INVENTORY_FINDING_LANGUAGE: Record<
+    string,
+    { title: string; explanation: string }
+> = {
+    INVENTORY_MOVEMENT_WITHOUT_JOURNAL: {
+        title: 'Pergerakan barang belum tercatat di pembukuan',
+        explanation: 'Pergerakan barang memiliki nilai, tetapi jurnal persediaannya belum ditemukan.',
+    },
+    ZERO_VALUED_INVENTORY_MOVEMENT: {
+        title: 'Biaya pergerakan barang belum tersedia',
+        explanation: 'Nilai biaya tersimpan nol atau belum tersedia; ini tidak berarti jumlah atau nilai barang pasti nol.',
+    },
+    MOVEMENT_JOURNAL_VALUE_MISMATCH: {
+        title: 'Nilai pergerakan dan jurnal berbeda',
+        explanation: 'Nilai biaya pada pergerakan barang berbeda dari nilai jurnal persediaan yang terkait.',
+    },
+    INVENTORY_COST_POSTED_OUTSIDE_ASSET: {
+        title: 'Jurnal menggunakan akun persediaan yang berbeda',
+        explanation: 'Sisi persediaan pada jurnal tidak menggunakan akun persediaan yang dipetakan untuk produk tersebut.',
+    },
+    INVENTORY_JOURNAL_VECTOR_INVALID: {
+        title: 'Susunan jurnal persediaan perlu diperiksa',
+        explanation: 'Status, keseimbangan, atau sisi debit dan kredit jurnal belum sesuai dengan alur barangnya.',
+    },
+    INVENTORY_JOURNAL_WITHOUT_MOVEMENT: {
+        title: 'Jurnal belum dapat ditautkan ke pergerakan barang',
+        explanation: 'Jurnal persediaan ditemukan, tetapi sumber pergerakan barangnya belum dapat ditentukan secara pasti.',
+    },
+    INVALID_INVENTORY_REVERSAL: {
+        title: 'Pembalikan transaksi perlu diperiksa',
+        explanation: 'Pasangan transaksi atau jurnal pembaliknya belum dapat dibuktikan secara pasti.',
+    },
+    CROSS_PERIOD_INVENTORY_REVERSAL: {
+        title: 'Pembalikan transaksi melewati periode',
+        explanation: 'Transaksi asal dan pembalikannya berada pada periode yang berbeda sehingga tidak boleh saling menghapus diam-diam.',
+    },
+    VALID_INVENTORY_REVERSAL: {
+        title: 'Pembalikan transaksi sudah berpasangan',
+        explanation: 'Transaksi asal dan pembalikannya berhasil dipasangkan dan tidak dihitung dua kali.',
+    },
+    INVENTORY_ADJUSTMENT_GAIN_LOSS: {
+        title: 'Ada penyesuaian stok',
+        explanation: 'Penyesuaian memengaruhi nilai persediaan dan selisih untung atau rugi; ini bukan otomatis pemakaian bahan.',
+    },
+    TRANSFER_NON_FINANCIAL_EXPECTED: {
+        title: 'Perpindahan antar-lokasi tidak mengubah nilai perusahaan',
+        explanation: 'Barang hanya berpindah lokasi internal sehingga tidak diharapkan menimbulkan untung atau rugi.',
+    },
+    OFF_BALANCE_MOVEMENT_EXCLUDED: {
+        title: 'Barang Maklon atau milik pelanggan sudah dipisahkan',
+        explanation: 'Pergerakan ini tidak diperlakukan sebagai persediaan milik perusahaan.',
+    },
+    MATERIAL_COST_REMAINS_IN_WIP: {
+        title: 'Biaya bahan masih mungkin berada dalam proses produksi',
+        explanation: 'Bahan sudah dipakai, tetapi hasil produksinya belum terlihat pada periode yang sama; biaya belum otomatis menjadi HPP.',
+    },
+    OPENING_INVENTORY_UNAVAILABLE: {
+        title: 'Nilai awal persediaan belum dapat dipastikan',
+        explanation: 'Data yang tersedia belum cukup untuk menghitung nilai awal persediaan secara historis.',
+    },
+    STOCK_VALUE_BASIS_UNATTRIBUTED: {
+        title: 'Sumber nilai persediaan belum dapat dipastikan',
+        explanation: 'Akun atau dokumen sumber nilai belum dapat ditautkan secara pasti.',
+    },
+    CLOSING_INVENTORY_JOURNAL_REVIEW: {
+        title: 'Jurnal tutup buku menyentuh persediaan',
+        explanation: 'Jurnal tetap masuk dalam saldo persediaan, tetapi tujuannya perlu ditinjau oleh Finance.',
+    },
+};
+
+function inventoryFindingLanguage(code: string) {
+    return INVENTORY_FINDING_LANGUAGE[code] ?? {
+        title: 'Kondisi persediaan perlu diperiksa',
+        explanation: 'Data menunjukkan kondisi yang perlu ditelusuri lebih lanjut.',
+    };
+}
+
+function inventoryAmountBasisLabel(basis: string): string {
+    if (basis === 'posted_inventory_gl') return 'nilai jurnal persediaan';
+    if (basis === 'persisted_movement_value')
+        return 'nilai biaya yang tersimpan pada pergerakan barang';
+    if (basis === 'document_return_value') return 'nilai dokumen retur';
+    return 'nilai yang belum dapat ditentukan';
+}
+
+function inventoryFlowLabel(flow: string): string {
+    const labels: Record<string, string> = {
+        receipt: 'penerimaan barang',
+        shipment: 'pengeluaran barang untuk penjualan',
+        production_issue: 'pemakaian bahan produksi',
+        production_output: 'hasil produksi',
+        production_return_in: 'pengembalian bahan produksi',
+        sales_return_good: 'retur penjualan yang kembali ke stok',
+        return_in: 'barang kembali masuk',
+        purchase_return: 'retur pembelian',
+        adjustment_gain: 'penyesuaian stok masuk',
+        adjustment_loss: 'penyesuaian stok keluar',
+        transfer: 'perpindahan antar-lokasi',
+        journal: 'jurnal persediaan',
+        opening: 'nilai awal persediaan',
+    };
+    return labels[flow] ?? 'pergerakan barang';
+}
+
 export function inventoryEconomicDiagnosisEvidence(
     result: Awaited<ReturnType<typeof diagnoseInventoryEconomicCompleteness>>,
 ) {
     const { range, gl, movementCoverage, flows, coverage, findings } = result;
-    const findingFacts = findings.map(finding => ({
-        label: `${finding.code} — CONFIRMED / NEEDS_REVIEW`,
-        value: `${finding.count} kejadian; flow ${finding.flow}; basis ${finding.amountBasis}; nominal ${money(finding.nominal)}${finding.glActivityPercentage == null ? '' : ` (${finding.glActivityPercentage.toFixed(2)}% dari total debit+kredit inventory GL periode)`}. ${finding.reason} Batas bukti: ${finding.evidenceLimit} Sampel ${finding.samples.length}: ${finding.samples.map(sample => `${sample.sourceId}${sample.unit ? ` [${sample.unit}]` : ''}`).join(', ') || '-'}.`,
-    }));
+    const findingFacts = findings.map(finding => {
+        const language = inventoryFindingLanguage(finding.code);
+        const amount = finding.amountBasis === 'none'
+            ? ''
+            : ` Nilai yang teridentifikasi ${money(finding.nominal)} berdasarkan ${inventoryAmountBasisLabel(finding.amountBasis)}.`;
+        return {
+            label: `Temuan: ${language.title}`,
+            value: `${finding.count} kejadian pada ${inventoryFlowLabel(finding.flow)}.${amount} ${language.explanation} Kondisi ini terlihat pada data, tetapi kebutuhan koreksi tetap perlu ditentukan oleh tim Finance.`,
+        };
+    });
+    const technicalDetail = findings.map(finding =>
+        `${finding.code}; status=confirmed; conclusion=needs_review; flow=${finding.flow}; basis=${finding.amountBasis}; count=${finding.count}; amount=${finding.nominal}; samples=${finding.samples.map(sample => sample.sourceId).join(',') || '-'}`,
+    ).join(' | ');
+    const technicalQuantities = movementCoverage.quantities.map(row =>
+        `${row.productVariantId}[${row.unit}]:in=${row.inbound},out=${row.outbound},transfer=${row.transfer}`,
+    ).join(',') || '-';
     return createEvidence({
-        summary: `Diagnosis Inventory GL vs economic stock flow ${range.startDate} s.d. ${range.endDate} WIB (read-only): ${findings.length} kelompok kondisi terkonfirmasi; implikasi accounting tetap needs_review.`,
+        summary: `Catatan persediaan ${range.startDate} s.d. ${range.endDate} WIB sudah diperiksa. Ditemukan ${findings.length} kelompok kondisi yang perlu ditinjau; temuan ini belum otomatis berarti kesalahan pencatatan.`,
         source: 'tenant-data',
         completeness: coverage.mandatoryComplete ? 'complete' : 'partial',
         confidenceCap: coverage.confidenceCap,
         facts: [
-            { label: 'Urutan jawaban wajib inventory', value: 'Mulai dari penyebab material terbesar dalam basis yang sebanding → konsistensi mapped inventory GL → movement/journal coverage → valuation → jurnal tanpa source → WIP → return/transfer/adjustment/reversal → off-balance → confirmed vs needs_review → batas opening/cross-period/lineage/truncation.' },
-            { label: 'Makna confidence inventory', value: `Coverage cap ${coverage.confidenceCap.toFixed(2)} adalah batas cakupan evidence, BUKAN probabilitas accounting benar.` },
-            { label: 'Inventory GL mapped', value: `${gl.accountCount} akun dari ${gl.mappedProductCount} mapping produk; produk tanpa mapping ${gl.unmappedProductCount}; opening ${money(gl.openingBalance)}; debit periode ${money(gl.periodDebit)}; kredit periode ${money(gl.periodCredit)}; closing ${money(gl.closingBalance)}; roll-forward GL gap ${money(gl.rollforwardGap)}. Closing-reference tetap masuk balance-sheet GL (${gl.closingReferenceCount} jurnal), bukan dikecualikan seperti P&L.` },
-            { label: 'Movement dan journal coverage', value: `${movementCoverage.count} movement; covered ${movementCoverage.coveredCount}; tanpa jurnal ${movementCoverage.withoutJournalCount}; zero/unavailable valuation ${movementCoverage.unvaluedCount}; journal invalid ${movementCoverage.invalidJournalCount}; value mismatch ${movementCoverage.valueMismatchCount}; semantic role/source unattributed ${movementCoverage.semanticRoleUnknownCount}; reversal valid ${movementCoverage.validReversalCount}, invalid ${movementCoverage.invalidReversalCount}, cross-period ${movementCoverage.crossPeriodReversalCount}.` },
-            { label: 'Flow ekonomi inventory', value: `Receipt ${flows.receipts}; shipment ${flows.shipments}; issue produksi ${flows.productionIssues}; output produksi ${flows.productionOutputs}; GOOD return ${flows.goodReturns}; DAMAGED return tanpa restock ${flows.damagedReturns}; purchase return ${flows.purchaseReturns}; adjustment gain/loss ${flows.adjustmentGains}/${flows.adjustmentLosses}; transfer internal ${flows.internalTransfers}; off-balance ${flows.offBalanceExcluded}; issue tanpa output periode sama ${flows.materialCostRemainsInWip}. Issue material bukan otomatis COGS dan adjustment bukan otomatis consumption.` },
-            { label: 'Quantity per variant/unit', value: `${movementCoverage.quantities.length ? movementCoverage.quantities.map(row => `${row.productVariantId} [${row.unit}]: in ${row.inbound}, out ${row.outbound}, transfer ${row.transfer}`).join('; ') : 'Tidak ada quantity movement pada periode.'} Quantity tidak dijumlahkan lintas variant/unit dan tidak disamakan dengan nilai.` },
-            { label: 'Cakupan wajib inventory', value: `${coverage.mandatoryComplete ? 'Semua dimensi covered.' : 'Economic coverage masih partial.'} ${coverage.dimensions.map(item => `${item.code}=${item.status} (${item.reason})`).join('; ')}` },
-            { label: 'Completeness reasons', value: coverage.completenessReasons.join('; ') || 'Tidak ada gap coverage wajib.' },
+            { label: 'Cara menjawab pengguna', value: 'Gunakan bahasa bisnis sehari-hari dengan urutan: Kesimpulan → Penyebab utama → Yang perlu diperiksa → Batas pemeriksaan. Jangan tampilkan kode kondisi, confidence cap, amount basis, nama kolom, atau istilah teknis mentah kecuali pengguna meminta detail teknis.' },
+            { label: 'Status pemeriksaan', value: coverage.mandatoryComplete ? 'Seluruh pemeriksaan wajib yang tersedia telah selesai.' : 'Pemeriksaan masih memiliki batas data dan penelusuran, sehingga belum mencakup seluruh pergerakan barang secara pasti.' },
+            { label: 'Catatan nilai persediaan', value: `${gl.accountCount} akun persediaan berhasil dikenali dari ${gl.mappedProductCount} pemetaan produk; ${gl.unmappedProductCount} produk belum memiliki pemetaan. Saldo awal ${money(gl.openingBalance)}, penambahan ${money(gl.periodDebit)}, pengurangan ${money(gl.periodCredit)}, dan saldo akhir ${money(gl.closingBalance)}. Ada ${gl.orphanJournalCount} jurnal yang belum dapat ditautkan ke pergerakan barang tertentu.` },
+            { label: 'Kecocokan pergerakan barang dan pembukuan', value: `${movementCoverage.count} pergerakan diperiksa: ${movementCoverage.coveredCount} berhasil dicocokkan, ${movementCoverage.withoutJournalCount} belum memiliki jurnal terkait, ${movementCoverage.unvaluedCount} belum memiliki biaya yang dapat dipastikan, ${movementCoverage.invalidJournalCount} memiliki susunan jurnal yang perlu diperiksa, dan ${movementCoverage.valueMismatchCount} memiliki perbedaan nilai.` },
+            { label: 'Alur barang yang diperiksa', value: `Penerimaan ${flows.receipts}; pengeluaran untuk penjualan ${flows.shipments}; pemakaian bahan produksi ${flows.productionIssues}; hasil produksi ${flows.productionOutputs}; retur layak jual ${flows.goodReturns}; retur rusak tanpa kembali ke stok ${flows.damagedReturns}; retur pembelian ${flows.purchaseReturns}; penyesuaian masuk/keluar ${flows.adjustmentGains}/${flows.adjustmentLosses}; perpindahan internal ${flows.internalTransfers}; barang Maklon atau milik pelanggan ${flows.offBalanceExcluded}; pemakaian bahan tanpa hasil produksi pada periode yang sama ${flows.materialCostRemainsInWip}.` },
+            { label: 'Jumlah barang', value: movementCoverage.quantities.length ? `Jumlah barang tersedia untuk ${movementCoverage.quantities.length} kombinasi produk dan satuan. Angkanya dipisahkan per produk/satuan, tidak digabung lintas satuan, dan tidak disamakan dengan nilai rupiah.` : 'Tidak ada pergerakan jumlah barang pada periode ini.' },
             ...findingFacts,
-            ...result.limitations.map((value, index) => ({ label: `Batas inventory ${index + 1}`, value })),
+            { label: 'Batas pemeriksaan utama', value: 'Nilai awal persediaan historis, biaya yang tidak tersimpan, transaksi lintas periode, dan hubungan sumber transaksi tertentu belum selalu dapat ditentukan secara pasti. Karena itu, kondisi yang ditemukan perlu ditinjau sebelum dianggap sebagai kesalahan accounting.' },
+            { label: 'Detail teknis internal — tampilkan hanya jika pengguna memintanya', value: `coverage_cap=${coverage.confidenceCap}; dimensions=${coverage.dimensions.map(item => `${item.code}:${item.status}`).join(',')}; completeness_reasons=${coverage.completenessReasons.join('|') || '-'}; findings=${technicalDetail || '-'}; quantities=${technicalQuantities}; limitations=${result.limitations.join('|')}` },
         ],
         entities: [],
     });

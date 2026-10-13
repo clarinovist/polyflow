@@ -123,7 +123,9 @@ describe('finance execution boundary', () => {
             limitations: ['No historical stock value'],
         });
         const inventory = await run(() => getToolByName('diagnose_inventory_economic_completeness')!.execute(args('diagnose_inventory_economic_completeness'), { ...ctx, allowedResources: ['/finance', '/warehouse/inventory/history'] }));
-        expect(inventory).toMatchObject({ completeness: 'partial', confidenceCap: 0.75, facts: expect.arrayContaining([{ label: expect.stringContaining('CONFIRMED'), value: expect.stringContaining('confirmed') }]) });
+        expect(inventory).toMatchObject({ completeness: 'partial', confidenceCap: 0.75, facts: expect.arrayContaining([{ label: expect.stringContaining('Jurnal belum dapat ditautkan'), value: expect.stringContaining('perlu ditentukan oleh tim Finance') }]) });
+        const inventoryEvidence = inventory as { facts: Array<{ label: string; value: string }> };
+        expect(inventoryEvidence.facts.find(fact => fact.label.startsWith('Detail teknis internal'))?.value).toContain('status=confirmed');
         expect(diagnoseInventoryEconomicCompleteness).toHaveBeenCalledWith(tx, args('diagnose_inventory_economic_completeness'));
 
         vi.mocked(executeBusinessQuery).mockResolvedValue({

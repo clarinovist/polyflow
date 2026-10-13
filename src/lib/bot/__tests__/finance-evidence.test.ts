@@ -79,16 +79,67 @@ describe('finance evidence delivered to the model', () => {
         });
         const text = evidenceToText(evidence);
         expect(evidence).toMatchObject({ completeness: 'partial', confidenceCap: 0.75, entities: [] });
-        expect(evidence.facts[0].label).toBe('Urutan jawaban wajib inventory');
-        expect(text).toContain('CONFIRMED / NEEDS_REVIEW');
-        expect(text).toContain('Coverage cap 0.75');
-        expect(text).toContain('BUKAN probabilitas');
-        expect(text).toContain('Closing-reference tetap masuk');
-        expect(text).toContain('Issue material bukan otomatis COGS');
-        expect(text).toContain('KG');
-        expect(text).toContain('PCS');
-        expect(text).toContain('tidak dijumlahkan lintas variant/unit');
-        expect(text).toContain('movement-1 [KG]');
+        expect(evidence.facts[0]).toMatchObject({
+            label: 'Cara menjawab pengguna',
+            value: expect.stringContaining('Kesimpulan → Penyebab utama → Yang perlu diperiksa → Batas pemeriksaan'),
+        });
+        expect(evidence.summary).toContain('belum otomatis berarti kesalahan pencatatan');
+        expect(text).toContain('Pergerakan barang belum tercatat di pembukuan');
+        expect(text).toContain('perlu ditentukan oleh tim Finance');
+        expect(text).toContain('Angkanya dipisahkan per produk/satuan');
+        expect(text).toContain('2 kombinasi produk dan satuan');
+        const publicFacts = evidence.facts
+            .filter(fact => !fact.label.startsWith('Detail teknis internal'))
+            .map(fact => `${fact.label}: ${fact.value}`)
+            .join(' ');
+        expect(publicFacts).not.toMatch(/INVENTORY_[A-Z_]+|CONFIRMED|NEEDS_REVIEW|coverage_cap|amountBasis|movement-1|mapped inventory GL/i);
+        const technical = evidence.facts.find(fact =>
+            fact.label.startsWith('Detail teknis internal'),
+        );
+        expect(technical?.value).toContain('INVENTORY_MOVEMENT_WITHOUT_JOURNAL');
+        expect(technical?.value).toContain('coverage_cap=0.75');
+        expect(technical?.value).toContain('kg[KG]');
+        expect(technical?.value).toContain('pcs[PCS]');
+    });
+
+    it('translates every known inventory finding code into business language', () => {
+        const codes = [
+            'ZERO_VALUED_INVENTORY_MOVEMENT',
+            'MOVEMENT_JOURNAL_VALUE_MISMATCH',
+            'INVENTORY_COST_POSTED_OUTSIDE_ASSET',
+            'INVENTORY_JOURNAL_VECTOR_INVALID',
+            'INVENTORY_JOURNAL_WITHOUT_MOVEMENT',
+            'INVALID_INVENTORY_REVERSAL',
+            'CROSS_PERIOD_INVENTORY_REVERSAL',
+            'VALID_INVENTORY_REVERSAL',
+            'INVENTORY_ADJUSTMENT_GAIN_LOSS',
+            'TRANSFER_NON_FINANCIAL_EXPECTED',
+            'OFF_BALANCE_MOVEMENT_EXCLUDED',
+            'MATERIAL_COST_REMAINS_IN_WIP',
+            'OPENING_INVENTORY_UNAVAILABLE',
+            'STOCK_VALUE_BASIS_UNATTRIBUTED',
+            'CLOSING_INVENTORY_JOURNAL_REVIEW',
+        ];
+        const base = {
+            range,
+            gl: { accountCount: 1, mappedProductCount: 1, unmappedProductCount: 0, openingBalance: 0, periodDebit: 0, periodCredit: 0, closingBalance: 0, rollforwardGap: 0, journalCount: 0, manualJournalCount: 0, orphanJournalCount: 0, closingReferenceCount: 0, scopeBasis: 'persisted_product_inventory_account_mapping' as const },
+            movementCoverage: { count: 0, coveredCount: 0, unvaluedCount: 0, withoutJournalCount: 0, invalidJournalCount: 0, valueMismatchCount: 0, semanticRoleUnknownCount: 0, validReversalCount: 0, invalidReversalCount: 0, crossPeriodReversalCount: 0, quantities: [] },
+            flows: { receipts: 0, shipments: 0, productionIssues: 0, productionOutputs: 0, goodReturns: 0, damagedReturns: 0, purchaseReturns: 0, adjustmentGains: 0, adjustmentLosses: 0, internalTransfers: 0, offBalanceExcluded: 0, materialCostRemainsInWip: 0 },
+            coverage: { mandatoryComplete: false, confidenceCap: 0.75 as const, dimensions: [], completenessReasons: [] },
+            limitations: [],
+        };
+        for (const code of codes) {
+            const evidence = inventoryEconomicDiagnosisEvidence({
+                ...base,
+                findings: [{ code, conditionStatus: 'confirmed', accountingConclusion: 'needs_review', area: 'movement', flow: 'shipment', amountBasis: 'none', count: 1, amount: 0, nominal: 0, glActivityPercentage: null, sourceId: null, materiality: 0, reason: 'technical reason', evidenceLimit: 'technical limit', samples: [] }],
+            });
+            const publicText = evidence.facts
+                .filter(fact => !fact.label.startsWith('Detail teknis internal'))
+                .map(fact => `${fact.label}: ${fact.value}`)
+                .join(' ');
+            expect(publicText).not.toContain(code);
+            expect(publicText).not.toContain('technical reason');
+        }
     });
 
     it('caps account evidence, preserves report totals and signals any partial dimension', () => {
