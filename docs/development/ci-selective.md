@@ -1,48 +1,58 @@
 # CI dan rilis terjadwal
 
-`Production Pipeline` tidak berjalan pada setiap push `main`. Push mengumpulkan
-perubahan di branch tanpa build atau deploy. Workflow merilis HEAD `main` sekali
-per hari kerja pada `14:17 UTC` (`21:17 WIB`, Senin–Jumat), atau saat operator
-menjalankan dispatch manual untuk kebutuhan mendesak.
+`Push CI` adalah satu-satunya produsen artifact rilis. Untuk perubahan non-dokumentasi,
+workflow ini menjalankan lint, route generation + full TypeScript validation, kontrak JEV,
+dua shard seluruh test dengan merge coverage global **71/63/75/72**, validasi Nginx,
+dua kontrak PostgreSQL disposable, worker build/smoke, lalu build+push web dan worker image.
+Setelah seluruh gate sukses, job stabil `Push CI Status` menerbitkan manifest immutable
+yang mengikat repository, commit SHA, run ID, run attempt, dan kedua image digest.
 
-Push biasa menjalankan **Push CI** (`ci.yml`): lint + typecheck + seluruh test suite
-(tanpa coverage), ditambah PostgreSQL contract pada service database disposable yang
-sama dengan gate rilis. Ini memberi umpan balik sebelum rilis tanpa build image atau
-deploy; integration test tidak lagi dianggap lolos hanya karena `describe.skipIf`.
-Push yang seluruh delta-nya dokumen aman melewati langkah berat lewat classifier yang
-sama (`scripts/ci/changes.mjs`). Production Pipeline menunggu Push CI event `push`
-yang sukses untuk SHA `main` yang persis sama sebelum mengalokasikan runner gate berat.
-Setiap scheduled/manual release tetap mengulang seluruh gate sebelum image dipromosikan
-atau VPS diubah.
+`Production Pipeline` tidak menjalankan source test atau build ulang. Pada jadwal hari
+kerja `14:17 UTC` (`21:17 WIB`) atau dispatch manual, pipeline memverifikasi Push CI,
+mengunduh manifest exact run, memeriksa identitas/digest, lalu promote, backup, migrate,
+dan deploy ke VPS. Release Please tetap berjalan independen pada schedule.
 
 ## Jalur release
 
 | Event | Hasil |
 | --- | --- |
-| Push ke `main` | Push CI (lint, typecheck, unit suite, PostgreSQL contract; skip langkah berat untuk docs-only); tidak build/deploy; commit menunggu release berikutnya |
-| Schedule hari kerja | Tunggu Push CI exact-SHA sukses, full gates, Release Please, build image, lalu deploy HEAD `main` |
-| Manual **Run workflow** pada `main` | Tunggu Push CI exact-SHA sukses, full gates, build image, lalu deploy; Release Please dilewati |
+| Push non-docs ke `main` | Seluruh gate rilis + build image SHA + manifest release; tidak deploy |
+| Push docs-only aman | Classifier + status stabil; gate berat/build dilewati dan tidak membuat manifest |
+| Schedule hari kerja | Verifikasi manifest Push CI terbaru yang sah lalu migrate/deploy; Release Please berjalan |
+| Manual **Run workflow** | Verifikasi manifest Push CI terbaru yang sah lalu migrate/deploy; Release Please dilewati |
 
-Workflow harus dijalankan pada `main`. Deploy memerlukan:
+Jika HEAD hanya menambahkan dokumen dalam allowlist tertutup setelah full push terakhir,
+Production boleh memakai artifact full ancestor tersebut. Ini fail-closed: artifact SHA
+harus ancestor dari HEAD saat workflow mulai, setiap commit perantara harus linear, dan
+setiap path yang pernah disentuh harus berada dalam allowlist `safeDocuments`. Merge,
+path non-allowlist, history/API/artifact yang hilang, manifest kedaluwarsa, identitas
+run-attempt berbeda, atau bukti ambigu memblokir deploy.
 
-- konsistensi AGENTS dan versi Node;
-- Push CI event `push` exact-SHA yang sukses;
-- lint;
-- dua shard seluruh test dan merge coverage global **71/63/75/72**;
-- validasi Nginx;
-- PostgreSQL contract + full TypeScript validation;
-- JEV provider contract (tergabung di job `lint`); dan
-- image production hasil Buildx.
+## Gate dan identitas artifact
 
-`Status CI` fail-closed: schedule/dispatch dengan gate gagal, cancelled, atau skip
-yang tidak semestinya dinyatakan gagal. Deploy tetap memakai digest immutable dari
-run yang sama. Revision guard membandingkan SHA run dengan HEAD `main` tepat sebelum
-promosi image/SSH; jika push baru masuk saat run berlangsung, release lama sukses
-sebagai verifikasi tetapi tidak mengganti produksi.
+Deploy memerlukan `Push CI Status` sukses pada exact HEAD dan manifest release dari full
+Push CI sukses. Manifest hanya diterbitkan sesudah semua dependency berikut sukses:
+
+- lint, full TypeScript, dan JEV contract;
+- dua test shard, complete discovery, merge coverage global, dan Nginx;
+- return/identity PostgreSQL contracts;
+- durable assistant PostgreSQL/crash contract, worker build, dan health smoke;
+- web + worker Docker build/push bertag SHA.
+
+Tag SHA hanya alamat informasional; deploy memakai digest immutable dari manifest. Nama
+artifact memuat run ID, run attempt, dan SHA. Rerun harus seluruh Push CI workflow agar
+attempt dan artifact tidak tercampur. Manifest dan SHA image availability diselaraskan
+pada jendela 14 hari; bila bukti/image sudah tidak tersedia, buat commit/push baru dan
+jangan bypass readiness.
+
+Revision guard membandingkan remote `main` dengan SHA HEAD saat Production mulai sebelum
+registry atau SSH mutation. Untuk docs-only ancestor, checkout dan image tetap memakai
+artifact SHA, sedangkan guard current-main tetap memakai workflow-start HEAD. Push baru
+yang masuk di tengah release membuat run lama menjadi no-op sebelum mutation.
 
 ## Rilis mendesak
 
-Push dahulu, lalu dispatch workflow pada branch `main`:
+Push dahulu dan tunggu `Push CI Status` hijau, lalu:
 
 ```bash
 gh workflow run production.yml --repo clarinovist/polyflow --ref main
@@ -50,43 +60,25 @@ gh run list --repo clarinovist/polyflow --workflow production.yml --branch main 
 gh run watch <id-run> --repo clarinovist/polyflow --exit-status
 ```
 
-Dispatch manual **bukan** shortcut yang memakai image lama. Workflow membangun image
-SHA terbaru, menjalankan semua gate, lalu deploy hanya jika SHA itu masih HEAD. Ini
-jalur yang benar jika perubahan mendesak belum memiliki image teruji.
-
-Rerun seluruh workflow, bukan failed jobs saja: manifest coverage mengikat run
-attempt, SHA, dan fingerprint sehingga artifact lintas attempt sengaja ditolak.
-
-## Perkiraan penghematan
-
-Sepuluh run sukses sebelum perubahan ini rata-rata menggunakan sekitar **17,55
-runner-menit**. Terdapat 14 run dalam empat hari (sekitar 3,5 per hari). Lima release
-terjadwal per minggu dibanding pola sekitar 24,5 run per minggu memberi estimasi
-pengurangan **79,6% runner-minutes**, selama dispatch urgent jarang. Ini estimasi dari
-occupancy job, bukan tagihan pasti; tinjau kembali metrik sesudah sedikitnya dua minggu.
-
-Penghematan berasal dari membatch commit, bukan dari melewati test. Push yang membutuhkan
-release sebelum jadwal harus memakai dispatch manual, bukan SSH langsung dengan image
-yang belum dibangun/diuji.
+Dispatch manual bukan shortcut untuk image lama atau tag mutable. Pipeline hanya menerima
+manifest Push CI yang lolos dan masih tersedia. Produksi tidak membangun source dan tidak
+mengulang test, sehingga deploy memanfaatkan bukti identik tanpa mengurangi gate.
 
 ## Rollback
 
-Untuk memulihkan release-per-push, revert perubahan trigger/status dengan commit baru,
-lalu dispatch workflow manual agar commit rollback menjalani full gates. Jangan
-mengubah threshold, menghapus gate deploy, menggunakan image SHA yang belum seluruh
-gatenya sukses, atau build langsung di VPS.
+Untuk rollback deterministik, gunakan commit/artifact yang gate-nya pernah sukses dan
+image digest masih tersedia; jangan menggunakan `latest` sebagai identitas. Perubahan
+schema tetap mengikuti kompatibilitas/restore plan. Jika workflow artifact perlu
+dibatalkan, revert dengan commit baru sehingga rollback itu sendiri menjalani Push CI.
 
-Sebelum operasi produksi, baca runbook privat `docs/ops/vps.md`; setelah deploy,
-verifikasi image yang berjalan, health, migration status, dan log startup. CI hijau
-sendiri bukan bukti container terbaru aktif.
+Sebelum operasi produksi, baca runbook privat `docs/ops/vps.md`. Sesudah deploy, cocokkan
+runtime image dengan manifest digest, cek health/log/migration, dan lakukan smoke read-only.
+CI hijau sendiri bukan bukti container baru aktif.
 
 ## Branch protection
 
-`main` akan memakai required check stabil `Push CI Status` (job `ci.yml`) setelah
-commit workflow ini menghasilkan context tersebut pada GitHub. Status ini menerima
-hanya lint/typecheck + test + PostgreSQL contract sukses untuk perubahan penuh, atau
-pola skip `Test`/`PostgreSQL Contract` yang persis untuk docs-only. Selama rollout,
-required check lama `Classify changes` dan `Lint & Typecheck` tetap aktif sampai
-`Push CI Status` pada SHA ini sukses, lalu protection dipindahkan ke context stabil
-itu. Owner tetap dapat bypass (`enforce_admins: false`) bila perlu, tetapi Production
-Pipeline tetap menolak SHA tanpa Push CI exact-SHA sukses.
+`main` memakai required check stabil `Push CI Status`, terikat ke GitHub Actions app.
+Status full hanya hijau jika seluruh gate dan image build sukses. Untuk docs-only, status
+hanya menerima pola eksplisit: `Lint & Typecheck` sukses melalui langkah ringan dan semua
+job berat/build skipped. Owner masih dapat bypass (`enforce_admins: false`), tetapi
+Production readiness tetap menolak bukti Push CI/artifact yang tidak sah.

@@ -1,37 +1,29 @@
 name: Production Pipeline
 
 on:
-  # Batch perubahan agar full release tidak menghabiskan runner pada setiap push.
-  # 14:17 UTC = 21:17 WIB; Senin–Jumat. GitHub cron memakai UTC.
+  # Deploy the newest verified Push CI artifact on weekdays.
   schedule:
     - cron: '17 14 * * 1-5'
-  # Jalur rilis urgent: tetap menjalankan seluruh gate, lalu deploy bila ref main.
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   REPO: ${{ github.repository }}
 
-# Every job pins a dated label (`ubuntu-26.04`, verified schedulable in probe run
-# 37118246651 on 2026-10-03: Ubuntu 26.04.1, kernel 7.0.0, Docker 29.4.2) instead of
-# `ubuntu-latest`, so the runner image only changes when we switch it deliberately.
-# Artifact actions are pinned to the first node24 majors (upload@v6, download@v7);
-# upgrading further is a separate change because download@v8 makes digest mismatches fatal.
-
 permissions:
-  contents: write
-  packages: write
-  pull-requests: write
+  contents: read
+  actions: read
 
 jobs:
-  # ─────────────────────────────────────────────
-  # 1. Automated Release PR (runs independently from release readiness)
-  # ─────────────────────────────────────────────
+  # Release automation remains scheduled and independent from deployment.
   release-please:
     name: Release Please
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'schedule' }}
     runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: googleapis/release-please-action@v5
         with:
@@ -39,10 +31,7 @@ jobs:
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ─────────────────────────────────────────────
-  # 1b. Palang ringan selalu aktif, tanpa npm ci atau service database.
-  #     Schedule/dispatch selalu memilih jalur lengkap secara fail-safe.
-  # ─────────────────────────────────────────────
+  # Lightweight policy guard only. No dependency install, test, or image build.
   agents-consistency:
     name: AGENTS.md Consistency
     runs-on: ubuntu-26.04
@@ -67,11 +56,11 @@ jobs:
         id: changes
         run: node scripts/ci/changes.mjs
 
-  # Require successful push feedback for this exact main SHA before allocating
-  # release runners. The check waits for a concurrently-started Push CI run and
-  # fails closed on a missing, cancelled, failed, or malformed result.
+  # Select an exact successful Push CI release artifact. If current HEAD is
+  # docs-only, the latest full ancestor is allowed only when every intervening
+  # path is in the explicit safe-document allowlist.
   release-readiness:
-    name: Exact-SHA Push CI Readiness
+    name: Verified Push Artifact Readiness
     needs: agents-consistency
     if: ${{ needs.agents-consistency.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
@@ -80,361 +69,59 @@ jobs:
       contents: read
       actions: read
     outputs:
-      full: ${{ needs.agents-consistency.outputs.full }}
-      push-run-id: ${{ steps.readiness.outputs.run-id }}
+      run-id: ${{ steps.readiness.outputs.run-id }}
+      run-attempt: ${{ steps.readiness.outputs.run-attempt }}
+      release-sha: ${{ steps.readiness.outputs.release-sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
-      - name: Require successful exact-SHA Push CI
+      - name: Select verified Push CI artifact
         id: readiness
         uses: actions/github-script@v8
         with:
           script: |
             await require('./scripts/ci/release-readiness.cjs').check({ github, context, core });
 
-  # ─────────────────────────────────────────────
-  # 2a. Lint
-  #     Split out of `test` deliberately: ESLint (~74s) and vitest (~166s) share
-  #     no output, so running them serially in one job just added ~74s to the
-  #     critical path. They now run side by side.
-  #     NOTE: `deploy` MUST keep `lint` in its `needs` list — dropping it would
-  #     silently demote lint from a deploy gate to a decorative red X.
-  # ─────────────────────────────────────────────
-  lint:
-    name: Lint
+  # Download only the manifest emitted by the approved Push CI run and validate
+  # its repository/SHA/run/attempt/digest identity before deployment.
+  release-artifact:
+    name: Verify Release Artifact
     needs: release-readiness
-    if: ${{ needs.release-readiness.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - run: node scripts/ci/metrics.mjs install npm ci
-
-      # Required: eslint-config-next type-aware rules resolve imports that
-      # include the generated Prisma client. Without this the lint job fails on
-      # unresolved types rather than on real violations.
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Run ESLint
-        run: node scripts/ci/metrics.mjs lint npm run lint
-
-      # JEV provider contract merged into lint (Fase 2): still a required deploy
-      # gate — deploy needs `lint` — just no longer a separate runner. Coupling is
-      # unchanged: deploy already depended on the JEV contract passing.
-      - name: Verify pinned JEV provider contract
-        env:
-          SYSTEMONE_API_KEY: ${{ secrets.SYSTEMONE_API_KEY }}
-        run: node scripts/smoke-assistant-jev.mjs
-
-  # ─────────────────────────────────────────────
-  # 2b. Tests
-  # ─────────────────────────────────────────────
-  test-shards:
-    name: Test shard ${{ matrix.shard }}
-    needs: release-readiness
-    if: ${{ needs.release-readiness.outputs.full == 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 20
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - shard: '1/2'
-            artifact: shard-1
-          - shard: '2/2'
-            artifact: shard-2
+      actions: read
+    outputs:
+      release-sha: ${{ steps.manifest.outputs.release-sha }}
+      digest: ${{ steps.manifest.outputs.digest }}
+      worker-digest: ${{ steps.manifest.outputs.worker-digest }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Check Node version consistency
-        run: bash scripts/check-node-version.sh
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-      - run: node scripts/ci/metrics.mjs install npm ci
-      - name: Generate Prisma Client
-        run: npx prisma generate
-      - name: Record runner and runtime (allowlisted fields only)
-        run: node scripts/ci/metrics.mjs hardware
-      - name: Run test shard with coverage
-        env:
-          SHARD: ${{ matrix.shard }}
-        run: node scripts/ci/benchmark.mjs run shards "$SHARD"
-      - uses: actions/upload-artifact@v6
-        with:
-          name: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-${{ matrix.artifact }}
-          path: |
-            coverage/ci-benchmark/blob.json
-            coverage/ci-benchmark/result.json
-            coverage/ci-benchmark/metrics.jsonl
-          if-no-files-found: error
-          retention-days: 14
-
-  # Stable required gate: both shards, global thresholds, then Nginx validation.
-  test:
-    name: Test & Validate
-    needs: [release-readiness, test-shards]
-    if: ${{ always() && needs.release-readiness.result == 'success' && needs.release-readiness.outputs.full == 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - name: Require both test shards
-        env:
-          SHARDS_RESULT: ${{ needs.test-shards.result }}
-        run: |
-          if [ "$SHARDS_RESULT" != "success" ]; then
-            printf 'Both test shards must succeed; got: %s\n' "$SHARDS_RESULT" >&2
-            exit 1
-          fi
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
-      # Runs before setup-node deliberately: if .nvmrc and the Dockerfile have
-      # drifted, fail in ~1s rather than after a full npm ci + test run.
-      - name: Check Node version consistency
-        run: bash scripts/check-node-version.sh
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - run: node scripts/ci/metrics.mjs install npm ci
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Record runner and runtime (allowlisted fields only)
-        run: node scripts/ci/metrics.mjs hardware
-
       - uses: actions/download-artifact@v7
         with:
-          pattern: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*
-          path: coverage/ci-input
-          merge-multiple: false
-      - name: Run Tests with Coverage
-        run: node scripts/ci/benchmark.mjs merge coverage/ci-input
-      - uses: actions/upload-artifact@v6
-        with:
-          name: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-merged
-          path: |
-            coverage/ci-merged/result.json
-            coverage/ci-merged/metrics.jsonl
-            coverage/ci-merged/coverage/coverage-final.json
-          if-no-files-found: error
-          retention-days: 14
-
-      # Next.js build intentionally NOT run here — the Dockerfile builds it anyway
-      # (RUN npm run build), so doing it twice added ~102s to the critical path for
-      # an artifact nobody consumed. A broken build now surfaces in build-and-push,
-      # which runs in parallel with this job, so time-to-failure did not regress.
-
-      - name: Validate Nginx configuration
-        run: |
-          mkdir -p certs/live/polyflow.uk
-          openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
-            -keyout certs/live/polyflow.uk/privkey.pem \
-            -out certs/live/polyflow.uk/fullchain.pem \
-            -subj "/CN=polyflow.uk"
-          echo "events {} http { include /etc/nginx/conf.d/*.conf; }" > nginx.conf
-          docker run --rm \
-            --add-host polyflow-app:127.0.0.1 \
-            -v ${{ github.workspace }}/nginx/polyflow.conf:/etc/nginx/conf.d/polyflow.conf:ro \
-            -v ${{ github.workspace }}/nginx.conf:/etc/nginx/nginx.conf:ro \
-            -v ${{ github.workspace }}/certs:/etc/letsencrypt:ro \
-            nginx:alpine nginx -t
-
-  # Same real PostgreSQL suite as Push CI. This remains a release gate so the
-  # release runner independently proves the checked-out SHA and environment.
-  return-contract:
-    name: Return PostgreSQL Contract & Typecheck
-    needs: release-readiness
-    if: ${{ needs.release-readiness.outputs.full == 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:15-alpine
+          name: release-${{ needs.release-readiness.outputs.run-id }}-${{ needs.release-readiness.outputs.run-attempt }}-${{ needs.release-readiness.outputs.release-sha }}
+          path: release-evidence
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.release-readiness.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify release manifest identity
+        id: manifest
         env:
-          POSTGRES_PASSWORD: disposable-ci-only
-        ports:
-          - 55439:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      RETURN_CREDIT_TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_return_credit_scope_test
-      CENTRAL_IDENTITY_TEST_ADMIN_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/postgres
-      TEST_DATABASE_URL: postgresql://postgres:disposable-ci-only@127.0.0.1:55439/polyflow_recognition_test
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-      - run: npm ci
-      - run: npx prisma generate
-      - name: Generate route types and validate TypeScript
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: npx next typegen && npx tsc --noEmit
-      - name: Run release PostgreSQL contracts
-        run: bash scripts/ci/run-postgres-contracts.sh
+          EXPECTED_RELEASE_SHA: ${{ needs.release-readiness.outputs.release-sha }}
+          EXPECTED_RUN_ID: ${{ needs.release-readiness.outputs.run-id }}
+          EXPECTED_RUN_ATTEMPT: ${{ needs.release-readiness.outputs.run-attempt }}
+        run: node scripts/ci/release-artifact.cjs verify release-evidence/manifest.json
 
-  assistant-contract:
-    name: Durable Assistant PostgreSQL & Crash Contract
-    needs: release-readiness
-    if: ${{ needs.release-readiness.outputs.full == 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_PASSWORD: disposable-assistant-ci-only
-        ports:
-          - 55440:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      ASSISTANT_TEST_ADMIN_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/postgres
-      ASSISTANT_TEST_MAIN_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_main_test
-      ASSISTANT_TEST_TENANT_A_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_tenant_a_test
-      ASSISTANT_TEST_TENANT_B_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_tenant_b_test
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-      - run: npm ci
-      - run: npx prisma generate
-      - run: node scripts/ci/setup-assistant-test-dbs.mjs
-      - name: Validate worker contracts, migrations, and crash recovery
-        run: >-
-          npx vitest run --maxWorkers=1 --no-file-parallelism
-          src/lib/bot/durable/__tests__
-      - name: Build worker artifact
-        run: npm run typecheck:assistant-worker && npm run build:assistant-worker
-      - name: Smoke worker health and graceful shutdown
-        run: |
-          set -eu
-          export ASSISTANT_WORKER_TOKEN=ci-only-assistant-worker-token-0001
-          export ASSISTANT_STORAGE_ROOT="$RUNNER_TEMP/assistant-worker"
-          export LLM_BASE_URL=http://127.0.0.1:9/v1
-          export LLM_API_KEY=ci-only
-          export LLM_MODEL=ci-faux
-          export ASSISTANT_WORKER_PORT=3011
-          export DATABASE_URL="$ASSISTANT_TEST_MAIN_DATABASE_URL"
-          node dist/assistant-worker/index.mjs >"$RUNNER_TEMP/assistant-worker.log" 2>&1 &
-          pid=$!
-          trap 'kill -TERM "$pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 30); do
-            curl -fsS http://127.0.0.1:3011/health/ready && break
-            [ "$attempt" -eq 30 ] && exit 1
-            sleep 1
-          done
-          kill -TERM "$pid"
-          wait "$pid"
-          trap - EXIT
-
-  # ─────────────────────────────────────────────
-  # 2c. JEV provider contract merged into `lint` (see lint job, final step).
-  # ─────────────────────────────────────────────
-
-  # ─────────────────────────────────────────────
-  # 3. Build & Push Docker Image
-  #    Deliberately does NOT `needs: test` — the image build consumes no test
-  #    output, so the two run side by side and only `deploy` waits for both.
-  #    The image is published under its commit SHA only. `:latest` is applied
-  #    later, in `deploy`, once tests are green — otherwise a red test run with a
-  #    green build would leave `:latest` pointing at untested code, and the manual
-  #    `docker compose pull` recovery path on the VPS would happily deploy it.
-  # ─────────────────────────────────────────────
-  build-and-push:
-    name: Build & Push Docker Image
-    needs: release-readiness
-    if: ${{ needs.release-readiness.outputs.full == 'true' }}
-    runs-on: ubuntu-26.04
-    outputs:
-      digest: ${{ steps.image.outputs.digest }}
-      worker-digest: ${{ steps.worker-image.outputs.digest }}
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.CR_PAT }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build and push web Docker image
-        id: image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          build-args: |
-            NEXT_DEPLOYMENT_ID=${{ github.sha }}
-          tags: ${{ env.REGISTRY }}/${{ env.REPO }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache,mode=max
-
-      - name: Build and push assistant worker image
-        id: worker-image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile.assistant-worker
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:buildcache,mode=max
-
-  # ─────────────────────────────────────────────
-  # 4. Deploy to VPS
-  # ─────────────────────────────────────────────
+  # Production consumes evidence; it never recompiles or reruns source tests.
   deploy:
     name: Deploy to VPS
-    needs: [test, lint, build-and-push, return-contract, assistant-contract]
+    needs: release-artifact
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-26.04
     concurrency:
@@ -452,14 +139,12 @@ jobs:
         id: revision
         uses: actions/github-script@v8
         env:
-          IMAGE_DIGEST: ${{ needs.build-and-push.outputs.digest }}
-          WORKER_IMAGE_DIGEST: ${{ needs.build-and-push.outputs.worker-digest }}
+          RELEASE_SHA: ${{ needs.release-artifact.outputs.release-sha }}
+          IMAGE_DIGEST: ${{ needs.release-artifact.outputs.digest }}
+          WORKER_IMAGE_DIGEST: ${{ needs.release-artifact.outputs.worker-digest }}
         with:
           script: |
-            await require('./scripts/ci/release-guard.cjs').check({ github, context, core, digest: process.env.IMAGE_DIGEST, workerDigest: process.env.WORKER_IMAGE_DIGEST });
-      # `needs` above is the real gate: this job only starts when tests AND lint
-      # are green AND the image exists. Promoting the tag here is what keeps
-      # `:latest` a "tested" marker rather than merely a "built" one.
+            await require('./scripts/ci/release-guard.cjs').check({ github, context: { ...context, sha: process.env.RELEASE_SHA }, currentSha: context.sha, core, digest: process.env.IMAGE_DIGEST, workerDigest: process.env.WORKER_IMAGE_DIGEST });
       - name: Log in to Container Registry
         if: steps.revision.outputs.current == 'true'
         uses: docker/login-action@v4
@@ -467,12 +152,11 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.CR_PAT }}
-
       - name: Promote tested images to :latest
         if: steps.revision.outputs.current == 'true'
         env:
-          DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}
-          ASSISTANT_WORKER_DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.build-and-push.outputs.worker-digest }}
+          DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.release-artifact.outputs.digest }}
+          ASSISTANT_WORKER_DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.release-artifact.outputs.worker-digest }}
         run: |
           docker buildx imagetools create \
             --tag "$REGISTRY/$REPO:latest" \
@@ -480,7 +164,6 @@ jobs:
           docker buildx imagetools create \
             --tag "$REGISTRY/$REPO-assistant-worker:latest" \
             "$ASSISTANT_WORKER_DEPLOY_IMAGE"
-
       - name: Deploy via SSH
         if: steps.revision.outputs.current == 'true'
         uses: appleboy/ssh-action@v1.2.5
@@ -506,8 +189,6 @@ jobs:
             python3 scripts/write-operations-snapshot.py
             printf '%s' "$CR_PAT" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
             docker compose pull assistant-worker polyflow
-            # Run schema changes exactly once from the tested immutable web image.
-            # Existing runtime containers remain untouched if this fails.
             docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow
             docker compose up -d --no-deps --no-build assistant-worker
             for attempt in $(seq 1 30); do
@@ -528,17 +209,16 @@ jobs:
             curl --fail --silent --show-error --max-time 15 "$PUBLIC_HEALTH_URL"
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
-          DEPLOY_SHA: ${{ github.sha }}
-          DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.build-and-push.outputs.digest }}
-          ASSISTANT_WORKER_DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.build-and-push.outputs.worker-digest }}
+          DEPLOY_SHA: ${{ needs.release-artifact.outputs.release-sha }}
+          DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}@${{ needs.release-artifact.outputs.digest }}
+          ASSISTANT_WORKER_DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker@${{ needs.release-artifact.outputs.worker-digest }}
           PUBLIC_HEALTH_URL: https://polyflow.uk/api/health
           REGISTRY_USER: ${{ github.actor }}
 
-  # Status rilis: merah bila gate gagal/cancelled/skip di luar rencana.
   status:
     name: Status CI
     if: ${{ always() }}
-    needs: [agents-consistency, release-readiness, test-shards, test, lint, build-and-push, return-contract, assistant-contract, deploy, release-please]
+    needs: [agents-consistency, release-readiness, release-artifact, deploy, release-please]
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -555,11 +235,7 @@ jobs:
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
         run: node scripts/ci/changes.mjs status
-      # Observability only, never a replacement for deploy's required gates.
-      # Merged from the former `timing` job; continue-on-error keeps a timeline
-      # failure from turning the fail-closed Status CI gate red.
-      - name: Pipeline timing report
-        if: ${{ always() && needs.agents-consistency.outputs.full == 'true' }}
+      - name: Deployment timing report
         continue-on-error: true
         uses: actions/github-script@v8
         with:

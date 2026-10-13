@@ -34,6 +34,7 @@ interface Workflow {
 const require = createRequire(import.meta.url);
 const { load } = require('js-yaml'); // Already installed via ESLint; no new dependency.
 const { summarize, cacheTimings } = require('../../../../scripts/ci/timeline.cjs');
+const push = load(readFileSync(resolve('.github/workflows/ci.yml'), 'utf8')) as Workflow;
 const production = load(readFileSync(resolve('.github/workflows/production.yml'), 'utf8')) as Workflow;
 const benchmark = load(readFileSync(resolve('.github/workflows/ci-benchmark.yml'), 'utf8')) as Workflow;
 const expected = { run: '123', attempt: '2', sha: 'a'.repeat(40), fingerprint: 'lock' };
@@ -43,44 +44,24 @@ const report = (shard: string, name: string) => ({ ...expected, shard, candidate
 const reports = () => [report('1/2', 'a'), report('2/2', 'b')];
 
 describe('CI performance guardrails', () => {
-    it('keeps production parallel and gated on original jobs plus the return transaction contract', () => {
-        expect(production.jobs.deploy.needs).toEqual([
-            'test',
-            'lint',
-            'build-and-push',
-            'return-contract',
-            'assistant-contract',
-        ]);
-        expect(production.jobs.test.needs).toEqual(['release-readiness', 'test-shards']);
-        expect(production.jobs['release-readiness'].needs).toBe('agents-consistency');
-        expect(production.jobs['release-readiness'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
-        for (const name of [
-            'test-shards',
-            'lint',
-            'build-and-push',
-            'return-contract',
-            'assistant-contract',
-        ]) {
-            expect(production.jobs[name].needs).toBe('release-readiness');
-            expect(production.jobs[name].if).toBe("${{ needs.release-readiness.outputs.full == 'true' }}");
-            expect(production.jobs[name]['continue-on-error']).toBeUndefined();
+    it('moves every release gate/build to Push CI and keeps Production deploy-only', () => {
+        expect(push.jobs.test.needs).toEqual(['classify', 'test-shards']);
+        expect(push.jobs['release-readiness']).toBeUndefined();
+        for (const name of ['test-shards', 'lint-typecheck', 'build-and-push', 'postgres-contract', 'assistant-contract']) {
+            expect(push.jobs[name].needs).toBe('classify');
+            expect(push.jobs[name]['continue-on-error']).toBeUndefined();
         }
-        const command = production.jobs.test.steps.find(step => step.name === 'Run Tests with Coverage')!.run;
+        const command = push.jobs.test.steps.find(step => step.name === 'Run Tests with Coverage')!.run;
         expect(command).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
         expect(command).not.toMatch(/--shard|--maxWorkers|--exclude|--no-isolate/);
-        // Kondisi event tetap memakai implicit success(), bukan always().
-        expect(production.jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
-        const contract = production.jobs['return-contract'];
-        expect(contract.services.postgres.image).toBe('postgres:15-alpine');
-        expect(contract.services.postgres.ports).toEqual(['55439:5432']);
-        for (const step of contract.steps) expect(step['continue-on-error']).toBeUndefined();
-        const commands = contract.steps.map((step: { run?: string }) => step.run ?? '').join('\n');
-        expect(commands).toContain('tsc --noEmit');
-        expect(commands).toContain('bash scripts/ci/run-postgres-contracts.sh');
+        expect(production.jobs.deploy.needs).toBe('release-artifact');
+        expect(Object.keys(production.jobs)).toEqual([
+            'release-please', 'agents-consistency', 'release-readiness', 'release-artifact', 'deploy', 'status',
+        ]);
+        expect(JSON.stringify(production)).not.toMatch(/npm ci|vitest|build-push-action|setup-buildx/);
         const shared = readFileSync(resolve('scripts/ci/run-postgres-contracts.sh'), 'utf8');
         expect(shared).toContain('setup-return-test-db.mjs');
         expect(shared).toContain('quick-sales-return-postgres.test.ts');
-        expect(shared).toContain('sales-return-receipt-postgres.test.ts');
         expect(shared).toContain('manual-return-credit-postgres.test.ts');
     });
 

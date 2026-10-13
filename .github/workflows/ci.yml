@@ -1,26 +1,28 @@
 name: Push CI
 
-# Fast feedback on push to main: lint, typecheck, tests, and the same disposable
-# PostgreSQL contract suite used by the release pipeline. Full coverage and image
-# builds stay in production.yml. Docs-only pushes skip the heavy steps through
-# scripts/ci/changes.mjs, so documentation edits do not pay for an install or DB.
+# A full push is the single producer of verified release artifacts: all required
+# gates run here, then both images are published by immutable digest. Docs-only
+# pushes keep the lightweight path and produce no release artifact.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Push beruntun membatalkan push lama, tetapi dispatch manual tidak boleh
-# membatalkan bukti event push yang diwajibkan Production Pipeline.
+# Every SHA needs durable release evidence. A later docs-only push must not
+# cancel or replace an older full build that may be its releasable ancestor.
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  REPO: ${{ github.repository }}
 
 permissions:
   contents: read
 
 jobs:
-  # Palang ringan selalu aktif, tanpa npm ci atau service database.
   classify:
     name: Classify changes
     runs-on: ubuntu-26.04
@@ -40,8 +42,8 @@ jobs:
         id: changes
         run: node scripts/ci/changes.mjs
 
-  # Selalu selesai (sukses/gagal) bila classify sukses, agar branch protection
-  # bisa memakai job ini sebagai required check — termasuk push docs-only.
+  # Stable for docs-only pushes; full pushes also enforce lint, whole-project
+  # typecheck and the pinned external-provider contract.
   lint-typecheck:
     name: Lint & Typecheck
     needs: classify
@@ -61,41 +63,134 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-      - run: npm ci
+      - run: node scripts/ci/metrics.mjs install npm ci
         if: needs.classify.outputs.full == 'true'
-      # Required: eslint-config-next type-aware rules resolve imports that
-      # include the generated Prisma client.
       - name: Generate Prisma Client
         if: needs.classify.outputs.full == 'true'
         run: npx prisma generate
       - name: Run ESLint
         if: needs.classify.outputs.full == 'true'
-        run: npm run lint
+        run: node scripts/ci/metrics.mjs lint npm run lint
       - name: Generate route types and validate TypeScript
         if: needs.classify.outputs.full == 'true'
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npx next typegen && npx tsc --noEmit
+      - name: Verify pinned JEV provider contract
+        if: needs.classify.outputs.full == 'true'
+        env:
+          SYSTEMONE_API_KEY: ${{ secrets.SYSTEMONE_API_KEY }}
+        run: node scripts/smoke-assistant-jev.mjs
 
-  # Fast unit/mock feedback without coverage. Real PostgreSQL contracts live in
-  # the separate job below so a skipped integration test cannot make CI green.
-  test:
-    name: Test
+  test-shards:
+    name: Test shard ${{ matrix.shard }}
     needs: classify
     if: ${{ needs.classify.result == 'success' && needs.classify.outputs.full == 'true' }}
     runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: '1/2'
+            artifact: shard-1
+          - shard: '2/2'
+            artifact: shard-2
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Check Node version consistency
+        run: bash scripts/check-node-version.sh
       - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-      - run: npm ci
+      - run: node scripts/ci/metrics.mjs install npm ci
       - name: Generate Prisma Client
         run: npx prisma generate
-      - name: Run test suite
-        run: npm run test
+      - name: Record runner and runtime
+        run: node scripts/ci/metrics.mjs hardware
+      - name: Run test shard with coverage
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: node scripts/ci/benchmark.mjs run shards "$SHARD"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-${{ matrix.artifact }}
+          path: |
+            coverage/ci-benchmark/blob.json
+            coverage/ci-benchmark/result.json
+            coverage/ci-benchmark/metrics.jsonl
+          if-no-files-found: error
+          retention-days: 14
+
+  # Stable full-suite gate: both shards, original global thresholds, and Nginx.
+  test:
+    name: Test & Validate
+    needs: [classify, test-shards]
+    if: ${{ always() && needs.classify.result == 'success' && needs.classify.outputs.full == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Require both test shards
+        env:
+          SHARDS_RESULT: ${{ needs.test-shards.result }}
+        run: |
+          if [ "$SHARDS_RESULT" != "success" ]; then
+            printf 'Both test shards must succeed; got: %s\n' "$SHARDS_RESULT" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check Node version consistency
+        run: bash scripts/check-node-version.sh
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: node scripts/ci/metrics.mjs install npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Record runner and runtime
+        run: node scripts/ci/metrics.mjs hardware
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*
+          path: coverage/ci-input
+          merge-multiple: false
+      - name: Run Tests with Coverage
+        run: node scripts/ci/benchmark.mjs merge coverage/ci-input
+      - uses: actions/upload-artifact@v6
+        with:
+          name: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-merged
+          path: |
+            coverage/ci-merged/result.json
+            coverage/ci-merged/metrics.jsonl
+            coverage/ci-merged/coverage/coverage-final.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Validate Nginx configuration
+        run: |
+          mkdir -p certs/live/polyflow.uk
+          openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+            -keyout certs/live/polyflow.uk/privkey.pem \
+            -out certs/live/polyflow.uk/fullchain.pem \
+            -subj "/CN=polyflow.uk"
+          echo "events {} http { include /etc/nginx/conf.d/*.conf; }" > nginx.conf
+          docker run --rm \
+            --add-host polyflow-app:127.0.0.1 \
+            -v ${{ github.workspace }}/nginx/polyflow.conf:/etc/nginx/conf.d/polyflow.conf:ro \
+            -v ${{ github.workspace }}/nginx.conf:/etc/nginx/nginx.conf:ro \
+            -v ${{ github.workspace }}/certs:/etc/letsencrypt:ro \
+            nginx:alpine nginx -t
 
   postgres-contract:
     name: PostgreSQL Contract
@@ -134,15 +229,131 @@ jobs:
       - name: Run release PostgreSQL contracts
         run: bash scripts/ci/run-postgres-contracts.sh
 
-  # Stable required check for both full and docs-only pushes. Conditional jobs
-  # may be skipped only in the classifier-approved docs-only pattern.
+  assistant-contract:
+    name: Durable Assistant PostgreSQL & Crash Contract
+    needs: classify
+    if: ${{ needs.classify.result == 'success' && needs.classify.outputs.full == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: disposable-assistant-ci-only
+        ports:
+          - 55440:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ASSISTANT_TEST_ADMIN_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/postgres
+      ASSISTANT_TEST_MAIN_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_main_test
+      ASSISTANT_TEST_TENANT_A_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_tenant_a_test
+      ASSISTANT_TEST_TENANT_B_DATABASE_URL: postgresql://postgres:disposable-assistant-ci-only@127.0.0.1:55440/polyflow_assistant_tenant_b_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: node scripts/ci/setup-assistant-test-dbs.mjs
+      - name: Validate worker contracts, migrations, and crash recovery
+        run: >-
+          npx vitest run --maxWorkers=1 --no-file-parallelism
+          src/lib/bot/durable/__tests__
+      - name: Build worker artifact
+        run: npm run typecheck:assistant-worker && npm run build:assistant-worker
+      - name: Smoke worker health and graceful shutdown
+        run: |
+          set -eu
+          export ASSISTANT_WORKER_TOKEN=ci-only-assistant-worker-token-0001
+          export ASSISTANT_STORAGE_ROOT="$RUNNER_TEMP/assistant-worker"
+          export LLM_BASE_URL=http://127.0.0.1:9/v1
+          export LLM_API_KEY=ci-only
+          export LLM_MODEL=ci-faux
+          export ASSISTANT_WORKER_PORT=3011
+          export DATABASE_URL="$ASSISTANT_TEST_MAIN_DATABASE_URL"
+          node dist/assistant-worker/index.mjs >"$RUNNER_TEMP/assistant-worker.log" 2>&1 &
+          pid=$!
+          trap 'kill -TERM "$pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3011/health/ready && break
+            [ "$attempt" -eq 30 ] && exit 1
+            sleep 1
+          done
+          kill -TERM "$pid"
+          wait "$pid"
+          trap - EXIT
+
+  # SHA tags may exist for a failed run, but only the final manifest below makes
+  # them eligible for deployment. :latest is still promoted only during deploy.
+  build-and-push:
+    name: Build & Push Docker Image
+    needs: classify
+    if: ${{ needs.classify.result == 'success' && needs.classify.outputs.full == 'true' }}
+    runs-on: ubuntu-26.04
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+      worker-digest: ${{ steps.worker-image.outputs.digest }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push web Docker image
+        id: image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          build-args: |
+            NEXT_DEPLOYMENT_ID=${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.REPO }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache,mode=max
+      - name: Build and push assistant worker image
+        id: worker-image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.assistant-worker
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}-assistant-worker:buildcache,mode=max
+
+  # Stable branch-protection context and sole release-evidence publisher.
   status:
     name: Push CI Status
+    # The manifest is written only after the shell status gate exits zero. A
+    # failed dependency therefore cannot publish deployable evidence.
     if: ${{ always() }}
-    needs: [classify, lint-typecheck, test, postgres-contract]
+    needs: [classify, lint-typecheck, test-shards, test, postgres-contract, assistant-contract, build-and-push]
     runs-on: ubuntu-26.04
     permissions:
       contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -152,3 +363,24 @@ jobs:
         env:
           PUSH_CI_NEEDS: ${{ toJSON(needs) }}
         run: node scripts/ci/changes.mjs push-status
+      - name: Create immutable release manifest
+        if: ${{ success() && needs.classify.outputs.full == 'true' }}
+        env:
+          WEB_IMAGE_DIGEST: ${{ needs.build-and-push.outputs.digest }}
+          WORKER_IMAGE_DIGEST: ${{ needs.build-and-push.outputs.worker-digest }}
+        run: node scripts/ci/release-artifact.cjs create release-evidence/manifest.json
+      - name: Publish immutable release manifest
+        if: ${{ success() && needs.classify.outputs.full == 'true' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: release-evidence/manifest.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Pipeline timing report
+        if: ${{ always() && needs.classify.outputs.full == 'true' }}
+        continue-on-error: true
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await require('./scripts/ci/timeline.cjs').report({ github, context, core });

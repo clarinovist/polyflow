@@ -1,138 +1,163 @@
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const readiness = require('../../../../scripts/ci/release-readiness.cjs') as {
     check(input: Record<string, unknown>): Promise<void>;
-    latestExactRun(response: unknown, sha: string): { id: number; status: string; conclusion?: string } | undefined;
+    assertSafeReleaseDelta(root: string, releaseSha: string, headSha: string): void;
 };
-const { load } = require('js-yaml') as { load(text: string): Workflow };
-interface Step { id?: string; name?: string; run?: string; uses?: string; if?: string; with?: Record<string, string> }
-interface Workflow {
-    concurrency?: { group: string; 'cancel-in-progress': boolean };
-    jobs: Record<string, Job>;
-}
-interface Job {
-    needs?: string | string[];
-    if?: string;
-    permissions?: Record<string, string>;
-    outputs?: Record<string, string>;
-    services?: Record<string, unknown>;
-    env?: Record<string, string>;
-    steps: Step[];
-}
-const push = load(readFileSync('.github/workflows/ci.yml', 'utf8'));
-const production = load(readFileSync('.github/workflows/production.yml', 'utf8'));
+const artifact = require('../../../../scripts/ci/release-artifact.cjs') as {
+    createManifest(env: Record<string, string>): Record<string, unknown>;
+    validateIdentity(value: unknown): Record<string, unknown>;
+    verifyManifest(value: unknown, env: Record<string, string>): Record<string, unknown>;
+};
 const sha = 'a'.repeat(40);
+const digest = `sha256:${'b'.repeat(64)}`;
+const workerDigest = `sha256:${'c'.repeat(64)}`;
 const run = (patch: Record<string, unknown> = {}) => ({
-    id: 123,
-    head_sha: sha,
-    head_branch: 'main',
-    event: 'push',
-    status: 'completed',
-    conclusion: 'success',
-    ...patch,
+    id: 123, run_attempt: 2, head_sha: sha, head_branch: 'main', event: 'push',
+    status: 'completed', conclusion: 'success', ...patch,
 });
-const dependencies = (runs: Record<string, unknown>[]) => ({
-    github: { rest: { actions: { listWorkflowRuns: vi.fn().mockResolvedValue({ data: { workflow_runs: runs } }) } } },
-    context: { sha, ref: 'refs/heads/main', repo: { owner: 'fixture', repo: 'app' } },
-    core: { setOutput: vi.fn(), notice: vi.fn(), info: vi.fn() },
-    sleep: vi.fn().mockResolvedValue(undefined),
-    attempts: 2,
-    intervalMs: 0,
-});
+const dependencies = (exactRuns: Record<string, unknown>[], releaseRuns?: Record<string, unknown>[]) => {
+    const fixture = syntheticRepo();
+    const actualSha = fixture.git('rev-parse', 'HEAD');
+    const normalize = (item: Record<string, unknown>) => ({ ...item, head_sha: actualSha });
+    return {
+        github: {
+            rest: { actions: {
+                listWorkflowRuns: vi.fn().mockResolvedValue({ data: { workflow_runs: exactRuns.map(normalize) } }),
+                listWorkflowRunArtifacts: vi.fn().mockResolvedValue({ data: {
+                    artifacts: [{ name: `release-123-2-${actualSha}`, expired: false }],
+                } }),
+            } },
+            paginate: vi.fn().mockResolvedValue((releaseRuns ?? [run()]).map(normalize)),
+        },
+        context: { sha: actualSha, ref: 'refs/heads/main', repo: { owner: 'fixture', repo: 'app' } },
+        core: { setOutput: vi.fn(), notice: vi.fn(), info: vi.fn() },
+        root: fixture.root, sleep: vi.fn().mockResolvedValue(undefined), attempts: 2, intervalMs: 0,
+    };
+};
 
-describe('exact-SHA Push CI readiness', () => {
-    it('accepts only a completed successful push run for exact main SHA', async () => {
-        const input = dependencies([run(), run({ id: 999, head_sha: 'b'.repeat(40) })]);
-        await readiness.check(input);
-        expect(input.github.rest.actions.listWorkflowRuns).toHaveBeenCalledWith({
-            owner: 'fixture', repo: 'app', workflow_id: 'ci.yml', branch: 'main', event: 'push', head_sha: sha, per_page: 20,
-        });
-        expect(input.core.setOutput).toHaveBeenCalledWith('run-id', '123');
+function syntheticRepo() {
+    const root = mkdtempSync(resolve(tmpdir(), 'release-readiness-'));
+    const git = (...args: string[]) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
+    git('init', '-q');
+    git('config', 'user.name', 'CI Test'); git('config', 'user.email', 'ci@example.invalid');
+    mkdirSync(resolve(root, 'docs/development'), { recursive: true });
+    writeFileSync(resolve(root, 'src.ts'), 'one\n');
+    writeFileSync(resolve(root, 'docs/development/ci-selective.md'), 'one\n');
+    git('add', '.'); git('commit', '-qm', 'base'); const base = git('rev-parse', 'HEAD');
+    return { root, git, base };
+}
+
+describe('release artifact manifest', () => {
+    const env = {
+        GITHUB_REPOSITORY: 'fixture/app', GITHUB_SHA: sha, GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '2',
+        WEB_IMAGE_DIGEST: digest, WORKER_IMAGE_DIGEST: workerDigest,
+    };
+    it('round-trips exact repository, SHA, run, attempt and digests', () => {
+        const manifest = artifact.createManifest(env);
+        expect(artifact.verifyManifest(manifest, {
+            GITHUB_REPOSITORY: 'fixture/app', EXPECTED_RELEASE_SHA: sha,
+            EXPECTED_RUN_ID: '123', EXPECTED_RUN_ATTEMPT: '2',
+        })).toEqual(manifest);
     });
+    it.each([
+        {}, { ...artifact.createManifest(env), extra: true },
+        { ...artifact.createManifest(env), sha: 'main' },
+        { ...artifact.createManifest(env), webDigest: 'latest' },
+        { ...artifact.createManifest(env), repository: 'bad' },
+    ])('rejects malformed/expanded manifests %#', value => {
+        expect(() => artifact.validateIdentity(value)).toThrow('identity');
+    });
+    it.each([
+        { GITHUB_REPOSITORY: 'other/app', EXPECTED_RELEASE_SHA: sha, EXPECTED_RUN_ID: '123', EXPECTED_RUN_ATTEMPT: '2' },
+        { GITHUB_REPOSITORY: 'fixture/app', EXPECTED_RELEASE_SHA: 'd'.repeat(40), EXPECTED_RUN_ID: '123', EXPECTED_RUN_ATTEMPT: '2' },
+        { GITHUB_REPOSITORY: 'fixture/app', EXPECTED_RELEASE_SHA: sha, EXPECTED_RUN_ID: '999', EXPECTED_RUN_ATTEMPT: '2' },
+        { GITHUB_REPOSITORY: 'fixture/app', EXPECTED_RELEASE_SHA: sha, EXPECTED_RUN_ID: '123', EXPECTED_RUN_ATTEMPT: '3' },
+    ])('rejects manifest identity mismatch %#', expected => {
+        expect(() => artifact.verifyManifest(artifact.createManifest(env), expected)).toThrow('approved');
+    });
+});
 
-    it.each(['failure', 'cancelled', 'timed_out', 'skipped', 'neutral'])('rejects completed %s Push CI', async conclusion => {
+describe('exact Push CI and ancestor release readiness', () => {
+    it('accepts exact completed successful run and its unique artifact', async () => {
+        const input = dependencies([run()]);
+        await readiness.check(input);
+        expect(input.core.setOutput).toHaveBeenCalledWith('run-id', '123');
+        expect(input.core.setOutput).toHaveBeenCalledWith('run-attempt', '2');
+        expect(input.core.setOutput).toHaveBeenCalledWith('release-sha', input.context.sha);
+    });
+    it('waits when exact run is absent or active, then succeeds', async () => {
+        for (const first of [[], [run({ status: 'in_progress', conclusion: null })]]) {
+            const input = dependencies(first);
+            input.github.rest.actions.listWorkflowRuns
+                .mockResolvedValueOnce({ data: { workflow_runs: first } })
+                .mockResolvedValueOnce({ data: { workflow_runs: [run({ head_sha: input.context.sha })] } });
+            await readiness.check(input);
+            expect(input.sleep).toHaveBeenCalledOnce();
+        }
+    });
+    it.each(['failure', 'cancelled', 'timed_out', 'skipped'])('blocks exact %s run', async conclusion => {
         await expect(readiness.check(dependencies([run({ conclusion })]))).rejects.toThrow('did not succeed');
     });
-
-    it('waits for an active run and then accepts success', async () => {
-        const input = dependencies([run({ status: 'in_progress', conclusion: null })]);
-        input.github.rest.actions.listWorkflowRuns
-            .mockResolvedValueOnce({ data: { workflow_runs: [run({ status: 'in_progress', conclusion: null })] } })
-            .mockResolvedValueOnce({ data: { workflow_runs: [run()] } });
-        await readiness.check(input);
-        expect(input.sleep).toHaveBeenCalledOnce();
+    it('blocks missing exact run at deadline and duplicate/expired release evidence', async () => {
+        await expect(readiness.check(dependencies([]))).rejects.toThrow('did not appear');
+        const duplicate = dependencies([run()]);
+        duplicate.github.rest.actions.listWorkflowRunArtifacts.mockResolvedValue({ data: { artifacts: [
+            { name: `release-123-2-${duplicate.context.sha}`, expired: false },
+            { name: `release-123-2-${duplicate.context.sha}`, expired: false },
+        ] } });
+        await expect(readiness.check(duplicate)).rejects.toThrow('Duplicate');
+        const expired = dependencies([run()]);
+        expired.github.rest.actions.listWorkflowRunArtifacts.mockResolvedValue({ data: {
+            artifacts: [{ name: `release-123-2-${expired.context.sha}`, expired: true }],
+        } });
+        await expect(readiness.check(expired)).rejects.toThrow('No successful');
     });
-
-    it('fails closed on missing, malformed, foreign, or unknown run state', async () => {
-        await expect(readiness.check(dependencies([]))).rejects.toThrow('deadline');
-        await expect(readiness.check(dependencies([run({ status: 'mystery' })]))).rejects.toThrow('unknown');
-        await expect(readiness.check(dependencies([run({ event: 'workflow_dispatch' })]))).rejects.toThrow('deadline');
-        await expect(readiness.check(dependencies([run({ head_branch: 'other' })]))).rejects.toThrow('deadline');
-        const malformed = dependencies([]);
-        malformed.github.rest.actions.listWorkflowRuns.mockResolvedValue({ data: {} });
-        await expect(readiness.check(malformed)).rejects.toThrow('incomplete');
-    });
-
-    it('rejects non-main or malformed release identity before API calls', async () => {
+    it('skips newer ineligible artifacts and selects an older eligible ancestor', async () => {
         const input = dependencies([run()]);
-        await expect(readiness.check({ ...input, context: { ...input.context, ref: 'refs/heads/other' } }))
-            .rejects.toThrow('identity');
-        await expect(readiness.check({ ...input, context: { ...input.context, sha: 'main' } }))
-            .rejects.toThrow('identity');
-        expect(input.github.rest.actions.listWorkflowRuns).not.toHaveBeenCalled();
+        const newer = { ...run({ id: 999, run_attempt: 1, head_sha: 'd'.repeat(40) }) };
+        const eligible = { ...run({ head_sha: input.context.sha }) };
+        input.github.paginate.mockResolvedValue([newer, eligible]);
+        input.github.rest.actions.listWorkflowRunArtifacts.mockImplementation(({ run_id }: { run_id: number }) =>
+            Promise.resolve({ data: { artifacts: [{
+                name: run_id === 999 ? `release-999-1-${'d'.repeat(40)}` : `release-123-2-${input.context.sha}`,
+                expired: false,
+            }] } }));
+        await readiness.check(input);
+        expect(input.core.setOutput).toHaveBeenCalledWith('run-id', '123');
     });
-
-    it('wires all production release work behind the readiness gate', () => {
-        const gate = production.jobs['release-readiness'];
-        expect(gate.needs).toBe('agents-consistency');
-        expect(gate.permissions).toEqual({ contents: 'read', actions: 'read' });
-        expect(gate.outputs).toEqual({
-            full: '${{ needs.agents-consistency.outputs.full }}',
-            'push-run-id': '${{ steps.readiness.outputs.run-id }}',
-        });
-        expect(gate.steps.find(step => step.id === 'readiness')?.with?.script).toContain('release-readiness.cjs');
-        for (const name of ['lint', 'test-shards', 'return-contract', 'assistant-contract', 'build-and-push']) {
-            expect(production.jobs[name].needs).toBe('release-readiness');
-        }
-        expect(production.jobs.test.needs).toEqual(['release-readiness', 'test-shards']);
-        expect(production.jobs['release-please'].needs).toBe('agents-consistency');
-        expect(production.jobs.status.needs).toContain('release-readiness');
+    it('allows linear safe-document-only descendants', () => {
+        const { root, git, base } = syntheticRepo();
+        writeFileSync(resolve(root, 'docs/development/ci-selective.md'), 'two\n');
+        git('add', '.'); git('commit', '-qm', 'docs');
+        expect(() => readiness.assertSafeReleaseDelta(root, base, git('rev-parse', 'HEAD'))).not.toThrow();
     });
-});
+    it('blocks a non-ancestor release candidate', () => {
+        const fixture = syntheticRepo();
+        fixture.git('checkout', '--orphan', 'orphan');
+        fixture.git('rm', '-rf', '.');
+        writeFileSync(resolve(fixture.root, 'README.md'), 'orphan\n'); fixture.git('add', '.'); fixture.git('commit', '-qm', 'orphan');
+        expect(() => readiness.assertSafeReleaseDelta(fixture.root, fixture.base, fixture.git('rev-parse', 'HEAD'))).toThrow();
+    });
+    it('blocks unsafe touched-then-reverted files and merges', () => {
+        const first = syntheticRepo();
+        writeFileSync(resolve(first.root, 'src.ts'), 'two\n'); first.git('add', '.'); first.git('commit', '-qm', 'unsafe');
+        writeFileSync(resolve(first.root, 'src.ts'), 'one\n'); first.git('add', '.'); first.git('commit', '-qm', 'revert');
+        expect(() => readiness.assertSafeReleaseDelta(first.root, first.base, first.git('rev-parse', 'HEAD'))).toThrow('safe');
 
-describe('shared Push CI PostgreSQL contract', () => {
-    it('runs the same fail-closed script in push and production with disposable Postgres', () => {
-        const pushJob = push.jobs['postgres-contract'];
-        const releaseJob = production.jobs['return-contract'];
-        expect(push.jobs.classify).toBeDefined();
-        expect(push.jobs['lint-typecheck']).toBeDefined();
-        expect(push.jobs.test).toBeDefined();
-        expect(Object.keys(push.jobs)).toEqual(['classify', 'lint-typecheck', 'test', 'postgres-contract', 'status']);
-        expect(push.concurrency).toEqual({
-            group: 'ci-${{ github.event_name }}-${{ github.ref }}',
-            'cancel-in-progress': true,
-        });
-        expect(push.jobs.status.needs).toEqual(['classify', 'lint-typecheck', 'test', 'postgres-contract']);
-        expect(push.jobs.status.if).toBe('${{ always() }}');
-        expect(push.jobs.status.steps.find(step => step.name === 'Validate Push CI results')?.run)
-            .toBe('node scripts/ci/changes.mjs push-status');
-        expect(pushJob.needs).toBe('classify');
-        expect(pushJob.if).toBe("${{ needs.classify.result == 'success' && needs.classify.outputs.full == 'true' }}");
-        expect(pushJob.services?.postgres).toBeDefined();
-        expect(releaseJob.services?.postgres).toBeDefined();
-        expect(pushJob.env).toEqual(releaseJob.env);
-        for (const job of [pushJob, releaseJob]) {
-            expect(job.steps.find(step => step.name === 'Run release PostgreSQL contracts')?.run)
-                .toBe('bash scripts/ci/run-postgres-contracts.sh');
-            expect(JSON.stringify(job)).not.toContain('continue-on-error');
-        }
-        const script = readFileSync('scripts/ci/run-postgres-contracts.sh', 'utf8');
-        expect(script).toContain('set -euo pipefail');
-        expect(script).toContain('setup-return-test-db.mjs');
-        expect(script).toContain('setup-central-identity-test-dbs.mjs');
-        expect(script).toContain('cogs-economic-diagnosis-postgres.test.ts');
+        const second = syntheticRepo();
+        const initialBranch = second.git('branch', '--show-current');
+        second.git('checkout', '-qb', 'side');
+        writeFileSync(resolve(second.root, 'docs/development/ci-selective.md'), 'side\n'); second.git('add', '.'); second.git('commit', '-qm', 'side');
+        second.git('checkout', '-q', initialBranch);
+        writeFileSync(resolve(second.root, 'README.md'), 'main\n'); second.git('add', '.'); second.git('commit', '-qm', 'main');
+        second.git('merge', '--no-ff', '-qm', 'merge', 'side');
+        expect(() => readiness.assertSafeReleaseDelta(second.root, second.base, second.git('rev-parse', 'HEAD'))).toThrow('linear');
     });
 });

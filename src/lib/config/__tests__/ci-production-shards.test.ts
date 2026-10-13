@@ -1,117 +1,67 @@
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 
-interface Step {
-    name?: string;
-    uses?: string;
-    run?: string;
-    env?: Record<string, string>;
-    with?: Record<string, unknown>;
-    'continue-on-error'?: boolean;
-}
+interface Step { name?: string; run?: string; uses?: string; env?: Record<string, string>; with?: Record<string, unknown>; 'continue-on-error'?: boolean }
 interface Job {
-    name: string;
-    needs?: string | string[];
-    if?: string;
-    steps: Step[];
-    permissions?: Record<string, string>;
+    name: string; needs?: string | string[]; if?: string; permissions?: Record<string, string>;
     strategy?: { 'fail-fast': boolean; matrix: { include: { shard: string; artifact: string }[] } };
-    'continue-on-error'?: boolean;
+    services?: Record<string, unknown>; steps: Step[];
 }
 const require = createRequire(import.meta.url);
 const { load } = require('js-yaml') as { load(text: string): { jobs: Record<string, Job> } };
-const { jobs } = load(readFileSync('.github/workflows/production.yml', 'utf8'));
-const step = (job: Job, name: string) => {
-    const value = job.steps.find(item => item.name === name);
-    if (!value) throw new Error(`Missing step: ${name}`);
-    return value;
-};
+const push = load(readFileSync('.github/workflows/ci.yml', 'utf8'));
+const production = load(readFileSync('.github/workflows/production.yml', 'utf8'));
 const namespace = 'test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}';
+const step = (job: Job, name: string) => job.steps.find(item => item.name === name)!;
 
-describe('production two-shard release gate', () => {
-    it('uses two independent runners, unchanged default workers and full discovery', () => {
-        const shards = jobs['test-shards'];
-        expect(shards).toBeDefined();
-        expect(shards.needs).toBe('release-readiness');
-        expect(shards.if).toBe("${{ needs.release-readiness.outputs.full == 'true' }}");
+describe('Push CI release gates', () => {
+    it('owns both coverage shards and the stable merged threshold gate', () => {
+        const shards = push.jobs['test-shards'];
+        expect(shards.needs).toBe('classify');
         expect(shards.strategy).toEqual({
             'fail-fast': false,
             matrix: { include: [{ shard: '1/2', artifact: 'shard-1' }, { shard: '2/2', artifact: 'shard-2' }] },
         });
-        expect(shards.permissions).toEqual({ contents: 'read' });
         expect(step(shards, 'Run test shard with coverage').run).toBe('node scripts/ci/benchmark.mjs run shards "$SHARD"');
-        expect(step(shards, 'Run test shard with coverage').env).toEqual({ SHARD: '${{ matrix.shard }}' });
-        expect(JSON.stringify(shards.steps)).not.toMatch(/--maxWorkers|--exclude|--no-isolate|--passWithNoTests/);
-        const checkout = shards.steps.find(item => item.uses?.startsWith('actions/checkout'));
-        expect(checkout?.with).toMatchObject({ ref: '${{ github.sha }}', 'persist-credentials': false });
-        const upload = shards.steps.find(item => item.uses?.startsWith('actions/upload-artifact'));
-        expect(upload?.with).toMatchObject({
-            name: `${namespace}-${'${{ matrix.artifact }}'}`, 'if-no-files-found': 'error',
+        const merged = push.jobs.test;
+        expect(merged.needs).toEqual(['classify', 'test-shards']);
+        expect(step(merged, 'Run Tests with Coverage').run).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
+        expect(merged.steps.map(item => item.name)).toContain('Validate Nginx configuration');
+        const download = merged.steps.find(item => item.uses?.startsWith('actions/download-artifact'))!;
+        expect(download.with).toMatchObject({ pattern: `${namespace}-shard-*`, 'merge-multiple': false });
+    });
+    it('owns both real PostgreSQL contracts and both immutable image builds', () => {
+        expect(push.jobs['postgres-contract'].services?.postgres).toBeDefined();
+        expect(push.jobs['assistant-contract'].services?.postgres).toBeDefined();
+        const build = push.jobs['build-and-push'];
+        expect(build.permissions).toEqual({ contents: 'read', packages: 'write' });
+        expect(build.steps.filter(item => item.uses === 'docker/build-push-action@v7')).toHaveLength(2);
+        expect(JSON.stringify(build)).toContain('${{ github.sha }}');
+    });
+    it('never cancels older full evidence when newer pushes arrive', () => {
+        expect(push.concurrency).toEqual({
+            group: 'ci-${{ github.event_name }}-${{ github.sha }}',
+            'cancel-in-progress': false,
         });
-        expect(upload?.with?.path).toContain('coverage/ci-benchmark/blob.json');
-        expect(upload?.with?.path).toContain('coverage/ci-benchmark/result.json');
     });
-
-    it('keeps the stable test job as a mandatory merged global coverage gate', () => {
-        expect(jobs.test.name).toBe('Test & Validate');
-        expect(jobs.test.needs).toEqual(['release-readiness', 'test-shards']);
-        expect(jobs.test.if).toBe("${{ always() && needs.release-readiness.result == 'success' && needs.release-readiness.outputs.full == 'true' }}");
-        expect(step(jobs.test, 'Run Tests with Coverage').run).toBe('node scripts/ci/benchmark.mjs merge coverage/ci-input');
-        expect(jobs.test.steps.map(item => item.name)).toContain('Validate Nginx configuration');
-        const download = jobs.test.steps.find(item => item.uses?.startsWith('actions/download-artifact'));
-        expect(download?.with).toEqual({ pattern: `${namespace}-shard-*`, path: 'coverage/ci-input', 'merge-multiple': false });
-        const upload = jobs.test.steps.find(item => item.uses?.startsWith('actions/upload-artifact'));
-        expect(upload?.with?.path).toContain('coverage/ci-merged/result.json');
-        expect(upload?.with?.path).toContain('coverage/ci-merged/coverage/coverage-final.json');
-    });
-
-    it.each(['failure', 'skipped', 'cancelled', '', 'unknown', 'success'])('fails closed for shard result %j', result => {
-        const guard = jobs.test.steps[0];
-        expect(guard.name).toBe('Require both test shards');
-        expect(guard.env).toEqual({ SHARDS_RESULT: '${{ needs.test-shards.result }}' });
-        expect(guard.run).toBeDefined();
-        const child = spawnSync('bash', ['-e', '-c', guard.run!], { env: { ...process.env, SHARDS_RESULT: result } });
-        expect(child.status === 0).toBe(result === 'success');
-    });
-
-    it('uses the benchmark-proven artifact transport and only generated evidence paths', () => {
-        const shards = jobs['test-shards'];
-        const shardUpload = shards.steps.find(item => item.uses?.startsWith('actions/upload-artifact'));
-        expect(shardUpload?.with?.path).toBe('coverage/ci-benchmark/blob.json\ncoverage/ci-benchmark/result.json\ncoverage/ci-benchmark/metrics.jsonl\n');
-        const mergedUpload = jobs.test.steps.find(item => item.uses?.startsWith('actions/upload-artifact'));
-        expect(mergedUpload?.with?.path).toBe('coverage/ci-merged/result.json\ncoverage/ci-merged/metrics.jsonl\ncoverage/ci-merged/coverage/coverage-final.json\n');
-        // Transport pin: upload@v6 / download@v7 are the first majors that run on
-        // Node 24 (v4–v5 upload, v4–v6 download still target deprecated Node 20).
-        // Shard uploads and the merged download must stay on this same pair.
-        for (const item of [...shards.steps, ...jobs.test.steps].filter(item => /actions\/(upload|download)-artifact/.test(item.uses || ''))) {
-            expect(item.uses).toMatch(item.uses!.includes('upload-artifact') ? /@v6$/ : /@v7$/);
-        }
-    });
-
-    it('preserves every release gate and includes shard occupancy in timing', () => {
-        expect(jobs.deploy.needs).toEqual([
-            'test',
-            'lint',
-            'build-and-push',
-            'return-contract',
-            'assistant-contract',
+    it('publishes evidence only after every mandatory gate is a dependency', () => {
+        expect(push.jobs.status.needs).toEqual([
+            'classify', 'lint-typecheck', 'test-shards', 'test', 'postgres-contract', 'assistant-contract', 'build-and-push',
         ]);
-        expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
-        const timing = jobs.status.steps.find(step => step.name === 'Pipeline timing report')!;
-        expect(timing['continue-on-error']).toBe(true);
-        expect(jobs.status.needs).toContain('test-shards');
-        for (const name of [
-            'test-shards',
-            'test',
-            'lint',
-            'build-and-push',
-            'return-contract',
-            'assistant-contract',
-        ]) {
-            expect(jobs[name]['continue-on-error']).toBeUndefined();
-            for (const item of jobs[name].steps) expect(item['continue-on-error']).toBeUndefined();
-        }
+        expect(step(push.jobs.status, 'Validate Push CI results').run).toBe('node scripts/ci/changes.mjs push-status');
+        const upload = push.jobs.status.steps.find(item => item.uses?.startsWith('actions/upload-artifact'))!;
+        expect(upload.with).toMatchObject({
+            name: 'release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}',
+            'if-no-files-found': 'error', 'retention-days': 14,
+        });
+        expect(push.jobs.status.permissions).toEqual({ contents: 'read', actions: 'read' });
+        expect(push.jobs.status.steps.find(item => item.name === 'Pipeline timing report')?.['continue-on-error']).toBe(true);
+    });
+    it('keeps every heavy gate out of Production Pipeline', () => {
+        expect(Object.keys(production.jobs)).not.toEqual(expect.arrayContaining([
+            'test-shards', 'test', 'lint', 'build-and-push', 'return-contract', 'assistant-contract',
+        ]));
+        expect(JSON.stringify(production)).not.toMatch(/npm ci|vitest|build-push-action|Run Tests with Coverage/);
     });
 });

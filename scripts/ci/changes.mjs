@@ -2,20 +2,18 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import safeDocumentPolicy from './safe-documents.cjs';
 
 // Daftar eksplisit, bukan *.md: kontrak domain/runbook/AGENTS tetap jalur lengkap.
-export const safeDocuments = Object.freeze([
-    'README.md', 'docs/README.md', 'docs/development/ci-selective.md',
-]);
+export const safeDocuments = safeDocumentPolicy.safeDocuments;
 const shaPattern = /^[a-f0-9]{40}$/;
-const heavyJobs = [
-    'release-readiness',
+const pushReleaseJobs = [
+    'lint-typecheck',
     'test-shards',
     'test',
-    'lint',
-    'build-and-push',
-    'return-contract',
+    'postgres-contract',
     'assistant-contract',
+    'build-and-push',
 ];
 
 function git(root, ...args) {
@@ -83,10 +81,14 @@ export function checkPushStatus(needs) {
     if (initial?.result !== 'success' || !['true', 'false'].includes(full)) {
         throw new Error('Klasifikasi Push CI gagal atau tidak lengkap.');
     }
-    if (needs?.['lint-typecheck']?.result !== 'success') throw new Error('Lint/typecheck Push CI gagal.');
     const expected = full === 'true' ? 'success' : 'skipped';
-    for (const name of ['test', 'postgres-contract']) {
-        if (needs?.[name]?.result !== expected) throw new Error('Hasil gate Push CI tidak sesuai jalur.');
+    for (const name of pushReleaseJobs) {
+        const result = needs?.[name]?.result;
+        if (name === 'lint-typecheck' && full === 'false') {
+            if (result !== 'success') throw new Error('Lint/typecheck docs-only Push CI gagal.');
+        } else if (result !== expected) {
+            throw new Error('Hasil gate Push CI tidak sesuai jalur.');
+        }
     }
     return full === 'true' ? 'push lengkap' : 'push dokumen aman';
 }
@@ -97,10 +99,9 @@ export function checkStatus(needs, eventName) {
     const full = initial?.outputs?.full;
     if (initial?.result !== 'success' || full !== 'true') throw new Error('Palang/klasifikasi rilis gagal atau tidak lengkap.');
     if (!['schedule', 'workflow_dispatch'].includes(eventName)) throw new Error('Jalur event tidak sah.');
-    for (const name of heavyJobs) {
-        if (needs[name]?.result !== 'success') throw new Error('Gate wajib gagal atau dilewati tanpa izin.');
+    for (const name of ['release-readiness', 'release-artifact', 'deploy']) {
+        if (needs[name]?.result !== 'success') throw new Error('Gate deploy gagal atau dilewati tanpa izin.');
     }
-    if (needs.deploy?.result !== 'success') throw new Error('Deploy gagal atau dilewati tanpa izin.');
     const releasePlease = eventName === 'schedule' ? 'success' : 'skipped';
     if (needs['release-please']?.result !== releasePlease) throw new Error('Hasil otomasi release tidak sesuai jalur.');
     return eventName === 'schedule' ? 'rilis terjadwal lengkap' : 'rilis manual lengkap';

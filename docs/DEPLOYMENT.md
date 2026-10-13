@@ -39,7 +39,7 @@
 
 ## CI/CD Pipeline (GitHub Actions)
 
-This project includes a **GitHub Actions** workflow (`.github/workflows/production.yml`) that batches changes and, on weekday schedule or urgent manual dispatch, builds and pushes a Docker image to the **GitHub Container Registry (GHCR)** before deploying it to the VPS via SSH.
+This project uses two **GitHub Actions** workflows. `.github/workflows/ci.yml` runs every release gate and builds both immutable images on push. `.github/workflows/production.yml` runs on the weekday schedule or urgent manual dispatch and only verifies that Push CI evidence before deploying it to the VPS via SSH.
 
 ### Prerequisites
 
@@ -50,17 +50,17 @@ To enable this workflow, you must verify the following in your repository settin
     - `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`: Used by the deploy job to SSH into the VPS and roll out the new image.
 
 2.  **Workflow Permissions**:
-    - The workflow requires `packages: write` and `contents: read` permissions, which are configured in the `production.yml` file itself.
+    - Push CI grants `packages: write` only to its image-build job. Production grants `actions: read` to consume the exact Push CI artifact and `packages: write` only to the deploy job for immutable-tag promotion.
 
 ### How it Works
 
-1.  **Trigger**: Weekdays at `14:17 UTC` (`21:17 WIB`), or manual **Run workflow** on `main` for an urgent release. A push alone does not build an image or deploy.
-2.  **Parallel gates**: Two independent test shards, lint, image build, and the isolated PostgreSQL/typecheck contract run concurrently.
-3.  **Test & Validate**: Both shards must succeed. The stable `test` job merges their blobs, reconciles complete test discovery/counts, enforces the unchanged global coverage thresholds, and validates Nginx.
-4.  **Build and cache**: GitHub Actions builds the production image with Docker Buildx and the GHCR registry cache. It publishes the commit-addressed image and exposes its immutable digest; never build on the VPS.
-5.  **Release gate**: Deploy requires `test`, `lint`, `build-and-push`, and `return-contract`. Deployments are serialized, and superseded main revisions are skipped before registry or SSH mutations.
+1.  **Push trigger**: Every non-docs push runs the complete release gate. Docs-only pushes use the explicit lightweight classifier path and produce no image manifest.
+2.  **Parallel gates**: Two independent coverage shards, lint/typecheck/JEV, both PostgreSQL contract jobs, and both image builds run in Push CI.
+3.  **Test & Validate**: Both shards must succeed. The stable gate merges blobs, reconciles complete discovery/counts, enforces global coverage thresholds, and validates Nginx.
+4.  **Build and evidence**: Push CI builds web and worker images with Buildx and GHCR cache, then publishes a closed manifest containing exact SHA, run/attempt, and immutable digests only after every gate succeeds; never build on the VPS.
+5.  **Production trigger**: Weekdays at `14:17 UTC` (`21:17 WIB`), or manual **Run workflow**. Production downloads and validates the exact Push CI manifest; it does not install dependencies, test, or build source.
 6.  **Migrate once**: Resolve the main and all active-tenant databases, create and verify a fail-closed custom-format snapshot for every unique target, then run main and tenant migrations in one ephemeral container from the tested immutable web image. Normal web startup does not mutate the database. Any backup or migration failure stops the release before worker or web recreation.
-7.  **Deploy**: Promote the verified digest to `latest`, check out the tested SHA without discarding tracked server changes, and pass the immutable digest as `POLYFLOW_IMAGE` to Compose. Pull must succeed before `up -d --no-deps --no-build`; backups, environment files and previous images are retained. Compose gates web and worker startup on PostgreSQL readiness. The deploy waits for worker and web readiness, verifies both running image references against the tested immutable digests, and requires a successful read-only HTTPS `/api/health` smoke check before reporting success. See the private `docs/ops/vps.md` runbook for actual targets and rollback procedures.
+7.  **Deploy**: Promote verified digests to `latest`, check out the artifact SHA without discarding tracked server changes, and pass immutable digests to Compose. Pull must succeed before `up -d --no-deps --no-build`; backups, environment files and previous images are retained. The deploy waits for worker and web readiness, verifies both running image references, and requires a successful read-only HTTPS `/api/health` smoke check. See the private `docs/ops/vps.md` runbook for actual targets and rollback procedures.
 
 ### Usage in Production
 

@@ -41,7 +41,7 @@ async function report({ github, context, core }) {
     });
     const result = summarize(jobs, run.run_started_at);
     result.cache = [];
-    for (const job of jobs.filter(job => job.name === 'Build & Push Docker Image' && job.completed_at)) {
+    for (const job of jobs.filter(job => /Build & Push Docker Image/.test(job.name) && job.completed_at)) {
         try {
             const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({ owner, repo, job_id: job.id });
             if (typeof logs.data === 'string') result.cache.push(...cacheTimings(logs.data));

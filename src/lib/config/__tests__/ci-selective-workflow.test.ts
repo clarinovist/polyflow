@@ -6,92 +6,59 @@ import { describe, expect, it } from 'vitest';
 interface Step { id?: string; name?: string; run?: string; uses?: string; if?: string; env?: Record<string, string>; with?: Record<string, unknown>; 'continue-on-error'?: boolean }
 interface Job { name: string; needs?: string | string[]; if?: string; steps: Step[]; permissions?: Record<string, string>; outputs?: Record<string, string> }
 const require = createRequire(import.meta.url);
-const { load } = require('js-yaml') as { load(text: string): { on: Record<string, unknown>; jobs: Record<string, Job> } };
-const { on, jobs } = load(readFileSync('.github/workflows/production.yml', 'utf8'));
-const heavy = [
-    'test-shards',
-    'test',
-    'lint',
-    'build-and-push',
-    'return-contract',
-    'assistant-contract',
-];
+const { load } = require('js-yaml') as { load(text: string): { on: Record<string, unknown>; permissions: Record<string, string>; jobs: Record<string, Job> } };
+const production = load(readFileSync('.github/workflows/production.yml', 'utf8'));
+const { on, jobs } = production;
 
-describe('wiring CI rilis terjadwal tanpa bypass gate', () => {
-    it('membatasi release otomatis ke hari kerja dan menyediakan jalur urgent manual', () => {
+describe('deploy-only Production Pipeline', () => {
+    it('keeps schedule/manual triggers and least-privilege defaults', () => {
         expect(on).toEqual({ schedule: [{ cron: '17 14 * * 1-5' }], workflow_dispatch: null });
+        expect(production.permissions).toEqual({ contents: 'read', actions: 'read' });
+        expect(jobs['release-please'].permissions).toEqual({ contents: 'write', 'pull-requests': 'write' });
     });
-    it('palang awal selalu aktif dan read-only tanpa install aplikasi', () => {
-        const initial = jobs['agents-consistency'];
-        expect(initial.name).toBe('AGENTS.md Consistency');
-        expect(initial.needs).toBeUndefined(); expect(initial.if).toBeUndefined();
-        expect(initial.permissions).toEqual({ contents: 'read' });
-        expect(initial.outputs).toEqual({ full: '${{ steps.changes.outputs.full }}' });
-        expect(initial.steps[0].with).toEqual({ ref: '${{ github.sha }}', 'fetch-depth': 0, 'persist-credentials': false });
-        expect(initial.steps.map(step => step.run).filter(Boolean)).toEqual([
-            'bash scripts/check-agents-consistency.sh', 'bash scripts/check-node-version.sh', 'node scripts/ci/changes.mjs',
+    it('contains only light guard, artifact verification, deploy, release automation and status', () => {
+        expect(Object.keys(jobs)).toEqual([
+            'release-please', 'agents-consistency', 'release-readiness', 'release-artifact', 'deploy', 'status',
         ]);
-        expect(initial.steps.find(step => step.id === 'changes')?.run).toBe('node scripts/ci/changes.mjs');
-        expect(JSON.stringify(initial)).not.toMatch(/npm ci|npx|secrets\.|continue-on-error|services/);
-        expect(initial.steps.find(step => step.uses?.startsWith('actions/setup-node'))?.with).toEqual({ 'node-version-file': '.nvmrc' });
-    });
-    it('heavy jobs paralel hanya setelah palang sukses dan full=true', () => {
+        const text = JSON.stringify(production);
+        expect(text).not.toMatch(/npm ci|vitest|Run Tests with Coverage|build-push-action|setup-buildx|services/);
         expect(jobs['release-readiness'].needs).toBe('agents-consistency');
-        expect(jobs['release-readiness'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' }}");
-        for (const name of heavy.filter(name => name !== 'test')) {
-            expect(jobs[name].needs).toBe('release-readiness');
-            expect(jobs[name].if).toBe("${{ needs.release-readiness.outputs.full == 'true' }}");
-        }
-        expect(jobs.test.needs).toEqual(['release-readiness', 'test-shards']);
-        expect(jobs.test.if).toBe("${{ always() && needs.release-readiness.result == 'success' && needs.release-readiness.outputs.full == 'true' }}");
-        expect(jobs.test.steps[0].run).toContain('"$SHARDS_RESULT" != "success"');
+        expect(jobs['release-artifact'].needs).toBe('release-readiness');
+        expect(jobs.deploy.needs).toBe('release-artifact');
     });
-    it('semua gate dan release identity tetap wajib untuk schedule maupun dispatch manual', () => {
-        expect(jobs.deploy.needs).toEqual([
-            'test',
-            'lint',
-            'build-and-push',
-            'return-contract',
-            'assistant-contract',
-        ]);
-        expect(jobs.deploy.if).toBe("${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}");
+    it('downloads exact run/attempt/SHA manifest with actions read permission', () => {
+        const job = jobs['release-artifact'];
+        expect(job.permissions).toEqual({ contents: 'read', actions: 'read' });
+        const download = job.steps.find(step => step.uses?.startsWith('actions/download-artifact'))!;
+        expect(download.with).toMatchObject({
+            name: 'release-${{ needs.release-readiness.outputs.run-id }}-${{ needs.release-readiness.outputs.run-attempt }}-${{ needs.release-readiness.outputs.release-sha }}',
+            'run-id': '${{ needs.release-readiness.outputs.run-id }}',
+            repository: '${{ github.repository }}',
+        });
+        expect(job.steps.find(step => step.id === 'manifest')?.run)
+            .toBe('node scripts/ci/release-artifact.cjs verify release-evidence/manifest.json');
+    });
+    it('keeps Release Please independent and final status fail-closed', () => {
         expect(jobs['release-please'].needs).toBe('agents-consistency');
         expect(jobs['release-please'].if).toBe("${{ needs.agents-consistency.outputs.full == 'true' && github.event_name == 'schedule' }}");
-        expect(JSON.stringify(jobs.deploy)).toContain('release-guard.cjs');
-        expect(JSON.stringify(jobs.deploy)).toContain('needs.build-and-push.outputs.digest');
-        // continue-on-error is allowed only on the observability timing step, never on a gate.
-        const continueOnErrorSteps = Object.values(jobs).flatMap(job => job.steps).filter(step => step['continue-on-error']);
-        expect(continueOnErrorSteps.map(step => step.name)).toEqual(['Pipeline timing report']);
-    });
-    it('status akhir selalu mengevaluasi seluruh gate tanpa npm install atau secrets', () => {
-        const status = jobs.status;
-        expect(status.name).toBe('Status CI'); expect(status.if).toBe('${{ always() }}');
-        expect(status.needs).toEqual(['agents-consistency', 'release-readiness', ...heavy, 'deploy', 'release-please']);
-        expect(status.permissions).toEqual({ contents: 'read', actions: 'read' });
-        expect(status.steps[0].with).toEqual({ ref: '${{ github.sha }}', 'persist-credentials': false });
-        const step = status.steps.find(step => step.name === 'Validasi hasil jalur CI')!;
-        expect(step.env).toEqual({ CI_NEEDS: '${{ toJSON(needs) }}' });
-        expect(step.run).toBe('node scripts/ci/changes.mjs status');
-        expect(JSON.stringify(status)).not.toMatch(/npm ci|npx|secrets\./);
-        // Timing merged into status as an observability step (continue-on-error).
-        const timing = status.steps.find(step => step.name === 'Pipeline timing report')!;
-        expect(timing['continue-on-error']).toBe(true);
-        expect(timing.if).toBe("${{ always() && needs.agents-consistency.outputs.full == 'true' }}");
-        expect(timing.uses).toBe('actions/github-script@v8');
-        expect(status.needs).toContain('agents-consistency');
-    });
-    it.each(['schedule', 'workflow_dispatch'])('menjalankan shell status aktual untuk %s', eventName => {
-        const needs: Record<string, { result: string; outputs?: { full: string } }> = {
-            'agents-consistency': { result: 'success', outputs: { full: 'true' } },
-            ...Object.fromEntries(['release-readiness', ...heavy, 'deploy'].map(name => [name, { result: 'success' }])),
-            'release-please': { result: eventName === 'schedule' ? 'success' : 'skipped' },
-        };
+        expect(jobs.status.needs).toEqual([
+            'agents-consistency', 'release-readiness', 'release-artifact', 'deploy', 'release-please',
+        ]);
+        expect(jobs.status.if).toBe('${{ always() }}');
         const command = jobs.status.steps.find(step => step.name === 'Validasi hasil jalur CI')!.run!;
-        for (const fail of [false, true]) {
-            if (fail) needs.lint.result = 'failure';
-            const child = spawnSync('bash', ['-e', '-c', command], { encoding: 'utf8', timeout: 10_000,
-                env: { ...process.env, CI_NEEDS: JSON.stringify(needs), GITHUB_EVENT_NAME: eventName } });
-            expect(child.status, child.stdout + child.stderr).toBe(fail ? 1 : 0);
+        for (const eventName of ['schedule', 'workflow_dispatch']) {
+            const needs: Record<string, { result: string; outputs?: { full: string } }> = {
+                'agents-consistency': { result: 'success', outputs: { full: 'true' } },
+                'release-readiness': { result: 'success' }, 'release-artifact': { result: 'success' },
+                deploy: { result: 'success' },
+                'release-please': { result: eventName === 'schedule' ? 'success' : 'skipped' },
+            };
+            for (const fail of [false, true]) {
+                needs['release-artifact'].result = fail ? 'failure' : 'success';
+                const child = spawnSync('bash', ['-e', '-c', command], { encoding: 'utf8', timeout: 10_000,
+                    env: { ...process.env, CI_NEEDS: JSON.stringify(needs), GITHUB_EVENT_NAME: eventName } });
+                expect(child.status, child.stdout + child.stderr).toBe(fail ? 1 : 0);
+            }
         }
     });
 });

@@ -35,7 +35,7 @@ jobs:
         with:
           account: user
           token: ${{ secrets.CR_PAT }}
-          image-names: polyflow
+          image-names: polyflow polyflow-assistant-worker
           tag-selection: untagged
           # keep-n-most-recent is deliberately absent: upstream documents that it
           # does not protect untagged versions, so age is the only real guard here.
@@ -51,7 +51,7 @@ jobs:
         with:
           account: user
           token: ${{ secrets.CR_PAT }}
-          image-names: polyflow
+          image-names: polyflow polyflow-assistant-worker
           tag-selection: tagged
           # Protects the two tags the deploy path depends on: docker-compose.yml
           # pulls :latest on the VPS, and production.yml uses :buildcache as its

@@ -1,13 +1,13 @@
 # CI performance experiments
 
-Production splits the complete suite across two independent runners, retaining default
+Push CI splits the complete suite across two independent runners, retaining default
 workers and the original global thresholds **71/63/75/72**. The stable `test` gate merges
-coverage and validates the full suite before release. Lint, shards, image build and the
-PostgreSQL/typecheck contract run in parallel after the initial consistency gate; all
-remain required by deploy. Pushes are batched: a weekday schedule releases HEAD `main`,
-and manual production dispatch provides the same full-gated deploy for urgent changes;
-see [scheduled CI](ci-selective.md). Performance claims require paired hosted evidence,
-not individual shard durations.
+coverage and validates the full suite before release evidence is published. Lint,
+shards, image build, and PostgreSQL contracts run in parallel after classification.
+Production consumes that exact verified manifest and does not repeat source gates/build.
+A weekday schedule deploys the latest valid artifact, while manual production dispatch
+provides the same deploy-only path; see [scheduled CI](ci-selective.md). Performance
+claims require paired hosted evidence, not individual shard durations.
 
 ## 1. Baseline and instrumentation
 
@@ -122,15 +122,14 @@ variance) and renewed budget agreement.
 
 ## 3. Production strategy decision
 
-Production runs on a weekday schedule or urgent manual dispatch rather than every push.
-This targets total runner occupancy by batching commits; every actual release still uses
-**two independent shards with default workers**. The stable `test`
-job (`Test & Validate`) requires both shards and performs the official blob merge,
+Push CI runs every release gate and publishes release evidence, while Production runs on
+a weekday schedule or urgent manual dispatch and only deploys verified evidence. Every
+releasable artifact uses **two independent shards with default workers**. The stable
+`test` job (`Test & Validate`) requires both shards and performs the official blob merge,
 full discovery/count reconciliation, original global coverage thresholds, and Nginx
-validation. Any shard failure/cancellation/skip fails the gate before artifact download.
-`deploy` still requires `test`, `lint`, `build-and-push`, and `return-contract`.
-Artifacts are bound to run ID, attempt, SHA and input fingerprint, retained for 14 days;
-rerun the whole production workflow when retesting, not only failed shard jobs.
+validation. Any shard/gate/build failure prevents `Push CI Status` and release manifest
+publication. Evidence is bound to run ID, attempt, SHA and image digests, retained for
+14 days; rerun the whole Push CI workflow when retesting, not only failed jobs.
 
 Compare wall-clock through the required merge (including queue/setup/download), complete
 pipeline critical path, runner occupancy, memory, failures, coverage and test counts.
