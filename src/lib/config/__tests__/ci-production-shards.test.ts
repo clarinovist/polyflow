@@ -9,7 +9,11 @@ interface Job {
     services?: Record<string, unknown>; steps: Step[];
 }
 const require = createRequire(import.meta.url);
-const { load } = require('js-yaml') as { load(text: string): { jobs: Record<string, Job> } };
+const { load } = require('js-yaml') as { load(text: string): Workflow };
+interface Workflow {
+    concurrency?: { group: string; 'cancel-in-progress': boolean };
+    jobs: Record<string, Job>;
+}
 const push = load(readFileSync('.github/workflows/ci.yml', 'utf8'));
 const production = load(readFileSync('.github/workflows/production.yml', 'utf8'));
 const namespace = 'test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}';
