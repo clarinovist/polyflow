@@ -165,6 +165,10 @@ export async function reverseDeliveryShipment(
                                     id: true,
                                     invoiceNumber: true,
                                     status: true,
+                                    priceAdjustments: {
+                                        select: { id: true },
+                                        take: 1,
+                                    },
                                 },
                             },
                         },
@@ -252,6 +256,19 @@ export async function reverseDeliveryShipment(
             const voidableInvoices = doRecord.salesOrder.invoices.filter(
                 (inv) => inv.status === 'DRAFT' || inv.status === 'UNPAID',
             );
+            const adjustedInvoice = voidableInvoices.find(
+                (inv) => inv.priceAdjustments.length > 0,
+            );
+            if (adjustedInvoice) {
+                throw new BusinessRuleError(
+                    `Invoice ${adjustedInvoice.invoiceNumber} memiliki riwayat penyesuaian harga dan tidak dapat dibatalkan bersama DO. Gunakan Retur Penjualan atau koreksi Finance yang mempertahankan riwayat invoice.`,
+                    {
+                        deliveryOrderId,
+                        invoiceId: adjustedInvoice.id,
+                    },
+                    'INVOICE_PRICE_HISTORY_EXISTS',
+                );
+            }
             for (const inv of voidableInvoices) {
                 const remittanceItem = await tx.salesRemittanceItem.findFirst({
                     where: { invoiceId: inv.id },

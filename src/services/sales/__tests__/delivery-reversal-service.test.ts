@@ -88,7 +88,12 @@ function makeDoRecord(overrides: Record<string, unknown> = {}) {
             orderNumber: 'SO-2026-0132',
             items: [{ id: 'soi-1', productVariantId: 'pv-1', deliveredQty: 142 }],
             invoices: [
-                { id: 'inv-1', invoiceNumber: '46/INV/VIII/2026', status: 'DRAFT' },
+                {
+                    id: 'inv-1',
+                    invoiceNumber: '46/INV/VIII/2026',
+                    status: 'DRAFT',
+                    priceAdjustments: [],
+                },
             ],
         },
         ...overrides,
@@ -184,6 +189,46 @@ describe('reverseDeliveryShipment', () => {
             'user-1',
             prisma,
         );
+    });
+
+    it('blocks adjusted invoice history before stock, DO, or invoice mutation', async () => {
+        vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(
+            makeDoRecord({
+                salesOrder: {
+                    orderNumber: 'SO-2026-0132',
+                    items: [
+                        {
+                            id: 'soi-1',
+                            productVariantId: 'pv-1',
+                            deliveredQty: 142,
+                        },
+                    ],
+                    invoices: [
+                        {
+                            id: 'inv-1',
+                            invoiceNumber: '46/INV/VIII/2026',
+                            status: 'UNPAID',
+                            priceAdjustments: [{ id: 'price-1' }],
+                        },
+                    ],
+                },
+            }) as never,
+        );
+
+        await expect(
+            reverseDeliveryShipment(
+                'do-1',
+                'user-1',
+                'Pembatalan setelah harga disesuaikan',
+            ),
+        ).rejects.toMatchObject({
+            code: 'INVOICE_PRICE_HISTORY_EXISTS',
+        });
+
+        expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+        expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+        expect(prisma.deliveryOrder.update).not.toHaveBeenCalled();
+        expect(updateInvoiceStatus).not.toHaveBeenCalled();
     });
 
     it('never values a shipment reversal through the generic production-IN path', async () => {
@@ -361,7 +406,12 @@ describe('reverseDeliveryShipment', () => {
                         { id: 'soi-1', productVariantId: 'pv-1', deliveredQty: 142 },
                     ],
                     invoices: [
-                        { id: 'inv-1', invoiceNumber: '46/INV', status: 'PAID' },
+                        {
+                            id: 'inv-1',
+                            invoiceNumber: '46/INV',
+                            status: 'PAID',
+                            priceAdjustments: [],
+                        },
                     ],
                 },
             }) as never,
@@ -417,7 +467,12 @@ describe('reverseDeliveryShipment', () => {
                         { id: 'soi-1', productVariantId: 'pv-1', deliveredQty: 142 },
                     ],
                     invoices: [
-                        { id: 'inv-1', invoiceNumber: '46/INV', status: 'DRAFT' },
+                        {
+                            id: 'inv-1',
+                            invoiceNumber: '46/INV',
+                            status: 'DRAFT',
+                            priceAdjustments: [],
+                        },
                     ],
                 },
             }) as never,
