@@ -144,7 +144,7 @@ jobs:
           WORKER_IMAGE_DIGEST: ${{ needs.release-artifact.outputs.worker-digest }}
         with:
           script: |
-            await require('./scripts/ci/release-guard.cjs').check({ github, context: { ...context, sha: process.env.RELEASE_SHA }, currentSha: context.sha, core, digest: process.env.IMAGE_DIGEST, workerDigest: process.env.WORKER_IMAGE_DIGEST });
+            await require('./scripts/ci/release-guard.cjs').check({ github, context, releaseSha: process.env.RELEASE_SHA, currentSha: context.sha, core, digest: process.env.IMAGE_DIGEST, workerDigest: process.env.WORKER_IMAGE_DIGEST });
       - name: Log in to Container Registry
         if: steps.revision.outputs.current == 'true'
         uses: docker/login-action@v4

@@ -1,6 +1,7 @@
 // Reject stale/malformed releases before any registry promotion or SSH mutation.
-async function check({ github, context, core, digest, workerDigest, currentSha = context.sha }) {
-    if (context.ref !== 'refs/heads/main' || !/^[a-f0-9]{40}$/.test(context.sha)
+async function check({ github, context, core, digest, workerDigest,
+    releaseSha = context.sha, currentSha = context.sha }) {
+    if (context.ref !== 'refs/heads/main' || !/^[a-f0-9]{40}$/.test(releaseSha)
         || !/^[a-f0-9]{40}$/.test(currentSha)
         || !/^sha256:[a-f0-9]{64}$/.test(digest)
         || (workerDigest !== undefined && !/^sha256:[a-f0-9]{64}$/.test(workerDigest))) {

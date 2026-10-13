@@ -11,8 +11,9 @@ const sha = 'a'.repeat(40);
 const digest = `sha256:${'b'.repeat(64)}`;
 const dependencies = () => ({
     github: { rest: { repos: { getCommit: vi.fn().mockResolvedValue({ data: { sha } }) } } },
-    context: { sha: 'c'.repeat(40), ref: 'refs/heads/main', repo: { owner: 'fixture', repo: 'app' } },
-    core: { setOutput: vi.fn(), notice: vi.fn() }, digest, workerDigest: digest, currentSha: sha,
+    context: { sha, ref: 'refs/heads/main', repo: { owner: 'fixture', repo: 'app' } },
+    core: { setOutput: vi.fn(), notice: vi.fn() }, digest, workerDigest: digest,
+    releaseSha: 'c'.repeat(40), currentSha: sha,
 });
 const check = (input: ReturnType<typeof dependencies>) => {
     const guard = require('../../../../scripts/ci/release-guard.cjs') as { check(value: typeof input): Promise<void> };
@@ -36,8 +37,7 @@ describe('release identity guard', () => {
         const api = dependencies(); api.github.rest.repos.getCommit.mockRejectedValue(new Error('unavailable'));
         await expect(check(api)).rejects.toThrow('unavailable');
         for (const patch of [
-            { digest: 'latest' }, { workerDigest: 'latest' }, { currentSha: 'main' },
-            { context: { ...dependencies().context, sha: 'bad' } },
+            { digest: 'latest' }, { workerDigest: 'latest' }, { currentSha: 'main' }, { releaseSha: 'bad' },
             { context: { ...dependencies().context, ref: 'refs/heads/other' } },
         ]) await expect(check({ ...dependencies(), ...patch } as ReturnType<typeof dependencies>)).rejects.toThrow('identity');
     });
@@ -58,6 +58,7 @@ describe('deploy-only immutable wiring', () => {
             IMAGE_DIGEST: '${{ needs.release-artifact.outputs.digest }}',
             WORKER_IMAGE_DIGEST: '${{ needs.release-artifact.outputs.worker-digest }}',
         });
+        expect(guard.with?.script).toContain('releaseSha: process.env.RELEASE_SHA');
         expect(guard.with?.script).toContain('currentSha: context.sha');
     });
     it('guards every mutation and binds runtime checkout/images to manifest evidence', () => {
