@@ -22,12 +22,14 @@ import { productionSidebarLabels } from '@/lib/labels';
 import { filterNavGroups } from '@/lib/auth/permission-match';
 import { TenantSwitcher } from '@/components/layout/tenant-switcher';
 import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
+import { canSeeHppPriceSimulatorShortcut } from '@/lib/auth/hpp-price-simulator-visibility';
 
 interface ProductionSidebarProps {
     user: {
         name?: string | null;
         email?: string | null;
         role?: string | null;
+        roles?: string[];
         image?: string | null;
     };
     permissions?: string[] | 'ALL';
@@ -194,6 +196,19 @@ export const productionLinks: Pick<
                 href: '/production/costing',
                 icon: TrendingUp,
                 label: productionSidebarLabels.costingDashboard,
+                children: [
+                    {
+                        href: '/production/costing',
+                        icon: FileText,
+                        label: 'Aktual & Audit',
+                        exact: true,
+                    },
+                    {
+                        href: '/production/costing/simulator',
+                        icon: TrendingUp,
+                        label: 'Simulator HPP',
+                    },
+                ],
             },
             {
                 href: '/production/packing-monthly',
@@ -204,8 +219,30 @@ export const productionLinks: Pick<
     },
 ];
 
-export function getProductionNavGroups(permissions?: string[] | 'ALL') {
-    return filterNavGroups(productionLinks, permissions).map((group) => ({
+export function getProductionNavGroups(
+    permissions?: string[] | 'ALL',
+    roles: readonly string[] = [],
+) {
+    const simulatorVisible =
+        permissions !== undefined &&
+        canSeeHppPriceSimulatorShortcut(permissions, roles);
+    const permissionAwareLinks = productionLinks.map((group) => ({
+        ...group,
+        items: group.items.map((item) => ({
+            ...item,
+            ...(item.children
+                ? {
+                      children: item.children.filter(
+                          (child) =>
+                              child.href !== '/production/costing/simulator' ||
+                              simulatorVisible,
+                      ),
+                  }
+                : {}),
+        })),
+    }));
+
+    return filterNavGroups(permissionAwareLinks, permissions).map((group) => ({
         ...group,
         // In collapsed mode the parent is a link: target a visible view,
         // including users granted only the board and not the list.
@@ -225,7 +262,10 @@ export function ProductionSidebar({
     workspaces = [],
     centralLoginHint = false,
 }: ProductionSidebarProps) {
-    const filteredGroups = getProductionNavGroups(permissions);
+    const filteredGroups = getProductionNavGroups(
+        permissions,
+        user.roles ?? (user.role ? [user.role] : []),
+    );
     return (
         <PortalSidebarBase
             user={user}

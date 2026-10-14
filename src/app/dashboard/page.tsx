@@ -5,6 +5,8 @@ import DashboardClient from './DashboardClient';
 import { serializeData } from '@/lib/utils/utils';
 import { getTenantActiveModules } from '@/lib/auth/access-policy';
 import { getDashboardPresentation } from '@/lib/dashboard/role-dashboard-config';
+import { getUserRoles } from '@/lib/auth/roles';
+import { canSeeHppPriceSimulatorShortcut } from '@/lib/auth/hpp-price-simulator-visibility';
 
 export default async function DashboardPage() {
     const session = await auth();
@@ -24,6 +26,12 @@ export default async function DashboardPage() {
     const userName = session?.user?.name || session?.user?.email || 'Pengguna';
     const userRole =
         (session?.user as { role?: string } | undefined)?.role || 'ADMIN';
+    const canUseHppPriceSimulator = session?.user
+        ? canSeeHppPriceSimulatorShortcut(
+              permissions,
+              getUserRoles(session.user),
+          )
+        : false;
 
     return (
         <DashboardClient
@@ -33,6 +41,7 @@ export default async function DashboardPage() {
             userName={userName}
             userRole={userRole}
             permissions={permissions}
+            canUseHppPriceSimulator={canUseHppPriceSimulator}
             activeModules={getTenantActiveModules()}
             presentation={getDashboardPresentation(new Date())}
         />

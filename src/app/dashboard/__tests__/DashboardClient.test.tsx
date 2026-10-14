@@ -385,6 +385,22 @@ describe('DashboardClient hydration safety', () => {
         expect(html).not.toContain('Tambah Produk');
     });
 
+    it('renders the guarded simulator shortcut only when the server capability is true', () => {
+        const hidden = renderToStaticMarkup(
+            <DashboardClient {...defaultProps} />,
+        );
+        expect(hidden).not.toContain('/production/costing/simulator');
+
+        const visible = renderToStaticMarkup(
+            <DashboardClient
+                {...defaultProps}
+                canUseHppPriceSimulator
+            />,
+        );
+        expect(visible).toContain('/production/costing/simulator');
+        expect(visible).toContain('Simulator HPP');
+    });
+
     it('uses aliases for task visibility without broadening child permissions', () => {
         const legacyAliasHtml = renderToStaticMarkup(
             <DashboardClient

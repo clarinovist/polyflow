@@ -40,10 +40,15 @@ import {
 import Link from 'next/link';
 import { InfoHint } from '@/components/common/InfoHint';
 import { withTenantPage } from '@/lib/core/tenant';
+import { canAccessHppPriceSimulator } from '@/lib/auth/hpp-price-simulator-access';
 
 const getCostingData = withTenantPage(
     async (startDate: Date, endDate: Date) => {
-        return CostingService.getPeriodCosts(startDate, endDate);
+        const [costs, canUseSimulator] = await Promise.all([
+            CostingService.getPeriodCosts(startDate, endDate),
+            canAccessHppPriceSimulator(),
+        ]);
+        return { costs, canUseSimulator };
     },
 );
 
@@ -96,10 +101,11 @@ export default async function CostingPage(props: {
     const sourceFilter = parseSourceFilter(searchParams.source);
     const flagFilter = parseFlagFilter(searchParams.flag);
 
-    const [costs, variantsRes] = await Promise.all([
+    const [costingData, variantsRes] = await Promise.all([
         getCostingData(startDate, endDate),
         getProductVariants(),
     ]);
+    const { costs, canUseSimulator } = costingData;
 
     const totalCOGM = costs.reduce((sum, c) => sum + c.totalCost, 0);
     const totalMaterial = costs.reduce((sum, c) => sum + c.materialCost, 0);
@@ -160,6 +166,14 @@ export default async function CostingPage(props: {
                     </p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
+                    {canUseSimulator && (
+                        <Button asChild>
+                            <Link href="/production/costing/simulator">
+                                <TrendingUp className="mr-2 h-4 w-4" />
+                                Simulator HPP
+                            </Link>
+                        </Button>
+                    )}
                     <Button variant="outline" asChild>
                         <Link href="/finance/reports/hpp">
                             <FileText className="mr-2 h-4 w-4" />

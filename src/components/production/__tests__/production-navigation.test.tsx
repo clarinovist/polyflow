@@ -43,6 +43,29 @@ describe('production work navigation', () => {
         expect(onlyHistory[0].heading).toBe('Laporan & Audit');
         expect(onlyHistory[0].items.map((item) => item.href)).toEqual(['/production/history']);
         expect(getProductionNavGroups([])).toEqual([]);
+
+        const costingOnly = getProductionNavGroups(
+            ['/production/costing', 'feature:view-prices'],
+            ['FINANCE'],
+        );
+        const costing = costingOnly
+            .flatMap((group) => group.items)
+            .find((item) => item.label === 'Costing');
+        expect(costing?.children?.map((child) => child.href)).toEqual([
+            '/production/costing',
+            '/production/costing/simulator',
+        ]);
+
+        const withoutNominalFeature = getProductionNavGroups(
+            ['/production/costing'],
+            ['FINANCE'],
+        );
+        const costingWithoutFeature = withoutNominalFeature
+            .flatMap((group) => group.items)
+            .find((item) => item.label === 'Costing');
+        expect(costingWithoutFeature?.children?.map((child) => child.href)).toEqual([
+            '/production/costing',
+        ]);
     });
 
     it('links Tim and Pengaturan Shift to distinct existing pages; all menu targets exist', () => {

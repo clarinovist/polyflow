@@ -23,6 +23,7 @@ import {
     Receipt,
     Settings,
     Users,
+    Calculator,
 } from 'lucide-react';
 import type { ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { formatRupiah } from '@/lib/utils/utils';
@@ -634,7 +635,10 @@ export function buildExecutiveAttention(
         .slice(0, 5);
 }
 
-export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
+export function buildQuickActions(
+    role: DashboardRole,
+    canUseHppPriceSimulator = false,
+): QuickActionItem[] {
     const r = role.toUpperCase();
 
     const catalog: Record<string, QuickActionItem[]> = {
@@ -982,7 +986,21 @@ export function buildQuickActions(role: DashboardRole): QuickActionItem[] {
         ],
     };
 
-    return catalog[r] ?? catalog.ADMIN;
+    const actions = catalog[r] ?? catalog.ADMIN;
+    if (!canUseHppPriceSimulator) return actions;
+
+    return [
+        {
+            href: '/production/costing/simulator',
+            label: 'Simulator HPP',
+            icon: Calculator,
+            color: 'text-amber-700 dark:text-amber-400',
+            bg: 'bg-amber-50 dark:bg-amber-900/10',
+            border: 'hover:border-amber-200 dark:hover:border-amber-800',
+            resourceHint: '/production/costing/simulator',
+        },
+        ...actions,
+    ];
 }
 
 export function canAccessResource(

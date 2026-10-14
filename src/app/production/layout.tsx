@@ -37,6 +37,7 @@ export default async function ProductionLayout({
         name: session.user?.name,
         email: session.user?.email,
         role: (session.user as { role?: string }).role || 'PRODUCTION',
+        roles: (session.user as { roles?: string[] }).roles,
         image: session.user?.image,
     };
 

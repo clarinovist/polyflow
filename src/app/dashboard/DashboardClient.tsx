@@ -60,6 +60,7 @@ interface DashboardClientProps {
     userName: string;
     userRole: string;
     permissions: string[] | 'ALL';
+    canUseHppPriceSimulator?: boolean;
     activeModules?: string[];
     presentation: DashboardPresentation;
 }
@@ -69,6 +70,7 @@ export default function DashboardClient({
     userName,
     userRole,
     permissions,
+    canUseHppPriceSimulator = false,
     presentation,
 }: DashboardClientProps) {
     const router = useRouter();
@@ -122,9 +124,10 @@ export default function DashboardClient({
     const attention = buildExecutiveAttention(role, stats).filter((item) =>
         canAccessResource(permissions, item.resourceHint),
     );
-    const quickActions = buildQuickActions(role).filter((a) =>
-        canAccessResource(permissions, a.resourceHint),
-    );
+    const quickActions = buildQuickActions(
+        role,
+        canUseHppPriceSimulator,
+    ).filter((a) => canAccessResource(permissions, a.resourceHint));
     const revenueDriver = stats.finance?.revenueTrendChart ?? [];
     const netIncomeDriver = stats.finance?.netIncomeTrendChart ?? [];
     const alignedDrivers =

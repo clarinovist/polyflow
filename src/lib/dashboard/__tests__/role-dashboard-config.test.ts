@@ -279,6 +279,23 @@ describe('role-dashboard-config', () => {
         ).toEqual(['lowStock', 'delayedProduction']);
     });
 
+    it('adds the simulator shortcut only after the server visibility gate passes', () => {
+        expect(
+            buildQuickActions('ADMIN').some(
+                (item) => item.href === '/production/costing/simulator',
+            ),
+        ).toBe(false);
+        expect(
+            buildQuickActions('FINANCE', true),
+        ).toContainEqual(
+            expect.objectContaining({
+                href: '/production/costing/simulator',
+                label: 'Simulator HPP',
+                resourceHint: '/production/costing/simulator',
+            }),
+        );
+    });
+
     it('returns role-specific permission-filterable task shortcuts', () => {
         expect(
             buildQuickActions('FINANCE').some((item) =>
