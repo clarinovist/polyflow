@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
     requireAuth: vi.fn(),
     getTenantDbFromContext: vi.fn(),
+    hasWorkspaceEntitlement: vi.fn(),
     userFindUnique: vi.fn(),
     rolePermissionFindMany: vi.fn(),
 }));
@@ -12,6 +13,10 @@ vi.mock('@/lib/tools/auth-checks', () => ({
 }));
 vi.mock('@/lib/core/prisma', () => ({
     getTenantDbFromContext: mocks.getTenantDbFromContext,
+}));
+vi.mock('@/lib/auth/access-policy', async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    hasWorkspaceEntitlement: mocks.hasWorkspaceEntitlement,
 }));
 
 import {
@@ -57,6 +62,7 @@ describe('HPP price simulator access', () => {
             user: { id: 'user-1', role: 'FINANCE' },
         });
         mocks.getTenantDbFromContext.mockReturnValue(db);
+        mocks.hasWorkspaceEntitlement.mockReturnValue(true);
         mocks.userFindUnique.mockResolvedValue(user('FINANCE'));
         grants([]);
     });
@@ -68,6 +74,16 @@ describe('HPP price simulator access', () => {
             db,
             roles: ['ADMIN'],
         });
+        expect(mocks.rolePermissionFindMany).not.toHaveBeenCalled();
+    });
+
+    it('denies a tenant without PRODUCTION entitlement before tenant business reads', async () => {
+        mocks.hasWorkspaceEntitlement.mockReturnValue(false);
+
+        await expect(requireHppPriceSimulatorAccess()).rejects.toThrow(
+            /Modul Produksi tidak aktif/i,
+        );
+        expect(mocks.userFindUnique).not.toHaveBeenCalled();
         expect(mocks.rolePermissionFindMany).not.toHaveBeenCalled();
     });
 

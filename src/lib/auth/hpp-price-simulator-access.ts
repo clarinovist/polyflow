@@ -1,4 +1,7 @@
-import { isPathAllowedByResources } from '@/lib/auth/access-policy';
+import {
+    hasWorkspaceEntitlement,
+    isPathAllowedByResources,
+} from '@/lib/auth/access-policy';
 import { getUserRoles } from '@/lib/auth/roles';
 import {
     HPP_PRICE_SIMULATOR_FEATURE,
@@ -55,6 +58,11 @@ export async function requireHppPriceSimulatorAccess(): Promise<HppPriceSimulato
     if (!db || session.user.isSuperAdmin) {
         throw new AuthorizationError(
             'Simulator HPP hanya tersedia di dalam tenant yang terverifikasi.',
+        );
+    }
+    if (!hasWorkspaceEntitlement('production')) {
+        throw new AuthorizationError(
+            'Modul Produksi tidak aktif untuk tenant ini.',
         );
     }
 
