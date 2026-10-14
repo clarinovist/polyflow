@@ -357,6 +357,7 @@ describe('getCustomerActivityReport', () => {
     });
 
     it('customer with order in current period is NOT dormant', async () => {
+        vi.useFakeTimers({ now: new Date('2026-08-31T12:00:00Z') });
         mockCustomerFindMany.mockResolvedValue([makeCustomer()]);
         setOrders([
             makeOrder({
@@ -373,6 +374,7 @@ describe('getCustomerActivityReport', () => {
         );
 
         expect(result.dormantCustomers).toHaveLength(0);
+        vi.useRealTimers();
     });
 
     it('dormant customer whose only order predates the previous-period window still shows the real lastOrderDate (not null)', async () => {
