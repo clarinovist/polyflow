@@ -3,6 +3,10 @@
 > This document describes architectural decisions, trade-offs, and system design.
 > For agent navigation, see `.agents/AGENTS.md`.
 
+> **Visual overview:** [docs/ops/diagrams/polyflow-architecture.html](docs/ops/diagrams/polyflow-architecture.html) —
+> self-contained HTML/SVG diagram of the production topology (clients → Nginx → app → main/tenant DBs, plus R2, Google SSO, Telegram alerts).
+> Local-only path (gitignored) — repo policy keeps tenant/customer names out of the shared repo.
+
 ## System Overview
 
 PolyFlow is a multi-tenant ERP for plastic converting manufacturing. Built with Next.js 16 (App Router), Prisma ORM, and PostgreSQL.
