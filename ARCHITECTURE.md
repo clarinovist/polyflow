@@ -3,9 +3,9 @@
 > This document describes architectural decisions, trade-offs, and system design.
 > For agent navigation, see `.agents/AGENTS.md`.
 
-> **Visual overview:** [docs/ops/diagrams/polyflow-architecture.html](docs/ops/diagrams/polyflow-architecture.html) —
+> **Visual overview:** [docs/diagrams/polyflow-architecture.html](docs/diagrams/polyflow-architecture.html) —
 > self-contained HTML/SVG diagram of the production topology (clients → Nginx → app → main/tenant DBs, plus R2, Google SSO, Telegram alerts).
-> Local-only path (gitignored) — repo policy keeps tenant/customer names out of the shared repo.
+> A full-detail copy including tenant names is kept on the local-only path `docs/ops/diagrams/` (gitignored, per repo policy).
 
 ## System Overview
 
