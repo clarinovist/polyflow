@@ -74,6 +74,11 @@ describe('PurchaseInvoiceTable shared paged contract', () => {
                 .getByRole('link', { name: 'BILL-0051' })
                 .getAttribute('href'),
         ).toBe('/finance/invoices/purchase/inv-51');
+        expect(
+            within(table)
+                .getByRole('link', { name: 'Lihat Detail BILL-0051' })
+                .getAttribute('href'),
+        ).toBe('/finance/invoices/purchase/inv-51');
         expect(screen.getByRole('status').textContent).toContain(
             'Menampilkan 51–75 dari 75',
         );
@@ -119,6 +124,29 @@ describe('PurchaseInvoiceTable shared paged contract', () => {
                 name: 'Hapus/Batal BILL-0051',
             }),
         ).toBeNull();
+    });
+
+    it('routes purchasing invoice links to the existing purchase order detail page', () => {
+        render(
+            <PurchaseInvoiceTable
+                invoices={invoices}
+                basePath="/purchasing/invoices"
+            />,
+        );
+
+        const table = screen.getByRole('table', {
+            name: 'Daftar invoice pembelian',
+        });
+        expect(
+            within(table)
+                .getByRole('link', { name: 'BILL-0051' })
+                .getAttribute('href'),
+        ).toBe('/purchasing/orders/po-51');
+        expect(
+            within(table)
+                .getByRole('link', { name: 'Lihat Detail BILL-0051' })
+                .getAttribute('href'),
+        ).toBe('/purchasing/orders/po-51');
     });
 
     it('preserves date filters while updating URL-backed pagination, filters, and sorting', () => {

@@ -92,6 +92,15 @@ interface PurchaseInvoiceTableProps {
     canDelete?: boolean;
 }
 
+function getInvoiceDetailHref(
+    basePath: string,
+    invoice: InvoiceWithRelations,
+) {
+    return basePath.startsWith('/finance')
+        ? `${basePath}/${invoice.id}`
+        : `/purchasing/orders/${invoice.purchaseOrder.id}`;
+}
+
 function ServerSortHeader({
     children,
     active,
@@ -326,11 +335,7 @@ export function PurchaseInvoiceTable({
                     return (
                         <div>
                             <Link
-                                href={
-                                    basePath.startsWith('/finance')
-                                        ? `${basePath}/${inv.id}`
-                                        : `/purchasing/orders/${inv.purchaseOrder.id}`
-                                }
+                                href={getInvoiceDetailHref(basePath, inv)}
                                 className="font-mono font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
                             >
                                 {inv.invoiceNumber}
@@ -446,7 +451,7 @@ export function PurchaseInvoiceTable({
                                 aria-label={`Lihat Detail ${inv.invoiceNumber}`}
                             >
                                 <Link
-                                    href={`${basePath}/${basePath.includes('finance') ? inv.id : inv.purchaseOrder.id}`}
+                                    href={getInvoiceDetailHref(basePath, inv)}
                                 >
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
@@ -566,11 +571,10 @@ export function PurchaseInvoiceTable({
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <Link
                                             className="inline-flex min-h-11 items-center font-mono font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                                            href={
-                                                basePath.startsWith('/finance')
-                                                    ? `${basePath}/${row.original.id}`
-                                                    : `/purchasing/orders/${row.original.purchaseOrder.id}`
-                                            }
+                                            href={getInvoiceDetailHref(
+                                                basePath,
+                                                row.original,
+                                            )}
                                         >
                                             {row.original.invoiceNumber}
                                         </Link>
