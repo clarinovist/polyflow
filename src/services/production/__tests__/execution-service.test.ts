@@ -35,6 +35,9 @@ vi.mock('@/lib/core/prisma', () => {
         stockReservation: {
             updateMany: vi.fn(),
         },
+        auditLog: {
+            findFirst: vi.fn(),
+        },
         machineDowntime: {
             create: vi.fn(),
         },
@@ -148,6 +151,7 @@ import {
 describe('ProductionExecutionService.voidExecution', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(tx.auditLog.findFirst).mockResolvedValue(null);
         vi.mocked(tx.productionExecution.findFirst).mockResolvedValue(null);
         vi.mocked(tx.productionExecution.findMany).mockResolvedValue([] as never);
     });
@@ -165,6 +169,37 @@ describe('ProductionExecutionService.voidExecution', () => {
         await expect(ProductionExecutionService.voidExecution('exec-1')).rejects.toThrow('Eksekusi sudah di-void');
 
         expect(tx.stockMovement.findMany).not.toHaveBeenCalled();
+        expect(tx.productionExecution.update).not.toHaveBeenCalled();
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('blocks generic void when the execution has a targeted stock correction', async () => {
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            quantityProduced: 10,
+            createdAt: new Date('2026-04-15T10:00:00.000Z'),
+            status: 'COMPLETED',
+            endTime: new Date('2026-04-15T11:00:00.000Z'),
+            productionOrder: { id: 'po-1' },
+        } as never);
+        vi.mocked(tx.auditLog.findFirst).mockResolvedValue({
+            id: 'audit-correction',
+        } as never);
+
+        await expect(
+            ProductionExecutionService.voidExecution('exec-1'),
+        ).rejects.toThrow(/koreksi stok terverifikasi/i);
+
+        expect(tx.auditLog.findFirst).toHaveBeenCalledWith({
+            where: {
+                action: 'CORRECT_PACKING_SCRAP_BACKFLUSH',
+                changes: { path: ['executionId'], equals: 'exec-1' },
+            },
+            select: { id: true },
+        });
+        expect(tx.stockMovement.findMany).not.toHaveBeenCalled();
+        expect(tx.materialIssue.updateMany).not.toHaveBeenCalled();
         expect(tx.productionExecution.update).not.toHaveBeenCalled();
         expect(tx.productionOrder.update).not.toHaveBeenCalled();
     });

@@ -44,6 +44,25 @@ export async function voidProductionExecutionInTransaction(
 
   if (!execution) throw new NotFoundError('ProductionExecution', executionId);
   if (execution.status === 'VOIDED') throw new ConflictError('Eksekusi sudah di-void');
+
+  // A targeted accounting/inventory correction may be linked to this exact
+  // execution. Generic void cannot safely reverse the correction movement and
+  // its valuation journal, so fail closed and require the documented manual
+  // reversal path instead of double-returning material.
+  const targetedCorrection = await tx.auditLog.findFirst({
+    where: {
+      action: 'CORRECT_PACKING_SCRAP_BACKFLUSH',
+      changes: { path: ['executionId'], equals: executionId },
+    },
+    select: { id: true },
+  });
+  if (targetedCorrection) {
+    throw new ProductionRuleViolationError(
+      'Eksekusi memiliki koreksi stok terverifikasi dan tidak dapat di-void otomatis. Hubungi admin untuk reversal koreksi terlebih dahulu.',
+      { executionId, correctionAuditId: targetedCorrection.id },
+    );
+  }
+
   if (execution.endTime === null) {
     throw new ProductionRuleViolationError('Eksekusi masih berjalan, tidak bisa di-void');
   }
