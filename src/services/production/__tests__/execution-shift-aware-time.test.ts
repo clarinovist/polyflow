@@ -321,6 +321,7 @@ describe('ProductionExecutionService shift-aware business time', () => {
                 }));
                 expect(backflushMaterials).toHaveBeenCalledWith(expect.objectContaining({
                     tx, productionOrderId: 'po-1', totalConsumed: 55, userId: 'user-1',
+                    outputContext: expect.objectContaining({ scrapQuantityKg: undefined }),
                 }));
                 expect(recordFinishedGoodsOutput).toHaveBeenCalledWith(expect.objectContaining({
                     tx, productionOrderId: 'po-1', quantityProduced: 50,

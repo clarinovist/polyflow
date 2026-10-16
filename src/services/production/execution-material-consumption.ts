@@ -47,6 +47,67 @@ function hasFloorEnteredBalRule(attributes: unknown): boolean {
     );
 }
 
+const INELIGIBLE_PACKING_SCRAP_PRODUCT_TYPES = new Set([
+    'PACKAGING',
+    'AUXILIARY',
+    'SCRAP',
+    'SERVICE',
+    'OPERATIONAL',
+    'FIXED_ASSET',
+]);
+
+function hasPrimaryKgInputRole(attributes: unknown): boolean {
+    return (
+        !!attributes &&
+        typeof attributes === 'object' &&
+        !Array.isArray(attributes) &&
+        (attributes as Record<string, unknown>).scrapBackflushRole ===
+            'PRIMARY_KG_INPUT'
+    );
+}
+
+function isEligiblePackingScrapMaterial(item: MaterialLike): boolean {
+    const variant = item.productVariant;
+    const productType = variant?.product?.productType;
+
+    return (
+        variant?.primaryUnit === 'KG' &&
+        !!productType &&
+        !INELIGIBLE_PACKING_SCRAP_PRODUCT_TYPES.has(productType)
+    );
+}
+
+export function resolvePackingScrapMaterialId(
+    items: MaterialLike[],
+): string {
+    const explicit = items.filter((item) =>
+        hasPrimaryKgInputRole(item.productVariant?.attributes),
+    );
+    if (explicit.length > 0) {
+        if (
+            explicit.length !== 1 ||
+            !isEligiblePackingScrapMaterial(explicit[0])
+        ) {
+            throw new BusinessRuleError(
+                'Konfigurasi bahan utama affal packing tidak valid. Tandai tepat satu bahan utama KG.',
+                { explicitCandidates: explicit.length },
+                'PACKING_SCRAP_MATERIAL_AMBIGUOUS',
+            );
+        }
+        return explicit[0].productVariantId;
+    }
+
+    const eligible = items.filter(isEligiblePackingScrapMaterial);
+    if (eligible.length !== 1) {
+        throw new BusinessRuleError(
+            'Bahan utama affal packing tidak dapat ditentukan. Tandai tepat satu bahan utama KG pada varian produk.',
+            { eligibleCandidates: eligible.length },
+            'PACKING_SCRAP_MATERIAL_AMBIGUOUS',
+        );
+    }
+    return eligible[0].productVariantId;
+}
+
 function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
     const productType = item.productVariant?.product?.productType;
     const primaryUnit = item.productVariant?.primaryUnit;
@@ -117,7 +178,11 @@ export async function backflushMaterials(params: {
         userId,
         outputContext,
     } = params;
-    if (totalConsumed <= 0) {
+    const packingScrapKg =
+        order.bom?.category === 'PACKING'
+            ? Number(outputContext?.scrapQuantityKg ?? 0)
+            : 0;
+    if (totalConsumed <= 0 && packingScrapKg <= 0) {
         return;
     }
 
@@ -125,17 +190,23 @@ export async function backflushMaterials(params: {
         throw new BusinessRuleError('Rencana bahan pemakaian langsung tidak tersedia.', {}, 'DIRECT_MATERIAL_PLAN_REQUIRED');
     }
 
-    const itemsToBackflush =
+    const itemsToBackflush = (
         order.plannedMaterials.length > 0
             ? order.plannedMaterials
-            : order.bom?.items || [];
+            : order.bom?.items || []
+    ) as MaterialLike[];
     const isUsingPlanned = order.plannedMaterials.length > 0;
 
     if (itemsToBackflush.length === 0) {
         return;
     }
 
-    for (const item of itemsToBackflush as MaterialLike[]) {
+    const packingScrapMaterialId =
+        packingScrapKg > 0
+            ? resolvePackingScrapMaterialId(itemsToBackflush)
+            : null;
+
+    for (const item of itemsToBackflush) {
         const consumptionLocationId = await resolveMaterialLocation(
             tx,
             order,
@@ -175,13 +246,21 @@ export async function backflushMaterials(params: {
             continue;
         }
 
-        const qtyToDeduct = resolveBackflushQuantity({
-            item,
-            order,
-            totalConsumed,
-            isUsingPlanned,
-            outputContext,
-        });
+        const proportionalBase =
+            order.bom?.category === 'PACKING'
+                ? outputContext?.baseQuantity ?? totalConsumed
+                : totalConsumed;
+        const qtyToDeduct =
+            resolveBackflushQuantity({
+                item,
+                order,
+                totalConsumed: proportionalBase,
+                isUsingPlanned,
+                outputContext,
+            }) +
+            (item.productVariantId === packingScrapMaterialId
+                ? packingScrapKg
+                : 0);
 
         if (qtyToDeduct <= 0.0001) {
             continue;

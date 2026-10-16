@@ -388,6 +388,292 @@ describe('backflushMaterials — STAGED→ISSUED conversion & manual-issue guard
     });
 });
 
+describe('PACKING scrap backflush uses physical KG once', () => {
+    const packingOrder = {
+        id: 'po-pack',
+        orderNumber: 'WO-PACK',
+        plannedQuantity: 20,
+        isMaklon: false,
+        locationId: 'loc-1',
+        materialSourceLocationId: null,
+        materialConsumptionMode: 'TRANSFER',
+        salesOrderId: null,
+        productionRunId: null,
+        bom: {
+            productVariantId: 'pv-fg',
+            outputQuantity: 1,
+            category: 'PACKING',
+            items: [
+                {
+                    productVariantId: 'pv-main',
+                    quantity: 10,
+                    productVariant: {
+                        name: 'Main KG input',
+                        skuCode: 'MAIN001',
+                        primaryUnit: 'KG',
+                        attributes: null,
+                        product: { productType: 'FINISHED_GOOD' },
+                    },
+                },
+                {
+                    productVariantId: 'pv-aux',
+                    quantity: 0.08,
+                    productVariant: {
+                        name: 'Auxiliary',
+                        skuCode: 'AUX001',
+                        primaryUnit: 'KG',
+                        attributes: null,
+                        product: { productType: 'AUXILIARY' },
+                    },
+                },
+            ],
+        },
+        plannedMaterials: [],
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockCommonConsumption();
+    });
+
+    it('deducts 20 BAL × 10 KG/BAL + 4.6 KG scrap from only the main material', async () => {
+        await backflushMaterials({
+            tx,
+            order: packingOrder as never,
+            productionOrderId: 'po-pack',
+            totalConsumed: 20,
+            reference: 'Backflush (Batch): WO-PACK',
+            outputContext: {
+                enteredQuantity: null,
+                enteredUnit: null,
+                baseQuantity: 20,
+                scrapQuantityKg: 4.6,
+            },
+        });
+
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-main',
+            204.6,
+        );
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-aux',
+            1.6,
+        );
+    });
+
+    it('deducts PACKING scrap when good output is zero', async () => {
+        await backflushMaterials({
+            tx,
+            order: packingOrder as never,
+            productionOrderId: 'po-pack',
+            totalConsumed: 0,
+            reference: 'Backflush (Batch): WO-PACK',
+            outputContext: {
+                enteredQuantity: null,
+                enteredUnit: null,
+                baseQuantity: 0,
+                scrapQuantityKg: 4.6,
+            },
+        });
+
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledTimes(1);
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-main',
+            4.6,
+        );
+    });
+
+    it('uses planned materials as the effective ratio and candidate set', async () => {
+        await backflushMaterials({
+            tx,
+            order: {
+                ...packingOrder,
+                plannedMaterials: [
+                    {
+                        productVariantId: 'pv-planned-main',
+                        quantity: 200,
+                        productVariant: {
+                            name: 'Planned main',
+                            skuCode: 'PLAN001',
+                            primaryUnit: 'KG',
+                            attributes: null,
+                            product: { productType: 'INTERMEDIATE' },
+                        },
+                    },
+                ],
+            } as never,
+            productionOrderId: 'po-pack',
+            totalConsumed: 20,
+            reference: 'Backflush (Batch): WO-PACK',
+            outputContext: {
+                enteredQuantity: null,
+                enteredUnit: null,
+                baseQuantity: 20,
+                scrapQuantityKg: 4.6,
+            },
+        });
+
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-planned-main',
+            204.6,
+        );
+        expect(InventoryCoreService.deductStock).not.toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-main',
+            expect.anything(),
+        );
+    });
+
+    it('uses explicit metadata to select one of multiple eligible KG materials', async () => {
+        const marked = {
+            productVariantId: 'pv-marked',
+            quantity: 1,
+            productVariant: {
+                name: 'Marked main',
+                skuCode: 'MARK001',
+                primaryUnit: 'KG',
+                attributes: { scrapBackflushRole: 'PRIMARY_KG_INPUT' },
+                product: { productType: 'WIP' },
+            },
+        };
+        const other = {
+            productVariantId: 'pv-other',
+            quantity: 2,
+            productVariant: {
+                name: 'Other KG input',
+                skuCode: 'OTHR001',
+                primaryUnit: 'KG',
+                attributes: null,
+                product: { productType: 'INTERMEDIATE' },
+            },
+        };
+
+        await backflushMaterials({
+            tx,
+            order: {
+                ...packingOrder,
+                bom: { ...packingOrder.bom, items: [marked, other] },
+            } as never,
+            productionOrderId: 'po-pack',
+            totalConsumed: 20,
+            reference: 'Backflush (Batch): WO-PACK',
+            outputContext: {
+                enteredQuantity: null,
+                enteredUnit: null,
+                baseQuantity: 20,
+                scrapQuantityKg: 4.6,
+            },
+        });
+
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-marked',
+            24.6,
+        );
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-other',
+            40,
+        );
+    });
+
+    it('fails before stock work when the PACKING main material is ambiguous', async () => {
+        const candidate = (id: string) => ({
+            productVariantId: id,
+            quantity: 1,
+            productVariant: {
+                name: id,
+                skuCode: id,
+                primaryUnit: 'KG',
+                attributes: null,
+                product: { productType: 'INTERMEDIATE' },
+            },
+        });
+
+        await expect(
+            backflushMaterials({
+                tx,
+                order: {
+                    ...packingOrder,
+                    bom: {
+                        ...packingOrder.bom,
+                        items: [candidate('pv-a'), candidate('pv-b')],
+                    },
+                } as never,
+                productionOrderId: 'po-pack',
+                totalConsumed: 20,
+                reference: 'Backflush (Batch): WO-PACK',
+                outputContext: {
+                    enteredQuantity: null,
+                    enteredUnit: null,
+                    baseQuantity: 20,
+                    scrapQuantityKg: 4.6,
+                },
+            }),
+        ).rejects.toMatchObject({
+            code: 'PACKING_SCRAP_MATERIAL_AMBIGUOUS',
+        });
+
+        expect(resolveMaterialLocation).not.toHaveBeenCalled();
+        expect(InventoryCoreService.validateAndLockStock).not.toHaveBeenCalled();
+        expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+        expect(tx.stockMovement.create).not.toHaveBeenCalled();
+        expect(tx.materialIssue.create).not.toHaveBeenCalled();
+    });
+
+    it('keeps non-PACKING scrap proportional across formulation inputs', async () => {
+        await backflushMaterials({
+            tx,
+            order: {
+                ...packingOrder,
+                bom: {
+                    ...packingOrder.bom,
+                    category: 'EXTRUSION',
+                    outputQuantity: 10,
+                    items: [
+                        { ...packingOrder.bom.items[0], quantity: 6 },
+                        {
+                            ...packingOrder.bom.items[0],
+                            productVariantId: 'pv-second',
+                            quantity: 4,
+                        },
+                    ],
+                },
+            } as never,
+            productionOrderId: 'po-pack',
+            totalConsumed: 24.6,
+            reference: 'Backflush (Batch): WO-PACK',
+            outputContext: {
+                enteredQuantity: null,
+                enteredUnit: null,
+                baseQuantity: 20,
+                scrapQuantityKg: undefined,
+            },
+        });
+
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(
+            tx,
+            'loc-1',
+            'pv-main',
+            14.76,
+        );
+        const calls = vi.mocked(InventoryCoreService.deductStock).mock.calls;
+        const second = calls.find((call) => call[2] === 'pv-second');
+        expect(second?.[3]).toBeCloseTo(9.84, 8);
+    });
+});
+
 describe('backflush BOM ratio per SKU (baling → WIP PCS)', () => {
     const shellExecution = {
         id: 'exec-shell',

@@ -16,6 +16,7 @@ import {
 import { AccountingService } from '../accounting/accounting-service';
 import {
     backflushMaterials,
+    resolvePackingScrapMaterialId,
     recordExecutionScrap,
     recordExecutionQualityInspection,
     recordFinishedGoodsOutput,
@@ -23,6 +24,7 @@ import {
 } from './execution-helpers';
 import { resolveProductionOutputUnit } from './execution-unit-conversion';
 import { resolveShiftAwareLogTimes } from '@/lib/production/execution-business-date';
+import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import { buildPieceSnapshotForOperator } from '@/services/hrd/piece-rate-helpers';
 import {
     assertRoutedOrderCanStart,
@@ -138,6 +140,48 @@ async function resolveOutputQuantity(params: {
     };
 }
 
+async function preflightPackingScrapMaterial(params: {
+    tx: Prisma.TransactionClient;
+    productionOrderId: string;
+    scrapQuantity: number;
+    scrapProngkolQty?: number;
+    scrapDaunQty?: number;
+}) {
+    const normalizedScrap = executionScrapTotal(params);
+    if (normalizedScrap <= 0) return;
+
+    const order = await params.tx.productionOrder.findUniqueOrThrow({
+        where: { id: params.productionOrderId },
+        include: {
+            bom: {
+                include: {
+                    items: {
+                        include: {
+                            productVariant: {
+                                include: { product: true },
+                            },
+                        },
+                    },
+                },
+            },
+            plannedMaterials: {
+                include: {
+                    productVariant: {
+                        include: { product: true },
+                    },
+                },
+            },
+        },
+    });
+    if (order.bom.category !== 'PACKING') return;
+
+    const effectiveMaterials =
+        order.plannedMaterials.length > 0
+            ? order.plannedMaterials
+            : order.bom.items;
+    resolvePackingScrapMaterialId(effectiveMaterials);
+}
+
 function mergeExecutionEnteredQuantity(params: {
     currentEnteredQuantity: unknown;
     currentEnteredUnit: Unit | null;
@@ -186,7 +230,8 @@ async function processOutputAndBackflush(params: {
     userId?: string;
     resolved: ResolvedOutputQuantity;
     referencePrefix: string;
-    additionalScrapQty?: number;
+    scrapProngkolQty?: number;
+    scrapDaunQty?: number;
 }) {
     const {
         tx,
@@ -196,7 +241,8 @@ async function processOutputAndBackflush(params: {
         userId,
         resolved,
         referencePrefix,
-        additionalScrapQty = 0,
+        scrapProngkolQty = 0,
+        scrapDaunQty = 0,
     } = params;
 
     const order = await tx.productionOrder.update({
@@ -224,7 +270,17 @@ async function processOutputAndBackflush(params: {
         },
     });
 
-    const totalConsumed = resolvedBaseQty + scrapQuantity + additionalScrapQty;
+    const normalizedScrap = executionScrapTotal({
+        scrapQuantity,
+        scrapProngkolQty,
+        scrapDaunQty,
+    });
+    // Non-packing recipes preserve the legacy proportional scrap semantics.
+    // PACKING carries output units (often BAL) separately from physical affal KG.
+    const isPackingOrder = order.bom?.category === 'PACKING';
+    const totalConsumed = isPackingOrder
+        ? resolvedBaseQty
+        : resolvedBaseQty + normalizedScrap;
     await backflushMaterials({
         tx,
         order: order as ProductionExecutionOrder,
@@ -236,6 +292,7 @@ async function processOutputAndBackflush(params: {
             enteredQuantity: resolved.enteredQty,
             enteredUnit: resolved.enteredUnit,
             baseQuantity: resolvedBaseQty,
+            scrapQuantityKg: isPackingOrder ? normalizedScrap : undefined,
         },
     });
 
@@ -417,6 +474,13 @@ export class ProductionExecutionService {
                 tx,
             });
             resolvedBaseQty = resolved.baseQty;
+            await preflightPackingScrapMaterial({
+                tx,
+                productionOrderId,
+                scrapQuantity: Number(scrapQuantity),
+                scrapProngkolQty: Number(scrapProngkolQty),
+                scrapDaunQty: Number(scrapDaunQty),
+            });
 
             finalExecution = await tx.productionExecution.update({
                 where: { id: executionId },
@@ -424,6 +488,8 @@ export class ProductionExecutionService {
                     endTime: new Date(),
                     quantityProduced: { increment: resolvedBaseQty },
                     scrapQuantity: { increment: scrapQuantity },
+                    scrapProngkolQty: { increment: scrapProngkolQty },
+                    scrapDaunQty: { increment: scrapDaunQty },
                     notes: notes ? `[Stopped]: ${notes}` : undefined,
                     ...mergeExecutionEnteredQuantity({
                         currentEnteredQuantity:
@@ -485,6 +551,8 @@ export class ProductionExecutionService {
                 userId,
                 resolved,
                 referencePrefix: 'Backflush (Stop)',
+                scrapProngkolQty,
+                scrapDaunQty,
             });
 
             await recordExecutionScrap({
@@ -600,17 +668,6 @@ export class ProductionExecutionService {
                 if (activeShift) shiftId = activeShift.id;
             }
 
-            // Keep shell in sync so next log / UI shows current operator
-            if (
-                operatorId !== runningExecution.operatorId ||
-                shiftId !== runningExecution.shiftId
-            ) {
-                await tx.productionExecution.update({
-                    where: { id: executionId },
-                    data: { operatorId, shiftId },
-                });
-            }
-
             // 2. Resolve quantity
             const resolved = await resolveOutputQuantity({
                 productionOrderId,
@@ -630,6 +687,24 @@ export class ProductionExecutionService {
                         : undefined,
                 tx,
             });
+            await preflightPackingScrapMaterial({
+                tx,
+                productionOrderId,
+                scrapQuantity: Number(scrapQuantity),
+                scrapProngkolQty: Number(scrapProngkolQty),
+                scrapDaunQty: Number(scrapDaunQty),
+            });
+
+            // Keep shell in sync only after all fail-closed validation.
+            if (
+                operatorId !== runningExecution.operatorId ||
+                shiftId !== runningExecution.shiftId
+            ) {
+                await tx.productionExecution.update({
+                    where: { id: executionId },
+                    data: { operatorId, shiftId },
+                });
+            }
 
             // 3. CREATE a new completed execution (not update the running one!)
             // Shift-aware business time: entri otomatis setelah tengah malam yang
@@ -690,6 +765,8 @@ export class ProductionExecutionService {
                 userId,
                 resolved,
                 referencePrefix: 'Backflush (Partial)',
+                scrapProngkolQty,
+                scrapDaunQty,
             });
 
             // 5. Record scrap for this log
@@ -777,6 +854,13 @@ export class ProductionExecutionService {
                 tx,
             });
             const resolvedBaseQty = resolved.baseQty;
+            await preflightPackingScrapMaterial({
+                tx,
+                productionOrderId,
+                scrapQuantity: Number(scrapQuantity),
+                scrapProngkolQty: Number(scrapProngkolQty ?? 0),
+                scrapDaunQty: Number(scrapDaunQty ?? 0),
+            });
 
             // Validate: shift must belong to the same production order
             let shiftStartForLog: Date | null = null;
@@ -886,8 +970,6 @@ export class ProductionExecutionService {
                 data: executionData,
             });
 
-            const additionalScrap =
-                Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0);
             await processOutputAndBackflush({
                 tx,
                 productionOrderId,
@@ -896,7 +978,8 @@ export class ProductionExecutionService {
                 userId,
                 resolved,
                 referencePrefix: 'Backflush (Batch)',
-                additionalScrapQty: additionalScrap,
+                scrapProngkolQty,
+                scrapDaunQty,
             });
 
             await recordExecutionScrap({

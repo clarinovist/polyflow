@@ -349,15 +349,15 @@ describe("ProductionService", () => {
         notes: "",
       });
 
-      // Scrap consumes materials too. Total consumed = 10 (produced) + 5 (scrap) + 2 (prongkol) + 3 (daun) = 20
-      // Ratio = 20 / 100 = 0.2
-      // BOM Item 1 quantity = 50 -> 50 * 0.2 = 10
+      // Kiosk-style generic scrap duplicates the split components, so it is
+      // normalized once: max(5, 2 + 3) = 5. Total consumed = 10 + 5 = 15.
+      // Ratio = 15 / 100; BOM Item 1 quantity = 50 -> 7.5.
 
       expect(InventoryCoreService.deductStock as any).toHaveBeenCalledWith(
         expect.anything(),
         "loc-1",
         "pv-mat1",
-        10,
+        7.5,
       );
 
       // Expect scrapRecord to be created since prongkol and daun qty is > 0

@@ -35,6 +35,9 @@ export interface OutputBackflushContext {
     enteredQuantity: number | null;
     enteredUnit: Unit | null;
     baseQuantity: number;
+    /** Normalized physical affal weight. For PACKING, this is added once to
+     * the selected KG input instead of being multiplied by every BOM ratio. */
+    scrapQuantityKg?: number;
 }
 
 export interface ProductionExecutionOrder extends BackflushOrder {

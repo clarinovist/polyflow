@@ -106,6 +106,7 @@ vi.mock('../execution-output-posting', () => ({
 
 vi.mock('../execution-helpers', () => ({
     backflushMaterials: vi.fn(),
+    resolvePackingScrapMaterialId: vi.fn().mockReturnValue('pv-main'),
     recordExecutionScrap: vi.fn(),
     recordExecutionQualityInspection: vi.fn(),
     recordFinishedGoodsOutput: vi.fn(),
@@ -139,6 +140,10 @@ vi.mock('../routing-execution-guard', () => ({
 // @ts-expect-error - __mockTx is provided by vi.mock above
 import { prisma, __mockTx as tx } from '@/lib/core/prisma';
 import { ProductionExecutionService } from '../execution-service';
+import {
+    backflushMaterials,
+    resolvePackingScrapMaterialId,
+} from '../execution-helpers';
 
 describe('ProductionExecutionService.voidExecution', () => {
     beforeEach(() => {
@@ -523,6 +528,110 @@ describe('ProductionExecutionService.stopExecution', () => {
         ).resolves.toBeTruthy();
 
         expect(tx.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('persists split scrap and normalizes duplicate kiosk scrap once', async () => {
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            bom: { category: 'PACKING', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({
+            id: 'po-1',
+            orderNumber: 'WO-001',
+            status: 'IN_PROGRESS',
+            isMaklon: false,
+            locationId: 'loc-1',
+            productionRunId: null,
+            bom: {
+                productVariantId: 'pv-1',
+                category: 'PACKING',
+                outputQuantity: 1,
+                items: [],
+            },
+            plannedMaterials: [],
+        } as never);
+
+        await ProductionExecutionService.stopExecution({
+            executionId: 'exec-1',
+            quantityProduced: 20,
+            scrapQuantity: 4.6,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 4.6,
+            notes: '',
+            completed: false,
+            operatorId: 'op-1',
+        } as never);
+
+        expect(tx.productionExecution.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { id: 'exec-1' },
+                data: expect.objectContaining({
+                    scrapQuantity: { increment: 4.6 },
+                    scrapProngkolQty: { increment: 0 },
+                    scrapDaunQty: { increment: 4.6 },
+                }),
+            }),
+        );
+        expect(backflushMaterials).toHaveBeenCalledWith(
+            expect.objectContaining({
+                totalConsumed: 20,
+                outputContext: expect.objectContaining({
+                    scrapQuantityKg: 4.6,
+                }),
+            }),
+        );
+    });
+
+    it('fails ambiguous PACKING scrap before execution or order mutations', async () => {
+        vi.mocked(resolvePackingScrapMaterialId).mockImplementationOnce(() => {
+            throw Object.assign(new Error('Ambiguous packing material'), {
+                code: 'PACKING_SCRAP_MATERIAL_AMBIGUOUS',
+            });
+        });
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValueOnce({
+            id: 'po-1',
+            bom: {
+                category: 'PACKING',
+                items: [
+                    {
+                        productVariantId: 'pv-a',
+                        productVariant: {
+                            primaryUnit: 'KG',
+                            product: { productType: 'INTERMEDIATE' },
+                        },
+                    },
+                    {
+                        productVariantId: 'pv-b',
+                        productVariant: {
+                            primaryUnit: 'KG',
+                            product: { productType: 'INTERMEDIATE' },
+                        },
+                    },
+                ],
+            },
+            plannedMaterials: [],
+        } as never);
+
+        await expect(
+            ProductionExecutionService.stopExecution({
+                executionId: 'exec-1',
+                quantityProduced: 20,
+                scrapQuantity: 4.6,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 4.6,
+                notes: '',
+                completed: true,
+                operatorId: 'op-1',
+            } as never),
+        ).rejects.toMatchObject({
+            code: 'PACKING_SCRAP_MATERIAL_AMBIGUOUS',
+        });
+
+        expect(tx.productionExecution.update).not.toHaveBeenCalled();
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+        expect(backflushMaterials).not.toHaveBeenCalled();
     });
 
     it('blocks final completion while an additional-material request is pending', async () => {
