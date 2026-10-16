@@ -58,6 +58,7 @@ vi.mock('@/lib/core/prisma', () => {
             stockOpname,
             stockOpnameEntry,
             inventory,
+            $queryRaw: tx.$queryRaw,
             $transaction: vi.fn(async (input: unknown) => {
                 if (typeof input === 'function') {
                     return (input as (trx: typeof tx) => Promise<unknown>)(tx);
@@ -102,10 +103,12 @@ import {
     saveOpnameCount,
     addOpnameEntry,
     deleteOpnameEntry,
+    markOpnameItemUncounted,
     completeOpname,
 } from '../opname';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
 import { AuthorizationError } from '@/lib/errors/errors';
+import { logActivity } from '@/lib/tools/audit';
 import { Prisma } from '@prisma/client';
 
 describe('createOpnameSession', () => {
@@ -407,6 +410,75 @@ describe('saveOpnameCount', () => {
         expect(sqlText).toContain('StockOpnameEntry');
         expect(sqlText).toContain('SUM');
         expect(revalidatePath).toHaveBeenCalledWith('/warehouse/opname/opname-1');
+    });
+});
+
+describe('markOpnameItemUncounted', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireRole).mockResolvedValue({
+            user: { id: 'user-1', role: 'WAREHOUSE' },
+        } as never);
+        vi.mocked(prisma.$queryRaw).mockResolvedValue([
+            { id: 'item-1' },
+        ] as never);
+    });
+
+    it('marks a direct-count item uncounted with an in-transaction audit', async () => {
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            countedQuantity: new Prisma.Decimal(0),
+            opname: { status: 'OPEN' },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(0 as never);
+
+        const result = await markOpnameItemUncounted(
+            'opname-1',
+            'item-1',
+        );
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(prisma.stockOpnameItem.update).toHaveBeenCalledWith({
+            where: { id: 'item-1' },
+            data: { countedQuantity: null },
+        });
+        expect(logActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                userId: 'user-1',
+                action: 'MARK_OPNAME_ITEM_UNCOUNTED',
+                entityType: 'StockOpnameItem',
+                entityId: 'item-1',
+            }),
+        );
+        expect(revalidatePath).toHaveBeenCalledWith(
+            '/warehouse/opname/opname-1',
+        );
+    });
+
+    it('rejects reset when detail entries still exist', async () => {
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            countedQuantity: new Prisma.Decimal(5),
+            opname: { status: 'OPEN' },
+        } as never);
+        vi.mocked(prisma.stockOpnameEntry.count).mockResolvedValue(1 as never);
+
+        await expect(
+            markOpnameItemUncounted('opname-1', 'item-1'),
+        ).rejects.toThrow('Item memiliki rincian hitung');
+        expect(prisma.stockOpnameItem.update).not.toHaveBeenCalled();
+        expect(logActivity).not.toHaveBeenCalled();
+    });
+
+    it('rejects reset outside an OPEN session', async () => {
+        vi.mocked(prisma.stockOpnameItem.findUnique).mockResolvedValue({
+            countedQuantity: new Prisma.Decimal(5),
+            opname: { status: 'COMPLETED' },
+        } as never);
+
+        await expect(
+            markOpnameItemUncounted('opname-1', 'item-1'),
+        ).rejects.toThrow('Hanya sesi OPEN yang dapat diupdate');
+        expect(prisma.stockOpnameEntry.count).not.toHaveBeenCalled();
+        expect(prisma.stockOpnameItem.update).not.toHaveBeenCalled();
     });
 });
 

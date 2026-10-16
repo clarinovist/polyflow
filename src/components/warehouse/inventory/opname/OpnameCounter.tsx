@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,9 +21,13 @@ import {
     Loader2,
     ChevronRight,
     ChevronDown,
+    RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { saveOpnameCount } from '@/actions/inventory/opname';
+import {
+    markOpnameItemUncounted,
+    saveOpnameCount,
+} from '@/actions/inventory/opname';
 import { formatQuantity } from '@/lib/utils/utils';
 import { warehouseComponentLabels } from '@/lib/labels';
 import { OpnameEntryEditor } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
@@ -62,11 +67,15 @@ interface OpnameCounterProps {
 }
 
 export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
+    const router = useRouter();
     const [counts, setCounts] = useState<Record<string, string>>({});
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [blindMode, setBlindMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
+    const [resettingItemId, setResettingItemId] = useState<string | null>(null);
+    const [locallyResetItemIds, setLocallyResetItemIds] = useState<Set<string>>(
+        new Set(),
+    );
     const [expandedItems, setExpandedItems] = useState<
         Record<string, boolean>
     >({});
@@ -87,32 +96,103 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
 
         setCounts(initialCounts);
         setNotes(initialNotes);
+        setLocallyResetItemIds(new Set());
     }, [session]);
 
     const handleCountChange = (id: string, value: string) => {
         setCounts((prev) => ({ ...prev, [id]: value }));
-        setHasChanges(true);
+        if (value !== '') {
+            setLocallyResetItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
+        }
     };
 
     const handleNoteChange = (id: string, value: string) => {
         setNotes((prev) => ({ ...prev, [id]: value }));
-        setHasChanges(true);
     };
 
     const toggleEntryExpansion = (itemId: string) => {
         setExpandedItems((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
     };
 
-    // Autosave: send all items with counts (backend handles entries correctly)
+    const handleMarkUncounted = async (itemId: string) => {
+        autosaveCancel();
+        setResettingItemId(itemId);
+        try {
+            const result = await markOpnameItemUncounted(session.id, itemId);
+            if (!result.success) {
+                toast.error(`Gagal: ${result.error}`);
+                return;
+            }
+            setCounts((prev) => {
+                const next = { ...prev };
+                delete next[itemId];
+                return next;
+            });
+            setLocallyResetItemIds((prev) => new Set(prev).add(itemId));
+            toast.success('Item ditandai belum dihitung');
+            router.refresh();
+        } catch {
+            toast.error('Gagal menandai item belum dihitung');
+        } finally {
+            setResettingItemId(null);
+        }
+    };
+
+    const dirtyItems = useMemo(() => {
+        const dirty: string[] = [];
+        for (const item of session.items || []) {
+            const hasEntries = (item.entries ?? []).length > 0;
+            const currentNote = notes[item.id] || '';
+            const originalNote = item.notes || '';
+            if (hasEntries) {
+                if (currentNote !== originalNote) dirty.push(item.id);
+                continue;
+            }
+
+            const currentCount = counts[item.id] ?? '';
+            const originalCount = locallyResetItemIds.has(item.id)
+                ? ''
+                : item.countedQuantity !== null
+                  ? item.countedQuantity.toString()
+                  : '';
+            if (
+                currentCount !== originalCount ||
+                currentNote !== originalNote
+            ) {
+                dirty.push(item.id);
+            }
+        }
+        return dirty;
+    }, [session.items, counts, notes, locallyResetItemIds]);
+    const saveableDirtyItems = useMemo(
+        () =>
+            dirtyItems.filter((id) => {
+                const item = session.items.find(
+                    (candidate) => candidate.id === id,
+                );
+                return (
+                    (item?.entries ?? []).length > 0 ||
+                    (counts[id] !== undefined && counts[id] !== '')
+                );
+            }),
+        [dirtyItems, session.items, counts],
+    );
+    const hasChanges = saveableDirtyItems.length > 0;
+
+    // Never translate a temporarily cleared input into a physical count of 0.
+    // Resetting to uncounted uses the explicit audited action instead.
     const autosaveDirtyPayload = useMemo(() => {
-        const keys = Object.keys(counts);
-        if (keys.length === 0) return null;
-        return keys.map((id) => ({
+        if (saveableDirtyItems.length === 0) return null;
+        return saveableDirtyItems.map((id) => ({
             id,
             countedQuantity: parseFloat(counts[id] || '0'),
             notes: notes[id],
         }));
-    }, [counts, notes]);
+    }, [saveableDirtyItems, counts, notes]);
 
     const autosaveSaveFn = useCallback(
         async (payload: { id: string; countedQuantity: number; notes: string }[]) => {
@@ -120,12 +200,17 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
             if (!result.success) {
                 throw new Error(result.error || 'Autosave gagal');
             }
+            router.refresh();
         },
-        [session.id],
+        [session.id, router],
     );
 
-    const { status: autosaveStatus, lastSavedAt, flush: autosaveFlush } =
-        useOpnameAutosave(autosaveDirtyPayload as NonNullable<typeof autosaveDirtyPayload>, autosaveSaveFn, {
+    const {
+        status: autosaveStatus,
+        lastSavedAt,
+        flush: autosaveFlush,
+        cancel: autosaveCancel,
+    } = useOpnameAutosave(autosaveDirtyPayload as NonNullable<typeof autosaveDirtyPayload>, autosaveSaveFn, {
             enabled: !isReadOnly,
             delayMs: 2500,
         });
@@ -134,7 +219,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
         setIsSaving(true);
         try {
             // Convert state to array for server action
-            const updates = Object.keys(counts).map((id) => ({
+            const updates = saveableDirtyItems.map((id) => ({
                 id,
                 countedQuantity: parseFloat(counts[id] || '0'),
                 notes: notes[id],
@@ -144,7 +229,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
 
             if (result.success) {
                 toast.success('Jumlah perhitungan berhasil disimpan');
-                setHasChanges(false);
+                router.refresh();
             } else {
                 toast.error(`Gagal: ${result.error}`);
             }
@@ -265,23 +350,57 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Input
-                                                type="number"
-                                                step="any"
-                                                className="text-right h-9 font-mono"
-                                                placeholder="0"
-                                                value={counts[item.id] || ''}
-                                                onChange={(e) =>
-                                                    handleCountChange(
-                                                        item.id,
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                onBlur={() =>
-                                                    autosaveFlush()
-                                                }
-                                                disabled={isReadOnly || hasEntries}
-                                            />
+                                            <div className="flex flex-col items-end gap-1">
+                                                <Input
+                                                    type="number"
+                                                    step="any"
+                                                    className="text-right h-9 font-mono"
+                                                    placeholder="Belum dihitung"
+                                                    value={counts[item.id] || ''}
+                                                    onChange={(e) =>
+                                                        handleCountChange(
+                                                            item.id,
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    onBlur={() =>
+                                                        autosaveFlush()
+                                                    }
+                                                    disabled={
+                                                        isReadOnly ||
+                                                        hasEntries ||
+                                                        resettingItemId === item.id
+                                                    }
+                                                />
+                                                {!isReadOnly &&
+                                                    !hasEntries &&
+                                                    item.countedQuantity !== null &&
+                                                    !locallyResetItemIds.has(item.id) && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-2 text-xs text-muted-foreground"
+                                                            onClick={() =>
+                                                                handleMarkUncounted(
+                                                                    item.id,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                resettingItemId ===
+                                                                item.id
+                                                            }
+                                                        >
+                                                            {resettingItemId ===
+                                                            item.id ? (
+                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                            ) : (
+                                                                <RotateCcw className="h-3.5 w-3.5" />
+                                                            )}
+                                                            Tandai belum dihitung
+                                                        </Button>
+                                                    )}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <Input

@@ -55,6 +55,25 @@ describe('useOpnameAutosave', () => {
         expect(result.current.status).toBe('saved');
     });
 
+    it('cancel() discards a pending autosave', async () => {
+        const saveFn = vi.fn().mockResolvedValue(undefined);
+        const payload = { count: '10' };
+
+        const { result } = renderHook(
+            ({ p }) => useOpnameAutosave(p, saveFn, { delayMs: 500 }),
+            { initialProps: { p: payload } },
+        );
+
+        act(() => {
+            result.current.cancel();
+        });
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+
+        expect(saveFn).not.toHaveBeenCalled();
+    });
+
     it('flush() cancels pending timer', async () => {
         const saveFn = vi.fn().mockResolvedValue(undefined);
         const payload1 = { count: '10' };

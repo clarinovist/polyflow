@@ -12,6 +12,7 @@ import {
 import { requireRole } from '@/lib/tools/auth-checks';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
 import { toDecimalNumber } from '@/lib/utils/utils';
+import { logActivity } from '@/lib/tools/audit';
 
 const MAX_NOTES_LENGTH = 500;
 const MAX_REMARKS_LENGTH = 500;
@@ -416,6 +417,82 @@ export const deleteOpnameEntry = withTenant(async function deleteOpnameEntry(
         return result;
     });
 });
+
+export const markOpnameItemUncounted = withTenant(
+    async function markOpnameItemUncounted(
+        opnameId: string,
+        opnameItemId: string,
+    ) {
+        return safeAction(async () => {
+            const session = await requireRole([
+                Role.WAREHOUSE,
+                Role.PRODUCTION,
+                Role.PLANNING,
+            ]);
+
+            await prisma.$transaction(async (tx) => {
+                const lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+                    SELECT "id"
+                    FROM "StockOpnameItem"
+                    WHERE "id" = ${opnameItemId}
+                      AND "opnameId" = ${opnameId}
+                    FOR UPDATE
+                `;
+                if (lockedRows.length === 0) {
+                    throw new NotFoundError('StockOpnameItem', opnameItemId);
+                }
+
+                const item = await tx.stockOpnameItem.findUnique({
+                    where: { id: opnameItemId },
+                    select: {
+                        countedQuantity: true,
+                        opname: { select: { status: true } },
+                    },
+                });
+                if (!item) {
+                    throw new NotFoundError('StockOpnameItem', opnameItemId);
+                }
+                if (item.opname.status !== OpnameStatus.OPEN) {
+                    throw new BusinessRuleError(
+                        'Hanya sesi OPEN yang dapat diupdate',
+                    );
+                }
+
+                const entryCount = await tx.stockOpnameEntry.count({
+                    where: { opnameItemId },
+                });
+                if (entryCount > 0) {
+                    throw new BusinessRuleError(
+                        'Item memiliki rincian hitung. Hapus rincian satu per satu untuk menandainya belum dihitung.',
+                    );
+                }
+                if (item.countedQuantity === null) return;
+
+                await tx.stockOpnameItem.update({
+                    where: { id: opnameItemId },
+                    data: { countedQuantity: null },
+                });
+                await logActivity({
+                    userId: session.user.id,
+                    action: 'MARK_OPNAME_ITEM_UNCOUNTED',
+                    entityType: 'StockOpnameItem',
+                    entityId: opnameItemId,
+                    details: `Marked direct-count item as uncounted in opname ${opnameId}`,
+                    changes: {
+                        opnameId,
+                        countedQuantity: {
+                            from: item.countedQuantity.toString(),
+                            to: null,
+                        },
+                    },
+                    tx,
+                });
+            });
+
+            revalidateOpnamePaths(opnameId);
+        });
+    },
+);
 
 export const saveOpnameCount = withTenant(async function saveOpnameCount(
     opnameId: string,

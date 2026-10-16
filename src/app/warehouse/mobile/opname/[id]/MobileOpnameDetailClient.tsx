@@ -18,6 +18,7 @@ import {
     Loader2,
     ChevronDown,
     ChevronRight,
+    RotateCcw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ import {
     addItemToOpname,
     addOpnameEntry,
     deleteOpnameEntry,
+    markOpnameItemUncounted,
 } from '@/actions/inventory/opname';
 import { getProductVariants } from '@/actions/production/boms';
 import { toast } from 'sonner';
@@ -130,6 +132,10 @@ export function MobileOpnameDetailClient({
     const [search, setSearch] = useState('');
     const [itemFilter, setItemFilter] = useState<ItemFilter>('ALL');
     const [isSaving, setIsSaving] = useState(false);
+    const [resettingItemId, setResettingItemId] = useState<string | null>(null);
+    const [locallyResetItemIds, setLocallyResetItemIds] = useState<Set<string>>(
+        new Set(),
+    );
     const [isFinalizing, setIsFinalizing] = useState(false);
     const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -228,6 +234,7 @@ export function MobileOpnameDetailClient({
         });
         setCounts(initialCounts);
         setNotes(initialNotes);
+        setLocallyResetItemIds(new Set());
 
         // Merge entries: preserve optimistic pending/failed rows that haven't appeared on server yet
         setEntriesByItem((prev) => {
@@ -409,10 +416,11 @@ export function MobileOpnameDetailClient({
                 dirty.push(item.id);
             } else if (!hasEntries) {
                 const currentCount = counts[item.id];
-                const originalCount =
-                    item.countedQuantity !== null
-                        ? item.countedQuantity.toString()
-                        : '';
+                const originalCount = locallyResetItemIds.has(item.id)
+                    ? ''
+                    : item.countedQuantity !== null
+                      ? item.countedQuantity.toString()
+                      : '';
                 if (
                     currentCount !== originalCount ||
                     currentNote !== originalNote
@@ -422,9 +430,24 @@ export function MobileOpnameDetailClient({
             }
         }
         return dirty;
-    }, [session.items, counts, notes, entriesByItem]);
+    }, [session.items, counts, notes, entriesByItem, locallyResetItemIds]);
 
-    const hasChanges = dirtyItems.length > 0;
+    const saveableDirtyItems = useMemo(
+        () =>
+            dirtyItems.filter((id) => {
+                const item = session.items.find(
+                    (candidate) => candidate.id === id,
+                );
+                return (
+                    (entriesByItem[id] ?? []).length > 0 ||
+                    (item !== undefined &&
+                        counts[id] !== undefined &&
+                        counts[id] !== '')
+                );
+            }),
+        [dirtyItems, session.items, entriesByItem, counts],
+    );
+    const hasChanges = saveableDirtyItems.length > 0;
     const unsyncedEntryCount = useMemo(
         () =>
             Object.values(entriesByItem).reduce(
@@ -443,9 +466,14 @@ export function MobileOpnameDetailClient({
     // Autosave: dirty payload (items without entries only)
     const autosaveDirtyPayload = useMemo(() => {
         const items = session.items ?? [];
-        const dirty = dirtyItems.filter((id) => {
+        const dirty = saveableDirtyItems.filter((id) => {
             const item = items.find((i) => i.id === id);
-            return item && (entriesByItem[item.id] ?? []).length === 0;
+            return (
+                item &&
+                (entriesByItem[item.id] ?? []).length === 0 &&
+                counts[id] !== undefined &&
+                counts[id] !== ''
+            );
         });
         if (dirty.length === 0) return null;
         return dirty.map((id) => ({
@@ -453,7 +481,7 @@ export function MobileOpnameDetailClient({
             countedQuantity: parseFloat(counts[id] || '0'),
             notes: notes[id],
         }));
-    }, [session.items, dirtyItems, counts, notes, entriesByItem]);
+    }, [session.items, saveableDirtyItems, counts, notes, entriesByItem]);
 
     const autosaveSaveFn = useCallback(
         async (payload: { id: string; countedQuantity: number; notes: string }[]) => {
@@ -466,8 +494,12 @@ export function MobileOpnameDetailClient({
         [session.id, router],
     );
 
-    const { status: autosaveStatus, lastSavedAt, flush: autosaveFlush } =
-        useOpnameAutosave(autosaveDirtyPayload as NonNullable<typeof autosaveDirtyPayload>, autosaveSaveFn, {
+    const {
+        status: autosaveStatus,
+        lastSavedAt,
+        flush: autosaveFlush,
+        cancel: autosaveCancel,
+    } = useOpnameAutosave(autosaveDirtyPayload as NonNullable<typeof autosaveDirtyPayload>, autosaveSaveFn, {
             enabled: isOpen && !isFinalizing,
             delayMs: 2500,
         });
@@ -527,18 +559,49 @@ export function MobileOpnameDetailClient({
 
     const handleCountChange = useCallback((id: string, value: string) => {
         setCounts((prev) => ({ ...prev, [id]: value }));
+        if (value !== '') {
+            setLocallyResetItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
+        }
     }, []);
 
     const handleNoteChange = useCallback((id: string, value: string) => {
         setNotes((prev) => ({ ...prev, [id]: value }));
     }, []);
 
+    const handleMarkUncounted = async (itemId: string) => {
+        autosaveCancel();
+        setResettingItemId(itemId);
+        try {
+            const result = await markOpnameItemUncounted(session.id, itemId);
+            if (!result.success) {
+                toast.error(`Gagal: ${result.error}`);
+                return;
+            }
+            setCounts((prev) => {
+                const next = { ...prev };
+                delete next[itemId];
+                return next;
+            });
+            setLocallyResetItemIds((prev) => new Set(prev).add(itemId));
+            toast.success('Item ditandai belum dihitung');
+            router.refresh();
+        } catch {
+            toast.error('Gagal menandai item belum dihitung');
+        } finally {
+            setResettingItemId(null);
+        }
+    };
+
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const updates = dirtyItems.map((id) => ({
+            const updates = saveableDirtyItems.map((id) => ({
                 id,
-                countedQuantity: parseFloat(counts[id] || '0'),
+                countedQuantity: parseFloat(counts[id]),
                 notes: notes[id],
             }));
             const result = await saveOpnameCount(session.id, updates);
@@ -1139,13 +1202,45 @@ export function MobileOpnameDetailClient({
                                                     onBlur={() =>
                                                         autosaveFlush()
                                                     }
-                                                    placeholder="0"
+                                                    placeholder="Belum dihitung"
                                                     className="h-9 text-sm flex-1"
                                                     min="0"
                                                     step="any"
+                                                    disabled={
+                                                        resettingItemId === item.id
+                                                    }
                                                 />
                                             )}
                                         </div>
+                                        {!hasEntries &&
+                                            item.countedQuantity !== null &&
+                                            !locallyResetItemIds.has(item.id) && (
+                                                <div className="flex justify-end">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="min-h-9 px-2 text-xs text-muted-foreground"
+                                                        onClick={() =>
+                                                            handleMarkUncounted(
+                                                                item.id,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            resettingItemId ===
+                                                            item.id
+                                                        }
+                                                    >
+                                                        {resettingItemId ===
+                                                        item.id ? (
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                        ) : (
+                                                            <RotateCcw className="h-3.5 w-3.5" />
+                                                        )}
+                                                        Tandai belum dihitung
+                                                    </Button>
+                                                </div>
+                                            )}
                                         <div className="flex items-center gap-2">
                                             <Label className="text-xs text-muted-foreground w-16 shrink-0">
                                                 Catatan

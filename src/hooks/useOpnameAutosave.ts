@@ -76,6 +76,11 @@ export function useOpnameAutosave<T>(
         runSave(dirtyPayload);
     }, [clearTimer, enabled, dirtyPayload, runSave]);
 
+    const cancel = useCallback(() => {
+        clearTimer();
+        pendingRef.current = false;
+    }, [clearTimer]);
+
     useEffect(() => {
         payloadRef.current = dirtyPayload;
     }, [dirtyPayload]);
@@ -102,5 +107,5 @@ export function useOpnameAutosave<T>(
         };
     }, [clearTimer]);
 
-    return { status, lastSavedAt, flush } as const;
+    return { status, lastSavedAt, flush, cancel } as const;
 }

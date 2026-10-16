@@ -3,7 +3,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MobileOpnameDetailClient } from '../MobileOpnameDetailClient';
-import { addOpnameEntry } from '@/actions/inventory/opname';
+import {
+    addOpnameEntry,
+    markOpnameItemUncounted,
+} from '@/actions/inventory/opname';
 
 const { refresh, toastError } = vi.hoisted(() => ({
     refresh: vi.fn(),
@@ -28,6 +31,7 @@ vi.mock('@/actions/inventory/opname', () => ({
     completeOpname: vi.fn(),
     deleteOpnameEntry: vi.fn(),
     saveOpnameCount: vi.fn(),
+    markOpnameItemUncounted: vi.fn(),
 }));
 
 vi.mock('@/actions/production/boms', () => ({
@@ -78,6 +82,46 @@ beforeEach(() => {
 });
 
 describe('MobileOpnameDetailClient entry synchronization', () => {
+    it('menandai direct count sebagai belum dihitung melalui aksi eksplisit', async () => {
+        const countedSession = {
+            ...session,
+            items: [
+                {
+                    ...session.items[0],
+                    countedQuantity: 0,
+                },
+            ],
+        };
+        vi.mocked(markOpnameItemUncounted).mockResolvedValue({
+            success: true,
+            data: undefined,
+        });
+
+        render(
+            <MobileOpnameDetailClient
+                session={countedSession}
+                currentUserId="user-1"
+            />,
+        );
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Tandai belum dihitung' }),
+        );
+
+        await waitFor(() =>
+            expect(markOpnameItemUncounted).toHaveBeenCalledWith(
+                'opname-1',
+                'item-1',
+            ),
+        );
+        await waitFor(() =>
+            expect(
+                (screen.getByRole('spinbutton') as HTMLInputElement).value,
+            ).toBe(''),
+        );
+        expect(refresh).toHaveBeenCalled();
+    });
+
     it('memakai mutation ID yang sama saat retry dan memblokir finalisasi selama gagal', async () => {
         vi.mocked(addOpnameEntry)
             .mockResolvedValueOnce({
