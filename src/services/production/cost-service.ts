@@ -41,7 +41,16 @@ export class ProductionCostService {
 
             if (m.type === MovementType.OUT) {
                 totalMaterialCost += c * q;
-            } else if (m.type === MovementType.IN) {
+            } else if (
+                m.type === MovementType.IN &&
+                (m.reference?.startsWith('VOID:') ||
+                    m.reference?.startsWith(
+                        'CORRECTION: PACKING_SCRAP_UNIT_',
+                    ))
+            ) {
+                // Only IN rows that explicitly reverse/correct a production
+                // issue reduce COGM. Ordinary production IN rows for scrap or
+                // by-products must not offset consumed material.
                 totalMaterialCost -= c * q;
             }
         });
