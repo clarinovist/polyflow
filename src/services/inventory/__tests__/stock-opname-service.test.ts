@@ -384,3 +384,225 @@ describe('StockOpnameService.completeOpname', () => {
         expect(mockTx.stockMovement.create).not.toHaveBeenCalled();
     });
 });
+
+describe('StockOpnameService.previewFinalization', () => {
+    function previewRow(overrides: Record<string, unknown> = {}) {
+        return {
+            itemId: 'item-1',
+            productVariantId: 'variant-1',
+            skuCode: 'SKU-1',
+            name: 'Barang Uji',
+            unit: 'KG',
+            snapshotQuantity: '110.0000',
+            storedCountedQuantity: '100.0000',
+            entryTotal: null,
+            unitCost: '5000',
+            liveQuantity: '130.0000',
+            ledgerQuantity: '130.0000',
+            cutoffQuantity: '110.0000',
+            ...overrides,
+        };
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(FINALIZED_AT);
+        vi.clearAllMocks();
+        mockTx.stockOpname.findUnique.mockResolvedValue({
+            id: 'opname-1',
+            opnameNumber: 'OPN-202609-0001',
+            status: OpnameStatus.OPEN,
+            locationId: 'loc-1',
+            items: [{ id: 'item-1' }],
+        });
+        mockTx.$queryRaw.mockReset();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('reports quantity and value impact without writing anything', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'OPEN' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([previewRow()])
+            .mockResolvedValueOnce([]);
+
+        const result = await StockOpnameService.previewFinalization(
+            'opname-1',
+            '2026-09-30',
+        );
+
+        expect(result.blockers).toEqual([]);
+        expect(result.countedCount).toBe(1);
+        expect(result.uncountedCount).toBe(0);
+        expect(result.varianceCount).toBe(1);
+        expect(result.gainValue).toBe('0.00');
+        expect(result.lossValue).toBe('50000.00');
+        expect(result.netValue).toBe('-50000.00');
+        expect(result.canFinalize).toBe(true);
+        expect(result.requiresAcknowledgement).toBe(false);
+
+        // A preview is read-only: no stock, item, or status writes.
+        expect(mockTx.inventory.upsert).not.toHaveBeenCalled();
+        expect(mockTx.stockOpnameItem.update).not.toHaveBeenCalled();
+        expect(mockTx.stockMovement.create).not.toHaveBeenCalled();
+        expect(mockTx.stockOpname.update).not.toHaveBeenCalled();
+    });
+
+    it('names the items that would make live stock negative', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'OPEN' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                previewRow({
+                    storedCountedQuantity: '0.0000',
+                    snapshotQuantity: '103.0000',
+                    liveQuantity: '0.0000',
+                    ledgerQuantity: '0.0000',
+                    cutoffQuantity: '120.0000',
+                }),
+            ])
+            .mockResolvedValueOnce([]);
+
+        const result = await StockOpnameService.previewFinalization(
+            'opname-1',
+            '2026-09-30',
+        );
+
+        const blocker = result.blockers.find(
+            (entry) => entry.code === 'OPNAME_NEGATIVE_LIVE_STOCK',
+        );
+        expect(blocker).toBeDefined();
+        expect(blocker?.items?.[0]?.skuCode).toBe('SKU-1');
+        expect(blocker?.items?.[0]?.detail).toContain('proyeksi -120');
+        expect(result.canFinalize).toBe(false);
+    });
+
+    it('blocks on a live/ledger mismatch', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'OPEN' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([previewRow({ ledgerQuantity: '129.0000' })])
+            .mockResolvedValueOnce([]);
+
+        const result = await StockOpnameService.previewFinalization(
+            'opname-1',
+            '2026-09-30',
+        );
+
+        expect(
+            result.blockers.map((entry) => entry.code),
+        ).toContain('OPNAME_LEDGER_MISMATCH');
+        expect(result.canFinalize).toBe(false);
+    });
+
+    it('blocks a closed fiscal period and a later completed opname', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'CLOSED' }])
+            .mockResolvedValueOnce([{ opnameNumber: 'OPN-202610-0002' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([]);
+
+        const result = await StockOpnameService.previewFinalization(
+            'opname-1',
+            '2026-09-30',
+        );
+
+        expect(result.blockers.map((entry) => entry.code)).toEqual([
+            'FISCAL_PERIOD_CLOSED',
+            'OPNAME_BACKDATE_CONFLICT',
+        ]);
+        expect(result.canFinalize).toBe(false);
+    });
+
+    it('warns and requires acknowledgement when a count predates later movements', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'OPEN' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                previewRow({
+                    storedCountedQuantity: '2350.0000',
+                    snapshotQuantity: '2350.0000',
+                    cutoffQuantity: '0.0000',
+                    liveQuantity: '0.0000',
+                    ledgerQuantity: '0.0000',
+                }),
+            ])
+            .mockResolvedValueOnce([
+                {
+                    itemId: 'item-1',
+                    skuCode: 'SKU-1',
+                    name: 'Barang Uji',
+                    createdAt: new Date('2026-09-30T00:00:00.000Z'),
+                    quantity: '2350.0000',
+                    stockIn: false,
+                    reference: 'DO-2026-0239',
+                },
+            ]);
+
+        const result = await StockOpnameService.previewFinalization(
+            'opname-1',
+            '2026-09-30',
+        );
+
+        expect(result.blockers).toEqual([]);
+        expect(result.canFinalize).toBe(true);
+        expect(result.requiresAcknowledgement).toBe(true);
+        const warning = result.warnings.find(
+            (entry) => entry.code === 'OPNAME_COUNT_BEFORE_MOVEMENT',
+        );
+        expect(warning?.items[0]?.detail).toContain('keluar 2350.0000');
+    });
+
+    it('flags a quantity outlier and a high value impact', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'OPEN' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                previewRow({
+                    storedCountedQuantity: '31803.0000',
+                    snapshotQuantity: '31.8030',
+                    cutoffQuantity: '31.8030',
+                    liveQuantity: '31.8030',
+                    ledgerQuantity: '31.8030',
+                    unitCost: '100',
+                }),
+            ])
+            .mockResolvedValueOnce([]);
+
+        const result = await StockOpnameService.previewFinalization(
+            'opname-1',
+            '2026-09-30',
+        );
+
+        expect(
+            result.warnings.map((entry) => entry.code),
+        ).toEqual(['OPNAME_QUANTITY_OUTLIER', 'OPNAME_HIGH_VALUE_IMPACT']);
+        expect(result.outlierItems).toHaveLength(1);
+        expect(result.outlierItems[0].skuCode).toBe('SKU-1');
+        expect(result.requiresAcknowledgement).toBe(true);
+    });
+
+    it('reports a non-open session as blocked without querying guards', async () => {
+        mockTx.stockOpname.findUnique.mockResolvedValue({
+            id: 'opname-1',
+            opnameNumber: 'OPN-202609-0001',
+            status: OpnameStatus.COMPLETED,
+            locationId: 'loc-1',
+            items: [{ id: 'item-1' }],
+        });
+
+        const result = await StockOpnameService.previewFinalization(
+            'opname-1',
+            '2026-09-30',
+        );
+
+        expect(result.blockers.map((entry) => entry.code)).toEqual([
+            'OPNAME_NOT_OPEN',
+        ]);
+        expect(result.canFinalize).toBe(false);
+        expect(mockTx.$queryRaw).not.toHaveBeenCalled();
+    });
+});

@@ -32,6 +32,7 @@ import { formatQuantity } from '@/lib/utils/utils';
 import { warehouseComponentLabels } from '@/lib/labels';
 import { OpnameEntryEditor } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
 import { useOpnameAutosave } from '@/hooks/useOpnameAutosave';
+import { describeServerActionFailure } from '@/lib/utils/server-action-errors';
 
 const NOOP_ENTRY_ACTION = () => undefined;
 
@@ -234,29 +235,24 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                 toast.error(`Gagal: ${result.error}`);
             }
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            if (message.includes('Failed to find Server Action')) {
-                toast.error(
-                    'Halaman sudah kedaluwarsa karena deploy baru. Silakan refresh halaman (F5) lalu coba lagi.',
-                    {
-                        duration: 10000,
-                        action: {
-                            label: 'Refresh',
-                            onClick: () => window.location.reload(),
-                        },
-                    },
-                );
-            } else if (
-                message.includes('fetch') ||
-                message.includes('network') ||
-                message.includes('NetworkError')
-            ) {
-                toast.error(
-                    'Koneksi gagal. Cek koneksi internet lalu coba lagi.',
-                );
-            } else {
-                toast.error(`Gagal menyimpan: ${message}`);
-            }
+            const failure = describeServerActionFailure(
+                err,
+                err instanceof Error ? err.message : String(err),
+            );
+            toast.error(
+                failure.isStaleDeploy
+                    ? failure.message
+                    : `Gagal menyimpan: ${failure.message}`,
+                {
+                    duration: failure.isStaleDeploy ? 10000 : undefined,
+                    action: failure.isStaleDeploy
+                        ? {
+                              label: 'Refresh',
+                              onClick: () => window.location.reload(),
+                          }
+                        : undefined,
+                },
+            );
         } finally {
             setIsSaving(false);
         }

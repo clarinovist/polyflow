@@ -91,6 +91,7 @@ vi.mock('@/services/accounting/accounting-service', () => ({
 vi.mock('@/services/inventory/stock-opname-service', () => ({
     StockOpnameService: {
         completeOpname: vi.fn(),
+        previewFinalization: vi.fn(),
     },
 }));
 
@@ -105,6 +106,7 @@ import {
     deleteOpnameEntry,
     markOpnameItemUncounted,
     completeOpname,
+    previewOpnameFinalization,
 } from '../opname';
 import { StockOpnameService } from '@/services/inventory/stock-opname-service';
 import { AuthorizationError } from '@/lib/errors/errors';
@@ -764,5 +766,54 @@ describe('deleteOpnameEntry', () => {
 
         await expect(deleteOpnameEntry('entry-1')).rejects.toThrow(AuthorizationError);
         expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+});
+
+describe('previewOpnameFinalization', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(requireRole).mockResolvedValue({
+            user: { id: 'user-1', role: 'WAREHOUSE' },
+        } as never);
+    });
+
+    it('returns the guard preview for the requested effective date', async () => {
+        const preview = {
+            opnameId: 'opname-1',
+            blockers: [],
+            warnings: [],
+            canFinalize: true,
+            requiresAcknowledgement: false,
+        };
+        vi.mocked(StockOpnameService.previewFinalization).mockResolvedValue(
+            preview as never,
+        );
+
+        const result = await previewOpnameFinalization(
+            'opname-1',
+            '2026-10-12',
+        );
+
+        expect(result).toEqual({ success: true, data: preview });
+        expect(requireRole).toHaveBeenCalledWith([
+            'WAREHOUSE',
+            'PRODUCTION',
+            'PLANNING',
+        ]);
+        expect(StockOpnameService.previewFinalization).toHaveBeenCalledWith(
+            'opname-1',
+            '2026-10-12',
+        );
+    });
+
+    it('rejects a caller without a permitted role', async () => {
+        vi.mocked(requireRole).mockRejectedValue(
+            new AuthorizationError('Tidak memiliki izin yang cukup'),
+        );
+
+        await expect(
+            previewOpnameFinalization('opname-1', '2026-10-12'),
+        ).rejects.toBeInstanceOf(AuthorizationError);
+        expect(StockOpnameService.previewFinalization).not.toHaveBeenCalled();
     });
 });

@@ -603,6 +603,26 @@ export const saveOpnameCount = withTenant(async function saveOpnameCount(
     });
 });
 
+export const previewOpnameFinalization = withTenant(
+    async function previewOpnameFinalization(
+        opnameId: string,
+        effectiveDate: string,
+    ) {
+        return safeAction(async () => {
+            await requireRole([
+                Role.WAREHOUSE,
+                Role.PRODUCTION,
+                Role.PLANNING,
+            ]);
+
+            return await StockOpnameService.previewFinalization(
+                opnameId,
+                effectiveDate,
+            );
+        });
+    },
+);
+
 export const completeOpname = withTenant(async function completeOpname(
     opnameId: string,
     effectiveDate: string,

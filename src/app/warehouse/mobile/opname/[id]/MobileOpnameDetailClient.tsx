@@ -52,6 +52,7 @@ import {
     type OpnameEntryView,
 } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
 import { useOpnameAutosave } from '@/hooks/useOpnameAutosave';
+import { describeServerActionFailure } from '@/lib/utils/server-action-errors';
 import { formatWibDate } from '@/lib/utils/timezone';
 import { FinalizeOpnameDialog } from '@/components/warehouse/inventory/opname/FinalizeOpnameDialog';
 
@@ -641,8 +642,14 @@ export function MobileOpnameDetailClient({
             } else {
                 toast.error(`Gagal: ${result.error}`);
             }
-        } catch {
-            toast.error('Gagal menyelesaikan sesi');
+        } catch (error) {
+            const failure = describeServerActionFailure(
+                error,
+                'Gagal menyelesaikan sesi',
+            );
+            toast.error(failure.message, {
+                duration: failure.isStaleDeploy ? 10000 : undefined,
+            });
         } finally {
             setIsFinalizing(false);
         }
@@ -1438,6 +1445,7 @@ export function MobileOpnameDetailClient({
                 onConfirm={handleFinalize}
                 isSubmitting={isFinalizing}
                 uncountedItems={stats.uncounted}
+                opnameId={session.id}
             />
 
             {/* Sticky Actions */}

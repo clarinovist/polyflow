@@ -43,6 +43,7 @@ import {
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
+import { describeServerActionFailure } from '@/lib/utils/server-action-errors';
 import {
     completeOpname,
     deleteOpnameSession,
@@ -206,8 +207,20 @@ export function OpnameDetailClient({
             } else {
                 toast.error(`Gagal: ${result.error}`);
             }
-        } catch {
-            toast.error('Gagal menyelesaikan sesi');
+        } catch (error) {
+            const failure = describeServerActionFailure(
+                error,
+                'Gagal menyelesaikan sesi',
+            );
+            toast.error(failure.message, {
+                duration: failure.isStaleDeploy ? 10000 : undefined,
+                action: failure.isStaleDeploy
+                    ? {
+                          label: 'Refresh',
+                          onClick: () => window.location.reload(),
+                      }
+                    : undefined,
+            });
         } finally {
             setIsFinalizing(false);
         }
@@ -486,6 +499,7 @@ export function OpnameDetailClient({
                 onConfirm={handleFinalize}
                 isSubmitting={isFinalizing}
                 uncountedItems={uncountedCount}
+                opnameId={session.id}
             />
 
             <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
