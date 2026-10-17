@@ -70,6 +70,7 @@ describe('release shell contract', () => {
             'python3 scripts/write-operations-snapshot.py',
             'docker login ghcr.io -u fixture --password-stdin',
             'docker compose pull assistant-worker polyflow',
+            'docker compose run --rm --no-deps -T --entrypoint node polyflow scripts/run-product-learning.mjs --preflight',
             'docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow',
             'docker compose up -d --no-deps --no-build assistant-worker',
             'docker inspect --format {{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}} polyflow-assistant-worker',
@@ -78,6 +79,8 @@ describe('release shell contract', () => {
             'docker inspect --format {{.Config.Image}} polyflow-app',
             'docker inspect --format {{.Config.Image}} polyflow-assistant-worker',
             'curl --fail --silent --show-error --max-time 15 https://fixture.invalid/api/health',
+            'python3 scripts/install-product-learning-cron.py',
+            'docker exec polyflow-app node scripts/run-product-learning.mjs',
         ]);
         const web = calls.filter(call => call.args.includes('polyflow'));
         const worker = calls.filter(call => call.args.includes('assistant-worker'));
@@ -95,6 +98,7 @@ describe('release shell contract', () => {
         'python3 scripts/write-operations-snapshot.py',
         'docker login ghcr.io -u fixture --password-stdin',
         'docker compose pull assistant-worker polyflow',
+        'docker compose run --rm --no-deps -T --entrypoint node polyflow scripts/run-product-learning.mjs --preflight',
         'docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow',
         'docker compose up -d --no-deps --no-build assistant-worker',
     ])('does not recreate the web container after %s fails', failure => {
@@ -132,6 +136,14 @@ describe('release shell contract', () => {
         const { result } = run({ MISMATCH_CONTAINER: container });
         expect(result.status).not.toBe(0);
     });
+
+    it.each(['python3 scripts/install-product-learning-cron.py', 'docker exec polyflow-app node scripts/run-product-learning.mjs'])(
+        'does not report successful release when learning scheduler step fails: %s', failure => {
+            const { result, calls } = run({ FAIL_AT: failure });
+            expect(result.status).toBe(17);
+            expect([calls.at(-1)?.name, ...calls.at(-1)!.args].join(' ')).toBe(failure);
+        },
+    );
 
     it('fails when the public HTTPS smoke check fails', () => {
         const failure = 'curl --fail --silent --show-error --max-time 15 https://fixture.invalid/api/health';

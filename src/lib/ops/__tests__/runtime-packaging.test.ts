@@ -25,6 +25,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/scripts/correct-sales-invoice-date.js',
             '/app/scripts/audit-duplicate-production-voids.js',
             '/app/scripts/check-ob.js',
+            '/app/scripts/run-product-learning.mjs',
             '/app/scripts/repair-maklon-sales-order-locations.js',
             '/app/scripts/repair-maklon-stock-locations.js',
         ]);
