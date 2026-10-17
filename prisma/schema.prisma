@@ -4620,6 +4620,79 @@ model UsageEvent {
   @@index([tenantId, featureKey, occurredAt])
 }
 
+// ─── Product learning (main DB only; no raw telemetry/identities) ───
+
+model LearningDailyRun {
+  id            String   @id @default(cuid())
+  day           DateTime @db.Date
+  version       String
+  policyVersion String
+  windowStart   DateTime
+  windowEnd     DateTime
+  status        String   @default("PENDING")
+  attempts      Int      @default(0)
+  leaseToken    String?
+  leaseUntil    DateTime?
+  failureCode   String?
+  completedAt   DateTime?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  observations LearningObservation[]
+
+  @@unique([day, version])
+  @@index([expiresAt])
+}
+
+model LearningObservation {
+  id          String @id @default(cuid())
+  runId       String
+  metricKey   String
+  numerator   Int
+  denominator Int
+  state       String
+  run         LearningDailyRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, metricKey])
+}
+
+model LearningFinding {
+  id                  String   @id @default(cuid())
+  fingerprint         String   @unique
+  domain              String   @default("PRODUCT")
+  metricKey           String
+  ruleVersion         String
+  policyVersion       String
+  status              String   @default("OPEN")
+  firstSeenDay        DateTime @db.Date
+  lastSeenDay         DateTime @db.Date
+  occurrences         Int      @default(1)
+  latestNumerator     Int
+  latestDenominator   Int
+  releaseRef          String?
+  verificationRef     String?
+  interventionAt      DateTime?
+  baselineStart       DateTime?
+  baselineEnd         DateTime?
+  baselineNumerator   Int?
+  baselineDenominator Int?
+  baselineComplete    Boolean  @default(false)
+  evaluationStart     DateTime?
+  evaluationEnd       DateTime?
+  evaluationResult    String?
+  evaluationNumerator Int?
+  evaluationDenominator Int?
+  evaluatedAt         DateTime?
+  closedAt            DateTime?
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status, evaluationEnd])
+  @@index([expiresAt])
+}
+
 // ─── Warehouse Operational Attachments ─────────────────────
 
 enum AttachmentCheckpoint {

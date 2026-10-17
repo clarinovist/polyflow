@@ -270,6 +270,7 @@ jobs:
         run: >-
           npx vitest run --maxWorkers=1 --no-file-parallelism
           src/lib/bot/durable/__tests__
+          src/services/admin/__tests__/product-learning-postgres.test.ts
       - name: Build worker artifact
         run: npm run typecheck:assistant-worker && npm run build:assistant-worker
       - name: Smoke worker health and graceful shutdown

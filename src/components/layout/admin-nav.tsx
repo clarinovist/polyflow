@@ -46,6 +46,7 @@ const adminLinks = [
     { title: 'Performance', href: '/admin/performance', icon: Gauge },
     { title: 'Help / Virtual CS', href: '/admin/help', icon: HelpCircle },
     { title: 'Usulan Fitur', href: '/admin/proposals', icon: Lightbulb },
+    { title: 'Learning Center', href: '/admin/learning', icon: Lightbulb },
 ];
 
 export function AdminNav({ user }: AdminNavProps) {

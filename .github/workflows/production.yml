@@ -189,6 +189,7 @@ jobs:
             python3 scripts/write-operations-snapshot.py
             printf '%s' "$CR_PAT" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
             docker compose pull assistant-worker polyflow
+            docker compose run --rm --no-deps -T --entrypoint node polyflow scripts/run-product-learning.mjs --preflight
             docker compose run --rm --no-deps -T --entrypoint ./release-migrate.sh polyflow
             docker compose up -d --no-deps --no-build assistant-worker
             for attempt in $(seq 1 30); do
@@ -207,6 +208,8 @@ jobs:
             [ "$(docker inspect --format '{{.Config.Image}}' polyflow-app)" = "$DEPLOY_IMAGE" ]
             [ "$(docker inspect --format '{{.Config.Image}}' polyflow-assistant-worker)" = "$ASSISTANT_WORKER_DEPLOY_IMAGE" ]
             curl --fail --silent --show-error --max-time 15 "$PUBLIC_HEALTH_URL"
+            python3 scripts/install-product-learning-cron.py
+            docker exec polyflow-app node scripts/run-product-learning.mjs
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
           DEPLOY_SHA: ${{ needs.release-artifact.outputs.release-sha }}

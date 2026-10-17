@@ -60,6 +60,15 @@ Auth: NextAuth v5 (JWT) → proxy.ts → tenant resolution
 | Parse subdomain manually            | Duplicates logic              | Use `extractSubdomain()` from `src/lib/core/tenant.ts`                     |
 | Block `/api/auth/*` unauthenticated | Breaks login entirely         | `authConfig.callbacks.authorized()` must return true for `/api/auth` paths |
 
+## Product learning handoff
+
+When working from a Learning Center finding, use the authorized, area-filtered
+brief from `/admin/learning` and follow `docs/development/product-learning.md`.
+Record finding ID → synthetic regression test → verified release → observed
+outcome in the local plan. Do not export live briefs automatically, infer root
+cause from event ratios, or treat a learning score as permission to edit/deploy.
+No live brief available is not a reason to invent evidence or block unrelated work.
+
 ## Module Navigation
 
 Each module directory contains its own `AGENTS.md` explaining:

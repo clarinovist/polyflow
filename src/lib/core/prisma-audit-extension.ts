@@ -45,6 +45,8 @@ const AUDITABLE_MODELS = new Set([
     'HelpArticle',
     'HelpQuestionCluster',
     'HelpLearningDraft',
+    'LearningDailyRun',
+    'LearningFinding',
     'Tenant',
     'ProcessPieceRate',
     'WorkShift',
@@ -59,6 +61,14 @@ type QueryArgs = {
     where?: Record<string, unknown>;
     [key: string]: unknown;
 };
+
+// Learning reviews write their audit atomically; scheduled states are immutable
+// observation/evaluation receipts. Outer-client audit would leave false history
+// on rollback and requires a user even for background job leases.
+function usesOuterStatusAudit(model: string): boolean {
+    return model !== 'AuditLog' && AUDITABLE_MODELS.has(model) &&
+        model !== 'LearningDailyRun' && model !== 'LearningFinding';
+}
 
 function hasStatusField(data: unknown): data is Record<string, unknown> {
     if (!data || typeof data !== 'object') return false;
@@ -91,7 +101,7 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                     args: QueryArgs;
                     query: (args: QueryArgs) => Promise<unknown>;
                 }) {
-                    if (model === 'AuditLog' || !AUDITABLE_MODELS.has(model)) {
+                    if (!usesOuterStatusAudit(model)) {
                         return query(args);
                     }
 
@@ -164,7 +174,7 @@ export function withStatusAudit<T extends PrismaClient>(client: T): T {
                     args: QueryArgs;
                     query: (args: QueryArgs) => Promise<unknown>;
                 }) {
-                    if (model === 'AuditLog' || !AUDITABLE_MODELS.has(model)) {
+                    if (!usesOuterStatusAudit(model)) {
                         return query(args);
                     }
 
