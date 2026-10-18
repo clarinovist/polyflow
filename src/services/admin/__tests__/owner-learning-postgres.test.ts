@@ -66,19 +66,10 @@ describe.skipIf(!connection)('owner insight PostgreSQL and isolation', () => {
         await main.usageEvent.deleteMany({ where: { tenantId: { in: tenantIds } } });
         await main.tenantModule.deleteMany({ where: { tenantId: { in: tenantIds } } });
         await main.tenant.deleteMany({ where: { id: { in: tenantIds } } });
-        for (const db of clients.values()) {
-            await db.salesReturnReceiptLine.deleteMany({ where: { returnItemId: `return-item-${order}` } });
-            await db.salesReturnItem.deleteMany({ where: { salesReturnId: `return-${order}` } });
-            await db.salesReturn.deleteMany({ where: { id: `return-${order}` } });
-            await db.stockMovement.deleteMany({ where: { id: `source-${order}` } });
-            await db.deliveryOrderItem.deleteMany({ where: { deliveryOrderId: `do-${order}` } });
-            await db.deliveryOrder.deleteMany({ where: { id: `do-${order}` } });
-            await db.salesOrderItem.deleteMany({ where: { salesOrderId: order } });
-            await db.salesOrder.deleteMany({ where: { id: { startsWith: order } } });
-            await db.productVariant.deleteMany({ where: { id: variant } }); await db.product.deleteMany({ where: { id: product } });
-            await db.customer.deleteMany({ where: { id: customer } }); await db.location.deleteMany({ where: { id: location } }); await db.user.deleteMany({ where: { id: user } });
-            await db.$disconnect();
-        }
+        // Receipt evidence is intentionally immutable, including in CI. Keep the
+        // uniquely-namespaced tenant fixture graph until the disposable service is
+        // destroyed by the runner; never disable triggers to perform test cleanup.
+        for (const db of clients.values()) await db.$disconnect();
         await main.user.deleteMany({ where: { id: owner } }); await main.$disconnect(); vi.unstubAllEnvs();
     });
     it('keeps same IDs/names in different tenants separate and uses exact commercial bases', async () => {
