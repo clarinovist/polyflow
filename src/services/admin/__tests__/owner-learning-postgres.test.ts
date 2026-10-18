@@ -48,14 +48,14 @@ describe.skipIf(!connection)('owner insight PostgreSQL and isolation', () => {
             await db.product.create({ data: { id: product, name: 'Synthetic product', productType: 'FINISHED_GOOD' } });
             await db.productVariant.create({ data: { id: variant, productId: product, name: 'Synthetic variant', skuCode: variant, primaryUnit: 'KG', salesUnit: 'ROLL', conversionFactor: 10 } });
             await db.location.create({ data: { id: location, name: 'Synthetic warehouse', slug: location, locationType: 'INTERNAL' } });
-            await db.salesOrder.create({ data: { id: order, orderNumber: order, customerId: customer, orderDate: eventTime, createdAt: eventTime, status: 'READY_TO_SHIP', totalAmount: index === 0 ? 100 : 200, orderType: 'MAKE_TO_STOCK', priceStatus: 'FINAL', items: { create: [
+            await db.salesOrder.create({ select: { id: true }, data: { id: order, orderNumber: order, customerId: customer, orderDate: eventTime, createdAt: eventTime, status: 'READY_TO_SHIP', totalAmount: index === 0 ? 100 : 200, orderType: 'MAKE_TO_STOCK', priceStatus: 'FINAL', items: { create: [
                 { productVariantId: variant, quantity: 20, unitPrice: 5, subtotal: 100, enteredQuantity: 2, enteredUnit: 'ROLL', enteredUnitPrice: 50, conversionFactorSnapshot: 10, ppnMode: 'INCLUDE', taxPercent: 11 },
                 { productVariantId: variant, quantity: 2, unitPrice: 0, subtotal: 0, isFreeItem: true },
             ] } } });
-            for (const status of ['DRAFT', 'QUOTATION', 'CANCELLED'] as const) await db.salesOrder.create({ data: { id: `${order}-${status}`, orderNumber: `${order}-${status}`, customerId: customer, orderDate: eventTime, createdAt: eventTime, status, totalAmount: 999 } });
-            await db.deliveryOrder.create({ data: { id: `do-${order}`, orderNumber: `do-${order}`, salesOrderId: order, sourceLocationId: location, status: 'SHIPPED', stockCommittedAt: eventTime, createdAt: eventTime, items: { create: { productVariantId: variant, quantity: index === 0 ? 3 : 7 } } } });
+            for (const status of ['DRAFT', 'QUOTATION', 'CANCELLED'] as const) await db.salesOrder.create({ select: { id: true }, data: { id: `${order}-${status}`, orderNumber: `${order}-${status}`, customerId: customer, orderDate: eventTime, createdAt: eventTime, status, totalAmount: 999 } });
+            await db.deliveryOrder.create({ select: { id: true }, data: { id: `do-${order}`, orderNumber: `do-${order}`, salesOrderId: order, sourceLocationId: location, status: 'SHIPPED', stockCommittedAt: eventTime, createdAt: eventTime, items: { create: { productVariantId: variant, quantity: index === 0 ? 3 : 7 } } } });
             await db.stockMovement.create({ data: { id: `source-${order}`, productVariantId: variant, type: 'OUT', quantity: 3, fromLocationId: location } });
-            await db.salesReturn.create({ data: { id: `return-${order}`, returnNumber: `return-${order}`, salesOrderId: order, customerId: customer, returnLocationId: location, status: 'RECEIVED', items: { create: { id: `return-item-${order}`, productVariantId: variant, returnedQty: 1, unitPrice: 5, condition: 'DAMAGED', receipt: { create: { sourceMovementId: `source-${order}`, quantity: 1, restockValue: 0, receivedAt: eventTime, createdById: user } } } } } });
+            await db.salesReturn.create({ select: { id: true }, data: { id: `return-${order}`, returnNumber: `return-${order}`, salesOrderId: order, customerId: customer, returnLocationId: location, status: 'RECEIVED', items: { create: { id: `return-item-${order}`, productVariantId: variant, returnedQty: 1, unitPrice: 5, condition: 'DAMAGED', receipt: { create: { sourceMovementId: `source-${order}`, quantity: 1, restockValue: 0, receivedAt: eventTime, createdById: user } } } } } });
             await main.usageEvent.createMany({ data: Array.from({ length: index === 0 ? 2 : 5 }, () => ({ userId: user, tenantId, featureKey: 'sales.orders.list', moduleKey: 'sales', eventType: 'FEATURE_VIEW', sessionId: 'synthetic', occurredAt: eventTime, createdAt: eventTime, metadata: { private: 'PRIVATE-POISON' } })) });
             index++;
         }
@@ -122,6 +122,6 @@ describe.skipIf(!connection)('owner insight PostgreSQL and isolation', () => {
         await main.ownerLearningRun.update({ where: { id: run.id }, data: { state: 'RUNNING', leaseToken: 'old', leaseUntil: new Date(now.getTime() - 1000), summary: undefined } });
         await runOwnerLearning(now);
         expect((await main.ownerLearningRun.findUniqueOrThrow({ where: { id: run.id } })).state).toBe('COMPLETE');
-        for (const db of clients.values()) expect((await db.salesOrder.findUniqueOrThrow({ where: { id: order } })).status).toBe('READY_TO_SHIP');
+        for (const db of clients.values()) expect((await db.salesOrder.findUniqueOrThrow({ where: { id: order }, select: { status: true } })).status).toBe('READY_TO_SHIP');
     });
 });
