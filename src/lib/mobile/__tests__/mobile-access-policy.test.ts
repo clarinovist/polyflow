@@ -61,6 +61,8 @@ describe('mobile-access-policy', () => {
     it.each([
       ['/api/analytics/track', true],
       ['/api/analytics/track/extra', false],
+      ['/api/analytics/learning-notice', true],
+      ['/api/analytics/learning-notice/extra', false],
       ['/api/upload/attendance-photo', true],
       ['/api/upload/attendance-photo/extra', false],
       ['/api/upload/production-photo', true],

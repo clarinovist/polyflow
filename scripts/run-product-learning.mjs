@@ -19,7 +19,9 @@ export async function invokeProductLearning(env = process.env, request = fetch) 
     if (!response.ok) throw new Error('LEARNING_JOB_HTTP_FAILED');
     const body = await response.json();
     if (!['DISABLED', 'AWAITING_COMPLETE_DAY', 'COMPLETE'].includes(body.state)) throw new Error('LEARNING_JOB_NOT_COMPLETE');
-    return { state: body.state, processed: Number.isSafeInteger(body.processed) ? body.processed : 0 };
+    if (body.owner && !['DISABLED', 'AWAITING_COMPLETE_DAY', 'COMPLETE', 'PENDING'].includes(body.owner.state)) throw new Error('OWNER_LEARNING_JOB_NOT_COMPLETE');
+    return { state: body.state, processed: Number.isSafeInteger(body.processed) ? body.processed : 0,
+        ...(body.owner ? { owner: { state: body.owner.state, processed: Number.isSafeInteger(body.owner.processed) ? body.owner.processed : 0 } } : {}) };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     try {

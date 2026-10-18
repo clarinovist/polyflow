@@ -68,6 +68,7 @@ import { PwaRegister } from '@/components/layout/pwa-register';
 import { AutoChangelogBanner } from '@/components/layout/auto-changelog-banner';
 import { PolyflowChatWidget } from '@/components/support/polyflow-chat-widget';
 import { FeatureUsageTracker } from '@/components/analytics/feature-usage-tracker';
+import { OwnerLearningNotice } from '@/components/analytics/owner-learning-notice';
 
 export default function RootLayout({
     children,
@@ -85,6 +86,7 @@ export default function RootLayout({
                         <SidebarCollapseProvider>
                             <PwaRegister />
                             <FeatureUsageTracker />
+                            <OwnerLearningNotice />
                             {children}
                             <AutoChangelogBanner />
                             <PolyflowChatWidget

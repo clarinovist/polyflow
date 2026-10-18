@@ -798,6 +798,18 @@ describe('auth.config', () => {
 
         // === Mobile operational API gate ===
 
+        it('allows an authenticated non-admin mobile user to read the learning notice', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const result = await authConfig.callbacks!.authorized!({
+                auth: { user: { id: 'synthetic-user', role: 'PRODUCTION', roles: ['PRODUCTION'] } },
+                request: {
+                    nextUrl: new URL('https://synthetic.polyflow.uk/api/analytics/learning-notice'),
+                    headers: new Map([['host', 'synthetic.polyflow.uk'], ['user-agent', 'Mozilla/5.0 (Linux; Android 10)']]),
+                },
+            } as any);
+            expect(result).toBe(true);
+        });
+
         it('should allow mobile task telemetry API from an authenticated mobile portal', async () => {
             const { authConfig } = await import('@/auth.config');
             const authorizedCallback = authConfig.callbacks!.authorized!;

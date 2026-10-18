@@ -13,6 +13,10 @@ describe('learning schedule tooling', () => {
         await expect(invokeProductLearning({ CRON_SECRET: 'x', NEXT_PUBLIC_ROOT_DOMAIN: 'admin.example.invalid' }, request)).rejects.toThrow();
         request.mockResolvedValueOnce(new Response('', { status: 503 }));
         await expect(invokeProductLearning({ CRON_SECRET: 'x' }, request)).rejects.toThrow();
+        request.mockResolvedValueOnce(new Response(JSON.stringify({ state: 'COMPLETE', processed: 0, owner: { state: 'COMPLETE', processed: 2 } })));
+        expect(await invokeProductLearning({ CRON_SECRET: 'x' }, request)).toEqual({ state: 'COMPLETE', processed: 0, owner: { state: 'COMPLETE', processed: 2 } });
+        request.mockResolvedValueOnce(new Response(JSON.stringify({ state: 'COMPLETE', owner: { state: 'PARTIAL_FAILED' } })));
+        await expect(invokeProductLearning({ CRON_SECRET: 'x' }, request)).rejects.toThrow();
         request.mockResolvedValueOnce(new Response(JSON.stringify({ state: 'BUSY' })));
         await expect(invokeProductLearning({ CRON_SECRET: 'x' }, request)).rejects.toThrow();
     });

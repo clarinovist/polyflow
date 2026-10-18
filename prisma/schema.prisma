@@ -4693,6 +4693,32 @@ model LearningFinding {
   @@index([expiresAt])
 }
 
+// Private owner insight. MAIN only; tenant and reader are explicit policy bindings.
+model OwnerLearningRun {
+  id            String   @id @default(cuid())
+  tenantId      String
+  ownerId       String
+  day           DateTime @db.Date
+  version       String
+  policyVersion String
+  windowStart   DateTime
+  windowEnd     DateTime
+  state         String   @default("PENDING")
+  attempts      Int      @default(0)
+  leaseToken    String?
+  leaseUntil    DateTime?
+  failureCode   String?
+  summary       Json?
+  completedAt   DateTime?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, ownerId, day, version, policyVersion])
+  @@index([ownerId, tenantId, day])
+  @@index([expiresAt])
+}
+
 // ─── Warehouse Operational Attachments ─────────────────────
 
 enum AttachmentCheckpoint {

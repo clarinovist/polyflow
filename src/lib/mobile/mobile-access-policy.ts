@@ -95,6 +95,7 @@ export function shouldSoftLandDashboard(pathname: string): boolean {
 // ---------------------------------------------------------------------------
 const MOBILE_OPERATIONAL_API_PATHS = [
     '/api/analytics/track',
+    '/api/analytics/learning-notice',
     '/api/upload/attendance-photo',
     '/api/upload/production-photo',
     '/api/upload/warehouse-attachment',
