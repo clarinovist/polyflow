@@ -75,11 +75,11 @@ describe.skipIf(!connection)('owner insight PostgreSQL and isolation', () => {
             await db.deliveryOrder.deleteMany({ where: { id: `do-${order}` } });
             await db.salesOrderItem.deleteMany({ where: { salesOrderId: order } });
             await db.salesOrder.deleteMany({ where: { id: { startsWith: order } } });
-            await db.productVariant.delete({ where: { id: variant } }); await db.product.delete({ where: { id: product } });
-            await db.customer.delete({ where: { id: customer } }); await db.location.delete({ where: { id: location } }); await db.user.delete({ where: { id: user } });
+            await db.productVariant.deleteMany({ where: { id: variant } }); await db.product.deleteMany({ where: { id: product } });
+            await db.customer.deleteMany({ where: { id: customer } }); await db.location.deleteMany({ where: { id: location } }); await db.user.deleteMany({ where: { id: user } });
             await db.$disconnect();
         }
-        await main.user.delete({ where: { id: owner } }); await main.$disconnect(); vi.unstubAllEnvs();
+        await main.user.deleteMany({ where: { id: owner } }); await main.$disconnect(); vi.unstubAllEnvs();
     });
     it('keeps same IDs/names in different tenants separate and uses exact commercial bases', async () => {
         const result = await runOwnerLearning(now);
@@ -96,6 +96,17 @@ describe.skipIf(!connection)('owner insight PostgreSQL and isolation', () => {
         expect(JSON.stringify(runs)).not.toContain('PRIVATE-'); expect(JSON.stringify(runs)).not.toContain('Same customer name');
         expect(a.regions[0].city).toBe('City 0'); expect(b.regions[0].city).toBe('City 1');
         for (const db of clients.values()) expect(await db.ownerLearningRun.count()).toBe(0);
+    });
+    it('reapplies the missing-history PPN migration without overwriting existing modes', async () => {
+        const { readFileSync } = await import('node:fs');
+        const { default: pg } = await import('pg');
+        const sql = readFileSync('prisma/migrations/20261018_ppn_mode_history/migration.sql', 'utf8');
+        for (const [url, db] of clients) {
+            const before = await db.salesOrderItem.findMany({ where: { salesOrderId: order }, select: { id: true, ppnMode: true }, orderBy: { id: 'asc' } });
+            const client = new pg.Client({ connectionString: url }); await client.connect();
+            try { await client.query(sql); } finally { await client.end(); }
+            expect(await db.salesOrderItem.findMany({ where: { salesOrderId: order }, select: { id: true, ppnMode: true }, orderBy: { id: 'asc' } })).toEqual(before);
+        }
     });
     it('freezes completed snapshots and excludes a removed tenant from subsequent reads/jobs', async () => {
         const before = await main.ownerLearningRun.findMany({ where: { ownerId: owner }, orderBy: { tenantId: 'asc' } });
