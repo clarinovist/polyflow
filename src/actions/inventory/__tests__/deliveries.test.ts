@@ -459,6 +459,7 @@ describe('getDeliveryOrderById', () => {
             success: true,
             data: { id: 'do-1', orderNumber: 'DO-2026-0001' },
         });
+        expect(prisma.deliveryOrder.findUnique).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({ salesOrder: expect.objectContaining({ include: expect.objectContaining({ items: { select: { productVariantId: true, quantity: true, deliveredQty: true } } }) }) }) }));
     });
 
     it('returns null data when the delivery order does not exist', async () => {

@@ -83,7 +83,7 @@ describe('LoadVerifyPanel — satuan BAL vs KG', () => {
         ).toBe('0');
         expect(
             screen.getByText(
-                'Geser tabel untuk melihat seluruh kolom verifikasi.',
+                'Hitungan memakai satuan yang tertera di setiap input.',
             ),
         ).toBeTruthy();
     });
@@ -145,6 +145,16 @@ describe('LoadVerifyPanel — satuan BAL vs KG', () => {
         expect(screen.getByText('Sesuai')).toBeTruthy();
     });
 
+    it('shows numeric difference and routes primary-unit draft to load change without saving or locking', () => {
+        const onChangeLoad = vi.fn();
+        renderPanel({ onChangeLoad });
+        fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '6' } });
+        expect(screen.getByText(/Selisih \+1 BAL/)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Ubah muatan sesuai hitungan' }));
+        expect(onChangeLoad).toHaveBeenCalledWith([{ id: 'item-1', quantity: 150 }]);
+        expect(mockSaveDeliveryLoadVerification).not.toHaveBeenCalled();
+        expect(mockCorrectDeliveryQtyToVerified).not.toHaveBeenCalled();
+    });
     it('item tanpa satuan alternatif (KG saja) tetap dibandingkan apa adanya', () => {
         // Arrange — item tanpa enteredUnit/conversionFactorSnapshot, quantity 50 KG
         const kgItem = {

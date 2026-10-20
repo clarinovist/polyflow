@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ import {
     reviseDeliveryLoad,
 } from '@/actions/sales/delivery-revision';
 import { deliveryRevisionSchema } from '@/lib/schemas/delivery-revision';
+import { previewDeliveryRevision } from '@/lib/sales/delivery-revision-preview';
+import { formatRupiah } from '@/lib/utils/utils';
 import type {
     getDeliveryRevision,
     searchRevisionProducts,
@@ -36,9 +38,18 @@ type Addition = Product & {
 export function DeliveryRevisionDialog({
     deliveryOrderId,
     onSaved,
+    defaultOpen = false,
+    initialQuantities,
+    onClosed,
+    hideTrigger = false,
 }: {
     deliveryOrderId: string;
     onSaved?: () => void;
+    defaultOpen?: boolean;
+    /** Primary-unit qty keyed by variant, never entered packaging quantities. */
+    initialQuantities?: Record<string, number>;
+    onClosed?: () => void;
+    hideTrigger?: boolean;
 }) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -52,14 +63,21 @@ export function DeliveryRevisionDialog({
     const [results, setResults] = useState<Product[]>([]);
     const [error, setError] = useState('');
     const [confirming, setConfirming] = useState(false);
+    const [reasonError, setReasonError] = useState('');
+    const [closeAcknowledged, setCloseAcknowledged] = useState(false);
+    const reasonRef = useRef<HTMLTextAreaElement>(null);
+    const confirmationRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const openedAutomatically = useRef(false);
 
-    async function start() {
+    const start = useCallback(async () => {
         setOpen(true);
         setBusy(true);
         setError('');
         setEditor(null);
         setConfirming(false);
         setReason('');
+        setReasonError('');
         setRemainder('KEEP');
         setAdditions([]);
         setResults([]);
@@ -75,7 +93,10 @@ export function DeliveryRevisionDialog({
                 Object.fromEntries(
                     result.data.items.map((item) => [
                         item.salesOrderItemId,
-                        String(item.quantity),
+                        String(
+                            initialQuantities?.[item.productVariantId] ??
+                                item.quantity,
+                        ),
                     ]),
                 ),
             );
@@ -84,6 +105,25 @@ export function DeliveryRevisionDialog({
         } finally {
             setBusy(false);
         }
+    }, [deliveryOrderId, initialQuantities]);
+
+    useEffect(() => {
+        if (defaultOpen && !openedAutomatically.current) {
+            openedAutomatically.current = true;
+            void start();
+        }
+    }, [defaultOpen, start]);
+
+    useEffect(() => {
+        if (confirming) {
+            if (contentRef.current) contentRef.current.scrollTop = 0;
+            confirmationRef.current?.focus({ preventScroll: true });
+        }
+    }, [confirming]);
+
+    function close() {
+        setOpen(false);
+        onClosed?.();
     }
 
     async function findProducts() {
@@ -132,14 +172,22 @@ export function DeliveryRevisionDialog({
     function review() {
         const parsed = payload();
         if (!parsed?.success) {
-            setError(parsed?.error.issues[0]?.message ?? 'Data belum siap');
+            const issue = parsed?.error.issues[0];
+            setError(issue?.message ?? 'Data belum siap');
+            if (issue?.path[0] === 'reason') {
+                setReasonError(issue.message);
+                reasonRef.current?.focus();
+            }
             return;
         }
         setError('');
+        setReasonError('');
+        setCloseAcknowledged(false);
         setConfirming(true);
     }
 
     async function save() {
+        if (remainder === 'CLOSE' && !closeAcknowledged) return;
         const parsed = payload();
         if (!parsed?.success) {
             setError('Data tidak valid. Periksa kembali.');
@@ -156,7 +204,7 @@ export function DeliveryRevisionDialog({
             toast.success(
                 'SO dan Surat Jalan direvisi. Gudang wajib verifikasi muatan ulang.',
             );
-            setOpen(false);
+            close();
             onSaved?.();
             router.refresh();
         } catch {
@@ -168,30 +216,54 @@ export function DeliveryRevisionDialog({
         }
     }
 
+    const parsed = confirming ? payload() : null;
+    const preview =
+        editor && parsed?.success
+            ? previewDeliveryRevision(
+                  editor.items.map((item, i) => ({
+                      ...item,
+                      load: parsed.data.items[i].quantity,
+                  })),
+                  parsed.data.additions,
+                  remainder,
+                  editor.shippingCost,
+              )
+            : null;
+    const number = (value: number) =>
+        value.toLocaleString('id-ID', { maximumFractionDigits: 4 });
+
     return (
         <>
-            <Button type="button" variant="outline" onClick={start}>
-                Revisi muatan / barang
-            </Button>
+            {!hideTrigger && (
+                <Button type="button" variant="outline" onClick={start}>
+                    Revisi muatan / barang
+                </Button>
+            )}
             <Dialog
                 open={open}
                 onOpenChange={(value) => {
-                    if (!busy) setOpen(value);
+                    if (!busy && !value) close();
                 }}
             >
-                <DialogContent className="sm:max-w-3xl max-h-[90dvh] overflow-y-auto">
-                    <DialogHeader>
+                <DialogContent
+                    className="sm:max-w-3xl max-h-[90dvh] flex flex-col overflow-hidden"
+                    showCloseButton={!busy}
+                >
+                    <DialogHeader className="shrink-0 pr-5">
                         <DialogTitle>
                             Revisi muatan {editor?.orderNumber}
                         </DialogTitle>
                         <DialogDescription>
-                            Mengubah SO dan Surat Jalan sebelum dikirim. Qty dan
-                            harga di sini menggunakan satuan utama, bukan jumlah
-                            kemasan. Untuk mengganti barang, isi qty barang lama
-                            0 lalu tambahkan barang pengganti.
+                            {confirming
+                                ? 'Periksa perubahan sebelum menyimpan.'
+                                : 'Revisi SO + SJ sebelum dikirim. Qty dan harga memakai satuan utama, bukan kemasan.'}
                         </DialogDescription>
                     </DialogHeader>
-                    {error && (
+                    <p className="shrink-0 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                        Verifikasi muatan lama akan dihapus. Gudang wajib
+                        verifikasi ulang sebelum mengirim.
+                    </p>
+                    {!editor && error && (
                         <p role="alert" className="text-sm text-destructive">
                             {error}
                         </p>
@@ -206,297 +278,500 @@ export function DeliveryRevisionDialog({
                     )}
                     {editor && (
                         <>
-                            <fieldset
-                                disabled={busy || confirming}
-                                className="space-y-4 min-w-0"
+                            <div
+                                ref={contentRef}
+                                className="min-h-0 overflow-y-auto overscroll-contain space-y-4 pr-1"
                             >
-                                {editor.items.map((item) => (
-                                    <div
-                                        key={item.salesOrderItemId}
-                                        className="rounded-lg border p-3 space-y-2"
+                                {!confirming && (
+                                    <fieldset
+                                        disabled={busy}
+                                        className="space-y-4 min-w-0"
                                     >
-                                        <p className="font-medium break-words">
-                                            {item.name}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            SO: {item.ordered} {item.unit} ·
-                                            Sudah dikirim: {item.delivered}{' '}
-                                            {item.unit} · Harga tetap: Rp{' '}
-                                            {item.unitPrice.toLocaleString(
-                                                'id-ID',
-                                            )}
-                                            /{item.unit}
-                                        </p>
-                                        <label className="block text-sm">
-                                            Qty muat {item.name} ({item.unit})
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                step="0.0001"
-                                                value={
-                                                    quantities[
-                                                        item.salesOrderItemId
-                                                    ] ?? ''
-                                                }
-                                                onChange={(event) =>
-                                                    setQuantities({
-                                                        ...quantities,
-                                                        [item.salesOrderItemId]:
-                                                            event.target.value,
-                                                    })
-                                                }
-                                            />
-                                        </label>
-                                    </div>
-                                ))}
-                                <div className="space-y-2 rounded-lg border p-3">
-                                    <label className="block text-sm">
-                                        Cari barang tambahan / pengganti
-                                        <Input
-                                            value={search}
-                                            onChange={(event) =>
-                                                setSearch(event.target.value)
-                                            }
-                                            placeholder="Nama atau SKU, minimal 2 karakter"
-                                        />
-                                    </label>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        disabled={search.trim().length < 2}
-                                        onClick={findProducts}
-                                    >
-                                        Cari barang
-                                    </Button>
-                                    {results.map((product) => (
-                                        <Button
-                                            key={product.id}
-                                            type="button"
-                                            variant="outline"
-                                            className="w-full h-auto min-h-11 justify-start whitespace-normal text-left"
-                                            disabled={
-                                                editor.items.some(
-                                                    (item) =>
-                                                        item.productVariantId ===
-                                                        product.id,
-                                                ) ||
-                                                additions.some(
-                                                    (item) =>
-                                                        item.id === product.id,
-                                                )
-                                            }
-                                            onClick={() => {
-                                                setAdditions([
-                                                    ...additions,
-                                                    {
-                                                        ...product,
-                                                        quantity: '',
-                                                        unitPrice: '',
-                                                        taxPercent: '0',
-                                                        ppnMode: 'EXCLUDE',
-                                                    },
-                                                ]);
-                                                setResults([]);
-                                            }}
-                                        >
-                                            Tambah {product.name} ·{' '}
-                                            {product.skuCode} (
-                                            {product.primaryUnit})
-                                        </Button>
-                                    ))}
-                                </div>
-                                {additions.map((item, index) => {
-                                    function patch(value: Partial<Addition>) {
-                                        setAdditions(
-                                            additions.map((row, i) =>
-                                                i === index
-                                                    ? { ...row, ...value }
-                                                    : row,
-                                            ),
-                                        );
-                                    }
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            className="rounded-lg border p-3 space-y-2"
-                                        >
-                                            <p className="font-medium">
-                                                Barang baru: {item.name}
-                                            </p>
-                                            <div className="grid gap-3 sm:grid-cols-2">
-                                                <label className="text-sm">
-                                                    Qty {item.name} (
-                                                    {item.primaryUnit})
-                                                    <Input
-                                                        type="number"
-                                                        min="0.0001"
-                                                        step="0.0001"
-                                                        value={item.quantity}
-                                                        onChange={(event) =>
-                                                            patch({
-                                                                quantity:
-                                                                    event.target
-                                                                        .value,
-                                                            })
-                                                        }
-                                                    />
-                                                </label>
-                                                <label className="text-sm">
-                                                    Harga {item.name} (Rp/
-                                                    {item.primaryUnit})
-                                                    <Input
-                                                        type="number"
-                                                        min="0.01"
-                                                        step="0.01"
-                                                        value={item.unitPrice}
-                                                        onChange={(event) =>
-                                                            patch({
-                                                                unitPrice:
-                                                                    event.target
-                                                                        .value,
-                                                            })
-                                                        }
-                                                    />
-                                                </label>
-                                                <label className="text-sm">
-                                                    PPN {item.name} (%)
+                                        {editor.items.map((item) => (
+                                            <div
+                                                key={item.salesOrderItemId}
+                                                className="rounded-lg border p-3 space-y-2"
+                                            >
+                                                <p className="font-medium break-words">
+                                                    {item.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    SO: {item.ordered}{' '}
+                                                    {item.unit} · Sudah dikirim:{' '}
+                                                    {item.delivered} {item.unit}{' '}
+                                                    · Harga tetap: Rp{' '}
+                                                    {item.unitPrice.toLocaleString(
+                                                        'id-ID',
+                                                    )}
+                                                    /{item.unit}
+                                                </p>
+                                                <label className="block text-sm">
+                                                    Qty muat {item.name} (
+                                                    {item.unit})
                                                     <Input
                                                         type="number"
                                                         min="0"
-                                                        max="100"
-                                                        step="0.01"
-                                                        value={item.taxPercent}
+                                                        step="0.0001"
+                                                        value={
+                                                            quantities[
+                                                                item
+                                                                    .salesOrderItemId
+                                                            ] ?? ''
+                                                        }
                                                         onChange={(event) =>
-                                                            patch({
-                                                                taxPercent:
+                                                            setQuantities({
+                                                                ...quantities,
+                                                                [item.salesOrderItemId]:
                                                                     event.target
                                                                         .value,
                                                             })
                                                         }
                                                     />
                                                 </label>
-                                                <label className="text-sm">
-                                                    Mode PPN {item.name}
-                                                    <select
-                                                        className="block h-10 w-full rounded-md border bg-background px-3"
-                                                        value={item.ppnMode}
-                                                        onChange={(event) =>
-                                                            patch({
-                                                                ppnMode: event
-                                                                    .target
-                                                                    .value as Addition['ppnMode'],
-                                                            })
-                                                        }
-                                                    >
-                                                        <option value="EXCLUDE">
-                                                            Belum termasuk PPN
-                                                        </option>
-                                                        <option value="INCLUDE">
-                                                            Termasuk PPN
-                                                        </option>
-                                                    </select>
-                                                </label>
                                             </div>
+                                        ))}
+                                        <div className="space-y-2 rounded-lg border p-3">
+                                            <p className="text-sm text-muted-foreground">
+                                                Untuk mengganti barang, isi qty
+                                                muat barang lama 0 lalu
+                                                tambahkan pengganti. Pilih nasib
+                                                sisa pesanan secara terpisah.
+                                            </p>
+                                            <label className="block text-sm">
+                                                Cari barang tambahan / pengganti
+                                                <Input
+                                                    value={search}
+                                                    onChange={(event) =>
+                                                        setSearch(
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="Nama atau SKU, minimal 2 karakter"
+                                                />
+                                            </label>
                                             <Button
                                                 type="button"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    setAdditions(
-                                                        additions.filter(
-                                                            (_, i) =>
-                                                                i !== index,
-                                                        ),
+                                                variant="outline"
+                                                disabled={
+                                                    search.trim().length < 2
+                                                }
+                                                onClick={findProducts}
+                                            >
+                                                Cari barang
+                                            </Button>
+                                            {results.map((product) => (
+                                                <Button
+                                                    key={product.id}
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="w-full h-auto min-h-11 justify-start whitespace-normal text-left"
+                                                    disabled={
+                                                        editor.items.some(
+                                                            (item) =>
+                                                                item.productVariantId ===
+                                                                product.id,
+                                                        ) ||
+                                                        additions.some(
+                                                            (item) =>
+                                                                item.id ===
+                                                                product.id,
+                                                        )
+                                                    }
+                                                    onClick={() => {
+                                                        setAdditions([
+                                                            ...additions,
+                                                            {
+                                                                ...product,
+                                                                quantity: '',
+                                                                unitPrice: '',
+                                                                taxPercent: '0',
+                                                                ppnMode:
+                                                                    'EXCLUDE',
+                                                            },
+                                                        ]);
+                                                        setResults([]);
+                                                    }}
+                                                >
+                                                    Tambah {product.name} ·{' '}
+                                                    {product.skuCode} (
+                                                    {product.primaryUnit})
+                                                </Button>
+                                            ))}
+                                        </div>
+                                        {additions.map((item, index) => {
+                                            function patch(
+                                                value: Partial<Addition>,
+                                            ) {
+                                                setAdditions(
+                                                    additions.map((row, i) =>
+                                                        i === index
+                                                            ? {
+                                                                  ...row,
+                                                                  ...value,
+                                                              }
+                                                            : row,
+                                                    ),
+                                                );
+                                            }
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    className="rounded-lg border p-3 space-y-2"
+                                                >
+                                                    <p className="font-medium">
+                                                        Barang baru: {item.name}
+                                                    </p>
+                                                    <div className="grid gap-3 sm:grid-cols-2">
+                                                        <label className="text-sm">
+                                                            Qty {item.name} (
+                                                            {item.primaryUnit})
+                                                            <Input
+                                                                type="number"
+                                                                min="0.0001"
+                                                                step="0.0001"
+                                                                value={
+                                                                    item.quantity
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    patch({
+                                                                        quantity:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    })
+                                                                }
+                                                            />
+                                                        </label>
+                                                        <label className="text-sm">
+                                                            Harga {item.name}{' '}
+                                                            (Rp/
+                                                            {item.primaryUnit})
+                                                            <Input
+                                                                type="number"
+                                                                min="0.01"
+                                                                step="0.01"
+                                                                value={
+                                                                    item.unitPrice
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    patch({
+                                                                        unitPrice:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    })
+                                                                }
+                                                            />
+                                                        </label>
+                                                        <label className="text-sm">
+                                                            PPN {item.name} (%)
+                                                            <Input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={
+                                                                    item.taxPercent
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    patch({
+                                                                        taxPercent:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    })
+                                                                }
+                                                            />
+                                                        </label>
+                                                        <label className="text-sm">
+                                                            Mode PPN {item.name}
+                                                            <select
+                                                                className="block h-10 w-full rounded-md border bg-background px-3"
+                                                                value={
+                                                                    item.ppnMode
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    patch({
+                                                                        ppnMode:
+                                                                            event
+                                                                                .target
+                                                                                .value as Addition['ppnMode'],
+                                                                    })
+                                                                }
+                                                            >
+                                                                <option value="EXCLUDE">
+                                                                    Belum
+                                                                    termasuk PPN
+                                                                </option>
+                                                                <option value="INCLUDE">
+                                                                    Termasuk PPN
+                                                                </option>
+                                                            </select>
+                                                        </label>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                            setAdditions(
+                                                                additions.filter(
+                                                                    (_, i) =>
+                                                                        i !==
+                                                                        index,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        Hapus tambahan{' '}
+                                                        {item.name}
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
+                                        <label className="block text-sm font-medium">
+                                            Sisa pesanan
+                                            <select
+                                                className="block h-11 w-full rounded-md border bg-background px-3 font-normal"
+                                                value={remainder}
+                                                onChange={(event) =>
+                                                    setRemainder(
+                                                        event.target.value as
+                                                            | 'KEEP'
+                                                            | 'CLOSE',
                                                     )
                                                 }
                                             >
-                                                Hapus tambahan {item.name}
-                                            </Button>
-                                        </div>
-                                    );
-                                })}
-                                <label className="block text-sm font-medium">
-                                    Sisa pesanan
-                                    <select
-                                        className="block h-11 w-full rounded-md border bg-background px-3 font-normal"
-                                        value={remainder}
-                                        onChange={(event) =>
-                                            setRemainder(
-                                                event.target.value as
-                                                    | 'KEEP'
-                                                    | 'CLOSE',
-                                            )
-                                        }
+                                                <option value="KEEP">
+                                                    Sisa dikirim nanti (default)
+                                                </option>
+                                                <option value="CLOSE">
+                                                    Batalkan sisa, selesai
+                                                    sesuai realisasi
+                                                </option>
+                                            </select>
+                                        </label>
+                                        <p className="text-sm text-muted-foreground">
+                                            {remainder === 'KEEP'
+                                                ? 'Kekurangan barang lama tetap menjadi pesanan terbuka, termasuk jika diganti barang lain.'
+                                                : 'Seluruh sisa SO di luar muatan ini dibatalkan. Qty SO menjadi yang sudah dikirim + muatan baru.'}{' '}
+                                            Perintah produksi dan ongkir tidak
+                                            otomatis berubah; koordinasikan
+                                            dengan produksi dan periksa
+                                            tarif/berat pengiriman bila terkait.
+                                        </p>
+                                        <label className="block text-sm font-medium">
+                                            Alasan revisi (wajib)
+                                            <Textarea
+                                                ref={reasonRef}
+                                                value={reason}
+                                                maxLength={500}
+                                                aria-invalid={!!reasonError}
+                                                aria-describedby={
+                                                    reasonError
+                                                        ? 'revision-reason-error'
+                                                        : undefined
+                                                }
+                                                onChange={(event) => {
+                                                    setReason(
+                                                        event.target.value,
+                                                    );
+                                                    setReasonError('');
+                                                }}
+                                            />
+                                        </label>
+                                        {reasonError && (
+                                            <p
+                                                id="revision-reason-error"
+                                                className="text-sm text-destructive"
+                                            >
+                                                {reasonError}
+                                            </p>
+                                        )}
+                                    </fieldset>
+                                )}
+                                {confirming && preview && parsed?.success && (
+                                    <div
+                                        className="rounded-lg border border-amber-400 p-3 space-y-2"
+                                        role="status"
+                                        ref={confirmationRef}
+                                        tabIndex={-1}
                                     >
-                                        <option value="KEEP">
-                                            Sisa dikirim nanti (default)
-                                        </option>
-                                        <option value="CLOSE">
-                                            Batalkan sisa, selesai sesuai
-                                            realisasi
-                                        </option>
-                                    </select>
-                                </label>
-                                <p className="text-sm text-muted-foreground">
-                                    {remainder === 'KEEP'
-                                        ? 'Kekurangan barang lama tetap menjadi pesanan terbuka, termasuk jika diganti barang lain.'
-                                        : 'Seluruh sisa SO di luar muatan ini dibatalkan. Qty SO menjadi yang sudah dikirim + muatan baru.'}{' '}
-                                    Perintah produksi dan ongkir tidak otomatis
-                                    berubah; koordinasikan dengan produksi dan
-                                    periksa tarif/berat pengiriman bila terkait.
-                                </p>
-                                <label className="block text-sm font-medium">
-                                    Alasan revisi (wajib)
-                                    <Textarea
-                                        value={reason}
-                                        maxLength={500}
-                                        onChange={(event) =>
-                                            setReason(event.target.value)
+                                        <p className="font-medium">
+                                            Konfirmasi revisi muatan
+                                        </p>
+                                        <ul className="space-y-3">
+                                            {editor.items.map((item, i) => (
+                                                <li
+                                                    key={item.salesOrderItemId}
+                                                    className="rounded-md border p-3 text-sm"
+                                                >
+                                                    <p className="font-medium">
+                                                        {item.name}
+                                                    </p>
+                                                    <p>
+                                                        Muatan SJ:{' '}
+                                                        {number(item.quantity)}{' '}
+                                                        →{' '}
+                                                        {number(
+                                                            parsed.data.items[i]
+                                                                .quantity,
+                                                        )}{' '}
+                                                        {item.unit}
+                                                    </p>
+                                                    <p>
+                                                        Qty SO:{' '}
+                                                        <strong>
+                                                            {number(
+                                                                item.ordered,
+                                                            )}{' '}
+                                                            →{' '}
+                                                            {number(
+                                                                preview
+                                                                    .quantities[
+                                                                    i
+                                                                ],
+                                                            )}{' '}
+                                                            {item.unit}
+                                                        </strong>
+                                                    </p>
+                                                    <p>
+                                                        Sisa setelah muatan ini:{' '}
+                                                        {number(
+                                                            Math.max(
+                                                                0,
+                                                                preview
+                                                                    .quantities[
+                                                                    i
+                                                                ] -
+                                                                    item.delivered -
+                                                                    parsed.data
+                                                                        .items[
+                                                                        i
+                                                                    ].quantity,
+                                                            ),
+                                                        )}{' '}
+                                                        {item.unit}
+                                                    </p>
+                                                </li>
+                                            ))}
+                                            {additions.map((item) => (
+                                                <li
+                                                    key={item.id}
+                                                    className="rounded-md border p-3 text-sm"
+                                                >
+                                                    Barang tambahan: {item.name}{' '}
+                                                    ·{' '}
+                                                    {number(
+                                                        Number(item.quantity),
+                                                    )}{' '}
+                                                    {item.primaryUnit} ×{' '}
+                                                    {formatRupiah(
+                                                        Number(item.unitPrice),
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <p className="font-medium">
+                                            Nilai SO:{' '}
+                                            {formatRupiah(editor.totalAmount)} →{' '}
+                                            {formatRupiah(preview.totalAmount)}
+                                        </p>
+                                        <p>
+                                            Selisih nilai SO:{' '}
+                                            {formatRupiah(
+                                                preview.totalAmount -
+                                                    editor.totalAmount,
+                                            )}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Termasuk diskon, PPN dan ongkir SO
+                                            yang tersimpan. Ini pratinjau; stok,
+                                            kredit dan invoice tetap divalidasi
+                                            saat simpan. Tagihan belum otomatis
+                                            diterbitkan.
+                                        </p>
+                                        <p className="text-sm">
+                                            {remainder === 'CLOSE'
+                                                ? 'Sisa pesanan akan dibatalkan sesuai qty di atas.'
+                                                : 'Sisa pesanan akan tetap terbuka.'}{' '}
+                                            SO dan Surat Jalan diperbarui
+                                            bersama. Verifikasi muatan lama
+                                            dihapus dan harus diulang. Stok
+                                            belum dipotong.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                            <div
+                                data-revision-actions
+                                className="shrink-0 space-y-2 border-t bg-background pt-3"
+                            >
+                                {confirming && remainder === 'CLOSE' && (
+                                    <label className="flex items-start gap-2 text-sm font-medium">
+                                        <input
+                                            type="checkbox"
+                                            className="mt-1"
+                                            checked={closeAcknowledged}
+                                            disabled={busy}
+                                            onChange={(event) =>
+                                                setCloseAcknowledged(
+                                                    event.target.checked,
+                                                )
+                                            }
+                                        />
+                                        Saya setuju membatalkan sisa pesanan di
+                                        luar muatan ini.
+                                    </label>
+                                )}
+                                {error && (
+                                    <p
+                                        role="alert"
+                                        className="max-h-32 overflow-y-auto text-sm text-destructive whitespace-pre-line"
+                                    >
+                                        {error}
+                                    </p>
+                                )}
+                                <div className="flex flex-col sm:flex-row sm:flex-wrap justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="min-h-11"
+                                        disabled={busy}
+                                        onClick={() => {
+                                            if (confirming) {
+                                                setConfirming(false);
+                                                setError('');
+                                            } else close();
+                                        }}
+                                    >
+                                        {confirming
+                                            ? 'Kembali periksa'
+                                            : 'Batal'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        className="min-h-11"
+                                        disabled={
+                                            busy ||
+                                            (confirming &&
+                                                remainder === 'CLOSE' &&
+                                                !closeAcknowledged)
                                         }
-                                    />
-                                </label>
-                            </fieldset>
-                            {confirming && (
-                                <div
-                                    className="rounded-lg border border-amber-400 p-3 space-y-2"
-                                    role="status"
-                                >
-                                    <p className="font-medium">
-                                        Konfirmasi revisi muatan
-                                    </p>
-                                    <p className="text-sm">
-                                        {remainder === 'CLOSE'
-                                            ? 'Sisa pesanan akan dibatalkan sesuai qty di atas.'
-                                            : 'Sisa pesanan akan tetap terbuka.'}{' '}
-                                        SO dan Surat Jalan diperbarui bersama.
-                                        Verifikasi muatan lama dihapus dan harus
-                                        diulang. Stok belum dipotong.
-                                    </p>
+                                        onClick={confirming ? save : review}
+                                    >
+                                        {confirming
+                                            ? 'Simpan revisi & verifikasi ulang'
+                                            : 'Tinjau revisi'}
+                                    </Button>
                                 </div>
-                            )}
-                            <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-background pt-3">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="min-h-11"
-                                    disabled={busy}
-                                    onClick={() =>
-                                        confirming
-                                            ? setConfirming(false)
-                                            : setOpen(false)
-                                    }
-                                >
-                                    {confirming ? 'Kembali periksa' : 'Batal'}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    className="min-h-11"
-                                    disabled={busy}
-                                    onClick={confirming ? save : review}
-                                >
-                                    {confirming
-                                        ? 'Simpan revisi & verifikasi ulang'
-                                        : 'Tinjau revisi'}
-                                </Button>
                             </div>
                         </>
                     )}

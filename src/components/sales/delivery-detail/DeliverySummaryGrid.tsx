@@ -1,3 +1,4 @@
+import { getDeliveryLoadWeightKg } from '@/lib/sales/delivery-weight';
 import { CalendarDays, MapPin, PackageCheck, Truck } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -13,6 +14,7 @@ export function DeliverySummaryGrid({
     order,
     isLoadVerified,
 }: DeliverySummaryGridProps) {
+    const loadWeight = getDeliveryLoadWeightKg(order.items ?? []);
     const destination =
         order.destinationAddress ||
         order.salesOrder?.customer?.shippingAddress ||
@@ -38,11 +40,9 @@ export function DeliverySummaryGrid({
                 {
                     label: 'Tanggal Surat Jalan',
                     icon: <CalendarDays className="h-4 w-4" />,
-                    value: format(
-                        new Date(order.deliveryDate),
-                        'd MMMM yyyy',
-                        { locale: id },
-                    ),
+                    value: format(new Date(order.deliveryDate), 'd MMMM yyyy', {
+                        locale: id,
+                    }),
                     detail:
                         'Dari ' +
                         (order.sourceLocation?.name ||
@@ -66,13 +66,10 @@ export function DeliverySummaryGrid({
                     label: 'Armada',
                     icon: <Truck className="h-4 w-4" />,
                     value: order.vehicle
-                        ? order.vehicle.plateNumber +
-                          ' — ' +
-                          order.vehicle.name
+                        ? order.vehicle.plateNumber + ' — ' + order.vehicle.name
                         : 'Belum ditentukan',
                     detail:
-                        order.vehicle?.driverName ||
-                        'Sopir belum ditentukan',
+                        order.vehicle?.driverName || 'Sopir belum ditentukan',
                 },
                 {
                     label: 'Muatan',
@@ -80,16 +77,23 @@ export function DeliverySummaryGrid({
                     value:
                         (order.items?.length ?? 0) +
                         ' varian' +
-                        (order.estimatedWeightKg
-                            ? ' · ' +
-                              Number(
-                                  order.estimatedWeightKg,
-                              ).toLocaleString('id-ID') +
-                              ' kg'
+                        (loadWeight != null
+                            ? ' · ' + loadWeight.toLocaleString('id-ID') + ' kg'
                             : ''),
-                    detail: isLoadVerified
-                        ? 'Verifikasi muat terkunci'
-                        : 'Verifikasi muat belum dikunci',
+                    detail: (
+                        <>
+                            <p>
+                                {loadWeight == null
+                                    ? 'Berat muatan belum dapat dihitung untuk semua satuan.'
+                                    : 'Berat dihitung dari item SJ saat ini.'}
+                            </p>
+                            <p>
+                                {isLoadVerified
+                                    ? 'Verifikasi muat terkunci'
+                                    : 'Verifikasi muat belum dikunci'}
+                            </p>
+                        </>
+                    ),
                 },
             ]}
         />

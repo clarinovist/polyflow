@@ -268,6 +268,13 @@ export const getDeliveryOrderById = withTenant(
                     salesOrder: {
                         include: {
                             customer: true,
+                            items: {
+                                select: {
+                                    productVariantId: true,
+                                    quantity: true,
+                                    deliveredQty: true,
+                                },
+                            },
                             // Drives the combined "SJ + Invoice" ESC/P button
                             // and the "Batalkan Pengiriman" visibility guard
                             // (hidden once any invoice is PAID/PARTIAL); a SO

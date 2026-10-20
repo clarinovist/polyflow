@@ -1,3 +1,30 @@
+/** Weight of current SJ rows only, using historical snapshots (not today's master).
+ * Kept separate from the manually editable weight used for pricing. */
+export function getDeliveryLoadWeightKg(
+    items: {
+        quantity?: string | number;
+        enteredQuantity?: string | number | null;
+        enteredUnit?: string | null;
+        conversionFactorSnapshot?: string | number | null;
+        productVariant?: { primaryUnit?: string | null } | null;
+    }[],
+): number | null {
+    let total = 0;
+    for (const item of items) {
+        const quantity = Number(item.quantity);
+        if (!Number.isFinite(quantity) || quantity < 0) return null;
+        if (quantity === 0) continue;
+        if (item.productVariant?.primaryUnit === 'KG') {
+            total += quantity;
+        } else if (item.enteredUnit === 'KG') {
+            const factor = Number(item.conversionFactorSnapshot);
+            if (!Number.isFinite(factor) || factor <= 0) return null;
+            total += quantity / factor;
+        } else return null;
+    }
+    return Number.isFinite(total) ? Math.round(total * 10000) / 10000 : null;
+}
+
 type DeliveryWeightItem = {
     quantity: string | number;
     deliveredQty?: string | number | null;

@@ -177,7 +177,7 @@ export const updateDeliveryItemQuantitiesSchema = z.object({
         .array(
             z.object({
                 id: z.string().min(1),
-                quantity: z.coerce.number().positive('Qty harus > 0'),
+                quantity: z.number().finite().min(0, 'Qty tidak boleh negatif'),
             }),
         )
         .min(1),

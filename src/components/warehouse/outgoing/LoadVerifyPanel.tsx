@@ -45,6 +45,7 @@ interface LoadVerifyPanelProps {
     items: LoadVerifyItem[];
     isVerified: boolean;
     canEdit: boolean;
+    onChangeLoad?: (items: { id: string; quantity: number }[]) => void;
 }
 
 function getDisplayUnit(item: LoadVerifyItem): string {
@@ -118,6 +119,7 @@ export function LoadVerifyPanel({
     items,
     isVerified,
     canEdit,
+    onChangeLoad,
 }: LoadVerifyPanelProps) {
     const [verifyDraft, setVerifyDraft] = useState<Record<string, string>>(
         () => {
@@ -222,6 +224,15 @@ export function LoadVerifyPanel({
     };
 
     const handleCorrectToPhysical = async () => {
+        if (onChangeLoad) {
+            onChangeLoad(
+                buildVerifiedPayload().map((item) => ({
+                    id: item.id,
+                    quantity: item.verifiedQuantity,
+                })),
+            );
+            return;
+        }
         setCorrecting(true);
         try {
             // Save current verified quantities first
@@ -301,8 +312,8 @@ export function LoadVerifyPanel({
                 </div>
             </CardHeader>
             <CardContent>
-                <p className="mb-2 text-xs text-muted-foreground lg:hidden">
-                    Geser tabel untuk melihat seluruh kolom verifikasi.
+                <p className="mb-2 text-xs text-muted-foreground">
+                    Hitungan memakai satuan yang tertera di setiap input.
                 </p>
                 <div
                     role="region"
@@ -310,8 +321,8 @@ export function LoadVerifyPanel({
                     tabIndex={0}
                     className="overflow-x-auto rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                    <table className="w-full min-w-[680px] text-sm">
-                        <thead className="bg-muted/50 border-b">
+                    <table className="w-full text-sm max-sm:block">
+                        <thead className="bg-muted/50 border-b max-sm:sr-only">
                             <tr>
                                 <th className="h-10 px-4 text-left font-medium">
                                     Produk
@@ -327,15 +338,15 @@ export function LoadVerifyPanel({
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y">
+                        <tbody className="divide-y max-sm:block">
                             {items.map((item) => {
                                 const status = getItemStatus(item);
                                 return (
                                     <tr
                                         key={item.id}
-                                        className="hover:bg-muted/50"
+                                        className="hover:bg-muted/50 max-sm:grid max-sm:grid-cols-2"
                                     >
-                                        <td className="p-4">
+                                        <td className="p-3 max-sm:col-span-2 min-w-0 break-words">
                                             <div className="font-medium">
                                                 {
                                                     item.productVariant?.product
@@ -346,17 +357,24 @@ export function LoadVerifyPanel({
                                                 {item.productVariant?.name}
                                             </div>
                                         </td>
-                                        <td className="p-4 text-right font-medium">
+                                        <td className="p-3 text-right font-medium max-sm:text-left">
+                                            <span className="block text-xs text-muted-foreground sm:hidden">
+                                                Perintah
+                                            </span>
                                             {getPlannedDisplay(item)}
                                         </td>
-                                        <td className="p-4 text-right">
+                                        <td className="p-3 text-right">
+                                            <span className="block text-xs text-muted-foreground sm:hidden">
+                                                Dihitung / Dimuat
+                                            </span>
                                             {canEdit ? (
-                                                <div className="inline-flex items-center gap-1.5 justify-end">
+                                                <div className="inline-flex items-center gap-1.5 justify-end max-sm:flex-col max-sm:items-end">
                                                     <Input
                                                         type="number"
                                                         step="0.01"
                                                         min="0"
-                                                        className="h-8 w-28 text-right"
+                                                        className="min-h-11 w-24 text-right"
+                                                        aria-label={`Dihitung ${item.productVariant?.name || item.id} (${getDisplayUnit(item)})`}
                                                         value={
                                                             verifyDraft[
                                                                 item.id
@@ -384,7 +402,7 @@ export function LoadVerifyPanel({
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="p-4 text-center">
+                                        <td className="p-3 text-center max-sm:col-span-2">
                                             {status === 'match' && (
                                                 <Badge
                                                     variant="secondary"
@@ -400,7 +418,26 @@ export function LoadVerifyPanel({
                                                     className="bg-amber-100 text-amber-800"
                                                 >
                                                     <AlertTriangle className="h-3 w-3 mr-1" />{' '}
-                                                    Selisih
+                                                    Selisih{' '}
+                                                    {Number(
+                                                        verifyDraft[item.id],
+                                                    ) >
+                                                    getPlannedQtyInDisplayUnit(
+                                                        item,
+                                                    )
+                                                        ? '+'
+                                                        : ''}
+                                                    {formatQuantity(
+                                                        Number(
+                                                            verifyDraft[
+                                                                item.id
+                                                            ],
+                                                        ) -
+                                                            getPlannedQtyInDisplayUnit(
+                                                                item,
+                                                            ),
+                                                    )}{' '}
+                                                    {getDisplayUnit(item)}
                                                 </Badge>
                                             )}
                                             {status === 'pending' && (
@@ -419,6 +456,15 @@ export function LoadVerifyPanel({
                     </table>
                 </div>
 
+                {canEdit && (
+                    <p className="mt-3 text-sm text-muted-foreground">
+                        {!allItemsVerified
+                            ? 'Isi hitungan semua barang untuk menyimpan dan mengunci verifikasi.'
+                            : !allItemsMatch
+                              ? 'Ada selisih. Hitung ulang atau gunakan Ubah muatan sesuai hitungan; perubahan SO memerlukan Sales.'
+                              : 'Semua hitungan sesuai. Kunci Verifikasi akan menyimpan hitungan dan menguncinya.'}
+                    </p>
+                )}
                 {canEdit && (
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between [&_button]:min-h-11">
                         <div className="flex flex-wrap items-center gap-2">
@@ -445,12 +491,18 @@ export function LoadVerifyPanel({
                                     !allItemsVerified ||
                                     allItemsMatch
                                 }
-                                title="Koreksi qty perintah muat ke qty fisik yang dihitung"
+                                title={
+                                    onChangeLoad
+                                        ? 'Tinjau perubahan SJ atau revisi SO + SJ; belum menyimpan atau mengunci.'
+                                        : 'Koreksi qty perintah muat ke qty fisik yang dihitung'
+                                }
                             >
                                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
                                 {correcting
                                     ? 'Mengoreksi...'
-                                    : 'Koreksi Perintah ke Qty Fisik'}
+                                    : onChangeLoad
+                                      ? 'Ubah muatan sesuai hitungan'
+                                      : 'Koreksi Perintah ke Qty Fisik'}
                             </Button>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">

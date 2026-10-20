@@ -204,7 +204,7 @@ export const salesLabels = {
     sjPendingBanner:
         'Draft muat — stok belum dipotong. Qty masih bisa disesuaikan dengan real lapangan sebelum Tandai Dikirim.',
     sjShippedBanner: 'Final — stok sudah dipotong dari gudang.',
-    editSjQty: 'Ubah qty kirim',
+    editSjQty: 'Ubah muatan',
     saveSjQty: 'Simpan qty',
     sjQtyUpdated: 'Qty Surat Jalan berhasil diperbarui.',
     sjQtyHelp:

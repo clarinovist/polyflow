@@ -89,6 +89,11 @@ export function DeliveryOrderDetail({
     const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
     const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
     const [savingQty, setSavingQty] = useState(false);
+    const [revisionDraft, setRevisionDraft] = useState<Record<
+        string,
+        number
+    > | null>(null);
+    const itemsRef = useRef<HTMLDivElement>(null);
     const [qtyMismatchNotice, setQtyMismatchNotice] = useState<{
         requested: number;
         maxAllowed: number;
@@ -143,18 +148,48 @@ export function DeliveryOrderDetail({
         setEditingQty(true);
     };
 
+    const openRevision = () => {
+        if (warehouseMode) return;
+        setRevisionDraft(
+            Object.fromEntries(
+                items.flatMap((item) => {
+                    const quantity = qtyDraft[item.id];
+                    return item.productVariantId &&
+                        quantity?.trim() &&
+                        Number.isFinite(Number(quantity))
+                        ? [[item.productVariantId, Number(quantity)]]
+                        : [];
+                }),
+            ),
+        );
+        setQtyMismatchNotice(null);
+    };
+
+    const changeLoadFromCount = (
+        counts: { id: string; quantity: number }[],
+    ) => {
+        startEditQty();
+        setQtyDraft(
+            Object.fromEntries(
+                counts.map((item) => [item.id, String(item.quantity)]),
+            ),
+        );
+        itemsRef.current?.scrollIntoView({
+            behavior: 'auto',
+            block: 'start',
+        });
+    };
+
     const handleSaveQty = async () => {
         const items = Object.entries(qtyDraft).map(([id, q]) => ({
             id,
             quantity: Number(q),
         }));
         if (
-            items.some(
-                (i) =>
-                    !i.quantity || i.quantity <= 0 || Number.isNaN(i.quantity),
-            )
+            Object.values(qtyDraft).some((qty) => !qty.trim()) ||
+            items.some((i) => !Number.isFinite(i.quantity) || i.quantity < 0)
         ) {
-            toast.error('Qty harus angka > 0');
+            toast.error('Qty harus angka ≥ 0');
             return;
         }
         setSavingQty(true);
@@ -404,9 +439,12 @@ export function DeliveryOrderDetail({
             'ARRIVED',
             'DELIVERED',
         ].includes(order.status);
-    const stockStatusLabel = ['SHIPPED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED'].includes(
-        order.status,
-    )
+    const stockStatusLabel = [
+        'SHIPPED',
+        'IN_TRANSIT',
+        'ARRIVED',
+        'DELIVERED',
+    ].includes(order.status)
         ? 'Stok: Sudah dipotong'
         : order.status === 'RETURNED'
           ? 'Stok: Periksa proses retur'
@@ -459,27 +497,23 @@ export function DeliveryOrderDetail({
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Tutup</AlertDialogCancel>
-                        <AlertDialogAction asChild>
-                            <Link
-                                href={
-                                    warehouseMode
-                                        ? `/warehouse/outgoing/orders/${order.salesOrderId}`
-                                        : `/sales/orders/${order.salesOrderId}`
-                                }
-                                onClick={() => setQtyMismatchNotice(null)}
-                            >
-                                {warehouseMode
-                                    ? 'Lihat Sales Order'
-                                    : 'Buka Sales Order'}
-                            </Link>
-                        </AlertDialogAction>
+                        {!warehouseMode && (
+                            <AlertDialogAction onClick={openRevision}>
+                                Buka Revisi muatan
+                            </AlertDialogAction>
+                        )}
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
             <header className="space-y-4 rounded-xl border bg-card p-4 shadow-sm lg:p-5 xl:sticky xl:top-4 xl:z-20">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="min-w-0 space-y-3">
-                        <Button variant="outline" size="sm" asChild className="min-h-11">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="min-h-11"
+                        >
                             <Link href={basePath}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 {actionLabels.back}
@@ -537,20 +571,18 @@ export function DeliveryOrderDetail({
                 </div>
             </header>
 
-            {canEditQty && !warehouseMode && (
-                <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/20 px-4 py-3">
-                    <DeliveryRevisionDialog
-                        deliveryOrderId={order.id}
-                        onSaved={() => {
-                            setEditingQty(false);
-                            setStockReadiness(null);
-                        }}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                        Jumlah atau barang berbeda? Revisi SO dan SJ bersama
-                        sebelum verifikasi muatan.
-                    </p>
-                </div>
+            {canEditQty && !warehouseMode && revisionDraft && (
+                <DeliveryRevisionDialog
+                    deliveryOrderId={order.id}
+                    defaultOpen
+                    hideTrigger
+                    initialQuantities={revisionDraft}
+                    onClosed={() => setRevisionDraft(null)}
+                    onSaved={() => {
+                        setEditingQty(false);
+                        setStockReadiness(null);
+                    }}
+                />
             )}
 
             {stockReadiness && stockReadiness.length > 0 && (
@@ -563,11 +595,19 @@ export function DeliveryOrderDetail({
                         <Truck className="h-5 w-5 text-blue-700 dark:text-blue-300" />
                     </div>
                     <div>
-                        <h2 className="font-semibold">Pengiriman dalam Perjalanan</h2>
+                        <h2 className="font-semibold">
+                            Pengiriman dalam Perjalanan
+                        </h2>
                         <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">
                             {order.carrier || 'Informasi kurir tersedia.'}
                             {order.trackingNumber && (
-                                <> · No. Resi: <span className="font-mono font-bold">{order.trackingNumber}</span></>
+                                <>
+                                    {' '}
+                                    · No. Resi:{' '}
+                                    <span className="font-mono font-bold">
+                                        {order.trackingNumber}
+                                    </span>
+                                </>
                             )}
                         </p>
                     </div>
@@ -585,21 +625,34 @@ export function DeliveryOrderDetail({
                 currentStatusIndex={currentStatusIndex}
             />
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
+            <div className="grid gap-6 2xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
                 <div className="min-w-0 space-y-6">
-                    <DeliveryItemsCard
-                        items={items}
-                        canEditQty={canEditQty}
-                        editingQty={editingQty}
-                        savingQty={savingQty}
-                        qtyDraft={qtyDraft}
-                        notesDraft={notesDraft}
-                        setQtyDraft={setQtyDraft}
-                        setNotesDraft={setNotesDraft}
-                        setEditingQty={setEditingQty}
-                        startEditQty={startEditQty}
-                        handleSaveQty={handleSaveQty}
-                    />
+                    <div ref={itemsRef}>
+                        <DeliveryItemsCard
+                            items={items}
+                            onRevise={warehouseMode ? undefined : openRevision}
+                            residualByVariant={Object.fromEntries(
+                                (order.salesOrder?.items ?? []).map((item) => [
+                                    item.productVariantId,
+                                    Math.max(
+                                        0,
+                                        Number(item.quantity) -
+                                            Number(item.deliveredQty),
+                                    ),
+                                ]),
+                            )}
+                            canEditQty={canEditQty}
+                            editingQty={editingQty}
+                            savingQty={savingQty}
+                            qtyDraft={qtyDraft}
+                            notesDraft={notesDraft}
+                            setQtyDraft={setQtyDraft}
+                            setNotesDraft={setNotesDraft}
+                            setEditingQty={setEditingQty}
+                            startEditQty={startEditQty}
+                            handleSaveQty={handleSaveQty}
+                        />
+                    </div>
 
                     {canEditQty && (
                         <LoadVerifyPanel
@@ -617,11 +670,12 @@ export function DeliveryOrderDetail({
                             }))}
                             isVerified={isLoadVerified}
                             canEdit={!isLoadVerified}
+                            onChangeLoad={changeLoadFromCount}
                         />
                     )}
                 </div>
 
-                <aside className="min-w-0 space-y-6 lg:sticky lg:top-6 lg:self-start xl:top-40">
+                <aside className="min-w-0 space-y-6 2xl:sticky 2xl:top-40 2xl:self-start">
                     <DeliveryReadinessCard
                         order={order}
                         isLoadVerified={isLoadVerified}

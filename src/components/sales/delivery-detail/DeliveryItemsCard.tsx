@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { salesLabels, formLabels } from '@/lib/labels';
+import { salesLabels } from '@/lib/labels';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 
 interface DeliveryItemsCardProps {
@@ -24,6 +24,8 @@ interface DeliveryItemsCardProps {
     setEditingQty: Dispatch<SetStateAction<boolean>>;
     startEditQty: () => void;
     handleSaveQty: () => Promise<void>;
+    onRevise?: () => void;
+    residualByVariant?: Record<string, number>;
 }
 
 export function DeliveryItemsCard({
@@ -38,130 +40,144 @@ export function DeliveryItemsCard({
     setEditingQty,
     startEditQty,
     handleSaveQty,
+    onRevise,
+    residualByVariant,
 }: DeliveryItemsCardProps) {
     return (
         <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+            <CardHeader className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <CardTitle>Item Pengiriman</CardTitle>
                     <CardDescription>
                         {canEditQty
-                            ? salesLabels.sjQtyHelp
-                            : 'Item yang termasuk dalam batch pengiriman ini'}
+                            ? 'Ubah muatan sebelum dikirim. Perubahan perintah mengharuskan verifikasi ulang.'
+                            : 'Item dalam pengiriman ini'}
                     </CardDescription>
                 </div>
                 {canEditQty && !editingQty && (
                     <Button
                         type="button"
-                        size="sm"
                         variant="outline"
+                        className="min-h-11"
                         onClick={startEditQty}
                     >
                         {salesLabels.editSjQty}
                     </Button>
                 )}
-                {canEditQty && editingQty && (
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={savingQty}
-                            onClick={() => setEditingQty(false)}
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            disabled={savingQty}
-                            onClick={handleSaveQty}
-                        >
-                            {savingQty ? 'Menyimpan…' : salesLabels.saveSjQty}
-                        </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {editingQty && (
+                    <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-2">
+                        <p>
+                            <strong>Ubah SJ saja:</strong> qty tidak boleh
+                            melebihi sisa SO yang belum dikirim. Sisa pesanan
+                            tetap terbuka; nilai SO tidak berubah.
+                        </p>
+                        <p>
+                            <strong>Revisi SO + SJ:</strong> untuk melebihi sisa
+                            SO, mengganti/menambah barang, atau membatalkan sisa
+                            pesanan.
+                        </p>
+                        {!onRevise && (
+                            <p>
+                                Untuk revisi SO + SJ, minta Sales membuka Surat
+                                Jalan ini dari Penjualan. Gudang tetap dapat
+                                mencatat hitungan fisik.
+                            </p>
+                        )}
+                        <p>
+                            Qty di bawah menggunakan satuan utama, bukan jumlah
+                            kemasan.
+                        </p>
                     </div>
                 )}
-            </CardHeader>
-            <CardContent>
-                <p className="mb-2 text-xs text-muted-foreground md:hidden">
-                    Geser tabel ke samping untuk melihat seluruh rincian.
-                </p>
                 <div
-                    className="overflow-x-auto rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     role="region"
                     aria-label="Item pengiriman"
                     tabIndex={0}
+                    className="space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                    <table className="w-full min-w-[680px] text-sm">
-                        <thead className="bg-muted/50 border-b">
-                            <tr>
-                                <th className="h-10 px-4 text-left font-medium">
-                                    {formLabels.product}
-                                </th>
-                                <th className="h-10 px-4 text-right font-medium">
-                                    SKU
-                                </th>
-                                <th className="h-10 px-4 text-right font-medium">
-                                    {formLabels.qty}
-                                </th>
-                                <th className="h-10 px-4 text-left font-medium">
-                                    {salesLabels.sjItemNotesLabel}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {items.map((item) => (
-                                <tr key={item.id} className="hover:bg-muted/50">
-                                    <td className="p-4">
-                                        <div className="font-medium">
-                                            {item.productVariant?.product?.name}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {item.productVariant?.name}
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-right font-mono text-xs">
+                    {items.map((item) => {
+                        const name =
+                            item.productVariant?.name ||
+                            item.productVariant?.product?.name ||
+                            'Barang';
+                        const unit = item.productVariant?.primaryUnit || '';
+                        const residual = item.productVariantId
+                            ? residualByVariant?.[item.productVariantId]
+                            : undefined;
+                        const exceeds =
+                            residual != null &&
+                            Number(qtyDraft[item.id]) > residual;
+                        return (
+                            <div
+                                key={item.id}
+                                className="min-w-0 rounded-lg border p-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,1fr)]"
+                            >
+                                <div className="min-w-0">
+                                    <p className="font-medium break-words">
+                                        {item.productVariant?.product?.name}
+                                    </p>
+                                    <p className="text-sm break-words">
+                                        {item.productVariant?.name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground break-all">
                                         {item.productVariant?.skuCode}
-                                    </td>
-                                    <td className="p-4 text-right font-medium">
-                                        {editingQty ? (
-                                            <div className="inline-flex items-center gap-1.5 justify-end">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0.01"
-                                                    className="h-8 w-28 text-right"
-                                                    value={
-                                                        qtyDraft[item.id] ?? ''
+                                    </p>
+                                </div>
+                                <div className="min-w-0 space-y-3">
+                                    {editingQty ? (
+                                        <label className="block text-sm">
+                                            Qty kirim {name} ({unit})
+                                            <Input
+                                                type="number"
+                                                step="0.0001"
+                                                min="0"
+                                                className="min-h-11 w-full"
+                                                value={qtyDraft[item.id] ?? ''}
+                                                onChange={(e) =>
+                                                    setQtyDraft((prev) => ({
+                                                        ...prev,
+                                                        [item.id]:
+                                                            e.target.value,
+                                                    }))
+                                                }
+                                            />
+                                            {residual != null && (
+                                                <span
+                                                    className={
+                                                        exceeds
+                                                            ? 'text-destructive'
+                                                            : 'text-muted-foreground'
                                                     }
-                                                    onChange={(e) =>
-                                                        setQtyDraft((prev) => ({
-                                                            ...prev,
-                                                            [item.id]:
-                                                                e.target.value,
-                                                        }))
-                                                    }
-                                                />
-                                                <span className="text-xs text-muted-foreground">
-                                                    {item.enteredUnit ||
-                                                        item.productVariant
-                                                            ?.primaryUnit ||
-                                                        ''}
+                                                >
+                                                    Batas SJ:{' '}
+                                                    {residual.toLocaleString(
+                                                        'id-ID',
+                                                    )}{' '}
+                                                    {unit} (sisa SO).
+                                                    {exceeds
+                                                        ? ' Melebihi batas — gunakan revisi SO + SJ melalui Sales.'
+                                                        : ''}
                                                 </span>
-                                            </div>
-                                        ) : (
-                                            getEnteredQuantityDisplay({
+                                            )}
+                                        </label>
+                                    ) : (
+                                        <p className="font-medium">
+                                            {getEnteredQuantityDisplay({
                                                 ...item,
                                                 ...item.productVariant,
-                                            } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot)
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-left">
-                                        {editingQty ? (
+                                            } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot)}
+                                        </p>
+                                    )}
+                                    {editingQty ? (
+                                        <label className="block text-sm">
+                                            {salesLabels.sjItemNotesLabel}{' '}
+                                            {name}
                                             <Input
                                                 type="text"
                                                 maxLength={200}
-                                                className="h-8 w-full min-w-[10rem]"
+                                                className="min-h-11 w-full"
                                                 placeholder={
                                                     salesLabels.sjItemNotesPlaceholder
                                                 }
@@ -176,17 +192,46 @@ export function DeliveryItemsCard({
                                                     }))
                                                 }
                                             />
-                                        ) : (
-                                            <span className="text-muted-foreground">
-                                                {item.notes || '-'}
-                                            </span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                        </label>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground break-words">
+                                            {item.notes || '-'}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
+                {canEditQty && editingQty && (
+                    <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3 [&_button]:min-h-11">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={savingQty}
+                            onClick={() => setEditingQty(false)}
+                        >
+                            Batal
+                        </Button>
+                        {onRevise && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={savingQty}
+                                onClick={onRevise}
+                            >
+                                Revisi SO + SJ
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            disabled={savingQty}
+                            onClick={handleSaveQty}
+                        >
+                            {savingQty ? 'Menyimpan…' : salesLabels.saveSjQty}
+                        </Button>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

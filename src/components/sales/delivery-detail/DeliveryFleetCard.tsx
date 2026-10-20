@@ -1,3 +1,4 @@
+import { getDeliveryLoadWeightKg } from '@/lib/sales/delivery-weight';
 import type { DeliveryOrderDetailData } from './types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Truck } from 'lucide-react';
@@ -12,6 +13,11 @@ export function DeliveryFleetCard({
     order,
     warehouseMode,
 }: DeliveryFleetCardProps) {
+    const loadWeight = getDeliveryLoadWeightKg(order.items ?? []);
+    const differs =
+        loadWeight != null &&
+        order.estimatedWeightKg != null &&
+        Math.abs(loadWeight - Number(order.estimatedWeightKg)) > 0.01;
     return (
         <Card>
             <CardHeader>
@@ -33,6 +39,23 @@ export function DeliveryFleetCard({
                 </div>
             </CardHeader>
             <CardContent className="space-y-3">
+                {differs && (
+                    <p
+                        role="status"
+                        className="rounded-md border border-amber-400 p-3 text-sm"
+                    >
+                        Berat item SJ sekarang{' '}
+                        {loadWeight.toLocaleString('id-ID')} kg, berbeda dari
+                        dasar tarif tersimpan{' '}
+                        {Number(order.estimatedWeightKg).toLocaleString(
+                            'id-ID',
+                        )}{' '}
+                        kg. Ongkir tidak berubah otomatis.{' '}
+                        {warehouseMode
+                            ? 'Minta Sales memeriksa berat dan tarif.'
+                            : 'Periksa melalui Edit Tarif & Berat sebelum mengirim.'}
+                    </p>
+                )}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                         <span className="text-sm text-muted-foreground">
@@ -86,10 +109,10 @@ export function DeliveryFleetCard({
                     </div>
                     <div>
                         <span className="text-sm text-muted-foreground">
-                            Estimasi Berat
+                            Berat dasar tarif tersimpan
                         </span>
                         <p className="font-medium">
-                            {order.estimatedWeightKg
+                            {order.estimatedWeightKg != null
                                 ? `${Number(order.estimatedWeightKg)} Kg`
                                 : '—'}
                         </p>

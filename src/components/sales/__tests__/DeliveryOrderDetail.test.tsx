@@ -19,6 +19,11 @@ const mockUpdateDeliveryItemQuantities = vi.fn();
 const mockUpdateDeliveryItemNotes = vi.fn();
 const mockFetchDeliveryStockReadiness = vi.fn();
 const mockUpdateDeliveryStatus = vi.fn();
+const mockRevisionEditor = vi.fn();
+vi.mock('@/actions/sales/delivery-revision', () => ({
+    getDeliveryRevisionEditor: (...args: unknown[]) => mockRevisionEditor(...args),
+    findDeliveryRevisionProducts: vi.fn(), reviseDeliveryLoad: vi.fn(),
+}));
 
 vi.mock('@/actions/inventory/deliveries', () => ({
     updateDeliveryItemQuantities: (...args: unknown[]) =>
@@ -104,6 +109,7 @@ function makeOrder(
         items: [
             {
                 id: 'item-1',
+                productVariantId: 'variant-1',
                 quantity: 100,
                 productVariant: {
                     name: 'Product A',
@@ -161,9 +167,22 @@ describe('DeliveryOrderDetail — qty mismatch dialog', () => {
         expect(screen.getAllByText(/SO-2026-0001/).length).toBeGreaterThanOrEqual(1);
 
         expect(screen.getByText('Tutup')).toBeDefined();
-        expect(screen.getByText('Buka Sales Order')).toBeDefined();
+        expect(screen.queryByText('Buka Sales Order')).toBeNull();
+        mockRevisionEditor.mockResolvedValue({ success: true, data: {
+            orderNumber: 'SO-fixture', orderVersion: '2026-10-20T00:00:00.000Z', deliveryVersion: '2026-10-20T00:00:00.000Z', totalAmount: 1000, shippingCost: 0,
+            items: [{ salesOrderItemId: 'soi', productVariantId: 'variant-1', name: 'Product A', unit: 'KG', ordered: 100, delivered: 0, quantity: 100, unitPrice: 10, discountPercent: 0, taxPercent: 0, ppnMode: 'EXCLUDE' }],
+        } });
+        fireEvent.click(screen.getByRole('button', { name: 'Buka Revisi muatan' }));
+        expect((await screen.findByLabelText('Qty muat Product A (KG)') as HTMLInputElement).value).toBe('10050');
     });
 
+    it('shows residual next to the primary-unit input before saving, even when increasing within SO is allowed', () => {
+        render(<DeliveryOrderDetail order={makeOrder({ salesOrder: { items: [{ productVariantId: 'variant-1', quantity: 150, deliveredQty: 20 }] } })} />);
+        fireEvent.click(screen.getByText(salesLabels.editSjQty));
+        fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '140' } });
+        expect(screen.getByText(/Batas SJ: 130/).textContent).toContain('Melebihi batas');
+        expect(mockUpdateDeliveryItemQuantities).not.toHaveBeenCalled();
+    });
     it('falls back to toast.error for other error codes', async () => {
         const { toast } = await import('sonner');
 
@@ -218,7 +237,9 @@ describe('DeliveryOrderDetail — qty mismatch dialog', () => {
         expect(
             screen.getByText(/Hubungi sales untuk menggunakan Revisi muatan/),
         ).toBeDefined();
-        expect(screen.getByText('Lihat Sales Order')).toBeDefined();
+        expect(screen.queryByText('Buka Revisi muatan')).toBeNull();
+        expect(screen.queryByText('Lihat Sales Order')).toBeNull();
+        expect(mockRevisionEditor).not.toHaveBeenCalled();
     });
 });
 

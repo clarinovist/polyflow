@@ -53,6 +53,11 @@ export interface DeliveryOrderDetailData {
     salesOrder?: {
         orderNumber?: string;
         customerId?: string | null;
+        items?: {
+            productVariantId: string;
+            quantity: number | string;
+            deliveredQty: number | string;
+        }[];
         customer?: {
             id?: string;
             name?: string;

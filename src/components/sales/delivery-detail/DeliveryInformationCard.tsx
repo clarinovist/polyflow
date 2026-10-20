@@ -1,3 +1,4 @@
+import { getDeliveryLoadWeightKg } from '@/lib/sales/delivery-weight';
 import type { DeliveryOrderDetailData } from './types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, MapPin, Scale, User } from 'lucide-react';
@@ -40,19 +41,20 @@ export function DeliveryInformationCard({
 
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                        <Calendar className="h-4 w-4" />{' '}
-                        Tanggal Surat Jalan
+                        <Calendar className="h-4 w-4" /> Tanggal Surat Jalan
                     </p>
                     <p className="font-medium text-sm">
-                        {format(new Date(order.deliveryDate), 'd MMMM yyyy', { locale: id })}
+                        {format(new Date(order.deliveryDate), 'd MMMM yyyy', {
+                            locale: id,
+                        })}
                     </p>
                 </div>
 
                 {order.stockCommittedAt && (
                     <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                            <Calendar className="h-4 w-4" /> Tanggal
-                            Penyerahan Aktual
+                            <Calendar className="h-4 w-4" /> Tanggal Penyerahan
+                            Aktual
                         </p>
                         <p className="font-medium text-sm">
                             {format(
@@ -85,13 +87,16 @@ export function DeliveryInformationCard({
                     </p>
                 </div>
 
-                {order.estimatedWeightKg && (
+                {getDeliveryLoadWeightKg(order.items ?? []) != null && (
                     <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                            <Scale className="h-4 w-4" /> Estimasi Berat
+                            <Scale className="h-4 w-4" /> Berat item SJ
                         </p>
                         <p className="font-medium text-sm">
-                            {Number(order.estimatedWeightKg)} Kg
+                            {getDeliveryLoadWeightKg(
+                                order.items ?? [],
+                            )?.toLocaleString('id-ID')}{' '}
+                            kg
                         </p>
                     </div>
                 )}

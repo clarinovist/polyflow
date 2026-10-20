@@ -8,6 +8,7 @@ import {
     type DeliveryRevisionInput,
 } from '@/lib/schemas/delivery-revision';
 import { calculatePpn } from '@/lib/utils/ppn';
+import { getRevisionOrderQuantity } from '@/lib/sales/delivery-revision-preview';
 import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { createStockReservation } from '@/services/inventory/reservation-service';
@@ -86,6 +87,8 @@ export async function getDeliveryRevision(deliveryOrderId: string) {
         orderVersion: delivery.salesOrder.updatedAt.toISOString(),
         deliveryVersion: delivery.updatedAt.toISOString(),
         orderNumber: delivery.salesOrder.orderNumber,
+        totalAmount: n(delivery.salesOrder.totalAmount),
+        shippingCost: n(delivery.salesOrder.shippingCost),
         items: delivery.salesOrder.items.map((item) => ({
             salesOrderItemId: item.id,
             productVariantId: item.productVariantId,
@@ -94,6 +97,9 @@ export async function getDeliveryRevision(deliveryOrderId: string) {
             ordered: n(item.quantity),
             delivered: n(item.deliveredQty),
             unitPrice: n(item.unitPrice),
+            discountPercent: n(item.discountPercent),
+            taxPercent: n(item.taxPercent),
+            ppnMode: item.ppnMode,
             quantity: n(
                 delivery.items.find(
                     (line) => line.productVariantId === item.productVariantId,
@@ -268,13 +274,12 @@ export async function reviseDelivery(
             }));
             const lines = so.items.map((item) => {
                 const load = submitted.get(item.id)!;
-                const target =
-                    data.remainder === 'CLOSE'
-                        ? qty(n(item.deliveredQty) + load)
-                        : Math.max(
-                              n(item.quantity),
-                              qty(n(item.deliveredQty) + load),
-                          );
+                const target = getRevisionOrderQuantity(
+                    n(item.quantity),
+                    n(item.deliveredQty),
+                    load,
+                    data.remainder,
+                );
                 if (load > 0 && !item.isFreeItem && n(item.unitPrice) <= 0)
                     throw new BusinessRuleError(
                         'Harga item SO belum lengkap. Lengkapi harga sebelum revisi.',

@@ -321,6 +321,7 @@ describe('DeliveryOrderDetail characterization', () => {
             deliveryOrderId: order.id,
             isVerified: false,
             canEdit: true,
+            onChangeLoad: expect.any(Function),
             items: [
                 {
                     id: 'base',
@@ -392,9 +393,7 @@ describe('DeliveryOrderDetail characterization', () => {
         fireEvent.click(button(salesLabels.editSjQty));
         const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[];
         expect(inputs.map((input) => input.value)).toEqual(['100', '24']);
-        expect(
-            within(inputs[1].closest('td')!).getByText('ROLL'),
-        ).toBeDefined();
+        expect(screen.getByLabelText('Qty kirim Alternate (KG)')).toBe(inputs[1]);
         inputs[1].focus();
         fireEvent.change(inputs[1], { target: { value: '36' } });
         expect(document.activeElement).toBe(inputs[1]);
@@ -457,16 +456,24 @@ describe('DeliveryOrderDetail characterization', () => {
         expect(mocks.refresh).not.toHaveBeenCalled();
     });
 
-    it('rejects zero quantity before either save action', () => {
+    it.each(['', '-1'])('rejects invalid quantity %s before either save action', (value) => {
         render(<DeliveryOrderDetail order={makeOrder()} />);
         fireEvent.click(button(salesLabels.editSjQty));
         fireEvent.change(screen.getByRole('spinbutton'), {
-            target: { value: '0' },
+            target: { value },
         });
         fireEvent.click(button(salesLabels.saveSjQty));
-        expect(mocks.error).toHaveBeenCalledWith('Qty harus angka > 0');
+        expect(mocks.error).toHaveBeenCalledWith('Qty harus angka ≥ 0');
         expect(mocks.quantity).not.toHaveBeenCalled();
         expect(mocks.notes).not.toHaveBeenCalled();
+    });
+
+    it('allows zero physical load without implying that the SO remainder was cancelled', async () => {
+        render(<DeliveryOrderDetail order={makeOrder()} />);
+        fireEvent.click(button(salesLabels.editSjQty));
+        fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '0' } });
+        fireEvent.click(button(salesLabels.saveSjQty));
+        await waitFor(() => expect(mocks.quantity).toHaveBeenCalledWith({ deliveryOrderId: 'fixture-do', items: [{ id: 'base', quantity: 0 }] }));
     });
 
     it('offers reversal only for SHIPPED without POD or paid/partial invoice', async () => {

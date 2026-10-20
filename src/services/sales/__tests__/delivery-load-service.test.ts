@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { changeDeliveryLoad } from '../delivery-load-service';
+import { updateDeliveryItemQuantitiesSchema } from '@/lib/schemas/sales';
 const mocks = vi.hoisted(() => ({
     db: { $queryRaw: vi.fn(), deliveryOrder: { findUnique: vi.fn(), update: vi.fn() }, deliveryOrderItem: { update: vi.fn() } }, audit: vi.fn(),
 }));
@@ -18,6 +19,16 @@ describe('serialized warehouse loading', () => {
         expect(mocks.db.deliveryOrderItem.update).toHaveBeenCalledWith({ where: { id: 'line' }, data: expect.objectContaining({ quantity: 70, enteredQuantity: 7, verifiedQuantity: null }) });
         expect(mocks.db.deliveryOrder.update).toHaveBeenCalledWith(expect.objectContaining({ data: { loadVerifiedAt: null, loadVerifiedById: null } }));
         expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({ tx: mocks.db }));
+    });
+    it('accepts zero physical load through the same draft route without closing SO or locking', async () => {
+        const input = updateDeliveryItemQuantitiesSchema.parse({ deliveryOrderId: 'do', items: [{ id: 'line', quantity: 0 }] });
+        await changeDeliveryLoad('do', 'user', { kind: 'quantity', items: input.items });
+        expect(mocks.db.deliveryOrderItem.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ quantity: 0, verifiedQuantity: null }) }));
+        expect(mocks.db.deliveryOrder.update).toHaveBeenCalledWith(expect.objectContaining({ data: { loadVerifiedAt: null, loadVerifiedById: null } }));
+        expect(row.salesOrder.items[0].quantity).toBe(100);
+    });
+    it.each(['', null, -1, NaN, Infinity])('rejects non-numeric/negative qty %s rather than coercing to zero', (quantity) => {
+        expect(updateDeliveryItemQuantitiesSchema.safeParse({ deliveryOrderId: 'do', items: [{ id: 'line', quantity }] }).success).toBe(false);
     });
     it('saves count even when excess but does not allow correction beyond SO', async () => {
         await changeDeliveryLoad('do', 'user', { kind: 'verify', items: [{ id: 'line', verifiedQuantity: 110 }] });
