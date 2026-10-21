@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import {
     Card,
     CardContent,
@@ -46,6 +46,8 @@ interface LoadVerifyPanelProps {
     isVerified: boolean;
     canEdit: boolean;
     onChangeLoad?: (items: { id: string; quantity: number }[]) => void;
+    disabled?: boolean;
+    onBusyChange?: (busy: boolean) => void;
 }
 
 function getDisplayUnit(item: LoadVerifyItem): string {
@@ -120,6 +122,8 @@ export function LoadVerifyPanel({
     isVerified,
     canEdit,
     onChangeLoad,
+    disabled = false,
+    onBusyChange,
 }: LoadVerifyPanelProps) {
     const [verifyDraft, setVerifyDraft] = useState<Record<string, string>>(
         () => {
@@ -142,6 +146,14 @@ export function LoadVerifyPanel({
     const [confirming, setConfirming] = useState(false);
     const [correcting, setCorrecting] = useState(false);
     const router = useRouter();
+    const [refreshing, startRefresh] = useTransition();
+    const busy = saving || confirming || correcting || refreshing;
+    const blocked = busy || disabled;
+    useEffect(() => {
+        onBusyChange?.(busy);
+        return () => onBusyChange?.(false);
+    }, [busy, onBusyChange]);
+    const refresh = () => startRefresh(() => router.refresh());
 
     const buildVerifiedPayload = () =>
         Object.entries(verifyDraft)
@@ -172,7 +184,7 @@ export function LoadVerifyPanel({
             });
             if (result.success) {
                 toast.success('Qty verifikasi tersimpan');
-                router.refresh();
+                refresh();
             } else {
                 toast.error(result.error || 'Gagal menyimpan verifikasi');
             }
@@ -204,7 +216,7 @@ export function LoadVerifyPanel({
             const result = await confirmDeliveryLoadVerified(deliveryOrderId);
             if (result.success) {
                 toast.success('Verifikasi terkunci. Siap Tandai Dikirim.');
-                router.refresh();
+                refresh();
             } else {
                 toast.error(result.error || 'Gagal mengunci verifikasi');
             }
@@ -260,7 +272,7 @@ export function LoadVerifyPanel({
                 toast.success(
                     'DO dikoreksi ke qty fisik & verifikasi terkunci. Siap Tandai Dikirim.',
                 );
-                router.refresh();
+                refresh();
             } else {
                 toast.error(result.error || 'Gagal mengoreksi qty');
             }
@@ -280,14 +292,25 @@ export function LoadVerifyPanel({
         return 'mismatch';
     };
 
-    const allItemsVerified = items.every((item) => verifyDraft[item.id] !== '');
-    const allItemsMatch = items.every((item) => {
-        const verified = verifyDraft[item.id];
-        if (verified === '') return false;
-        const planned = getPlannedQtyInDisplayUnit(item);
-        const physical = Number(verified);
-        return Math.abs(planned - physical) < 0.0001;
-    });
+    const allItemsVerified =
+        items.length > 0 &&
+        items.every((item) => {
+            const value = verifyDraft[item.id];
+            return (
+                value?.trim() &&
+                Number.isFinite(Number(value)) &&
+                Number(value) >= 0
+            );
+        });
+    const allItemsMatch =
+        allItemsVerified &&
+        items.every((item) => {
+            const verified = verifyDraft[item.id];
+            if (verified === '') return false;
+            const planned = getPlannedQtyInDisplayUnit(item);
+            const physical = Number(verified);
+            return Math.abs(planned - physical) < 0.0001;
+        });
 
     return (
         <Card>
@@ -371,6 +394,8 @@ export function LoadVerifyPanel({
                                                 <div className="inline-flex items-center gap-1.5 justify-end max-sm:flex-col max-sm:items-end">
                                                     <Input
                                                         type="number"
+                                                        inputMode="decimal"
+                                                        disabled={blocked}
                                                         step="0.01"
                                                         min="0"
                                                         className="min-h-11 w-24 text-right"
@@ -473,7 +498,7 @@ export function LoadVerifyPanel({
                                 size="sm"
                                 variant="outline"
                                 onClick={handleMatchAll}
-                                disabled={saving || correcting}
+                                disabled={blocked}
                             >
                                 <Copy className="h-3.5 w-3.5 mr-1" />
                                 Samakan semua ke perintah
@@ -485,8 +510,7 @@ export function LoadVerifyPanel({
                                 className="border-amber-300 text-amber-700 hover:bg-amber-50"
                                 onClick={handleCorrectToPhysical}
                                 disabled={
-                                    correcting ||
-                                    saving ||
+                                    blocked ||
                                     isVerified ||
                                     !allItemsVerified ||
                                     allItemsMatch
@@ -510,7 +534,7 @@ export function LoadVerifyPanel({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                disabled={saving || !allItemsVerified}
+                                disabled={blocked || !allItemsVerified}
                                 onClick={handleSave}
                             >
                                 {saving ? 'Menyimpan...' : 'Simpan Verifikasi'}
@@ -520,7 +544,7 @@ export function LoadVerifyPanel({
                                 size="sm"
                                 className="bg-green-600 hover:bg-green-700 text-white"
                                 disabled={
-                                    confirming || !allItemsMatch || isVerified
+                                    blocked || !allItemsMatch || isVerified
                                 }
                                 onClick={handleConfirm}
                             >

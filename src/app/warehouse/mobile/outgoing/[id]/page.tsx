@@ -3,7 +3,12 @@ import { getSalesOrderById } from '@/actions/sales/sales';
 import { listWarehouseAttachments } from '@/actions/warehouse/operational-attachments';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound, redirect } from 'next/navigation';
-import { WarehouseOutgoingDetailClient } from './WarehouseOutgoingDetailClient';
+import {
+    WarehouseOutgoingDetailClient,
+    type WarehouseOutgoingOrder,
+} from './WarehouseOutgoingDetailClient';
+import { auth } from '@/auth';
+import { hasAnyRole } from '@/lib/auth/roles';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -13,9 +18,10 @@ export default async function WarehouseMobileOutgoingDetailPage({
     params,
 }: PageProps) {
     const { id } = await params;
-    const [result, attachmentsRes] = await Promise.all([
+    const [result, attachmentsRes, session] = await Promise.all([
         getDeliveryOrderById(id),
         listWarehouseAttachments({ deliveryOrderId: id }),
+        auth(),
     ]);
 
     if (!result?.success || !result.data) {
@@ -29,32 +35,7 @@ export default async function WarehouseMobileOutgoingDetailPage({
         notFound();
     }
 
-    const order = serializeData(result.data) as {
-        id: string;
-        orderNumber: string;
-        status: string;
-        deliveryDate: string;
-        notes?: string;
-        loadVerifiedAt?: string | null;
-        sourceLocation?: { name: string };
-        salesOrder?: {
-            orderNumber: string;
-            customer?: { name: string };
-        };
-        items: {
-            id: string;
-            quantity: number;
-            verifiedQuantity?: number | null;
-            enteredQuantity?: number | null;
-            enteredUnit?: string | null;
-            conversionFactorSnapshot?: number | null;
-            productVariant?: {
-                name: string;
-                skuCode: string;
-                primaryUnit: string;
-            };
-        }[];
-    };
+    const order = serializeData(result.data) as WarehouseOutgoingOrder;
 
     const attachments =
         attachmentsRes.success && Array.isArray(attachmentsRes.data)
@@ -74,13 +55,20 @@ export default async function WarehouseMobileOutgoingDetailPage({
 
     return (
         <WarehouseOutgoingDetailClient
-            key={order.items
-                .map(
-                    (item) =>
-                        `${item.id}:${item.quantity}:${item.verifiedQuantity}`,
-                )
-                .join('|')}
+            key={JSON.stringify([
+                order.id,
+                order.updatedAt,
+                order.status,
+                order.loadVerifiedAt,
+                order.items,
+                order.salesOrder?.items,
+            ])}
             order={order}
+            canReviseOrder={hasAnyRole(session?.user, [
+                'ADMIN',
+                'SALES',
+                'MARKETING',
+            ])}
             attachments={attachments}
         />
     );

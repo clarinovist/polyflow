@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,166 +15,87 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-    ArrowLeft,
-    Play,
-    CheckCircle,
-    Send,
-    Loader2,
-    Lock,
-    Copy,
-    AlertTriangle,
-} from 'lucide-react';
-import {
-    updateDeliveryStatus,
-    saveDeliveryLoadVerification,
-    confirmDeliveryLoadVerified,
-    correctDeliveryQtyToVerified,
-} from '@/actions/inventory/deliveries';
+import { ArrowLeft, Play, CheckCircle, Send, Loader2 } from 'lucide-react';
+import { updateDeliveryStatus } from '@/actions/inventory/deliveries';
 import { toast } from 'sonner';
 import { shipDeliveryOrder } from '@/actions/inventory/delivery-shipment';
 import { toBusinessDateString } from '@/lib/utils/timezone';
-import {
-    getEnteredQuantityDisplay,
-    type EnteredQuantitySnapshot,
-} from '@/lib/utils/production-units';
+import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import {
     WarehouseAttachmentPanel,
     type AttachmentItem,
 } from '@/components/warehouse/WarehouseAttachmentPanel';
+import { LoadVerifyPanel } from '@/components/warehouse/outgoing/LoadVerifyPanel';
+import { DeliveryLoadChangeDialog } from '@/components/warehouse/outgoing/DeliveryLoadChangeDialog';
 
-type OrderItem = {
-    id: string;
-    quantity: number;
-    verifiedQuantity?: number | null;
-    enteredQuantity?: number | null;
-    enteredUnit?: string | null;
-    conversionFactorSnapshot?: number | null;
-    productVariant?: {
-        name: string;
-        skuCode: string;
-        primaryUnit: string;
-    };
-};
-
-type Order = {
+export type WarehouseOutgoingOrder = {
     id: string;
     orderNumber: string;
     status: string;
     deliveryDate: string;
+    updatedAt?: string;
     notes?: string;
     loadVerifiedAt?: string | null;
     sourceLocation?: { name: string };
     salesOrder?: {
         orderNumber: string;
         customer?: { name: string };
+        items?: {
+            productVariantId: string;
+            quantity: number;
+            deliveredQty: number;
+        }[];
     };
-    items: OrderItem[];
+    items: {
+        id: string;
+        productVariantId?: string;
+        quantity: number;
+        verifiedQuantity?: number | null;
+        enteredQuantity?: number | null;
+        enteredUnit?: string | null;
+        conversionFactorSnapshot?: number | null;
+        productVariant?: {
+            name: string;
+            skuCode: string;
+            primaryUnit: string;
+            product?: { name: string };
+        };
+    }[];
 };
-
-type LoadingAction =
-    | 'starting'
-    | 'saving'
-    | 'locking'
-    | 'correcting'
-    | 'shipping'
-    | null;
-
-function getDisplayUnit(item: OrderItem): string {
-    const enteredUnit = item.enteredUnit;
-    const primaryUnit = item.productVariant?.primaryUnit || 'KG';
-    return enteredUnit && enteredUnit !== primaryUnit
-        ? enteredUnit
-        : primaryUnit;
-}
-
-function getPlannedQtyInDisplayUnit(item: OrderItem): number {
-    if (
-        item.enteredQuantity != null &&
-        item.enteredUnit &&
-        item.enteredUnit !== item.productVariant?.primaryUnit
-    ) {
-        return Number(item.enteredQuantity);
-    }
-    return Number(item.quantity);
-}
-
-function getPlannedDisplay(item: OrderItem): string {
-    return getEnteredQuantityDisplay({
-        quantity: item.quantity,
-        enteredQuantity: item.enteredQuantity,
-        enteredUnit: item.enteredUnit,
-        primaryUnit: item.productVariant?.primaryUnit,
-    } as EnteredQuantitySnapshot);
-}
-
-function getItemStatus(
-    draft: Record<string, string>,
-    item: OrderItem,
-): 'pending' | 'match' | 'mismatch' {
-    const verified = draft[item.id];
-    if (verified === '' || verified === undefined) return 'pending';
-    const planned = getPlannedQtyInDisplayUnit(item);
-    const physical = Number(verified);
-    if (Math.abs(planned - physical) < 0.0001) return 'match';
-    return 'mismatch';
-}
 
 export function WarehouseOutgoingDetailClient({
     order,
     attachments = [],
+    canReviseOrder = false,
 }: {
-    order: Order;
+    order: WarehouseOutgoingOrder;
     attachments?: AttachmentItem[];
+    canReviseOrder?: boolean;
 }) {
     const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const router = useRouter();
-    const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
+    const [loadingAction, setLoadingAction] = useState<
+        'starting' | 'shipping' | null
+    >(null);
+    const [refreshing, startRefresh] = useTransition();
+    const [verificationBusy, setVerificationBusy] = useState(false);
+    // Keep stale verified props from enabling shipment if the refresh is delayed/fails.
+    // The page key remounts this client after the updated load arrives.
+    const [loadChanged, setLoadChanged] = useState(false);
     const [shipConfirmOpen, setShipConfirmOpen] = useState(false);
     const [actualShipmentDate, setActualShipmentDate] = useState(() =>
         toBusinessDateString(new Date()),
     );
-    const [correctConfirmOpen, setCorrectConfirmOpen] = useState(false);
-    const [verifyDraft, setVerifyDraft] = useState<Record<string, string>>(
-        () => {
-            const draft: Record<string, string> = {};
-            for (const item of order.items) {
-                draft[item.id] =
-                    item.verifiedQuantity != null
-                        ? String(
-                              item.enteredUnit &&
-                                  item.enteredUnit !==
-                                      item.productVariant?.primaryUnit &&
-                                  item.conversionFactorSnapshot &&
-                                  item.conversionFactorSnapshot > 0
-                                  ? item.verifiedQuantity /
-                                        item.conversionFactorSnapshot
-                                  : item.verifiedQuantity,
-                          )
-                        : '';
-            }
-            return draft;
-        },
+    const [loadDraft, setLoadDraft] = useState<Record<string, number> | null>(
+        null,
     );
-
     const isPending = order.status === 'PENDING';
     const isLoading = order.status === 'LOADING';
     const isVerified = order.loadVerifiedAt != null;
-
-    const allItemsVerified = order.items.every(
-        (item) =>
-            verifyDraft[item.id] !== '' && verifyDraft[item.id] !== undefined,
-    );
-    const allItemsMatch = order.items.every((item) => {
-        const verified = verifyDraft[item.id];
-        if (verified === '' || verified === undefined) return false;
-        const planned = getPlannedQtyInDisplayUnit(item);
-        const physical = Number(verified);
-        return Math.abs(planned - physical) < 0.0001;
-    });
-    const hasAnyMismatch = order.items.some(
-        (item) => getItemStatus(verifyDraft, item) === 'mismatch',
-    );
+    const canChangeLoad = isPending || isLoading;
+    const isLoadingAction =
+        loadingAction !== null || refreshing || verificationBusy || loadChanged;
+    const refresh = () => startRefresh(() => router.refresh());
 
     const handleStartLoading = async () => {
         setLoadingAction('starting');
@@ -182,177 +103,12 @@ export function WarehouseOutgoingDetailClient({
             const result = await updateDeliveryStatus(order.id, 'LOADING');
             if (result.success) {
                 toast.success('Proses pemuatan barang dimulai.');
-                router.refresh();
+                refresh();
             } else {
                 toast.error(result.error || 'Gagal memulai muat');
             }
         } catch {
             toast.error('Gagal memulai muat');
-        } finally {
-            setLoadingAction(null);
-        }
-    };
-
-    const handleMatchAll = () => {
-        const draft: Record<string, string> = {};
-        for (const item of order.items) {
-            draft[item.id] = String(getPlannedQtyInDisplayUnit(item));
-        }
-        setVerifyDraft(draft);
-    };
-
-    const handleSave = async () => {
-        const payload = Object.entries(verifyDraft)
-            .filter(([, v]) => v !== '' && v !== undefined)
-            .map(([id, v]) => {
-                const item = order.items.find((i) => i.id === id);
-                const enteredValue = Number(v);
-                let verifiedQuantity = enteredValue;
-                if (
-                    item?.enteredUnit &&
-                    item.enteredUnit !== item.productVariant?.primaryUnit &&
-                    item.conversionFactorSnapshot &&
-                    item.conversionFactorSnapshot > 0
-                ) {
-                    verifiedQuantity =
-                        Math.round(
-                            enteredValue *
-                                item.conversionFactorSnapshot *
-                                10000,
-                        ) / 10000;
-                }
-                return { id, verifiedQuantity };
-            });
-
-        if (payload.length === 0) {
-            toast.error('Isi minimal satu qty verifikasi');
-            return;
-        }
-
-        setLoadingAction('saving');
-        try {
-            const result = await saveDeliveryLoadVerification({
-                deliveryOrderId: order.id,
-                items: payload,
-            });
-            if (result.success) {
-                toast.success('Verifikasi muat tersimpan.');
-                router.refresh();
-            } else {
-                toast.error(result.error || 'Gagal menyimpan verifikasi');
-            }
-        } catch {
-            toast.error('Gagal menyimpan verifikasi');
-        } finally {
-            setLoadingAction(null);
-        }
-    };
-
-    const handleLock = async () => {
-        if (!allItemsMatch) {
-            toast.error('Semua baris harus sesuai perintah sebelum dikunci');
-            return;
-        }
-
-        setLoadingAction('locking');
-        try {
-            const payload = Object.entries(verifyDraft)
-                .filter(([, v]) => v !== '' && v !== undefined)
-                .map(([id, v]) => {
-                    const item = order.items.find((i) => i.id === id);
-                    const enteredValue = Number(v);
-                    let verifiedQuantity = enteredValue;
-                    if (
-                        item?.enteredUnit &&
-                        item.enteredUnit !== item.productVariant?.primaryUnit &&
-                        item.conversionFactorSnapshot &&
-                        item.conversionFactorSnapshot > 0
-                    ) {
-                        verifiedQuantity =
-                            Math.round(
-                                enteredValue *
-                                    item.conversionFactorSnapshot *
-                                    10000,
-                            ) / 10000;
-                    }
-                    return { id, verifiedQuantity };
-                });
-
-            const saveResult = await saveDeliveryLoadVerification({
-                deliveryOrderId: order.id,
-                items: payload,
-            });
-            if (!saveResult.success) {
-                toast.error(saveResult.error || 'Gagal menyimpan verifikasi');
-                return;
-            }
-
-            const result = await confirmDeliveryLoadVerified(order.id);
-            if (result.success) {
-                toast.success('Verifikasi terkunci. Siap Tandai Dikirim.');
-                router.refresh();
-            } else {
-                toast.error(result.error || 'Gagal mengunci verifikasi');
-            }
-        } catch {
-            toast.error('Gagal mengunci verifikasi');
-        } finally {
-            setLoadingAction(null);
-        }
-    };
-
-    const handleCorrectToPhysical = async () => {
-        setCorrectConfirmOpen(false);
-        setLoadingAction('correcting');
-        try {
-            const payload = Object.entries(verifyDraft)
-                .filter(([, v]) => v !== '' && v !== undefined)
-                .map(([id, v]) => {
-                    const item = order.items.find((i) => i.id === id);
-                    const enteredValue = Number(v);
-                    let verifiedQuantity = enteredValue;
-                    if (
-                        item?.enteredUnit &&
-                        item.enteredUnit !== item.productVariant?.primaryUnit &&
-                        item.conversionFactorSnapshot &&
-                        item.conversionFactorSnapshot > 0
-                    ) {
-                        verifiedQuantity =
-                            Math.round(
-                                enteredValue *
-                                    item.conversionFactorSnapshot *
-                                    10000,
-                            ) / 10000;
-                    }
-                    return { id, verifiedQuantity };
-                });
-
-            if (payload.length === 0) {
-                toast.error('Isi minimal satu qty verifikasi sebelum koreksi');
-                setLoadingAction(null);
-                return;
-            }
-
-            const saveResult = await saveDeliveryLoadVerification({
-                deliveryOrderId: order.id,
-                items: payload,
-            });
-            if (!saveResult.success) {
-                toast.error(saveResult.error || 'Gagal menyimpan verifikasi');
-                return;
-            }
-
-            const result = await correctDeliveryQtyToVerified(order.id);
-            if (result.success) {
-                toast.success(
-                    'DO dikoreksi ke qty fisik & verifikasi terkunci. Siap Tandai Dikirim.',
-                );
-                router.refresh();
-            } else {
-                toast.error(result.error || 'Gagal mengoreksi qty');
-            }
-        } catch {
-            toast.error('Gagal mengoreksi qty');
         } finally {
             setLoadingAction(null);
         }
@@ -385,23 +141,21 @@ export function WarehouseOutgoingDetailClient({
         }
     };
 
-    const isLoadingAction = loadingAction !== null;
-
     return (
         <div className="p-4 space-y-4">
-            {/* Header */}
             <div className="flex items-center gap-3">
                 <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Kembali"
                     onClick={() => router.back()}
                     disabled={isLoadingAction}
                 >
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <h1 className="text-lg font-bold truncate">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="text-lg font-bold break-words">
                             {order.orderNumber}
                         </h1>
                         <Badge
@@ -420,159 +174,153 @@ export function WarehouseOutgoingDetailClient({
                             </Badge>
                         )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground break-words">
                         {order.salesOrder?.customer?.name || '—'}
                     </p>
                 </div>
             </div>
-
-            {/* Info */}
             <div className="p-3 border rounded-xl space-y-1">
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between gap-2 text-xs">
                     <span className="text-muted-foreground">Gudang</span>
                     <span className="font-medium">
                         {order.sourceLocation?.name || '—'}
                     </span>
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between gap-2 text-xs">
                     <span className="text-muted-foreground">Tanggal</span>
                     <span className="font-medium">
                         {new Date(order.deliveryDate).toLocaleDateString(
                             'id-ID',
-                            {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                            },
+                            { day: 'numeric', month: 'long', year: 'numeric' },
                         )}
                     </span>
                 </div>
                 {order.notes && (
-                    <div className="flex justify-between text-xs">
+                    <div className="flex justify-between gap-2 text-xs">
                         <span className="text-muted-foreground">Catatan</span>
-                        <span className="font-medium text-right max-w-[60%] truncate">
+                        <span className="font-medium text-right max-w-[60%] break-words">
                             {order.notes}
                         </span>
                     </div>
                 )}
             </div>
 
-            {/* Items */}
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold">
-                        Barang ({order.items.length})
-                    </h2>
-                    {isLoading && !isVerified && (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={handleMatchAll}
-                            disabled={isLoadingAction}
-                            className="h-7 text-xs"
-                        >
-                            <Copy className="h-3 w-3 mr-1" />
-                            Samakan semua
-                        </Button>
-                    )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">
+                    Barang ({order.items.length})
+                </h2>
+                {canChangeLoad && (
+                    <Button
+                        variant="outline"
+                        className="min-h-11"
+                        disabled={isLoadingAction}
+                        onClick={() => setLoadDraft({})}
+                    >
+                        Ubah muatan
+                    </Button>
+                )}
+            </div>
+            {loadChanged ? (
+                <div
+                    role="status"
+                    className="rounded-lg border p-3 space-y-2 text-sm"
+                >
+                    <p>
+                        Muatan tersimpan. Muat ulang data sebelum verifikasi dan
+                        pengiriman.
+                    </p>
+                    <Button
+                        variant="outline"
+                        className="min-h-11"
+                        disabled={refreshing}
+                        onClick={refresh}
+                    >
+                        Muat ulang data
+                    </Button>
                 </div>
-                {order.items.map((item) => {
-                    const status = isLoading
-                        ? getItemStatus(verifyDraft, item)
-                        : null;
-                    return (
+            ) : isLoading ? (
+                <LoadVerifyPanel
+                    deliveryOrderId={order.id}
+                    items={order.items}
+                    isVerified={isVerified}
+                    canEdit={!isVerified}
+                    disabled={
+                        refreshing ||
+                        loadingAction !== null ||
+                        loadDraft !== null
+                    }
+                    onBusyChange={setVerificationBusy}
+                    onChangeLoad={(counts) =>
+                        setLoadDraft(
+                            Object.fromEntries(
+                                counts.map((item) => [item.id, item.quantity]),
+                            ),
+                        )
+                    }
+                />
+            ) : (
+                <div className="space-y-2">
+                    {order.items.map((item) => (
                         <div
                             key={item.id}
                             className="p-3 border rounded-xl space-y-2"
                         >
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <p className="text-sm font-medium truncate">
-                                        {item.productVariant?.name || '—'}
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        {item.productVariant?.skuCode} •{' '}
-                                        {getDisplayUnit(item)}
-                                    </p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <p className="text-sm font-bold">
-                                        {getPlannedDisplay(item)}
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        dipesan
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Verify input (only when LOADING and not locked) */}
-                            {isLoading && !isVerified && (
-                                <div className="flex items-center gap-2">
-                                    <label className="text-[10px] text-muted-foreground shrink-0">
-                                        Verifikasi:
-                                    </label>
-                                    <Input
-                                        type="number"
-                                        inputMode="decimal"
-                                        min="0"
-                                        step="0.01"
-                                        placeholder={String(
-                                            getPlannedQtyInDisplayUnit(item),
-                                        )}
-                                        value={verifyDraft[item.id] || ''}
-                                        onChange={(e) =>
-                                            setVerifyDraft((prev) => ({
-                                                ...prev,
-                                                [item.id]: e.target.value,
-                                            }))
-                                        }
-                                        disabled={isLoadingAction}
-                                        className="h-9 text-sm"
-                                    />
-                                    <span className="text-[10px] text-muted-foreground shrink-0">
-                                        {getDisplayUnit(item)}
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Status indicators */}
-                            {isLoading && status === 'match' && (
-                                <div className="flex items-center gap-1 text-xs text-emerald-600">
-                                    <CheckCircle className="h-3 w-3" />
-                                    Sesuai perintah
-                                </div>
-                            )}
-                            {isLoading && status === 'mismatch' && (
-                                <div className="flex items-center gap-1 text-xs text-amber-600">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    Selisih qty
-                                </div>
-                            )}
-                            {isLoading && status === 'pending' && (
-                                <div className="text-xs text-muted-foreground">
-                                    Belum dicek
-                                </div>
-                            )}
-
-                            {/* Verified qty display (when locked or shipped) */}
-                            {!isLoading && item.verifiedQuantity != null && (
-                                <div className="flex items-center gap-1 text-xs text-emerald-600">
-                                    <CheckCircle className="h-3 w-3" />
-                                    Diverifikasi: {item.verifiedQuantity}
-                                </div>
+                            <p className="text-sm font-medium break-words">
+                                {item.productVariant?.name || '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {item.productVariant?.skuCode}
+                            </p>
+                            <p className="text-sm font-bold">
+                                {getEnteredQuantityDisplay({
+                                    ...item,
+                                    primaryUnit:
+                                        item.productVariant?.primaryUnit,
+                                })}
+                            </p>
+                            {item.verifiedQuantity != null && (
+                                <p className="text-xs text-emerald-600">
+                                    Diverifikasi: {item.verifiedQuantity}{' '}
+                                    {item.productVariant?.primaryUnit || 'KG'}
+                                </p>
                             )}
                         </div>
-                    );
-                })}
-            </div>
+                    ))}
+                </div>
+            )}
+            {canChangeLoad && loadDraft !== null && (
+                <DeliveryLoadChangeDialog
+                    deliveryOrderId={order.id}
+                    orderNumber={order.orderNumber}
+                    items={order.items}
+                    residualByVariant={Object.fromEntries(
+                        (order.salesOrder?.items ?? []).map((item) => [
+                            item.productVariantId,
+                            Math.max(
+                                0,
+                                Number(item.quantity) -
+                                    Number(item.deliveredQty),
+                            ),
+                        ]),
+                    )}
+                    initialQuantities={loadDraft}
+                    canReviseOrder={canReviseOrder}
+                    onClose={() => setLoadDraft(null)}
+                    onSaved={() => {
+                        setLoadChanged(true);
+                        setLoadDraft(null);
+                        toast.success(
+                            'Muatan diperbarui. Verifikasi ulang sebelum dikirim.',
+                        );
+                        refresh();
+                    }}
+                />
+            )}
 
-            {/* Bukti Muat — optional, visible during/after loading */}
             {(isLoading ||
-                order.status === 'SHIPPED' ||
-                order.status === 'IN_TRANSIT' ||
-                order.status === 'ARRIVED' ||
-                order.status === 'DELIVERED') && (
+                ['SHIPPED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED'].includes(
+                    order.status,
+                )) && (
                 <>
                     <WarehouseAttachmentPanel
                         entityId={order.id}
@@ -583,7 +331,7 @@ export function WarehouseOutgoingDetailClient({
                             (a) => a.checkpoint === 'LOAD',
                         )}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
-                        onAttachmentChange={() => router.refresh()}
+                        onAttachmentChange={refresh}
                     />
                     <WarehouseAttachmentPanel
                         entityId={order.id}
@@ -594,12 +342,10 @@ export function WarehouseOutgoingDetailClient({
                             (a) => a.checkpoint === 'DAMAGE',
                         )}
                         disabled={isLoadingAction || order.status === 'SHIPPED'}
-                        onAttachmentChange={() => router.refresh()}
+                        onAttachmentChange={refresh}
                     />
                 </>
             )}
-
-            {/* Actions */}
             <div className="space-y-2 pt-2 sticky bottom-20 bg-background pb-2">
                 {isPending && (
                     <Button
@@ -615,62 +361,10 @@ export function WarehouseOutgoingDetailClient({
                         Mulai Muat
                     </Button>
                 )}
-
-                {isLoading && !isVerified && (
-                    <>
-                        <Button
-                            variant="outline"
-                            className="w-full h-11"
-                            disabled={isLoadingAction || !allItemsVerified}
-                            onClick={handleSave}
-                        >
-                            {loadingAction === 'saving' ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                            )}
-                            Simpan Verifikasi
-                        </Button>
-
-                        {hasAnyMismatch && (
-                            <Button
-                                variant="outline"
-                                className="w-full h-11 border-amber-300 text-amber-700 hover:bg-amber-50"
-                                disabled={
-                                    isLoadingAction ||
-                                    !allItemsVerified ||
-                                    allItemsMatch
-                                }
-                                onClick={() => setCorrectConfirmOpen(true)}
-                            >
-                                {loadingAction === 'correcting' ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : (
-                                    <AlertTriangle className="h-4 w-4 mr-2" />
-                                )}
-                                Koreksi Perintah ke Qty Fisik
-                            </Button>
-                        )}
-
-                        <Button
-                            className="w-full h-12 bg-green-600 hover:bg-green-700"
-                            disabled={isLoadingAction || !allItemsMatch}
-                            onClick={handleLock}
-                        >
-                            {loadingAction === 'locking' ? (
-                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                            ) : (
-                                <Lock className="h-5 w-5 mr-2" />
-                            )}
-                            Kunci Verifikasi
-                        </Button>
-                    </>
-                )}
-
-                {isLoading && isVerified && (
+                {isLoading && isVerified && !loadChanged && (
                     <Button
                         className="w-full h-12 bg-emerald-600 hover:bg-emerald-700"
-                        disabled={isLoadingAction}
+                        disabled={isLoadingAction || loadDraft !== null}
                         onClick={() => setShipConfirmOpen(true)}
                     >
                         {loadingAction === 'shipping' ? (
@@ -683,44 +377,6 @@ export function WarehouseOutgoingDetailClient({
                 )}
             </div>
 
-            {/* Quantity Correction Confirmation */}
-            <AlertDialog
-                open={correctConfirmOpen}
-                onOpenChange={setCorrectConfirmOpen}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Koreksi Kuantitas Surat Jalan?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Perubahan ini akan mengoreksi kuantitas barang pada
-                            Surat Jalan mengikuti hasil perhitungan fisik. Stok
-                            out dan tagihan invoice akan menyesuaikan dengan
-                            kuantitas fisik terbaru ini.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isLoadingAction}>
-                            Batal
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleCorrectToPhysical}
-                            disabled={isLoadingAction}
-                            className="bg-amber-600 hover:bg-amber-700"
-                        >
-                            {loadingAction === 'correcting' ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                                <AlertTriangle className="h-4 w-4 mr-2" />
-                            )}
-                            Ya, Koreksi & Kunci
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Ship Confirmation */}
             <AlertDialog
                 open={shipConfirmOpen}
                 onOpenChange={setShipConfirmOpen}
