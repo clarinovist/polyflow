@@ -1,4 +1,8 @@
 import { prisma } from '@/lib/core/prisma';
+import { createHash } from 'node:crypto';
+import { logActivity } from '@/lib/tools/audit';
+import type { PackagedOutputValues } from '@/lib/schemas/production-packaging';
+import { validatePackagedOutput, postPackagedOutput } from './packaging-output-service';
 import { ProductionRuleViolationError } from '@/lib/errors/errors';
 import {
     StartExecutionValues,
@@ -230,6 +234,8 @@ async function processOutputAndBackflush(params: {
     userId?: string;
     resolved: ResolvedOutputQuantity;
     referencePrefix: string;
+    packagedOutput?: PackagedOutputValues;
+    executionId?: string;
     scrapProngkolQty?: number;
     scrapDaunQty?: number;
 }) {
@@ -270,6 +276,12 @@ async function processOutputAndBackflush(params: {
         },
     });
 
+    if (order.actualPackagingEnabled && !params.packagedOutput) {
+        throw new ProductionRuleViolationError('SPK ini memakai kemasan aktual. Catat hasil melalui form kemasan aktual.');
+    }
+    const actualPackaging = params.packagedOutput
+        ? await validatePackagedOutput(tx, order as ProductionExecutionOrder, params.packagedOutput, resolvedBaseQty)
+        : null;
     const normalizedScrap = executionScrapTotal({
         scrapQuantity,
         scrapProngkolQty,
@@ -288,6 +300,8 @@ async function processOutputAndBackflush(params: {
         totalConsumed,
         reference: `${referencePrefix}: WO#${order.orderNumber}`,
         userId,
+        executionId: actualPackaging ? params.executionId : undefined,
+        actualPackagingIds: actualPackaging?.ids,
         outputContext: {
             enteredQuantity: resolved.enteredQty,
             enteredUnit: resolved.enteredUnit,
@@ -296,6 +310,10 @@ async function processOutputAndBackflush(params: {
         },
     });
 
+    if (actualPackaging && params.executionId) {
+        if (actualPackaging.data.groups.length) await postPackagedOutput(tx, order as ProductionExecutionOrder, params.executionId, actualPackaging.data, userId);
+        return order;
+    }
     await recordFinishedGoodsOutput({
         tx,
         productionOrderId,
@@ -834,7 +852,30 @@ export class ProductionExecutionService {
             conversionFactorSnapshot,
         } = data;
 
+        const requestHash = data.packagedOutput ? createHash('sha256').update(JSON.stringify({
+            productionOrderId, machineId, operatorId, shiftId, helperIds, quantityProduced,
+            scrapQuantity, scrapProngkolQty, scrapDaunQty, notes, enteredQuantity, enteredUnit,
+            productionDate: data.productionDate, packagedOutput: data.packagedOutput,
+            bruto, bobin, cekGram, baseQuantityProduced, conversionFactorSnapshot,
+        })).digest('hex') : undefined;
         await prisma.$transaction(async (tx) => {
+            if (data.packagedOutput) {
+                if (!data.packagedOutput.groups.length && quantityProduced > 0) throw new ProductionRuleViolationError('Kelompok hasil wajib diisi.');
+                if (!userId) throw new ProductionRuleViolationError('Aktor pencatatan wajib tersedia.');
+                await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
+                const replay = await tx.productionExecution.findUnique({ where: { clientRequestId: data.packagedOutput.clientRequestId } });
+                if (replay) {
+                    if (replay.requestHash !== requestHash || replay.status === 'VOIDED') throw new ProductionRuleViolationError('Permintaan sudah dipakai dengan data berbeda atau dibatalkan.');
+                    return;
+                }
+                const state = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
+                if (!state.actualPackagingEnabled) {
+                    const prior = await tx.productionExecution.count({ where: { productionOrderId } });
+                    if (prior > 0) throw new ProductionRuleViolationError('Gunakan SPK baru untuk beralih ke kemasan aktual; hasil lama tidak boleh dicampur.');
+                    await tx.productionOrder.update({ where: { id: productionOrderId }, data: { actualPackagingEnabled: true } });
+                }
+                if (['CANCELLED', 'CLOSED', 'COMPLETED'].includes(state.status)) throw new ProductionRuleViolationError('SPK tidak dapat menerima hasil baru.');
+            }
             const resolved = await resolveOutputQuantity({
                 productionOrderId,
                 quantityProduced: Number(quantityProduced),
@@ -967,7 +1008,7 @@ export class ProductionExecutionService {
             executionData.pieceMachineType = pieceSnap.pieceMachineType;
 
             const execution = await tx.productionExecution.create({
-                data: executionData,
+                data: { ...executionData, clientRequestId: data.packagedOutput?.clientRequestId, requestHash },
             });
 
             await processOutputAndBackflush({
@@ -978,6 +1019,8 @@ export class ProductionExecutionService {
                 userId,
                 resolved,
                 referencePrefix: 'Backflush (Batch)',
+                packagedOutput: data.packagedOutput,
+                executionId: execution.id,
                 scrapProngkolQty,
                 scrapDaunQty,
             });
@@ -990,8 +1033,13 @@ export class ProductionExecutionService {
                 scrapProngkolQty: Number(scrapProngkolQty ?? 0),
                 scrapDaunQty: Number(scrapDaunQty ?? 0),
                 userId,
+                linkMovements: Boolean(data.packagedOutput),
             });
 
+            if (data.packagedOutput) await logActivity({
+                userId: userId!, action: 'RECORD_PACKAGED_OUTPUT', entityType: 'ProductionExecution', entityId: execution.id,
+                details: 'Hasil dan pemakaian kemasan aktual dicatat.', tx,
+            });
             const batchOrder = await tx.productionOrder.findUnique({
                 where: { id: productionOrderId },
                 select: { productionRunId: true },

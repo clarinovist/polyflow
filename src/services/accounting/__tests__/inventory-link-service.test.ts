@@ -20,7 +20,9 @@ vi.mock("@/lib/core/prisma", () => {
     salesOrder: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
+    stockMovement: { update: vi.fn() },
     inventory: {
+      findUnique: vi.fn(),
       aggregate: vi
         .fn()
         .mockResolvedValue({ _sum: { quantity: new Prisma.Decimal(0) } }),
@@ -183,6 +185,35 @@ describe("inventory-link-service", () => {
       await recordInventoryMovement(mv as never);
 
       expect(prisma.productVariant.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('posts company packaging on maklon as service cost while custody remains off balance sheet', async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({ isMaklon: true } as never);
+      const mv = { ...baseMovement, type: 'OUT', productionOrderId: 'wo', companyOwned: true,
+        productVariant: { name: 'Packaging', product: { ...baseProduct, productType: 'PACKAGING' } } };
+      await recordInventoryMovement(mv as never);
+      expect(mockCreateJournalEntry).toHaveBeenCalledWith(expect.objectContaining({ lines: expect.arrayContaining([
+        expect.objectContaining({ accountId: baseProduct.cogsAccountId, debit: 5000 }),
+      ]) }), undefined);
+      mockCreateJournalEntry.mockClear();
+      await recordInventoryMovement({ ...mv, companyOwned: false, cost: dec('0') } as never);
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(null);
+    });
+
+    it('uses and persists branded stock WAC at shipment rather than master price', async () => {
+      vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ packagedOutputOption: { id: 'option' } } as never);
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({ averageCost: dec('3') } as never);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({ orderType: 'MAKE_TO_STOCK' } as never);
+      await recordInventoryMovement({ ...baseMovement, type: 'OUT', salesOrderId: 'so', fromLocationId: 'loc-1', cost: null,
+        productVariant: { name: 'Brand A', standardCost: dec('99'), product: { ...baseProduct } },
+      } as never);
+      expect(prisma.stockMovement.update).toHaveBeenCalledWith({ where: { id: 'mov-1' }, data: { cost: dec('3') } });
+      expect(mockCreateJournalEntry).toHaveBeenCalledWith(expect.objectContaining({ lines: expect.arrayContaining([
+        expect.objectContaining({ debit: 300 }),
+      ]) }), undefined);
+      vi.mocked(prisma.productVariant.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
     });
 
     it("returns early when isMaklon via goodsReceipt", async () => {

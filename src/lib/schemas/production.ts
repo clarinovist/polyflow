@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { packagedOutputSchema } from './production-packaging';
 import { Unit } from '@prisma/client';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
 import { productionOutputDateSchema } from './production-output-date';
@@ -368,6 +369,7 @@ export const archiveBomSchema = z.object({
 });
 
 export const productionOutputSchema = z.object({
+    packagedOutput: packagedOutputSchema.optional(),
     productionOrderId: z.string().min(1, 'Production Order ID is required'),
     // Transform empty string '' → undefined to prevent FK constraint violations in DB
     machineId: z

@@ -68,6 +68,7 @@ export async function recordExecutionScrap(params: {
     scrapProngkolQty?: number;
     scrapDaunQty?: number;
     userId?: string;
+    linkMovements?: boolean;
 }) {
     const {
         tx,
@@ -106,6 +107,7 @@ export async function recordExecutionScrap(params: {
                     locationId: scrapLocation.id,
                     quantity: scrapProngkolQty,
                     reason: SCRAP_VARIANT_LOOKUP.prongkol.reason,
+                    productionExecutionId: params.linkMovements ? executionId : undefined,
                     userId,
                 },
                 tx,
@@ -116,6 +118,7 @@ export async function recordExecutionScrap(params: {
                     productVariantId: variant.id,
                     locationId: scrapLocation.id,
                     quantity: scrapProngkolQty,
+                    ...(params.linkMovements ? { productionExecutionId: executionId } : {}),
                 },
                 data: { productionExecutionId: executionId },
             });
@@ -136,6 +139,7 @@ export async function recordExecutionScrap(params: {
                     locationId: scrapLocation.id,
                     quantity: scrapDaunQty,
                     reason: SCRAP_VARIANT_LOOKUP.daun.reason,
+                    productionExecutionId: params.linkMovements ? executionId : undefined,
                     userId,
                 },
                 tx,
@@ -146,6 +150,7 @@ export async function recordExecutionScrap(params: {
                     productVariantId: variant.id,
                     locationId: scrapLocation.id,
                     quantity: scrapDaunQty,
+                    ...(params.linkMovements ? { productionExecutionId: executionId } : {}),
                 },
                 data: { productionExecutionId: executionId },
             });

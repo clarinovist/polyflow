@@ -1098,7 +1098,7 @@ export class ProductionMaterialService {
     // --- Scrap ---
 
     static async recordScrap(
-        data: ScrapRecordValues & { userId?: string },
+        data: ScrapRecordValues & { userId?: string; productionExecutionId?: string },
         existingTx?: Prisma.TransactionClient,
     ) {
         const {
@@ -1131,6 +1131,9 @@ export class ProductionMaterialService {
                     toLocationId: locationId,
                     quantity,
                     reference: `Production Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
+                    productionExecutionId: data.productionExecutionId,
+                    cost: data.productionExecutionId ? 0 : undefined,
+                    companyOwned: data.productionExecutionId ? false : undefined,
                     createdById: userId,
                     productionOrderId: productionOrderId, // Add structured relation
                 },
@@ -1143,6 +1146,7 @@ export class ProductionMaterialService {
                     productVariantId,
                     quantity,
                     reason,
+                    productionExecutionId: data.productionExecutionId,
                     createdById: userId,
                     locationId,
                 },

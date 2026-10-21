@@ -183,6 +183,7 @@ export async function createGoodsReceipt(
                       id: true,
                       name: true,
                       locationType: true,
+                      packagingOwnerCustomerId: true,
                       locationPurpose: true,
                   },
               })
@@ -190,6 +191,7 @@ export async function createGoodsReceipt(
                   id: data.locationId,
                   name: 'Target',
                   locationType: 'INTERNAL' as const,
+                  packagingOwnerCustomerId: null,
                   locationPurpose: 'GENERAL_PURPOSE' as const,
               };
 
@@ -201,6 +203,9 @@ export async function createGoodsReceipt(
             );
         }
 
+        if (targetLocation.packagingOwnerCustomerId && (!data.isMaklon || data.customerId !== targetLocation.packagingOwnerCustomerId)) {
+            throw new BusinessRuleError('Pelanggan penerimaan tidak sesuai pemilik lokasi titipan.');
+        }
         const isMaklonReceipt = data.isMaklon === true;
         const isCustomerOwnedTarget =
             (targetLocation.locationType as string) === 'CUSTOMER_OWNED';
@@ -426,6 +431,8 @@ export async function createGoodsReceipt(
                         quantity: item.receivedQty,
                         cost: item.unitCost,
                         goodsReceiptId: receiptTx.id,
+                        packagingOwnerCustomerId: targetLocation.packagingOwnerCustomerId,
+                        companyOwned: targetLocation.packagingOwnerCustomerId ? false : undefined,
                         createdById: userId,
                         reference: data.isMaklon
                             ? `GR: ${receiptNumber} for Maklon Customer`

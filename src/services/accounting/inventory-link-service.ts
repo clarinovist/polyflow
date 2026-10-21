@@ -149,6 +149,24 @@ export async function recordInventoryMovement(
 
     if (!productVariant) return;
 
+    // Branded production uses SKU-level inventory valuation, not an unrelated
+    // fallback price on the newly created brand's master record. Persist it so
+    // returns/reversals use the original shipment cost.
+    if (movement.type === 'OUT' && movement.salesOrderId && movement.cost == null) {
+        const branded = await db.productVariant.findUnique({
+            where: { id: movement.productVariantId },
+            select: { packagedOutputOption: { select: { id: true } }, outputGroups: { take: 1, select: { id: true } } },
+        });
+        if (branded?.packagedOutputOption || branded?.outputGroups?.length) {
+            const stock = movement.fromLocationId ? await db.inventory.findUnique({ where: {
+                locationId_productVariantId: { locationId: movement.fromLocationId, productVariantId: movement.productVariantId },
+            }, select: { averageCost: true } }) : null;
+            if (stock?.averageCost == null) throw new BusinessRuleError('Biaya stok merek belum tersedia. Pengiriman dibatalkan.');
+            await db.stockMovement.update({ where: { id: movement.id }, data: { cost: stock.averageCost } });
+            movement = { ...movement, cost: stock.averageCost };
+        }
+    }
+
     // Check if this movement is related to a Maklon transaction
     let isMaklon = false;
     let goodsReceipt = null;
@@ -180,8 +198,9 @@ export async function recordInventoryMovement(
         if (so?.orderType === 'MAKLON_JASA') isMaklon = true;
     }
 
-    if (isMaklon) {
-        // Off-balance sheet transaction: bypass financial valuation (WAC) and GL Generation
+    // Actual packaging carries verified ownership on each persisted movement.
+    // An order-level maklon flag cannot suppress company-owned packaging costs.
+    if (movement.companyOwned === false || (isMaklon && movement.companyOwned !== true)) {
         return;
     }
 
@@ -391,9 +410,11 @@ export async function recordInventoryMovement(
         const creditAccount =
             productVariant.product.inventoryAccountId ||
             (await resolveAccountCode(productType, 'inventory')).code;
-        const wipAccount =
-            productVariant.product.wipAccountId ||
-            (await resolveAccountCode(productType, 'wip')).code;
+        // Company-supplied packaging on a toll order is a service cost, not
+        // ownership of the customer's finished goods.
+        const wipAccount = isMaklon && movement.companyOwned === true
+            ? productVariant.product.cogsAccountId || (await resolveAccountCode(productType, 'cogs')).code
+            : productVariant.product.wipAccountId || (await resolveAccountCode(productType, 'wip')).code;
         lines.push(
             {
                 accountId: await getAccountId(wipAccount, db),

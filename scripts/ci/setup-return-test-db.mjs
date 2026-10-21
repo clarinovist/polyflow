@@ -41,6 +41,9 @@ const generated = execFileSync(
 // Construct the pre-feature runtime tables, then apply COMPLETE feature migrations.
 // This preserves CHECK constraints, partial indexes and triggers, not only ORM shape.
 const addedObjects = [
+    'ProductionPackagingOption',
+    'ProductionOutputGroup',
+    'ProductionPackagingConsumption',
     'SalesReturnReceiptLine',
     'InvoiceReturnBasisLine',
     'SalesReturnCredit',
@@ -61,8 +64,20 @@ const schema = generated
     .split(';')
     .filter(
         (statement) =>
-            !addedObjects.some((name) => statement.includes(`"${name}"`)),
+            !addedObjects.some((name) => statement.includes(`"${name}"`)) &&
+            !/"(?:ProductionExecution_clientRequestId|ProductionOrder_requestedOutputVariantId|StockMovement_(?:productionExecutionId|reversalOfId|packagingOwnerCustomerId)|MaterialIssue_(?:productionExecutionId|stagedSourceId)|Location_packagingOwnerCustomerId)[^"]*"/.test(statement),
     )
+    .map((statement) => {
+        const table = statement.match(/CREATE TABLE "([^"]+)"/u)?.[1];
+        const removed = {
+            Location: ['packagingOwnerCustomerId'],
+            ProductionOrder: ['actualPackagingEnabled', 'requestedOutputVariantId'],
+            ProductionExecution: ['clientRequestId', 'requestHash'],
+            StockMovement: ['productionExecutionId', 'reversalOfId', 'companyOwned', 'packagingOwnerCustomerId'],
+            MaterialIssue: ['productionExecutionId', 'stagedSourceId'],
+        }[table] ?? [];
+        return statement.split('\n').filter((line) => !removed.some((column) => line.trimStart().startsWith(`"${column}" `))).join('\n');
+    })
     .join(';')
     .replace(
         /^\s*"(?:creditedAmount|priceAdjustmentAmount|remainingAmount|commercialSnapshot|requireMeasurement|plannedDistanceKm|distanceLegs)" [^\n]+\n/gm,
@@ -77,6 +92,7 @@ const guards = [
     '20260922_customer_credit',
     '20260923_factory_trip_distance',
     '20261007_invoice_date_correction',
+    '20261021_production_actual_packaging',
 ]
     .map(migration)
     .join('\n');

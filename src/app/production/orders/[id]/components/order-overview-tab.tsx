@@ -541,6 +541,10 @@ export function OrderOverviewTab({
                                                                     {format(new Date(exec.createdAt), 'd MMM HH:mm', { locale: idLocale })}
                                                                 </span>
                                                             )}
+                                                        {exec.outputGroups?.map((group) => <div key={group.id} className="mt-2 space-y-1 text-xs">
+                                                            <strong>{group.productVariant.name}: {Number(group.quantity).toLocaleString('id-ID')} {group.productVariant.primaryUnit}</strong>
+                                                            {group.packagingConsumptions.map((row) => <p key={row.id}>{row.productVariant.name}: {Number(row.quantity).toLocaleString('id-ID')} pcs/lembar · {row.movement.packagingOwnerCustomer ? `Titipan ${row.movement.packagingOwnerCustomer.name}` : 'Milik sendiri'}</p>)}
+                                                        </div>)}
                                                         {exec.status ===
                                                             'VOIDED' && (
                                                             <span className="text-[10px] font-bold text-destructive uppercase tracking-tighter">

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { validatePackagingTransfer } from './packaging-ownership-service';
 import { assertTransferMaterialOrder } from '@/services/production/direct-material-service';
 import {
     MovementType,
@@ -29,6 +30,7 @@ export class InventoryMovementService {
         } = data;
 
         await prisma.$transaction(async (tx) => {
+            const packagingOwnerCustomerId = await validatePackagingTransfer(tx, sourceLocationId, destinationLocationId);
             const sourceStockRow = await tx.$queryRaw<
                 Array<{ quantity: string }>
             >`
@@ -106,7 +108,7 @@ export class InventoryMovementService {
                 },
             });
 
-            const unitCost =
+            const unitCost = packagingOwnerCustomerId ? 0 :
                 Number(sourceInventory?.averageCost ?? 0) ||
                 Number(sourceInventory?.productVariant?.standardCost ?? 0) ||
                 Number(sourceInventory?.productVariant?.buyPrice ?? 0);
@@ -135,7 +137,8 @@ export class InventoryMovementService {
                     fromLocationId: sourceLocationId,
                     toLocationId: destinationLocationId,
                     quantity,
-                    cost: unitCost > 0 ? unitCost : undefined,
+                    cost: packagingOwnerCustomerId ? 0 : (unitCost > 0 ? unitCost : undefined),
+                    packagingOwnerCustomerId, companyOwned: packagingOwnerCustomerId ? false : undefined,
                     reference: notes,
                     createdAt: date,
                     createdById: userId,
@@ -171,6 +174,7 @@ export class InventoryMovementService {
                 const order = await tx.productionOrder.findUnique({ where: { id: productionOrderId }, select: { materialConsumptionMode: true } });
                 assertTransferMaterialOrder(order);
             }
+            const packagingOwnerCustomerId = await validatePackagingTransfer(tx, sourceLocationId, destinationLocationId);
             // 1. Fetch and Lock all Source Inventory
             const productVariantIds = items.map((i) => i.productVariantId);
 
@@ -283,7 +287,7 @@ export class InventoryMovementService {
                     data: { quantity: { decrement: quantity } },
                 });
 
-                const unitCost = costMap.get(productVariantId) || 0;
+                const unitCost = packagingOwnerCustomerId ? 0 : (costMap.get(productVariantId) || 0);
 
                 if (unitCost > 0) {
                     await InventoryCoreService.incrementStockWithCost(
@@ -309,7 +313,8 @@ export class InventoryMovementService {
                         fromLocationId: sourceLocationId,
                         toLocationId: destinationLocationId,
                         quantity,
-                        cost: unitCost > 0 ? unitCost : undefined,
+                        cost: packagingOwnerCustomerId ? 0 : (unitCost > 0 ? unitCost : undefined),
+                        packagingOwnerCustomerId, companyOwned: packagingOwnerCustomerId ? false : undefined,
                         reference: notes,
                         createdAt: date,
                         createdById: userId,

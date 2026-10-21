@@ -2,6 +2,24 @@ import { prisma } from '@/lib/core/prisma';
 import { MovementType, Prisma } from '@prisma/client';
 
 export class ProductionCostService {
+    static async calculateBatchTotalCost(productionOrderId: string, tx: Prisma.TransactionClient) {
+        const order = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
+        const movements = await tx.stockMovement.findMany({ where: { productionOrderId } });
+        const groups = await tx.productionOutputGroup.findMany({ where: { execution: { productionOrderId } }, select: { productVariantId: true } });
+        const outputIds = new Set(groups.map((group) => group.productVariantId));
+        let amount = new Prisma.Decimal(0);
+        for (const movement of movements) {
+            if (outputIds.has(movement.productVariantId)) continue;
+            const cost = new Prisma.Decimal(movement.cost ?? 0).mul(movement.quantity);
+            if (movement.type === 'OUT') amount = amount.plus(cost);
+            else if (movement.type === 'IN' && movement.reversalOfId) amount = amount.minus(cost);
+        }
+        const conversion = order.isMaklon
+            ? (await tx.maklonCostItem.findMany({ where: { productionOrderId } })).reduce((sum, item) => sum.plus(item.amount), new Prisma.Decimal(0))
+            : new Prisma.Decimal(order.estimatedConversionCost ?? 0);
+        return amount.plus(conversion);
+    }
+
     /**
      * Calculate Batch Cost of Goods Manufactured (COGM)
      * Formula: (Total Material Cost + Conversion Cost) / Total Yield
@@ -18,6 +36,11 @@ export class ProductionCostService {
         if (!order) return 0;
 
         const fgVariantId = order.bom?.productVariantId;
+        const packagedOutputs = order.actualPackagingEnabled ? await client.productionOutputGroup.findMany({
+            where: { execution: { productionOrderId } },
+            select: { productVariantId: true },
+        }) : [];
+        const outputIds = new Set([fgVariantId, ...packagedOutputs.map((group) => group.productVariantId)].filter((id): id is string => Boolean(id)));
 
         // 1. Total Material Cost
         // Query ALL StockMovements (IN and OUT) associated with this PO
@@ -34,7 +57,7 @@ export class ProductionCostService {
         let totalMaterialCost = 0;
         movements.forEach((m) => {
             // Exclude movements of the finished good itself (e.g. FG output IN, or voided FG OUT)
-            if (fgVariantId && m.productVariantId === fgVariantId) return;
+            if (outputIds.has(m.productVariantId)) return;
 
             const c = Number(m.cost || 0);
             const q = Number(m.quantity);

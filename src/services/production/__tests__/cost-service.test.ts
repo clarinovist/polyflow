@@ -12,6 +12,7 @@ vi.mock('@/lib/core/prisma', () => ({
         stockMovement: {
             findMany: vi.fn(),
         },
+        productionOutputGroup: { findMany: vi.fn().mockResolvedValue([]) },
         maklonCostItem: {
             findMany: vi.fn(),
         },

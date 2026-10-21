@@ -29,6 +29,8 @@ import { formatWIB, toBusinessDateString } from '@/lib/utils/timezone';
 import { formatQuantity } from '@/lib/utils/utils';
 import { productionOutputDateSchema } from '@/lib/schemas/production-output-date';
 import type { ExtendedProductionOrder } from './types';
+import { PackagingOutputFields } from './PackagingOutputFields';
+import { packagedOutputSchema, type PackagedOutputValues } from '@/lib/schemas/production-packaging';
 
 interface OutputFormData {
     locations: Location[];
@@ -60,10 +62,15 @@ export function AddOutputDialog({
     const [notes, setNotes] = useState('');
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [packagedOutput, setPackagedOutput] = useState<PackagedOutputValues | undefined>();
 
     function handleOpenChange(nextOpen: boolean) {
         if (submitting.current) return;
         if (nextOpen) {
+            if (order.actualPackagingEnabled && !packagedOutput) setPackagedOutput({
+                clientRequestId: crypto.randomUUID(),
+                groups: [{ productVariantId: order.requestedOutputVariantId ?? order.bom.productVariant.id, quantity: 0, packaging: [] }],
+            });
             setProductionDate(toBusinessDateString(new Date()));
             setError(null);
         }
@@ -109,10 +116,12 @@ export function AddOutputDialog({
     const salesUnit = variant.salesUnit;
     const conversionFactor = Number(variant.conversionFactor || 1);
     const alternate = Boolean(
-        salesUnit && salesUnit !== primaryUnit && conversionFactor > 0,
+        !packagedOutput && salesUnit && salesUnit !== primaryUnit && conversionFactor > 0,
     );
     const displayUnit = alternate ? salesUnit : primaryUnit;
-    const totalDisplayQty = rolls.reduce((sum, quantity) => sum + quantity, 0);
+    const totalDisplayQty = packagedOutput
+        ? Number(packagedOutput.groups.reduce((sum, group) => sum + group.quantity, 0).toFixed(4))
+        : rolls.reduce((sum, quantity) => sum + quantity, 0);
     const totalBaseQty = alternate
         ? totalDisplayQty * conversionFactor
         : totalDisplayQty;
@@ -152,7 +161,14 @@ export function AddOutputDialog({
             );
             return;
         }
-        if (currentRollWeight.trim() && Number(currentRollWeight) !== 0) {
+        const packagedPayload = packagedOutput && totalBaseQty === 0 && packagedOutput.groups.every((group) => group.packaging.length === 0)
+            ? { ...packagedOutput, groups: [] }
+            : packagedOutput;
+        if (packagedPayload) {
+            const parsed = packagedOutputSchema.safeParse(packagedPayload);
+            if (!parsed.success) { fail(parsed.error.issues[0].message); return; }
+        }
+        if (!packagedOutput && currentRollWeight.trim() && Number(currentRollWeight) !== 0) {
             fail(
                 'Tambahkan jumlah ke daftar hasil, atau kosongkan isian sebelum menyimpan.',
                 'wo-output-quantity',
@@ -190,13 +206,14 @@ export function AddOutputDialog({
                 .filter((helper) => selectedHelpers.includes(helper.id))
                 .map((helper) => helper.name)
                 .join(', ')}`;
-        if (rolls.length)
+        if (!packagedOutput && rolls.length)
             finalNotes += `\n[Auto-Generated] Individual ${salesUnit || 'Rolls'}: ${rolls.join(', ')}`;
         const now = new Date();
         const sendConversion = alternate && totalDisplayQty > 0;
         try {
             const result = await addProductionOutput({
                 productionOrderId: order.id,
+                packagedOutput: packagedPayload,
                 machineId: order.machineId || undefined,
                 operatorId: String(fd.get('operatorId')),
                 helperIds: selectedHelpers,
@@ -227,6 +244,7 @@ export function AddOutputDialog({
             toast.success('Hasil produksi berhasil dicatat');
             setOpen(false);
             setRolls([]);
+            setPackagedOutput(undefined);
             setProductionDate(toBusinessDateString(new Date()));
             setScrapProngkol('');
             setScrapDaun('');
@@ -423,7 +441,19 @@ export function AddOutputDialog({
                                 </fieldset>
                             </section>
                             <div className="min-w-0 space-y-4 md:col-span-2">
-                                <section className="space-y-4 rounded-xl border p-4">
+                                <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+                                    <input type="checkbox" disabled={order.actualPackagingEnabled} checked={Boolean(packagedOutput)} onChange={(event) => {
+                                        setPackagedOutput(event.target.checked ? {
+                                            clientRequestId: crypto.randomUUID(),
+                                            groups: [{ productVariantId: variant.id, quantity: 0, packaging: [] }],
+                                        } : undefined);
+                                    }} />
+                                    Catat pemakaian etiket / karung aktual
+                                </label>
+                                {packagedOutput ? <PackagingOutputFields
+                                    baseVariantId={variant.id} baseName={variant.name} unit={primaryUnit}
+                                    value={packagedOutput} onChange={setPackagedOutput}
+                                /> : <section className="space-y-4 rounded-xl border p-4">
                                     <div className="flex flex-wrap justify-between gap-3">
                                         <h3 className="font-semibold">
                                             Hasil bagus
@@ -521,7 +551,7 @@ export function AddOutputDialog({
                                             </li>
                                         ))}
                                     </ul>
-                                </section>
+                                </section>}
                                 <section className="space-y-4 rounded-xl border p-4">
                                     <h3 className="font-semibold">
                                         Affal / scrap

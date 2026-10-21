@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { resolveProductionRecipeVariant } from './packaging-bom-resolver';
 import { ProductionStatus, Prisma, ProductionOrder } from '@prisma/client';
 import { createProductionOrderWithGeneratedNumber } from './order-number-service';
 import { NotFoundError } from '@/lib/errors/errors';
@@ -222,9 +223,10 @@ export class MrpService {
         createdOrders: ProductionOrder[],
         allRequirements: MaterialRequirement[],
     ) {
-        // 1. Find BOM
+        // 1. Brand stock SKU reuses its mapped core recipe.
+        const recipeVariantId = await resolveProductionRecipeVariant(tx, productVariantId);
         const bom = await tx.bom.findFirst({
-            where: { productVariantId, isDefault: true, isActive: true },
+            where: { productVariantId: recipeVariantId, isDefault: true, isActive: true },
         });
 
         if (!bom) return;
@@ -242,6 +244,8 @@ export class MrpService {
             {
                 salesOrder: { connect: { id: salesOrderId } },
                 bom: { connect: { id: bom.id } },
+                requestedOutputVariant: recipeVariantId !== productVariantId ? { connect: { id: productVariantId } } : undefined,
+                actualPackagingEnabled: recipeVariantId !== productVariantId,
                 plannedQuantity: quantity,
                 status,
                 plannedStartDate: new Date(),
@@ -316,9 +320,10 @@ export class MrpService {
 
         if (!variant) return;
 
-        // 2. Find BOM
+        // 2. Reuse the same core recipe for a branded stock SKU.
+        const recipeVariantId = await resolveProductionRecipeVariant(prisma, productVariantId);
         const bom = await prisma.bom.findFirst({
-            where: { productVariantId, isDefault: true, isActive: true },
+            where: { productVariantId: recipeVariantId, isDefault: true, isActive: true },
             include: {
                 items: {
                     include: {

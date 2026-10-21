@@ -158,6 +158,7 @@ export class InventoryQueryService {
                 slug: true,
                 description: true,
                 locationType: true,
+                packagingOwnerCustomerId: true,
                 locationPurpose: true,
                 createdAt: true,
                 updatedAt: true,

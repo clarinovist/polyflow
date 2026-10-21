@@ -300,6 +300,7 @@ describe('ProductionExecutionService.voidExecution', () => {
         expect(tx.stockMovement.findMany).toHaveBeenCalledWith({
             where: {
                 productionOrderId: 'po-1',
+                productionExecutionId: null,
                 createdAt: {
                     gte: new Date(executionCreatedAt.getTime() - 30000),
                     lt: midpoint,
@@ -309,6 +310,7 @@ describe('ProductionExecutionService.voidExecution', () => {
         expect(tx.materialIssue.updateMany).toHaveBeenCalledWith({
             where: {
                 productionOrderId: 'po-1',
+                productionExecutionId: null,
                 issuedAt: {
                     gte: new Date(executionCreatedAt.getTime() - 30000),
                     lt: midpoint,

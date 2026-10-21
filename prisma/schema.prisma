@@ -410,6 +410,8 @@ model Customer {
   salesReturns       SalesReturn[]
   maklonOrders       ProductionOrder[]         @relation("MaklonCustomer")
   productionDestinations ProductionOrderCustomer[]
+  packagingStockLocations Location[] @relation("PackagingStockOwner")
+  packagingStockMovements StockMovement[] @relation("PackagingMovementOwner")
   maklonReceipts     GoodsReceipt[]            @relation("MaklonGoodsReceiptCustomer")
   maklonReturns      MaklonMaterialReturn[]    @relation("MaklonReturnCustomer")
   salesVisits        SalesVisit[]
@@ -442,6 +444,9 @@ model Location {
   slug                               String                 @unique
   description                        String?
   locationType                       LocationType           @default(INTERNAL)
+  /// Dedicated packaging custody; legacy stock remains unclassified.
+  packagingOwnerCustomerId           String?
+  packagingOwnerCustomer             Customer? @relation("PackagingStockOwner", fields: [packagingOwnerCustomerId], references: [id], onDelete: Restrict)
   locationPurpose                    LocationPurpose        @default(GENERAL_PURPOSE)
   createdAt                          DateTime               @default(now())
   updatedAt                          DateTime               @updatedAt
@@ -550,6 +555,12 @@ model ProductVariant {
   materialOrderItems         MaterialOrderItem[]
   maintenanceSparePartNeeds  MaintenanceSparePartNeed[]
   materialOrders             MaterialOrder[]           @relation("MaterialOrderOutput")
+  requestedOutputOrders      ProductionOrder[] @relation("RequestedPackagedOutput")
+  packagingOutputs           ProductionPackagingOption[] @relation("PackagingBaseProduct")
+  packagedOutputOption       ProductionPackagingOption? @relation("PackagingOutputProduct")
+  labelOutputOptions         ProductionPackagingOption[] @relation("PackagingLabel")
+  outputGroups               ProductionOutputGroup[]
+  packagingConsumptions      ProductionPackagingConsumption[]
 
   @@index([archivedAt])
 }
@@ -669,6 +680,19 @@ model StockMovement {
   returnSources     SalesReturnReceiptLine[] @relation("ReturnSourceMovement")
   returnReceipt     SalesReturnReceiptLine? @relation("ReturnReceiptMovement")
   additionalMaterialRequest AdditionalMaterialRequest?
+  productionExecutionId String?
+  productionExecution ProductionExecution? @relation(fields: [productionExecutionId], references: [id], onDelete: Restrict)
+  reversalOfId String? @unique
+  reversalOf StockMovement? @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy StockMovement? @relation("MovementReversal")
+  /// Per-source valuation for actual-packaging postings; null preserves legacy semantics.
+  companyOwned Boolean?
+  packagingOwnerCustomerId String?
+  packagingOwnerCustomer Customer? @relation("PackagingMovementOwner", fields: [packagingOwnerCustomerId], references: [id], onDelete: Restrict)
+  outputGroup ProductionOutputGroup?
+  packagingConsumption ProductionPackagingConsumption?
+
+  @@index([productionExecutionId])
 
   @@index([productionOrderId])
   @@index([productVariantId])
@@ -832,6 +856,9 @@ model ProductionOrder {
   materialSourceLocationId        String?
   materialConsumptionLocationId   String?
   materialConsumptionMode         MaterialConsumptionMode  @default(TRANSFER)
+  actualPackagingEnabled          Boolean                  @default(false)
+  requestedOutputVariantId        String?
+  requestedOutputVariant          ProductVariant? @relation("RequestedPackagedOutput", fields: [requestedOutputVariantId], references: [id], onDelete: Restrict)
   maklonCustomer                  Customer?                @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
   customerDestinations            ProductionOrderCustomer[]
   maklonCostItems                 MaklonCostItem[]
@@ -1051,7 +1078,13 @@ model MaterialIssue {
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   additionalMaterialRequest AdditionalMaterialRequest?
+  productionExecutionId String?
+  productionExecution ProductionExecution? @relation(fields: [productionExecutionId], references: [id], onDelete: Restrict)
+  stagedSourceId String?
+  stagedSource MaterialIssue? @relation("PackagingStagedAllocation", fields: [stagedSourceId], references: [id], onDelete: Restrict)
+  stagedAllocations MaterialIssue[] @relation("PackagingStagedAllocation")
 
+  @@index([productionExecutionId])
   @@index([productionOrderId])
 }
 
@@ -1208,6 +1241,12 @@ model ProductionMaterial {
 
 model ProductionExecution {
   id                       String              @id @default(uuid())
+  clientRequestId          String?             @unique
+  requestHash              String?
+  outputGroups             ProductionOutputGroup[]
+  packagingConsumptions    ProductionPackagingConsumption[]
+  stockMovements           StockMovement[]
+  materialIssues           MaterialIssue[]
   productionOrderId        String
   machineId                String?
   operatorId               String?
@@ -1243,6 +1282,47 @@ model ProductionExecution {
   @@index([productionOrderId])
   @@index([startTime])
   @@index([operatorId, startTime])
+}
+
+/// Explicit stock identity for branded output; several options reuse the core BOM.
+model ProductionPackagingOption {
+  id String @id @default(uuid())
+  baseVariantId String
+  outputVariantId String @unique
+  labelVariantId String?
+  baseVariant ProductVariant @relation("PackagingBaseProduct", fields: [baseVariantId], references: [id], onDelete: Restrict)
+  outputVariant ProductVariant @relation("PackagingOutputProduct", fields: [outputVariantId], references: [id], onDelete: Restrict)
+  labelVariant ProductVariant? @relation("PackagingLabel", fields: [labelVariantId], references: [id], onDelete: Restrict)
+  @@index([baseVariantId])
+}
+
+model ProductionOutputGroup {
+  id String @id @default(uuid())
+  executionId String
+  position Int
+  productVariantId String
+  quantity Decimal @db.Decimal(15, 4)
+  unitCost Decimal @db.Decimal(15, 4)
+  movementId String @unique
+  execution ProductionExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  movement StockMovement @relation(fields: [movementId], references: [id], onDelete: Restrict)
+  packagingConsumptions ProductionPackagingConsumption[]
+  @@unique([executionId, position])
+}
+
+model ProductionPackagingConsumption {
+  id String @id @default(uuid())
+  executionId String
+  outputGroupId String
+  productVariantId String
+  quantity Decimal @db.Decimal(15, 4)
+  movementId String @unique
+  execution ProductionExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  outputGroup ProductionOutputGroup @relation(fields: [outputGroupId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  movement StockMovement @relation(fields: [movementId], references: [id], onDelete: Restrict)
+  @@index([executionId])
 }
 
 model WorkShift {

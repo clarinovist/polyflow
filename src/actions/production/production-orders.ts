@@ -715,6 +715,7 @@ export const getProductionOrder = withTenant(async function getProductionOrder(
             },
             executions: {
                 include: {
+                    outputGroups: { include: { productVariant: { select: { name: true, primaryUnit: true } }, packagingConsumptions: { include: { productVariant: { select: { name: true } }, movement: { select: { packagingOwnerCustomer: { select: { name: true } } } } } } }, orderBy: { position: 'asc' } },
                     operator: true,
                     shift: { include: { operator: true } },
                 },

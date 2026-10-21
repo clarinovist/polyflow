@@ -209,10 +209,14 @@ export async function listFgDemandBoard(
     const openSpks = await prisma.productionOrder.findMany({
         where: {
             status: { in: openSpkStatuses },
-            bom: { productVariantId: { in: variantIds } },
+            OR: [
+                { requestedOutputVariantId: { in: variantIds } },
+                { requestedOutputVariantId: null, bom: { productVariantId: { in: variantIds } } },
+            ],
         },
         select: {
             plannedQuantity: true,
+            requestedOutputVariantId: true,
             bom: {
                 select: { productVariantId: true },
             },
@@ -221,7 +225,7 @@ export async function listFgDemandBoard(
 
     const spkMap = new Map<string, { count: number; totalPlanned: number }>();
     for (const spk of openSpks) {
-        const vid = spk.bom.productVariantId;
+        const vid = spk.requestedOutputVariantId ?? spk.bom.productVariantId;
         const existing = spkMap.get(vid);
         if (existing) {
             existing.count++;

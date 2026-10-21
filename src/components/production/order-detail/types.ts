@@ -61,6 +61,7 @@ export type ExtendedProductionOrder = ProductionOrder & {
         measurements: QualityInspectionMeasurement[];
     })[];
     executions: (ProductionExecution & {
+        outputGroups?: { id: string; quantity: number | string; productVariant: { name: string; primaryUnit: string }; packagingConsumptions: { id: string; quantity: number | string; productVariant: { name: string }; movement: { packagingOwnerCustomer: { name: string } | null } }[] }[];
         operator: Employee | null;
         shift: (ProductionShift & { operator: Employee | null }) | null;
     })[];

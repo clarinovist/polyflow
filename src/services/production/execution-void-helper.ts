@@ -10,6 +10,7 @@ import {
   adjustReservationsForVoidOutput,
   cancelSpecificReservation,
 } from '@/services/inventory/reservation-service';
+import { reversePackagedExecution } from './packaging-reversal-service';
 import { VOID_PIECE_SNAPSHOT } from '@/services/hrd/piece-rate-helpers';
 import { syncProductionRunStatusFromOrders } from './routing-execution-guard';
 
@@ -83,11 +84,11 @@ export async function voidProductionExecutionInTransaction(
     : new Date(createdAt.getTime() + 30000);
   const range = nextExecution ? { gte: startTime, lt: endTime } : { gte: startTime, lte: endTime };
 
-  const movements = await tx.stockMovement.findMany({
-    where: { productionOrderId, createdAt: range },
-  });
+  const movements = execution.clientRequestId
+    ? await reversePackagedExecution(tx, executionId, productionOrderId)
+    : await tx.stockMovement.findMany({ where: { productionOrderId, createdAt: range, productionExecutionId: null } });
 
-  for (const move of movements) {
+  for (const move of execution.clientRequestId ? [] : movements) {
     if (move.reference?.startsWith('VOID:')) continue;
 
     // Force-cancel may process multiple executions whose historical windows
@@ -137,8 +138,8 @@ export async function voidProductionExecutionInTransaction(
     }
   }
 
-  await tx.materialIssue.updateMany({
-    where: { productionOrderId, issuedAt: range },
+  if (!execution.clientRequestId) await tx.materialIssue.updateMany({
+    where: { productionOrderId, issuedAt: range, productionExecutionId: null },
     data: { status: 'VOIDED' },
   });
   // ScrapRecord has no VOIDED status. Delete only this execution's
@@ -179,7 +180,7 @@ export async function voidProductionExecutionInTransaction(
   const hasLinkedReservation = movements.some(
     (m) => m.type === MovementType.IN && m.reference?.includes('| RESERVE:'),
   );
-  if (!hasLinkedReservation && execution.productionOrder.salesOrderId) {
+  if (!execution.clientRequestId && !hasLinkedReservation && execution.productionOrder.salesOrderId) {
     await adjustReservationsForVoidOutput(
       execution.productionOrder.salesOrderId,
       execution.productionOrder.bom.productVariantId,

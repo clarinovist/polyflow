@@ -1,5 +1,6 @@
 import { Prisma, MaklonMaterialReturnStatus } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
+import { BusinessRuleError } from '@/lib/errors/errors';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 
 export class MaklonReturnService {
@@ -20,6 +21,10 @@ export class MaklonReturnService {
         tx?: Prisma.TransactionClient,
     ) {
         const execute = async (t: Prisma.TransactionClient) => {
+            const source = await t.location.findUniqueOrThrow({ where: { id: data.sourceLocationId } });
+            if (source.packagingOwnerCustomerId && source.packagingOwnerCustomerId !== data.customerId) {
+                throw new BusinessRuleError('Pelanggan retur tidak sesuai pemilik stok titipan.');
+            }
             // 1. Create Return Record
             const ret = await t.maklonMaterialReturn.create({
                 data: {
@@ -63,6 +68,8 @@ export class MaklonReturnService {
                         productVariantId: item.productVariantId,
                         fromLocationId: data.sourceLocationId,
                         quantity: item.quantity,
+                        packagingOwnerCustomerId: source.packagingOwnerCustomerId,
+                        companyOwned: source.packagingOwnerCustomerId ? false : undefined,
                         cost: 0, // Cost is 0 because it's maklon material
                         reference: `MRT-${ret.returnNumber}${ret.notes ? ` - ${ret.notes}` : ''}`,
                         createdById: data.createdById,

@@ -17,6 +17,7 @@ vi.mock('@/lib/core/prisma', () => ({
         stockReservation: {
             aggregate: vi.fn(),
         },
+        productionPackagingOption: { findUnique: vi.fn().mockResolvedValue(null) },
         bom: {
             findFirst: vi.fn(),
             findMany: vi.fn(),

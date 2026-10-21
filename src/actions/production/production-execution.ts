@@ -165,7 +165,9 @@ export const addProductionOutput = withTenant(
             }
 
             try {
-                const session = await requireAuth();
+                const session = result.data.packagedOutput
+                    ? await requireProductionLeaderRole()
+                    : await requireAuth();
 
                 await ProductionService.addProductionOutput({
                     ...result.data,

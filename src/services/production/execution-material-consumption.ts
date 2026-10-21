@@ -168,6 +168,8 @@ export async function backflushMaterials(params: {
     reference: string;
     userId?: string;
     outputContext?: OutputBackflushContext;
+    executionId?: string;
+    actualPackagingIds?: string[];
 }) {
     const {
         tx,
@@ -207,6 +209,7 @@ export async function backflushMaterials(params: {
             : null;
 
     for (const item of itemsToBackflush) {
+        if (params.actualPackagingIds?.includes(item.productVariantId)) continue;
         const consumptionLocationId = await resolveMaterialLocation(
             tx,
             order,
@@ -279,6 +282,16 @@ export async function backflushMaterials(params: {
             qtyToDeduct,
         );
 
+        if (params.executionId) {
+            const source = await tx.location.findUniqueOrThrow({ where: { id: consumptionLocationId } });
+            if (source.locationType !== 'INTERNAL' && !order.isMaklon) throw new BusinessRuleError('Bahan produksi milik perusahaan harus bersumber dari stok internal.');
+            if (order.isMaklon) {
+                const customerOrder = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId }, select: { maklonCustomerId: true } });
+                if (!source.packagingOwnerCustomerId || source.packagingOwnerCustomerId !== customerOrder.maklonCustomerId) {
+                    throw new BusinessRuleError('Pemilik bahan maklon belum terverifikasi. Jangan memakai saldo pelanggan lain atau saldo gabungan.');
+                }
+            }
+        }
         const sourceUnitCost = await resolveSourceUnitCost(
             tx,
             consumptionLocationId,
@@ -292,7 +305,12 @@ export async function backflushMaterials(params: {
                 productVariantId: item.productVariantId,
                 fromLocationId: consumptionLocationId,
                 quantity: qtyToDeduct,
-                cost: sourceUnitCost > 0 ? sourceUnitCost : undefined,
+                cost: params.executionId ? sourceUnitCost : (sourceUnitCost > 0 ? sourceUnitCost : undefined),
+                productionExecutionId: params.executionId,
+                companyOwned: params.executionId ? !order.isMaklon : undefined,
+                packagingOwnerCustomerId: params.executionId && order.isMaklon
+                    ? (await tx.location.findUniqueOrThrow({ where: { id: consumptionLocationId }, select: { packagingOwnerCustomerId: true } })).packagingOwnerCustomerId
+                    : undefined,
                 reference,
                 productionOrderId,
             },
@@ -316,7 +334,17 @@ export async function backflushMaterials(params: {
             const stagedQty = Number(staged.quantity);
             if (stagedQty <= 0.0001) continue;
 
-            if (stagedQty <= remainingToConvert + 0.0001) {
+            if (params.executionId) {
+                const allocated = Math.min(stagedQty, remainingToConvert);
+                await tx.materialIssue.update({ where: { id: staged.id }, data: { quantity: { decrement: allocated } } });
+                await tx.materialIssue.create({ data: {
+                    productionOrderId, productVariantId: item.productVariantId,
+                    quantity: allocated, locationId: consumptionLocationId,
+                    productionExecutionId: params.executionId, stagedSourceId: staged.id,
+                    status: 'ISSUED', createdById: userId,
+                } });
+                remainingToConvert -= allocated;
+            } else if (stagedQty <= remainingToConvert + 0.0001) {
                 await tx.materialIssue.update({
                     where: { id: staged.id },
                     data: {
@@ -353,6 +381,7 @@ export async function backflushMaterials(params: {
                     productVariantId: item.productVariantId,
                     quantity: remainingToConvert,
                     locationId: consumptionLocationId,
+                    productionExecutionId: params.executionId,
                     status: 'ISSUED',
                     createdById: userId,
                 },

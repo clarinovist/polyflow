@@ -17,7 +17,8 @@ function movement(overrides: Partial<StockMovement> = {}): StockMovement {
         fromLocationId: 'warehouse', toLocationId: null, quantity: decimal('37.5'),
         cost: null, reference: 'Shipment for SO-FIXTURE via DO-FIXTURE',
         createdAt: date, createdById: 'actor', salesOrderId: 'order',
-        goodsReceiptId: null, productionOrderId: null, batchId: null, ...overrides,
+        goodsReceiptId: null, productionOrderId: null, batchId: null,
+        productionExecutionId: null, reversalOfId: null, companyOwned: null, packagingOwnerCustomerId: null, ...overrides,
     };
 }
 function reversal(overrides: Partial<StockMovement> = {}): StockMovement {
