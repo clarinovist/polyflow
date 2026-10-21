@@ -56,6 +56,7 @@ const mockGetTenantPrefix = vi.fn().mockResolvedValue('kiyowo');
 
 vi.mock('@/lib/storage/r2', () => ({
     getTenantPrefix: (...args: unknown[]) => mockGetTenantPrefix(...args),
+    contentFingerprint: vi.fn().mockReturnValue('abcdef1234567890'),
     buildAttendancePhotoKey: (...args: unknown[]) => mockBuildKey(...args),
     uploadToR2: (...args: unknown[]) => mockUploadToR2(...args),
 }));

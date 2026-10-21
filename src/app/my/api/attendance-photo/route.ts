@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
     getTenantPrefix,
     buildAttendancePhotoKey,
+    contentFingerprint,
     uploadToR2,
 } from '@/lib/storage/r2';
 import { requireEmployeeSession } from '@/lib/auth/employee-session';
@@ -93,13 +94,15 @@ export async function POST(req: NextRequest) {
         }
 
         const tenant = await getTenantPrefix();
+        const buffer = Buffer.from(await file.arrayBuffer());
+        // Content-addressed name so retries overwrite instead of duplicating.
         const key = buildAttendancePhotoKey(
             tenant,
             session.employeeId,
             kind,
             file.name,
+            contentFingerprint(buffer),
         );
-        const buffer = Buffer.from(await file.arrayBuffer());
         const publicUrl = await uploadToR2(key, buffer, file.type);
 
         console.log('[attendance-photo:my] success', {

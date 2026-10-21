@@ -50,6 +50,7 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/storage/r2', () => ({
     getTenantPrefix: vi.fn().mockResolvedValue('kiyowo'),
+    contentFingerprint: vi.fn().mockReturnValue('abcdef1234567890'),
     buildProductionPhotoKey: vi.fn().mockReturnValue('kiyowo/production/exec-1/123.jpg'),
     uploadToR2: vi.fn().mockResolvedValue('/api/images/kiyowo/production/exec-1/123.jpg'),
 }));

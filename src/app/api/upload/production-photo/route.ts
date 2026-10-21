@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
     getTenantPrefix,
     buildProductionPhotoKey,
+    contentFingerprint,
     uploadToR2,
 } from '@/lib/storage/r2';
 import { auth } from '@/auth';
@@ -85,8 +86,15 @@ export async function POST(req: NextRequest) {
         }
 
         const tenant = await getTenantPrefix();
-        const key = buildProductionPhotoKey(tenant, executionId, file.name);
         const buffer = Buffer.from(await file.arrayBuffer());
+        // Content-addressed object name: a retried upload of the same bytes
+        // overwrites the same key instead of creating duplicates.
+        const key = buildProductionPhotoKey(
+            tenant,
+            executionId,
+            file.name,
+            contentFingerprint(buffer),
+        );
         const publicUrl = await uploadToR2(key, buffer, file.type);
 
         return NextResponse.json({ success: true, publicUrl, key });

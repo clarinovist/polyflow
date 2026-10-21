@@ -24,6 +24,7 @@ vi.mock('@/lib/auth/employee-session', () => ({
 
 vi.mock('@/lib/storage/r2', () => ({
     getTenantPrefix: vi.fn().mockResolvedValue('kiyowo'),
+    contentFingerprint: vi.fn().mockReturnValue('abcdef1234567890'),
     buildAttendancePhotoKey: vi.fn().mockReturnValue('kiyowo/attendance/emp-1/clock_in-123.jpg'),
     uploadToR2: vi.fn().mockResolvedValue('/api/images/kiyowo/attendance/emp-1/clock_in-123.jpg'),
 }));
