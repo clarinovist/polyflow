@@ -137,6 +137,10 @@ export default async function ProductionLayout({
 
                     <div className="flex items-center gap-4">
                         <ClockDisplay />
+                        <div
+                            id="production-assistant-desktop"
+                            className="hidden shrink-0 lg:flex print:hidden"
+                        />
                     </div>
                 </header>
 

@@ -40,7 +40,7 @@ interface PortalSidebarBaseProps {
     children: ReactNode;
     /** Opt-in mobile slot; desktop slots live in the workspace content headers. */
     assistantSlots?: boolean;
-    assistantSlotPrefix?: 'finance' | 'sales';
+    assistantSlotPrefix?: 'finance' | 'sales' | 'production';
 }
 
 export function PortalSidebarBase({

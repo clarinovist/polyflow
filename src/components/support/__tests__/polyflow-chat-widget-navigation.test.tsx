@@ -14,9 +14,9 @@ beforeEach(() => {
 });
 const renderWidget = () => render(<><div id="finance-assistant-desktop" /><div id="finance-assistant-mobile" /><PolyflowChatWidget /></>);
 describe('finance navigation assistant', () => {
-    it.each(['/finance', '/sales/orders'])('shows a labeled, secondary assistant action on %s at both breakpoints', (path) => {
+    it.each(['/finance', '/sales/orders', '/production/orders'])('shows a labeled, secondary assistant action on %s at both breakpoints', (path) => {
         state.path = path;
-        render(<><div id="finance-assistant-desktop" /><div id="finance-assistant-mobile" /><div id="sales-assistant-desktop" /><div id="sales-assistant-mobile" /><PolyflowChatWidget /></>);
+        render(<><div id="finance-assistant-desktop" /><div id="finance-assistant-mobile" /><div id="sales-assistant-desktop" /><div id="sales-assistant-mobile" /><div id="production-assistant-desktop" /><div id="production-assistant-mobile" /><PolyflowChatWidget /></>);
         const assertLauncher = () => {
             const trigger = screen.getByRole('button', { name: 'Buka Asisten Polyflow' });
             expect(trigger.textContent?.trim()).toBe('Asisten');
@@ -76,7 +76,25 @@ describe('finance navigation assistant', () => {
         expect((screen.getByLabelText('Draft message') as HTMLInputElement).value).toBe('Synthetic draft');
         expect(screen.getAllByRole('dialog')).toHaveLength(1);
     });
-    it.each(['/sales/mobile', '/finance/mobile'])('keeps %s on the mobile launcher', (path) => {
+    it('docks production navigation in the top bar slot and moves it to the mobile header on resize', () => {
+        state.path = '/production/daily-report';
+        render(<><div id="production-assistant-desktop" /><div id="production-assistant-mobile" /><PolyflowChatWidget /></>);
+        const trigger = screen.getByRole('button', { name: 'Buka Asisten Polyflow' });
+        expect(trigger.parentElement?.id).toBe('production-assistant-desktop');
+        expect(document.querySelector('[data-polyflow-chat-fab]')).toBeNull();
+        fireEvent.click(trigger);
+        fireEvent.change(screen.getByLabelText('Draft message'), { target: { value: 'Synthetic production draft' } });
+        act(() => { desktop = false; resize(); });
+        expect(screen.getByRole('button', { name: 'Minimize Asisten Polyflow' }).parentElement?.id).toBe('production-assistant-mobile');
+        expect((screen.getByLabelText('Draft message') as HTMLInputElement).value).toBe('Synthetic production draft');
+        expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    });
+    it('docks on the production root path itself', () => {
+        state.path = '/production';
+        render(<><div id="production-assistant-desktop" /><div id="production-assistant-mobile" /><PolyflowChatWidget /></>);
+        expect(screen.getByRole('button', { name: 'Buka Asisten Polyflow' }).parentElement?.id).toBe('production-assistant-desktop');
+    });
+    it.each(['/sales/mobile', '/finance/mobile', '/production/mobile'])('keeps %s on the mobile launcher', (path) => {
         state.path = path; render(<PolyflowChatWidget />);
         expect(document.querySelector('[data-mobile-safe-area]')).toBeTruthy();
     });

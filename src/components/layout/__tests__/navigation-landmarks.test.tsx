@@ -40,7 +40,7 @@ vi.mock('@/lib/modules/module-registry', () => ({
 }));
 
 describe('sidebar navigation landmarks', () => {
-    it.each(['finance', 'sales'] as const)('keeps the %s assistant out of the desktop sidebar and in the mobile header', (portal) => {
+    it.each(['finance', 'sales', 'production'] as const)('keeps the %s assistant out of the desktop sidebar and in the mobile header', (portal) => {
         const { container } = render(
             <PortalSidebarBase user={{ name: 'Synthetic user' }} portalName={portal} assistantSlots assistantSlotPrefix={portal}>
                 <a href={`/${portal}`}>Beranda</a>

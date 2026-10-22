@@ -271,6 +271,8 @@ export function ProductionSidebar({
             user={user}
             portalName="Produksi"
             accentColor="emerald"
+            assistantSlots
+            assistantSlotPrefix="production"
         >
             {currentTenantName && (
                 <div className="px-3 pt-3">

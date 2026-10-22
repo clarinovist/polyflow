@@ -72,7 +72,7 @@ function AuthenticatedWidget({
     const trigger = useRef<HTMLButtonElement>(null);
     const dialog = useRef<HTMLDivElement>(null);
     const [launcherSlot, setLauncherSlot] = useState<HTMLElement | null>(null);
-    const navigationPortal = ['/finance', '/sales']
+    const navigationPortal = ['/finance', '/sales', '/production']
         .find(
             (prefix) =>
                 (pathname === prefix || pathname.startsWith(`${prefix}/`)) &&
