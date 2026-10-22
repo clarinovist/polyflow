@@ -68,9 +68,8 @@ interface PageProps {
 const YYYY_MM = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /**
- * Resolve period params: sanitize from/to, default to a 30-day window ending
- * today when both are absent. Service still supports partial bounds (one side
- * null), so a hand-edited URL with only `from` or only `to` works correctly.
+ * Sanitize from/to and fill missing bounds with this month's start and today
+ * in WIB. Explicit ranges remain unchanged.
  */
 function resolvePeriodParams(params: {
     from?: string;
@@ -80,9 +79,7 @@ function resolvePeriodParams(params: {
     const from = sanitizeBusinessDateParam(params.from);
     const to = sanitizeBusinessDateParam(params.to);
     const today = toBusinessDateString(params.now);
-    const defaultFrom = toBusinessDateString(
-        new Date(params.now.getTime() - 29 * 24 * 60 * 60 * 1000),
-    );
+    const defaultFrom = `${today.slice(0, 7)}-01`;
     return {
         from: from ?? defaultFrom,
         to: to ?? today,
@@ -179,7 +176,7 @@ export default async function ProductionDailyReportPage({
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+            <div className="space-y-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">
                         Produksi Harian
@@ -189,7 +186,7 @@ export default async function ProductionDailyReportPage({
                         proses. Periode {periodLabel}.
                     </p>
                 </div>
-                <DateRangeFilter from={from} to={to} mesin={params.mesin} />
+                <DateRangeFilter from={from} to={to} today={todayStr} mesin={params.mesin} />
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
