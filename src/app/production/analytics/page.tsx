@@ -11,6 +11,7 @@ import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import { ProductionRealizationChart } from '@/components/analytics/ProductionRealizationChart';
 import { MachinePerformanceCard } from '@/components/analytics/MachinePerformanceCard';
 import { ScrapAnalysisChart } from '@/components/analytics/ScrapAnalysisChart';
+import { AffalByProcessCard } from '@/components/analytics/AffalByProcessCard';
 import { OperatorProcessComparison } from '@/components/analytics/OperatorProcessComparison';
 import {
     EMPTY_VALUE,
@@ -30,14 +31,15 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import {
-    Activity,
-    Factory,
-    AlertTriangle,
-    CheckCircle,
-    ExternalLink,
-} from 'lucide-react';
+import { Activity, Factory, CheckCircle, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+
+const EMPTY_AFFAL_BY_PROCESS = {
+    MIXING: { produced: 0, affal: 0, entries: 0 },
+    EXTRUSION: { produced: 0, affal: 0, entries: 0 },
+    PACKING: { produced: 0, affal: 0, entries: 0 },
+    OTHER: { produced: 0, affal: 0, entries: 0 },
+};
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -68,6 +70,7 @@ export default async function ProductionAnalyticsPage(props: {
             ? dataRes.data
             : {
                   realization: [],
+                  affalByProcess: EMPTY_AFFAL_BY_PROCESS,
                   materialVariance: [],
                   machinePerformance: [],
                   operatorProductivity: [],
@@ -88,10 +91,6 @@ export default async function ProductionAnalyticsPage(props: {
     const avgYield =
         data.realization.reduce((acc, curr) => acc + curr.yieldRate, 0) /
         (data.realization.length || 1);
-    const totalScrap = data.quality.scrapByReason.reduce(
-        (acc, curr) => acc + curr.quantity,
-        0,
-    );
     const passRate = data.quality.inspections.passRate;
     const hasInspections = data.quality.inspections.total > 0;
     const activeMachines = data.machinePerformance.filter(
@@ -150,22 +149,10 @@ export default async function ProductionAnalyticsPage(props: {
                         </p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Total Affal
-                        </CardTitle>
-                        <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                            {formatAmount(totalScrap)}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Dari catatan affal, bukan dari entri hasil
-                        </p>
-                    </CardContent>
-                </Card>
+                <AffalByProcessCard
+                    affalByProcess={data.affalByProcess}
+                    thresholds={thresholds}
+                />
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">

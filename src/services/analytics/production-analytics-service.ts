@@ -1,8 +1,8 @@
-import { endOfDay, startOfMonth } from 'date-fns';
-
 import { prisma } from '@/lib/core/prisma';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
+import { resolveAnalyticsPeriod } from '@/lib/production/analytics-period';
 import {
+    PROCESS_KEYS,
     processKeyFromCategory,
     type ProcessKey,
 } from '@/lib/production/process-keys';
@@ -14,8 +14,17 @@ import {
     QualityControlSummary,
 } from '@/types/analytics';
 
+/** Output and affal of one process; units follow that process, never summed across processes. */
+export interface ProcessAffalTotals {
+    produced: number;
+    affal: number;
+    entries: number;
+}
+
 export interface ProductionAnalyticsData {
     realization: ProductionRealizationItem[];
+    /** From non-voided execution entries, same source and WIB days as Produksi Harian. */
+    affalByProcess: Record<ProcessKey, ProcessAffalTotals>;
     quality: QualityControlSummary;
     machinePerformance: MachinePerformanceItem[];
     operatorProductivity: OperatorProductivityItem[];
@@ -24,9 +33,9 @@ export interface ProductionAnalyticsData {
 export async function getProductionAnalytics(
     dateRange?: DateRange,
 ): Promise<ProductionAnalyticsData> {
-    const now = new Date();
-    const endDate = dateRange?.to || endOfDay(now);
-    const startDate = dateRange?.from || startOfMonth(now);
+    // WIB business days, like Produksi Harian: never the server timezone.
+    const { start: startDate, end: endDate } =
+        resolveAnalyticsPeriod(dateRange);
 
     const productionOrders = await prisma.productionOrder.findMany({
         where: {
@@ -90,6 +99,11 @@ export async function getProductionAnalytics(
     const scrapRecords = await prisma.scrapRecord.findMany({
         where: {
             recordedAt: { gte: startDate, lte: endDate },
+            // Affal of a voided entry no longer counts.
+            OR: [
+                { productionExecutionId: null },
+                { productionExecution: { status: { not: 'VOIDED' } } },
+            ],
         },
     });
 
@@ -189,6 +203,8 @@ export async function getProductionAnalytics(
 
     const executions = await prisma.productionExecution.findMany({
         where: {
+            // Voided entries are cancelled output: excluded, as in Produksi Harian.
+            status: { not: 'VOIDED' },
             startTime: { gte: startDate, lte: endDate },
         },
         include: {
@@ -222,9 +238,19 @@ export async function getProductionAnalytics(
         }
     > = {};
 
+    const affalByProcess = Object.fromEntries(
+        PROCESS_KEYS.map((key) => [key, { produced: 0, affal: 0, entries: 0 }]),
+    ) as Record<ProcessKey, ProcessAffalTotals>;
+
     executions.forEach((execution) => {
         const quantity = Number(execution.quantityProduced);
         const scrap = executionScrapTotal(execution);
+        const process = processKeyFromCategory(
+            execution.productionOrder?.bom?.category,
+        );
+        affalByProcess[process].produced += quantity;
+        affalByProcess[process].affal += scrap;
+        affalByProcess[process].entries += 1;
 
         let durationHours = 0;
         if (execution.endTime && execution.startTime) {
@@ -252,9 +278,6 @@ export async function getProductionAnalytics(
 
         if (execution.operator) {
             const operatorCode = execution.operator.code;
-            const process = processKeyFromCategory(
-                execution.productionOrder?.bom?.category,
-            );
             // Per process: output units differ, so one operator is never summed across processes.
             const operatorKey = `${process}:${operatorCode}`;
             if (!operatorMap[operatorKey]) {
@@ -308,6 +331,7 @@ export async function getProductionAnalytics(
 
     return {
         realization,
+        affalByProcess,
         quality,
         machinePerformance,
         operatorProductivity,
