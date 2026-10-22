@@ -25,16 +25,24 @@ export function OwnerLearningNotice() {
                     data?.active &&
                     typeof data.version === 'string'
                 ) {
-                    setNotice({ version: data.version, accountKey });
+                    const storageKey = `owner-learning-notice:${accountKey}:${data.version}`;
+                    let seen = false;
                     try {
-                        setDismissed(
-                            sessionStorage.getItem(
-                                `owner-learning-notice:${accountKey}:${data.version}`,
-                            ) === 'seen',
-                        );
+                        seen = localStorage.getItem(storageKey) === 'seen';
                     } catch {
-                        /* notice remains visible */
+                        /* Fall back to the existing tab dismissal. */
                     }
+                    if (!seen) {
+                        try {
+                            seen = sessionStorage.getItem(storageKey) === 'seen';
+                            // Preserve dismissals made before persistent storage.
+                            if (seen) localStorage.setItem(storageKey, 'seen');
+                        } catch {
+                            /* Keep any dismissal already read from this tab. */
+                        }
+                    }
+                    setNotice({ version: data.version, accountKey });
+                    setDismissed(seen);
                 }
             })
             .catch(() => {});
@@ -70,13 +78,15 @@ export function OwnerLearningNotice() {
             <button
                 className="mt-3 min-h-11 rounded-md border px-4"
                 onClick={() => {
+                    const storageKey = `owner-learning-notice:${accountKey}:${notice.version}`;
                     try {
-                        sessionStorage.setItem(
-                            `owner-learning-notice:${accountKey}:${notice.version}`,
-                            'seen',
-                        );
+                        localStorage.setItem(storageKey, 'seen');
                     } catch {
-                        /* session-only UI state */
+                        try {
+                            sessionStorage.setItem(storageKey, 'seen');
+                        } catch {
+                            /* Still allow closing when browser storage is blocked. */
+                        }
                     }
                     setDismissed(true);
                 }}
