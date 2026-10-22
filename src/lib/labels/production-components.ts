@@ -208,7 +208,7 @@ export const productionComponentLabels = {
     // Dual-path ownership callouts on production Materials tab
     materialPathFloorTitle: 'Jalur lantai (WIP)',
     materialPathFloorHelp:
-        'Compound/roll antar proses dikelola produksi. Transfer Material di sini untuk staging Mixing→Extru/Packing. Tidak perlu pengajuan gudang RM per stage.',
+        'Compound/roll antar proses dikelola produksi. Transfer Material di sini untuk staging Mixing→Ekstrusi/Packing. Tidak perlu pengajuan gudang RM per stage.',
     materialPathWarehouseTitle: 'Jalur gudang (bahan baku)',
     materialPathWarehouseHelp:
         'Resin, pelembab, dan bahan dari gudang RM dikeluarkan oleh gudang di modul Warehouse. Produksi melihat kebutuhan di sini; pengiriman RM lewat antrean gudang.',

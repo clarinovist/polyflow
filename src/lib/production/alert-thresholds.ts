@@ -5,16 +5,17 @@ import { z } from 'zod';
  * AppSetting under `production.alertThresholds`. All functions are pure —
  * safe to call from server actions, server pages, and client components.
  *
- * Defaults preserve pre-settings behavior so a missing/malformed setting
- * never changes how alerts render.
+ * A missing/malformed setting falls back to these defaults. Tenants that
+ * already saved a complete set keep their own values (the write schema
+ * requires all five fields).
  */
 
 export const PRODUCTION_ALERT_THRESHOLDS_KEY = 'production.alertThresholds';
 
 export interface ProductionAlertThresholds {
-    /** Scrap rate % above which the metric is flagged as warning (was 2). */
+    /** Affal rate % above which the metric is flagged as warning (was 2 before 2026-10). */
     scrapWarningPercent: number;
-    /** Scrap rate % above which the entry is flagged as anomaly (was 5). */
+    /** Affal rate % above which the entry is critical (was 5 before 2026-10). */
     scrapAnomalyPercent: number;
     /** Absolute scrap quantity above which today's scrap is critical (was 50). */
     scrapCriticalQuantity: number;
@@ -26,8 +27,8 @@ export interface ProductionAlertThresholds {
 
 export const DEFAULT_PRODUCTION_ALERT_THRESHOLDS: Readonly<ProductionAlertThresholds> =
     Object.freeze({
-        scrapWarningPercent: 2,
-        scrapAnomalyPercent: 5,
+        scrapWarningPercent: 10,
+        scrapAnomalyPercent: 15,
         scrapCriticalQuantity: 50,
         downtimeCriticalMinutes: 30,
         lowThroughputPerHour: 50,
@@ -118,4 +119,21 @@ export function isLowThroughput(
     unitsPerHour: number,
 ): boolean {
     return unitsPerHour < thresholds.lowThroughputPerHour;
+}
+
+export type AffalLevel = 'NONE' | 'OK' | 'WARNING' | 'CRITICAL';
+
+/**
+ * Severity of an affal share (%) against the tenant thresholds. Red (CRITICAL)
+ * is reserved for values strictly above the written critical threshold;
+ * NONE means the share could not be computed (no output and no affal).
+ */
+export function classifyAffalLevel(
+    thresholds: ProductionAlertThresholds,
+    affalPercent: number | null,
+): AffalLevel {
+    if (affalPercent === null) return 'NONE';
+    if (isScrapAnomaly(thresholds, affalPercent)) return 'CRITICAL';
+    if (isScrapWarning(thresholds, affalPercent)) return 'WARNING';
+    return 'OK';
 }

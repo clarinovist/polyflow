@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { DEFAULT_PRODUCTION_ALERT_THRESHOLDS } from '@/lib/production/alert-thresholds';
 import type { MachineTotals } from '@/services/production/production-daily-report-service';
 import {
     PROCESS_LABEL,
     dayName,
     fmt,
+    affalLevelClass,
     affalPercent,
     machineDisplayName,
     machineTypeLabel,
@@ -11,6 +13,7 @@ import {
     recentMonthOptions,
     sanitizeBusinessDateParam,
     worstAffalShare,
+    worstProcessAffalLevel,
 } from './shared';
 
 const mt = (
@@ -162,3 +165,67 @@ describe('sanitizeBusinessDateParam', () => {
         expect(sanitizeBusinessDateParam('2026-13-01')).toBeNull();
     });
 });
+
+describe('affalLevelClass', () => {
+    it('is red only for CRITICAL', () => {
+        expect(affalLevelClass('CRITICAL')).toContain('text-destructive');
+        expect(affalLevelClass('WARNING')).not.toContain('text-destructive');
+        expect(affalLevelClass('OK')).not.toContain('text-destructive');
+        expect(affalLevelClass('NONE')).not.toContain('text-destructive');
+    });
+
+    it('marks WARNING amber and leaves OK/NONE neutral', () => {
+        expect(affalLevelClass('WARNING')).toContain('amber');
+        expect(affalLevelClass('OK')).toBe('text-foreground');
+        expect(affalLevelClass('NONE')).toBe('text-muted-foreground');
+    });
+});
+
+describe('worstProcessAffalLevel', () => {
+    const th = DEFAULT_PRODUCTION_ALERT_THRESHOLDS;
+    const empty = { produced: 0, scrap: 0, entries: 0 };
+    const day = (
+        over: Partial<Record<'MIXING' | 'EXTRUSION' | 'PACKING' | 'OTHER', typeof empty>>,
+    ) => ({
+        MIXING: empty,
+        EXTRUSION: empty,
+        PACKING: empty,
+        OTHER: empty,
+        ...over,
+    });
+
+    it('is NONE when no process has output or affal', () => {
+        expect(worstProcessAffalLevel(th, day({}))).toBe('NONE');
+    });
+
+    it('is OK when every process is within the warning threshold', () => {
+        expect(
+            worstProcessAffalLevel(
+                th,
+                day({
+                    EXTRUSION: { produced: 950, scrap: 50, entries: 3 },
+                }),
+            ),
+        ).toBe('OK');
+    });
+
+    it('takes the worst process, never a cross-process share', () => {
+        // Packing 17.5% (critical) must not be diluted by large Extrusion output.
+        expect(
+            worstProcessAffalLevel(
+                th,
+                day({
+                    EXTRUSION: { produced: 100000, scrap: 100, entries: 9 },
+                    PACKING: { produced: 825, scrap: 175, entries: 2 },
+                }),
+            ),
+        ).toBe('CRITICAL');
+        expect(
+            worstProcessAffalLevel(
+                th,
+                day({ PACKING: { produced: 880, scrap: 120, entries: 2 } }),
+            ),
+        ).toBe('WARNING');
+    });
+});
+

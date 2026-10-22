@@ -23,22 +23,71 @@ import {
     Boxes,
     PackageOpen,
     ArrowRightLeft,
-    TrendingDown,
     ClipboardCheck,
 } from 'lucide-react';
+import {
+    LOW_STOCK_THRESHOLD_KG,
+    STOCK_LEVEL_LABEL,
+    classifyStockLevel,
+    countStockLevels,
+    type StockLevel,
+} from '@/lib/production/stock-level';
+import { formatQuantity } from '@/lib/utils/utils';
 import AcknowledgeHandoverButton from '@/components/production/AcknowledgeHandoverButton';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
+/** Items still in stock come first; depleted ones are grouped at the end. */
+const STOCK_LEVEL_ORDER: Record<StockLevel, number> = {
+    LOW: 0,
+    OK: 1,
+    DEPLETED: 2,
+};
+
+function StockLevelBadge({ level }: { level: StockLevel }) {
+    if (level === 'DEPLETED') {
+        return (
+            <Badge variant="destructive" className="text-[10px]">
+                {STOCK_LEVEL_LABEL.DEPLETED}
+            </Badge>
+        );
+    }
+    if (level === 'LOW') {
+        return (
+            <Badge
+                variant="outline"
+                className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-900/20 text-[10px]"
+            >
+                {STOCK_LEVEL_LABEL.LOW}
+            </Badge>
+        );
+    }
+    return (
+        <Badge
+            variant="outline"
+            className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 text-[10px]"
+        >
+            {STOCK_LEVEL_LABEL.OK}
+        </Badge>
+    );
+}
+
 export default async function ProductionInventoryPage() {
     // 1. Fetch Current Floor Stock (Mixing Area)
     const inventoryRes = await getInventoryList();
     const allInventory =
         inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
-    const floorInventory = allInventory.filter(
-        (item) => item.location?.slug === WAREHOUSE_SLUGS.MIXING,
+    const floorInventory = allInventory
+        .filter((item) => item.location?.slug === WAREHOUSE_SLUGS.MIXING)
+        .map((item) => ({
+            item,
+            level: classifyStockLevel(Number(item.quantity)),
+        }))
+        .sort((a, b) => STOCK_LEVEL_ORDER[a.level] - STOCK_LEVEL_ORDER[b.level]);
+    const levelCounts = countStockLevels(
+        floorInventory.map(({ item }) => Number(item.quantity)),
     );
 
     // 2. Fetch Recent Handover Activity (Recent Transfers to Mixing Area)
@@ -87,7 +136,14 @@ export default async function ProductionInventoryPage() {
                             Mixing Area Inventory
                         </CardTitle>
                         <CardDescription>
-                            Available materials ready for the machines.
+                            Bahan di Area Mixing yang siap dipakai mesin.{' '}
+                            {STOCK_LEVEL_LABEL.DEPLETED} {levelCounts.DEPLETED}
+                            {' · '}
+                            {STOCK_LEVEL_LABEL.LOW} {levelCounts.LOW}
+                            {' · '}
+                            {STOCK_LEVEL_LABEL.OK} {levelCounts.OK}. Menipis
+                            berarti di bawah {formatQuantity(LOW_STOCK_THRESHOLD_KG)}{' '}
+                            kg.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -116,7 +172,7 @@ export default async function ProductionInventoryPage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    floorInventory.map((item) => (
+                                    floorInventory.map(({ item, level }) => (
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                 <div className="font-medium">
@@ -133,9 +189,9 @@ export default async function ProductionInventoryPage() {
                                                 {item.productVariant.skuCode}
                                             </TableCell>
                                             <TableCell className="text-right font-bold">
-                                                {Number(
-                                                    item.quantity,
-                                                ).toLocaleString()}{' '}
+                                                {formatQuantity(
+                                                    Number(item.quantity),
+                                                )}{' '}
                                                 <span className="text-[10px] font-normal text-muted-foreground">
                                                     {
                                                         item.productVariant
@@ -144,21 +200,7 @@ export default async function ProductionInventoryPage() {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {Number(item.quantity) < 100 ? (
-                                                    <Badge
-                                                        variant="destructive"
-                                                        className="text-[10px]"
-                                                    >
-                                                        Restock Soon
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 text-[10px]"
-                                                    >
-                                                        Ready
-                                                    </Badge>
-                                                )}
+                                                <StockLevelBadge level={level} />
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -267,29 +309,6 @@ export default async function ProductionInventoryPage() {
                                 >
                                     View All Activity
                                 </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Floor Scrap Summary */}
-                    <Card className="bg-slate-50 dark:bg-slate-900 border-dashed">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <TrendingDown className="h-4 w-4 text-red-500" />
-                                Scrap Floor Control
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-xs text-muted-foreground">
-                                Jangan biarkan afval menumpuk di area mixing.
-                            </p>
-                            <div className="mt-4 flex items-center justify-between">
-                                <span className="text-xs font-semibold">
-                                    Today&apos;s Scrap:
-                                </span>
-                                <span className="text-sm font-bold text-red-600 dark:text-red-400">
-                                    12.4 KG
-                                </span>
                             </div>
                         </CardContent>
                     </Card>

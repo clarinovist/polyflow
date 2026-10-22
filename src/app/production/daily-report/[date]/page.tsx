@@ -7,6 +7,12 @@ import {
     type MachineTotals,
 } from '@/services/production/production-daily-report-service';
 import { PROCESS_KEYS } from '@/lib/production/process-keys';
+import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
+import {
+    DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
+    classifyAffalLevel,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
@@ -20,6 +26,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
 import {
+    affalLevelClass,
     affalPercent,
     dayName,
     fmt,
@@ -44,7 +51,13 @@ export default async function ProductionDailyDetailPage({ params }: PageProps) {
         notFound();
     }
 
-    const detail = await getDetail(date);
+    const [detail, thresholdsResult] = await Promise.all([
+        getDetail(date),
+        getProductionAlertThresholdsForPage(),
+    ]);
+    const thresholds: ProductionAlertThresholds = thresholdsResult.success
+        ? thresholdsResult.data
+        : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
 
     const now = new Date();
     const todayStr = toBusinessDateString(now);
@@ -137,6 +150,7 @@ export default async function ProductionDailyDetailPage({ params }: PageProps) {
                                                 <MachineRow
                                                     key={`${m.machineName ?? 'none'}-${i}`}
                                                     machine={m}
+                                                    thresholds={thresholds}
                                                 />
                                             ))}
                                         </TableBody>
@@ -198,7 +212,13 @@ export default async function ProductionDailyDetailPage({ params }: PageProps) {
     );
 }
 
-function MachineRow({ machine: m }: { machine: MachineTotals }) {
+function MachineRow({
+    machine: m,
+    thresholds,
+}: {
+    machine: MachineTotals;
+    thresholds: ProductionAlertThresholds;
+}) {
     const pct = affalPercent(m.produced, m.scrap);
     return (
         <TableRow className="hover:bg-zinc-50/55 dark:hover:bg-zinc-900/30">
@@ -213,19 +233,17 @@ function MachineRow({ machine: m }: { machine: MachineTotals }) {
             <TableCell className="text-right text-sm text-foreground tabular-nums">
                 {fmt(m.produced)}
             </TableCell>
-            <TableCell className="text-right text-sm text-destructive tabular-nums">
-                {m.scrap > 0 ? fmt(m.scrap) : '-'}
+            <TableCell className="text-right text-sm text-foreground tabular-nums">
+                {m.scrap > 0 ? fmt(m.scrap) : '—'}
             </TableCell>
             <TableCell className="text-right text-sm tabular-nums">
                 {pct === null ? (
-                    <span className="text-muted-foreground">-</span>
+                    <span className="text-muted-foreground">—</span>
                 ) : (
                     <span
-                        className={
-                            pct >= 20
-                                ? 'text-destructive font-medium'
-                                : 'text-foreground'
-                        }
+                        className={affalLevelClass(
+                            classifyAffalLevel(thresholds, pct),
+                        )}
                     >
                         {pct.toLocaleString('id-ID', {
                             maximumFractionDigits: 1,

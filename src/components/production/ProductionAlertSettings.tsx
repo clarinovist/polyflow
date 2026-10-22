@@ -32,21 +32,21 @@ interface ThresholdField {
 const FIELDS: ThresholdField[] = [
     {
         key: 'scrapWarningPercent',
-        label: 'Scrap Warning',
+        label: 'Affal Waspada',
         unit: '%',
-        helper: 'Scrap rate di atas nilai ini ditandai warning.',
+        helper: '% affal di atas nilai ini ditandai waspada (kuning).',
     },
     {
         key: 'scrapAnomalyPercent',
-        label: 'Scrap Anomali',
+        label: 'Affal Kritis',
         unit: '%',
-        helper: 'Scrap rate di atas nilai ini ditandai anomali.',
+        helper: '% affal di atas nilai ini ditandai kritis (merah).',
     },
     {
         key: 'scrapCriticalQuantity',
-        label: 'Scrap Kritis',
+        label: 'Affal Harian Kritis',
         unit: 'unit',
-        helper: 'Jumlah scrap harian di atas nilai ini dianggap kritis.',
+        helper: 'Jumlah affal harian di atas nilai ini dianggap kritis.',
     },
     {
         key: 'downtimeCriticalMinutes',
@@ -142,7 +142,7 @@ export function ProductionAlertSettings() {
                                 Pengaturan Alert Produksi
                             </CardTitle>
                             <CardDescription>
-                                Ambang batas alert scrap, downtime, dan throughput.
+                                Ambang peringatan affal, waktu henti, dan throughput.
                                 Berlaku untuk tenant ini.
                             </CardDescription>
                         </div>

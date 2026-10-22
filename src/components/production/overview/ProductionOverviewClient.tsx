@@ -135,7 +135,7 @@ const PROCESS_COLOR: Record<ProcessKey, string> = {
 
 const PROCESS_LABEL: Record<ProcessKey, string> = {
     MIXING: 'Mixing',
-    EXTRUSION: 'Extru',
+    EXTRUSION: 'Ekstrusi',
     PACKING: 'Packing',
     OTHER: 'Lainnya',
 };

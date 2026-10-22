@@ -27,7 +27,7 @@ export const warehouseLabels = {
     // Dual-path material ownership (Path A = gudang RM/FG)
     pathATitle: 'Jalur Gudang (bahan baku & barang jadi)',
     pathAHelp:
-        'Gudang mengeluarkan RM ke Mixing, catat pelembab/additive ad-hoc dari gudang RM, serta kelola FG & kirim. Pergerakan WIP antar mesin (Mixing→Extru→Packing) dikerjakan produksi di lantai, bukan pengajuan gudang RM.',
+        'Gudang mengeluarkan RM ke Mixing, catat pelembab/additive ad-hoc dari gudang RM, serta kelola FG & kirim. Pergerakan WIP antar mesin (Mixing→Ekstrusi→Packing) dikerjakan produksi di lantai, bukan pengajuan gudang RM.',
     warehouseActions: 'Aksi gudang',
     openActiveSpkQueue: 'Antrean SPK aktif',
     filterAll: 'Semua',

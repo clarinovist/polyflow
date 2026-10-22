@@ -8,6 +8,12 @@ import { toBusinessDateString } from '@/lib/utils/timezone';
 import type { MachineTotals } from '@/services/production/production-daily-report-service';
 import type { ProcessKey } from '@/lib/production/process-keys';
 import { affalPercent } from '@/lib/production/affal';
+import {
+    classifyAffalLevel,
+    type AffalLevel,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
+import type { DailyProcessTotals } from '@/services/production/production-daily-report-service';
 
 export { affalPercent };
 
@@ -26,6 +32,48 @@ export function dayName(dateStr: string): string {
 }
 
 export const fmt = (n: number) => n.toLocaleString('id-ID');
+
+const AFFAL_LEVEL_SEVERITY: Record<AffalLevel, number> = {
+    NONE: 0,
+    OK: 1,
+    WARNING: 2,
+    CRITICAL: 3,
+};
+
+/**
+ * The worst affal level among the processes of one day. Each process is
+ * judged on its own share — units differ per process, so no cross-process %.
+ */
+export function worstProcessAffalLevel(
+    thresholds: ProductionAlertThresholds,
+    byProcess: Record<ProcessKey, DailyProcessTotals>,
+): AffalLevel {
+    let worst: AffalLevel = 'NONE';
+    for (const totals of Object.values(byProcess)) {
+        const level = classifyAffalLevel(
+            thresholds,
+            affalPercent(totals.produced, totals.scrap),
+        );
+        if (AFFAL_LEVEL_SEVERITY[level] > AFFAL_LEVEL_SEVERITY[worst]) {
+            worst = level;
+        }
+    }
+    return worst;
+}
+
+/** Text color for an affal share; red is reserved for CRITICAL (above threshold). */
+export function affalLevelClass(level: AffalLevel): string {
+    switch (level) {
+        case 'CRITICAL':
+            return 'text-destructive font-medium';
+        case 'WARNING':
+            return 'text-amber-600 dark:text-amber-400 font-medium';
+        case 'NONE':
+            return 'text-muted-foreground';
+        default:
+            return 'text-foreground';
+    }
+}
 
 /**
  * The worst affal share among named machines — the HIGHEST % affal (most

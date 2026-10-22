@@ -5,6 +5,12 @@ import {
     type MachineTotals,
 } from '@/services/production/production-daily-report-service';
 import { PROCESS_KEYS } from '@/lib/production/process-keys';
+import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
+import {
+    DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
+    classifyAffalLevel,
+    type ProductionAlertThresholds,
+} from '@/lib/production/alert-thresholds';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
@@ -16,7 +22,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-    AlertTriangle,
     Boxes,
     Cog,
     Layers,
@@ -29,6 +34,7 @@ import {
     MACHINE_RECAP_ALL,
 } from './MachineRecapFilter';
 import {
+    affalLevelClass,
     affalPercent,
     dayName,
     fmt,
@@ -39,6 +45,7 @@ import {
     recentMonthOptions,
     sanitizeBusinessDateParam,
     worstAffalShare,
+    worstProcessAffalLevel,
 } from './shared';
 
 export const dynamic = 'force-dynamic';
@@ -107,10 +114,14 @@ export default async function ProductionDailyReportPage({
     const { from, to } = resolvePeriodParams({ ...params, now });
     const recapMonth = resolveRecapMonth(params.mesin, now);
 
-    const [report, recap] = await Promise.all([
+    const [report, recap, thresholdsResult] = await Promise.all([
         getReport(from, to),
         getRecap(recapMonth),
+        getProductionAlertThresholdsForPage(),
     ]);
+    const thresholds: ProductionAlertThresholds = thresholdsResult.success
+        ? thresholdsResult.data
+        : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
     const { rows, periodTotals } = report;
     const { machineTotals, month: recapApplied } = recap;
 
@@ -140,9 +151,6 @@ export default async function ProductionDailyReportPage({
             accent: 'bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400',
         },
     ];
-
-    const totalScrap = rows.reduce((s, r) => s + r.totalScrap, 0);
-    const totalEntries = rows.reduce((s, r) => s + r.totalEntries, 0);
 
     const rowBadge = (row: { date: string }) => {
         if (row.date === todayStr)
@@ -190,7 +198,7 @@ export default async function ProductionDailyReportPage({
                 />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {kpis.map((kpi) => {
                     const totals = periodTotals[kpi.key];
                     const Icon = kpi.icon;
@@ -211,6 +219,28 @@ export default async function ProductionDailyReportPage({
                                         <p className="text-[11px] text-muted-foreground mt-1">
                                             {totals.entries} entri
                                         </p>
+                                        <p
+                                            className={`text-[11px] mt-1 tabular-nums ${affalLevelClass(
+                                                classifyAffalLevel(
+                                                    thresholds,
+                                                    affalPercent(
+                                                        totals.produced,
+                                                        totals.scrap,
+                                                    ),
+                                                ),
+                                            )}`}
+                                        >
+                                            {totals.scrap > 0
+                                                ? `Affal ${fmt(totals.scrap)} · ${(
+                                                      affalPercent(
+                                                          totals.produced,
+                                                          totals.scrap,
+                                                      ) ?? 0
+                                                  ).toLocaleString('id-ID', {
+                                                      maximumFractionDigits: 1,
+                                                  })}%`
+                                                : 'Affal —'}
+                                        </p>
                                     </div>
                                     <div
                                         className={`p-3 rounded-xl ${kpi.accent}`}
@@ -222,26 +252,6 @@ export default async function ProductionDailyReportPage({
                         </Card>
                     );
                 })}
-                <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">
-                                    Scrap
-                                </p>
-                                <h3 className="text-2xl font-bold text-destructive mt-1 tabular-nums">
-                                    {fmt(totalScrap)}
-                                </h3>
-                                <p className="text-[11px] text-muted-foreground mt-1">
-                                    {totalEntries} entri total
-                                </p>
-                            </div>
-                            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400">
-                                <AlertTriangle className="h-6 w-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
 
             <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
@@ -271,7 +281,7 @@ export default async function ProductionDailyReportPage({
                                         Lainnya
                                     </TableHead>
                                     <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
-                                        Scrap
+                                        Affal
                                     </TableHead>
                                     <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">
                                         Entri
@@ -325,10 +335,17 @@ export default async function ProductionDailyReportPage({
                                                     )}
                                                 </TableCell>
                                             ))}
-                                            <TableCell className="text-right text-sm text-destructive tabular-nums">
+                                            <TableCell
+                                                className={`text-right text-sm tabular-nums ${affalLevelClass(
+                                                    worstProcessAffalLevel(
+                                                        thresholds,
+                                                        row.byProcess,
+                                                    ),
+                                                )}`}
+                                            >
                                                 {row.totalScrap > 0
                                                     ? fmt(row.totalScrap)
-                                                    : '-'}
+                                                    : '—'}
                                             </TableCell>
                                             <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
                                                 {row.totalEntries}
@@ -340,9 +357,13 @@ export default async function ProductionDailyReportPage({
                         </Table>
                     </div>
                     <p className="text-xs text-muted-foreground mt-3">
-                        Angka = hasil bersih (quantity produced, tanpa scrap)
-                        per proses, satuan mengikuti output masing-masing BOM
-                        (kg / karung / pcs) — tidak dijumlah antar-kolom.
+                        Angka = hasil bersih (tanpa affal) per proses, satuan
+                        mengikuti output masing-masing BOM (kg / karung / pcs)
+                        — tidak dijumlah antar-kolom. Kolom Affal berwarna
+                        hanya bila % affal salah satu proses hari itu melewati
+                        ambang ({thresholds.scrapWarningPercent}% waspada,{' '}
+                        {thresholds.scrapAnomalyPercent}% kritis; diatur per
+                        tenant).
                         Klik tanggal untuk melihat pecahan per mesin hari itu.
                         Sumber data sama dengan papan &quot;Hari Ini&quot;:
                         entri hasil produksi yang tidak dibatalkan, hari WIB.
@@ -376,6 +397,7 @@ export default async function ProductionDailyReportPage({
                                     </h3>
                                     <MachineTable
                                         machines={machines}
+                                        thresholds={thresholds}
                                         highlightWorstAffalShare={
                                             key === 'EXTRUSION'
                                         }
@@ -403,9 +425,11 @@ export default async function ProductionDailyReportPage({
 
 function MachineTable({
     machines,
+    thresholds,
     highlightWorstAffalShare = false,
 }: {
     machines: MachineTotals[];
+    thresholds: ProductionAlertThresholds;
     /** Badge the highest affal share among named machines (≥ 2 to compare). */
     highlightWorstAffalShare?: boolean;
 }) {
@@ -466,21 +490,22 @@ function MachineTable({
                                 <TableCell className="text-right text-sm text-foreground tabular-nums">
                                     {fmt(m.produced)}
                                 </TableCell>
-                                <TableCell className="text-right text-sm text-destructive tabular-nums">
-                                    {m.scrap > 0 ? fmt(m.scrap) : '-'}
+                                <TableCell className="text-right text-sm text-foreground tabular-nums">
+                                    {m.scrap > 0 ? fmt(m.scrap) : '—'}
                                 </TableCell>
                                 <TableCell className="text-right text-sm tabular-nums">
                                     {pct === null ? (
                                         <span className="text-muted-foreground">
-                                            -
+                                            —
                                         </span>
                                     ) : (
                                         <span
-                                            className={
-                                                pct >= 20
-                                                    ? 'text-destructive font-medium'
-                                                    : 'text-foreground'
-                                            }
+                                            className={affalLevelClass(
+                                                classifyAffalLevel(
+                                                    thresholds,
+                                                    pct,
+                                                ),
+                                            )}
                                         >
                                             {pct.toLocaleString('id-ID', {
                                                 maximumFractionDigits: 1,

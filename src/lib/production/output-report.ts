@@ -6,7 +6,7 @@ export const UNASSIGNED = 'unassigned';
 export const REPORT_PAGE_SIZE = 50;
 export const PROCESS_LABELS: Record<ProcessKey, string> = {
     MIXING: 'Mixing',
-    EXTRUSION: 'Extru',
+    EXTRUSION: 'Ekstrusi',
     PACKING: 'Packing',
     OTHER: 'Lainnya',
 };

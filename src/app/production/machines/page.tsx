@@ -213,7 +213,7 @@ export default async function ProductionMachinesPage() {
                                                     #{activeOrder.orderNumber}
                                                 </span>
                                             </div>
-                                            <p className="text-xs font-black text-white truncate mb-1">
+                                            <p className="text-xs font-black text-foreground truncate mb-1">
                                                 {
                                                     activeOrder.bom
                                                         .productVariant.name
@@ -282,12 +282,12 @@ export default async function ProductionMachinesPage() {
                                 ) : assignedOrder ? (
                                     /* Case 2: Order assigned but no active execution */
                                     <div className="space-y-3">
-                                        <div className="p-3 rounded-lg bg-amber-950/50 dark:bg-amber-950/30 border border-amber-800/50 shadow-inner">
+                                        <div className="p-3 rounded-lg bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-300 dark:border-zinc-700 shadow-inner">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-1.5 leading-none">
-                                                    <PauseCircle className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
-                                                    <span className="text-[9px] uppercase font-black tracking-widest text-amber-500 dark:text-amber-400">
-                                                        Tanpa Eksekusi
+                                                    <PauseCircle className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                                                    <span className="text-[9px] uppercase font-black tracking-widest text-zinc-600 dark:text-zinc-300">
+                                                        Belum dimulai
                                                     </span>
                                                 </div>
                                                 <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 font-bold">
@@ -300,9 +300,9 @@ export default async function ProductionMachinesPage() {
                                                         .productVariant.name
                                                 }
                                             </p>
-                                            <p className="text-[9px] text-amber-400/80 mt-1">
-                                                Order aktif — eksekusi belum
-                                                dimulai atau sudah selesai
+                                            <p className="text-[9px] text-muted-foreground mt-1">
+                                                SPK sudah dialokasikan, sesi
+                                                produksi belum dimulai
                                             </p>
 
                                             {assignedShift ? (
