@@ -1279,7 +1279,11 @@ export async function confirmOrder(
                     variantNameMap.get(s.productVariantId) ||
                     s.productVariantId,
             ),
-            message: `Kekurangan stok masuk antrian produksi (Permintaan Barang Jadi). Buka Production → Permintaan Barang Jadi untuk membuat SPK.`,
+            message: `Kekurangan stok masuk antrian produksi (Permintaan Barang Jadi). Buka Production → Permintaan Barang Jadi untuk membuat SPK.${
+                order.expectedDate
+                    ? ''
+                    : ' Isi tanggal jatuh tempo SO agar prioritas produksinya bisa dihitung.'
+            }`,
         });
     }
 

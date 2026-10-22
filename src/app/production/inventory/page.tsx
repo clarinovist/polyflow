@@ -28,7 +28,7 @@ import {
 import {
     LOW_STOCK_THRESHOLD_KG,
     STOCK_LEVEL_LABEL,
-    classifyStockLevel,
+    classifyStockRow,
     countStockLevels,
     type StockLevel,
 } from '@/lib/production/stock-level';
@@ -83,11 +83,16 @@ export default async function ProductionInventoryPage() {
         .filter((item) => item.location?.slug === WAREHOUSE_SLUGS.MIXING)
         .map((item) => ({
             item,
-            level: classifyStockLevel(Number(item.quantity)),
+            level: classifyStockRow({
+                quantity: Number(item.quantity),
+                minStockAlert: item.productVariant.minStockAlert,
+            }),
         }))
-        .sort((a, b) => STOCK_LEVEL_ORDER[a.level] - STOCK_LEVEL_ORDER[b.level]);
+        .sort(
+            (a, b) => STOCK_LEVEL_ORDER[a.level] - STOCK_LEVEL_ORDER[b.level],
+        );
     const levelCounts = countStockLevels(
-        floorInventory.map(({ item }) => Number(item.quantity)),
+        floorInventory.map(({ level }) => level),
     );
 
     // 2. Fetch Recent Handover Activity (Recent Transfers to Mixing Area)
@@ -142,8 +147,9 @@ export default async function ProductionInventoryPage() {
                             {STOCK_LEVEL_LABEL.LOW} {levelCounts.LOW}
                             {' · '}
                             {STOCK_LEVEL_LABEL.OK} {levelCounts.OK}. Menipis
-                            berarti di bawah {formatQuantity(LOW_STOCK_THRESHOLD_KG)}{' '}
-                            kg.
+                            berarti di bawah stok minimum produk; bila belum
+                            diisi, di bawah{' '}
+                            {formatQuantity(LOW_STOCK_THRESHOLD_KG)} kg.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -200,7 +206,9 @@ export default async function ProductionInventoryPage() {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <StockLevelBadge level={level} />
+                                                <StockLevelBadge
+                                                    level={level}
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     ))

@@ -34,8 +34,8 @@ export interface FgDemandRow {
     uncoveredNeed: number;
     /** Earliest expectedDate from open SOs with residual > 0 */
     earliestDue: Date | null;
-    /** Urgency signal based on days to due */
-    urgencyHint: 'URGENT' | 'NORMAL' | 'LOW';
+    /** Urgency signal based on days to due; NO_DUE = no SO has a due date, so none can be computed */
+    urgencyHint: 'URGENT' | 'NORMAL' | 'LOW' | 'NO_DUE';
     /** Number of open SPKs for this variant */
     openSpkCount: number;
     /** Total planned qty across open SPKs */
@@ -240,8 +240,10 @@ export async function listFgDemandBoard(
 
     // 5. Compute urgency hint
     const now = new Date();
-    const computeUrgency = (due: Date | null): 'URGENT' | 'NORMAL' | 'LOW' => {
-        if (!due) return 'NORMAL';
+    const computeUrgency = (
+        due: Date | null,
+    ): FgDemandRow['urgencyHint'] => {
+        if (!due) return 'NO_DUE';
         const daysToDue = Math.ceil(
             (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
         );
@@ -302,8 +304,14 @@ export async function listFgDemandBoard(
         });
     }
 
-    // 7. Sort: URGENT first, then by earliest due (nulls last), then need desc
-    const urgencyOrder = { URGENT: 0, NORMAL: 1, LOW: 2 };
+    // 7. Sort: URGENT first, then by earliest due (nulls last), then need desc.
+    // NO_DUE sits before LOW: an unknown due date may still be urgent.
+    const urgencyOrder: Record<FgDemandRow['urgencyHint'], number> = {
+        URGENT: 0,
+        NORMAL: 1,
+        NO_DUE: 2,
+        LOW: 3,
+    };
     rows.sort((a, b) => {
         const uDiff = urgencyOrder[a.urgencyHint] - urgencyOrder[b.urgencyHint];
         if (uDiff !== 0) return uDiff;

@@ -41,7 +41,7 @@ interface FgDemandRow {
     openSpkPlanned: number;
     uncoveredNeed: number;
     earliestDue: string | null;
-    urgencyHint: 'URGENT' | 'NORMAL' | 'LOW';
+    urgencyHint: 'URGENT' | 'NORMAL' | 'LOW' | 'NO_DUE';
     openSpkCount: number;
     openSpkTotalQty: number;
     sourceSoItems: {
@@ -97,6 +97,15 @@ const urgencyBadge = (urgency: string) => {
                     🟡 Normal
                 </Badge>
             );
+        case 'NO_DUE':
+            return (
+                <Badge
+                    variant="outline"
+                    className="bg-muted text-muted-foreground text-[10px] py-0 h-5"
+                >
+                    Tanpa due date
+                </Badge>
+            );
         case 'LOW':
             return (
                 <Badge
@@ -148,6 +157,7 @@ export function ProductionRequestsClient({
         setSourceDialogOpen(true);
     };
 
+    const noDueCount = rows.filter((r) => r.urgencyHint === 'NO_DUE').length;
     const totalNeed = filtered.reduce((sum, r) => sum + r.needToMake, 0);
     const totalUncovered = filtered.reduce(
         (sum, r) => sum + r.uncoveredNeed,
@@ -171,6 +181,14 @@ export function ProductionRequestsClient({
                     </div>
                 </CardHeader>
                 <CardContent>
+                    {noDueCount > 0 && (
+                        <p className="mb-4 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                            {noDueCount} dari {rows.length} permintaan belum
+                            punya tanggal jatuh tempo, sehingga prioritasnya
+                            belum bisa dihitung dan urutan hanya berdasarkan
+                            volume. Isi tanggal jatuh tempo di Sales Order.
+                        </p>
+                    )}
                     {/* Filters */}
                     <div className="flex flex-wrap items-center gap-3 mb-4">
                         <div className="relative flex-1 max-w-sm">

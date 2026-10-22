@@ -3,7 +3,9 @@ import {
     LOW_STOCK_THRESHOLD_KG,
     STOCK_LEVEL_LABEL,
     classifyStockLevel,
+    classifyStockRow,
     countStockLevels,
+    resolveLowStockThreshold,
 } from '../stock-level';
 
 describe('classifyStockLevel', () => {
@@ -48,13 +50,47 @@ describe('STOCK_LEVEL_LABEL', () => {
     });
 });
 
+describe('resolveLowStockThreshold', () => {
+    it('uses the product minimum when it is a positive number', () => {
+        expect(resolveLowStockThreshold(100)).toBe(100);
+        expect(resolveLowStockThreshold('40.5000')).toBe(40.5);
+        expect(resolveLowStockThreshold({ toString: () => '60' })).toBe(60);
+    });
+
+    it('falls back to the 25 kg default when the minimum is not usable', () => {
+        expect(resolveLowStockThreshold(null)).toBe(LOW_STOCK_THRESHOLD_KG);
+        expect(resolveLowStockThreshold(undefined)).toBe(LOW_STOCK_THRESHOLD_KG);
+        expect(resolveLowStockThreshold(0)).toBe(LOW_STOCK_THRESHOLD_KG);
+        expect(resolveLowStockThreshold(-5)).toBe(LOW_STOCK_THRESHOLD_KG);
+        expect(resolveLowStockThreshold('abc')).toBe(LOW_STOCK_THRESHOLD_KG);
+    });
+});
+
+describe('classifyStockRow', () => {
+    it('judges each product against its own minimum', () => {
+        expect(classifyStockRow({ quantity: 60, minStockAlert: 100 })).toBe(
+            'LOW',
+        );
+        expect(classifyStockRow({ quantity: 60, minStockAlert: null })).toBe(
+            'OK',
+        );
+        expect(classifyStockRow({ quantity: 10, minStockAlert: null })).toBe(
+            'LOW',
+        );
+    });
+
+    it('is depleted at zero whatever the minimum is', () => {
+        expect(classifyStockRow({ quantity: 0, minStockAlert: 100 })).toBe(
+            'DEPLETED',
+        );
+    });
+});
+
 describe('countStockLevels', () => {
     it('counts rows per level', () => {
-        expect(countStockLevels([0, 0, 10, 24.99, 25, 300])).toEqual({
-            DEPLETED: 2,
-            LOW: 2,
-            OK: 2,
-        });
+        expect(
+            countStockLevels(['DEPLETED', 'DEPLETED', 'LOW', 'OK', 'OK', 'OK']),
+        ).toEqual({ DEPLETED: 2, LOW: 1, OK: 3 });
     });
 
     it('returns zeros for an empty list', () => {

@@ -431,6 +431,66 @@ describe("confirmOrder", () => {
     expect(result.warnings[0].message).toContain("Permintaan Barang Jadi");
   });
 
+  describe("due date reminder on queued FG demand", () => {
+    const queuedOrder = (expectedDate: Date | null) =>
+      ({
+        id: "so-1",
+        orderNumber: "SO-001",
+        status: SalesOrderStatus.DRAFT,
+        orderType: SalesOrderType.MAKE_TO_ORDER,
+        totalAmount: { toNumber: () => 100 } as never,
+        customerId: "cust-1",
+        sourceLocationId: "loc-1",
+        expectedDate,
+        items: [
+          {
+            id: "item-1",
+            productVariantId: "pv-1",
+            quantity: { toNumber: () => 10 } as never,
+            productVariant: { product: { productType: "PHYSICAL" } },
+          },
+        ],
+      }) as never;
+
+    const arrange = (expectedDate: Date | null) => {
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(
+        queuedOrder(expectedDate),
+      );
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+      vi.mocked(prisma.bom.findMany).mockResolvedValue([
+        { productVariantId: "pv-1" },
+      ] as never);
+    };
+
+    it("asks for a due date when the SO has none and the shortage is queued", async () => {
+      arrange(null);
+
+      const result = await confirmOrder("so-1", "user-1");
+
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].code).toBe("FG_DEMAND_QUEUED");
+      expect(result.warnings[0].message).toContain("tanggal jatuh tempo");
+    });
+
+    it("does not nag when the SO already has a due date", async () => {
+      arrange(new Date("2026-11-05T00:00:00.000Z"));
+
+      const result = await confirmOrder("so-1", "user-1");
+
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].message).not.toContain("tanggal jatuh tempo");
+    });
+
+    it("never blocks confirmation because the due date is missing", async () => {
+      arrange(null);
+
+      const result = await confirmOrder("so-1", "user-1");
+
+      expect(result.status).toBe(SalesOrderStatus.IN_PRODUCTION);
+    });
+  });
+
   it("shortage + has BOM + AUTO_CREATE_WO_ON_SO_CONFIRM=true → auto-create WO", async () => {
     const prev = process.env.AUTO_CREATE_WO_ON_SO_CONFIRM;
     process.env.AUTO_CREATE_WO_ON_SO_CONFIRM = "true";

@@ -454,7 +454,7 @@ describe("listFgDemandBoard", () => {
     expect(uncovered).toEqual([]);
   });
 
-  it("should handle no due date as NORMAL urgency", async () => {
+  it("should flag a missing due date as NO_DUE instead of NORMAL", async () => {
     vi.mocked(prisma.salesOrderItem.findMany).mockResolvedValue([
       {
         id: "soi-12",
@@ -484,7 +484,7 @@ describe("listFgDemandBoard", () => {
     const result = await listFgDemandBoard();
 
     expect(result).toHaveLength(1);
-    expect(result[0].urgencyHint).toBe("NORMAL");
+    expect(result[0].urgencyHint).toBe("NO_DUE");
     expect(result[0].earliestDue).toBeNull();
   });
 
@@ -818,4 +818,53 @@ describe("listFgDemandBoard", () => {
     expect(result[0].sourceSoItems[0].soId).toBe("so-multi");
     expect(result[0].sourceSoItems[1].soId).toBe("so-multi");
   });
+
+  it("should rank NO_DUE after dated NORMAL and before LOW, larger need first", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const soItem = (id: string, variantId: string, qty: number, due: Date | null) => ({
+      id: `soi-${id}`,
+      productVariantId: variantId,
+      quantity: dec(qty),
+      deliveredQty: dec(0),
+      salesOrder: {
+        id: `so-${id}`,
+        orderNumber: `SO-${id}`,
+        status: "CONFIRMED",
+        expectedDate: due,
+        customer: null,
+      },
+      productVariant: {
+        id: variantId,
+        name: variantId,
+        skuCode: variantId,
+        primaryUnit: "KG",
+        product: { name: "P" },
+      },
+    });
+
+    vi.mocked(prisma.salesOrderItem.findMany).mockResolvedValue([
+      soItem("low", "v-low", 900, new Date(Date.now() + 10 * day)),
+      soItem("nodue-small", "v-nodue-small", 100, null),
+      soItem("normal", "v-normal", 50, new Date(Date.now() + 5 * day)),
+      soItem("nodue-big", "v-nodue-big", 800, null),
+    ] as any);
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([]);
+
+    const result = await listFgDemandBoard();
+
+    expect(result.map((r) => r.productVariantId)).toEqual([
+      "v-normal",
+      "v-nodue-big",
+      "v-nodue-small",
+      "v-low",
+    ]);
+    expect(result.map((r) => r.urgencyHint)).toEqual([
+      "NORMAL",
+      "NO_DUE",
+      "NO_DUE",
+      "LOW",
+    ]);
+  });
 });
+
