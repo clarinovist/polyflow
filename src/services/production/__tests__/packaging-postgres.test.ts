@@ -29,8 +29,8 @@ async function seed(client: PrismaClient) {
     for (const id of ['base', 'brand-a', 'brand-b']) await client.productVariant.create({ data: { id, name: id, skuCode: `PKG-${id}`, productId: 'product', primaryUnit: 'KG' } });
     await client.productVariant.create({ data: { id: 'label', name: 'Synthetic label', skuCode: 'PKG-LABEL', productId: 'packaging', primaryUnit: 'PCS' } });
     await client.productVariant.create({ data: { id: 'film', name: 'Synthetic film', skuCode: 'PKG-FILM', productId: 'aux', primaryUnit: 'KG' } });
-    await client.location.create({ data: { id: 'own', name: 'Synthetic internal film', slug: 'synthetic-film' } });
-    await client.inventory.create({ data: { productVariantId: 'film', locationId: 'own', quantity: 5, averageCost: 2 } });
+    await client.location.create({ data: { id: 'film-stock', name: 'Synthetic internal film', slug: 'synthetic-film' } });
+    await client.inventory.create({ data: { productVariantId: 'film', locationId: 'film-stock', quantity: 5, averageCost: 0 } });
     for (const locationId of ['custody-a', 'custody-b']) await client.inventory.create({ data: { productVariantId: 'label', locationId, quantity: 100, averageCost: 0 } });
     await client.productionPackagingOption.createMany({ data: ['brand-a', 'brand-b'].map((id) => ({ baseVariantId: 'base', outputVariantId: id, labelVariantId: 'label' })) });
     await client.bom.create({ data: { id: 'bom', name: 'Synthetic core recipe', productVariantId: 'base', outputQuantity: 1 } });
@@ -70,9 +70,9 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
     it('consumes existing AUXILIARY film in fractional KG without double BOM consumption and snapshots its unit', async () => {
         await db!.bomItem.create({ data: { bomId: 'bom', productVariantId: 'film', quantity: 1 } });
         const input = payload();
-        input.packagedOutput.groups[0].packaging.push({ productVariantId: 'film', sourceLocationId: 'own', ownerCustomerId: null, unit: 'KG', quantity: 1.25 });
+        input.packagedOutput.groups[0].packaging.push({ productVariantId: 'film', sourceLocationId: 'film-stock', ownerCustomerId: null, unit: 'KG', quantity: 1.25 });
         await run(db!, () => ProductionExecutionService.addProductionOutput(input));
-        expect(Number((await db!.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: 'own', productVariantId: 'film' } } })).quantity)).toBe(3.75);
+        expect(Number((await db!.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: 'film-stock', productVariantId: 'film' } } })).quantity)).toBe(3.75);
         const filmOut = await db!.stockMovement.findMany({ where: { productVariantId: 'film', type: 'OUT' } });
         expect(filmOut).toHaveLength(1);
         expect(Number(filmOut[0].quantity)).toBe(1.25);
