@@ -30,6 +30,26 @@ describe('actual packaging consumption', () => {
         expect(db.stockMovement.create).toHaveBeenCalledWith({ data: expect.objectContaining({ productionExecutionId: 'exec', companyOwned: true, quantity: 10 }) });
         expect(AccountingService.recordInventoryMovement).toHaveBeenCalledOnce();
     });
+    it('consumes fractional AUXILIARY KG in stock units with no PCS conversion', async () => {
+        db.productVariant.findUniqueOrThrow.mockResolvedValue({ id: 'sack', primaryUnit: 'KG', archivedAt: null, product: { productType: 'AUXILIARY' } });
+        const result = await consumeActualPackaging(tx, 'exec', 'order', [{ ...row, unit: 'KG', quantity: 1.25 }]);
+        expect(InventoryCoreService.validateAndLockStock).toHaveBeenCalledWith(tx, 'stock', 'sack', 1.25, 'order');
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(tx, 'stock', 'sack', 1.25);
+        expect(result[0]).toMatchObject({ unit: 'KG', cost: d(3.75) });
+        expect(db.stockMovement.create).toHaveBeenCalledWith({ data: expect.objectContaining({ quantity: 1.25, cost: d(3) }) });
+    });
+    it('accepts existing AUXILIARY PCS labels', async () => {
+        db.productVariant.findUniqueOrThrow.mockResolvedValue({ id: 'sack', primaryUnit: 'PCS', archivedAt: null, product: { productType: 'AUXILIARY' } });
+        await consumeActualPackaging(tx, 'exec', 'order', [row]);
+        expect(InventoryCoreService.deductStock).toHaveBeenCalledWith(tx, 'stock', 'sack', 10);
+    });
+    it('rejects fractional PCS, stale units and old PCS requests against KG before stock mutation', async () => {
+        await expect(consumeActualPackaging(tx, 'exec', 'order', [{ ...row, quantity: 0.5 }])).rejects.toThrow();
+        await expect(consumeActualPackaging(tx, 'exec', 'order', [{ ...row, unit: 'KG' }])).rejects.toThrow();
+        db.productVariant.findUniqueOrThrow.mockResolvedValue({ id: 'sack', primaryUnit: 'KG', product: { productType: 'AUXILIARY' } });
+        await expect(consumeActualPackaging(tx, 'exec', 'order', [row])).rejects.toThrow();
+        expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+    });
     it('keeps custody quantity but forces zero value even if master/inventory has a price', async () => {
         db.location.findUniqueOrThrow.mockResolvedValue({ id: 'stock', locationType: 'CUSTOMER_OWNED', packagingOwnerCustomerId: 'a' });
         const result = await consumeActualPackaging(tx, 'exec', 'order', [{ ...row, ownerCustomerId: 'a' }]);

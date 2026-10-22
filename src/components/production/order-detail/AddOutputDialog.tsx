@@ -448,7 +448,7 @@ export function AddOutputDialog({
                                             groups: [{ productVariantId: variant.id, quantity: 0, packaging: [] }],
                                         } : undefined);
                                     }} />
-                                    Catat pemakaian etiket / karung aktual
+                                    Catat pemakaian plastik / etiket / karung aktual
                                 </label>
                                 {packagedOutput ? <PackagingOutputFields
                                     baseVariantId={variant.id} baseName={variant.name} unit={primaryUnit}

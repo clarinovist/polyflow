@@ -543,7 +543,7 @@ export function OrderOverviewTab({
                                                             )}
                                                         {exec.outputGroups?.map((group) => <div key={group.id} className="mt-2 space-y-1 text-xs">
                                                             <strong>{group.productVariant.name}: {Number(group.quantity).toLocaleString('id-ID')} {group.productVariant.primaryUnit}</strong>
-                                                            {group.packagingConsumptions.map((row) => <p key={row.id}>{row.productVariant.name}: {Number(row.quantity).toLocaleString('id-ID')} pcs/lembar · {row.movement.packagingOwnerCustomer ? `Titipan ${row.movement.packagingOwnerCustomer.name}` : 'Milik sendiri'}</p>)}
+                                                            {group.packagingConsumptions.map((row) => <p key={row.id}>{row.productVariant.name}: {Number(row.quantity).toLocaleString('id-ID', { maximumFractionDigits: 4 })} {row.unit === 'PCS' ? 'pcs/lembar' : row.unit} · {row.movement.packagingOwnerCustomer ? `Titipan ${row.movement.packagingOwnerCustomer.name}` : 'Milik sendiri'}</p>)}
                                                         </div>)}
                                                         {exec.status ===
                                                             'VOIDED' && (

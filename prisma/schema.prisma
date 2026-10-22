@@ -1317,6 +1317,8 @@ model ProductionPackagingConsumption {
   outputGroupId String
   productVariantId String
   quantity Decimal @db.Decimal(15, 4)
+  /// Stock-unit snapshot; existing consumption was exclusively PCS.
+  unit Unit @default(PCS)
   movementId String @unique
   execution ProductionExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
   outputGroup ProductionOutputGroup @relation(fields: [outputGroupId], references: [id], onDelete: Restrict)

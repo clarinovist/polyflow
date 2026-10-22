@@ -6,7 +6,13 @@ export const packagingConsumptionSchema = z.object({
     productVariantId: z.string().min(1),
     sourceLocationId: z.string().min(1),
     ownerCustomerId: z.string().min(1).nullable(),
-    quantity: z.number().int().positive().max(999999999),
+    // Missing unit is the original PCS contract, never an implicit KG conversion.
+    unit: z.enum(['KG', 'PCS']).optional(),
+    quantity,
+}).superRefine((row, ctx) => {
+    if ((row.unit ?? 'PCS') === 'PCS' && !Number.isInteger(row.quantity)) {
+        ctx.addIssue({ code: 'custom', message: 'Jumlah kemasan PCS/lembar harus bilangan bulat.', path: ['quantity'] });
+    }
 });
 
 export const packagedOutputSchema = z.object({

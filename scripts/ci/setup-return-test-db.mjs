@@ -93,6 +93,7 @@ const guards = [
     '20260923_factory_trip_distance',
     '20261007_invoice_date_correction',
     '20261021_production_actual_packaging',
+    '20261022_packaging_stock_units',
 ]
     .map(migration)
     .join('\n');

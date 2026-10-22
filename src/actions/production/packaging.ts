@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requirePlanningRole, requireProductionLeaderRole } from '@/lib/tools/auth-checks';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { packagingOptionSchema } from '@/lib/schemas/production-packaging';
+import { isPackagingMaterial, PACKAGING_MATERIAL_TYPES, PACKAGING_STOCK_UNITS } from '@/lib/production/packaging-material';
 import { logActivity } from '@/lib/tools/audit';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -20,17 +21,17 @@ export const getProductionPackagingOptions = withTenant(async function getProduc
                 orderBy: { outputVariant: { name: 'asc' } },
             }),
             prisma.inventory.findMany({ where: {
-                quantity: { gt: 0 }, productVariant: { archivedAt: null, primaryUnit: 'PCS', product: { productType: 'PACKAGING' } },
+                quantity: { gt: 0 }, productVariant: { archivedAt: null, primaryUnit: { in: PACKAGING_STOCK_UNITS }, product: { productType: { in: PACKAGING_MATERIAL_TYPES } } },
                 OR: [{ location: { locationType: 'INTERNAL' } }, { location: { packagingOwnerCustomerId: { not: null } } }],
             }, include: {
-                productVariant: { select: { id: true, name: true } },
+                productVariant: { select: { id: true, name: true, primaryUnit: true } },
                 location: { select: { id: true, name: true, packagingOwnerCustomerId: true, packagingOwnerCustomer: { select: { name: true } } } },
             }, orderBy: [{ productVariantId: 'asc' }, { locationId: 'asc' }] }),
         ]);
         return {
             options: options.map((option) => ({ id: option.outputVariantId, name: option.outputVariant.name, labelVariantId: option.labelVariantId })),
             stock: stock.map((row) => ({
-                id: row.id, productVariantId: row.productVariantId, name: row.productVariant.name,
+                id: row.id, productVariantId: row.productVariantId, name: row.productVariant.name, unit: row.productVariant.primaryUnit,
                 locationId: row.locationId, locationName: row.location.name,
                 ownerCustomerId: row.location.packagingOwnerCustomerId,
                 ownerName: row.location.packagingOwnerCustomer?.name ?? null,
@@ -54,7 +55,7 @@ export const createProductionPackagingOption = withTenant(async function createP
                 base.salesUnit !== output.salesUnit || !base.conversionFactor.equals(output.conversionFactor)) {
                 throw new BusinessRuleError('SKU hasil harus berada pada produk dasar yang sama dengan kontrak satuan identik.');
             }
-            if (label && (label.archivedAt || label.primaryUnit !== 'PCS' || label.product.productType !== 'PACKAGING')) {
+            if (label && (label.archivedAt || label.primaryUnit !== 'PCS' || !isPackagingMaterial(label.product.productType, label.primaryUnit))) {
                 throw new BusinessRuleError('Etiket harus merupakan kemasan aktif bersatuan PCS/lembar.');
             }
             const option = await tx.productionPackagingOption.create({ data });

@@ -19,6 +19,14 @@ describe('actual packaging contracts', () => {
     it.each([0, -1, 0.5, Infinity, NaN])('rejects invalid actual packaging count %s', (quantity) => {
         expect(packagedOutputSchema.safeParse({ ...payload, groups: [{ ...group, packaging: [{ ...row, quantity }] }] }).success).toBe(false);
     });
+    it('accepts explicit KG to four decimals but preserves the legacy whole PCS contract', () => {
+        const withRow = (changes: object) => ({ ...payload, groups: [{ ...group, packaging: [{ ...row, ...changes }] }] });
+        expect(packagedOutputSchema.safeParse(withRow({ unit: 'KG', quantity: 1.2345 })).success).toBe(true);
+        expect(packagedOutputSchema.safeParse(withRow({ unit: 'KG', quantity: 0.0001 })).success).toBe(true);
+        expect(packagedOutputSchema.safeParse(withRow({ unit: 'KG', quantity: 1.23456 })).success).toBe(false);
+        expect(packagedOutputSchema.safeParse(withRow({ unit: 'PCS', quantity: 1.25 })).success).toBe(false);
+        expect(packagedOutputSchema.safeParse(withRow({ unit: 'ROLL', quantity: 1 })).success).toBe(false);
+    });
     it('rejects duplicate source rows and inconsistent output totals', () => {
         expect(packagedOutputSchema.safeParse({ ...payload, groups: [{ ...group, packaging: [row, row] }] }).success).toBe(false);
         expect(() => assertPackagingGroupTotal([{ quantity: 0.1 }, { quantity: 0.2 }], 0.3)).not.toThrow();

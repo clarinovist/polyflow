@@ -1,7 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { BusinessRuleError } from '@/lib/errors/errors';
 import { assertPackagingSourceOwner } from '@/lib/production/packaging-policy';
-import type { PackagingConsumptionValues } from '@/lib/schemas/production-packaging';
+import { packagingConsumptionSchema, type PackagingConsumptionValues } from '@/lib/schemas/production-packaging';
+import { isPackagingMaterial } from '@/lib/production/packaging-material';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
 
@@ -14,13 +15,17 @@ export async function consumeActualPackaging(
     userId?: string,
 ) {
     const result = [];
-    for (const row of [...rows].sort((a, b) => `${a.sourceLocationId}:${a.productVariantId}`.localeCompare(`${b.sourceLocationId}:${b.productVariantId}`))) {
+    for (const input of [...rows].sort((a, b) => `${a.sourceLocationId}:${a.productVariantId}`.localeCompare(`${b.sourceLocationId}:${b.productVariantId}`))) {
+        const row = packagingConsumptionSchema.parse(input);
         const [source, variant] = await Promise.all([
             tx.location.findUniqueOrThrow({ where: { id: row.sourceLocationId } }),
             tx.productVariant.findUniqueOrThrow({ where: { id: row.productVariantId }, include: { product: true } }),
         ]);
-        if (variant.archivedAt || variant.product.productType !== 'PACKAGING' || variant.primaryUnit !== 'PCS') {
-            throw new BusinessRuleError('Pilih bahan kemasan aktif dengan satuan PCS/lembar.');
+        if (variant.archivedAt || !isPackagingMaterial(variant.product.productType, variant.primaryUnit)) {
+            throw new BusinessRuleError('Pilih bahan kemasan atau bahan penolong aktif dengan satuan KG atau PCS/lembar.');
+        }
+        if ((row.unit ?? 'PCS') !== variant.primaryUnit) {
+            throw new BusinessRuleError('Satuan stok kemasan berubah atau belum dimuat. Buka ulang form dan masukkan pemakaian sesuai satuan stok.');
         }
         const companyOwned = assertPackagingSourceOwner(source, row.ownerCustomerId);
         await InventoryCoreService.validateAndLockStock(tx, source.id, variant.id, row.quantity, productionOrderId);
@@ -39,7 +44,7 @@ export async function consumeActualPackaging(
         } });
         await AccountingService.recordInventoryMovement(movement, tx);
         await allocatePackagingIssue(tx, { executionId, productionOrderId, row, userId });
-        result.push({ movement, cost: unitCost.mul(row.quantity) });
+        result.push({ movement, unit: variant.primaryUnit, cost: unitCost.mul(row.quantity) });
     }
     return result;
 }

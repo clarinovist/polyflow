@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPackagingCustodyLocation, createProductionPackagingOption } from '@/actions/production/packaging';
 import { Button } from '@/components/ui/button';
+import { isPackagingMaterial } from '@/lib/production/packaging-material';
 
 type Variant = { id: string; name: string; skuCode: string; productId: string; primaryUnit: string; product: { productType: string } };
 export function PackagingSettings({ variants, customers }: { variants: Variant[]; customers: { id: string; name: string }[] }) {
@@ -26,7 +27,7 @@ export function PackagingSettings({ variants, customers }: { variants: Variant[]
             <h2 className="font-semibold">Hubungkan SKU merek ke produk dasar</h2>
             <label className="block text-sm">Produk dasar BOM<select required className={selectClass} value={base} onChange={(event) => setBase(event.target.value)}><option value="">Pilih produk dasar</option>{variants.filter((v) => v.product.productType !== 'PACKAGING').map((v) => <option key={v.id} value={v.id}>{v.name} · {v.skuCode}</option>)}</select></label>
             <label className="block text-sm">SKU hasil bermerek<select key={base} required name="output" className={selectClass}><option value="">Pilih SKU hasil</option>{variants.filter((v) => v.productId === variants.find((x) => x.id === base)?.productId && v.id !== base).map((v) => <option key={v.id} value={v.id}>{v.name} · {v.skuCode}</option>)}</select></label>
-            <label className="block text-sm">Etiket yang sesuai<select name="label" className={selectClass}><option value="">Tanpa etiket khusus</option>{variants.filter((v) => v.product.productType === 'PACKAGING' && v.primaryUnit === 'PCS').map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
+            <label className="block text-sm">Etiket yang sesuai<select name="label" className={selectClass}><option value="">Tanpa etiket khusus</option>{variants.filter((v) => isPackagingMaterial(v.product.productType, v.primaryUnit) && v.primaryUnit === 'PCS').map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
             <Button className="min-h-11" disabled={busy} type="submit">Simpan pemetaan</Button>
         </form>
         <form className="space-y-3 rounded-xl border p-4" onSubmit={async (event) => {

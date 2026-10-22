@@ -99,7 +99,7 @@ export async function postPackagedOutput(tx: Prisma.TransactionClient, order: Pr
         } });
         for (const row of consumption[index]) await tx.productionPackagingConsumption.create({ data: {
             executionId, outputGroupId: output.id, productVariantId: row.movement.productVariantId,
-            quantity: row.movement.quantity, movementId: row.movement.id,
+            quantity: row.movement.quantity, unit: row.unit, movementId: row.movement.id,
         } });
     }
 }

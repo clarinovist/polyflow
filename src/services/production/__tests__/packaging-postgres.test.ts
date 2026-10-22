@@ -25,9 +25,12 @@ async function seed(client: PrismaClient) {
         { id: 'custody-a', name: 'Synthetic custody A', slug: 'custody-a', locationType: 'CUSTOMER_OWNED', packagingOwnerCustomerId: 'a' },
         { id: 'custody-b', name: 'Synthetic custody B', slug: 'custody-b', locationType: 'CUSTOMER_OWNED', packagingOwnerCustomerId: 'b' },
     ] });
-    await client.product.createMany({ data: [{ id: 'product', name: 'Synthetic output', productType: 'FINISHED_GOOD' }, { id: 'packaging', name: 'Synthetic packaging', productType: 'PACKAGING' }] });
+    await client.product.createMany({ data: [{ id: 'product', name: 'Synthetic output', productType: 'FINISHED_GOOD' }, { id: 'packaging', name: 'Synthetic packaging', productType: 'PACKAGING' }, { id: 'aux', name: 'Synthetic auxiliary', productType: 'AUXILIARY' }] });
     for (const id of ['base', 'brand-a', 'brand-b']) await client.productVariant.create({ data: { id, name: id, skuCode: `PKG-${id}`, productId: 'product', primaryUnit: 'KG' } });
     await client.productVariant.create({ data: { id: 'label', name: 'Synthetic label', skuCode: 'PKG-LABEL', productId: 'packaging', primaryUnit: 'PCS' } });
+    await client.productVariant.create({ data: { id: 'film', name: 'Synthetic film', skuCode: 'PKG-FILM', productId: 'aux', primaryUnit: 'KG' } });
+    await client.location.create({ data: { id: 'own', name: 'Synthetic internal film', slug: 'synthetic-film' } });
+    await client.inventory.create({ data: { productVariantId: 'film', locationId: 'own', quantity: 5, averageCost: 2 } });
     for (const locationId of ['custody-a', 'custody-b']) await client.inventory.create({ data: { productVariantId: 'label', locationId, quantity: 100, averageCost: 0 } });
     await client.productionPackagingOption.createMany({ data: ['brand-a', 'brand-b'].map((id) => ({ baseVariantId: 'base', outputVariantId: id, labelVariantId: 'label' })) });
     await client.bom.create({ data: { id: 'bom', name: 'Synthetic core recipe', productVariantId: 'base', outputQuantity: 1 } });
@@ -44,7 +47,7 @@ function payload() {
         startTime: new Date(), endTime: new Date(), userId: actor,
         machineId: undefined, operatorId: undefined, cekGram: undefined, notes: '',
         packagedOutput: { clientRequestId: randomUUID(), groups: [{ productVariantId: 'brand-a', quantity: 24.7,
-            packaging: [{ productVariantId: 'label', sourceLocationId: 'custody-a', ownerCustomerId: 'a' as string | null, quantity: 10 }],
+            packaging: [{ productVariantId: 'label', sourceLocationId: 'custody-a', ownerCustomerId: 'a' as string | null, quantity: 10, unit: 'PCS' as 'PCS' | 'KG' }],
         }] },
     };
 }
@@ -63,6 +66,28 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
         expect(Number((await db!.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: 'fg', productVariantId: 'brand-a' } } })).quantity)).toBe(24.7);
         await expect(db!.$transaction((tx) => InventoryCoreService.validateAndLockStock(tx, 'fg', 'brand-b', 1))).rejects.toThrow();
         expect(await db!.auditLog.count({ where: { action: 'RECORD_PACKAGED_OUTPUT' } })).toBe(1);
+    });
+    it('consumes existing AUXILIARY film in fractional KG without double BOM consumption and snapshots its unit', async () => {
+        await db!.bomItem.create({ data: { bomId: 'bom', productVariantId: 'film', quantity: 1 } });
+        const input = payload();
+        input.packagedOutput.groups[0].packaging.push({ productVariantId: 'film', sourceLocationId: 'own', ownerCustomerId: null, unit: 'KG', quantity: 1.25 });
+        await run(db!, () => ProductionExecutionService.addProductionOutput(input));
+        expect(Number((await db!.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: 'own', productVariantId: 'film' } } })).quantity)).toBe(3.75);
+        const filmOut = await db!.stockMovement.findMany({ where: { productVariantId: 'film', type: 'OUT' } });
+        expect(filmOut).toHaveLength(1);
+        expect(Number(filmOut[0].quantity)).toBe(1.25);
+        const consumption = await db!.productionPackagingConsumption.findFirstOrThrow({ where: { productVariantId: 'film' } });
+        expect(consumption.unit).toBe('KG');
+        expect(Number(consumption.quantity)).toBe(1.25);
+        expect((await db!.productionPackagingConsumption.findFirstOrThrow({ where: { productVariantId: 'label' } })).unit).toBe('PCS');
+    });
+    it('enforces whole PCS but allows fractional KG in stored consumption history', async () => {
+        await run(db!, () => ProductionExecutionService.addProductionOutput(payload()));
+        const row = await db!.productionPackagingConsumption.findFirstOrThrow({ where: { productVariantId: 'label' } });
+        await expect(db!.productionPackagingConsumption.update({ where: { id: row.id }, data: { quantity: 0.5 } })).rejects.toThrow();
+        const updated = await db!.productionPackagingConsumption.update({ where: { id: row.id }, data: { unit: 'KG', quantity: 0.5 } });
+        expect(updated.unit).toBe('KG');
+        await expect(db!.productionPackagingConsumption.update({ where: { id: row.id }, data: { unit: 'PCS' } })).rejects.toThrow();
     });
     it('rolls back all output on shortage or wrong owner', async () => {
         const input = payload(); input.packagedOutput.groups[0].packaging[0].quantity = 101;
