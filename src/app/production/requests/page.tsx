@@ -4,7 +4,7 @@ import { ProductionRequestsClient } from '@/components/production/ProductionRequ
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-    title: 'Papan Permintaan FG | PolyFlow',
+    title: 'Permintaan Barang Jadi | PolyFlow',
     description: 'Item FG yang perlu diproduksi berdasarkan Sales Order aktif.',
 };
 
@@ -24,7 +24,7 @@ export default async function ProductionRequestsPage() {
 
     return (
         <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Papan Permintaan FG</h1>
+            <h1 className="text-2xl font-bold mb-6">Permintaan Barang Jadi</h1>
             <ProductionRequestsClient
                 rows={rows}
                 machines={machines}

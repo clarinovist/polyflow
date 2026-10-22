@@ -1279,7 +1279,7 @@ export async function confirmOrder(
                     variantNameMap.get(s.productVariantId) ||
                     s.productVariantId,
             ),
-            message: `Kekurangan stok masuk antrian produksi (Papan Permintaan FG). Buka Production → Papan Permintaan FG untuk membuat SPK.`,
+            message: `Kekurangan stok masuk antrian produksi (Permintaan Barang Jadi). Buka Production → Permintaan Barang Jadi untuk membuat SPK.`,
         });
     }
 

@@ -104,7 +104,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <Button asChild variant="outline" className="min-h-11">
-                        <Link href="/production/machines">Status Mesin Saat Ini →</Link>
+                        <Link href="/production/machines">Status Mesin →</Link>
                     </Button>
                     <TooltipProvider>
                         <Tooltip>

@@ -160,7 +160,7 @@ export function ProductionRequestsClient({
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <ClipboardCheck className="h-5 w-5" />
-                        Papan Permintaan FG
+                        Permintaan Barang Jadi
                     </CardTitle>
                     <div className="flex items-center gap-1">
                         <CardDescription>Kebutuhan FG dari Sales Order aktif.</CardDescription>

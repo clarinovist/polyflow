@@ -428,7 +428,7 @@ describe("confirmOrder", () => {
     expect(ProductionService.createOrderFromSales).not.toHaveBeenCalled();
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0].code).toBe("FG_DEMAND_QUEUED");
-    expect(result.warnings[0].message).toContain("Papan Permintaan FG");
+    expect(result.warnings[0].message).toContain("Permintaan Barang Jadi");
   });
 
   it("shortage + has BOM + AUTO_CREATE_WO_ON_SO_CONFIRM=true → auto-create WO", async () => {

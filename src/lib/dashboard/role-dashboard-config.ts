@@ -882,7 +882,7 @@ export function buildQuickActions(
             },
             {
                 href: '/production/machines',
-                label: 'Papan Mesin',
+                label: 'Status Mesin',
                 icon: Factory,
                 color: 'text-blue-600',
                 bg: 'bg-blue-50 dark:bg-blue-900/10',
@@ -967,7 +967,7 @@ export function buildQuickActions(
             },
             {
                 href: '/production/machines',
-                label: 'Papan Mesin',
+                label: 'Status Mesin',
                 icon: Factory,
                 color: 'text-emerald-600',
                 bg: 'bg-emerald-50 dark:bg-emerald-900/10',

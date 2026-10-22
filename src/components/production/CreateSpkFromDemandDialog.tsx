@@ -204,7 +204,7 @@ export function CreateSpkFromDemandDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Factory className="h-5 w-5" />
-                        Produksi dari Permintaan FG
+                        Produksi dari Permintaan Barang Jadi
                     </DialogTitle>
                     <DialogDescription>
                         {productName} — {variantName} ({skuCode})

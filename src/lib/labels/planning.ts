@@ -141,7 +141,7 @@ export const planningLabels = {
     completedCount: (n: number) => `${n} selesai minggu ini`,
 
     // Requests
-    incomingRequestsTitle: 'Papan Permintaan FG',
+    incomingRequestsTitle: 'Permintaan Barang Jadi',
     incomingRequestsDesc:
         'Item FG yang perlu diproduksi berdasarkan Sales Order aktif',
     productionPlanning: 'Perencanaan Produksi',

@@ -5,6 +5,12 @@ import {
     type MachineTotals,
 } from '@/services/production/production-daily-report-service';
 import { PROCESS_KEYS } from '@/lib/production/process-keys';
+import { ProductionKpiCard } from '@/components/production/ProductionKpiCard';
+import {
+    formatAmount,
+    formatCount,
+    formatPercent,
+} from '@/lib/production/format';
 import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
 import {
     DEFAULT_PRODUCTION_ALERT_THRESHOLDS,
@@ -21,18 +27,10 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import {
-    Boxes,
-    Cog,
-    Layers,
-    Package,
-} from 'lucide-react';
+import { Boxes, Cog, Layers, Package } from 'lucide-react';
 import Link from 'next/link';
 import { DateRangeFilter } from './DateRangeFilter';
-import {
-    MachineRecapFilter,
-    MACHINE_RECAP_ALL,
-} from './MachineRecapFilter';
+import { MachineRecapFilter, MACHINE_RECAP_ALL } from './MachineRecapFilter';
 import {
     affalLevelClass,
     affalPercent,
@@ -191,65 +189,31 @@ export default async function ProductionDailyReportPage({
                         proses. Periode {periodLabel}.
                     </p>
                 </div>
-                <DateRangeFilter
-                    from={from}
-                    to={to}
-                    mesin={params.mesin}
-                />
+                <DateRangeFilter from={from} to={to} mesin={params.mesin} />
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {kpis.map((kpi) => {
                     const totals = periodTotals[kpi.key];
                     const Icon = kpi.icon;
+                    const share = affalPercent(totals.produced, totals.scrap);
                     return (
-                        <Card
+                        <ProductionKpiCard
                             key={kpi.key}
-                            className="border-zinc-200 dark:border-zinc-800 shadow-sm"
-                        >
-                            <CardContent className="pt-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">
-                                            {kpi.label}
-                                        </p>
-                                        <h3 className="text-2xl font-bold text-foreground mt-1 tabular-nums">
-                                            {fmt(totals.produced)}
-                                        </h3>
-                                        <p className="text-[11px] text-muted-foreground mt-1">
-                                            {totals.entries} entri
-                                        </p>
-                                        <p
-                                            className={`text-[11px] mt-1 tabular-nums ${affalLevelClass(
-                                                classifyAffalLevel(
-                                                    thresholds,
-                                                    affalPercent(
-                                                        totals.produced,
-                                                        totals.scrap,
-                                                    ),
-                                                ),
-                                            )}`}
-                                        >
-                                            {totals.scrap > 0
-                                                ? `Affal ${fmt(totals.scrap)} · ${(
-                                                      affalPercent(
-                                                          totals.produced,
-                                                          totals.scrap,
-                                                      ) ?? 0
-                                                  ).toLocaleString('id-ID', {
-                                                      maximumFractionDigits: 1,
-                                                  })}%`
-                                                : 'Affal —'}
-                                        </p>
-                                    </div>
-                                    <div
-                                        className={`p-3 rounded-xl ${kpi.accent}`}
-                                    >
-                                        <Icon className="h-6 w-6" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                            label={kpi.label}
+                            value={formatAmount(totals.produced)}
+                            caption={`${formatCount(totals.entries)} entri`}
+                            detail={
+                                totals.scrap > 0
+                                    ? `Affal ${formatAmount(totals.scrap)} · ${formatPercent(share)}`
+                                    : 'Affal —'
+                            }
+                            detailClassName={affalLevelClass(
+                                classifyAffalLevel(thresholds, share),
+                            )}
+                            icon={<Icon aria-hidden="true" />}
+                            iconClassName={kpi.accent}
+                        />
                     );
                 })}
             </div>
@@ -358,15 +322,15 @@ export default async function ProductionDailyReportPage({
                     </div>
                     <p className="text-xs text-muted-foreground mt-3">
                         Angka = hasil bersih (tanpa affal) per proses, satuan
-                        mengikuti output masing-masing BOM (kg / karung / pcs)
-                        — tidak dijumlah antar-kolom. Kolom Affal berwarna
-                        hanya bila % affal salah satu proses hari itu melewati
-                        ambang ({thresholds.scrapWarningPercent}% waspada,{' '}
+                        mengikuti output masing-masing BOM (kg / karung / pcs) —
+                        tidak dijumlah antar-kolom. Kolom Affal berwarna hanya
+                        bila % affal salah satu proses hari itu melewati ambang
+                        ({thresholds.scrapWarningPercent}% waspada,{' '}
                         {thresholds.scrapAnomalyPercent}% kritis; diatur per
-                        tenant).
-                        Klik tanggal untuk melihat pecahan per mesin hari itu.
-                        Sumber data sama dengan papan &quot;Hari Ini&quot;:
-                        entri hasil produksi yang tidak dibatalkan, hari WIB.
+                        tenant). Klik tanggal untuk melihat pecahan per mesin
+                        hari itu. Sumber data sama dengan papan &quot;Hari
+                        Ini&quot;: entri hasil produksi yang tidak dibatalkan,
+                        hari WIB.
                     </p>
                 </CardContent>
             </Card>

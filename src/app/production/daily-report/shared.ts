@@ -7,7 +7,7 @@
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import type { MachineTotals } from '@/services/production/production-daily-report-service';
 import type { ProcessKey } from '@/lib/production/process-keys';
-import { affalPercent } from '@/lib/production/affal';
+import { affalLevelClass, affalPercent } from '@/lib/production/affal';
 import {
     classifyAffalLevel,
     type AffalLevel,
@@ -15,7 +15,7 @@ import {
 } from '@/lib/production/alert-thresholds';
 import type { DailyProcessTotals } from '@/services/production/production-daily-report-service';
 
-export { affalPercent };
+export { affalLevelClass, affalPercent };
 
 export const PROCESS_LABEL: Record<ProcessKey, string> = {
     MIXING: 'Mixing',
@@ -59,20 +59,6 @@ export function worstProcessAffalLevel(
         }
     }
     return worst;
-}
-
-/** Text color for an affal share; red is reserved for CRITICAL (above threshold). */
-export function affalLevelClass(level: AffalLevel): string {
-    switch (level) {
-        case 'CRITICAL':
-            return 'text-destructive font-medium';
-        case 'WARNING':
-            return 'text-amber-600 dark:text-amber-400 font-medium';
-        case 'NONE':
-            return 'text-muted-foreground';
-        default:
-            return 'text-foreground';
-    }
 }
 
 /**

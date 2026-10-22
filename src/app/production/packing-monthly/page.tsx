@@ -82,7 +82,7 @@ export default async function PackingMonthlyReportPage({
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                        Laporan Produksi Packing
+                        Laporan Packing
                     </h1>
                     <p className="text-muted-foreground text-sm">
                         Laporan total hasil produksi barang jadi
@@ -107,7 +107,7 @@ export default async function PackingMonthlyReportPage({
             <div
                 className={
                     showCostData
-                        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4'
+                        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4'
                         : 'grid grid-cols-1 sm:grid-cols-3 gap-4'
                 }
             >

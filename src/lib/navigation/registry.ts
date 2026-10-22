@@ -333,7 +333,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-requests',
-        label: 'Permintaan FG',
+        label: 'Permintaan Barang Jadi',
         href: '/production/requests',
         workspace: 'production',
         section: 'perencanaan',
@@ -389,7 +389,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-machines',
-        label: 'Status Mesin Saat Ini',
+        label: 'Status Mesin',
         href: '/production/machines',
         workspace: 'production',
         section: 'lantai',
@@ -445,7 +445,7 @@ const productionNavItems: NavItem[] = [
     },
     {
         id: 'prod-history',
-        label: 'Log & Bukti',
+        label: 'Log Hasil',
         href: '/production/history',
         workspace: 'production',
         section: 'sumber-daya',

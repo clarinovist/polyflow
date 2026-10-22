@@ -11,7 +11,14 @@ import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import { ProductionRealizationChart } from '@/components/analytics/ProductionRealizationChart';
 import { MachinePerformanceCard } from '@/components/analytics/MachinePerformanceCard';
 import { ScrapAnalysisChart } from '@/components/analytics/ScrapAnalysisChart';
-import { OperatorLeaderboard } from '@/components/analytics/OperatorLeaderboard';
+import { OperatorProcessComparison } from '@/components/analytics/OperatorProcessComparison';
+import {
+    EMPTY_VALUE,
+    formatAmount,
+    formatCount,
+    formatDecimal,
+    formatPercent,
+} from '@/lib/production/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -86,6 +93,7 @@ export default async function ProductionAnalyticsPage(props: {
         0,
     );
     const passRate = data.quality.inspections.passRate;
+    const hasInspections = data.quality.inspections.total > 0;
     const activeMachines = data.machinePerformance.filter(
         (m) => m.totalOperatingHours > 0,
     ).length;
@@ -115,10 +123,10 @@ export default async function ProductionAnalyticsPage(props: {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {avgYield.toFixed(1)}%
+                            {formatPercent(avgYield)}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Dari {data.realization.length} SPK
+                            Dari {formatCount(data.realization.length)} SPK
                         </p>
                     </CardContent>
                 </Card>
@@ -131,26 +139,30 @@ export default async function ProductionAnalyticsPage(props: {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {passRate.toFixed(1)}%
+                            {hasInspections
+                                ? formatPercent(passRate)
+                                : EMPTY_VALUE}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            {data.quality.inspections.total} inspeksi
+                            {hasInspections
+                                ? `${formatCount(data.quality.inspections.total)} inspeksi`
+                                : 'Belum ada inspeksi'}
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Total Scrap
+                            Total Affal
                         </CardTitle>
                         <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                            {totalScrap.toLocaleString()}
+                            {formatAmount(totalScrap)}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Unit ditolak
+                            Dari catatan affal, bukan dari entri hasil
                         </p>
                     </CardContent>
                 </Card>
@@ -163,7 +175,7 @@ export default async function ProductionAnalyticsPage(props: {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {activeMachines}
+                            {formatCount(activeMachines)}
                         </div>
                         <p className="text-xs text-muted-foreground">
                             Dengan jam operasi tercatat
@@ -186,7 +198,7 @@ export default async function ProductionAnalyticsPage(props: {
                                 value="scrap"
                                 className="text-xs font-bold"
                             >
-                                Scrap Tertinggi
+                                Affal Tertinggi
                             </TabsTrigger>
                             <TabsTrigger
                                 value="yield"
@@ -205,7 +217,7 @@ export default async function ProductionAnalyticsPage(props: {
                         <TabsContent value="scrap">
                             {data.quality.scrapByProduct.length === 0 ? (
                                 <p className="text-sm text-muted-foreground py-4 text-center">
-                                    Tidak ada data scrap.
+                                    Tidak ada data affal.
                                 </p>
                             ) : (
                                 <div className="space-y-2">
@@ -217,7 +229,7 @@ export default async function ProductionAnalyticsPage(props: {
                                                         Produk
                                                     </TableHead>
                                                     <TableHead className="text-right">
-                                                        Scrap
+                                                        Affal
                                                     </TableHead>
                                                     <TableHead className="text-right">
                                                         %{' '}
@@ -242,7 +254,9 @@ export default async function ProductionAnalyticsPage(props: {
                                                                 }
                                                             </TableCell>
                                                             <TableCell className="text-right tabular-nums">
-                                                                {item.quantity.toLocaleString()}
+                                                                {formatAmount(
+                                                                    item.quantity,
+                                                                )}
                                                             </TableCell>
                                                             <TableCell className="text-right">
                                                                 <Badge
@@ -254,10 +268,9 @@ export default async function ProductionAnalyticsPage(props: {
                                                                     }
                                                                     className="font-bold"
                                                                 >
-                                                                    {item.percentage.toFixed(
-                                                                        1,
+                                                                    {formatPercent(
+                                                                        item.percentage,
                                                                     )}
-                                                                    %
                                                                 </Badge>
                                                             </TableCell>
                                                             <TableCell className="text-right">
@@ -342,10 +355,9 @@ export default async function ProductionAnalyticsPage(props: {
                                                                 variant="destructive"
                                                                 className="font-bold"
                                                             >
-                                                                {item.yieldRate.toFixed(
-                                                                    1,
+                                                                {formatPercent(
+                                                                    item.yieldRate,
                                                                 )}
-                                                                %
                                                             </Badge>
                                                         </TableCell>
                                                         <TableCell className="text-right">
@@ -373,10 +385,7 @@ export default async function ProductionAnalyticsPage(props: {
                             {data.machinePerformance.filter(
                                 (m) =>
                                     isScrapWarning(thresholds, m.scrapRate) ||
-                                    isLowThroughput(
-                                        thresholds,
-                                        m.unitsPerHour,
-                                    ),
+                                    isLowThroughput(thresholds, m.unitsPerHour),
                             ).length === 0 ? (
                                 <p className="text-sm text-muted-foreground py-4 text-center">
                                     Semua mesin dalam batas normal.
@@ -391,7 +400,7 @@ export default async function ProductionAnalyticsPage(props: {
                                                     Output/Jam
                                                 </TableHead>
                                                 <TableHead className="text-right">
-                                                    Scrap Rate
+                                                    % Affal
                                                 </TableHead>
                                                 <TableHead className="text-right">
                                                     Aksi
@@ -425,7 +434,8 @@ export default async function ProductionAnalyticsPage(props: {
                                                             {item.machineCode}
                                                         </TableCell>
                                                         <TableCell className="text-right tabular-nums">
-                                                            {item.unitsPerHour.toFixed(
+                                                            {formatDecimal(
+                                                                item.unitsPerHour,
                                                                 1,
                                                             )}
                                                         </TableCell>
@@ -441,10 +451,9 @@ export default async function ProductionAnalyticsPage(props: {
                                                                 }
                                                                 className="font-bold"
                                                             >
-                                                                {item.scrapRate.toFixed(
-                                                                    1,
+                                                                {formatPercent(
+                                                                    item.scrapRate,
                                                                 )}
-                                                                %
                                                             </Badge>
                                                         </TableCell>
                                                         <TableCell className="text-right">
@@ -481,7 +490,7 @@ export default async function ProductionAnalyticsPage(props: {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <ScrapAnalysisChart data={data.quality} />
                 <div className="col-span-1 md:col-span-2">
-                    <OperatorLeaderboard
+                    <OperatorProcessComparison
                         data={data.operatorProductivity}
                         thresholds={thresholds}
                     />

@@ -26,9 +26,9 @@ export const analyticsLabels = {
 
     // Production
     machineEfficiency: 'Efisiensi Mesin',
-    machineEfficiencyDesc: 'Performa mesin per jam dan tingkat scrap',
+    machineEfficiencyDesc: 'Performa mesin per jam dan persen affal',
     unitsPerHour: 'Unit / Jam',
-    scrapRate: 'Tingkat Scrap %',
+    scrapRate: '% Affal',
     productionRealization: 'Realisasi Produksi (Yield)',
     productionRealizationTable: 'Realisasi Produksi',
     productionRealizationDesc: 'Perbandingan rencana vs aktual per SPK',
@@ -39,7 +39,7 @@ export const analyticsLabels = {
     materialUsageVariance: 'Varians Penggunaan Material',
     materialUsageVarianceDesc:
         'Perbandingan penggunaan material aktual vs standar',
-    scrapAnalysis: 'Analisa Scrap',
+    scrapAnalysis: 'Analisa Affal',
     qty: 'Jumlah',
 
     // Purchase
@@ -52,12 +52,13 @@ export const analyticsLabels = {
     inspectionDistribution: 'Distribusi Inspeksi',
     inspectionDesc: 'Rincian hasil inspeksi',
     noInspectionData: 'Tidak ada data inspeksi',
-    topScrapReasons: 'Alasan Scrap Material Teratas',
+    topScrapReasons: 'Alasan Affal Material Teratas',
 
     // Operator
-    operatorLeaderboard: 'Leaderboard Operator',
-    operatorLeaderboardDesc:
-        'Metrik produktivitas detail untuk semua operator.',
+    operatorComparison: 'Kinerja Operator per Proses',
+    operatorComparisonDesc:
+        'Dibandingkan dalam proses yang sama. Satuan mengikuti output tiap proses; tidak dijumlahkan atau diperingkat antar proses.',
+    operatorComparisonEmpty: 'Belum ada hasil operator pada periode ini.',
 
     // Date Range
     selectDateRange: 'Pilih rentang tanggal',

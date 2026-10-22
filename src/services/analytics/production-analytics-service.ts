@@ -3,6 +3,10 @@ import { endOfDay, startOfMonth } from 'date-fns';
 import { prisma } from '@/lib/core/prisma';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import {
+    processKeyFromCategory,
+    type ProcessKey,
+} from '@/lib/production/process-keys';
+import {
     DateRange,
     MachinePerformanceItem,
     OperatorProductivityItem,
@@ -190,6 +194,9 @@ export async function getProductionAnalytics(
         include: {
             machine: true,
             operator: true,
+            productionOrder: {
+                select: { bom: { select: { category: true } } },
+            },
         },
     });
 
@@ -206,6 +213,7 @@ export async function getProductionAnalytics(
     const operatorMap: Record<
         string,
         {
+            process: ProcessKey;
             name: string;
             code: string;
             output: number;
@@ -244,8 +252,14 @@ export async function getProductionAnalytics(
 
         if (execution.operator) {
             const operatorCode = execution.operator.code;
-            if (!operatorMap[operatorCode]) {
-                operatorMap[operatorCode] = {
+            const process = processKeyFromCategory(
+                execution.productionOrder?.bom?.category,
+            );
+            // Per process: output units differ, so one operator is never summed across processes.
+            const operatorKey = `${process}:${operatorCode}`;
+            if (!operatorMap[operatorKey]) {
+                operatorMap[operatorKey] = {
+                    process,
                     name: execution.operator.name,
                     code: operatorCode,
                     output: 0,
@@ -253,9 +267,9 @@ export async function getProductionAnalytics(
                     orders: new Set(),
                 };
             }
-            operatorMap[operatorCode].output += quantity;
-            operatorMap[operatorCode].scrap += scrap;
-            operatorMap[operatorCode].orders.add(execution.productionOrderId);
+            operatorMap[operatorKey].output += quantity;
+            operatorMap[operatorKey].scrap += scrap;
+            operatorMap[operatorKey].orders.add(execution.productionOrderId);
         }
     });
 
@@ -280,6 +294,7 @@ export async function getProductionAnalytics(
     const operatorProductivity: OperatorProductivityItem[] = Object.values(
         operatorMap,
     ).map((data) => ({
+        process: data.process,
         operatorName: data.name,
         operatorCode: data.code,
         totalQuantityProduced: data.output,

@@ -1,3 +1,5 @@
+import type { ProcessKey } from '@/lib/production/process-keys';
+
 export interface DateRange {
     from: Date;
     to: Date;
@@ -28,6 +30,8 @@ export interface MachinePerformanceItem {
 }
 
 export interface OperatorProductivityItem {
+    /** Process the totals belong to; units differ per process. */
+    process: ProcessKey;
     operatorName: string;
     operatorCode: string;
     totalQuantityProduced: number;

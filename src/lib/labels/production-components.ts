@@ -57,8 +57,8 @@ export const productionComponentLabels = {
     unit: 'Satuan',
 
     // Production Requests
-    productionRequests: 'Papan Permintaan FG',
-    incomingRequests: 'Papan Permintaan FG',
+    productionRequests: 'Permintaan Barang Jadi',
+    incomingRequests: 'Permintaan Barang Jadi',
     noRequests: 'Tidak ada permintaan FG',
     processRequest: 'Proses Permintaan',
     createWorkOrder: 'Buat SPK',

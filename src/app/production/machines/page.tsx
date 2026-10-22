@@ -126,7 +126,7 @@ export default async function ProductionMachinesPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">
-                    Status Mesin Saat Ini
+                    Status Mesin
                 </h1>
                 <p className="text-muted-foreground">
                     Kondisi mesin, eksekusi saat ini, dan daftar SPK yang dialokasikan.

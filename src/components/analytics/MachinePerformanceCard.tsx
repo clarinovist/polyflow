@@ -2,6 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MachinePerformanceItem } from '@/types/analytics';
 import { Activity } from 'lucide-react';
 import { analyticsLabels } from '@/lib/labels';
+import {
+    formatCount,
+    formatDecimal,
+    formatPercent,
+} from '@/lib/production/format';
 
 interface MachinePerformanceCardProps {
     data: MachinePerformanceItem[];
@@ -32,12 +37,16 @@ export function MachinePerformanceCard({ data }: MachinePerformanceCardProps) {
                                     {machine.machineName}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    {machine.totalOperatingHours} jam |{' '}
-                                    {machine.scrapRate}% scrap
+                                    {formatDecimal(
+                                        machine.totalOperatingHours,
+                                        1,
+                                    )}{' '}
+                                    jam | Affal{' '}
+                                    {formatPercent(machine.scrapRate)}
                                 </p>
                             </div>
                             <div className="font-bold">
-                                {machine.unitsPerHour.toFixed(0)}{' '}
+                                {formatCount(Math.round(machine.unitsPerHour))}{' '}
                                 <span className="text-xs font-normal text-muted-foreground">
                                     unit/jam
                                 </span>
