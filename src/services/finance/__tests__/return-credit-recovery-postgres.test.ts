@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 import { readFileSync } from 'node:fs';
+import pg from 'pg';
 import { actor, createReturn, date, resetReturnFixture, returnTestClient } from './return-credit-postgres-fixture';
 vi.mock('@/services/accounting/account-resolver', () => ({ resolveAccount: async (role: string) => ({ id: role === 'sales-return' ? 'return' : role === 'vat-output' ? 'vat' : 'ar' }) }));
 import { postReturnCreditInTransaction } from '../sales-return-credit-service';
@@ -122,6 +123,28 @@ describe.skipIf(!db)('exact return recovery on disposable PostgreSQL', () => {
         expect(await db!.journalEntry.count()).toBe(journals);
         expect(await db!.returnCreditRecovery.count()).toBe(0);
         expect((await db!.invoice.findUniqueOrThrow({ where: { id: 'invoice' } })).creditedAmount.toString()).toBe('0');
+    });
+    it('replays migration on populated pre-recovery schema and rolls the test DDL back', async () => {
+        await post(); await reverse(); const before = await history();
+        const client = new pg.Client({ connectionString: process.env.RETURN_CREDIT_TEST_DATABASE_URL });
+        await client.connect();
+        try {
+            await client.query('BEGIN');
+            // This client uses the same allowlisted, marker-verified synthetic DB as beforeEach.
+            const identity = await client.query('SELECT current_database() AS name');
+            expect(identity.rows[0].name).toBe('polyflow_return_credit_scope_test');
+            await client.query('DROP TABLE "ReturnCreditRecovery" CASCADE');
+            for (const fn of ['post_return_credit_recovery(text,"ReturnCreditRecoveryKind",timestamp,text,text,text,text)', 'guard_return_recovery_event()', 'guard_recovery_sources()', 'validate_return_recovery(text,"ReturnCreditRecoveryKind",timestamp,text)', 'recovery_invoice_guard()', 'check_recovery_invoice(text,text)', 'return_recovery_fingerprint(text)', 'return_credit_is_effective(text)']) {
+                await client.query(`DROP FUNCTION ${fn} CASCADE`);
+            }
+            await client.query('DROP TYPE "ReturnCreditRecoveryKind"');
+            const ledger = await client.query("SELECT pg_get_functiondef('check_return_credit_ledger()'::regprocedure) AS definition");
+            await client.query(ledger.rows[0].definition.replaceAll('AND return_credit_is_effective(c.id))', "AND c.status='POSTED')"));
+            await client.query(readFileSync('prisma/migrations/20261023_return_credit_recovery/migration.sql', 'utf8'));
+            expect((await client.query('SELECT count(*) FROM "ReturnCreditRecovery"')).rows[0].count).toBe('0');
+            expect((await client.query("SELECT invoice_total_return_credit('invoice') AS amount")).rows[0].amount).toBe('0');
+        } finally { await client.query('ROLLBACK'); await client.end(); }
+        expect(await history()).toBe(before);
     });
     it('migration extends populated history without changing the original immutable records', async () => {
         const original = await post(); await reverse(); const before = await history();

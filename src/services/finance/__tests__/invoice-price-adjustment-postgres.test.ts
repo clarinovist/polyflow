@@ -65,8 +65,8 @@ describe.skipIf(!db)('invoice price changes on actual disposable PostgreSQL',()=
   await expect(tenantContext.run(db!,()=>createInvoice({salesOrderId:'order',invoiceDate:date,termOfPaymentDays:30},actor))).rejects.toThrow(/ditagihkan dua kali/);expect(await db!.invoice.count()).toBe(1);
  });
  it('uses two tenant clients without control DB fallback',async()=>{
-  const other=client('postgresql://postgres@127.0.0.1:55469/polyflow_return_credit_tenant_test');
-  try{const markers=await other.$queryRaw<{purpose:string}[]>`SELECT purpose FROM "PriceAdjustmentDisposableMarker"`;expect(markers[0].purpose).toBe('price-adjustment-synthetic-only');await resetReturnFixture(other,false);const data=await input();await expect(tenantContext.run(other,()=>postInvoicePriceAdjustment(data,actor))).rejects.toThrow(/berubah/);expect(await other.invoicePriceAdjustment.count()).toBe(0);}finally{await other.$disconnect();}
+  const otherUrl=new URL(url!);otherUrl.pathname='/polyflow_return_credit_tenant_test';const other=client(otherUrl.toString());
+  try{if(process.env.RETURN_CREDIT_TEST_DATABASE_URL){await verifyReturnTestDatabase(other);}else{const markers=await other.$queryRaw<{purpose:string}[]>`SELECT purpose FROM "PriceAdjustmentDisposableMarker"`;expect(markers[0].purpose).toBe('price-adjustment-synthetic-only');}await resetReturnFixture(other,false);const data=await input();await expect(tenantContext.run(other,()=>postInvoicePriceAdjustment(data,actor))).rejects.toThrow(/berubah/);expect(await other.invoicePriceAdjustment.count()).toBe(0);}finally{await other.$disconnect();}
  });
  it('routes automatic return pricing to review after adjustment; explicit manual return uses new net/tax capacity',async()=>{
   await post(await input('120'));
