@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 import { effectiveReturnCreditWhere } from '@/lib/finance/effective-return-credit';
+import { returnCreditStateWhere } from '@/lib/finance/return-credit-state';
 
 const mocks = vi.hoisted(() => ({ count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), groupBy: vi.fn() }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { salesReturn: mocks, invoice: { findMany: vi.fn().mockResolvedValue([]) } } }));
@@ -78,6 +79,36 @@ describe('finance return queries (read only)', () => {
         mocks.findUnique.mockResolvedValue({ id: 'return-1', returnDate: new Date('2026-09-18'), items: [], credit: { status: 'POSTED', mode: 'MANUAL', approvalReason: 'Verified amount', evidenceReference: 'Synthetic invoice reference', approvedAt: new Date('2026-09-19'), approvedBy: { name: 'Synthetic Finance' }, manualRemainingBefore: D(1110), totalAmount: D(222), taxAmount: D(22), postedAt: new Date('2026-09-19'), allocations: [{ invoice: { invoiceNumber: 'INV-SYNTHETIC' }, quantity: null, totalAmount: D(222) }] } });
         expect(await getFinanceReturnDetail('return-1')).toMatchObject({ credit: { mode: 'MANUAL', approvedBy: 'Synthetic Finance', taxAmount: '22.00', manualRemainingBefore: '1110.00', allocations: [{ quantity: null, totalAmount: '222.00' }] } });
     });
+    it('filters the list by credit stage while counting every stage for the same search', async () => {
+        mocks.count.mockImplementation(async ({ where }: { where: unknown }) =>
+            JSON.stringify(where).includes('"status":"CONFIRMED"') ? 3 : 7,
+        );
+        mocks.findMany.mockResolvedValue([
+            { id: 'return-1', status: 'CONFIRMED', totalAmount: '20', returnDate: new Date('2026-09-18T00:00:00Z'), credit: null, customerCredit: null },
+        ]);
+        const result = await getFinanceReturnPage({ stage: 'AWAITING_GOODS', search: 'SR' });
+        const base = { OR: expect.any(Array) };
+        expect(mocks.findMany.mock.calls[0][0].where).toEqual({ AND: [base, returnCreditStateWhere('AWAITING_GOODS')] });
+        expect(result.rows[0].creditState).toBe('AWAITING_GOODS');
+        expect(result.total).toBe(3);
+        expect(result.stageCounts).toMatchObject({ ALL: 7, AWAITING_GOODS: 3, REVIEW: 7 });
+        expect(mocks.count).toHaveBeenCalledWith({ where: base });
+    });
+
+    it('derives the credit state of a reversed, unrecovered credit as needing review', async () => {
+        mocks.count.mockResolvedValue(1);
+        mocks.findMany.mockResolvedValue([
+            { id: 'return-1', status: 'COMPLETED', totalAmount: '20', returnDate: new Date('2026-09-18T00:00:00Z'), customerCredit: null, credit: { status: 'REVERSED', totalAmount: '20', reviewReason: null, recoveries: [] } },
+        ]);
+        const result = await getFinanceReturnPage({});
+        expect(result.rows[0]).toMatchObject({ creditState: 'REVIEW', credit: { recoveryActive: false, totalAmount: 20 } });
+    });
+
+    it('rejects an unknown stage before accessing data', async () => {
+        await expect(getFinanceReturnPage({ stage: 'PAID' })).rejects.toThrow();
+        expect(mocks.count).not.toHaveBeenCalled();
+    });
+
     it('rejects empty IDs and propagates query failures instead of an empty queue', async () => {
         await expect(getFinanceReturnDetail('')).rejects.toThrow();
         mocks.groupBy.mockRejectedValue(new Error('unavailable'));

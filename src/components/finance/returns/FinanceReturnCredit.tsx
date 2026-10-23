@@ -11,6 +11,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Undo2 } from 'lucide-react';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { ManualReturnCreditForm } from './ManualReturnCreditForm';
 import { ReturnCreditConfirmation } from './ReturnCreditConfirmation';
@@ -26,6 +35,7 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
     const [date, setDate] = useState(toBusinessDateString(new Date()));
     const [reason, setReason] = useState('');
     const [message, setMessage] = useState('');
+    const [reversalOpen, setReversalOpen] = useState(false);
     const credit = row.credit;
     const eligible = ['RECEIVED', 'COMPLETED'].includes(row.status);
     const awaitingCredit =
@@ -96,12 +106,88 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                 );
             }
         });
+    if (credit?.status === 'POSTED')
+        return (
+            <Dialog
+                open={reversalOpen}
+                onOpenChange={(open) => {
+                    if (!pending) setReversalOpen(open);
+                }}
+            >
+                <DialogTrigger asChild>
+                    <Button variant="outline" className="min-h-11">
+                        <Undo2 aria-hidden="true" />
+                        Balikkan kredit
+                    </Button>
+                </DialogTrigger>
+                <DialogContent showCloseButton={!pending}>
+                    <DialogHeader>
+                        <DialogTitle>Balikkan kredit retur?</DialogTitle>
+                        <DialogDescription>
+                            Pembalikan mengembalikan piutang dengan jurnal
+                            kompensasi. Riwayat asli dan stok tetap utuh. Kredit
+                            yang dibalik tidak dapat diposting ulang.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <p className="text-sm font-medium">
+                        Kredit yang akan dibalik:{' '}
+                        {formatRupiah(Number(credit.totalAmount))}
+                    </p>
+                    <Label htmlFor="credit-reversal-reason">
+                        Alasan koreksi (minimal 5 karakter)
+                    </Label>
+                    <Input
+                        id="credit-reversal-reason"
+                        value={reason}
+                        onChange={(event) => setReason(event.target.value)}
+                        disabled={pending}
+                    />
+                    <Label htmlFor="credit-reversal-date">
+                        Tanggal pembalikan
+                    </Label>
+                    <Input
+                        id="credit-reversal-date"
+                        type="date"
+                        value={date}
+                        onChange={(event) => setDate(event.target.value)}
+                        disabled={pending}
+                    />
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <Button
+                            variant="outline"
+                            disabled={pending}
+                            onClick={() => setReversalOpen(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            className="h-auto min-h-11 whitespace-normal"
+                            disabled={
+                                pending || reason.trim().length < 5 || !date
+                            }
+                            onClick={() => submit(true)}
+                        >
+                            Balikkan kredit — pulihkan piutang
+                        </Button>
+                    </div>
+                    {pending && (
+                        <p role="status" className="text-sm">
+                            Memproses transaksi…
+                        </p>
+                    )}
+                    {message && (
+                        <p role="alert" className="break-words text-sm">
+                            {message}
+                        </p>
+                    )}
+                </DialogContent>
+            </Dialog>
+        );
     return (
-        <Card>
+        <Card className="gap-4 py-5 shadow-none">
             <CardHeader>
-                <CardTitle className="text-base">
-                    Kredit retur & piutang
-                </CardTitle>
+                <CardTitle className="text-base">Langkah berikutnya</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
                 <p>
@@ -111,8 +197,6 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                             ? 'Saldo kredit pelanggan diterbitkan — lihat rinciannya'
                             : credit?.recoveryActive
                               ? 'Kredit dipulihkan — mengurangi piutang'
-                              : credit?.status === 'POSTED'
-                              ? 'Terposting'
                               : credit?.status === 'REVERSED'
                                 ? 'Dibalik — perlu pemeriksaan'
                                 : 'Belum mengurangi piutang'}
@@ -199,118 +283,6 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                 {credit?.reviewReason && (
                     <p role="alert">{credit.reviewReason}</p>
                 )}
-                {credit && credit.status !== 'REVIEW_REQUIRED' && (
-                    <div className="space-y-2 rounded border p-3">
-                        <p>
-                            Kredit asli: Rp {credit.totalAmount} · Posting:{' '}
-                            {credit.postedAt
-                                ? toBusinessDateString(
-                                      new Date(credit.postedAt),
-                                  )
-                                : '—'}
-                        </p>
-                        {credit.allocations.map((line, index) => (
-                            <p key={index}>
-                                {line.invoiceNumber} ·{' '}
-                                {line.quantity === null
-                                    ? 'Alokasi nominal manual'
-                                    : `Qty ${formatQuantity(Number(line.quantity))}`}{' '}
-                                · Rp {line.totalAmount}
-                            </p>
-                        ))}
-                        {credit.reversedAt && (
-                            <p>
-                                Pembalikan:{' '}
-                                {toBusinessDateString(
-                                    new Date(credit.reversedAt),
-                                )}{' '}
-                                · {credit.reversalReason}
-                            </p>
-                        )}
-                    </div>
-                )}
-                {credit?.recoveries?.map((event, index) => (
-                    <div key={index} className="space-y-1 rounded border p-3">
-                        <p className="font-medium">{event.kind === 'REINSTATE' ? 'Pemulihan kredit retur' : 'Kompensasi pemulihan kredit'}</p>
-                        <p>{toBusinessDateString(new Date(event.postingDate))} · {event.journal.entryNumber}</p>
-                        <p>Alasan: {event.reason}</p>
-                        <p className="break-words">Bukti: {event.evidence}</p>
-                        <p>Riwayat kredit asli dan stok tidak diubah.</p>
-                    </div>
-                ))}
-                {credit?.mode === 'MANUAL' && (
-                    <div className="space-y-1 rounded border p-3">
-                        <p className="font-medium">
-                            Disetujui manual oleh Finance
-                        </p>
-                        <p>
-                            Oleh: {credit.approvedBy} ·{' '}
-                            {credit.approvedAt
-                                ? new Date(credit.approvedAt).toLocaleString(
-                                      'id-ID',
-                                      { timeZone: 'Asia/Jakarta' },
-                                  )
-                                : '—'}
-                        </p>
-                        <p>Alasan: {credit.approvalReason}</p>
-                        <p className="break-words">
-                            Bukti: {credit.evidenceReference}
-                        </p>
-                        <p>Komponen pajak: Rp {credit.taxAmount}</p>
-                    </div>
-                )}
-                <p className="text-muted-foreground">
-                    Penerimaan fisik terpisah dari kredit. Alokasi otomatis
-                    memakai snapshot invoice asal, bukan harga formulir retur.
-                    {canPrepareCredit &&
-                        ' Jika snapshot tidak tersedia, Finance dapat memeriksa bukti dan menyetujui nominal melalui formulir manual di bawah.'}{' '}
-                    Invoice lunas, nilai berlebih, atau jurnal tidak valid tetap
-                    memerlukan pemeriksaan; tidak ada refund otomatis.
-                </p>
-                {row.items.map((item) => (
-                    <p key={item.id}>
-                        {item.productVariant.name}: qty retur{' '}
-                        {formatQuantity(Number(item.returnedQty))};{' '}
-                        {item.receipt
-                            ? `HPP penerimaan Rp ${item.receipt.restockValue}`
-                            : 'bukti penerimaan historis belum tersedia'}
-                    </p>
-                ))}
-                {credit &&
-                    credit.status !== 'REVIEW_REQUIRED' &&
-                    row.invoices.map((invoice) => (
-                        <div
-                            key={invoice.id}
-                            className="space-y-1 rounded border p-3"
-                        >
-                            <Link
-                                className="font-medium underline"
-                                href={`/finance/invoices/sales/${invoice.id}`}
-                            >
-                                Lihat invoice {invoice.invoiceNumber}
-                            </Link>
-                            <p>
-                                Total invoice asli{' '}
-                                {formatRupiah(Number(invoice.totalAmount))} +
-                                penyesuaian harga{' '}
-                                {formatRupiah(
-                                    Number(invoice.priceAdjustmentAmount ?? 0),
-                                )}{' '}
-                                − pembayaran{' '}
-                                {formatRupiah(Number(invoice.paidAmount))} −
-                                kredit retur{' '}
-                                {formatRupiah(Number(invoice.creditedAmount))}
-                            </p>
-                            <p className="font-bold">
-                                Sisa tagihan saat ini:{' '}
-                                {formatRupiah(Number(invoice.remaining))}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                Total invoice asli tetap; yang berkurang adalah
-                                sisa tagihan.
-                            </p>
-                        </div>
-                    ))}
                 {canPrepareCredit && (
                     <details>
                         <summary className="min-h-11 cursor-pointer py-3 font-medium">
@@ -418,47 +390,13 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                 )}
                 {!eligible && (
                     <p>
-                        Menunggu penerimaan barang oleh Penjualan.
+                        {row.status === 'CANCELLED'
+                            ? 'Retur dibatalkan; tidak ada penerimaan yang perlu dilanjutkan.'
+                            : 'Konfirmasi dan penerimaan barang dilakukan oleh petugas Penjualan.'}{' '}
                         Draft/confirmed/cancelled tidak mengurangi piutang.
                     </p>
                 )}
-                {credit?.status === 'POSTED' && (
-                    <div className="space-y-3 rounded border border-destructive p-3">
-                        <p>
-                            Pembalikan mengembalikan piutang dengan jurnal
-                            kompensasi. Riwayat asli dan stok tetap utuh. Kredit
-                            yang dibalik tidak dapat diposting ulang.
-                        </p>
-                        <Label htmlFor="credit-reversal-reason">
-                            Alasan koreksi (minimal 5 karakter)
-                        </Label>
-                        <Input
-                            id="credit-reversal-reason"
-                            value={reason}
-                            onChange={(event) => setReason(event.target.value)}
-                            disabled={pending}
-                        />
-                        <Label htmlFor="credit-reversal-date">
-                            Tanggal pembalikan
-                        </Label>
-                        <Input
-                            id="credit-reversal-date"
-                            type="date"
-                            value={date}
-                            onChange={(event) => setDate(event.target.value)}
-                            disabled={pending}
-                        />
-                        <Button
-                            variant="destructive"
-                            disabled={
-                                pending || reason.trim().length < 5 || !date
-                            }
-                            onClick={() => submit(true)}
-                        >
-                            Balikkan kredit — pulihkan piutang
-                        </Button>
-                    </div>
-                )}
+
                 {pending && <p role="status">Memproses transaksi…</p>}
                 {message && (
                     <p role="alert" className="break-words">

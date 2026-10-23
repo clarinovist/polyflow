@@ -91,16 +91,28 @@ describe('Finance credit posting and compensation UI',()=>{
  it('shows recovered credit without offering the original reversal or duplicate posting',()=>{
   render(<FinanceReturnCredit row={{...row,credit:{recoveryActive:true,recoveries:[{kind:'REINSTATE',postingDate:'2026-09-20T00:00:00Z',reason:'Verified recovery',evidence:'Synthetic receipt',journal:{entryNumber:'RECOVERY-JE'}}],mode:'SNAPSHOT',approvalReason:null,evidenceReference:null,approvedAt:null,approvedBy:null,manualRemainingBefore:null,taxAmount:'22.00',status:'REVERSED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:'2026-09-19T00:00:00Z',reversalReason:'Original reversal',reviewReason:null,allocations:[]}}}/>);
   expect(screen.getByText('Kredit dipulihkan — mengurangi piutang')).toBeTruthy();
-  expect(screen.getByText(/RECOVERY-JE/)).toBeTruthy();
+  // Evidence and recovery journals now live in the read-only history/audit panels.
   expect(screen.queryByRole('button',{name:'Balikkan kredit — pulihkan piutang'})).toBeNull();
   expect(screen.queryByText('Periksa atau ubah nominal secara manual')).toBeNull();
  });
  it('uses WIB dates and requires a correction reason before compensation',async()=>{
   render(<FinanceReturnCredit row={{...row,credit:{recoveryActive:false,recoveries:[],mode:'SNAPSHOT',approvalReason:null,evidenceReference:null,approvedAt:null,approvedBy:null,manualRemainingBefore:null,taxAmount:'22.00',status:'POSTED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:null,reversalReason:null,reviewReason:null,allocations:[]}}}/>);
-  expect(screen.getByText(/Posting: 2026-09-18/)).toBeTruthy();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(mocks.reverse).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'Balikkan kredit'}));
+  expect(screen.getByRole('dialog',{name:'Balikkan kredit retur?'})).toBeTruthy();
   const button=screen.getByRole('button',{name:'Balikkan kredit — pulihkan piutang'});
   expect((button as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.change(screen.getByLabelText('Alasan koreksi (minimal 5 karakter)'),{target:{value:'Synthetic correction'}});fireEvent.click(button);
-  await waitFor(()=>expect(mocks.reverse).toHaveBeenCalledTimes(1));
+  fireEvent.change(screen.getByLabelText('Alasan koreksi (minimal 5 karakter)'),{target:{value:'Synthetic correction'}});
+  fireEvent.change(screen.getByLabelText('Tanggal pembalikan'),{target:{value:'2026-10-23'}});
+  mocks.reverse.mockResolvedValueOnce({success:false,error:'Periode ditutup'});
+  fireEvent.click(button);
+  await waitFor(()=>expect(screen.getByRole('alert').textContent).toContain('Periode ditutup'));
+  expect(mocks.refresh).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(mocks.reverse).toHaveBeenCalledWith({returnId:'return',reversalDate:'2026-10-23T00:00:00+07:00',reason:'Synthetic correction'});
+  await waitFor(()=>expect(button).toHaveProperty('disabled',false));
+  fireEvent.click(button);
+  await waitFor(()=>expect(mocks.refresh).toHaveBeenCalledTimes(1));
  });
 });

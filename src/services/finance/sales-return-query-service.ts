@@ -2,6 +2,12 @@ import { Prisma, SalesReturnStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/core/prisma';
 import { effectiveReturnCreditWhere, hasActiveRecovery } from '@/lib/finance/effective-return-credit';
+import {
+    RETURN_CREDIT_STATES,
+    deriveReturnCreditState,
+    returnCreditStateWhere,
+    type ReturnCreditState,
+} from '@/lib/finance/return-credit-state';
 
 const pageInput = z.object({
     page: z.coerce
@@ -11,6 +17,7 @@ const pageInput = z.object({
         .max(Number.MAX_SAFE_INTEGER)
         .default(1),
     status: z.nativeEnum(SalesReturnStatus).optional(),
+    stage: z.enum(RETURN_CREDIT_STATES).optional(),
     search: z.string().trim().max(100).optional(),
 });
 const PAGE_SIZE = 25;
@@ -62,7 +69,7 @@ export async function getFinanceReturnSummary() {
 /** Call only within tenant context after Finance authorization. No financial mutations. */
 export async function getFinanceReturnPage(input: unknown) {
     const params = pageInput.parse(input);
-    const where: Prisma.SalesReturnWhereInput = {
+    const baseWhere: Prisma.SalesReturnWhereInput = {
         ...(params.status ? { status: params.status } : {}),
         ...(params.search
             ? {
@@ -93,6 +100,9 @@ export async function getFinanceReturnPage(input: unknown) {
               }
             : {}),
     };
+    const where: Prisma.SalesReturnWhereInput = params.stage
+        ? { AND: [baseWhere, returnCreditStateWhere(params.stage)] }
+        : baseWhere;
     const total = await prisma.salesReturn.count({ where });
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const page = Math.min(params.page, totalPages);
@@ -104,17 +114,48 @@ export async function getFinanceReturnPage(input: unknown) {
         skip: (page - 1) * PAGE_SIZE,
     });
     return {
-        rows: rows.map((row) => ({
-            ...row,
-            returnDate: row.returnDate.toISOString(),
-            totalAmount: Number(row.totalAmount ?? 0),
-            credit: row.credit
-                ? { ...row.credit, recoveryActive: hasActiveRecovery(row.credit.recoveries), totalAmount: Number(row.credit.totalAmount) }
-                : null,
-        })),
+        rows: rows.map((row) => {
+            const credit = row.credit
+                ? {
+                      ...row.credit,
+                      recoveryActive: hasActiveRecovery(row.credit.recoveries),
+                      totalAmount: Number(row.credit.totalAmount),
+                  }
+                : null;
+            return {
+                ...row,
+                returnDate: row.returnDate.toISOString(),
+                totalAmount: Number(row.totalAmount ?? 0),
+                credit,
+                creditState: deriveReturnCreditState({
+                    status: row.status,
+                    credit,
+                    customerCredit: row.customerCredit,
+                }),
+            };
+        }),
         page,
         totalPages,
         total,
+        stageCounts: await countByStage(baseWhere),
+    };
+}
+
+/** Counts honour search but not the active stage, so every chip stays accurate. */
+async function countByStage(baseWhere: Prisma.SalesReturnWhereInput) {
+    const [all, ...counts] = await Promise.all([
+        prisma.salesReturn.count({ where: baseWhere }),
+        ...RETURN_CREDIT_STATES.map((state) =>
+            prisma.salesReturn.count({
+                where: { AND: [baseWhere, returnCreditStateWhere(state)] },
+            }),
+        ),
+    ]);
+    return {
+        ALL: all,
+        ...(Object.fromEntries(
+            RETURN_CREDIT_STATES.map((state, index) => [state, counts[index]]),
+        ) as Record<ReturnCreditState, number>),
     };
 }
 
@@ -196,14 +237,24 @@ export async function getFinanceReturnDetail(input: unknown) {
         },
         orderBy: [{ invoiceDate: 'asc' }, { id: 'asc' }],
     });
+    const recoveryActive = row.credit
+        ? hasActiveRecovery(row.credit.recoveries)
+        : false;
     return {
         ...row,
+        creditState: deriveReturnCreditState({
+            status: row.status,
+            credit: row.credit
+                ? { status: row.credit.status, recoveryActive }
+                : null,
+            customerCredit: row.customerCredit,
+        }),
         returnDate: row.returnDate.toISOString(),
         totalAmount: Number(row.totalAmount ?? 0),
         credit: row.credit
             ? {
                   status: row.credit.status,
-                  recoveryActive: hasActiveRecovery(row.credit.recoveries),
+                  recoveryActive,
                   recoveries: (row.credit.recoveries ?? []).map((event) => ({ ...event, postingDate: event.postingDate.toISOString() })),
                   mode: row.credit.mode,
                   approvalReason: row.credit.approvalReason,
