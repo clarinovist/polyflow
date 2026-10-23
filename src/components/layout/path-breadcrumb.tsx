@@ -129,12 +129,21 @@ function buildBreadcrumbs(pathname: string): BreadcrumbSegment[] {
 
     for (let i = 0; i < segments.length; i++) {
         const href = '/' + segments.slice(0, i + 1).join('/');
-        const label =
+        const productionLabels: Record<string, string> = {
+            '/production/inventory': 'Stok Lantai', '/production/mrp': 'Perencanaan Material (MRP)',
+            '/production/machines': 'Status Mesin', '/production/resources': 'Tim',
+            '/production/shifts': 'Pengaturan Shift', '/production/history': 'Log Hasil',
+            '/production/requests': 'Permintaan Barang Jadi', '/production/analytics': 'Analitik Produksi',
+            '/production/daily-report': 'Produksi Harian', '/production/material-orders': 'Permintaan Bahan',
+            '/production/mobile/material-orders': 'Permintaan Bahan', '/production/routings': 'Routing Produksi',
+            '/production/packaging': 'Pengaturan Kemasan',
+        };
+        const label = productionLabels[href] ?? (
             href === '/production/orders'
                 ? 'SPK'
                 : href === '/production/orders/create'
                   ? 'Buat SPK'
-                  : getLabel(segments[i]);
+                  : getLabel(segments[i]));
         crumbs.push({ label, href, isLast: i === segments.length - 1 });
     }
 

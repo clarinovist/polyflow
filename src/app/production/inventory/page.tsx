@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/ui/page-header';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import {
     getInventoryList,
     getStockMovements,
@@ -23,7 +25,6 @@ import {
     Boxes,
     PackageOpen,
     ArrowRightLeft,
-    ClipboardCheck,
 } from 'lucide-react';
 import {
     LOW_STOCK_THRESHOLD_KG,
@@ -77,6 +78,7 @@ function StockLevelBadge({ level }: { level: StockLevel }) {
 export default async function ProductionInventoryPage() {
     // 1. Fetch Current Floor Stock (Mixing Area)
     const inventoryRes = await getInventoryList();
+    if (!inventoryRes.success || !inventoryRes.data) return <MobileReadError title="Stok lantai gagal dimuat" />;
     const allInventory =
         inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
     const floorInventory = allInventory
@@ -97,6 +99,7 @@ export default async function ProductionInventoryPage() {
 
     // 2. Fetch Recent Handover Activity (Recent Transfers to Mixing Area)
     const movementsRes = await getStockMovements();
+    if (!movementsRes.success || !movementsRes.data) return <MobileReadError title="Riwayat serah terima gagal dimuat" />;
     const allMovements =
         movementsRes.success && movementsRes.data ? movementsRes.data : [];
     const recentHandovers = allMovements
@@ -109,28 +112,7 @@ export default async function ProductionInventoryPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">
-                        Stok Lantai & Serah Terima
-                    </h2>
-                    <p className="text-muted-foreground">
-                        Manage materials currently on the production floor.
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <Link href="/warehouse/inventory/transfer">
-                        <Button variant="outline" className="text-xs h-9">
-                            <ArrowRightLeft className="mr-2 h-4 w-4" />
-                            Request Materials
-                        </Button>
-                    </Link>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-xs h-9">
-                        <ClipboardCheck className="mr-2 h-4 w-4" />
-                        Stock Opname Floor
-                    </Button>
-                </div>
-            </div>
+            <PageHeader title="Stok Lantai" description="Bahan di lantai produksi dan riwayat serah terima." actions={<Button variant="outline" asChild><Link href="/warehouse/inventory/transfer"><ArrowRightLeft className="mr-2 h-4 w-4" />Minta Bahan</Link></Button>} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Stock Table */}
@@ -138,7 +120,7 @@ export default async function ProductionInventoryPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Boxes className="h-5 w-5 text-emerald-600" />
-                            Mixing Area Inventory
+                            Stok Area Pencampuran
                         </CardTitle>
                         <CardDescription>
                             Bahan di Area Mixing yang siap dipakai mesin.{' '}
@@ -156,10 +138,10 @@ export default async function ProductionInventoryPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Product</TableHead>
+                                    <TableHead>Produk</TableHead>
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-right">
-                                        Quantity
+                                        Jumlah
                                     </TableHead>
                                     <TableHead className="text-right">
                                         Status
@@ -224,7 +206,7 @@ export default async function ProductionInventoryPage() {
                         <CardHeader className="pb-3 border-b">
                             <CardTitle className="text-base flex items-center gap-2">
                                 <PackageOpen className="h-4 w-4 text-blue-600" />
-                                Incoming Handover
+                                Serah Terima Masuk
                             </CardTitle>
                             <CardDescription className="text-xs">
                                 Recent incoming from warehouse.
@@ -236,7 +218,7 @@ export default async function ProductionInventoryPage() {
                                 <div className="space-y-6">
                                     {recentHandovers.length === 0 ? (
                                         <p className="text-center text-xs text-muted-foreground py-4 italic">
-                                            No recent activity.
+                                            Belum ada aktivitas terbaru.
                                         </p>
                                     ) : (
                                         recentHandovers.map((move) => (
@@ -277,7 +259,7 @@ export default async function ProductionInventoryPage() {
                                                         }
                                                     </div>
                                                     <div className="text-[9px] text-muted-foreground flex items-center gap-1 mt-1">
-                                                        From:{' '}
+                                                        Dari:{' '}
                                                         {move.fromLocation
                                                             ?.name ||
                                                             'Main Warehouse'}
@@ -289,7 +271,7 @@ export default async function ProductionInventoryPage() {
                                                             ) || 'S'}
                                                         </div>
                                                         <span className="text-[9px] text-muted-foreground">
-                                                            By{' '}
+                                                            Oleh{' '}
                                                             {move.createdBy
                                                                 ?.name ||
                                                                 'System'}
@@ -308,15 +290,6 @@ export default async function ProductionInventoryPage() {
                                         ))
                                     )}
                                 </div>
-                            </div>
-                            <div className="px-6 mt-6">
-                                <Button
-                                    className="w-full text-xs"
-                                    variant="outline"
-                                    size="sm"
-                                >
-                                    View All Activity
-                                </Button>
                             </div>
                         </CardContent>
                     </Card>

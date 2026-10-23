@@ -31,7 +31,6 @@ import { Button } from '@/components/ui/button';
 import {
     AlertTriangle,
     FileText,
-    Filter,
     Package,
     Settings,
     TrendingUp,
@@ -179,14 +178,6 @@ export default async function CostingPage(props: {
                             <FileText className="mr-2 h-4 w-4" />
                             Laporan HPP
                         </Link>
-                    </Button>
-                    <Button variant="outline">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filter
-                    </Button>
-                    <Button variant="outline">
-                        <FileText className="mr-2 h-4 w-4" />
-                        Ekspor
                     </Button>
                 </div>
             </div>

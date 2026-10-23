@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/ui/page-header';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getProductionAnalytics } from '@/actions/core/analytics';
 import { getProductionAlertThresholdsForPage } from '@/actions/production/alert-threshold-settings';
 import {
@@ -34,13 +36,6 @@ import { Badge } from '@/components/ui/badge';
 import { Activity, Factory, CheckCircle, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
-const EMPTY_AFFAL_BY_PROCESS = {
-    MIXING: { produced: 0, affal: 0, entries: 0 },
-    EXTRUSION: { produced: 0, affal: 0, entries: 0 },
-    PACKING: { produced: 0, affal: 0, entries: 0 },
-    OTHER: { produced: 0, affal: 0, entries: 0 },
-};
-
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 export default async function ProductionAnalyticsPage(props: {
@@ -62,30 +57,11 @@ export default async function ProductionAnalyticsPage(props: {
         getProductionAnalytics(dateRange),
         getProductionAlertThresholdsForPage(),
     ]);
+    if (!dataRes.success || !dataRes.data) return <MobileReadError title="Analitik produksi gagal dimuat" />;
     const thresholds: ProductionAlertThresholds = thresholdsRes.success
         ? thresholdsRes.data
         : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
-    const data =
-        dataRes.success && dataRes.data
-            ? dataRes.data
-            : {
-                  realization: [],
-                  affalByProcess: EMPTY_AFFAL_BY_PROCESS,
-                  materialVariance: [],
-                  machinePerformance: [],
-                  operatorProductivity: [],
-                  quality: {
-                      inspections: {
-                          total: 0,
-                          pass: 0,
-                          fail: 0,
-                          quarantine: 0,
-                          passRate: 0,
-                      },
-                      scrapByReason: [],
-                      scrapByProduct: [],
-                  },
-              };
+    const data = dataRes.data;
 
     // Calculate aggregated stats
     const avgYield =
@@ -98,18 +74,8 @@ export default async function ProductionAnalyticsPage(props: {
     ).length;
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Analitik Produksi
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Kinerja periode + item yang perlu ditindak.
-                    </p>
-                </div>
-                <AnalyticsToolbar />
-            </div>
+        <div className="min-w-0 space-y-6">
+            <PageHeader title="Analitik Produksi" description="Kinerja periode dan hal yang perlu ditindaklanjuti." actions={<AnalyticsToolbar />} />
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

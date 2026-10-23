@@ -1,3 +1,5 @@
+import { MobileReadError } from '@/components/mobile/MobileReadError';
+import { PageHeader } from '@/components/ui/page-header';
 import { getFgDemandBoard, getInitData } from '@/actions/production/production';
 import { ProductionRequestsClient } from '@/components/production/ProductionRequestsClient';
 
@@ -14,6 +16,10 @@ export default async function ProductionRequestsPage() {
         getInitData(),
     ]);
 
+    if (!demandRes.success || !demandRes.data || !initRes.success || !initRes.data) {
+        return <MobileReadError title="Permintaan barang jadi gagal dimuat" />;
+    }
+
     const rows = demandRes.success && demandRes.data ? demandRes.data : [];
     const machines =
         initRes.success && initRes.data?.machines ? initRes.data.machines : [];
@@ -23,8 +29,8 @@ export default async function ProductionRequestsPage() {
             : [];
 
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Permintaan Barang Jadi</h1>
+        <div className="min-w-0 space-y-6">
+            <PageHeader title="Permintaan Barang Jadi" description="Kebutuhan produksi berdasarkan pesanan penjualan aktif." />
             <ProductionRequestsClient
                 rows={rows}
                 machines={machines}

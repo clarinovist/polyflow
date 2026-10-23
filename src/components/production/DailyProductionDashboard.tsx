@@ -96,7 +96,7 @@ const STATUS_CONFIG: Record<
         dotClassName: 'bg-sky-500',
     },
     IN_PROGRESS: {
-        label: 'Sedang Jalan',
+        label: 'Sedang Diproduksi',
         className:
             'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
         dotClassName: 'bg-emerald-500',
@@ -185,7 +185,7 @@ const PROCESS_COLUMNS: Array<{
 
 const STATUS_FILTERS: Array<{ key: string; label: string }> = [
     { key: 'all', label: 'Semua status' },
-    { key: 'IN_PROGRESS', label: 'Sedang Jalan' },
+    { key: 'IN_PROGRESS', label: 'Sedang Diproduksi' },
     { key: 'RELEASED', label: 'Siap Produksi' },
     { key: 'WAITING_MATERIAL', label: 'Tunggu Bahan' },
 ];

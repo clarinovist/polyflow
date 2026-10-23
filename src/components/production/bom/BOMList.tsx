@@ -60,6 +60,8 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
+const CATEGORY_LABELS: Record<string, string> = { ALL: 'Semua Formula', MIXING: 'Pencampuran', EXTRUSION: 'Ekstrusi', PACKING: 'Pengemasan', STANDARD: 'Standar', REWORK: 'Proses Ulang' };
+
 export function BOMList({ boms, showPrices }: BOMListProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusTab, setStatusTab] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
@@ -200,7 +202,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                     <Link href={`${basePath}/create`}>
                         <Button className="w-full md:w-auto">
                             <Plus className="h-4 w-4 mr-2" />
-                            New BOM
+                            Buat Formula
                         </Button>
                     </Link>
                 </div>
@@ -244,14 +246,15 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                         onValueChange={setCategoryTab}
                         className="w-full mt-4"
                     >
-                        <TabsList>
-                            <TabsTrigger value="ALL">All Recipes</TabsTrigger>
-                            <TabsTrigger value="MIXING">Mixing</TabsTrigger>
+                        <TabsList className="h-auto max-w-full flex-wrap justify-start gap-1">
+                            <TabsTrigger value="ALL">Semua Formula</TabsTrigger>
+                            <TabsTrigger value="MIXING">Pencampuran</TabsTrigger>
                             <TabsTrigger value="EXTRUSION">
-                                Extrusion
+                                Ekstrusi
                             </TabsTrigger>
-                            <TabsTrigger value="PACKING">Packing</TabsTrigger>
-                            <TabsTrigger value="STANDARD">Standard</TabsTrigger>
+                            <TabsTrigger value="PACKING">Pengemasan</TabsTrigger>
+                            <TabsTrigger value="STANDARD">Standar</TabsTrigger>
+                            <TabsTrigger value="REWORK">Proses Ulang</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value={categoryTab}>
@@ -299,19 +302,19 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                         </TableHead>
                                                     )}
                                                     <TableHead className="w-[300px]">
-                                                        Recipe & Product
+                                                        Formula & Produk
                                                     </TableHead>
                                                     <TableHead>
-                                                        Category
+                                                        Kategori
                                                     </TableHead>
                                                     <TableHead>
-                                                        Basis Quantity
+                                                        Jumlah Dasar
                                                     </TableHead>
                                                     <TableHead>
-                                                        Ingredients
+                                                        Bahan
                                                     </TableHead>
                                                     <TableHead className="text-center w-[100px]">
-                                                        Dipakai di WO
+                                                        Dipakai di SPK
                                                     </TableHead>
                                                     {showPrices && (
                                                         <TableHead className="text-right">
@@ -332,7 +335,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                                 }
                                                                 className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
                                                             >
-                                                                Cost / Unit
+                                                                Biaya / Satuan
                                                                 {costSort ===
                                                                     'none' && (
                                                                     <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
@@ -360,9 +363,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                     <TableRow>
                                                         <TableCell
                                                             colSpan={
-                                                                showPrices
-                                                                    ? 7
-                                                                    : 6
+                                                                (showPrices ? 7 : 6) + (statusTab === 'ACTIVE' ? 1 : 0)
                                                             }
                                                             className="h-24 text-center text-muted-foreground"
                                                         >
@@ -371,7 +372,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                                     {statusTab ===
                                                                     'ARCHIVED'
                                                                         ? 'Belum ada resep dinonaktifkan'
-                                                                        : `Tidak ada resep ditemukan di ${categoryTab}`}
+                                                                        : `Tidak ada formula pada kategori ${CATEGORY_LABELS[categoryTab] ?? categoryTab}`}
                                                                 </span>
                                                             </div>
                                                         </TableCell>
@@ -472,8 +473,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                                         variant="outline"
                                                                         className="text-[10px] font-normal px-2 py-0.5"
                                                                     >
-                                                                        {bom.category ||
-                                                                            'STANDARD'}
+                                                                        {CATEGORY_LABELS[bom.category || 'STANDARD'] ?? bom.category}
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell>
@@ -500,7 +500,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                                                 .items
                                                                                 .length
                                                                         }{' '}
-                                                                        materials
+                                                                        bahan
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="text-center">

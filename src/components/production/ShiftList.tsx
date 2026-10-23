@@ -17,6 +17,7 @@ import { Edit, Trash2 } from 'lucide-react';
 import { deleteWorkShift } from '@/actions/admin/work-shifts';
 import { toast } from 'sonner';
 import { ShiftDialog } from './ShiftDialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from '@/components/ui/alert-dialog';
 
 interface ShiftListProps {
     shifts: WorkShift[];
@@ -31,14 +32,23 @@ export function ShiftList({ shifts }: ShiftListProps) {
         setDialogOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (confirm('Yakin ingin menghapus shift ini?')) {
-            const result = await deleteWorkShift(id);
+    const [deletingShift, setDeletingShift] = useState<WorkShift | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const handleDelete = async () => {
+        if (!deletingShift || deleting) return;
+        setDeleting(true);
+        try {
+            const result = await deleteWorkShift(deletingShift.id);
             if (result.success) {
                 toast.success('Shift berhasil dihapus.');
+                setDeletingShift(null);
             } else {
                 toast.error(result.error || 'Gagal menghapus shift');
             }
+        } catch {
+            toast.error('Gagal menghapus shift. Coba lagi.');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -48,13 +58,13 @@ export function ShiftList({ shifts }: ShiftListProps) {
                 <TableHeader className="bg-muted/50">
                     <TableRow>
                         <TableHead className="font-semibold text-muted-foreground">
-                            Name
+                            Nama
                         </TableHead>
                         <TableHead className="font-semibold text-muted-foreground">
-                            Start Time
+                            Jam Mulai
                         </TableHead>
                         <TableHead className="font-semibold text-muted-foreground">
-                            End Time
+                            Jam Selesai
                         </TableHead>
                         <TableHead className="font-semibold text-muted-foreground">
                             Jam Rencana
@@ -63,7 +73,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
                             Status
                         </TableHead>
                         <TableHead className="text-right font-semibold text-muted-foreground">
-                            Actions
+                            Aksi
                         </TableHead>
                     </TableRow>
                 </TableHeader>
@@ -121,7 +131,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                                 : 'bg-muted text-muted-foreground'
                                         }
                                     >
-                                        {shift.status}
+                                        {shift.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -129,7 +139,8 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10"
+                                            className="h-11 w-11 text-muted-foreground hover:text-primary"
+                                            aria-label={`Ubah shift ${shift.name}`}
                                             onClick={() => handleEdit(shift)}
                                         >
                                             <Edit className="h-4 w-4" />
@@ -137,9 +148,10 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            className="h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            aria-label={`Hapus shift ${shift.name}`}
                                             onClick={() =>
-                                                handleDelete(shift.id)
+                                                setDeletingShift(shift)
                                             }
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -152,6 +164,12 @@ export function ShiftList({ shifts }: ShiftListProps) {
                 </TableBody>
             </Table>
 
+            <AlertDialog open={!!deletingShift} onOpenChange={(open) => { if (!open && !deleting) setDeletingShift(null); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader><AlertDialogTitle>Hapus shift?</AlertDialogTitle><AlertDialogDescription>Hapus {deletingShift?.name}. Shift yang masih digunakan tetap mengikuti validasi server.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogFooter><AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel><Button variant="destructive" disabled={deleting} onClick={handleDelete}>{deleting ? 'Menghapus…' : 'Hapus Shift'}</Button></AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             <ShiftDialog
                 open={dialogOpen}
                 onOpenChange={(open) => {

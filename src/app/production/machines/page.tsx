@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/ui/page-header';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getMachines } from '@/actions/production/machines';
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getMachineStageMap } from '@/actions/production/machine-stage-settings';
@@ -88,6 +90,10 @@ export default async function ProductionMachinesPage() {
     const machineStageMap =
         stageMapRes.success && stageMapRes.data ? stageMapRes.data : {};
 
+    if (!machinesRes.success || !machinesRes.data || !employeesRes.success || !employeesRes.data || !workShiftsRes.success || !workShiftsRes.data || !stageMapRes.success || !stageMapRes.data) {
+        return <MobileReadError title="Status mesin dan sumber daya gagal dimuat" />;
+    }
+
     // Serialize
     const machines = serializeData(
         machinesRaw,
@@ -124,17 +130,7 @@ export default async function ProductionMachinesPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                    Status Mesin
-                </h1>
-                <p className="text-muted-foreground">
-                    Kondisi mesin, eksekusi saat ini, dan daftar SPK yang dialokasikan.
-                </p>
-                <Link href="/production/schedule" className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline">
-                    Lihat rencana mesin & tanggal di Jadwal Produksi →
-                </Link>
-            </div>
+            <PageHeader title="Status Mesin" description="Kondisi mesin, eksekusi saat ini, dan SPK yang dialokasikan." actions={<Link href="/production/schedule" className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline">Lihat Jadwal Produksi →</Link>} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mb-10">
                 {machines.map((machine: SerializedMachine) => {
@@ -193,7 +189,7 @@ export default async function ProductionMachinesPage() {
                                         }
                                         className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0 h-4 shadow-none"
                                     >
-                                        {machine.status}
+                                        {{ ACTIVE: 'Aktif', MAINTENANCE: 'Dalam Perawatan', BROKEN: 'Rusak', INACTIVE: 'Nonaktif' }[machine.status] ?? machine.status}
                                     </Badge>
                                 </div>
                             </CardHeader>
@@ -201,7 +197,7 @@ export default async function ProductionMachinesPage() {
                                 {activeExecution && activeOrder ? (
                                     /* Case 1: Active execution running */
                                     <div className="space-y-3">
-                                        <div className="p-3 rounded-lg bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 shadow-inner">
+                                        <div className="p-3 rounded-lg bg-muted border border-border shadow-inner">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-1.5 leading-none">
                                                     <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
@@ -228,13 +224,13 @@ export default async function ProductionMachinesPage() {
                                                         ) || 'E'}
                                                     </div>
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="text-[10px] font-black text-zinc-200 dark:text-zinc-300 truncate leading-none uppercase tracking-tighter">
+                                                        <span className="text-[10px] font-black text-foreground truncate leading-none uppercase tracking-tighter">
                                                             {activeShift
                                                                 .operator
                                                                 ?.name ||
                                                                 'Unassigned'}
                                                         </span>
-                                                        <span className="text-[8px] font-black text-zinc-600 dark:text-zinc-400 uppercase mt-0.5">
+                                                        <span className="text-[8px] font-black text-muted-foreground uppercase mt-0.5">
                                                             {
                                                                 activeShift.shiftName
                                                             }
@@ -282,7 +278,7 @@ export default async function ProductionMachinesPage() {
                                 ) : assignedOrder ? (
                                     /* Case 2: Order assigned but no active execution */
                                     <div className="space-y-3">
-                                        <div className="p-3 rounded-lg bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-300 dark:border-zinc-700 shadow-inner">
+                                        <div className="p-3 rounded-lg bg-muted border border-border shadow-inner">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-1.5 leading-none">
                                                     <PauseCircle className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
@@ -294,7 +290,7 @@ export default async function ProductionMachinesPage() {
                                                     #{assignedOrder.orderNumber}
                                                 </span>
                                             </div>
-                                            <p className="text-xs font-black text-white truncate mb-1">
+                                            <p className="text-xs font-black text-foreground truncate mb-1">
                                                 {
                                                     assignedOrder.bom
                                                         .productVariant.name
@@ -313,13 +309,13 @@ export default async function ProductionMachinesPage() {
                                                         ) || 'E'}
                                                     </div>
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="text-[10px] font-black text-zinc-200 dark:text-zinc-300 truncate leading-none uppercase tracking-tighter">
+                                                        <span className="text-[10px] font-black text-foreground truncate leading-none uppercase tracking-tighter">
                                                             {assignedShift
                                                                 .operator
                                                                 ?.name ||
                                                                 'Unassigned'}
                                                         </span>
-                                                        <span className="text-[8px] font-black text-zinc-600 dark:text-zinc-400 uppercase mt-0.5">
+                                                        <span className="text-[8px] font-black text-muted-foreground uppercase mt-0.5">
                                                             {
                                                                 assignedShift.shiftName
                                                             }

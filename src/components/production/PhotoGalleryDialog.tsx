@@ -57,6 +57,7 @@ export function PhotoGalleryDialog({
                     size="sm"
                     className="gap-1.5"
                     title="Lihat foto dokumentasi"
+                    aria-label={`Lihat ${photosWithExec.length} foto ${orderNumber}`}
                 >
                     <Camera className="h-4 w-4 text-emerald-600" />
                     <span className="text-xs">{photosWithExec.length}</span>
@@ -103,7 +104,7 @@ export function PhotoGalleryDialog({
                                         {exec.endTime
                                             ? formatWIB(
                                                   exec.endTime,
-                                                  'DD MMM HH:mm',
+                                                  'dd MMM HH:mm',
                                               )
                                             : '-'}
                                     </div>
@@ -175,7 +176,8 @@ function LightboxPreview({
             <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-4 right-4 text-white hover:bg-white/20 z-10"
+                className="absolute top-4 right-4 h-11 w-11 text-white hover:bg-white/20 z-10"
+                aria-label="Tutup foto"
                 onClick={onClose}
             >
                 <X className="h-6 w-6" />
@@ -185,7 +187,8 @@ function LightboxPreview({
             <Button
                 variant="ghost"
                 size="icon"
-                className="absolute left-4 text-white hover:bg-white/20 z-10"
+                className="absolute left-4 h-11 w-11 text-white hover:bg-white/20 z-10"
+                aria-label="Foto sebelumnya"
                 onClick={(e) => {
                     e.stopPropagation();
                     onPrevious();
@@ -198,7 +201,8 @@ function LightboxPreview({
             <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-4 text-white hover:bg-white/20 z-10"
+                className="absolute right-4 h-11 w-11 text-white hover:bg-white/20 z-10"
+                aria-label="Foto berikutnya"
                 onClick={(e) => {
                     e.stopPropagation();
                     onNext();
@@ -228,7 +232,7 @@ function LightboxPreview({
                     </div>
                     <div className="text-white/80 text-sm">
                         {current.endTime
-                            ? formatWIB(current.endTime, 'DD MMMM YYYY HH:mm')
+                            ? formatWIB(current.endTime, 'dd MMM yyyy HH:mm')
                             : '-'}
                     </div>
                     {current.notes && (

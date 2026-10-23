@@ -1,5 +1,7 @@
 'use client';
 
+import { useProductionConfirm } from '@/components/production/useProductionConfirm';
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ClipboardCheck } from 'lucide-react';
@@ -9,10 +11,11 @@ import { productionComponentLabels } from '@/lib/labels';
 
 function AcknowledgeHandoverButton({ movementId }: { movementId: string }) {
     const [loading, setLoading] = useState(false);
+    const { confirm, confirmationDialog } = useProductionConfirm();
 
     const handleAck = async () => {
         if (
-            !confirm('Konfirmasi serah terima ini dan tandai sebagai diterima?')
+            !(await confirm({ title: 'Konfirmasi serah terima?', description: 'Tandai serah terima ini sebagai diterima.' }))
         )
             return;
         setLoading(true);
@@ -32,6 +35,8 @@ function AcknowledgeHandoverButton({ movementId }: { movementId: string }) {
     };
 
     return (
+        <>
+        {confirmationDialog}
         <Button
             size="sm"
             className="text-xs"
@@ -41,6 +46,7 @@ function AcknowledgeHandoverButton({ movementId }: { movementId: string }) {
             <ClipboardCheck className="mr-2 h-4 w-4" />{' '}
             {productionComponentLabels.acknowledge}
         </Button>
+        </>
     );
 }
 

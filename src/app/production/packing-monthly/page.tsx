@@ -12,9 +12,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
-    FileText,
     Archive,
     TrendingUp,
     DollarSign,
@@ -92,14 +90,6 @@ export default async function PackingMonthlyReportPage({
                 </div>
                 <div className="flex items-center gap-3 self-end md:self-auto">
                     <MonthPicker defaultValue={selectedMonth} />
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-zinc-200 dark:border-zinc-800"
-                    >
-                        <FileText className="mr-2 h-4 w-4 text-emerald-600" />
-                        Ekspor
-                    </Button>
                 </div>
             </div>
 

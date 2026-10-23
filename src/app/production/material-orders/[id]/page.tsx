@@ -1,27 +1,41 @@
 import { getMaterialOrderDetail } from '@/actions/production/material-orders';
 import { MobileReadError } from '@/components/mobile/MobileReadError';
+import { PageHeader } from '@/components/ui/page-header';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { commonStatusLabels } from '@/lib/labels/status';
 import { MaterialOrderActions } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MaterialOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const res = await getMaterialOrderDetail(id);
-  if (!res.success) return <MobileReadError title="Detail Material Order belum tersedia" />;
-  const order = res.data;
-  return (
-    <div className="mx-auto max-w-2xl space-y-4 p-6">
-      <h1 className="text-xl font-bold">{order.orderNumber} · {order.orderType}</h1>
-      <p className="text-sm text-muted-foreground">Status: {order.status}</p>
-      <table className="w-full text-sm">
-        <thead><tr className="text-left"><th>Material</th><th>Jumlah</th><th>Zak</th><th>Ket</th></tr></thead>
-        <tbody>
-          {order.items.map((it: { id: string; productVariantId: string; quantity: unknown; zakQuantity: unknown; note: string | null }) => (
-            <tr key={it.id} className="border-t"><td>{it.productVariantId}</td><td>{String(it.quantity)}</td><td>{it.zakQuantity ? String(it.zakQuantity) : '-'}</td><td>{it.note || '-'}</td></tr>
-          ))}
-        </tbody>
-      </table>
-      <MaterialOrderActions id={order.id} />
-    </div>
-  );
+    const { id } = await params;
+    const res = await getMaterialOrderDetail(id);
+    if (!res.success) return <MobileReadError title="Detail permintaan bahan belum tersedia" />;
+    const order = res.data;
+    return (
+        <div className="mx-auto w-full max-w-3xl space-y-6">
+            <PageHeader title={order.orderNumber} description={`Permintaan Bahan · ${order.orderType}`} />
+            <Badge variant="outline">{commonStatusLabels[order.status as keyof typeof commonStatusLabels] ?? order.status}</Badge>
+            <div className="rounded-xl border bg-card p-4">
+                <p className="mb-4 text-sm text-muted-foreground">Jumlah sesuai permintaan. Satuan per bahan belum dicatat pada dokumen ini; jangan mengasumsikan seluruh jumlah dalam kg.</p>
+                <Table>
+                    <TableHeader><TableRow><TableHead>Bahan</TableHead><TableHead className="text-right">Jumlah</TableHead><TableHead className="text-right">Zak</TableHead><TableHead>Catatan</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {order.items.map((item) => (
+                            <TableRow key={item.id}>
+                                <TableCell><div className="font-medium">{item.material?.name ?? 'Bahan tidak tersedia'}</div><div className="text-xs text-muted-foreground">{item.material?.skuCode ?? 'SKU tidak tersedia'}</div></TableCell>
+                                <TableCell className="text-right tabular-nums">{Number(item.quantity).toLocaleString('id-ID', { maximumFractionDigits: 4 })}<div className="text-xs text-muted-foreground">Satuan belum dicatat</div></TableCell>
+                                <TableCell className="text-right tabular-nums">{item.zakQuantity != null ? Number(item.zakQuantity).toLocaleString('id-ID', { maximumFractionDigits: 4 }) : '—'}</TableCell>
+                                <TableCell>{item.note || '—'}</TableCell>
+                            </TableRow>
+                        ))}
+                        {!order.items.length && <TableRow><TableCell colSpan={4} className="text-center">Tidak ada bahan pada permintaan ini.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </div>
+            {order.rejectionReason && <p className="text-sm">Alasan penolakan: {order.rejectionReason}</p>}
+            <MaterialOrderActions id={order.id} canApprove={order.viewer.canApprove} canReject={order.viewer.canReject} />
+        </div>
+    );
 }

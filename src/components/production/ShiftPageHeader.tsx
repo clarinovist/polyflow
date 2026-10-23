@@ -12,7 +12,7 @@ export function ShiftPageHeader() {
         <>
             <Button onClick={() => setOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Add Shift
+                Tambah Shift
             </Button>
             <ShiftDialog open={open} onOpenChange={setOpen} />
         </>

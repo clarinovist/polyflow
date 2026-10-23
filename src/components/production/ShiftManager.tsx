@@ -1,5 +1,7 @@
 'use client';
 
+import { useProductionConfirm } from '@/components/production/useProductionConfirm';
+
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,6 +72,7 @@ export function ShiftManager({
     machines,
 }: ShiftManagerProps) {
     const [_isAdding, _setIsAdding] = useState(false);
+    const { confirm, confirmationDialog } = useProductionConfirm();
     // Di-set setelah mount supaya tidak memicu hydration mismatch
     // (keputusan "shift aktif" bergantung waktu sekarang).
     const [now, setNow] = useState<Date | null>(null);
@@ -79,7 +82,7 @@ export function ShiftManager({
     }, []);
 
     async function handleDelete(shiftId: string) {
-        if (!confirm('Yakin ingin menghapus shift ini?')) return;
+        if (!(await confirm({ title: 'Hapus shift produksi?', description: 'Shift ini akan dihapus. Validasi penggunaan tetap dilakukan oleh server.', confirmLabel: 'Hapus Shift' }))) return;
         const result = await deleteProductionShift(shiftId, orderId);
         if (result.success) {
             toast.success('Shift berhasil dihapus.');
@@ -90,6 +93,7 @@ export function ShiftManager({
 
     return (
         <div className="space-y-6">
+            {confirmationDialog}
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Shift produksi</h3>
                 {!readOnly && (

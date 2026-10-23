@@ -75,7 +75,7 @@ export const productionLinks: Pick<
             {
                 href: '/production/material-orders',
                 icon: ClipboardCheck,
-                label: 'Material Order',
+                label: 'Permintaan Bahan',
             },
         ],
     },

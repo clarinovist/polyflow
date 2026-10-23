@@ -1,5 +1,10 @@
 'use client';
 
+import { PageHeader } from '@/components/ui/page-header';
+import { getStatusLabel } from '@/lib/labels/helpers';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,63 +47,78 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
   const [cost, setCost] = useState<{ externalMaterialCost: number; internalWipValue: number; conversionCost: number; scrapCost: number; outputMovementValuation: number; reconciliationDelta: number; totalHppNoDoubleCount: number; hppPerUnit: number; totalOutputQty: number } | null>(null);
   const [rmCheck, setRmCheck] = useState<{ ready: boolean; shortages: { productVariantId: string; skuCode: string; name: string; needed: number; available: number; shortage: number }[] } | null>(null);
 
+  const [readState, setReadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [retryRead, setRetryRead] = useState(0);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const hasOutput = run.orders.some((order) => Number(order.actualQuantity ?? 0) > 0);
+
   useEffect(() => {
-    getRunReadiness(run.id).then((res) => {
-      if (res.success && res.data) setReadiness(res.data as unknown as ReadinessRow[]);
-    });
-    getRunCost(run.id).then((res) => {
-      if (res.success && res.data) setCost(res.data as never);
-    });
-    checkRunRmAvailability(run.id).then((res) => {
-      if (res.success && res.data) setRmCheck(res.data as never);
-    });
-  }, [run.id]);
+    let cancelled = false;
+    setReadState('loading');
+    Promise.all([getRunReadiness(run.id), getRunCost(run.id), checkRunRmAvailability(run.id)])
+      .then(([readyRes, costRes, rmRes]) => {
+        if (cancelled) return;
+        if (!readyRes.success || !readyRes.data || !costRes.success || !costRes.data || !rmRes.success || !rmRes.data) {
+          setReadState('error');
+          return;
+        }
+        setReadiness(readyRes.data as unknown as ReadinessRow[]);
+        setCost(costRes.data as never);
+        setRmCheck(rmRes.data as never);
+        setReadState('ready');
+      }).catch(() => { if (!cancelled) setReadState('error'); });
+    return () => { cancelled = true; };
+  }, [run.id, retryRead]);
 
   async function handleCancel() {
-    const hasOutput = run.orders.some((o) => o.actualQuantity && Number(o.actualQuantity) > 0);
-    if (hasOutput) {
-      const reason = prompt('Run sudah punya output. Masukkan alasan cancel (wajib) dan akan force-cancel:');
-      if (!reason) return;
-      if (!confirm(`Force cancel run dengan ${run.orders.filter((o) => o.actualQuantity && Number(o.actualQuantity) > 0).length} SPK ber-output?`)) return;
-      const res = await cancelProductionRun({ id: run.id, force: true, reason });
-      if (res.success) { toast.success('Run force-cancelled'); window.location.reload(); } else toast.error(res.error || 'Gagal cancel');
-      return;
+    if (cancelling || (hasOutput && !reason.trim())) return;
+    setCancelling(true);
+    try {
+      const res = await cancelProductionRun(hasOutput ? { id: run.id, force: true, reason: reason.trim() } : run.id);
+      if (res.success) { toast.success('Rangkaian dibatalkan'); window.location.reload(); }
+      else toast.error(res.error || 'Gagal membatalkan rangkaian');
+    } catch {
+      toast.error('Gagal membatalkan rangkaian. Coba lagi.');
+    } finally {
+      setCancelling(false);
     }
-    if (!confirm('Cancel run ini? Semua SPK yang belum selesai akan di-cancel.')) return;
-    const res = await cancelProductionRun(run.id);
-    if (res.success) {
-      toast.success('Run cancelled');
-      window.location.reload();
-    } else toast.error(res.error || 'Gagal cancel');
   }
 
   const total = run.orders.length;
   const completed = run.orders.filter((o) => o.status === 'COMPLETED').length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  const readinessMap = new Map(readiness.map((r) => [r.orderId, r]));
+  const readinessMap = new Map((readState === 'ready' ? readiness : []).map((r) => [r.orderId, r]));
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm">
-        <Link href="/production/runs" className="text-muted-foreground hover:underline">Runs</Link>
-        <span>/</span><span className="font-semibold">{run.runNumber}</span>
-      </div>
+      <PageHeader title={run.runNumber} description="Detail Rangkaian Produksi" />
+      {readState === 'loading' && <p role="status">Memuat kesiapan bahan dan biaya…</p>}
+      {readState === 'error' && <div role="alert" className="rounded-xl border p-4">Kesiapan bahan dan biaya belum dapat dimuat; bukan berarti stok atau biaya nol. <Button variant="outline" onClick={() => setRetryRead((value) => value + 1)}>Coba lagi</Button></div>}
+      <AlertDialog open={cancelOpen} onOpenChange={(open) => { if (!cancelling) setCancelOpen(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Batalkan rangkaian?</AlertDialogTitle><AlertDialogDescription>{hasOutput ? 'Rangkaian sudah memiliki hasil produksi. Pembatalan paksa memerlukan alasan dan tetap mengikuti validasi server.' : 'SPK yang belum selesai pada rangkaian ini akan dibatalkan.'}</AlertDialogDescription></AlertDialogHeader>
+          {hasOutput && <div className="space-y-2"><Label htmlFor="run-cancel-reason">Alasan pembatalan (wajib)</Label><Input id="run-cancel-reason" disabled={cancelling} value={reason} onChange={(event) => setReason(event.target.value)} /></div>}
+          <AlertDialogFooter><AlertDialogCancel disabled={cancelling}>Kembali</AlertDialogCancel><Button variant="destructive" disabled={cancelling || (hasOutput && !reason.trim())} onClick={handleCancel}>{cancelling ? 'Membatalkan…' : 'Konfirmasi Pembatalan'}</Button></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-lg">{run.runNumber} · {run.routeNameSnapshot ?? run.route?.name} v{run.routeVersionSnapshot}</CardTitle>
           <div className="flex gap-2 items-center flex-wrap">
-            <Badge>{run.status}</Badge>
+            <Badge>{getStatusLabel(run.status)}</Badge>
             <Badge variant="outline">{percent}% · {completed}/{total} selesai</Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div>Produk: {run.productVariant?.product?.name} {run.productVariant?.name} ({run.productVariant?.skuCode}) · Target {formatQuantity(Number(run.plannedQuantity))}</div>
 
-          {rmCheck && (
-            <div className={`p-2.5 rounded text-xs border ${rmCheck.ready ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-              {rmCheck.ready ? '✓ RM tersedia untuk tahap pertama' : `⚠ RM shortage: ${rmCheck.shortages.length} item kurang — belanja/catat stok dulu`}
+          {readState === 'ready' && rmCheck && (
+            <div className={`p-2.5 rounded text-xs border ${rmCheck.ready ? 'bg-primary/10 border-primary/20 text-foreground' : 'bg-muted border-border text-foreground'}`}>
+              {rmCheck.ready ? '✓ Bahan baku tersedia untuk tahap pertama' : `⚠ Kekurangan bahan baku: ${rmCheck.shortages.length} item kurang — belanja/catat stok dulu`}
               {!rmCheck.ready && rmCheck.shortages.slice(0, 5).map((s, i) => (
                 <div key={i} className="mt-1 flex flex-wrap gap-1.5 items-center">
                   <Badge variant="outline" className="text-[10px] font-mono h-4">{s.skuCode || '?'}</Badge>
@@ -110,17 +130,17 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
             </div>
           )}
 
-          {cost && (
+          {readState === 'ready' && cost && (
             <div className="p-2 rounded bg-muted text-xs">
-              <div className="font-semibold">Costing (no double count internal WIP)</div>
-              <div>External RM: {cost.externalMaterialCost.toFixed(2)} · Internal WIP (info): {cost.internalWipValue.toFixed(2)} · Conversion: {cost.conversionCost.toFixed(2)} · Scrap adjustment: {cost.scrapCost.toFixed(2)}</div>
-              <div>Total HPP no double: {cost.totalHppNoDoubleCount.toFixed(2)} · Output {formatQuantity(cost.totalOutputQty)} · HPP/unit {cost.hppPerUnit.toFixed(2)}</div>
+              <div className="font-semibold">Biaya (WIP internal tidak dihitung ganda)</div>
+              <div>Bahan baku eksternal: {cost.externalMaterialCost.toFixed(2)} · WIP internal (informasi): {cost.internalWipValue.toFixed(2)} · Konversi: {cost.conversionCost.toFixed(2)} · Penyesuaian scrap: {cost.scrapCost.toFixed(2)}</div>
+              <div>Total HPP tanpa hitung ganda: {cost.totalHppNoDoubleCount.toFixed(2)} · Output {formatQuantity(cost.totalOutputQty)} · HPP/unit {cost.hppPerUnit.toFixed(2)}</div>
               <div>Rekonsiliasi output movement: {cost.outputMovementValuation.toFixed(2)} · delta {cost.reconciliationDelta.toFixed(2)}</div>
             </div>
           )}
 
           <div className="flex gap-2 flex-wrap">
-            {run.status !== 'COMPLETED' && run.status !== 'CANCELLED' && <Button size="sm" variant="destructive" onClick={handleCancel}>Cancel Run</Button>}
+            {run.status !== 'COMPLETED' && run.status !== 'CANCELLED' && <Button size="sm" variant="destructive" onClick={() => setCancelOpen(true)}>Batalkan Rangkaian</Button>}
             {run.route?.id && <Button size="sm" variant="outline" asChild><Link href={`/production/routings/${run.route.id}`}>Lihat Routing</Link></Button>}
           </div>
         </CardContent>
@@ -128,7 +148,7 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
 
       {run.route?.steps && run.route.steps.length > 0 && (
         <RouteFlowChain
-          title="Timeline Route + Readiness"
+          title="Tahapan Routing & Kesiapan"
           steps={(run.route.steps.map((s, idx) => {
             const order = run.orders.find((o) => o.routeSequenceSnapshot === idx || o.processCodeSnapshot === s.stepCode);
             const r = order ? readinessMap.get(order.id) : undefined;
@@ -157,12 +177,12 @@ export function RunDetailClient({ initialRun }: { initialRun: RunDetail }) {
                 <div className="space-y-0.5 flex-1">
                   <div className="flex gap-2 items-center flex-wrap">
                     <Link href={`/production/orders/${o.id}`} className="font-mono font-semibold hover:underline">{o.orderNumber}</Link>
-                    <Badge variant="outline">{o.status}</Badge>
+                    <Badge variant="outline">{getStatusLabel(o.status, 'production')}</Badge>
                     {o.processNameSnapshot && <span className="text-xs text-muted-foreground">Tahap {o.routeSequenceSnapshot != null ? (o.routeSequenceSnapshot + 1) : '?'} · {o.processNameSnapshot}</span>}
                     {r && <Badge variant={r.canStart ? 'default' : 'secondary'} className="text-[10px]">{r.status}</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {o.sourceLocation?.name ?? '?'} → {o.location?.name ?? '?'} · Plan {formatQuantity(Number(o.plannedQuantity))} · Aktual {o.actualQuantity ? formatQuantity(Number(o.actualQuantity)) : '-'} {r ? `· WIP avail ${formatQuantity(r.available)}` : ''}
+                    {o.sourceLocation?.name ?? '?'} → {o.location?.name ?? '?'} · Rencana {formatQuantity(Number(o.plannedQuantity))} · Aktual {o.actualQuantity ? formatQuantity(Number(o.actualQuantity)) : '-'} {r ? `· WIP tersedia ${formatQuantity(r.available)}` : ''}
                   </div>
                   {r?.reason && !r.canStart && <div className="text-xs text-amber-600">{r.reason}</div>}
                 </div>

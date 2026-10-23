@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getStatusLabel } from '@/lib/labels/helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,8 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
   const [routeSearch, setRouteSearch] = useState('');
   const [routeOptions, setRouteOptions] = useState<RouteOption[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
+  const [routesError, setRoutesError] = useState(false);
+  const [retryRoutes, setRetryRoutes] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState<Array<{ sequence: number; label: string; stepCode: string; processCode: string; bomName: string; stepOutputQty: number; recipeRuns: number }> | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -52,15 +55,19 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
 
   useEffect(() => {
     if (!showCreate) return;
+    let cancelled = false;
     setLoadingRoutes(true);
+    setRoutesError(false);
     fetch('/api/production/routes?q=' + encodeURIComponent(routeSearch))
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error('Read failed'); return r.json(); })
       .then((j) => {
-        if (Array.isArray(j)) setRouteOptions(j.slice(0, 50));
+        if (!Array.isArray(j)) throw new Error('Invalid response');
+        if (!cancelled) setRouteOptions(j.slice(0, 50));
       })
-      .catch(() => {})
-      .finally(() => setLoadingRoutes(false));
-  }, [showCreate, routeSearch]);
+      .catch(() => { if (!cancelled) { setRouteOptions([]); setRoutesError(true); } })
+      .finally(() => { if (!cancelled) setLoadingRoutes(false); });
+    return () => { cancelled = true; };
+  }, [showCreate, routeSearch, retryRoutes]);
 
   const filtered = useMemo(() => {
     return runs.filter((r) => {
@@ -94,6 +101,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
       }
     } catch {
       setPreview(null);
+      setPreviewError('Pratinjau gagal dimuat.');
     } finally {
       setPreviewLoading(false);
     }
@@ -142,7 +150,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
             <SelectContent>
               <SelectItem value="ALL">Semua status</SelectItem>
               <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="RELEASED">Released</SelectItem>
+              <SelectItem value="RELEASED">Dirilis</SelectItem>
               <SelectItem value="IN_PROGRESS">Jalan</SelectItem>
               <SelectItem value="COMPLETED">Selesai</SelectItem>
               <SelectItem value="CANCELLED">Batal</SelectItem>
@@ -156,9 +164,9 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="space-y-2">
-              <Label>Routing — pilih yang sudah Published & Default</Label>
+              <Label>Routing — pilih yang sudah Terbit & Default</Label>
               <p className="text-[11px] text-muted-foreground">
-                Routing menentukan urutan tahap, sedangkan BOM menentukan resep tiap tahap. Rangkaian menjalankan routing yang sudah <strong>Published</strong> dan membuat satu SPK per tahap. SPK satu tahap tetap bisa dibuat tanpa rangkaian.
+                Routing menentukan urutan tahap, sedangkan BOM menentukan resep tiap tahap. Rangkaian menjalankan routing yang sudah <strong>Terbit</strong> dan membuat satu SPK per tahap. SPK satu tahap tetap bisa dibuat tanpa rangkaian.
               </p>
 
               {selectedRoute && (
@@ -196,9 +204,10 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
                       </div>
                     </button>
                   ))}
-                  {!loadingRoutes && routeOptions.length === 0 && (
+                  {routesError && <div role="alert" className="p-4 text-sm">Routing gagal dimuat. <Button type="button" variant="outline" onClick={() => setRetryRoutes((value) => value + 1)}>Coba lagi</Button></div>}
+                  {!loadingRoutes && !routesError && routeOptions.length === 0 && (
                     <div className="text-xs text-muted-foreground p-4 text-center">
-                      Tidak ada routing Published. Buat & publish routing dulu di <Link href="/production/routings" className="underline">/production/routings</Link>.
+                      Tidak ada routing yang sudah diterbitkan sesuai pencarian. Kelola melalui <Link href="/production/routings" className="underline">Routing Produksi</Link>.
                     </div>
                   )}
                 </div>
@@ -209,13 +218,13 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
               <Label>Target Kuantitas Produk Akhir ({selectedRoute?.productVariant?.primaryUnit ?? 'satuan sesuai variant'})</Label>
               <Input type="number" value={formQty} onChange={(e) => setFormQty(e.target.value)} placeholder="Contoh: 1000" className="h-9" />
               <p className="text-[11px] text-muted-foreground">
-                Kuantitas akan di-scaling mundur lewat BoM tiap tahap (termasuk scrap). Contoh: jika target FG 1000 dan BOM tahap 1 output 500, maka tahap 1 butuh 2x.
+                Kuantitas akan disesuaikan mundur lewat BOM tiap tahap (termasuk scrap). Contoh: jika target FG 1000 dan BOM tahap 1 output 500, maka tahap 1 butuh 2x.
               </p>
             </div>
 
             {(previewLoading || preview || previewError) && (
               <div className="rounded border bg-muted/30 p-3 space-y-2">
-                <div className="text-xs font-semibold">Preview SPK yang akan dibuat {previewLoading ? '(memuat...)' : ''}</div>
+                <div className="text-xs font-semibold">Pratinjau SPK yang akan dibuat {previewLoading ? '(memuat...)' : ''}</div>
                 {previewError && <div className="text-[11px] text-amber-700">{previewError} — pratinjau belum tersedia. Validasi akhir tetap dilakukan saat membuat rangkaian.</div>}
                 {preview && preview.length > 0 && (
                   <div className="space-y-1">
@@ -230,7 +239,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
                     ))}
                   </div>
                 )}
-                {preview && <p className="text-[10px] text-muted-foreground">Preview read-only — tidak blocking. Angka final di SPK ikut logika yang sama (computeStepQuantities).</p>}
+                {preview && <p className="text-[10px] text-muted-foreground">Pratinjau tidak mengubah data. Validasi akhir dilakukan saat rangkaian dibuat.</p>}
               </div>
             )}
 
@@ -251,9 +260,10 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
           <CardContent className="p-8 text-center space-y-3">
             <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg">🏭</div>
             <div className="space-y-1">
-              <div className="font-semibold">Belum ada rangkaian produksi</div>
+              <div className="font-semibold">{search || statusFilter !== 'ALL' ? 'Tidak ada rangkaian sesuai filter' : 'Belum ada rangkaian produksi'}</div>
+              {(search || statusFilter !== 'ALL') && <Button variant="outline" onClick={() => { setSearch(''); setStatusFilter('ALL'); }}>Hapus filter</Button>}
               <div className="text-sm text-muted-foreground max-w-lg mx-auto">
-                Gunakan routing <strong>Published</strong> untuk membuat rangkaian.
+                Gunakan routing <strong>Terbit</strong> untuk membuat rangkaian.
                 <details className="mt-2 text-left">
                   <summary className="min-h-11 content-center cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-ring">Cara kerja rangkaian</summary>
                   <p>Rangkaian menjalankan beberapa tahap routing: satu SPK per tahap, dengan resep dari BOM.</p>
@@ -282,7 +292,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex gap-2 items-center flex-wrap">
                       <Link href={`/production/runs/${r.id}`} className="font-semibold hover:underline">{r.runNumber}</Link>
-                      <Badge variant={r.status === 'COMPLETED' ? 'default' : r.status === 'IN_PROGRESS' ? 'secondary' : 'outline'}>{r.status}</Badge>
+                      <Badge variant={r.status === 'COMPLETED' ? 'default' : r.status === 'IN_PROGRESS' ? 'secondary' : 'outline'}>{getStatusLabel(r.status)}</Badge>
                       <span className="text-xs text-muted-foreground">{r.route?.name} v{r.route?.version} · target {String(r.plannedQuantity)}</span>
                     </div>
                     <div className="text-sm flex items-center gap-1.5 flex-wrap min-w-0">
@@ -290,7 +300,7 @@ export function RunsListClient({ initialRuns }: { initialRuns: RunType[] }) {
                       <span className="truncate">{r.productVariant?.product?.name} {r.productVariant?.name}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Progress {completed}/{total} · {progress}%
+                      Progres {completed}/{total} · {progress}%
                     </div>
                   </div>
                   <Button size="sm" asChild variant="secondary" className="shrink-0"><Link href={`/production/runs/${r.id}`}>Detail →</Link></Button>

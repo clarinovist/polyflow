@@ -1,5 +1,7 @@
 'use client';
 
+import { useProductionConfirm } from '@/components/production/useProductionConfirm';
+
 import React, { useState, useEffect } from 'react';
 import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -111,6 +113,7 @@ const formatCurrency = (amount: number) => {
 export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { confirm, confirmationDialog } = useProductionConfirm();
     const basePath = useBomBasePath();
 
     const form = useForm<CreateBomValues>({
@@ -207,29 +210,19 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
 
         // Validation 1: Physical Impossibility (Output KG > Total Input KG)
         if (massEvaluation.status === 'output-exceeds-input') {
-            const confirmed = window.confirm(
-                `⚠️ OUTPUT TIDAK MUNGKIN SECARA FISIK ⚠️\n\n` +
-                    `Total Input Material: ${massEvaluation.totalInputKg.toLocaleString()} KG\n` +
-                    `Target Output: ${massEvaluation.outputKg.toLocaleString()} KG\n\n` +
-                    `DILARANG: Output tidak boleh lebih besar dari input material karena akan menyebabkan COGS negatif.\n` +
-                    `Kemungkinan error: Basis Output terlalu tinggi.\n\n` +
-                    `Yakin ingin melanjutkan?`,
-            );
+            const confirmed = await confirm({
+                title: 'Hasil melebihi bahan masuk',
+                description: `Total bahan: ${massEvaluation.totalInputKg.toLocaleString()} KG\nTarget hasil: ${massEvaluation.outputKg.toLocaleString()} KG\nPeriksa jumlah dasar hasil. Hasil tidak boleh melebihi bahan masuk karena dapat menyebabkan HPP tidak valid. Yakin melanjutkan?`,
+            });
             if (!confirmed) return;
         }
 
         // Validation 2: Suspicious Ratio (High Shrinkage / Unit Mismatch)
         if (massEvaluation.status === 'high-shrinkage') {
-            const confirmed = window.confirm(
-                `⚠️ HIGH SHRINKAGE / POTENTIAL UNIT ERROR ⚠️\n\n` +
-                    `Total Material Input: ${massEvaluation.totalInputKg.toLocaleString()} KG\n` +
-                    `Target Output: ${massEvaluation.outputKg.toLocaleString()} KG\n` +
-                    `Implied Shrinkage: ${massEvaluation.shrinkagePercent.toFixed(1)}%\n\n` +
-                    `This is unusually high. Did you mean to use '1 Sack' instead of 'Mass in KG'?\n` +
-                    `POLYFLOW STANDARD: Use KG for both Input and Output.\n\n` +
-                    `Click OK to save if this is intentional (e.g. high evaporation).\n` +
-                    `Click Cancel to fix quantities.`,
-            );
+            const confirmed = await confirm({
+                title: 'Penyusutan tinggi — periksa jumlah dan satuan',
+                description: `Total bahan: ${massEvaluation.totalInputKg.toLocaleString()} KG\nTarget hasil: ${massEvaluation.outputKg.toLocaleString()} KG\nPenyusutan: ${massEvaluation.shrinkagePercent.toFixed(1)}%\nPastikan jumlah dan satuan benar. Lanjutkan hanya jika penyusutan ini memang disengaja, atau pilih Batal untuk memperbaiki jumlah.`,
+            });
             if (!confirmed) return;
         }
 
@@ -257,6 +250,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
 
     return (
         <div className="max-w-7xl mx-auto">
+            {confirmationDialog}
             <div className="flex items-center gap-4 mb-8">
                 <Button
                     variant="ghost"
@@ -307,7 +301,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                     name="name"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Recipe Name</FormLabel>
+                                            <FormLabel>Nama Formula</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     placeholder={
@@ -327,7 +321,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
                                             <FormLabel>
-                                                Output Product
+                                                Produk Hasil
                                             </FormLabel>
                                             <FormControl>
                                                 <ProductCombobox
@@ -371,7 +365,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                                 </FormControl>
                                                 <SelectContent>
                                                     <SelectItem value="STANDARD">
-                                                        Standard (General)
+                                                        Standar (Umum)
                                                     </SelectItem>
                                                     <SelectItem value="MIXING">
                                                         Mixing (Adonan)
@@ -400,7 +394,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="flex items-center justify-between">
-                                                <span>Basis Output Quantity</span>
+                                                <span>Jumlah Dasar Hasil</span>
                                                 {selectedOutputVariant?.primaryUnit && (
                                                     <Badge
                                                         variant="outline"
@@ -451,8 +445,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                             </FormControl>
                                             <div className="leading-none">
                                                 <FormLabel className="cursor-pointer">
-                                                    Set as Primary Default
-                                                    Recipe
+                                                    Jadikan Formula Utama
                                                 </FormLabel>
                                             </div>
                                         </FormItem>
@@ -491,7 +484,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                                             .breakdown.source,
                                                     )}
                                                 >
-                                                    Output basis:{' '}
+                                                    Jumlah dasar hasil:{' '}
                                                     {getCostSourceLabel(
                                                         outputDiagnostics
                                                             .breakdown.source,
@@ -531,7 +524,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                     {showPrices && formulaWarnings.length > 0 && (
                         <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
                             <Info className="h-4 w-4" />
-                            <AlertTitle>Ingredient cost warning</AlertTitle>
+                            <AlertTitle>Peringatan biaya bahan</AlertTitle>
                             <AlertDescription className="space-y-2">
                                 {formulaWarnings.map((warning, index) => (
                                     <div
@@ -567,7 +560,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <div className="flex items-center gap-3">
                                 <CardTitle className="text-lg font-bold">
-                                    Formula Configuration
+                                    Susunan Formula
                                 </CardTitle>
                                 <Badge variant="secondary" className="ml-2">
                                     {fields.length} Components
@@ -599,10 +592,10 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead className="w-[400px]">
-                                                Ingredient Material & SKU
+                                                Bahan & SKU
                                             </TableHead>
                                             <TableHead className="text-center w-[150px]">
-                                                Quantity
+                                                Jumlah
                                             </TableHead>
                                             <TableHead className="text-center w-[120px]">
                                                 Scrap %
@@ -890,6 +883,7 @@ export function BOMForm({ bom, productVariants, showPrices }: BOMFormProps) {
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
+                                                            aria-label={`Hapus bahan ${index + 1}`}
                                                             onClick={() =>
                                                                 remove(index)
                                                             }

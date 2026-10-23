@@ -9,6 +9,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -27,18 +28,18 @@ import { toast } from 'sonner';
 import { WorkShift, WorkShiftStatus } from '@prisma/client';
 
 const formSchema = z.object({
-    name: z.string().min(1, 'Name is required'),
+    name: z.string().min(1, 'Nama shift wajib diisi'),
     startTime: z
         .string()
         .regex(
             /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
-            'Invalid time format (HH:mm)',
+            'Format waktu harus HH:mm',
         ),
     endTime: z
         .string()
         .regex(
             /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
-            'Invalid time format (HH:mm)',
+            'Format waktu harus HH:mm',
         ),
     plannedHours: z
         .number()
@@ -144,6 +145,7 @@ export function ShiftDialog({
                     <DialogTitle>
                         {shiftToEdit ? 'Ubah Shift' : 'Tambah Shift Baru'}
                     </DialogTitle>
+                    <DialogDescription>Atur nama, jam kerja, dan status shift.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form
@@ -234,7 +236,7 @@ export function ShiftDialog({
                                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                                     <div className="space-y-0.5">
                                         <FormLabel className="text-base">
-                                            Status
+                                            {field.value ? 'Aktif' : 'Nonaktif'}
                                         </FormLabel>
                                     </div>
                                     <FormControl>
@@ -247,6 +249,7 @@ export function ShiftDialog({
                             )}
                         />
                         <DialogFooter>
+                            <Button type="button" variant="outline" disabled={loading} onClick={() => onOpenChange(false)}>Batal</Button>
                             <Button type="submit" disabled={loading}>
                                 {loading ? 'Menyimpan...' : 'Simpan Shift'}
                             </Button>

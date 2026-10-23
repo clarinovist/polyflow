@@ -30,7 +30,8 @@ export function ReassignMachineButton({
                     size="icon"
                     variant="ghost"
                     onClick={() => setOpen(true)}
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    className="h-11 w-11 text-muted-foreground hover:text-foreground"
+                    aria-label={`${productionComponentLabels.changeMachine} ${orderNumber}`}
                     title={productionComponentLabels.changeMachine}
                 >
                     <Factory className="h-3 w-3" />

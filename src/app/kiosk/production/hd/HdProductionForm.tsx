@@ -255,7 +255,7 @@ export default function HdProductionForm({
                                     name={`reports.${index}.productionOrderId`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 {productionLabels.workOrder}
                                             </FormLabel>
                                             <Select
@@ -266,8 +266,8 @@ export default function HdProductionForm({
                                                 value={field.value}
                                             >
                                                 <FormControl>
-                                                    <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
-                                                        <SelectValue placeholder="Pilih WO..." />
+                                                    <SelectTrigger className="bg-background border-input text-foreground">
+                                                        <SelectValue placeholder="Pilih SPK..." />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -296,7 +296,7 @@ export default function HdProductionForm({
                                     name={`reports.${index}.machineId`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Mesin
                                             </FormLabel>
                                             <Select
@@ -304,7 +304,7 @@ export default function HdProductionForm({
                                                 value={field.value}
                                             >
                                                 <FormControl>
-                                                    <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
+                                                    <SelectTrigger className="bg-background border-input text-foreground">
                                                         <SelectValue placeholder="Pilih Mesin..." />
                                                     </SelectTrigger>
                                                 </FormControl>
@@ -329,7 +329,7 @@ export default function HdProductionForm({
                                     name={`reports.${index}.operatorId`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Operator (Ketua)
                                             </FormLabel>
                                             <Select
@@ -337,7 +337,7 @@ export default function HdProductionForm({
                                                 value={field.value}
                                             >
                                                 <FormControl>
-                                                    <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
+                                                    <SelectTrigger className="bg-background border-input text-foreground">
                                                         <SelectValue placeholder="Pilih Operator..." />
                                                     </SelectTrigger>
                                                 </FormControl>
@@ -375,7 +375,7 @@ export default function HdProductionForm({
 
                                         return (
                                             <FormItem>
-                                                <FormLabel className="text-white/70 dark:text-white/80">
+                                                <FormLabel className="text-muted-foreground">
                                                     Shift
                                                 </FormLabel>
                                                 <Select
@@ -389,13 +389,13 @@ export default function HdProductionForm({
                                                     }
                                                 >
                                                     <FormControl>
-                                                        <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
+                                                        <SelectTrigger className="bg-background border-input text-foreground">
                                                             <SelectValue
                                                                 placeholder={
                                                                     isLoading
                                                                         ? 'Memuat shift...'
                                                                         : !currentOrderId
-                                                                          ? 'Pilih WO dulu'
+                                                                          ? 'Pilih SPK dulu'
                                                                           : 'Pilih Shift...'
                                                                 }
                                                             />
@@ -461,7 +461,7 @@ export default function HdProductionForm({
 
                                     return (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80 flex items-center gap-2">
+                                            <FormLabel className="text-muted-foreground flex items-center gap-2">
                                                 <Users className="h-4 w-4" />{' '}
                                                 Helper / Asisten
                                                 {currentHelpers.length > 0 && (
@@ -471,7 +471,7 @@ export default function HdProductionForm({
                                                     </span>
                                                 )}
                                             </FormLabel>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-black/20 dark:bg-black/40 rounded-lg border border-white/5 dark:border-white/10">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-muted/40 rounded-lg border border-border">
                                                 {eligibleHelpers.map((e) => (
                                                     <label
                                                         key={e.id}
@@ -479,8 +479,8 @@ export default function HdProductionForm({
                                                             currentHelpers.includes(
                                                                 e.id,
                                                             )
-                                                                ? 'bg-primary/20 dark:bg-primary/30 border-primary/50 dark:border-primary/60 text-white font-semibold'
-                                                                : 'border-white/5 dark:border-white/10 text-white/60 dark:text-white/70 hover:bg-white/5 dark:hover:bg-white/10 hover:text-white'
+                                                                ? 'bg-primary/15 border-primary text-foreground font-semibold'
+                                                                : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
                                                         }`}
                                                     >
                                                         <Checkbox
@@ -499,7 +499,7 @@ export default function HdProductionForm({
                                                 ))}
                                                 {eligibleHelpers.length ===
                                                     0 && (
-                                                    <p className="text-white/30 dark:text-white/50 text-xs col-span-4">
+                                                    <p className="text-muted-foreground text-xs col-span-4">
                                                         Pilih operator terlebih
                                                         dahulu
                                                     </p>
@@ -512,20 +512,20 @@ export default function HdProductionForm({
                             />
 
                             {/* Mid Data row: Bruto, Bobin, Netto, Cek Gram */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-black/20 dark:bg-black/40 p-4 rounded-xl">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-muted/40 p-4 rounded-xl">
                                 <FormField
                                     control={form.control}
                                     name={`reports.${index}.bruto`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Bruto (Kg)
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
                                                     step="any"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-primary font-bold text-lg"
+                                                    className="bg-background border-input text-primary font-bold text-lg"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -538,14 +538,14 @@ export default function HdProductionForm({
                                     name={`reports.${index}.bobin`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Bobin (Kg)
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
                                                     step="any"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-yellow-400 dark:text-yellow-300 font-bold text-lg"
+                                                    className="bg-background border-input text-foreground font-bold text-lg"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -558,7 +558,7 @@ export default function HdProductionForm({
                                     name={`reports.${index}.quantityProduced`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Netto / Valid (
                                                 {unitMeta.displayUnit})
                                             </FormLabel>
@@ -566,7 +566,7 @@ export default function HdProductionForm({
                                                 <Input
                                                     type="number"
                                                     step="any"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/20 dark:border-white/30 text-green-400 dark:text-green-300 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.2)] dark:shadow-[0_0_20px_rgba(74,222,128,0.3)]"
+                                                    className="bg-background border-input text-foreground font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.2)] dark:shadow-[0_0_20px_rgba(74,222,128,0.3)]"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -579,14 +579,14 @@ export default function HdProductionForm({
                                     name={`reports.${index}.cekGram`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Cek Gram
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     {...field}
                                                     placeholder="Contoh: 12g"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-white"
+                                                    className="bg-background border-input text-foreground"
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -602,14 +602,14 @@ export default function HdProductionForm({
                                     name={`reports.${index}.scrapProngkolQty`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
-                                                Scrap Lumps (Kg)
+                                            <FormLabel className="text-muted-foreground">
+                                                Scrap Prongkol (Kg)
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
                                                     step="any"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-red-400 dark:text-red-300"
+                                                    className="bg-background border-input text-destructive"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -622,14 +622,14 @@ export default function HdProductionForm({
                                     name={`reports.${index}.scrapDaunQty`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Scrap Daun (Kg)
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
                                                     step="any"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-red-400 dark:text-red-300"
+                                                    className="bg-background border-input text-destructive"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -642,13 +642,13 @@ export default function HdProductionForm({
                                     name={`reports.${index}.startTime`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Mulai Pukul
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="datetime-local"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-white"
+                                                    className="bg-background border-input text-foreground"
                                                     value={
                                                         field.value instanceof
                                                         Date
@@ -679,13 +679,13 @@ export default function HdProductionForm({
                                     name={`reports.${index}.endTime`}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white/70 dark:text-white/80">
+                                            <FormLabel className="text-muted-foreground">
                                                 Selesai Pukul
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="datetime-local"
-                                                    className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-white"
+                                                    className="bg-background border-input text-foreground"
                                                     value={
                                                         field.value instanceof
                                                         Date
@@ -716,16 +716,16 @@ export default function HdProductionForm({
                     );
                 })}
 
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card/10 dark:bg-card/20 p-6 rounded-2xl border-t-4 border-primary/50 dark:border-primary/60 shadow-lg backdrop-blur-xl sticky bottom-4 z-50">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card/10 dark:bg-card/20 p-6 rounded-2xl border-t-4 border-primary/50 dark:border-primary/60 shadow-lg backdrop-blur-xl relative">
                     <Button
                         type="button"
                         variant="secondary"
                         size="lg"
-                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-white bg-white/10 dark:bg-white/15 hover:bg-white/20 dark:hover:bg-white/25 border-white/20 dark:border-white/30"
+                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-foreground bg-secondary hover:bg-secondary/80 border-border"
                         onClick={() => append(makeEmpty())}
                     >
                         <PlusCircle className="h-5 w-5 mr-2" />
-                        Tambah Entry
+                        Tambah Entri
                     </Button>
 
                     <Button

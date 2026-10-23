@@ -51,7 +51,7 @@ export default async function PotongPlongKioskPage() {
     const { orders, machines, employees } = await getData();
 
     return (
-        <div className="min-h-screen bg-background p-4 md:p-6 max-w-7xl mx-auto space-y-4">
+        <div className="bg-background p-4 md:p-6 max-w-7xl mx-auto space-y-4">
             <Link href="/kiosk">
                 <Button
                     variant="ghost"

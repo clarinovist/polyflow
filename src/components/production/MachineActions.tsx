@@ -71,7 +71,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
         <>
             <DropdownMenu open={open} onOpenChange={setOpen}>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="min-h-11 min-w-11" aria-label="Aksi mesin">
                         <MoreHorizontal className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>

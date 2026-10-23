@@ -60,18 +60,18 @@ export function ActiveExecutionBanner({
 
     return (
         <div
-            className="fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-4 shadow-2xl border-t border-slate-700 z-50 flex justify-between items-center animate-in slide-in-from-bottom cursor-pointer hover:bg-slate-800 transition-colors"
-            onClick={handleNavigateFocus}
+            className="sticky bottom-0 bg-card text-foreground p-4 shadow-lg border-t border-border z-40 flex flex-wrap gap-3 justify-between items-center"
+            role="region" aria-label="Eksekusi aktif"
         >
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 flex-1 items-center gap-4">
                 <div className="h-10 w-10 flex items-center justify-center bg-green-500 rounded-full animate-pulse shrink-0">
                     <Clock className="h-6 w-6 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                     <p className="font-mono text-xl font-bold">{elapsed}</p>
-                    <p className="text-sm text-slate-400">
+                    <p className="text-sm text-muted-foreground break-words">
                         {kioskLabels.running}:{' '}
-                        <span className="text-white">
+                        <span className="text-foreground">
                             {active.productionOrder.bom.productVariant.name}
                         </span>
                     </p>
@@ -87,7 +87,7 @@ export function ActiveExecutionBanner({
                     handleNavigateFocus();
                 }}
             >
-                Buka Focus →
+                Buka SPK →
             </Button>
         </div>
     );

@@ -1,5 +1,8 @@
 'use client';
 
+import { PageHeader } from '@/components/ui/page-header';
+import { useProductionConfirm } from '@/components/production/useProductionConfirm';
+
 import { useEffect, useMemo, useState } from 'react';
 import {
     Card,
@@ -34,6 +37,7 @@ export function RouteBuilderClient({
     initialRoute: RouteType;
 }) {
     const [route] = useState(initialRoute);
+    const { confirm, confirmationDialog } = useProductionConfirm();
     const [form, setForm] = useState<NewStepForm>({
         stepCode: '',
         label: '',
@@ -365,7 +369,7 @@ export function RouteBuilderClient({
     }
 
     async function handleDeleteStep(stepId: string) {
-        if (!confirm('Hapus tahap ini? Chain output/input bisa putus.')) return;
+        if (!(await confirm({ title: 'Hapus tahap?', description: 'Hubungan hasil dan bahan antar tahap dapat terputus.', confirmLabel: 'Hapus Tahap' }))) return;
         const res = await deleteRouteStep(stepId);
         if (res.success) {
             toast.success('Tahap dihapus');
@@ -414,9 +418,7 @@ export function RouteBuilderClient({
 
     async function handleArchive() {
         if (
-            !confirm(
-                'Arsipkan routing ini? Run baru tidak bisa pakai routing ini.',
-            )
+            !(await confirm({ title: 'Arsipkan routing?', description: 'Rangkaian baru tidak dapat menggunakan routing ini.', confirmLabel: 'Arsipkan Routing' }))
         )
             return;
         const res = await archiveRoute(route.id);
@@ -439,15 +441,8 @@ export function RouteBuilderClient({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Link href="/production/routings" className="hover:underline">
-                    Routing Produksi
-                </Link>
-                <span>/</span>
-                <span className="font-semibold text-foreground">
-                    {route.name}
-                </span>
-            </div>
+            {confirmationDialog}
+            <PageHeader title={route.name} description="Detail Routing Produksi" />
 
             <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-2">

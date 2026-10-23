@@ -10,11 +10,28 @@ beforeEach(() => {
     vi.resetAllMocks();
     mocks.preview.mockResolvedValue({ success: true, data: [] });
     mocks.create.mockResolvedValue({ success: true, data: { id: 'run-test' } });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => [{ id: 'route-test', name: 'Test route', code: 'TEST', version: 1, isDefault: true, _count: { steps: 3 } }] }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [{ id: 'route-test', name: 'Test route', code: 'TEST', version: 1, isDefault: true, _count: { steps: 3 } }] }));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('rangkaian production entry', () => {
+    it('shows route fetch failures with retry instead of an empty routing list', async () => {
+        vi.mocked(fetch).mockResolvedValueOnce({ ok: false } as Response);
+        render(<RunsListClient initialRuns={[]} />);
+        fireEvent.click(screen.getAllByRole('button', { name: 'Buat Rangkaian Produksi' })[0]);
+        expect(await screen.findByRole('alert')).toBeTruthy();
+        expect(screen.queryByText(/Tidak ada routing yang sudah diterbitkan/)).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Coba lagi' }));
+        expect(await screen.findByRole('button', { name: /Test route/ })).toBeTruthy();
+        expect(screen.queryByRole('alert')).toBeNull();
+    });
+    it('distinguishes no matching results from an empty directory and can clear filters', () => {
+        render(<RunsListClient initialRuns={[{ id: 'run', runNumber: 'RUN-01', status: 'DRAFT', plannedQuantity: 10 }]} />);
+        fireEvent.change(screen.getByPlaceholderText('Cari rangkaian / routing / SKU / produk'), { target: { value: 'not-found' } });
+        expect(screen.getByText('Tidak ada rangkaian sesuai filter')).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Hapus filter' }));
+        expect(screen.getByRole('link', { name: 'RUN-01' })).toBeTruthy();
+    });
     it('fixes the request link, explains object relationships and navigates to the created run', async () => {
         render(<RunsListClient initialRuns={[]} />);
         expect(screen.getByRole('link', { name: 'Papan Permintaan' }).getAttribute('href')).toBe('/production/requests');

@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/ui/page-header';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getEmployees } from '@/actions/admin/employees';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProductionResourcesPage() {
     const employeesRes = await getEmployees();
+    if (!employeesRes.success || !employeesRes.data) return <MobileReadError title="Direktori tim gagal dimuat" />;
     const employees =
         employeesRes.success && employeesRes.data ? employeesRes.data : [];
 
@@ -16,22 +19,7 @@ export default async function ProductionResourcesPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Tim
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Direktori karyawan. Jadwal jam kerja dikelola terpisah di Pengaturan Shift.
-                    </p>
-                </div>
-                <Link href="/dashboard/employees/create">
-                    <Button variant="outline">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Tambah Karyawan
-                    </Button>
-                </Link>
-            </div>
+            <PageHeader title="Tim" description="Direktori karyawan. Jadwal jam kerja dikelola terpisah di Pengaturan Shift." actions={<Button variant="outline" asChild><Link href="/dashboard/employees/create"><Plus className="mr-2 h-4 w-4" />Tambah Karyawan</Link></Button>} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
@@ -121,7 +109,7 @@ export default async function ProductionResourcesPage() {
                                             : 'text-[9px]'
                                     }
                                 >
-                                    {emp.status}
+                                    {emp.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
                                 </Badge>
                             </div>
                         ))}

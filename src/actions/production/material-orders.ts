@@ -95,7 +95,7 @@ export const submitMaterialOrder = withTenant(async function submitMaterialOrder
         await NotificationService.createBulkNotifications(approvers.map((a) => ({
           userId: a.id, type: NotificationType.SYSTEM, title: 'Material Order perlu persetujuan',
           message: 'Material Order baru menunggu persetujuan.',
-          entityType: 'MaterialOrder', entityId: id, link: '/production/mobile/material-orders/' + id,
+          entityType: 'MaterialOrder', entityId: id, link: '/production/material-orders/' + id,
         })));
       }
     } catch { /* notif best-effort */ }
@@ -157,8 +157,28 @@ export const getMaterialOrders = withTenant(async function getMaterialOrders(sta
 
 export const getMaterialOrderDetail = withTenant(async function getMaterialOrderDetail(id: string) {
   return safeAction(async () => {
-    await requireAuth();
+    const session = await requireAuth();
     const order = await MaterialOrderService.getById(id);
-    return serializeData(order);
+    const userId = (session.user as { id: string }).id;
+    const roles = sessionRoles(session);
+    const effectiveRoles = roles.length ? roles : (await prisma.userRole.findMany({
+      where: { userId }, select: { role: true },
+    })).map((row) => row.role);
+    const canReview = order.status === MaterialOrderStatus.PENDING &&
+      effectiveRoles.some((role) => APPROVER_ROLES.includes(role));
+    const materials = await prisma.productVariant.findMany({
+      where: { id: { in: order.items.map((item) => item.productVariantId) } },
+      select: { id: true, name: true, skuCode: true },
+    });
+    const byId = new Map(materials.map((material) => [material.id, material]));
+    return serializeData({
+      ...order,
+      items: order.items.map((item) => ({ ...item, material: byId.get(item.productVariantId) ?? null })),
+      viewer: {
+        // Mirror existing server guards, including its session-role self-approval rule.
+        canApprove: canReview && (order.createdById !== userId || roles.includes(Role.ADMIN)),
+        canReject: canReview,
+      },
+    });
   });
 });

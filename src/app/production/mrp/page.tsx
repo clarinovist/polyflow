@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/ui/page-header';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getInventoryList } from '@/actions/inventory/inventory';
 import { locationMatchesRole } from '@/lib/locations/resolve-location';
@@ -45,6 +47,7 @@ export default async function PpicMrpPage() {
 
     // 2. Fetch current RM inventory (multi-tenant: rm_warehouse OR gudang-bahan-baku OR purpose RAW_MATERIAL)
     const inventoryRes = await getInventoryList();
+    if (!inventoryRes.success || !inventoryRes.data) return <MobileReadError title="Stok bahan untuk MRP gagal dimuat" />;
     const allInventory =
         inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
     const rmInventory = allInventory.filter((item) =>
@@ -120,25 +123,8 @@ export default async function PpicMrpPage() {
     const totalShortages = analysis.filter((a) => a.hasShortage).length;
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                        {planningLabels.materialPlanning}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {planningLabels.shortageAnalysis}
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <Link href="/purchasing/orders/create">
-                        <Button className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600">
-                            <ShoppingCart className="mr-2 h-4 w-4" />
-                            {planningLabels.createBulkPO}
-                        </Button>
-                    </Link>
-                </div>
-            </div>
+        <div className="min-w-0 space-y-6">
+            <PageHeader title={planningLabels.materialPlanning} description={planningLabels.shortageAnalysis} actions={<Button asChild><Link href="/purchasing/orders/create"><ShoppingCart className="mr-2 h-4 w-4" />{planningLabels.createBulkPO}</Link></Button>} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>

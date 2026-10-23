@@ -264,8 +264,8 @@ export default function PotongPlongProductionForm({
                                                 value={field.value}
                                             >
                                                 <FormControl>
-                                                    <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
-                                                        <SelectValue placeholder="Pilih WO..." />
+                                                    <SelectTrigger className="bg-background border-input text-foreground">
+                                                        <SelectValue placeholder="Pilih SPK..." />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -302,7 +302,7 @@ export default function PotongPlongProductionForm({
                                                 value={field.value}
                                             >
                                                 <FormControl>
-                                                    <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
+                                                    <SelectTrigger className="bg-background border-input text-foreground">
                                                         <SelectValue placeholder="Pilih Mesin..." />
                                                     </SelectTrigger>
                                                 </FormControl>
@@ -335,7 +335,7 @@ export default function PotongPlongProductionForm({
                                                 value={field.value}
                                             >
                                                 <FormControl>
-                                                    <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
+                                                    <SelectTrigger className="bg-background border-input text-foreground">
                                                         <SelectValue placeholder="Pilih Operator..." />
                                                     </SelectTrigger>
                                                 </FormControl>
@@ -387,13 +387,13 @@ export default function PotongPlongProductionForm({
                                                     }
                                                 >
                                                     <FormControl>
-                                                        <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
+                                                        <SelectTrigger className="bg-background border-input text-foreground">
                                                             <SelectValue
                                                                 placeholder={
                                                                     isLoading
                                                                         ? 'Memuat shift...'
                                                                         : !currentOrderId
-                                                                          ? 'Pilih WO dulu'
+                                                                          ? 'Pilih SPK dulu'
                                                                           : 'Pilih Shift...'
                                                                 }
                                                             />
@@ -469,7 +469,7 @@ export default function PotongPlongProductionForm({
                                                     </span>
                                                 )}
                                             </FormLabel>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-purple-950/20 dark:bg-purple-950/30 rounded-lg border border-purple-500/10 dark:border-purple-500/20">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-muted/40 rounded-lg border border-purple-500/10 dark:border-purple-500/20">
                                                 {eligibleHelpers.map((e) => (
                                                     <label
                                                         key={e.id}
@@ -477,8 +477,8 @@ export default function PotongPlongProductionForm({
                                                             currentHelpers.includes(
                                                                 e.id,
                                                             )
-                                                                ? 'bg-purple-500/20 dark:bg-purple-500/30 border-purple-400/50 dark:border-purple-400/60 text-white font-semibold'
-                                                                : 'border-purple-500/10 dark:border-purple-500/20 text-purple-600 dark:text-purple-200/50 hover:bg-purple-500/10 dark:hover:bg-purple-500/20 hover:text-white'
+                                                                ? 'bg-primary/15 border-primary text-foreground font-semibold'
+                                                                : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
                                                         }`}
                                                     >
                                                         <Checkbox
@@ -510,7 +510,7 @@ export default function PotongPlongProductionForm({
                             />
 
                             {/* Mid Data row */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-purple-950/20 dark:bg-purple-950/30 p-4 rounded-xl border border-purple-500/10 dark:border-purple-500/20">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-muted/40 p-4 rounded-xl border border-purple-500/10 dark:border-purple-500/20">
                                 <FormField
                                     control={form.control}
                                     name={`reports.${index}.quantityProduced`}
@@ -524,7 +524,7 @@ export default function PotongPlongProductionForm({
                                                 <Input
                                                     type="number"
                                                     step="any"
-                                                    className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/30 dark:border-purple-500/40 text-green-500 dark:text-green-400 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.1)]"
+                                                    className="bg-background border-input text-foreground font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.1)]"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -544,7 +544,7 @@ export default function PotongPlongProductionForm({
                                                 <Input
                                                     type="number"
                                                     step="any"
-                                                    className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/20 dark:border-purple-500/30 text-red-500 dark:text-red-400"
+                                                    className="bg-background border-input text-destructive"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -563,7 +563,7 @@ export default function PotongPlongProductionForm({
                                             <FormControl>
                                                 <Input
                                                     type="datetime-local"
-                                                    className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/20 dark:border-purple-500/30 text-white"
+                                                    className="bg-background border-input text-foreground"
                                                     value={
                                                         field.value instanceof
                                                         Date
@@ -600,7 +600,7 @@ export default function PotongPlongProductionForm({
                                             <FormControl>
                                                 <Input
                                                     type="datetime-local"
-                                                    className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/20 dark:border-purple-500/30 text-white"
+                                                    className="bg-background border-input text-foreground"
                                                     value={
                                                         field.value instanceof
                                                         Date
@@ -631,16 +631,16 @@ export default function PotongPlongProductionForm({
                     );
                 })}
 
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-purple-950/30 dark:bg-purple-950/40 p-6 rounded-2xl border-t-4 border-purple-500/50 dark:border-purple-500/60 shadow-lg backdrop-blur-xl sticky bottom-4 z-50">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-purple-950/30 dark:bg-purple-950/40 p-6 rounded-2xl border-t-4 border-purple-500/50 dark:border-purple-500/60 shadow-lg backdrop-blur-xl relative">
                     <Button
                         type="button"
                         variant="secondary"
                         size="lg"
-                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-purple-100 bg-purple-500/20 dark:bg-purple-500/30 hover:bg-purple-500/30 dark:hover:bg-purple-500/40 border-purple-500/30 dark:border-purple-500/40"
+                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-foreground bg-secondary hover:bg-secondary/80 border-border"
                         onClick={() => append(makeEmpty())}
                     >
                         <PlusCircle className="h-5 w-5 mr-2" />
-                        Tambah Entry
+                        Tambah Entri
                     </Button>
 
                     <Button
@@ -671,7 +671,7 @@ export default function PotongPlongProductionForm({
                             </div>
                         ) : (
                             <>
-                                <CheckCircle2 className="h-6 w-6 mr-2" /> SUBMIT
+                                <CheckCircle2 className="h-6 w-6 mr-2" /> SIMPAN
                                 SEMUA LAPORAN
                             </>
                         )}

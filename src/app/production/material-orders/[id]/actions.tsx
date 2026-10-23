@@ -1,9 +1,12 @@
 'use client';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import { approveMaterialOrder, rejectMaterialOrder } from '@/actions/production/material-orders';
 
-export function MaterialOrderActions({ id }: { id: string }) {
+export function MaterialOrderActions({ id, canApprove, canReject }: { id: string; canApprove: boolean; canReject: boolean }) {
   const router = useRouter();
   const [reason, setReason] = useState('');
   const [msg, setMsg] = useState('');
@@ -22,14 +25,18 @@ export function MaterialOrderActions({ id }: { id: string }) {
       setBusy(false);
     }
   };
+  if (!canApprove && !canReject) return <p className="text-sm text-muted-foreground">Tidak ada tindakan persetujuan yang tersedia untuk status atau akses Anda.</p>;
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2">
-        <button disabled={busy} className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" onClick={() => run(() => approveMaterialOrder(id), 'Disetujui. Owner menerima FYI otomatis.')}>Setujui</button>
-        <button disabled={busy} className="rounded-full border px-4 py-2 text-sm disabled:opacity-50" onClick={() => run(() => rejectMaterialOrder(id, reason), 'Ditolak.')}>Tolak</button>
+    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+      {canReject && <div className="space-y-2">
+        <Label htmlFor="mo-rejection-reason">Alasan penolakan (wajib jika menolak)</Label>
+        <Input id="mo-rejection-reason" value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
+      </div>}
+      <div className="flex flex-wrap gap-2">
+        {canApprove && <Button disabled={busy} className="min-h-11" onClick={() => run(() => approveMaterialOrder(id), 'Permintaan disetujui.')}>Setujui</Button>}
+        {canReject && <Button variant="destructive" className="min-h-11" disabled={busy || !reason.trim()} onClick={() => run(() => rejectMaterialOrder(id, reason), 'Permintaan ditolak.')}>Tolak</Button>}
       </div>
-      <input className="rounded border px-3 py-2 text-sm" placeholder="Alasan tolak (wajib bila menolak)" value={reason} onChange={(e) => setReason(e.target.value)} />
-      {msg && <p className="text-sm">{msg}</p>}
+      {msg && <p role="status" className="text-sm">{msg}</p>}
     </div>
   );
 }

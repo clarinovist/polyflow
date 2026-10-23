@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/ui/page-header';
+import { MobileReadError } from '@/components/mobile/MobileReadError';
 import { Suspense } from 'react';
 import {
     getProductionHistory,
@@ -63,6 +65,10 @@ export default async function ProductionHistoryPage({
             getProductionAlertThresholdsForPage(),
         ]);
 
+    if (!historyResult.success || !historyResult.data || !filterOptionsResult.success || !filterOptionsResult.data) {
+        return <MobileReadError title="Log hasil produksi gagal dimuat" />;
+    }
+
     const thresholds: ProductionAlertThresholds = thresholdsResult.success
         ? thresholdsResult.data
         : { ...DEFAULT_PRODUCTION_ALERT_THRESHOLDS };
@@ -114,17 +120,7 @@ export default async function ProductionHistoryPage({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                        Log Hasil
-                    </h2>
-                    <p className="text-muted-foreground">
-                        Dokumentasi output per entri — verifikasi, bukti foto,
-                        koreksi.
-                    </p>
-                </div>
-            </div>
+            <PageHeader title="Log Hasil" description="Dokumentasi hasil per entri — verifikasi, bukti foto, dan koreksi." />
 
             <Suspense fallback={null}>
                 <ProductionHistoryFilters filterOptions={filterOptions} />

@@ -14,7 +14,7 @@ describe('SPK process board', () => {
         expect(mixing.className).toContain('md:min-h-[320px]');
         expect(within(mixing).getByText('Tidak ada SPK di proses ini').className.split(' ')).toContain('py-3');
         expect(screen.getAllByRole('link', { name: 'Detail' })).toHaveLength(2);
-        fireEvent.click(screen.getByRole('button', { name: 'Sedang Jalan' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Sedang Diproduksi' }));
         expect(screen.getAllByRole('link', { name: 'Detail' })).toHaveLength(1);
         fireEvent.click(screen.getByRole('button', { name: 'Buat SPK Cepat' }));
         expect(screen.getByText('Quick SPK dialog')).toBeTruthy();

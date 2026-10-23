@@ -65,15 +65,15 @@ function MaintenanceProgress({ status }: { status: string }) {
             )}
             <ol className="grid grid-cols-4 gap-2">
                 {STEPS.map((step, index) => {
-                    const complete = !terminal && current > index;
-                    const active = !terminal && current === index + 1;
+                    const complete = !terminal && (status === 'DONE' || current > index + 1);
+                    const active = !terminal && status !== 'DONE' && current === index + 1;
                     return (
-                        <li key={step.key} className="min-w-0 text-center">
+                        <li key={step.key} aria-current={active ? 'step' : undefined} className="min-w-0 text-center">
                             <div className="flex items-center">
                                 <div
                                     className={
                                         'h-1 flex-1 rounded-full ' +
-                                        (index === 0 || complete || active
+                                        (!terminal && current > 0 && (index === 0 || complete || active)
                                             ? 'bg-emerald-600'
                                             : 'bg-muted')
                                     }
