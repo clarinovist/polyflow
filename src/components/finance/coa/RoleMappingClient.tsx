@@ -64,6 +64,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function formatRole(role: string): string {
+    if (role === 'internal-usage-expense')
+        return 'Beban Pemakaian Internal (ATK)';
     return role
         .split('-')
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))

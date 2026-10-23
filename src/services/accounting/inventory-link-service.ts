@@ -140,6 +140,23 @@ export async function recordInventoryMovement(
     });
     if (existingMovementJournal) return;
 
+    // Internal consumption is posted atomically by its source service. Never
+    // reconstruct a missing/removed journal as a production WIP issue.
+    if (
+        movement.type === 'OUT' &&
+        !movement.salesOrderId &&
+        !movement.productionOrderId
+    ) {
+        const usage = await db.internalUsage.findUnique({
+            where: { movementId: movement.id },
+            select: { id: true },
+        });
+        if (usage)
+            throw new BusinessRuleError(
+                'Jurnal pemakaian internal tidak tersedia. Minta Finance menelusuri bukti sumber; jangan posting ulang sebagai bahan produksi.',
+            );
+    }
+
     const productVariant =
         movement.productVariant ??
         (await db.productVariant.findUnique({
@@ -152,17 +169,38 @@ export async function recordInventoryMovement(
     // Branded production uses SKU-level inventory valuation, not an unrelated
     // fallback price on the newly created brand's master record. Persist it so
     // returns/reversals use the original shipment cost.
-    if (movement.type === 'OUT' && movement.salesOrderId && movement.cost == null) {
+    if (
+        movement.type === 'OUT' &&
+        movement.salesOrderId &&
+        movement.cost == null
+    ) {
         const branded = await db.productVariant.findUnique({
             where: { id: movement.productVariantId },
-            select: { packagedOutputOption: { select: { id: true } }, outputGroups: { take: 1, select: { id: true } } },
+            select: {
+                packagedOutputOption: { select: { id: true } },
+                outputGroups: { take: 1, select: { id: true } },
+            },
         });
         if (branded?.packagedOutputOption || branded?.outputGroups?.length) {
-            const stock = movement.fromLocationId ? await db.inventory.findUnique({ where: {
-                locationId_productVariantId: { locationId: movement.fromLocationId, productVariantId: movement.productVariantId },
-            }, select: { averageCost: true } }) : null;
-            if (stock?.averageCost == null) throw new BusinessRuleError('Biaya stok merek belum tersedia. Pengiriman dibatalkan.');
-            await db.stockMovement.update({ where: { id: movement.id }, data: { cost: stock.averageCost } });
+            const stock = movement.fromLocationId
+                ? await db.inventory.findUnique({
+                      where: {
+                          locationId_productVariantId: {
+                              locationId: movement.fromLocationId,
+                              productVariantId: movement.productVariantId,
+                          },
+                      },
+                      select: { averageCost: true },
+                  })
+                : null;
+            if (stock?.averageCost == null)
+                throw new BusinessRuleError(
+                    'Biaya stok merek belum tersedia. Pengiriman dibatalkan.',
+                );
+            await db.stockMovement.update({
+                where: { id: movement.id },
+                data: { cost: stock.averageCost },
+            });
             movement = { ...movement, cost: stock.averageCost };
         }
     }
@@ -200,7 +238,10 @@ export async function recordInventoryMovement(
 
     // Actual packaging carries verified ownership on each persisted movement.
     // An order-level maklon flag cannot suppress company-owned packaging costs.
-    if (movement.companyOwned === false || (isMaklon && movement.companyOwned !== true)) {
+    if (
+        movement.companyOwned === false ||
+        (isMaklon && movement.companyOwned !== true)
+    ) {
         return;
     }
 
@@ -260,14 +301,10 @@ export async function recordInventoryMovement(
             }
         }
 
-        const receiptCost = toPersistedDecimal(
-            movement.cost,
-            'movement.cost',
-            {
-                movementId: movement.id,
-                goodsReceiptId: movement.goodsReceiptId,
-            },
-        );
+        const receiptCost = toPersistedDecimal(movement.cost, 'movement.cost', {
+            movementId: movement.id,
+            goodsReceiptId: movement.goodsReceiptId,
+        });
         cost = receiptCost.toNumber();
 
         // AUTO-UPDATE Standard Cost (Weighted Average)
@@ -342,14 +379,10 @@ export async function recordInventoryMovement(
     const totalAmount =
         options?.journalTotal ??
         (movement.goodsReceiptId && goodsReceipt && movement.cost != null
-            ? toPersistedDecimal(
-                  movement.quantity,
-                  'movement.quantity',
-                  {
-                      movementId: movement.id,
-                      goodsReceiptId: movement.goodsReceiptId,
-                  },
-              )
+            ? toPersistedDecimal(movement.quantity, 'movement.quantity', {
+                  movementId: movement.id,
+                  goodsReceiptId: movement.goodsReceiptId,
+              })
                   .mul(receiptCostFor(movement.cost, movement))
                   .toDecimalPlaces(2)
                   .toNumber()
@@ -376,8 +409,7 @@ export async function recordInventoryMovement(
                 // GR/IR clearing — bukan AP langsung. Invoice yang membalik
                 // accrual ini saat difakturkan (lihat handlePurchaseInvoiceCreated).
                 accountId: await getAccountId(
-                    (await resolveAccountCode(productType, 'gr-clearing'))
-                        .code,
+                    (await resolveAccountCode(productType, 'gr-clearing')).code,
                     db,
                 ),
                 debit: 0,
@@ -412,9 +444,12 @@ export async function recordInventoryMovement(
             (await resolveAccountCode(productType, 'inventory')).code;
         // Company-supplied packaging on a toll order is a service cost, not
         // ownership of the customer's finished goods.
-        const wipAccount = isMaklon && movement.companyOwned === true
-            ? productVariant.product.cogsAccountId || (await resolveAccountCode(productType, 'cogs')).code
-            : productVariant.product.wipAccountId || (await resolveAccountCode(productType, 'wip')).code;
+        const wipAccount =
+            isMaklon && movement.companyOwned === true
+                ? productVariant.product.cogsAccountId ||
+                  (await resolveAccountCode(productType, 'cogs')).code
+                : productVariant.product.wipAccountId ||
+                  (await resolveAccountCode(productType, 'wip')).code;
         lines.push(
             {
                 accountId: await getAccountId(wipAccount, db),

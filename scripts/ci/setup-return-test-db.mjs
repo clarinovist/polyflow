@@ -41,6 +41,7 @@ const generated = execFileSync(
 // Construct the pre-feature runtime tables, then apply COMPLETE feature migrations.
 // This preserves CHECK constraints, partial indexes and triggers, not only ORM shape.
 const addedObjects = [
+    'InternalUsage',
     'ProductionPackagingOption',
     'ProductionOutputGroup',
     'ProductionPackagingConsumption',
@@ -97,6 +98,7 @@ const guards = [
     '20261021_production_actual_packaging',
     '20261022_packaging_stock_units',
     '20261023_return_credit_recovery',
+    '20261023_internal_usage',
 ]
     .map(migration)
     .join('\n');

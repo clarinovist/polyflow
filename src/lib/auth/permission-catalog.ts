@@ -132,6 +132,12 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                 label: 'Approval Pesanan Dadakan',
             },
             { key: '/warehouse/materials', label: 'Bahan Produksi' },
+            {
+                key: '/warehouse/internal-usage',
+                label: 'Pemakaian Internal',
+                description:
+                    'Lihat bukti dan catat pemakaian Barang Operasional.',
+            },
             { key: '/warehouse/opname', label: 'Stock Opname' },
             {
                 key: '/warehouse/maklon/receipts',

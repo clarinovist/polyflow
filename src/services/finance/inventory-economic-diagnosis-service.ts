@@ -81,7 +81,11 @@ function parseSnapshot(rows: SnapshotRow[]): Snapshot {
     );
     const findings = payload.findings.flatMap((raw): SnapshotFinding[] => {
         const row = object(raw);
-        if (!row || typeof row.code !== 'string' || typeof row.area !== 'string')
+        if (
+            !row ||
+            typeof row.code !== 'string' ||
+            typeof row.area !== 'string'
+        )
             return [];
         const samples = Array.isArray(row.samples)
             ? row.samples
@@ -204,7 +208,7 @@ function coverageDimensions(
             !gl.readable
                 ? 'missing'
                 : (gl.metrics.mappedProductCount > 0 &&
-                      gl.metrics.accountCount <= 0) ||
+                        gl.metrics.accountCount <= 0) ||
                     gl.metrics.unmappedProductCount > 0
                   ? 'partial'
                   : 'covered',
@@ -241,7 +245,7 @@ function coverageDimensions(
                   : 'covered',
             movements.metrics.unvaluedCount > 0
                 ? String(movements.metrics.unvaluedCount) +
-                  ' movement bernilai nol/tidak menyimpan cost; current standard/buy/average cost tidak dipakai sebagai bukti historis.'
+                      ' movement bernilai nol/tidak menyimpan cost; current standard/buy/average cost tidak dipakai sebagai bukti historis.'
                 : 'Persisted movement valuation tersedia untuk flow bernilai yang dievaluasi.',
         ),
         dimension(
@@ -296,8 +300,8 @@ function coverageDimensions(
             'SALES_AND_PURCHASE_RETURNS',
             movements.readable
                 ? movements.metrics.purchaseReturnCount > 0
-                  ? 'partial'
-                  : 'covered'
+                    ? 'partial'
+                    : 'covered'
                 : 'missing',
             movements.metrics.purchaseReturnCount > 0
                 ? 'Purchase-return movement tidak memiliki FK ke document journal; cohort dilaporkan sebagai attribution-limited needs_review.'
@@ -339,8 +343,8 @@ function coverageDimensions(
             truncated ? 'partial' : 'covered',
             truncated
                 ? 'Sampel stabil dibatasi ' +
-                  String(SAMPLE_LIMIT) +
-                  '; count dan nominal tetap seluruh cohort.'
+                      String(SAMPLE_LIMIT) +
+                      '; count dan nominal tetap seluruh cohort.'
                 : 'Seluruh finding muat dalam batas sampel stabil.',
         ),
     );
@@ -406,7 +410,8 @@ export function assembleInventoryEconomicDiagnosis(
             sourceId: null,
             materiality: 0,
             reason: 'Historical economic inventory opening value is unavailable from the mutable Inventory snapshot.',
-            evidenceLimit: 'Mapped GL opening is available, but quantity, movement valuation, and GL cannot be forced into an exact economic roll-forward.',
+            evidenceLimit:
+                'Mapped GL opening is available, but quantity, movement valuation, and GL cannot be forced into an exact economic roll-forward.',
             samples: [],
         });
     }
@@ -633,7 +638,8 @@ async function movementSnapshot(
     return tx.$queryRaw<SnapshotRow[]>(Prisma.sql`
         WITH moves AS (
             SELECT m.*, pv."primaryUnit"::text unit,
-                p."productType"::text "productType", p."inventoryAccountId",
+                p."productType"::text "productType",
+                COALESCE(iu."inventoryAccountId", p."inventoryAccountId") "inventoryAccountId",
                 p."wipAccountId", p."cogsAccountId",
                 b."productVariantId" "outputVariantId",
                 fl."locationType"::text "fromLocationType",
@@ -647,6 +653,7 @@ async function movementSnapshot(
             FROM "StockMovement" m
             JOIN "ProductVariant" pv ON pv.id = m."productVariantId"
             JOIN "Product" p ON p.id = pv."productId"
+            LEFT JOIN "InternalUsage" iu ON iu."movementId" = m.id
             LEFT JOIN "Location" fl ON fl.id = m."fromLocationId"
             LEFT JOIN "Location" tl ON tl.id = m."toLocationId"
             LEFT JOIN "GoodsReceipt" gr ON gr.id = m."goodsReceiptId"
@@ -810,6 +817,9 @@ async function movementSnapshot(
                 CASE
                     WHEN p."goodsReceiptId" IS NOT NULL OR p.type = 'PURCHASE'
                         THEN 'receipt'
+                    WHEN p.type = 'OUT' AND EXISTS (
+                        SELECT 1 FROM "InternalUsage" u WHERE u."movementId" = p.id
+                    ) THEN 'internal_usage'
                     WHEN p."salesOrderId" IS NOT NULL AND p.type = 'OUT'
                         THEN 'shipment'
                     WHEN p."productionOrderId" IS NOT NULL AND p.type = 'OUT'
@@ -923,6 +933,18 @@ async function movementSnapshot(
                         AND ("inventoryCredit" <= 0 OR (
                             "cogsAccountId" IS NOT NULL AND "cogsDebit" <= 0
                         )))
+                    OR (flow = 'internal_usage' AND (
+                        "assetCredit" <= 0 OR NOT EXISTS (
+                            SELECT 1 FROM "InternalUsage" u
+                            JOIN "JournalLine" il ON il."journalEntryId" = u."journalId"
+                                AND il."accountId" = u."inventoryAccountId"
+                            JOIN "JournalLine" el ON el."journalEntryId" = u."journalId"
+                                AND el."accountId" = u."expenseAccountId"
+                            WHERE u."movementId" = analyzed.id
+                                AND il.credit = ROUND("movementValue", 2) AND il.debit = 0
+                                AND el.debit = il.credit AND el.credit = 0
+                        )
+                    ))
                     OR (flow = 'production_issue'
                         AND "inventoryAccountId" IS NOT NULL
                         AND ("inventoryCredit" <= 0 OR (
@@ -957,7 +979,7 @@ async function movementSnapshot(
                 AND COALESCE(reference, '') NOT LIKE 'VOID:%'
                 AND ((flow IN ('receipt','production_output','sales_return_good','adjustment_gain')
                         AND "assetDebit" > 0 AND "inventoryDebit" <= 0)
-                    OR (flow IN ('shipment','production_issue','adjustment_loss')
+                    OR (flow IN ('shipment','production_issue','internal_usage','adjustment_loss')
                         AND "assetCredit" > 0 AND "inventoryCredit" <= 0))
             UNION ALL
             SELECT id, 'STOCK_VALUE_BASIS_UNATTRIBUTED', 'movement', flow,

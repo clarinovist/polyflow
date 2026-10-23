@@ -171,6 +171,7 @@ function inventoryFlowLabel(flow: string): string {
         receipt: 'penerimaan barang',
         shipment: 'pengeluaran barang untuk penjualan',
         production_issue: 'pemakaian bahan produksi',
+        internal_usage: 'pemakaian internal barang operasional',
         production_output: 'hasil produksi',
         production_return_in: 'pengembalian bahan produksi',
         sales_return_good: 'retur penjualan yang kembali ke stok',

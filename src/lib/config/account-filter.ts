@@ -99,6 +99,7 @@ function rolePickerKind(role: string): RolePickerKind | null {
         role === 'office-salaries' ||
         role === 'shipping-expense' ||
         role === 'misc-operating-expense' ||
+        role === 'internal-usage-expense' ||
         role === 'cogs' ||
         role === 'adjustment-loss' ||
         role === 'manufacturing-overhead' ||

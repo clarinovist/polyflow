@@ -10,6 +10,7 @@ import {
     BarChart3,
     Package,
     RotateCcw,
+    PenLine,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -58,6 +59,11 @@ const warehouseLinks = [
                 href: '/warehouse/materials',
                 icon: ClipboardList,
                 label: warehouseSidebarLabels.materialProduction,
+            },
+            {
+                href: '/warehouse/internal-usage',
+                icon: PenLine,
+                label: 'Pemakaian Internal',
             },
             {
                 href: '/warehouse/opname',

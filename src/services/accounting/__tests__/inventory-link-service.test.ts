@@ -21,6 +21,7 @@ vi.mock("@/lib/core/prisma", () => {
       findUnique: vi.fn().mockResolvedValue(null),
     },
     stockMovement: { update: vi.fn() },
+    internalUsage: { findUnique: vi.fn().mockResolvedValue(null) },
     inventory: {
       findUnique: vi.fn(),
       aggregate: vi
@@ -147,6 +148,11 @@ describe("inventory-link-service", () => {
   // recordInventoryMovement
   // =========================================================================
   describe("recordInventoryMovement", () => {
+    it("never reconstructs an internal usage journal as a production WIP issue", async () => {
+      vi.mocked(prisma.internalUsage.findUnique).mockResolvedValueOnce({ id: 'usage' } as never);
+      await expect(recordInventoryMovement({ ...baseMovement, type: 'OUT', salesOrderId: null, productionOrderId: null } as never)).rejects.toThrow('pemakaian internal');
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+    });
     it("returns before every valuation side effect when movement journal exists", async () => {
       vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({ id: "je-existing" } as never);
       const mv = {

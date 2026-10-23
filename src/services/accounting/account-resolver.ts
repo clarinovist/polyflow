@@ -38,6 +38,7 @@ export type AccountRole =
     | 'shipping-expense'
     // New roles for transaction types (Phase 1)
     | 'inventory-consumables'
+    | 'internal-usage-expense'
     | 'factory-electricity'
     | 'factory-maintenance'
     | 'factory-rent'
@@ -69,6 +70,8 @@ interface AccountPattern {
 // Priority: first match wins.
 // Pattern order: Kiyowo code → Melindo code → name spesifik → name generik.
 const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
+    // Finance must deliberately map internal operating consumption; never guess a cost account.
+    'internal-usage-expense': [],
     // === AR/AP ===
     'accounts-receivable': [
         { code: '11210' },
@@ -511,6 +514,12 @@ export function isRoleCompatibleAccount(
 ): boolean {
     const normalizedName = account.name.toLowerCase();
     if (role === 'customer-credit') return account.type === 'LIABILITY';
+    if (role === 'internal-usage-expense') {
+        return (
+            account.type === 'EXPENSE' &&
+            account.category === 'OPERATING_EXPENSE'
+        );
+    }
 
     if (role === 'intermediate') {
         return (

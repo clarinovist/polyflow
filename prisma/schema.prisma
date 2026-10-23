@@ -692,6 +692,7 @@ model StockMovement {
   packagingOwnerCustomer Customer? @relation("PackagingMovementOwner", fields: [packagingOwnerCustomerId], references: [id], onDelete: Restrict)
   outputGroup ProductionOutputGroup?
   packagingConsumption ProductionPackagingConsumption?
+  internalUsage InternalUsage?
 
   @@index([productionExecutionId])
 
@@ -700,6 +701,36 @@ model StockMovement {
   @@index([createdAt])
   @@index([fromLocationId])
   @@index([toLocationId])
+}
+
+/// Immutable posted internal consumption document; tenant isolation is per database.
+model InternalUsage {
+  id                 String @id @default(uuid())
+  number             String @unique
+  requestId          String @unique
+  requestHash        String
+  movementId         String @unique
+  movement           StockMovement @relation(fields: [movementId], references: [id], onDelete: Restrict)
+  productName        String
+  skuCode            String
+  unit               Unit
+  locationName       String
+  recipient          String
+  department         String
+  purpose            String
+  recordedByName     String
+  stockBefore        Decimal @db.Decimal(15, 4)
+  stockAfter         Decimal @db.Decimal(15, 4)
+  inventoryAccountId String
+  inventoryAccount   Account @relation("InternalUsageInventory", fields: [inventoryAccountId], references: [id], onDelete: Restrict)
+  expenseAccountId   String
+  expenseAccount     Account @relation("InternalUsageExpense", fields: [expenseAccountId], references: [id], onDelete: Restrict)
+  journalId          String @unique
+  journal            JournalEntry @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdAt          DateTime @default(now())
+
+  @@index([createdAt, id])
+  @@index([department])
 }
 
 model Inventory {
@@ -1997,6 +2028,8 @@ model Account {
   depreciationExpense   FixedAsset[]           @relation("DeprExpenseAccount")
   journalLines          JournalLine[]
   customerCreditNotes   CustomerCreditNote[]
+  internalUsageInventory InternalUsage[] @relation("InternalUsageInventory")
+  internalUsageExpenses InternalUsage[] @relation("InternalUsageExpense")
   pettyCashTransactions PettyCashTransaction[]
   bankReconciliations   BankReconciliation[]
 
@@ -2023,6 +2056,7 @@ model JournalEntry {
   approvedBy                User?                          @relation("JournalApprover", fields: [approvedById], references: [id])
   createdBy                 User?                          @relation("JournalCreator", fields: [createdById], references: [id])
   lines                     JournalLine[]
+  internalUsage             InternalUsage?
   details                   JournalEntryDetail[]
   pettyCashTransaction      PettyCashTransaction?
   reconciliationAdjustments BankReconciliationAdjustment[]

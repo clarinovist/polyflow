@@ -514,6 +514,14 @@ const warehouseNavItems: NavItem[] = [
         owner: 'warehouse',
     },
     {
+        id: 'wh-internal-usage',
+        label: 'Pemakaian Internal',
+        href: '/warehouse/internal-usage',
+        workspace: 'warehouse',
+        section: 'operasi',
+        owner: 'warehouse',
+    },
+    {
         id: 'wh-opname',
         label: 'Stock Opname',
         href: '/warehouse/opname',
