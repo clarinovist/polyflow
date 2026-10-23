@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { hasActiveRecovery } from '@/lib/finance/effective-return-credit';
 import type { inspectPurchaseInvoice, inspectSalesReturnCredit } from '@/services/finance/assistant-document-diagnosis';
 import { createEvidence } from './evidence';
 import { documentSearchMeta } from './document-search';
@@ -39,7 +40,7 @@ export function salesReturnCreditEvidence(result: Awaited<ReturnType<typeof insp
         searchMeta: documentSearchMeta(searchTerm, returns.length),
         entities: returns.map(r => ({ type: 'SalesReturn', id: r.id, label: r.returnNumber, href: `/finance/returns/${encodeURIComponent(r.id)}` })),
         facts: [
-            ...returns.map(r => ({ label: r.returnNumber, value: `Status ${r.status}; SO ${r.salesOrder.orderNumber}; kredit retur ${r.credit ? `${r.credit.status} (${r.credit.mode})` : 'belum ada'}; saldo kredit customer ${r.customerCredit?.status ?? 'belum ada'}.` })),
+            ...returns.map(r => ({ label: r.returnNumber, value: `Status ${r.status}; SO ${r.salesOrder.orderNumber}; kredit retur ${r.credit ? `${r.credit.status} (${r.credit.mode}); pemulihan ${hasActiveRecovery(r.credit.recoveries) ? 'aktif, mengurangi piutang' : 'tidak aktif'}` : 'belum ada'}; saldo kredit customer ${r.customerCredit?.status ?? 'belum ada'}.` })),
             ...(d ? [
                 { label: 'Usulan Finance', value: d.proposal.ready ? `Usulan tersedia untuk ${d.proposal.invoiceNumber}, nilai ${d.proposal.totalAmount}, sisa piutang ${d.proposal.remaining}. Tinjau dan konfirmasi sendiri di aplikasi.` : d.proposal.reason },
                 { label: 'Periode tanggal posting yang diperiksa', value: `${d.postingDay} WIB: ${d.periodOpen ? 'OPEN' : 'CLOSED atau belum tersedia — posting tertahan'}. Jika tanggal posting berbeda, periksa ulang.` },

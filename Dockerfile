@@ -46,6 +46,7 @@ RUN npx tsc \
   scripts/backup-release-databases.ts \
   scripts/cleanup-performance-metrics.ts \
   scripts/correct-sales-invoice-date.ts \
+  scripts/recover-return-credit.ts \
   --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck \
   --rootDir . --outDir /app/ops-dist
 
@@ -93,6 +94,7 @@ COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/scripts/backup-release-databases.js \
   /app/ops-dist/scripts/cleanup-performance-metrics.js \
   /app/ops-dist/scripts/correct-sales-invoice-date.js \
+  /app/ops-dist/scripts/recover-return-credit.js \
   /app/scripts/audit-duplicate-production-voids.js \
   /app/scripts/check-ob.js \
   /app/scripts/run-product-learning.mjs \
@@ -103,6 +105,7 @@ COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/src/lib/ops/tenant-migrations.js \
   /app/ops-dist/src/lib/ops/release-database-backups.js \
   /app/ops-dist/src/lib/ops/performance-metrics-cleanup.js \
+  /app/ops-dist/src/lib/ops/return-credit-recovery.js \
   ./src/lib/ops/
 
 # Operational CLIs are outside Next's route trace. Ship the installed Prisma CLI

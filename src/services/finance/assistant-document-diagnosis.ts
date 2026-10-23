@@ -74,7 +74,7 @@ export async function inspectSalesReturnCredit(tx: Prisma.TransactionClient, sea
         select: {
             id: true, returnNumber: true, status: true, returnDate: true,
             salesOrder: { select: { orderNumber: true } },
-            credit: { select: { status: true, mode: true } },
+            credit: { select: { status: true, mode: true, recoveries: { select: { kind: true } } } },
             customerCredit: { select: { id: true, status: true } },
             _count: { select: { items: true } },
         }, orderBy: { returnNumber: 'asc' }, take: LIMIT,

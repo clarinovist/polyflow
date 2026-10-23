@@ -1,3 +1,4 @@
+import { effectiveReturnCreditWhere } from '@/lib/finance/effective-return-credit';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
@@ -309,7 +310,7 @@ export async function getPriceAdjustmentSource(
             'Nilai sumber item/pajak tidak cocok dengan invoice asli.',
         );
     const credits = await tx.salesReturnCreditAllocation.findMany({
-        where: { invoiceId, credit: { status: 'POSTED' } },
+        where: { invoiceId, credit: effectiveReturnCreditWhere },
         include: { basisLine: true },
         orderBy: { id: 'asc' },
     });

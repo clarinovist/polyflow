@@ -61,6 +61,7 @@ model User {
   approvedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditApprovedBy")
   returnCredits                  SalesReturnCredit[]
   reversedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditReversedBy")
+  returnCreditRecoveries         ReturnCreditRecovery[]
   returnReceipts                 SalesReturnReceiptLine[]
   issuedCustomerCredits          CustomerCreditNote[] @relation("CustomerCreditIssuer")
   reversedCustomerCredits        CustomerCreditNote[] @relation("CustomerCreditReverser")
@@ -2033,6 +2034,7 @@ model JournalEntry {
   returnCredit              SalesReturnCredit?
   returnReceipt             SalesReturnReceiptLine?
   returnCreditReversal      SalesReturnCredit? @relation("ReturnCreditReversalJournal")
+  returnCreditRecovery      ReturnCreditRecovery?
   customerCreditSources     CustomerCreditNote[] @relation("CustomerCreditSourceJournal")
   customerCreditNote        CustomerCreditNote? @relation("CustomerCreditJournal")
   customerCreditReversal    CustomerCreditNote? @relation("CustomerCreditReversalJournal")
@@ -3060,8 +3062,37 @@ model SalesReturnCredit {
   journal        JournalEntry?           @relation(fields: [journalId], references: [id], onDelete: Restrict)
   createdBy      User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
   allocations    SalesReturnCreditAllocation[]
+  recoveries     ReturnCreditRecovery[]
 
   @@index([status, createdAt])
+}
+
+// Exact, one-time recovery. Original credit/reversal/allocation history never changes.
+enum ReturnCreditRecoveryKind {
+  REINSTATE
+  COMPENSATE
+}
+
+model ReturnCreditRecovery {
+  id               String @id @default(uuid())
+  originalCreditId String
+  kind             ReturnCreditRecoveryKind
+  compensatesId    String? @unique
+  postingDate      DateTime
+  reason           String
+  evidence         String
+  requestSignature String
+  journalId        String @unique
+  actorUserId      String
+  createdAt        DateTime @default(now())
+  originalCredit   SalesReturnCredit @relation(fields: [originalCreditId], references: [id], onDelete: Restrict)
+  journal          JournalEntry @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  actor            User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  compensates      ReturnCreditRecovery? @relation("RecoveryCompensation", fields: [compensatesId], references: [id], onDelete: Restrict)
+  compensation     ReturnCreditRecovery? @relation("RecoveryCompensation")
+
+  @@unique([originalCreditId, kind])
+  @@index([postingDate])
 }
 
 model SalesReturnCreditAllocation {

@@ -1,3 +1,4 @@
+import { effectiveReturnCreditWhere } from '@/lib/finance/effective-return-credit';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -268,7 +269,7 @@ async function calculateProposal(
                 'Nilai retur melebihi sisa piutang. Periksa nominal manual; tidak ada refund otomatis.',
             );
         const active = await tx.salesReturnCreditAllocation.aggregate({
-            where: { invoiceId: invoice.id, credit: { status: 'POSTED' } },
+            where: { invoiceId: invoice.id, credit: effectiveReturnCreditWhere },
             _sum: { netAmount: true, taxAmount: true },
         });
         if (

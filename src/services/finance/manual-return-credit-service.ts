@@ -1,3 +1,4 @@
+import { effectiveReturnCreditWhere } from '@/lib/finance/effective-return-credit';
 import { Prisma } from '@prisma/client';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
@@ -196,7 +197,7 @@ export async function postManualReturnCreditInTransaction(
             'Jurnal pengakuan invoice tidak sesuai. Rekonsiliasi sebelum persetujuan manual.',
         );
     const active = await tx.salesReturnCreditAllocation.aggregate({
-        where: { invoiceId: invoice.id, credit: { status: 'POSTED' } },
+        where: { invoiceId: invoice.id, credit: effectiveReturnCreditWhere },
         _sum: { taxAmount: true, netAmount: true },
     });
     const priceChanges = await tx.invoicePriceAdjustment.aggregate({ where: { invoiceId: invoice.id, status: 'POSTED' }, _sum: { netAmount: true, taxAmount: true } });

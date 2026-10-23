@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
+import { effectiveReturnCreditWhere } from '@/lib/finance/effective-return-credit';
 
 const mocks = vi.hoisted(() => ({ count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), groupBy: vi.fn() }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { salesReturn: mocks, invoice: { findMany: vi.fn().mockResolvedValue([]) } } }));
@@ -22,7 +23,7 @@ describe('finance return queries (read only)', () => {
         ]);
         expect(await getFinanceReturnSummary()).toEqual({ draftCount: 2, confirmedCount: 1, receivedCount: 1, count: 4, documentAmount: 350 });
         expect(mocks.groupBy).toHaveBeenCalledWith(expect.objectContaining({
-            where: { OR: [ { status: { in: ['DRAFT', 'CONFIRMED'] } }, { status: { in: ['RECEIVED', 'COMPLETED'] }, OR: [{ credit: { is: null }, customerCredit: { is: null } }, { credit: { status: { not: 'POSTED' } }, customerCredit: { is: null } }] } ] },
+            where: { OR: [ { status: { in: ['DRAFT', 'CONFIRMED'] } }, { status: { in: ['RECEIVED', 'COMPLETED'] }, OR: [{ credit: { is: null }, customerCredit: { is: null } }, { credit: { is: { NOT: effectiveReturnCreditWhere } }, customerCredit: { is: null } }] } ] },
         }));
     });
 

@@ -1,3 +1,4 @@
+import { effectiveReturnCreditWhere } from '@/lib/finance/effective-return-credit';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
@@ -106,7 +107,7 @@ export async function postInvoicePriceAdjustment(
                 'Penurunan harga melebihi sisa piutang. Pemeriksaan Finance diperlukan; tidak ada refund otomatis.',
             );
         const activeCredits = await tx.salesReturnCreditAllocation.aggregate({
-            where: { invoiceId: data.invoiceId, credit: { status: 'POSTED' } },
+            where: { invoiceId: data.invoiceId, credit: effectiveReturnCreditWhere },
             _sum: { netAmount: true, taxAmount: true },
         });
         const priorAdjustments = await tx.invoicePriceAdjustment.aggregate({
@@ -275,7 +276,7 @@ export async function reverseInvoicePriceAdjustment(
             }),
             adjusted = invoice.priceAdjustmentAmount.minus(row.totalAmount);
         const credits = await tx.salesReturnCreditAllocation.aggregate({
-            where: { invoiceId: row.invoiceId, credit: { status: 'POSTED' } },
+            where: { invoiceId: row.invoiceId, credit: effectiveReturnCreditWhere },
             _sum: { netAmount: true, taxAmount: true },
         });
         const other = await tx.invoicePriceAdjustment.aggregate({

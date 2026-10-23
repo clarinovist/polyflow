@@ -109,7 +109,9 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                     <strong>
                         {row.customerCredit
                             ? 'Saldo kredit pelanggan diterbitkan — lihat rinciannya'
-                            : credit?.status === 'POSTED'
+                            : credit?.recoveryActive
+                              ? 'Kredit dipulihkan — mengurangi piutang'
+                              : credit?.status === 'POSTED'
                               ? 'Terposting'
                               : credit?.status === 'REVERSED'
                                 ? 'Dibalik — perlu pemeriksaan'
@@ -227,6 +229,15 @@ export function FinanceReturnCredit({ row }: { row: FinanceReturnDetail }) {
                         )}
                     </div>
                 )}
+                {credit?.recoveries?.map((event, index) => (
+                    <div key={index} className="space-y-1 rounded border p-3">
+                        <p className="font-medium">{event.kind === 'REINSTATE' ? 'Pemulihan kredit retur' : 'Kompensasi pemulihan kredit'}</p>
+                        <p>{toBusinessDateString(new Date(event.postingDate))} · {event.journal.entryNumber}</p>
+                        <p>Alasan: {event.reason}</p>
+                        <p className="break-words">Bukti: {event.evidence}</p>
+                        <p>Riwayat kredit asli dan stok tidak diubah.</p>
+                    </div>
+                ))}
                 {credit?.mode === 'MANUAL' && (
                     <div className="space-y-1 rounded border p-3">
                         <p className="font-medium">

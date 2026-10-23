@@ -213,7 +213,7 @@ export class RekapDagangService {
             prisma.invoicePriceAdjustment.findMany({ where: { postingDate: { lte: periodEnd } }, select: { totalAmount: true, postingDate: true, reversedAt: true, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } } }),
             prisma.salesReturnCreditAllocation.findMany({
                 where: { credit: { status: { in: ['POSTED', 'REVERSED'] }, postedAt: { lte: periodEnd } } },
-                select: { totalAmount: true, credit: { select: { postedAt: true, reversedAt: true } }, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } },
+                select: { totalAmount: true, credit: { select: { postedAt: true, reversedAt: true, recoveries: { select: { kind: true, postingDate: true } } } }, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } },
             }),
             prisma.customerCreditApplication.findMany({ where: { postingDate: { lte: periodEnd } }, select: { totalAmount: true, postingDate: true, reversedAt: true, invoice: { select: { salesOrder: { select: { customer: { select: { id: true, name: true } } } } } } } }),
         ]);
@@ -275,6 +275,13 @@ export class RekapDagangService {
             if (credit.credit.reversedAt && credit.credit.reversedAt <= periodEnd) {
                 if (credit.credit.reversedAt < periodStart) entry.opening += Number(credit.totalAmount);
                 else entry.inPeriod += Number(credit.totalAmount);
+            }
+            for (const event of credit.credit.recoveries ?? []) {
+                if (event.postingDate > periodEnd) continue;
+                const amount = Number(credit.totalAmount);
+                if (event.postingDate < periodStart) entry.opening += event.kind === 'REINSTATE' ? -amount : amount;
+                else if (event.kind === 'REINSTATE') entry.outPeriod += amount;
+                else entry.inPeriod += amount;
             }
         }
 

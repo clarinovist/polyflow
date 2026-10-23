@@ -50,6 +50,8 @@ const addedObjects = [
     'SalesReturnCreditAllocation',
     'SalesReturnCreditStatus',
     'SalesReturnCreditMode',
+    'ReturnCreditRecovery',
+    'ReturnCreditRecoveryKind',
     'InvoicePriceAdjustment',
     'InvoicePriceAdjustmentStatus',
     'InvoiceDateCorrection',
@@ -94,6 +96,7 @@ const guards = [
     '20261007_invoice_date_correction',
     '20261021_production_actual_packaging',
     '20261022_packaging_stock_units',
+    '20261023_return_credit_recovery',
 ]
     .map(migration)
     .join('\n');

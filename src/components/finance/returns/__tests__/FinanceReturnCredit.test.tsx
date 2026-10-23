@@ -88,8 +88,15 @@ describe('Finance credit posting and compensation UI',()=>{
   expect(screen.getByRole('status').textContent).toContain('Belum ada invoice');
   expect(screen.queryByText('Periksa atau ubah nominal secara manual')).toBeNull();
  });
+ it('shows recovered credit without offering the original reversal or duplicate posting',()=>{
+  render(<FinanceReturnCredit row={{...row,credit:{recoveryActive:true,recoveries:[{kind:'REINSTATE',postingDate:'2026-09-20T00:00:00Z',reason:'Verified recovery',evidence:'Synthetic receipt',journal:{entryNumber:'RECOVERY-JE'}}],mode:'SNAPSHOT',approvalReason:null,evidenceReference:null,approvedAt:null,approvedBy:null,manualRemainingBefore:null,taxAmount:'22.00',status:'REVERSED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:'2026-09-19T00:00:00Z',reversalReason:'Original reversal',reviewReason:null,allocations:[]}}}/>);
+  expect(screen.getByText('Kredit dipulihkan — mengurangi piutang')).toBeTruthy();
+  expect(screen.getByText(/RECOVERY-JE/)).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Balikkan kredit — pulihkan piutang'})).toBeNull();
+  expect(screen.queryByText('Periksa atau ubah nominal secara manual')).toBeNull();
+ });
  it('uses WIB dates and requires a correction reason before compensation',async()=>{
-  render(<FinanceReturnCredit row={{...row,credit:{mode:'SNAPSHOT',approvalReason:null,evidenceReference:null,approvedAt:null,approvedBy:null,manualRemainingBefore:null,taxAmount:'22.00',status:'POSTED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:null,reversalReason:null,reviewReason:null,allocations:[]}}}/>);
+  render(<FinanceReturnCredit row={{...row,credit:{recoveryActive:false,recoveries:[],mode:'SNAPSHOT',approvalReason:null,evidenceReference:null,approvedAt:null,approvedBy:null,manualRemainingBefore:null,taxAmount:'22.00',status:'POSTED',totalAmount:'222.00',postedAt:'2026-09-17T17:00:00.000Z',reversedAt:null,reversalReason:null,reviewReason:null,allocations:[]}}}/>);
   expect(screen.getByText(/Posting: 2026-09-18/)).toBeTruthy();
   const button=screen.getByRole('button',{name:'Balikkan kredit — pulihkan piutang'});
   expect((button as HTMLButtonElement).disabled).toBe(true);

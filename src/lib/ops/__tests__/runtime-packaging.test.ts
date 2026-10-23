@@ -23,6 +23,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/scripts/backup-release-databases.js',
             '/app/ops-dist/scripts/cleanup-performance-metrics.js',
             '/app/ops-dist/scripts/correct-sales-invoice-date.js',
+            '/app/ops-dist/scripts/recover-return-credit.js',
             '/app/scripts/audit-duplicate-production-voids.js',
             '/app/scripts/check-ob.js',
             '/app/scripts/run-product-learning.mjs',
@@ -43,6 +44,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/src/lib/ops/tenant-migrations.js',
             '/app/ops-dist/src/lib/ops/release-database-backups.js',
             '/app/ops-dist/src/lib/ops/performance-metrics-cleanup.js',
+            '/app/ops-dist/src/lib/ops/return-credit-recovery.js',
         ]);
         expect(dockerfile).toContain('--rootDir . --outDir /app/ops-dist');
     });

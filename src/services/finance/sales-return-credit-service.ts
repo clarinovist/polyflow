@@ -1,3 +1,4 @@
+import { effectiveReturnCreditWhere } from '@/lib/finance/effective-return-credit';
 import { Prisma } from '@prisma/client';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { z } from 'zod';
@@ -396,7 +397,7 @@ export async function postReturnCreditInTransaction(
                 'Beberapa baris SO memakai produk yang sama; atribusi pengiriman ke item invoice perlu pemeriksaan Finance.',
             );
         const previous = await tx.salesReturnCreditAllocation.aggregate({
-            where: { basisLineId: original.id, credit: { status: 'POSTED' } },
+            where: { basisLineId: original.id, credit: effectiveReturnCreditWhere },
             _sum: {
                 quantity: true,
                 netAmount: true,
@@ -466,12 +467,12 @@ export async function postReturnCreditInTransaction(
             await tx.salesReturnCreditAllocation.count({
                 where: {
                     invoiceId,
-                    credit: { status: 'POSTED', mode: 'MANUAL' },
+                    credit: { ...effectiveReturnCreditWhere, mode: 'MANUAL' },
                 },
             })
         ) {
             const active = await tx.salesReturnCreditAllocation.aggregate({
-                where: { invoiceId, credit: { status: 'POSTED' } },
+                where: { invoiceId, credit: effectiveReturnCreditWhere },
                 _sum: { netAmount: true, taxAmount: true },
             });
             const source = await tx.journalEntry.findUniqueOrThrow({

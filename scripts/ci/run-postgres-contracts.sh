@@ -22,6 +22,9 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/finance/__tests__/return-credit-proposal-postgres.test.ts \
   src/services/finance/__tests__/sales-return-receipt-postgres.test.ts \
   src/services/finance/__tests__/manual-return-credit-postgres.test.ts \
+  src/services/finance/__tests__/sales-return-credit-postgres.test.ts \
+  src/services/finance/__tests__/invoice-price-adjustment-postgres.test.ts \
+  src/services/finance/__tests__/return-credit-recovery-postgres.test.ts \
   src/services/finance/__tests__/invoice-status-settlement-postgres.test.ts \
   src/services/finance/__tests__/invoice-date-correction-postgres.test.ts \
   src/services/finance/__tests__/customer-credit-postgres.test.ts \

@@ -174,6 +174,8 @@ export default async function FinanceReturnsPage({
                                             <TableCell className="min-w-60 max-w-sm whitespace-normal text-xs">
                                                 {row.customerCredit
                                                     ? 'Saldo kredit pelanggan'
+                                                    : row.credit?.recoveryActive
+                                                      ? `Kredit dipulihkan ${formatRupiah(row.credit.totalAmount)} (bukan pembayaran).`
                                                     : row.credit?.status ===
                                                         'POSTED'
                                                       ? `Kredit terposting ${formatRupiah(row.credit.totalAmount)} (bukan pembayaran).`

@@ -1,6 +1,7 @@
 import { Prisma, SalesReturnStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/core/prisma';
+import { effectiveReturnCreditWhere, hasActiveRecovery } from '@/lib/finance/effective-return-credit';
 
 const pageInput = z.object({
     page: z.coerce
@@ -21,7 +22,7 @@ const returnSelect = {
     totalAmount: true,
     customer: { select: { name: true } },
     salesOrder: { select: { orderNumber: true } },
-    credit: { select: { status: true, totalAmount: true, reviewReason: true } },
+    credit: { select: { status: true, totalAmount: true, reviewReason: true, recoveries: { select: { kind: true } } } },
     customerCredit: { select: { id: true, status: true } },
 } satisfies Prisma.SalesReturnSelect;
 
@@ -36,7 +37,7 @@ export async function getFinanceReturnSummary() {
                     status: { in: ['RECEIVED', 'COMPLETED'] },
                     OR: [
                         { credit: { is: null }, customerCredit: { is: null } },
-                        { credit: { status: { not: 'POSTED' } }, customerCredit: { is: null } },
+                        { credit: { is: { NOT: effectiveReturnCreditWhere } }, customerCredit: { is: null } },
                     ],
                 },
             ],
@@ -108,7 +109,7 @@ export async function getFinanceReturnPage(input: unknown) {
             returnDate: row.returnDate.toISOString(),
             totalAmount: Number(row.totalAmount ?? 0),
             credit: row.credit
-                ? { ...row.credit, totalAmount: Number(row.credit.totalAmount) }
+                ? { ...row.credit, recoveryActive: hasActiveRecovery(row.credit.recoveries), totalAmount: Number(row.credit.totalAmount) }
                 : null,
         })),
         page,
@@ -139,6 +140,7 @@ export async function getFinanceReturnDetail(input: unknown) {
                     postedAt: true,
                     reversedAt: true,
                     reversalReason: true,
+                    recoveries: { select: { kind: true, postingDate: true, reason: true, evidence: true, journal: { select: { entryNumber: true } } }, orderBy: { createdAt: 'asc' } },
                     allocations: {
                         select: {
                             quantity: true,
@@ -186,7 +188,7 @@ export async function getFinanceReturnDetail(input: unknown) {
             returnBasisLines: {
                 include: {
                     allocations: {
-                        where: { credit: { status: 'POSTED' } },
+                        where: { credit: effectiveReturnCreditWhere },
                         select: { quantity: true },
                     },
                 },
@@ -201,6 +203,8 @@ export async function getFinanceReturnDetail(input: unknown) {
         credit: row.credit
             ? {
                   status: row.credit.status,
+                  recoveryActive: hasActiveRecovery(row.credit.recoveries),
+                  recoveries: (row.credit.recoveries ?? []).map((event) => ({ ...event, postingDate: event.postingDate.toISOString() })),
                   mode: row.credit.mode,
                   approvalReason: row.credit.approvalReason,
                   evidenceReference: row.credit.evidenceReference,

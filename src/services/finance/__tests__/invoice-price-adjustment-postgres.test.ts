@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { actor, date, resetReturnFixture } from './return-credit-postgres-fixture';
+import { actor, date, resetReturnFixture, returnTestClient, verifyReturnTestDatabase } from './return-credit-postgres-fixture';
 vi.mock('@/services/accounting/account-resolver',()=>({resolveAccount:async(role:string)=>({id:role==='accounts-receivable'?'ar':role==='vat-output'?'vat':role==='sales-revenue'?'revenue':role==='sales-return'?'return':role==='accounts-payable'?'ap':'cash'})}));
 vi.mock('@/services/settings/app-settings-service',()=>({getPaymentBanksSetting:async()=>[]}));
 import { tenantContext } from '@/lib/core/prisma';
@@ -13,13 +13,13 @@ import { postReturnCreditInTransaction } from '../sales-return-credit-service';
 import { RekapDagangService } from '../rekap-dagang-service';
 import { BarterSettlementService } from '../barter-settlement-service';
 import { createInvoice, createDraftInvoiceFromOrder } from '../invoice-lifecycle-service';
-function client(url:string){const u=new URL(url);if(!['postgres:','postgresql:'].includes(u.protocol)||u.hostname!=='127.0.0.1'||u.port!=='55469'||!['/polyflow_return_credit_scope_test','/polyflow_return_credit_tenant_test'].includes(u.pathname)||u.search)throw Error('Only owned price-adjustment disposable DB allowed');return new PrismaClient({datasources:{db:{url}}});}
-const url=process.env.PRICE_ADJUSTMENT_TEST_DATABASE_URL;const db=url?client(url):null;
+function client(url:string){if(process.env.RETURN_CREDIT_TEST_DATABASE_URL)return returnTestClient(url);const u=new URL(url);if(!['postgres:','postgresql:'].includes(u.protocol)||u.hostname!=='127.0.0.1'||u.port!=='55469'||!['/polyflow_return_credit_scope_test','/polyflow_return_credit_tenant_test'].includes(u.pathname)||u.search)throw Error('Only owned price-adjustment disposable DB allowed');return new PrismaClient({datasources:{db:{url}}});}
+const url=process.env.RETURN_CREDIT_TEST_DATABASE_URL ?? process.env.PRICE_ADJUSTMENT_TEST_DATABASE_URL;const db=url?client(url):null;
 const source=()=>db!.$transaction(tx=>getPriceAdjustmentSource(tx,'invoice'));
 async function input(price='90'){const s=await source();return{invoiceId:'invoice',sourceItemId:'source-item',quantity:'2',newNetUnitPrice:price,sourceFingerprint:s.fingerprint,expectedRemaining:s.invoice.remainingAmount.toString(),postingDate:date,reason:'Synthetic agreed price change',idempotencyKey:randomUUID(),confirmed:true};}
 const post=(data:unknown)=>tenantContext.run(db!,()=>postInvoicePriceAdjustment(data,actor));
 describe.skipIf(!db)('invoice price changes on actual disposable PostgreSQL',()=>{
- beforeEach(async()=>{const marker=await db!.$queryRaw<{purpose:string}[]>`SELECT purpose FROM "PriceAdjustmentDisposableMarker"`;if(marker.length!==1||marker[0].purpose!=='price-adjustment-synthetic-only')throw Error('Price marker required');await resetReturnFixture(db!,false);});
+ beforeEach(async()=>{if(process.env.RETURN_CREDIT_TEST_DATABASE_URL){await verifyReturnTestDatabase(db!);}else{const marker=await db!.$queryRaw<{purpose:string}[]>`SELECT purpose FROM "PriceAdjustmentDisposableMarker"`;if(marker.length!==1||marker[0].purpose!=='price-adjustment-synthetic-only')throw Error('Price marker required');}await resetReturnFixture(db!,false);});
  afterAll(async()=>{await db?.$disconnect();});
  it('posts price reduction, preserves gross/cash/stock and compensates without deleting history',async()=>{
   const result=await post(await input());expect(result.totalAmount.toString()).toBe('-22.2');
