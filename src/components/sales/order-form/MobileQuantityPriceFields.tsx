@@ -39,7 +39,7 @@ export function MobileQuantityPriceFields({
                 render={({ field: qtyField }) => (
                     <FormItem>
                         <FormLabel className="text-xs text-muted-foreground">
-                            Qty
+                            Jumlah
                             {unitMeta ? ` (${unitMeta.displayUnit})` : ''}
                         </FormLabel>
                         <FormControl>
@@ -66,6 +66,7 @@ export function MobileQuantityPriceFields({
                                 }}
                                 onBlur={() => {
                                     const raw = rawQtyInputs[index];
+                                    if (raw === undefined) return;
                                     const num = Number(
                                         (raw || '0').replace(',', '.'),
                                     );
@@ -90,8 +91,8 @@ export function MobileQuantityPriceFields({
                 render={({ field: priceField }) => (
                     <FormItem>
                         <FormLabel className="text-xs text-muted-foreground">
-                            Harga
-                            {unitMeta ? ` /${unitMeta.displayUnit}` : ''}
+                            Harga per
+                            {unitMeta ? ` ${unitMeta.displayUnit}` : ' satuan'}
                         </FormLabel>
                         <FormControl>
                             <Input

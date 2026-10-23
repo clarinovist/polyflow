@@ -172,10 +172,8 @@ describe('updateOrder — SO terkirim sebagian', () => {
 
         expect(totalRowsAfter).toBe(1);
 
-        // Diperbarui in place, sehingga id item stabil (FK jadwal kirim aman).
-        expect(mockPrismaInstance.salesOrderItem.update).toHaveBeenCalledWith(
-            expect.objectContaining({ where: { id: 'item-terkirim' } }),
-        );
+        // Unchanged line is not rewritten, preserving identity AND timestamp.
+        expect(mockPrismaInstance.salesOrderItem.update).not.toHaveBeenCalled();
     });
 
     it('(B) tidak menukar deliveredQty ketika dua baris memakai productVariantId sama', async () => {
@@ -208,8 +206,8 @@ describe('updateOrder — SO terkirim sebagian', () => {
 
         await updateOrder(
             basePayload([
-                line({ id: 'item-a', quantity: 2 }),
-                line({ id: 'item-b', quantity: 5 }),
+                line({ id: 'item-a', quantity: 3 }),
+                line({ id: 'item-b', quantity: 6 }),
             ]),
             'user-1',
         );
@@ -222,8 +220,8 @@ describe('updateOrder — SO terkirim sebagian', () => {
         const callB = updateCalls.find((c) => c[0].where.id === 'item-b');
         const callA = updateCalls.find((c) => c[0].where.id === 'item-a');
 
-        expect(Number(callB?.[0].data.quantity)).toBe(5);
-        expect(Number(callA?.[0].data.quantity)).toBe(2);
+        expect(Number(callB?.[0].data.quantity)).toBe(6);
+        expect(Number(callA?.[0].data.quantity)).toBe(3);
 
         // deliveredQty tidak pernah ditulis ulang — tetap milik masing-masing baris.
         expect(callB?.[0].data).not.toHaveProperty('deliveredQty');

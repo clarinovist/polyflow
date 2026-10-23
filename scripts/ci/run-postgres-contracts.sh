@@ -33,6 +33,7 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/actions/dashboard/__tests__/finance-dashboard-postgres.test.ts \
   src/actions/dashboard/__tests__/sales-dashboard-postgres.test.ts \
   src/services/sales/__tests__/mobile-sales-contract-postgres.test.ts \
+  src/services/sales/__tests__/order-edit-postgres.test.ts \
   src/services/dashboard/__tests__/dashboard-hardening-postgres.test.ts \
   src/services/accounting/__tests__/closing-filter-postgres.test.ts \
   src/services/finance/__tests__/cogs-economic-diagnosis-postgres.test.ts \

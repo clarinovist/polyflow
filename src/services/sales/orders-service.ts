@@ -22,6 +22,7 @@ import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 import { processOrderItems } from './order-item-processor';
+import { unchangedSalesLine, salesEditAuditSnapshot } from './order-edit-diff';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import {
     DISCOUNT_CEILING_SETTING_KEY,
@@ -524,7 +525,7 @@ export async function createOrder(
 
 export async function updateOrder(
     data: UpdateSalesOrderValues,
-    _userId: string,
+    userId: string,
 ) {
     // Load current order with items, invoices, and delivery orders for validation
     const currentOrder = await prisma.salesOrder.findUnique({
@@ -542,6 +543,9 @@ export async function updateOrder(
         throw new NotFoundError('Sales Order', data.id);
     }
 
+    if (data.expectedUpdatedAt && data.expectedUpdatedAt.getTime() !== currentOrder.updatedAt.getTime()) {
+        throw new BusinessRuleError('SO telah berubah sejak halaman dibuka. Muat ulang sebelum menyimpan.');
+    }
     const status = currentOrder.status;
 
     // === STATUS-BASED VALIDATION ===
@@ -639,6 +643,10 @@ export async function updateOrder(
         currentOrder.items.map((item) => [item.id, item]),
     );
 
+    const suppliedIds = data.items.flatMap(item => item.id ? [item.id] : []);
+    if (new Set(suppliedIds).size !== suppliedIds.length || suppliedIds.some(id => !existingItemsMap.has(id))) {
+        throw new BusinessRuleError('ID item tidak valid untuk Sales Order ini. Muat ulang sebelum mengedit.');
+    }
     // Validate each submitted item
     for (const submittedItem of data.items) {
         const existingItem = submittedItem.id
@@ -682,7 +690,7 @@ export async function updateOrder(
         totalDiscount,
         totalTax,
         items: itemsWithTotals,
-    } = await processOrderItems(data.items, currentOrder.orderType);
+    } = await processOrderItems(data.items, currentOrder.orderType, currentOrder.items);
 
     if (data.customerId) {
         await checkCreditLimit(data.customerId, totalAmount);
@@ -723,6 +731,7 @@ export async function updateOrder(
             include: {
                 deliveryOrders: { select: { status: true } },
                 invoices: { select: { id: true, status: true } },
+                items: true,
             },
         });
         if (
@@ -735,6 +744,7 @@ export async function updateOrder(
                     currentOrder.invoices.map((i) => [i.id, i.status]).sort(),
                 ) ||
             fresh.updatedAt?.getTime() !== currentOrder.updatedAt?.getTime() ||
+            JSON.stringify([...fresh.items].sort((a, b) => a.id.localeCompare(b.id))) !== JSON.stringify([...currentOrder.items].sort((a, b) => a.id.localeCompare(b.id))) ||
             fresh.deliveryOrders.some((delivery) =>
                 ['PENDING', 'LOADING'].includes(delivery.status),
             )
@@ -786,10 +796,10 @@ export async function updateOrder(
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             isFreeItem: item.isFreeItem ?? false,
-            enteredQuantity: item.enteredQuantity,
-            enteredUnit: item.enteredUnit,
-            conversionFactorSnapshot: item.conversionFactorSnapshot,
-            enteredUnitPrice: item.enteredUnitPrice,
+            enteredQuantity: item.enteredQuantity ?? null,
+            enteredUnit: item.enteredUnit ?? null,
+            conversionFactorSnapshot: item.conversionFactorSnapshot ?? null,
+            enteredUnitPrice: item.enteredUnitPrice ?? null,
             discountPercent: item.discountPercent,
             taxPercent: item.taxPercent,
             taxAmount: item.taxAmount,
@@ -808,6 +818,8 @@ export async function updateOrder(
                 : undefined;
 
             if (existingRecord) {
+                // Preserve unrelated item timestamps, snapshots and stored rounding.
+                if (unchangedSalesLine(existingRecord, submitted)) continue;
                 // Update in place — id tetap, deliveredQty tidak disentuh.
                 await tx.salesOrderItem.update({
                     where: { id: existingRecord.id },
@@ -840,7 +852,7 @@ export async function updateOrder(
             nextPriceStatus = undefined; // leave as-is
         }
 
-        return await tx.salesOrder.update({
+        const updated = await tx.salesOrder.update({
             where: { id: data.id },
             data: {
                 customerId: data.customerId,
@@ -876,6 +888,13 @@ export async function updateOrder(
             },
             include: { items: true },
         });
+        await logActivity({
+            userId, action: 'SALES_ORDER_UPDATED', entityType: 'SalesOrder', entityId: data.id,
+            details: 'Sales Order revised; quantities, prices and unit snapshots recorded before/after.',
+            changes: { before: salesEditAuditSnapshot(currentOrder), after: salesEditAuditSnapshot(updated) },
+            tx,
+        });
+        return updated;
     });
 }
 

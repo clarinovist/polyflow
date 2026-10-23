@@ -92,14 +92,11 @@ export default async function CreateSalesOrderPage({
                 shippingCost: Number(o.shippingCost) || 0,
                 items: (o.items || []).map((item: ReorderSourceItem) => ({
                     productVariantId: item.productVariantId,
-                    quantity:
-                        Number(item.enteredQuantity) ||
-                        Number(item.quantity) ||
-                        1,
-                    unitPrice:
-                        Number(item.enteredUnitPrice) ||
-                        Number(item.unitPrice) ||
-                        0,
+                    // A reorder is a new contract: start from persisted base quantities,
+                    // never reinterpret an old alternate-unit snapshot using today's master.
+                    quantity: Number(item.quantity),
+                    unitPrice: Number(item.unitPrice),
+                    enteredUnit: item.productVariant.primaryUnit,
                     discountPercent: Number(item.discountPercent) || 0,
                     taxPercent: Number(item.taxPercent) || 0,
                 })),

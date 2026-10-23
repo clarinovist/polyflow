@@ -15,6 +15,8 @@ import {
 } from '@/lib/schemas/sales';
 import { createSalesOrder, updateSalesOrder } from '@/actions/sales/sales';
 import { isBillableDeliveryStatus } from '@/lib/sales/delivery-status';
+import { salesEntryMeta, convertSalesEntry } from '@/lib/sales/unit-entry';
+import { UnitEntryControl } from './order-form/UnitEntryControl';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -244,6 +246,8 @@ export function SalesOrderForm({
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
                         unitPrice: item.unitPrice,
+                        enteredUnit: item.enteredUnit,
+                        conversionFactorSnapshot: item.conversionFactorSnapshot,
                         discountPercent: item.discountPercent,
                         taxPercent: item.taxPercent,
                         ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
@@ -314,8 +318,8 @@ export function SalesOrderForm({
             ? 'Untuk Maklon Jasa, field ini harus memakai warehouse customer-owned. Lokasi ini menjadi default sumber bahan titipan customer untuk flow maklon, lalu Production Execution tetap memprioritaskan stok yang sudah dipindah ke lokasi proses jika ada.'
             : 'Bisa dikosongkan untuk order cepat. Pilih gudang saat ingin reservasi stok atau kirim barang.';
 
+    const allProducts = useMemo(() => [...products, ...newProducts], [products, newProducts]);
     const filteredProducts = useMemo(() => {
-        const allProducts = [...products, ...newProducts];
         let baseProducts = allProducts;
 
         // Filter by ProductType based on OrderType
@@ -341,7 +345,7 @@ export function SalesOrderForm({
         // For MTS, show all products — stock validation happens at fulfillment time.
         // This allows selling raw materials (barter) even if stock shows 0 in UI.
         return baseProducts;
-    }, [products, newProducts, selectedSourceLocationId, selectedOrderType]);
+    }, [allProducts, selectedSourceLocationId, selectedOrderType]);
 
     // Clear customerId if Order Type is MTS
     /* useEffect(() => {
@@ -473,6 +477,13 @@ export function SalesOrderForm({
     useEffect(() => {
         const items = form.getValues('items') || [];
         items.forEach((item, index) => {
+            const original = (initialData?.items as SalesOrderFormValues['items'] | undefined)?.find(old => old.id === item.id && old.productVariantId === item.productVariantId);
+            // Loading an order is not a tax revision. Preserve its stored DPP
+            // until quantity, price or discount actually changes.
+            if (original && Number(original.quantity) === Number(item.quantity) && Number(original.unitPrice) === Number(item.unitPrice) && Number(original.discountPercent || 0) === Number(item.discountPercent || 0)) {
+                if (item.dppOtherAmount !== original.dppOtherAmount) form.setValue(`items.${index}.dppOtherAmount`, original.dppOtherAmount ?? null, { shouldDirty: false });
+                return;
+            }
             const qty = Number(item.quantity || 0);
             const price = Number(item.unitPrice || 0);
             const discount = Number(item.discountPercent || 0);
@@ -486,7 +497,7 @@ export function SalesOrderForm({
                 });
             }
         });
-    }, [watchItems, form]);
+    }, [watchItems, form, initialData]);
 
     const handleRemoveItem = (index: number) => {
         remove(index);
@@ -623,12 +634,33 @@ export function SalesOrderForm({
         const productVariantId = form.getValues(
             `items.${index}.productVariantId`,
         );
-        return products.find((p) => p.id === productVariantId);
+        return allProducts.find((p) => p.id === productVariantId);
     };
 
     const getLineUnitMeta = (index: number) => {
         const variant = getLineVariant(index);
-        return variant ? getProductionUnitMeta(variant) : null;
+        const entry = form.getValues(`items.${index}`);
+        const historical = (initialData?.items as SalesOrderFormValues['items'] | undefined)?.find(
+            item => item.id === entry.id && item.productVariantId === entry.productVariantId,
+        );
+        return variant ? salesEntryMeta(variant, entry, historical) : null;
+    };
+
+    const changeLineUnit = (index: number, unit: Unit) => {
+        const meta = getLineUnitMeta(index);
+        if (!meta) return;
+        const next = convertSalesEntry(form.getValues(`items.${index}`), meta, unit);
+        form.setValue(`items.${index}.quantity`, next.quantity, { shouldDirty: true });
+        form.setValue(`items.${index}.unitPrice`, next.unitPrice, { shouldDirty: true });
+        form.setValue(`items.${index}.enteredUnit`, unit, { shouldDirty: true });
+        setRawQtyInputs(prev => { const next = { ...prev }; delete next[index]; return next; });
+        setRawPriceInputs(prev => { const next = { ...prev }; delete next[index]; return next; });
+    };
+
+    const unitControl = (index: number) => {
+        const meta = getLineUnitMeta(index);
+        const entry = watchItems?.[index];
+        return meta && entry ? <UnitEntryControl meta={meta} index={index} quantity={Number(entry.quantity)} price={Number(entry.unitPrice)} onChange={unit => changeLineUnit(index, unit)} /> : null;
     };
 
     const toDisplayUnitPrice = (
@@ -677,7 +709,16 @@ export function SalesOrderForm({
         index: number,
         variant: SerializedProductVariant,
     ) => {
+        const current = form.getValues(`items.${index}`);
+        // Reselecting the current product is not a new commercial contract.
+        if (current.productVariantId === variant.id) return;
         form.setValue(`items.${index}.productVariantId`, variant.id);
+        form.setValue(`items.${index}.enteredUnit`, getProductionUnitMeta(variant).displayUnit as Unit);
+        form.setValue(`items.${index}.conversionFactorSnapshot`, undefined);
+        form.setValue(`items.${index}.enteredQuantity`, undefined);
+        form.setValue(`items.${index}.enteredUnitPrice`, undefined);
+        setRawQtyInputs(prev => { const next = { ...prev }; delete next[index]; return next; });
+        setRawPriceInputs(prev => { const next = { ...prev }; delete next[index]; return next; });
         form.setValue(
             `items.${index}.unitPrice`,
             toDisplayUnitPrice(variant, getCustomerBasePrice(variant)),
@@ -702,17 +743,20 @@ export function SalesOrderForm({
         if (!shouldUpdate) return;
 
         items.forEach((item, index) => {
-            const variant = products.find(
+            const variant = allProducts.find(
                 (p) => p.id === item.productVariantId,
             );
             if (!variant) return;
+            const original = (initialData?.items as SalesOrderFormValues['items'] | undefined)?.find(old => old.id === item.id && old.productVariantId === item.productVariantId);
+            const meta = salesEntryMeta(variant, item, original);
             form.setValue(
                 `items.${index}.unitPrice`,
-                toDisplayUnitPrice(variant, getCustomerBasePrice(variant)),
+                getCustomerBasePrice(variant) * (meta.displayUnit === meta.primaryUnit ? 1 : meta.conversionFactor),
                 { shouldDirty: true, shouldValidate: true },
             );
+            setRawPriceInputs(prev => { const next = { ...prev }; delete next[index]; return next; });
         });
-    }, [selectedCustomerId, form, products, getCustomerBasePrice]);
+    }, [selectedCustomerId, form, allProducts, getCustomerBasePrice, initialData]);
 
     const handleQuickProductCreated = (
         newVariant: SerializedProductVariant,
@@ -793,7 +837,7 @@ export function SalesOrderForm({
         return {
             ...data,
             customItems: customItems.length > 0 ? customItems : undefined,
-            items: data.items.map((item) => {
+            items: data.items.map((item, index) => {
                 // Skip normalization for custom items (they don't have real variants yet)
                 if (item.productVariantId.startsWith(CUSTOM_ITEM_PREFIX)) {
                     return {
@@ -805,13 +849,22 @@ export function SalesOrderForm({
                     };
                 }
 
-                const variant = products.find(
+                const variant = allProducts.find(
                     (p) => p.id === item.productVariantId,
                 );
                 if (!variant) return item;
 
-                const meta = getProductionUnitMeta(variant);
-                if (!meta.hasAlternateUnit) {
+                const meta = getLineUnitMeta(index) || salesEntryMeta(variant, item);
+                const original = (initialData?.items as SalesOrderFormValues['items'] | undefined)?.find(old => old.id === item.id && old.productVariantId === item.productVariantId);
+                const savedBase = original as (SalesOrderFormValues['items'][number] & { originalBaseQuantity?: number; originalBaseUnitPrice?: number }) | undefined;
+                if (savedBase?.originalBaseQuantity != null && savedBase.originalBaseUnitPrice != null && Number(item.quantity) === Number(original?.quantity) && Number(item.unitPrice) === Number(original?.unitPrice) && item.enteredUnit === original?.enteredUnit) {
+                    return { ...item, quantity: savedBase.originalBaseQuantity, unitPrice: savedBase.originalBaseUnitPrice,
+                        enteredQuantity: original?.enteredQuantity, enteredUnitPrice: original?.enteredUnitPrice,
+                        enteredUnit: original?.enteredQuantity == null ? undefined : original.enteredUnit,
+                        conversionFactorSnapshot: original?.conversionFactorSnapshot };
+                }
+                const legacyBase = original && original.enteredQuantity == null && meta.displayUnit === meta.primaryUnit;
+                if (legacyBase || (!meta.hasAlternateUnit && item.enteredQuantity === undefined)) {
                     return {
                         ...item,
                         enteredQuantity: undefined,
@@ -823,19 +876,17 @@ export function SalesOrderForm({
 
                 const enteredQuantity = Number(item.quantity);
                 const enteredUnitPrice = Number(item.unitPrice);
-                const baseQuantity = toBaseQuantity(
-                    enteredQuantity,
-                    meta.conversionFactor,
-                );
-                const baseUnitPrice = enteredUnitPrice / meta.conversionFactor;
+                const factor = meta.displayUnit === meta.primaryUnit ? 1 : meta.conversionFactor;
+                const baseQuantity = toBaseQuantity(enteredQuantity, factor);
+                const baseUnitPrice = enteredUnitPrice / factor;
 
                 return {
                     ...item,
                     quantity: baseQuantity,
                     unitPrice: baseUnitPrice,
                     enteredQuantity,
-                    enteredUnit: meta.salesUnit as Unit,
-                    conversionFactorSnapshot: meta.conversionFactor,
+                    enteredUnit: meta.displayUnit as Unit,
+                    conversionFactorSnapshot: factor,
                     enteredUnitPrice,
                 };
             }),
@@ -1046,7 +1097,9 @@ export function SalesOrderForm({
                                                     setQuickAddIndex
                                                 }
                                                 variant={variant}
-                                            />
+                                            >
+                                                {unitControl(index)}
+                                            </DesktopProductCell>
 
                                             {/* Qty */}
                                             <DesktopQuantityCell
@@ -1068,6 +1121,7 @@ export function SalesOrderForm({
                                                     setRawPriceInputs
                                                 }
                                                 variant={variant}
+                                                unit={unitMeta?.displayUnit}
                                                 getPriceSourceLabel={
                                                     getPriceSourceLabel
                                                 }
@@ -1270,6 +1324,7 @@ export function SalesOrderForm({
                                         handleRemoveItem={handleRemoveItem}
                                     />
 
+                                    {unitControl(index)}
                                     {/* Qty & Price */}
                                     <MobileQuantityPriceFields
                                         form={form}

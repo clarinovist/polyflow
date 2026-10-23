@@ -19,11 +19,12 @@ import {
 } from '@/components/ui/command';
 import { getProductionUnitMeta } from '@/lib/utils/production-units';
 import type { SerializedProductVariant } from '../sales-order-types';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction, ReactNode } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { SalesOrderFormValues } from './types';
 
 type DesktopProductCellProps = {
+    children?: ReactNode;
     form: UseFormReturn<SalesOrderFormValues>;
     index: number;
     openProduct: Record<number, boolean>;
@@ -45,6 +46,7 @@ type DesktopProductCellProps = {
 };
 
 export function DesktopProductCell({
+    children,
     form,
     index,
     openProduct,
@@ -252,6 +254,7 @@ export function DesktopProductCell({
                     {variant.skuCode}
                 </div>
             )}
+            {children}
         </TableCell>
     );
 }

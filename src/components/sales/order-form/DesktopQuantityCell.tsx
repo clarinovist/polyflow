@@ -28,10 +28,12 @@ export function DesktopQuantityCell({
                 name={`items.${index}.quantity`}
                 render={({ field: qtyField }) => (
                     <div className="flex flex-col items-center">
+                        <span className="mb-1 text-xs text-muted-foreground">Jumlah ({unitMeta?.displayUnit || 'satuan'})</span>
                         <FormControl>
                             <Input
                                 type="text"
                                 inputMode="decimal"
+                                aria-label={`Jumlah (${unitMeta?.displayUnit || 'satuan'}) item ${index + 1}`}
                                 className="h-9 w-full text-center font-mono text-sm px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 value={
                                     rawQtyInputs[index] !== undefined
@@ -52,6 +54,7 @@ export function DesktopQuantityCell({
                                 }}
                                 onBlur={() => {
                                     const raw = rawQtyInputs[index];
+                                    if (raw === undefined) return;
                                     const num = Number(
                                         (raw || '0').replace(',', '.'),
                                     );
@@ -66,11 +69,7 @@ export function DesktopQuantityCell({
                                 }}
                             />
                         </FormControl>
-                        {unitMeta && (
-                            <span className="text-[10px] text-muted-foreground mt-1 font-medium whitespace-nowrap">
-                                {unitMeta.displayUnit}
-                            </span>
-                        )}
+
                     </div>
                 )}
             />

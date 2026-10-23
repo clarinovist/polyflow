@@ -3,6 +3,7 @@ import type { SalesOrderType, Unit } from '@prisma/client';
 // Form-only shape shared with render leaves; the public parent props stay unchanged.
 export type SalesOrderFormValues = {
     id?: string;
+    expectedUpdatedAt?: Date;
     customerId?: string;
     salesRepId?: string | null;
     sourceLocationId: string;

@@ -5,6 +5,7 @@ import { getProductVariants } from '@/actions/inventory/inventory';
 import { SalesOrderForm } from '@/components/sales/SalesOrderForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
+import { salesEntryForEdit } from '@/lib/sales/unit-entry';
 
 interface PageProps {
     params: Promise<{
@@ -25,22 +26,8 @@ export function mapSalesOrderItemForEdit(item: Record<string, unknown>) {
     return {
         id: String(item.id),
         productVariantId: String(item.productVariantId),
-        quantity: item.enteredQuantity
-            ? Number(item.enteredQuantity)
-            : Number(item.quantity),
-        unitPrice: item.enteredUnitPrice
-            ? Number(item.enteredUnitPrice)
-            : Number(item.unitPrice),
-        enteredQuantity: item.enteredQuantity
-            ? Number(item.enteredQuantity)
-            : undefined,
-        enteredUnit: item.enteredUnit || undefined,
-        conversionFactorSnapshot: item.conversionFactorSnapshot
-            ? Number(item.conversionFactorSnapshot)
-            : undefined,
-        enteredUnitPrice: item.enteredUnitPrice
-            ? Number(item.enteredUnitPrice)
-            : undefined,
+        ...salesEntryForEdit(item),
+        isFreeItem: Boolean(item.isFreeItem),
         discountPercent: item.discountPercent
             ? Number(item.discountPercent)
             : 0,
@@ -80,6 +67,7 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
     const items = (orderData.items as Array<Record<string, unknown>>) || [];
     const initialData = {
         id: order.id,
+        expectedUpdatedAt: order.updatedAt,
         customerId: order.customerId || undefined,
         salesRepId:
             ((order as Record<string, unknown>).salesRepId as string | null) ??

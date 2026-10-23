@@ -71,6 +71,8 @@ export interface SalesOrderFormProps {
             productVariantId: string;
             quantity: number;
             unitPrice: number;
+            enteredUnit?: import('@prisma/client').Unit;
+            conversionFactorSnapshot?: number;
             discountPercent: number;
             taxPercent: number;
         }[];

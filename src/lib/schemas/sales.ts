@@ -107,6 +107,7 @@ export const createSalesOrderSchema = z
 
 export const updateSalesOrderSchema = z.object({
     id: z.string(),
+    expectedUpdatedAt: z.coerce.date().optional(),
     customerId: z.string().optional(),
     salesRepId: z.string().optional().nullable(),
     sourceLocationId: z.string().optional().default(''),

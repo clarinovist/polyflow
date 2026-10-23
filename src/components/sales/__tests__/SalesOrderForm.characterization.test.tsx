@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
 import { SalesOrderForm } from '../SalesOrderForm';
@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     push: vi.fn(),
     back: vi.fn(),
     refresh: vi.fn(),
+    quickCreate: undefined as ((variant: SerializedProductVariant) => void) | undefined,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -30,7 +31,7 @@ vi.mock('@/actions/sales/customer', () => ({
     getCustomerCreditExposureAction: vi.fn().mockResolvedValue({ data: null }),
 }));
 vi.mock('@/components/customers/CustomerDialog', () => ({ CustomerDialog: () => null }));
-vi.mock('../QuickProductDialog', () => ({ QuickProductDialog: () => null }));
+vi.mock('../QuickProductDialog', () => ({ QuickProductDialog: ({ onProductCreated }: { onProductCreated: (variant: SerializedProductVariant) => void }) => { mocks.quickCreate = onProductCreated; return null; } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const NOW = new Date('2026-09-14T12:00:00.000Z');
@@ -360,7 +361,7 @@ describe('SalesOrderForm payload characterization', () => {
         const firstRow = desktopRow(0);
         const lastRow = desktopRow(2);
         const lastQuantity = rowInput(2, 2);
-        const lastMobileQuantity = screen.getAllByRole('textbox', { name: 'Qty (KG)' })[2];
+        const lastMobileQuantity = screen.getAllByRole('textbox', { name: 'Jumlah (KG)' })[2];
         enter(lastQuantity, '6');
         // The final cell is the existing unlabelled remove button. Do not
         // change production labels/DOM as part of this move-only batch.
@@ -370,7 +371,7 @@ describe('SalesOrderForm payload characterization', () => {
         expect(desktopRow(0)).toBe(firstRow);
         expect(desktopRow(1)).toBe(lastRow);
         expect(rowInput(2, 1)).toBe(lastQuantity);
-        expect(screen.getAllByRole('textbox', { name: 'Qty (KG)' })[1]).toBe(lastMobileQuantity);
+        expect(screen.getAllByRole('textbox', { name: 'Jumlah (KG)' })[1]).toBe(lastMobileQuantity);
         expect(lastMobileQuantity).toHaveProperty('value', '6');
         expect(rowInput(2, 1)).toHaveProperty('value', '6');
         expect(rowInput(4, 1)).toHaveProperty('value', '15');
@@ -424,8 +425,8 @@ describe('SalesOrderForm payload characterization', () => {
                 conversionFactorSnapshot: 25, enteredUnitPrice: 100_000,
             })]),
         });
-        enter(screen.getByRole('textbox', { name: 'Qty (ZAK)' }), '3,75');
-        enter(screen.getByRole('spinbutton', { name: 'Harga /ZAK' }), '125000');
+        enter(screen.getByRole('textbox', { name: 'Jumlah (ZAK)' }), '3,75');
+        enter(screen.getByRole('spinbutton', { name: 'Harga per ZAK' }), '125000');
         expectGrandTotal('468.750');
         submit('edit');
 
@@ -437,6 +438,64 @@ describe('SalesOrderForm payload characterization', () => {
             enteredQuantity: 3.75, enteredUnit: 'ZAK',
             conversionFactorSnapshot: 25, enteredUnitPrice: 125_000,
         });
+    });
+
+    it('switches KG/BAL-style units without changing base quantity or amount and submits explicit KG', async () => {
+        renderForm();
+        await selectCustomer(0);
+        await selectProduct(alternateProduct);
+        const select = within(desktopRow()).getByRole('combobox', { name: 'Satuan item 1' });
+        fireEvent.change(select, { target: { value: 'KG' } });
+        expect(rowInput(2)).toHaveProperty('value', '25');
+        expect(rowInput(3)).toHaveProperty('value', '4.000');
+        enter(rowInput(2), '1250'); enter(rowInput(3), '22.000');
+        expectGrandTotal('27.500.000');
+        fireEvent.change(select, { target: { value: 'ZAK' } });
+        expect(rowInput(2)).toHaveProperty('value', '50');
+        expect(rowInput(3)).toHaveProperty('value', '550.000');
+        fireEvent.change(select, { target: { value: 'KG' } });
+        // Focus/blur without editing must not zero a converted field.
+        fireEvent.blur(rowInput(2)); fireEvent.blur(rowInput(3));
+        expectGrandTotal('27.500.000'); submit('create');
+        expect((await createdPayload()).items[0]).toMatchObject({ quantity: 1250, unitPrice: 22000, enteredUnit: 'KG', enteredQuantity: 1250, enteredUnitPrice: 22000, conversionFactorSnapshot: 1 });
+    });
+
+    it('keeps a historical alternate snapshot when the master changes and supports mobile unit switching', async () => {
+        renderForm({ mode: 'edit', products: [baseProduct, { ...alternateProduct, conversionFactor: 50 }], initialData: editData([item({ productVariantId: alternateProduct.id, quantity: 2, unitPrice: 100000, enteredQuantity: 2, enteredUnit: 'ZAK', enteredUnitPrice: 100000, conversionFactorSnapshot: 25 })]) });
+        const select = screen.getAllByRole('combobox', { name: 'Satuan item 1' })[1];
+        fireEvent.change(select, { target: { value: 'KG' } });
+        expect(screen.getByRole('textbox', { name: 'Jumlah (KG)' })).toHaveProperty('value', '50');
+        fireEvent.change(select, { target: { value: 'ZAK' } }); submit('edit');
+        expect((await updatedPayload()).items[0]).toMatchObject({ quantity: 50, unitPrice: 4000, conversionFactorSnapshot: 25, enteredUnit: 'ZAK' });
+    });
+
+    it('edits a KG snapshot without reinterpreting it as the sales unit', async () => {
+        renderForm({ mode: 'edit', initialData: editData([item({ productVariantId: alternateProduct.id, quantity: 1250, unitPrice: 22000, enteredQuantity: 1250, enteredUnit: 'KG', enteredUnitPrice: 22000, conversionFactorSnapshot: 1 })]) });
+        expect(rowInput(2)).toHaveProperty('value', '1250'); submit('edit');
+        expect((await updatedPayload()).items[0]).toMatchObject({ quantity: 1250, unitPrice: 22000, enteredUnit: 'KG', conversionFactorSnapshot: 1 });
+    });
+
+    it('submits newly quick-created products using the combined product collection', async () => {
+        renderForm(); await selectCustomer(0);
+        act(() => mocks.quickCreate?.(product({ id: 'quick-created', skuCode: 'QUICK-NEW' })));
+        submit('create');
+        expect((await createdPayload()).items[0]).toMatchObject({ productVariantId: 'quick-created', quantity: 1, unitPrice: 120000, enteredUnit: undefined });
+    });
+
+    it('reselecting the same historical product keeps its unit and factor after master rename', async () => {
+        const current = { ...alternateProduct, salesUnit: 'BAL' as const, conversionFactor: 50 };
+        renderForm({ mode: 'edit', products: [current], initialData: editData([item({ productVariantId: current.id, quantity: 2, unitPrice: 100000, enteredQuantity: 2, enteredUnit: 'ZAK', enteredUnitPrice: 100000, conversionFactorSnapshot: 25 })]) });
+        fireEvent.click(within(desktopRow()).getAllByRole('combobox')[0]);
+        fireEvent.click(await screen.findByRole('option', { name: new RegExp(current.skuCode) }));
+        expect(within(desktopRow()).getByRole('combobox', { name: 'Satuan item 1' })).toHaveProperty('value', 'ZAK');
+        submit('edit'); expect((await updatedPayload()).items[0]).toMatchObject({ quantity: 50, unitPrice: 4000, enteredUnit: 'ZAK', conversionFactorSnapshot: 25 });
+    });
+
+    it('notes-only edit preserves original rounded base prices and untouched DPP', async () => {
+        const rounded = { ...item({ productVariantId: alternateProduct.id, quantity: 1, unitPrice: 100, enteredQuantity: 1, enteredUnit: 'ZAK', enteredUnitPrice: 100, conversionFactorSnapshot: 3, dppOtherAmount: 91.67 }), originalBaseQuantity: 3, originalBaseUnitPrice: 33.33 };
+        renderForm({ mode: 'edit', initialData: editData([rounded]) });
+        enter(screen.getByRole('textbox', { name: 'Catatan' }), 'Notes-only update'); submit('edit');
+        expect((await updatedPayload()).items[0]).toMatchObject({ quantity: 3, unitPrice: 33.33, enteredQuantity: 1, enteredUnitPrice: 100, conversionFactorSnapshot: 3, dppOtherAmount: 91.67 });
     });
 
     it('keeps a nominal discount amount fixed when quantity changes and submits its recomputed percent', async () => {

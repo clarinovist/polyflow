@@ -14,6 +14,7 @@ import type { SalesOrderFormValues } from './types';
 type DesktopPriceCellProps = {
     form: UseFormReturn<SalesOrderFormValues>;
     index: number;
+    unit?: string;
     rawPriceInputs: Record<number, string>;
     setRawPriceInputs: Dispatch<SetStateAction<Record<number, string>>>;
     variant: SerializedProductVariant | undefined;
@@ -23,6 +24,7 @@ type DesktopPriceCellProps = {
 export function DesktopPriceCell({
     form,
     index,
+    unit,
     rawPriceInputs,
     setRawPriceInputs,
     variant,
@@ -35,6 +37,7 @@ export function DesktopPriceCell({
                 name={`items.${index}.unitPrice`}
                 render={({ field: priceField }) => (
                     <div className="flex flex-col">
+                        <span className="mb-1 text-xs text-muted-foreground">Harga per {unit || 'satuan'}</span>
                         <FormControl>
                             <div className="relative">
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -43,6 +46,7 @@ export function DesktopPriceCell({
                                 <Input
                                     type="text"
                                     inputMode="decimal"
+                                    aria-label={`Harga per ${unit || 'satuan'} item ${index + 1}`}
                                     value={
                                         rawPriceInputs[index] !== undefined
                                             ? rawPriceInputs[index]
@@ -61,6 +65,7 @@ export function DesktopPriceCell({
                                         priceField.onChange(num);
                                     }}
                                     onBlur={() => {
+                                        if (rawPriceInputs[index] === undefined) return;
                                         const num = parseIndonesianPrice(
                                             rawPriceInputs[index] || '0',
                                         );

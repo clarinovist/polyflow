@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
-import { SalesOrderType, ProductType, Unit } from '@prisma/client';
+import { unchangedSalesLine } from './order-edit-diff';
+import { SalesOrderType, ProductType, Unit, Prisma, type SalesOrderItem } from '@prisma/client';
 import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
 import {
     BusinessRuleError,
@@ -8,6 +9,7 @@ import {
 } from '@/lib/errors/errors';
 
 type SalesLineInput = {
+    id?: string;
     productVariantId: string;
     quantity: number;
     unitPrice: number;
@@ -67,7 +69,7 @@ function assertNearlyEqual(
     label: string,
 ) {
     if (clientValue === undefined) return;
-    if (Math.abs(Number(clientValue) - serverValue) > 0.0001) {
+    if (!Number.isFinite(Number(clientValue)) || !Number.isFinite(serverValue) || Math.abs(Number(clientValue) - serverValue) > 0.0001) {
         throw new ValidationError(
             `${label} mismatch. Client sent ${clientValue}, server calculated ${serverValue}.`,
         );
@@ -81,6 +83,7 @@ function resolveSalesEnteredUnitFactor(
         salesUnit: Unit | null;
         conversionFactor: unknown;
     },
+    historical?: SalesOrderItem,
 ) {
     const payloadCount = [
         item.enteredQuantity !== undefined,
@@ -100,8 +103,12 @@ function resolveSalesEnteredUnitFactor(
     const enteredUnit = item.enteredUnit as Unit;
     if (enteredUnit === variant.primaryUnit) return 1;
 
-    if (variant.salesUnit && enteredUnit === variant.salesUnit) {
-        const factor = decimalToNumber(variant.conversionFactor, 1);
+    if ((variant.salesUnit && enteredUnit === variant.salesUnit) || historical?.enteredUnit === enteredUnit) {
+        // Snapshot authority comes only from the persisted item of this SO.
+        const savedFactor = historical?.enteredUnit === enteredUnit
+            ? Number(historical.conversionFactorSnapshot) : NaN;
+        const factor = Number.isFinite(savedFactor) && savedFactor > 0
+            ? savedFactor : decimalToNumber(variant.conversionFactor, NaN);
         if (!Number.isFinite(factor) || factor <= 0) {
             throw new ValidationError(
                 `Invalid conversion factor for sales unit ${enteredUnit}`,
@@ -122,8 +129,18 @@ function normalizeSalesLineItem(
         salesUnit: Unit | null;
         conversionFactor: unknown;
     },
+    historical?: SalesOrderItem,
 ) {
-    const factor = resolveSalesEnteredUnitFactor(item, variant);
+    for (const value of [item.quantity, item.unitPrice, item.enteredQuantity, item.enteredUnitPrice, item.conversionFactorSnapshot]) {
+        if (value !== undefined && !Number.isFinite(Number(value))) throw new ValidationError('Jumlah, harga, dan faktor satuan harus berupa angka valid.');
+    }
+    if (item.quantity <= 0 || item.unitPrice < 0 || (item.enteredQuantity !== undefined && item.enteredQuantity <= 0) || (item.enteredUnitPrice !== undefined && item.enteredUnitPrice < 0)) throw new ValidationError('Jumlah harus positif dan harga tidak boleh negatif.');
+    for (const [value, scale] of [[item.quantity, 4], [item.unitPrice, 2], [item.enteredQuantity, 4], [item.enteredUnitPrice, 2]] as const) {
+        if (value !== undefined && Math.abs(value - Number(new Prisma.Decimal(value).toFixed(scale))) > 1e-9) {
+            throw new ValidationError('Konversi tidak dapat disimpan tepat: jumlah maksimal 4 desimal dan harga maksimal 2 desimal, baik pada satuan input maupun satuan dasar. Gunakan satuan lain atau sesuaikan jumlah/harga.');
+        }
+    }
+    const factor = resolveSalesEnteredUnitFactor(item, variant, historical);
 
     if (factor === null) {
         return {
@@ -148,6 +165,9 @@ function normalizeSalesLineItem(
     const baseUnitPrice =
         factor > 0 ? enteredUnitPrice / factor : enteredUnitPrice;
 
+    if (Math.abs(baseQuantity - Number(new Prisma.Decimal(baseQuantity).toFixed(4))) > 1e-7 || Math.abs(baseUnitPrice - Number(new Prisma.Decimal(baseUnitPrice).toFixed(2))) > 1e-7) {
+        throw new ValidationError('Konversi tidak dapat disimpan tepat: jumlah dasar maksimal 4 desimal dan harga dasar maksimal 2 desimal. Sesuaikan jumlah/harga sebelum menyimpan.');
+    }
     assertNearlyEqual(item.quantity, baseQuantity, 'Sales quantity conversion');
     assertNearlyEqual(
         item.unitPrice,
@@ -183,6 +203,7 @@ function normalizeSalesLineItem(
 export async function processOrderItems(
     items: SalesLineInput[],
     orderType: SalesOrderType,
+    existingItems: SalesOrderItem[] = [],
 ): Promise<OrderItemTotals> {
     let totalAmount = 0;
     let totalDiscount = 0;
@@ -216,17 +237,31 @@ export async function processOrderItems(
                 );
             }
 
-            const normalized = normalizeSalesLineItem(item, variant);
+            const historical = item.id ? existingItems.find(old => old.id === item.id && old.productVariantId === item.productVariantId) : undefined;
+            // Trusted byte-equivalent historical intent is not a new conversion.
+            // Older rows may have rounded base prices; do not reject or rewrite them.
+            const preserve = historical && unchangedSalesLine(historical, item) && historical.subtotal != null;
+            const normalized = preserve ? {
+                productVariantId: historical.productVariantId,
+                quantity: Number(historical.quantity), unitPrice: Number(historical.unitPrice),
+                isFreeItem: Boolean(historical.isFreeItem),
+                enteredQuantity: historical.enteredQuantity == null ? undefined : Number(historical.enteredQuantity),
+                enteredUnit: historical.enteredUnit ?? undefined,
+                enteredUnitPrice: historical.enteredUnitPrice == null ? undefined : Number(historical.enteredUnitPrice),
+                conversionFactorSnapshot: historical.conversionFactorSnapshot == null ? undefined : Number(historical.conversionFactorSnapshot),
+                discountPercent: Number(historical.discountPercent ?? 0), taxPercent: Number(historical.taxPercent ?? 0),
+                dppOtherAmount: historical.dppOtherAmount == null ? null : Number(historical.dppOtherAmount),
+                ppnMode: historical.ppnMode ?? 'EXCLUDE',
+            } : normalizeSalesLineItem(item, variant, historical);
             const rawSubtotal = normalized.quantity * normalized.unitPrice;
             const discountAmount =
                 rawSubtotal * (normalized.discountPercent / 100);
             const subtotalAfterDiscount = rawSubtotal - discountAmount;
             const ppnMode = normalized.ppnMode;
-            const ppnResult = calculatePpn(
-                subtotalAfterDiscount,
-                normalized.taxPercent,
-                ppnMode,
-            );
+            const calculated = calculatePpn(subtotalAfterDiscount, normalized.taxPercent, ppnMode);
+            const ppnResult = preserve
+                ? { total: Number(historical.subtotal), taxAmount: Number(historical.taxAmount ?? 0) }
+                : calculated;
 
             totalDiscount += discountAmount;
             totalTax += ppnResult.taxAmount;
