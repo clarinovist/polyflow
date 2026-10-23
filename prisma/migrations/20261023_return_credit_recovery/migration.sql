@@ -92,7 +92,9 @@ BEGIN
  IF NOT FOUND OR c.status<>'REVERSED' THEN RAISE EXCEPTION 'Recovery requires an original reversed credit'; END IF;
  SELECT * INTO r FROM "SalesReturn" WHERE id=c."salesReturnId";
  IF r.status NOT IN ('RECEIVED','COMPLETED') OR r."customerId" IS NULL OR r."customerId" IS DISTINCT FROM (SELECT "customerId" FROM "SalesOrder" WHERE id=r."salesOrderId") THEN RAISE EXCEPTION 'Recovery return source mismatch'; END IF;
- IF NOT EXISTS (SELECT 1 FROM "User" WHERE id=actor_id AND role IN ('ADMIN','FINANCE') AND "isActive") THEN RAISE EXCEPTION 'Active Finance/Admin actor required'; END IF;
+ -- Reserved system is the existing non-login audit identity used by operator-run
+ -- release tooling; never activate its login or impersonate a Finance employee.
+ IF NOT EXISTS (SELECT 1 FROM "User" WHERE id=actor_id AND ((role IN ('ADMIN','FINANCE') AND "isActive") OR (id='system' AND role='ADMIN' AND NOT "isActive"))) THEN RAISE EXCEPTION 'Finance/Admin or reserved non-login system audit actor required'; END IF;
  day:=(event_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta')::date;
  IF day>(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date OR day<(c."reversedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta')::date THEN RAISE EXCEPTION 'Invalid recovery posting date'; END IF;
  IF NOT EXISTS (SELECT 1 FROM "FiscalPeriod" WHERE year=extract(year FROM day) AND month=extract(month FROM day) AND status='OPEN') THEN RAISE EXCEPTION 'Recovery accounting period is closed or missing'; END IF;

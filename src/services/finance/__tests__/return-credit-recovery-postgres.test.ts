@@ -93,6 +93,15 @@ describe.skipIf(!db)('exact return recovery on disposable PostgreSQL', () => {
         await reverse();
         await expect(recover(manual.id)).rejects.toThrow();
     });
+    it('records operator execution under reserved non-login system without enabling login', async () => {
+        const original = await post(); await reverse();
+        await db!.user.create({ data: { id: 'system', email: 'system@example.invalid', password: 'no-login', role: 'ADMIN', isActive: false } });
+        const input = { ...request(original.id), actorId: 'system' };
+        const preview = await recoverReturnCredit(db!, input);
+        await recoverReturnCredit(db!, { ...input, expectedFingerprint: preview.fingerprint }, true);
+        expect((await db!.user.findUniqueOrThrow({ where: { id: 'system' } })).isActive).toBe(false);
+        expect(await db!.auditLog.count({ where: { userId: 'system', action: 'RETURN_CREDIT_REINSTATE' } })).toBe(1);
+    });
     it('rejects stale preview and insufficient current balance rather than shrinking recovery', async () => {
         const original = await post(); await reverse();
         const input = request(original.id); const preview = await recoverReturnCredit(db!, input);
