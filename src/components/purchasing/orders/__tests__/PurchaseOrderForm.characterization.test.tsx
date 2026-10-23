@@ -118,6 +118,22 @@ afterEach(() => {
 });
 
 describe('PurchaseOrderForm characterization', () => {
+    it('prefills a valid MRP material without creating a PO or importing unverified quantity', () => {
+        renderForm({ initialProductVariantId: productVariants[0].id });
+        expect(within(desktopRow()).getByRole('combobox').textContent).toContain('Synthetic material');
+        expectGrandTotal('100.000');
+        expect(mocks.create).not.toHaveBeenCalled();
+    });
+    it('ignores unknown prefill ids and never overwrites an edit payload', async () => {
+        const { unmount } = renderForm({ initialProductVariantId: 'foreign-id' });
+        expectGrandTotal('0');
+        unmount();
+        renderForm({ mode: 'edit', initialData: initialData(), initialProductVariantId: 'foreign-id' });
+        submit();
+        const payload = await updatedPayload();
+        expect(payload.items[0].productVariantId).toBe(productVariants[0].id);
+        expect(payload.items[0].quantity).toBe(2);
+    });
     it('creates from defaults with real supplier/product pickers and normalized metadata', async () => {
         renderForm();
         const supplierField = screen.getByText('Pilih Supplier').parentElement;

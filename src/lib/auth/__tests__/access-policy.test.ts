@@ -156,6 +156,16 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(factoryManager, 'finance', '/finance')).toBe(false);
     });
 
+    it('allows bounded material review routes but not creation or arbitrary production paths', () => {
+      const manager = { role: 'FACTORY_MANAGER', allowedResources: ['/production/daily'] };
+      expect(canAccessWorkspace(manager, 'production', '/production/mobile/material-orders')).toBe(true);
+      expect(canAccessWorkspace(manager, 'production', '/production/mobile/material-orders/11111111-1111-4111-8111-111111111111')).toBe(true);
+      for (const path of ['/production/mobile/material-orders/new', '/production/mobile/material-orders-other', '/production/costing', '/production/mobile/tasks']) {
+        expect(canAccessWorkspace(manager, 'production', path)).toBe(false);
+      }
+      expect(canAccessWorkspace({ ...manager, allowedResources: [] }, 'production', '/production/mobile/material-orders')).toBe(false);
+    });
+
     it('denies FACTORY_MANAGER production mobile without production grants', () => {
       expect(
         canAccessWorkspace(

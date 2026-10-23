@@ -32,6 +32,11 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('production expected read failures', () => {
+    it('links a shortage to the actual variant id rather than its SKU', async () => {
+        mocks.orders.mockResolvedValue([{ status: 'DRAFT', plannedQuantity: 10, bom: { outputQuantity: 10, items: [{ productVariantId: 'variant-id', quantity: 10, productVariant: { name: 'Bahan A', skuCode: 'SKU-NOT-ID', primaryUnit: 'KG' } }] } }]);
+        render(await MrpPage());
+        expect(screen.getByRole('link', { name: /Beli/ }).getAttribute('href')).toBe('/purchasing/orders/create?variantId=variant-id');
+    });
     it.each([
         ['MRP inventory', MrpPage, 'inventory'],
         ['demand', RequestsPage, 'demand'],

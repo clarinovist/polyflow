@@ -25,11 +25,22 @@ export class MaterialOrderService {
   static async create(data: CreateMaterialOrderValues, userId: string) {
     const existing = await prisma.materialOrder.findUnique({
       where: { clientRequestId: data.clientRequestId },
-      select: { id: true, status: true, orderNumber: true },
+      select: { id: true, status: true, orderNumber: true, createdById: true },
     });
-    if (existing) return { ...existing, idempotent: true };
+    if (existing) {
+      if (existing.createdById !== userId) throw new BusinessRuleError('Kunci permintaan sudah digunakan.', {}, 'MATERIAL_ORDER_REQUEST_CONFLICT');
+      return { ...existing, idempotent: true };
+    }
 
     return await prisma.$transaction(async (tx) => {
+      const variants = await tx.productVariant.findMany({
+        where: { id: { in: data.items.map((item) => item.productVariantId) }, archivedAt: null },
+        select: { id: true, primaryUnit: true },
+      });
+      const units = new Map(variants.map((variant) => [variant.id, variant.primaryUnit]));
+      if (data.items.some((item) => !units.has(item.productVariantId))) {
+        throw new BusinessRuleError('Bahan tidak tersedia atau sudah dinonaktifkan. Muat ulang pilihan bahan.', {}, 'MATERIAL_UNAVAILABLE');
+      }
       const prefix = 'MO-' + (data.orderType || 'HD');
       const orderNumber = await buildOrderNumber(tx, prefix);
       const created = await tx.materialOrder.create({
@@ -47,6 +58,7 @@ export class MaterialOrderService {
             create: data.items.map((it) => ({
               productVariantId: it.productVariantId,
               quantity: it.quantity,
+              quantityUnit: units.get(it.productVariantId)!,
               zakQuantity: it.zakQuantity,
               note: it.note,
             })),
@@ -64,8 +76,12 @@ export class MaterialOrderService {
 
   static async submit(id: string, userId: string) {
     return await prisma.$transaction(async (tx) => {
+      const existing = await tx.materialOrder.findUniqueOrThrow({ where: { id }, include: { items: true } });
+      if (existing.createdById !== userId) throw new BusinessRuleError('Hanya pembuat yang boleh mengirim permintaan ini.', {}, 'MATERIAL_ORDER_OWNER_REQUIRED');
+      // A lost submit response may be retried after an approver has already acted.
+      if (existing.status !== MaterialOrderStatus.DRAFT) return { ...existing, idempotent: true };
       const { count } = await tx.materialOrder.updateMany({
-        where: { id, status: MaterialOrderStatus.DRAFT },
+        where: { id, createdById: userId, status: MaterialOrderStatus.DRAFT },
         data: { status: MaterialOrderStatus.PENDING },
       });
       if (count !== 1) throw new BusinessRuleError('Hanya DRAFT yang bisa disubmit.', { id }, 'INVALID_MATERIAL_ORDER_STATUS');
@@ -73,7 +89,8 @@ export class MaterialOrderService {
         userId, action: 'SUBMIT_MATERIAL_ORDER', entityType: 'MaterialOrder',
         entityId: id, fromStatus: 'DRAFT', toStatus: 'PENDING', tx,
       });
-      return tx.materialOrder.findUniqueOrThrow({ where: { id }, include: { items: true } });
+      const order = await tx.materialOrder.findUniqueOrThrow({ where: { id }, include: { items: true } });
+      return { ...order, idempotent: false };
     });
   }
 

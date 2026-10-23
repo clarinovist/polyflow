@@ -646,6 +646,7 @@ function GroupRow({
                                         notes: e.notes,
                                     }))}
                                 orderNumber={group.productionOrder.orderNumber}
+                                unit={group.productionOrder.bom.productVariant.primaryUnit}
                             />
                         </div>
                     ) : (
@@ -974,6 +975,7 @@ function TimelineRow({
                             },
                         ]}
                         orderNumber={group.productionOrder.orderNumber}
+                                unit={group.productionOrder.bom.productVariant.primaryUnit}
                     />
                 </div>
             )}
@@ -1128,6 +1130,7 @@ function SpkMobileCards({
                                     orderNumber={
                                         group.productionOrder.orderNumber
                                     }
+                                    unit={group.productionOrder.bom.productVariant.primaryUnit}
                                 />
                             ) : (
                                 <span className="inline-flex items-center gap-1 text-amber-600 text-[10px]">

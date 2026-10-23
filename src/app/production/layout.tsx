@@ -8,6 +8,7 @@ import {
     hasWorkspaceEntitlement,
     hasWorkspaceResourceAccess,
     isPathAllowedByResources,
+    isMaterialOrderMobileReviewPath,
 } from '@/lib/auth/access-policy';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
@@ -96,10 +97,15 @@ export default async function ProductionLayout({
         redirect(getPreferredWorkspaceLanding('production', permissions));
     }
 
+    // The mobile material-review surface has a bounded workspace exception for
+    // factory managers. Its own layout still enforces the fresh portal policy.
+    const materialReview = isMaterialOrderMobileReviewPath(pathname) &&
+        [userForPolicy.role, ...(userForPolicy.roles ?? [])].includes('FACTORY_MANAGER');
     // Defense in depth: deny deep paths not covered by any granted resource
     if (
         permissions !== 'ALL' &&
         pathname !== '/production' &&
+        !materialReview &&
         !isPathAllowedByResources(pathname, permissions)
     ) {
         redirect(getPreferredWorkspaceLanding('production', permissions));

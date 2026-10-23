@@ -73,6 +73,7 @@ const schema = generated
     .map((statement) => {
         const table = statement.match(/CREATE TABLE "([^"]+)"/u)?.[1];
         const removed = {
+            MaterialOrderItem: ['quantityUnit'],
             Location: ['packagingOwnerCustomerId'],
             ProductionOrder: ['actualPackagingEnabled', 'requestedOutputVariantId'],
             ProductionExecution: ['clientRequestId', 'requestHash'],
@@ -99,6 +100,7 @@ const guards = [
     '20261022_packaging_stock_units',
     '20261023_return_credit_recovery',
     '20261023_internal_usage',
+    '20261023_material_order_unit_snapshot',
 ]
     .map(migration)
     .join('\n');

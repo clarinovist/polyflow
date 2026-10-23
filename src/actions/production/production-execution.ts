@@ -1,5 +1,7 @@
 'use server';
 
+import { summarizeQuantities } from '@/lib/production/quantity-summary';
+
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { auth } from '@/auth';
@@ -744,8 +746,9 @@ export const voidProductionOutput = withTenant(
 
 export type OperatorTodaySummary = {
     jobCount: number;
-    goodQty: number;
-    scrapQty: number;
+    goodByUnit: { unit: string; quantity: number }[];
+    scrapKg: number;
+    scrapUnverifiedEntries: number;
     activeJobsCount: number;
 };
 
@@ -755,8 +758,9 @@ export const getOperatorTodaySummary = withTenant(
             if (!operatorId) {
                 return {
                     jobCount: 0,
-                    goodQty: 0,
-                    scrapQty: 0,
+                    goodByUnit: [],
+                    scrapKg: 0,
+                    scrapUnverifiedEntries: 0,
                     activeJobsCount: 0,
                 };
             }
@@ -784,6 +788,7 @@ export const getOperatorTodaySummary = withTenant(
                         scrapProngkolQty: true,
                         scrapDaunQty: true,
                         endTime: true,
+                        productionOrder: { select: { bom: { select: { productVariant: { select: { primaryUnit: true } } } } } },
                     },
                 }),
                 // Running jobs for this operator (any start date) — hub badge must not be tenant-wide
@@ -800,19 +805,23 @@ export const getOperatorTodaySummary = withTenant(
                 executions.map((e) => e.productionOrderId),
             );
             const jobCount = uniqueOrders.size;
-            const goodQty = executions.reduce(
-                (sum, e) => sum + Number(e.quantityProduced || 0),
-                0,
-            );
-            const scrapQty = executions.reduce(
-                (sum, e) => sum + executionScrapTotal(e),
-                0,
-            );
+            const goodByUnit = summarizeQuantities(executions.map((execution) => ({
+                quantity: execution.quantityProduced,
+                unit: execution.productionOrder?.bom.productVariant.primaryUnit,
+            })));
+            let scrapKg = 0;
+            let scrapUnverifiedEntries = 0;
+            for (const execution of executions) {
+                const scrap = executionScrapTotal(execution);
+                if (execution.productionOrder?.bom.productVariant.primaryUnit === 'KG') scrapKg += scrap;
+                else if (scrap > 0) scrapUnverifiedEntries++;
+            }
 
             return serializeData({
                 jobCount,
-                goodQty,
-                scrapQty,
+                goodByUnit,
+                scrapKg,
+                scrapUnverifiedEntries,
                 activeJobsCount,
             });
         });

@@ -11,7 +11,6 @@ import { History, Factory, Camera, Package } from 'lucide-react';
 import { cn, formatRupiah } from '@/lib/utils/utils';
 import {
     formatProductionQuantity,
-    formatQuantity,
     getEnteredQuantityDisplay,
 } from '@/lib/utils/production-units';
 import { Progress } from '@/components/ui/progress';
@@ -23,6 +22,7 @@ import {
 import Link from 'next/link';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
+import { legacyScrapSummary } from '@/lib/production/quantity-summary';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import { isBackdatedEntry } from '@/lib/production/shift-label';
 
@@ -121,7 +121,7 @@ export function OrderOverviewTab({
     const actualQty = Number(order.actualQuantity || 0);
     const progress = Math.min((actualQty / plannedQty) * 100, 100);
     const outputUnitConfig = order.bom.productVariant;
-    const totalScrapQty = getTotalScrapQuantity(order.executions || []);
+    const scrapSummary = legacyScrapSummary((order.executions || []).filter((execution) => execution.status !== 'VOIDED'), outputUnitConfig.primaryUnit);
     const demandSourceLabel = order.salesOrder
         ? order.salesOrder.customer?.name || 'Permintaan Customer'
         : order.isMaklon
@@ -168,7 +168,7 @@ export function OrderOverviewTab({
                                 Scrap
                             </span>
                             <span className="text-sm font-semibold text-destructive">
-                                {formatQuantity(totalScrapQty)} KG
+                                {scrapSummary}
                             </span>
                         </div>
                     </CardContent>

@@ -34,6 +34,7 @@ vi.mock('@/lib/auth/access-policy', () => ({
     hasWorkspaceEntitlement: () => true,
     hasWorkspaceResourceAccess: () => true,
     isPathAllowedByResources: () => true,
+    isMaterialOrderMobileReviewPath: () => false,
     buildWorkspaceEntryHrefs: () => ({}),
 }));
 vi.mock('@/lib/core/prisma', () => ({

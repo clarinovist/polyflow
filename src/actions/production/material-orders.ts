@@ -1,6 +1,7 @@
 'use server';
 
 import { withTenant } from '@/lib/core/tenant';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/core/prisma';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
@@ -39,17 +40,17 @@ export const getMaterialOrderFormData = withTenant(async function getMaterialOrd
         select: {
           id: true, name: true,
           productVariant: { select: { name: true, skuCode: true, product: { select: { name: true } } } },
-          items: { select: { quantity: true, productVariant: { select: { id: true, name: true, skuCode: true } } } },
+          items: { select: { quantity: true, productVariant: { select: { id: true, name: true, skuCode: true, primaryUnit: true } } } },
         },
         orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
         take: 100,
-      }).catch(() => []),
+      }),
       prisma.productVariant.findMany({
         where: { archivedAt: null },
-        select: { id: true, name: true, skuCode: true },
+        select: { id: true, name: true, skuCode: true, primaryUnit: true },
         orderBy: { name: 'asc' },
         take: 300,
-      }).catch(() => []),
+      }),
       prisma.materialOrder.findMany({ select: { orderType: true }, distinct: ['orderType'], take: 20 }).catch(() => [] as Array<{ orderType: string }>),
     ]);
     return serializeData({
@@ -62,9 +63,10 @@ export const getMaterialOrderFormData = withTenant(async function getMaterialOrd
           name: it.productVariant.name,
           skuCode: it.productVariant.skuCode,
           quantity: Number(it.quantity),
+          unit: it.productVariant.primaryUnit,
         })),
       })),
-      materials: materials.map((m) => ({ id: m.id, name: m.name, skuCode: m.skuCode })),
+      materials: materials.map((m) => ({ id: m.id, name: m.name, skuCode: m.skuCode, unit: m.primaryUnit })),
       orderTypes: [...new Set(orderTypes.map((o) => o.orderType))],
     });
   });
@@ -84,7 +86,11 @@ export const submitMaterialOrder = withTenant(async function submitMaterialOrder
   return safeAction(async () => {
     const session = await requireAuth();
     const userId = (session.user as { id: string }).id;
-    await MaterialOrderService.submit(id, userId);
+    const submitted = await MaterialOrderService.submit(id, userId);
+    revalidatePath('/production/material-orders');
+    revalidatePath('/production/mobile/material-orders');
+    revalidatePath(`/production/mobile/material-orders/${id}`);
+    if (submitted.idempotent) return serializeData({ id });
     try {
       const approvers = await prisma.user.findMany({
         where: { isActive: true, roles: { some: { role: { in: APPROVER_ROLES } } } },
@@ -95,7 +101,7 @@ export const submitMaterialOrder = withTenant(async function submitMaterialOrder
         await NotificationService.createBulkNotifications(approvers.map((a) => ({
           userId: a.id, type: NotificationType.SYSTEM, title: 'Material Order perlu persetujuan',
           message: 'Material Order baru menunggu persetujuan.',
-          entityType: 'MaterialOrder', entityId: id, link: '/production/material-orders/' + id,
+          entityType: 'MaterialOrder', entityId: id, link: '/production/mobile/material-orders/' + id,
         })));
       }
     } catch { /* notif best-effort */ }
@@ -114,6 +120,10 @@ export const approveMaterialOrder = withTenant(async function approveMaterialOrd
       if (!roles.includes(Role.ADMIN)) throw new BusinessRuleError('Pembuat order tidak boleh menyetujui order sendiri.', { id }, 'SELF_APPROVAL_NOT_ALLOWED');
     }
     const order = await MaterialOrderService.approve(id, userId);
+    revalidatePath('/production/material-orders');
+    revalidatePath('/production/mobile/material-orders');
+    revalidatePath(`/production/material-orders/${id}`);
+    revalidatePath(`/production/mobile/material-orders/${id}`);
     try {
       const owners = await prisma.user.findMany({
         where: { isActive: true, OR: [{ isSuperAdmin: true }, { roles: { some: { role: Role.ADMIN } } }] },
@@ -138,6 +148,10 @@ export const rejectMaterialOrder = withTenant(async function rejectMaterialOrder
     const userId = (session.user as { id: string }).id;
     await requireApprover(userId, session);
     await MaterialOrderService.reject(id, userId, reason);
+    revalidatePath('/production/material-orders');
+    revalidatePath('/production/mobile/material-orders');
+    revalidatePath(`/production/material-orders/${id}`);
+    revalidatePath(`/production/mobile/material-orders/${id}`);
     return serializeData({ id });
   });
 });

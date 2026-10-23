@@ -24,11 +24,13 @@ interface PhotoExecution {
 interface PhotoGalleryDialogProps {
     executions: PhotoExecution[];
     orderNumber: string;
+    unit: string;
 }
 
 export function PhotoGalleryDialog({
     executions,
     orderNumber,
+    unit,
 }: PhotoGalleryDialogProps) {
     const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
 
@@ -98,7 +100,7 @@ export function PhotoGalleryDialog({
                                         {Number(
                                             exec.quantityProduced,
                                         ).toLocaleString()}{' '}
-                                        KG
+                                        {unit || 'Satuan belum diketahui'}
                                     </div>
                                     <div className="text-white/80 text-xs">
                                         {exec.endTime
@@ -131,7 +133,7 @@ export function PhotoGalleryDialog({
                                         0,
                                     )
                                     .toLocaleString()}{' '}
-                                KG
+                                {unit || 'Satuan belum diketahui'}
                             </span>
                         </div>
                     </div>
@@ -141,6 +143,7 @@ export function PhotoGalleryDialog({
                 {selectedPhoto !== null && (
                     <LightboxPreview
                         photos={photosWithExec}
+                        unit={unit}
                         currentIndex={selectedPhoto}
                         onClose={() => setSelectedPhoto(null)}
                         onPrevious={handlePrevious}
@@ -158,7 +161,9 @@ function LightboxPreview({
     onClose,
     onPrevious,
     onNext,
+    unit,
 }: {
+    unit: string;
     photos: PhotoExecution[];
     currentIndex: number;
     onClose: () => void;
@@ -228,7 +233,7 @@ function LightboxPreview({
                 {/* Info */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
                     <div className="text-white text-2xl font-bold">
-                        {Number(current.quantityProduced).toLocaleString()} KG
+                        {Number(current.quantityProduced).toLocaleString()} {unit || 'Satuan belum diketahui'}
                     </div>
                     <div className="text-white/80 text-sm">
                         {current.endTime

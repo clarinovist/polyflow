@@ -5262,6 +5262,8 @@ model MaterialOrderItem {
   materialOrderId  String
   productVariantId String
   quantity         Decimal        @db.Decimal(15, 4)
+  // Snapshot for new requests; legacy rows intentionally remain unknown.
+  quantityUnit     Unit?
   zakQuantity      Decimal?       @db.Decimal(15, 4)
   note             String?        @db.Text
   createdAt        DateTime       @default(now())

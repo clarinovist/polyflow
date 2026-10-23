@@ -30,7 +30,7 @@ export function MaterialOrderActions({ id, canApprove, canReject }: { id: string
     <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
       {canReject && <div className="space-y-2">
         <Label htmlFor="mo-rejection-reason">Alasan penolakan (wajib jika menolak)</Label>
-        <Input id="mo-rejection-reason" value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
+        <Input id="mo-rejection-reason" className="min-h-11" placeholder="Jelaskan alasan penolakan" value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </div>}
       <div className="flex flex-wrap gap-2">
         {canApprove && <Button disabled={busy} className="min-h-11" onClick={() => run(() => approveMaterialOrder(id), 'Permintaan disetujui.')}>Setujui</Button>}

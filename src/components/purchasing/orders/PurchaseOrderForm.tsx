@@ -67,6 +67,7 @@ interface PurchaseOrderFormProps {
         buyPrice: number | null;
     }[];
     mode?: 'create' | 'edit';
+    initialProductVariantId?: string;
     initialData?: {
         id: string;
         supplierId: string;
@@ -92,9 +93,13 @@ export function PurchaseOrderForm({
     suppliers,
     productVariants,
     mode = 'create',
+    initialProductVariantId,
     initialData,
 }: PurchaseOrderFormProps) {
     const router = useRouter();
+    const initialProduct = mode === 'create'
+        ? productVariants.find((variant) => variant.id === initialProductVariantId)
+        : undefined;
     const [isLoading, setIsLoading] = useState(false);
     // Track raw input values for price fields (to allow typing commas/dots)
     const [rawPriceInputs, setRawPriceInputs] = useState<
@@ -163,9 +168,9 @@ export function PurchaseOrderForm({
                   shippingCost: 0,
                   items: [
                       {
-                          productVariantId: '',
+                          productVariantId: initialProduct?.id ?? '',
                           quantity: 1,
-                          unitPrice: 0,
+                          unitPrice: Number(initialProduct?.buyPrice ?? 0),
                           discountPercent: 0,
                           taxPercent: 0,
                           dppOtherAmount: null,

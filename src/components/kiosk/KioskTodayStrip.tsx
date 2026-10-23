@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatQuantitySummary } from '@/lib/production/quantity-summary';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, Activity } from 'lucide-react';
 import type { OperatorTodaySummary } from '@/actions/production/production-execution';
@@ -19,8 +20,9 @@ export function KioskTodayStrip({
     const hasOutput =
         summary &&
         (summary.jobCount > 0 ||
-            summary.goodQty > 0 ||
-            summary.scrapQty > 0 ||
+            summary.goodByUnit.some((row) => row.quantity > 0) ||
+            summary.scrapKg > 0 ||
+            summary.scrapUnverifiedEntries > 0 ||
             summary.activeJobsCount > 0);
 
     return (
@@ -42,19 +44,19 @@ export function KioskTodayStrip({
                             <span>{summary.jobCount} job</span>
                             <span className="text-muted-foreground">•</span>
                             <span className="text-emerald-700 dark:text-emerald-400">
-                                {summary.goodQty.toLocaleString('id-ID')} kg
+                                {formatQuantitySummary(summary.goodByUnit)}
                                 bagus
                             </span>
                             <span className="text-muted-foreground">•</span>
                             <span
                                 className={
-                                    summary.scrapQty > 0
+                                    summary.scrapKg > 0 || summary.scrapUnverifiedEntries > 0
                                         ? 'text-amber-700 dark:text-amber-400'
                                         : 'text-muted-foreground'
                                 }
                             >
-                                {summary.scrapQty.toLocaleString('id-ID')} kg
-                                scrap
+                                {summary.scrapKg.toLocaleString('id-ID')} kg scrap
+                                {summary.scrapUnverifiedEntries > 0 && ` · ${summary.scrapUnverifiedEntries} entri scrap belum terverifikasi satuannya`}
                             </span>
                             {summary.activeJobsCount > 0 && (
                                 <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold">

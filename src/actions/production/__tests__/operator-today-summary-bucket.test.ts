@@ -44,6 +44,18 @@ describe('getOperatorTodaySummary — shift-aware bucket (regresi)', () => {
         vi.clearAllMocks();
     });
 
+    it('separates output units and does not claim non-KG scrap is kilograms', async () => {
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([
+            { productionOrderId: 'a', quantityProduced: 100, scrapQuantity: 2, productionOrder: { bom: { productVariant: { primaryUnit: 'KG' } } } },
+            { productionOrderId: 'b', quantityProduced: 20, scrapQuantity: 3, productionOrder: { bom: { productVariant: { primaryUnit: 'PCS' } } } },
+        ] as never);
+        const result = await getOperatorTodaySummary('op-1');
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.data).toMatchObject({ goodByUnit: [{ unit: 'KG', quantity: 100 }, { unit: 'PCS', quantity: 20 }], scrapKg: 2, scrapUnverifiedEntries: 1, jobCount: 2 });
+        expect(result.data).not.toHaveProperty('goodQty');
+    });
+
     it('filters executions by START time of the WIB day, not createdAt', async () => {
         vi.mocked(prisma.productionExecution.findMany).mockResolvedValue(
             [] as never,

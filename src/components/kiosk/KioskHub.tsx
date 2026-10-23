@@ -1,5 +1,7 @@
 'use client';
 
+import { formatQuantitySummary } from '@/lib/production/quantity-summary';
+
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -266,10 +268,7 @@ export function KioskHub({
                                                 Hasil bagus:
                                             </span>
                                             <span className="font-bold text-emerald-600">
-                                                {summary.goodQty.toLocaleString(
-                                                    'id-ID',
-                                                )}{' '}
-                                                kg
+                                                {formatQuantitySummary(summary.goodByUnit)}
                                             </span>
                                         </div>
                                         <div className="flex justify-between gap-3">
@@ -277,10 +276,8 @@ export function KioskHub({
                                                 Scrap:
                                             </span>
                                             <span className="font-bold text-amber-600">
-                                                {summary.scrapQty.toLocaleString(
-                                                    'id-ID',
-                                                )}{' '}
-                                                kg
+                                                {summary.scrapKg.toLocaleString('id-ID')} kg
+                                                {summary.scrapUnverifiedEntries > 0 && ` · ${summary.scrapUnverifiedEntries} entri belum terverifikasi satuannya`}
                                             </span>
                                         </div>
                                         {summary.activeJobsCount > 0 && (

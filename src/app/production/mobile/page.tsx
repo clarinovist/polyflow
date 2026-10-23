@@ -167,6 +167,7 @@ export default async function ProductionMobilePage() {
 
     return (
         <div className="space-y-6">
+            <Link href="/production/mobile/material-orders" className="flex min-h-11 items-center justify-between rounded-xl border bg-card p-4 text-sm font-semibold">Permintaan Bahan <span aria-hidden="true">→</span></Link>
             {overview.links.maintenance && (
                 <Link
                     href={overview.links.maintenance}

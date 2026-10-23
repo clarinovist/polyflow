@@ -23,7 +23,7 @@ beforeEach(() => { vi.clearAllMocks(); });
 
 describe('MaterialOrderService', () => {
   it('idempoten bila clientRequestId sudah ada', async () => {
-    (prisma.materialOrder.findUnique as any).mockResolvedValue({ id: 'm1', status: 'DRAFT' });
+    (prisma.materialOrder.findUnique as any).mockResolvedValue({ id: 'm1', status: 'DRAFT', createdById: 'u1' });
     const r: any = await MaterialOrderService.create(input, 'u1');
     expect(r.id).toBe('m1');
     expect(r.idempotent).toBe(true);

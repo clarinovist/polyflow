@@ -113,6 +113,7 @@ export default async function PpicMrpPage() {
             const shortage = Math.max(0, req.totalReq - stock);
             return {
                 ...req,
+                productVariantId: id,
                 stock,
                 shortage,
                 hasShortage: shortage > 0,
@@ -238,7 +239,7 @@ export default async function PpicMrpPage() {
                             ) : (
                                 analysis.map((item) => (
                                     <TableRow
-                                        key={item.sku}
+                                        key={item.productVariantId}
                                         className={
                                             item.hasShortage
                                                 ? 'bg-red-50/50 dark:bg-red-900/10'
@@ -269,7 +270,7 @@ export default async function PpicMrpPage() {
                                         <TableCell className="text-right">
                                             {item.hasShortage ? (
                                                 <Link
-                                                    href={`/purchasing/orders/create?variantId=${item.sku}`}
+                                                    href={`/purchasing/orders/create?variantId=${encodeURIComponent(item.productVariantId)}`}
                                                 >
                                                     <Button
                                                         variant="ghost"

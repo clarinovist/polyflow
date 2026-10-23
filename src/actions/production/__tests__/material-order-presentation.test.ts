@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { MaterialOrderService } from '@/services/production/material-order-service';
 import { NotificationService } from '@/services/core/notification-service';
 
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/utils/utils', () => ({ serializeData: (data: unknown) => data }));
 vi.mock('@/lib/tools/auth-checks', () => ({ requireAuth: vi.fn() }));
@@ -16,6 +17,7 @@ const auth = (role: string, userId = 'manager') => vi.mocked(requireAuth).mockRe
 beforeEach(() => {
     vi.resetAllMocks();
     auth('FACTORY_MANAGER');
+    vi.mocked(MaterialOrderService.submit).mockResolvedValue({ id: 'mo-test', idempotent: false } as never);
     vi.mocked(MaterialOrderService.getById).mockResolvedValue(order as never);
     vi.mocked(MaterialOrderService.approve).mockResolvedValue(order as never);
     vi.mocked(prisma.productVariant.findMany).mockResolvedValue([{ id: 'variant-test', name: 'Bahan A', skuCode: 'BA-01' }] as never);
@@ -79,10 +81,10 @@ describe('material order read presentation mirrors, never replaces, action guard
         vi.mocked(prisma.productVariant.findMany).mockRejectedValue(new Error('unavailable'));
         expect((await getMaterialOrderDetail('mo-test')).success).toBe(false);
     });
-    it('links approval notification to the existing desktop detail route', async () => {
+    it('links approval notification to the actual mobile detail route', async () => {
         vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'manager' }] as never);
         expect((await submitMaterialOrder('mo-test')).success).toBe(true);
-        expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith([expect.objectContaining({ link: '/production/material-orders/mo-test' })]);
+        expect(NotificationService.createBulkNotifications).toHaveBeenCalledWith([expect.objectContaining({ link: '/production/mobile/material-orders/mo-test' })]);
     });
     it('preserves best-effort notifications and authorized rejection', async () => {
         vi.mocked(prisma.user.findMany).mockRejectedValue(new Error('notification unavailable'));

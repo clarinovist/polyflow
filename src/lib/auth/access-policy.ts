@@ -320,11 +320,13 @@ export function canAccessWorkspace(
     const factoryManagerMobileMaintenance =
         pathname === '/production/mobile/maintenance' ||
         pathname?.startsWith('/production/mobile/maintenance/');
+    // Bounded review routes only: this does not grant create or other production writes.
+    const factoryManagerMaterialReview = isMaterialOrderMobileReviewPath(pathname ?? '');
     if (
         workspace === 'production' &&
         !!pathname &&
         (factoryManagerMobileReadPaths.includes(pathname) ||
-            factoryManagerMobileMaintenance) &&
+            factoryManagerMobileMaintenance || factoryManagerMaterialReview) &&
         allRoles.includes('FACTORY_MANAGER') &&
         hasWorkspaceResourceAccess(resources, 'production')
     ) {
@@ -339,6 +341,12 @@ export function canAccessWorkspace(
 
     // 5. Access Control matrix: module/resource grant (SALES → stok, etc.)
     return resourceAllowsWorkspace();
+}
+
+/** Only list and UUID detail; never new/edit or similarly prefixed routes. */
+export function isMaterialOrderMobileReviewPath(pathname: string): boolean {
+    return pathname === '/production/mobile/material-orders' ||
+        /^\/production\/mobile\/material-orders\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pathname);
 }
 
 /**

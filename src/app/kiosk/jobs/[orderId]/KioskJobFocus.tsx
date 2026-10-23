@@ -37,7 +37,7 @@ import {
 } from '@/lib/utils/production-units';
 import { kioskLabels } from '@/lib/labels';
 import { getStatusLabel } from '@/lib/labels/helpers';
-import { executionScrapTotal } from '@/lib/production/execution-scrap';
+import { legacyScrapSummary } from '@/lib/production/quantity-summary';
 import {
     resolveKioskMode,
     type ProductionExecutionMode,
@@ -270,9 +270,8 @@ export default function KioskJobFocus({
     // Generic scrapQuantity is an aggregate duplicate on kiosk-written rows;
     // AddOutputDialog rows leave it 0 and use the dedicated affal columns.
     // executionScrapTotal = max(generic, prongkol + daun) is exact for both.
-    const totalScrapQty = (order.executions || [])
-        .filter((e) => e.status !== 'VOIDED')
-        .reduce((sum, e) => sum + executionScrapTotal(e), 0);
+    const scrapSummary = legacyScrapSummary((order.executions || [])
+        .filter((e) => e.status !== 'VOIDED'), unitMeta.primaryUnit);
 
     // Show loading while hydrating or redirecting to hub (no operator)
     if (!isInitialized || !operatorId) {
@@ -386,10 +385,7 @@ export default function KioskJobFocus({
                         {kioskLabels.focusScrap}
                     </span>
                     <span className="text-sm font-black text-destructive">
-                        {totalScrapQty.toLocaleString('id-ID', {
-                            maximumFractionDigits: 2,
-                        })}{' '}
-                        KG
+                        {scrapSummary}
                     </span>
                 </div>
             </div>

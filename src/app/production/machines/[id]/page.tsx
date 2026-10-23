@@ -1,3 +1,4 @@
+import { summarizeQuantities, formatQuantitySummary } from '@/lib/production/quantity-summary';
 import { getMachineHistory } from '@/actions/production/machines';
 import {
     Card,
@@ -54,11 +55,10 @@ export default async function MachineHistoryPage({
     const completedExecs = executions.filter(
         (e: { status: string }) => e.status === 'COMPLETED',
     );
-    const totalYield = completedExecs.reduce(
-        (sum: number, e: { quantityProduced: unknown }) =>
-            sum + Number(e.quantityProduced || 0),
-        0,
-    );
+    const totalYield = summarizeQuantities(completedExecs.map((execution) => ({
+        quantity: execution.quantityProduced,
+        unit: execution.productionOrder?.bom.productVariant.primaryUnit,
+    })));
 
     return (
         <div className="space-y-6">
@@ -122,10 +122,10 @@ export default async function MachineHistoryPage({
                     <CardContent className="pt-4 flex flex-col items-center text-center">
                         <Cog className="h-8 w-8 text-amber-600 opacity-80 mb-2" />
                         <div className="text-xl font-bold">
-                            {totalYield.toLocaleString('id-ID')}
+                            {formatQuantitySummary(totalYield)}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Total Yield (KG)
+                            Total Hasil per Satuan
                         </p>
                     </CardContent>
                 </Card>

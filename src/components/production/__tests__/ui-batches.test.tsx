@@ -38,8 +38,14 @@ describe('small production UI regressions', () => {
         fireEvent.mouseDown(tab, { button: 0, ctrlKey: false });
         expect(screen.getByText('Tidak ada formula pada kategori Proses Ulang')).toBeTruthy();
     });
+    it('renders gallery quantities in the supplied output unit, including its total', async () => {
+        render(<PhotoGalleryDialog unit="PCS" orderNumber="SPK-PCS" executions={[{ id: 'e', quantityProduced: 20, photoUrl: '/fixture.png', endTime: null, notes: null }]} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Lihat 1 foto SPK-PCS' }));
+        expect(screen.getAllByText('20 PCS')).toHaveLength(2);
+        expect(screen.queryByText(/20 KG/)).toBeNull();
+    });
     it('formats gallery dates in WIB with supported tokens', async () => {
-        render(<PhotoGalleryDialog orderNumber="SPK-01" executions={[{ id: 'e', quantityProduced: 2, photoUrl: '/fixture.png', endTime: '2026-10-23T03:30:00Z', notes: null }]} />);
+        render(<PhotoGalleryDialog unit="KG" orderNumber="SPK-01" executions={[{ id: 'e', quantityProduced: 2, photoUrl: '/fixture.png', endTime: '2026-10-23T03:30:00Z', notes: null }]} />);
         fireEvent.click(screen.getByRole('button', { name: 'Lihat 1 foto SPK-01' }));
         expect(await screen.findByText('23 Oct 10:30')).toBeTruthy();
         fireEvent.click(screen.getByAltText('Output 1'));

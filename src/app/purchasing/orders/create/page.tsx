@@ -19,7 +19,9 @@ type ProductVariantWithProduct = {
     assetCategory?: string | null;
 };
 
-export default async function CreatePurchaseOrderPage() {
+export default async function CreatePurchaseOrderPage({ searchParams }: { searchParams?: Promise<{ variantId?: string | string[] }> }) {
+    const query = await searchParams;
+    const requestedVariantId = typeof query?.variantId === 'string' ? query.variantId : undefined;
     const [suppliersRes, productsRes] = await Promise.all([
         getSuppliers(),
         getProductVariants(),
@@ -44,6 +46,7 @@ export default async function CreatePurchaseOrderPage() {
         assetCategory: p.product?.assetCategory || null,
     }));
 
+    const initialProductVariantId = formattedProducts.some((product) => product.id === requestedVariantId) ? requestedVariantId : undefined;
     const formattedSuppliers = suppliers.map((s) => ({
         id: s.id,
         name: s.name,
@@ -66,7 +69,10 @@ export default async function CreatePurchaseOrderPage() {
                 </p>
             </div>
 
+            {requestedVariantId && !initialProductVariantId && <p role="alert" className="rounded-lg border p-4 text-sm">Bahan dari MRP tidak tersedia dalam pilihan pembelian. Pilih bahan yang benar secara manual.</p>}
+            {initialProductVariantId && <p className="rounded-lg border p-4 text-sm">Bahan dari MRP sudah dipilih. Periksa jumlah, harga, dan pemasok sebelum menyimpan PO; belum ada transaksi dibuat.</p>}
             <PurchaseOrderForm
+                initialProductVariantId={initialProductVariantId}
                 suppliers={formattedSuppliers}
                 productVariants={formattedProducts}
             />
