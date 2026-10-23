@@ -3,6 +3,7 @@ import { getLocations } from '@/actions/inventory/inventory';
 import { getProductVariants } from '@/actions/inventory/inventory';
 import { QuickOrderWizard } from './QuickOrderWizard';
 import { MobileReadError } from '@/components/mobile';
+import { serializeFieldUnits } from '@/lib/sales/field-order-units';
 
 export default async function SalesMobileOrderCreatePage(props: {
     searchParams: Promise<{ customer?: string }>;
@@ -42,10 +43,7 @@ export default async function SalesMobileOrderCreatePage(props: {
             productName: p.product.name,
             skuCode: p.skuCode,
             sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
-            displayUnit:
-                p.salesUnit && p.salesUnit !== p.primaryUnit
-                    ? p.salesUnit
-                    : p.primaryUnit,
+            ...serializeFieldUnits(p),
             inventories:
                 p.inventories?.map((inv) => ({
                     locationId: inv.locationId,

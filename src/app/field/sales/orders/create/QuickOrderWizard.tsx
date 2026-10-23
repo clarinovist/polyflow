@@ -1,6 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import type { Unit } from '@prisma/client';
+import { convertSalesEntry } from '@/lib/sales/unit-entry';
+import { fieldEntryMeta, fieldEntryPayload, type FieldProductUnits, type FieldUnitEntry } from '@/lib/sales/field-order-units';
+import { UnitEntryControl } from '@/components/sales/order-form/UnitEntryControl';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,13 +43,12 @@ type Customer = {
     paymentTermDays: number | null;
 };
 
-type Product = {
+type Product = FieldProductUnits & {
     id: string;
     name: string;
     productName: string;
     skuCode: string;
     sellPrice: number | null;
-    displayUnit: string;
     inventories: { locationId: string; quantity: number }[];
 };
 
@@ -58,11 +61,7 @@ interface QuickOrderWizardProps {
     preselectedCustomerId?: string;
 }
 
-type OrderItem = {
-    productVariantId: string;
-    quantity: number;
-    unitPrice: number;
-};
+type OrderItem = FieldUnitEntry;
 
 const UNIT_OPTIONS = [
     { value: 'KG', label: 'KG' },
@@ -163,6 +162,7 @@ export function QuickOrderWizard({
                     productVariantId: product.id,
                     quantity: 1,
                     unitPrice: product.sellPrice || 0,
+                    enteredUnit: product.primaryUnit,
                 },
             ]);
         }
@@ -181,6 +181,11 @@ export function QuickOrderWizard({
                     : i,
             ),
         );
+    };
+
+    const changeUnit = (product: Product, item: OrderItem, unit: Unit) => {
+        const converted = convertSalesEntry(item, fieldEntryMeta(product, item), unit);
+        setItems(prev => prev.map(line => line.productVariantId === item.productVariantId ? { ...line, ...converted } : line));
     };
 
     const removeItem = (productVariantId: string) => {
@@ -247,7 +252,8 @@ export function QuickOrderWizard({
             });
 
             if (result.success && result.data) {
-                const newProduct = result.data as Product;
+                // Quick-create sets primaryUnit=salesUnit and factor=1 on the server.
+                const newProduct: Product = { ...result.data, primaryUnit: result.data.displayUnit as Unit, salesUnit: result.data.displayUnit as Unit, conversionFactor: 1 };
                 setProducts((prev) => [newProduct, ...prev]);
                 addItem(newProduct);
                 setShowAddProduct(false);
@@ -287,16 +293,16 @@ export function QuickOrderWizard({
                     isQuotation && validUntil
                         ? new Date(validUntil)
                         : undefined,
-                items: items.map((item) => ({
-                    productVariantId: item.productVariantId,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
-                    discountPercent: 0,
-                    taxPercent: 0,
-                    dppOtherAmount: null,
-                    ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
-                    isFreeItem: false,
-                })),
+                items: items.map((item) => {
+                    const product = products.find(p => p.id === item.productVariantId);
+                    if (!product) throw new Error('Produk belum tersedia. Muat ulang halaman.');
+                    return {
+                        productVariantId: item.productVariantId,
+                        ...fieldEntryPayload(item, product),
+                        discountPercent: 0, taxPercent: 0, dppOtherAmount: null,
+                        ppnMode: 'EXCLUDE' as const, isFreeItem: false,
+                    };
+                }),
             });
 
             if (result.success) {
@@ -309,8 +315,8 @@ export function QuickOrderWizard({
             } else {
                 toast.error(result.error || 'Gagal membuat order');
             }
-        } catch {
-            toast.error('Gagal membuat pesanan. Silakan coba lagi.');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Gagal membuat pesanan. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }
@@ -564,7 +570,7 @@ export function QuickOrderWizard({
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
                                                         {p.skuCode} •{' '}
-                                                        {p.displayUnit}
+                                                        {p.primaryUnit}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
@@ -573,12 +579,12 @@ export function QuickOrderWizard({
                                                             ? formatRupiah(
                                                                   p.sellPrice,
                                                               )
-                                                            : '-'}
+                                                            : '-'} /{p.primaryUnit}
                                                     </p>
                                                     <p className="text-[10px] text-muted-foreground">
                                                         {locationStock !== null
-                                                            ? `Stok gudang: ${formatQuantity(locationStock)} (total: ${formatQuantity(totalStock)})`
-                                                            : `Stok: ${formatQuantity(totalStock)}`}
+                                                            ? `Stok gudang: ${formatQuantity(locationStock)} ${p.primaryUnit} (total: ${formatQuantity(totalStock)} ${p.primaryUnit})`
+                                                            : `Stok: ${formatQuantity(totalStock)} ${p.primaryUnit}`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -607,11 +613,12 @@ export function QuickOrderWizard({
                                 Belum ada produk ditambahkan
                             </p>
                         ) : (
-                            items.map((item) => {
+                            items.map((item, index) => {
                                 const product = products.find(
                                     (p) => p.id === item.productVariantId,
                                 );
                                 if (!product) return null;
+                                const meta = fieldEntryMeta(product, item);
                                 return (
                                     <div
                                         key={item.productVariantId}
@@ -642,15 +649,18 @@ export function QuickOrderWizard({
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
+                                        <UnitEntryControl meta={meta} quantity={item.quantity} price={item.unitPrice} index={index} onChange={unit => changeUnit(product, item, unit)} disabled={isSubmitting} />
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <label className="text-[10px] text-muted-foreground">
-                                                    Qty
+                                                <label htmlFor={`field-qty-${index}`} className="text-[10px] text-muted-foreground">
+                                                    Jumlah ({meta.displayUnit})
                                                 </label>
                                                 <Input
+                                                    id={`field-qty-${index}`}
                                                     type="number"
-                                                    min="1"
-                                                    step="1"
+                                                    inputMode="decimal"
+                                                    min="0.0001"
+                                                    step="any"
                                                     value={item.quantity || ''}
                                                     onChange={(e) => {
                                                         const val =
@@ -671,34 +681,24 @@ export function QuickOrderWizard({
                                                                 updateItem(
                                                                     item.productVariantId,
                                                                     'quantity',
-                                                                    Math.max(
-                                                                        1,
-                                                                        num,
-                                                                    ),
+                                                                    num,
                                                                 );
                                                             }
                                                         }
                                                     }}
-                                                    onBlur={() => {
-                                                        if (item.quantity < 1) {
-                                                            updateItem(
-                                                                item.productVariantId,
-                                                                'quantity',
-                                                                1,
-                                                            );
-                                                        }
-                                                    }}
-                                                    className="h-9 text-sm"
+                                                    className="h-11 text-sm"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] text-muted-foreground">
-                                                    Harga
+                                                <label htmlFor={`field-price-${index}`} className="text-[10px] text-muted-foreground">
+                                                    Harga per {meta.displayUnit}
                                                 </label>
                                                 <Input
+                                                    id={`field-price-${index}`}
                                                     type="number"
+                                                    inputMode="decimal"
                                                     min="0"
-                                                    step="100"
+                                                    step="any"
                                                     value={item.unitPrice}
                                                     onChange={(e) =>
                                                         updateItem(
@@ -709,7 +709,7 @@ export function QuickOrderWizard({
                                                             ) || 0,
                                                         )
                                                     }
-                                                    className="h-9 text-sm"
+                                                    className="h-11 text-sm"
                                                 />
                                             </div>
                                         </div>
@@ -792,8 +792,8 @@ export function QuickOrderWizard({
                                             {product.name}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            {formatQuantity(item.quantity)} ×{' '}
-                                            {formatRupiah(item.unitPrice)}
+                                            {formatQuantity(item.quantity)} {item.enteredUnit} ×{' '}
+                                            {formatRupiah(item.unitPrice)}/{item.enteredUnit}
                                         </p>
                                     </div>
                                     <p className="font-semibold text-sm shrink-0">

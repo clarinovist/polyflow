@@ -127,6 +127,8 @@ export const getFieldSalesOrderById = withTenant(
                         },
                     },
                     sourceLocation: true,
+                    // Editor needs invoice presence to lock price/unit controls.
+                    invoices: { select: { id: true } },
                     items: {
                         include: {
                             productVariant: { include: { product: true } },

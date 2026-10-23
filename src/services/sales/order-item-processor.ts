@@ -135,6 +135,11 @@ function normalizeSalesLineItem(
         if (value !== undefined && !Number.isFinite(Number(value))) throw new ValidationError('Jumlah, harga, dan faktor satuan harus berupa angka valid.');
     }
     if (item.quantity <= 0 || item.unitPrice < 0 || (item.enteredQuantity !== undefined && item.enteredQuantity <= 0) || (item.enteredUnitPrice !== undefined && item.enteredUnitPrice < 0)) throw new ValidationError('Jumlah harus positif dan harga tidak boleh negatif.');
+    for (const value of [item.quantity, item.enteredQuantity]) {
+        if (value !== undefined && new Prisma.Decimal(value).toDecimalPlaces(4).lte(0)) {
+            throw new ValidationError('Jumlah terlalu kecil: satuan input dan satuan dasar minimal 0,0001 agar tidak tersimpan sebagai nol.');
+        }
+    }
     for (const [value, scale] of [[item.quantity, 4], [item.unitPrice, 2], [item.enteredQuantity, 4], [item.enteredUnitPrice, 2]] as const) {
         if (value !== undefined && Math.abs(value - Number(new Prisma.Decimal(value).toFixed(scale))) > 1e-9) {
             throw new ValidationError('Konversi tidak dapat disimpan tepat: jumlah maksimal 4 desimal dan harga maksimal 2 desimal, baik pada satuan input maupun satuan dasar. Gunakan satuan lain atau sesuaikan jumlah/harga.');
@@ -165,6 +170,9 @@ function normalizeSalesLineItem(
     const baseUnitPrice =
         factor > 0 ? enteredUnitPrice / factor : enteredUnitPrice;
 
+    if (new Prisma.Decimal(baseQuantity).toDecimalPlaces(4).lte(0)) {
+        throw new ValidationError('Jumlah dasar terlalu kecil untuk disimpan.');
+    }
     if (Math.abs(baseQuantity - Number(new Prisma.Decimal(baseQuantity).toFixed(4))) > 1e-7 || Math.abs(baseUnitPrice - Number(new Prisma.Decimal(baseUnitPrice).toFixed(2))) > 1e-7) {
         throw new ValidationError('Konversi tidak dapat disimpan tepat: jumlah dasar maksimal 4 desimal dan harga dasar maksimal 2 desimal. Sesuaikan jumlah/harga sebelum menyimpan.');
     }

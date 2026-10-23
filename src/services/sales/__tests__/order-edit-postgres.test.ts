@@ -12,6 +12,8 @@ vi.mock('../credit-service', () => ({ checkCreditLimit: vi.fn() }));
 import { prisma as db } from '@/lib/core/prisma';
 import { updateOrder } from '../orders-service';
 import { updateSalesOrderSchema } from '@/lib/schemas/sales';
+import { fieldEntryPayload } from '@/lib/sales/field-order-units';
+import { salesEntryForEdit } from '@/lib/sales/unit-entry';
 
 async function payload() {
     const order = await db.salesOrder.findUniqueOrThrow({ where: { id: 'uom-so' }, include: { items: { orderBy: { id: 'asc' } } } });
@@ -75,6 +77,28 @@ describe.skipIf(!process.env.RETURN_CREDIT_TEST_DATABASE_URL)('SO unit edit / at
         expect(Number((await db.salesOrder.findUniqueOrThrow({ where: { id: 'uom-so' } })).totalAmount)).toBe(200100);
         const changed = await payload(); changed.items[0].enteredUnitPrice = 101;
         await expect(updateOrder(changed, 'uom-actor')).rejects.toThrow();
+    });
+    it('field mobile KG/BAL payload round-trips through persistence and desktop mapping', async () => {
+        const units = { primaryUnit: 'KG' as const, salesUnit: 'BAL' as const, conversionFactor: 25 };
+        const data = await payload();
+        data.items[0] = { ...data.items[0], ...fieldEntryPayload({ productVariantId: 'uom-variant', quantity: 3, unitPrice: 100000, enteredUnit: 'BAL' }, units) };
+        await updateOrder(data, 'uom-actor');
+        const saved = await db.salesOrderItem.findUniqueOrThrow({ where: { id: 'uom-a' } });
+        expect(Number(saved.quantity)).toBe(75);
+        const reopened = { id: saved.id, productVariantId: saved.productVariantId, ...salesEntryForEdit({ ...saved, productVariant: units }) };
+        expect(reopened).toMatchObject({ quantity: 3, unitPrice: 100000, enteredUnit: 'BAL' });
+        const second = await payload();
+        second.items[0] = { ...second.items[0], ...fieldEntryPayload(reopened, units, reopened) };
+        await updateOrder(second, 'uom-actor');
+        expect(await db.salesOrderItem.findUniqueOrThrow({ where: { id: 'uom-a' } })).toEqual(saved);
+    });
+    it('rejects tiny positive quantities before PostgreSQL can round them to zero', async () => {
+        const data = await payload();
+        data.items[0] = { ...data.items[0], quantity: 1e-10, enteredQuantity: 1e-10, enteredUnit: 'KG', conversionFactorSnapshot: 1, unitPrice: 18500, enteredUnitPrice: 18500 };
+        const before = await snapshot();
+        await expect(updateOrder(data, 'uom-actor')).rejects.toThrow(/terlalu kecil/);
+        expect(await snapshot()).toBe(before);
+        expect(await db.salesOrderItem.count({ where: { quantity: 0 } })).toBe(0);
     });
     it('audit FK failure rolls back item/header writes', async () => {
         const data = await payload(); data.items[0] = { ...data.items[0], quantity: 75, enteredQuantity: 3 };

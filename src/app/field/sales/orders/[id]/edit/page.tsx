@@ -2,6 +2,9 @@ import { getFieldSalesOrderById } from '@/actions/sales/field-actions';
 import { getProductVariants } from '@/actions/inventory/inventory';
 import { notFound, redirect } from 'next/navigation';
 import { EditOrderClient } from './EditOrderClient';
+import { salesEntryForEdit } from '@/lib/sales/unit-entry';
+import { serializeFieldUnits } from '@/lib/sales/field-order-units';
+import { MobileReadError } from '@/components/mobile';
 
 /**
  * Status yang masih boleh diedit — cerminan guard di
@@ -45,8 +48,8 @@ export default async function FieldSalesOrderEditPage(props: {
         redirect(`/field/sales/orders/${id}`);
     }
 
-    const products =
-        productsRes?.success && productsRes.data ? productsRes.data : [];
+    if (!productsRes.success) return <MobileReadError title="Satuan produk belum tersedia" />;
+    const products = productsRes.data ?? [];
 
     const serializedProducts = products
         .filter(
@@ -60,16 +63,14 @@ export default async function FieldSalesOrderEditPage(props: {
             productName: p.product.name,
             skuCode: p.skuCode,
             sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
-            displayUnit:
-                p.salesUnit && p.salesUnit !== p.primaryUnit
-                    ? p.salesUnit
-                    : p.primaryUnit,
+            ...serializeFieldUnits(p),
         }));
 
     const items = (order.items as Array<Record<string, unknown>>) || [];
 
     const serializedOrder = {
         id: String(order.id),
+        expectedUpdatedAt: String(order.updatedAt),
         orderNumber: String(order.orderNumber),
         status: String(order.status),
         customerName:
@@ -97,8 +98,9 @@ export default async function FieldSalesOrderEditPage(props: {
             variantName:
                 ((item.productVariant as { name?: string })?.name as string) ??
                 '',
-            quantity: Number(item.quantity),
-            unitPrice: Number(item.unitPrice),
+            ...salesEntryForEdit(item),
+            units: serializeFieldUnits(item.productVariant as Parameters<typeof serializeFieldUnits>[0]),
+            subtotal: Number(item.subtotal),
             discountPercent: item.discountPercent
                 ? Number(item.discountPercent)
                 : 0,

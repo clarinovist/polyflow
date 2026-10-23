@@ -17,6 +17,7 @@ type DBOrderWithDeliveries = {
             id: string;
             quantity: unknown;
             productVariant: {
+                primaryUnit: string;
                 name: string;
                 product: {
                     name: string;
@@ -87,6 +88,7 @@ export default async function SalesMobileOrderDetailPage(props: {
             productName: item.productVariant.product.name,
             variantName: item.productVariant.name,
             skuCode: item.productVariant.skuCode,
+            primaryUnit: item.productVariant.primaryUnit,
             quantity: Number(item.quantity),
             unitPrice: Number(item.unitPrice),
             subtotal: Number(item.subtotal),
@@ -104,6 +106,7 @@ export default async function SalesMobileOrderDetailPage(props: {
                 id: item.id,
                 variantName: item.productVariant?.name || '',
                 productName: item.productVariant?.product?.name || '',
+                primaryUnit: item.productVariant.primaryUnit,
                 quantity: Number(item.quantity),
             })),
         })),

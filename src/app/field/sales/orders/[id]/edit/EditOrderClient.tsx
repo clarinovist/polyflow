@@ -1,6 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { Unit } from '@prisma/client';
+import { convertSalesEntry } from '@/lib/sales/unit-entry';
+import { fieldEntryMeta, fieldEntryPayload, unchangedFieldEntry, type FieldProductUnits, type FieldUnitEntry } from '@/lib/sales/field-order-units';
+import { UnitEntryControl } from '@/components/sales/order-form/UnitEntryControl';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -19,7 +23,10 @@ import { toast } from 'sonner';
 import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import { updateFieldSalesOrder } from '@/actions/sales/field-actions';
 
-interface EditableItem {
+interface EditableItem extends FieldUnitEntry {
+    units: FieldProductUnits;
+    subtotal?: number;
+    unitAnchor?: Pick<FieldUnitEntry, 'quantity' | 'unitPrice' | 'enteredUnit'>;
     id?: string;
     productVariantId: string;
     productName: string;
@@ -34,19 +41,19 @@ interface EditableItem {
     deliveredQty: number;
 }
 
-interface ProductOption {
+interface ProductOption extends FieldProductUnits {
     id: string;
     name: string;
     productName: string;
     skuCode: string | null;
     sellPrice: number | null;
-    displayUnit: string;
 }
 
 interface EditOrderClientProps {
     order: {
         id: string;
         orderNumber: string;
+        expectedUpdatedAt: string;
         status: string;
         customerName: string;
         customerId?: string;
@@ -69,11 +76,24 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
     const [pickerValue, setPickerValue] = useState('');
 
     const priceLocked = order.hasInvoices;
+    const originalFor = (item: EditableItem) => item.id ? order.items.find(old => old.id === item.id && old.productVariantId === item.productVariantId) : undefined;
+    const entryPayload = (item: EditableItem) => fieldEntryPayload(item, item.units, originalFor(item));
+    const changeUnit = (index: number, unit: Unit) => {
+        const item = items[index];
+        if (priceLocked || item.deliveredQty > 0) return;
+        // Unit-only toggles always convert from the same anchor, never from
+        // the previous rounded conversion. Real qty/price edits clear it.
+        const anchor = item.unitAnchor ?? { quantity: item.quantity, unitPrice: item.unitPrice, enteredUnit: item.enteredUnit };
+        const converted = unit === anchor.enteredUnit ? anchor
+            : convertSalesEntry(anchor, fieldEntryMeta(item.units, { ...item, ...anchor }, originalFor(item)), unit);
+        setItems(prev => prev.map((line, i) => i === index ? { ...line, ...converted, unitAnchor: anchor } : line));
+    };
 
     const totals = useMemo(() => {
         let subtotal = 0;
         let discount = 0;
         let tax = 0;
+        let total = 0;
 
         for (const item of items) {
             const gross = item.quantity * item.unitPrice;
@@ -87,18 +107,20 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
             subtotal += gross;
             discount += disc;
             tax += itemTax;
+            const original = item.id ? order.items.find(old => old.id === item.id) : undefined;
+            total += unchangedFieldEntry(item, original) && original?.subtotal != null ? original.subtotal : afterDisc + itemTax;
         }
 
-        const total = subtotal - discount + tax + (order.shippingCost || 0);
+        total += order.shippingCost || 0;
         return { subtotal, discount, tax, total };
-    }, [items, order.shippingCost]);
+    }, [items, order.shippingCost, order.items]);
 
     const updateQty = (index: number, raw: string) => {
         const value = Number(raw);
         setItems((prev) =>
             prev.map((item, i) =>
                 i === index
-                    ? { ...item, quantity: Number.isFinite(value) ? value : 0 }
+                    ? { ...item, quantity: Number.isFinite(value) ? value : 0, unitAnchor: undefined }
                     : item,
             ),
         );
@@ -109,7 +131,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
         setItems((prev) =>
             prev.map((item, i) =>
                 i === index
-                    ? { ...item, unitPrice: Number.isFinite(value) ? value : 0 }
+                    ? { ...item, unitPrice: Number.isFinite(value) ? value : 0, unitAnchor: undefined }
                     : item,
             ),
         );
@@ -131,6 +153,8 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                 variantName: product.name,
                 quantity: 1,
                 unitPrice: product.sellPrice ?? 0,
+                enteredUnit: product.primaryUnit,
+                units: { primaryUnit: product.primaryUnit, salesUnit: product.salesUnit, conversionFactor: product.conversionFactor },
                 discountPercent: 0,
                 taxPercent: 0,
                 dppOtherAmount: null,
@@ -148,9 +172,11 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
             return;
         }
 
+        let normalized: ReturnType<typeof fieldEntryPayload>[];
+        try { normalized = items.map(entryPayload); }
+        catch (error) { toast.error(error instanceof Error ? error.message : 'Satuan tidak valid.'); return; }
         const belowDelivered = items.find(
-            (item) =>
-                item.deliveredQty > 0 && item.quantity < item.deliveredQty,
+            (item, index) => item.deliveredQty > 0 && normalized[index].quantity < item.deliveredQty,
         );
         if (belowDelivered) {
             toast.error(
@@ -172,6 +198,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
             // Plan: docs/plan/2026-08-22-edit-item-so-sales-field.md
             const result = await updateFieldSalesOrder({
                 id: order.id,
+                expectedUpdatedAt: new Date(order.expectedUpdatedAt),
                 customerId: order.customerId,
                 salesRepId: order.salesRepId,
                 sourceLocationId: order.sourceLocationId,
@@ -181,11 +208,10 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                     : null,
                 notes: order.notes,
                 shippingCost: order.shippingCost,
-                items: items.map((item) => ({
+                items: items.map((item, index) => ({
                     ...(item.id ? { id: item.id } : {}),
                     productVariantId: item.productVariantId,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
+                    ...normalized[index],
                     discountPercent: item.discountPercent,
                     taxPercent: item.taxPercent,
                     dppOtherAmount: item.dppOtherAmount,
@@ -243,6 +269,8 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
 
                 {items.map((item, index) => {
                     const isDelivered = item.deliveredQty > 0;
+                    const meta = fieldEntryMeta(item.units, item, originalFor(item));
+                    const enteredFactor = meta.displayUnit === meta.primaryUnit ? 1 : meta.conversionFactor;
                     return (
                         <Card key={item.id ?? `new-${index}`}>
                             <CardContent className="p-3 space-y-2">
@@ -261,7 +289,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                                             className="shrink-0 text-[11px]"
                                         >
                                             Terkirim:{' '}
-                                            {formatQuantity(item.deliveredQty)}
+                                            {formatQuantity(item.deliveredQty)} {meta.primaryUnit}
                                         </Badge>
                                     ) : (
                                         <Button
@@ -276,19 +304,18 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                                     )}
                                 </div>
 
+                                <UnitEntryControl meta={meta} quantity={item.quantity} price={item.unitPrice} index={index} onChange={unit => changeUnit(index, unit)} disabled={priceLocked || isDelivered || isSaving} />
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <label className="text-[11px] text-muted-foreground">
-                                            Qty
+                                        <label htmlFor={`edit-qty-${index}`} className="text-[11px] text-muted-foreground">
+                                            Jumlah ({meta.displayUnit})
                                         </label>
                                         <Input
+                                            id={`edit-qty-${index}`}
                                             type="number"
                                             inputMode="decimal"
-                                            min={
-                                                isDelivered
-                                                    ? item.deliveredQty
-                                                    : 0
-                                            }
+                                            step="any"
+                                            min={isDelivered ? item.deliveredQty / enteredFactor : 0.0001}
                                             value={item.quantity}
                                             onChange={(e) =>
                                                 updateQty(index, e.target.value)
@@ -297,15 +324,17 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[11px] text-muted-foreground">
-                                            Harga
+                                        <label htmlFor={`edit-price-${index}`} className="text-[11px] text-muted-foreground">
+                                            Harga per {meta.displayUnit}
                                         </label>
                                         <Input
+                                            id={`edit-price-${index}`}
+                                            step="any"
                                             type="number"
                                             inputMode="decimal"
                                             min={0}
                                             value={item.unitPrice}
-                                            disabled={priceLocked}
+                                            disabled={priceLocked || isDelivered}
                                             onChange={(e) =>
                                                 updatePrice(
                                                     index,
@@ -319,9 +348,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
 
                                 <p className="text-xs text-right text-muted-foreground">
                                     Subtotal:{' '}
-                                    {formatRupiah(
-                                        item.quantity * item.unitPrice,
-                                    )}
+                                    {formatRupiah(unchangedFieldEntry(item, originalFor(item)) && item.subtotal != null ? item.subtotal : item.quantity * item.unitPrice)}
                                 </p>
                             </CardContent>
                         </Card>

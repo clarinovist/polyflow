@@ -42,6 +42,7 @@ type OrderItem = {
     productName: string;
     variantName: string;
     skuCode: string;
+    primaryUnit: string;
     quantity: number;
     unitPrice: number;
     subtotal: number;
@@ -49,6 +50,7 @@ type OrderItem = {
 };
 
 type DeliveryItem = {
+    primaryUnit: string;
     id: string;
     variantName: string;
     productName: string;
@@ -374,13 +376,13 @@ export function OrderDetailClient({
                                 )}
                                 <p className="text-xs text-muted-foreground">
                                     {item.skuCode} •{' '}
-                                    {formatQuantity(item.quantity)} ×{' '}
-                                    {formatRupiah(item.unitPrice)}
+                                    {formatQuantity(item.quantity)} {item.primaryUnit} ×{' '}
+                                    {formatRupiah(item.unitPrice)}/{item.primaryUnit}
                                 </p>
                                 {item.deliveredQty > 0 && (
                                     <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                                         Terkirim:{' '}
-                                        {formatQuantity(item.deliveredQty)} Qty
+                                        {formatQuantity(item.deliveredQty)} {item.primaryUnit}
                                     </p>
                                 )}
                             </div>
@@ -463,7 +465,7 @@ export function OrderDetailClient({
                                             </span>
                                             <span className="font-semibold text-foreground shrink-0">
                                                 {formatQuantity(item.quantity)}{' '}
-                                                Qty
+                                                {item.primaryUnit}
                                             </span>
                                         </div>
                                     ))}

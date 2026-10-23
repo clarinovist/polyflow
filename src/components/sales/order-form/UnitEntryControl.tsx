@@ -3,11 +3,12 @@ import { formatQuantity } from '@/lib/utils/production-units';
 import { formatRupiah } from '@/lib/utils/utils';
 import type { salesEntryMeta } from '@/lib/sales/unit-entry';
 
-export function UnitEntryControl({ meta, quantity, price, index, onChange }: {
+export function UnitEntryControl({ meta, quantity, price, index, onChange, disabled = false }: {
     meta: ReturnType<typeof salesEntryMeta>;
     quantity: number;
     price: number;
     index: number;
+    disabled?: boolean;
     onChange: (unit: Unit) => void;
 }) {
     const primary = meta.displayUnit === meta.primaryUnit;
@@ -22,6 +23,7 @@ export function UnitEntryControl({ meta, quantity, price, index, onChange }: {
                     aria-label={`Satuan item ${index + 1}`}
                     className="h-11 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     value={meta.displayUnit}
+                    disabled={disabled}
                     onChange={e => onChange(e.target.value as Unit)}
                 >
                     <option value={meta.primaryUnit}>{meta.primaryUnit}</option>

@@ -20,7 +20,7 @@ describe("processOrderItems", () => {
     vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ id: 'pv', primaryUnit: 'KG', salesUnit: 'BAL', conversionFactor: 25, product: { productType: ProductType.FINISHED_GOOD } } as never);
     const valid = { productVariantId: 'pv', quantity: 1250, unitPrice: 22000, enteredQuantity: 1250, enteredUnit: 'KG' as const, enteredUnitPrice: 22000, conversionFactorSnapshot: 1 };
     expect((await processOrderItems([valid], SalesOrderType.MAKE_TO_STOCK)).items[0]).toMatchObject(valid);
-    for (const patch of [{ quantity: 31250 }, { unitPrice: NaN }, { enteredQuantity: Infinity }, { conversionFactorSnapshot: 25 }, { enteredUnit: 'PCS' as const }, { enteredUnitPrice: undefined }]) {
+    for (const patch of [{ quantity: 1e-10 }, { enteredQuantity: 1e-10 }, { quantity: 31250 }, { unitPrice: NaN }, { enteredQuantity: Infinity }, { conversionFactorSnapshot: 25 }, { enteredUnit: 'PCS' as const }, { enteredUnitPrice: undefined }]) {
       await expect(processOrderItems([{ ...valid, ...patch }], SalesOrderType.MAKE_TO_STOCK)).rejects.toThrow();
     }
     await expect(processOrderItems([{ ...valid, quantity: 1.001, unitPrice: 22000, enteredQuantity: 0.04004, enteredUnit: 'BAL', enteredUnitPrice: 550000, conversionFactorSnapshot: 25 }], SalesOrderType.MAKE_TO_STOCK)).rejects.toThrow(/disimpan tepat/);

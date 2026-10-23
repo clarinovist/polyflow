@@ -138,10 +138,11 @@ describe("field-actions", () => {
   it("getFieldSalesOrderById returns order for authorized user", async () => {
     vi.mocked(prisma.salesOrder.count).mockResolvedValue(1);
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
-      id: "o1", orderNumber: "SO-001", items: [], deliveryOrders: [],
+      id: "o1", orderNumber: "SO-001", items: [], deliveryOrders: [], invoices: [{ id: "invoice" }],
     } as never);
     const result = await getFieldSalesOrderById("o1");
-    expect(result).toBeDefined();
+    expect(result).toMatchObject({ success: true, data: { invoices: [{ id: "invoice" }] } });
+    expect(prisma.salesOrder.findUnique).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({ invoices: { select: { id: true } } }) }));
   });
 
   it("getFieldSalesOrderById throws for unauthorized scope (business logic)", async () => {
