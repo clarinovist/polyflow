@@ -798,8 +798,9 @@ describe('production execution actions', () => {
                 success: true,
                 data: {
                     jobCount: 0,
-                    goodQty: 0,
-                    scrapQty: 0,
+                    goodByUnit: [],
+                    scrapKg: 0,
+                    scrapUnverifiedEntries: 0,
                     activeJobsCount: 0,
                 },
             });
@@ -814,18 +815,21 @@ describe('production execution actions', () => {
                     productionOrderId: 'po-1',
                     quantityProduced: 10,
                     scrapQuantity: 1,
+                    productionOrder: { bom: { productVariant: { primaryUnit: 'KG' } } },
                 },
                 {
                     id: 'e2',
                     productionOrderId: 'po-1',
                     quantityProduced: 5,
                     scrapQuantity: 0,
+                    productionOrder: { bom: { productVariant: { primaryUnit: 'KG' } } },
                 },
                 {
                     id: 'e3',
                     productionOrderId: 'po-2',
                     quantityProduced: 7,
                     scrapQuantity: 2,
+                    productionOrder: { bom: { productVariant: { primaryUnit: 'KG' } } },
                 },
             ] as never);
             vi.mocked(prisma.productionExecution.count).mockResolvedValue(
@@ -840,8 +844,9 @@ describe('production execution actions', () => {
                 success: true,
                 data: {
                     jobCount: 2,
-                    goodQty: 22,
-                    scrapQty: 3,
+                    goodByUnit: [{ unit: 'KG', quantity: 22 }],
+                    scrapKg: 3,
+                    scrapUnverifiedEntries: 0,
                     activeJobsCount: 1,
                 },
             });
@@ -866,7 +871,7 @@ describe('production execution actions', () => {
 
             // Assert
             expect(res).toMatchObject({
-                data: { goodQty: 0, scrapQty: 0, jobCount: 1 },
+                data: { goodByUnit: [{ unit: 'Satuan belum diketahui', quantity: 0 }], scrapKg: 0, scrapUnverifiedEntries: 0, jobCount: 1 },
             });
         });
     });

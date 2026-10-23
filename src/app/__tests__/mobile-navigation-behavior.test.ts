@@ -28,9 +28,15 @@ describe('mobile navigation behavior', () => {
         }
     });
 
+    it('keeps material approval in its implemented mobile detail route', () => {
+        const content = source('src/app/production/mobile/material-orders/page.tsx');
+        expect(content).toContain("href={'/production/mobile/material-orders/' + r.id}");
+        expect(content).not.toContain('/device/desktop-required?from=');
+        expect(source('src/app/production/mobile/material-orders/[id]/page.tsx')).toContain('MaterialOrderActions');
+    });
+
     it('marks desktop-only destinations explicitly', () => {
         for (const path of [
-            'src/app/production/mobile/material-orders/page.tsx',
             'src/app/production/mobile/maintenance/page.tsx',
             'src/app/production/mobile/maintenance/new/form-client.tsx',
             'src/app/warehouse/mobile/incoming/[id]/page.tsx',

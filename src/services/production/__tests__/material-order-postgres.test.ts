@@ -83,7 +83,9 @@ describe.skipIf(!db)('material order snapshot and mobile lifecycle PostgreSQL co
             await tx.$executeRawUnsafe('CREATE TABLE "MaterialOrderItem" ("id" text PRIMARY KEY, "quantity" numeric NOT NULL)');
             if (populated) await tx.$executeRawUnsafe('INSERT INTO "MaterialOrderItem" VALUES (\'legacy\', 12)');
             await tx.$executeRawUnsafe(migration);
-            const rows = await tx.$queryRawUnsafe<{ quantityUnit: string | null }[]>('SELECT "quantityUnit" FROM "MaterialOrderItem"');
+            // Each isolated schema has a different enum OID; return text and qualify the
+            // table so Prisma cannot reuse a prepared result type from the prior schema.
+            const rows = await tx.$queryRawUnsafe<{ quantityUnit: string | null }[]>(`SELECT "quantityUnit"::text AS "quantityUnit" FROM "${schema}"."MaterialOrderItem"`);
             expect(rows).toEqual(populated ? [{ quantityUnit: null }] : []);
             await tx.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);
         });
