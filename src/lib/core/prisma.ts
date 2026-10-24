@@ -67,11 +67,6 @@ export const entitlementContext: AsyncLocalStorage<string[]> =
     (globalForEntitlementContext.__polyflowEntitlementContext =
         new AsyncLocalStorage<string[]>());
 
-/** Get active module keys for the current tenant from context. */
-export function getEntitlementsFromContext(): string[] | undefined {
-    return entitlementContext.getStore();
-}
-
 // Tenant Connection Factory — MUST be global singleton
 const globalForTenantClients = globalThis as unknown as {
     __polyflowTenantClients?: Map<string, PrismaClient>;

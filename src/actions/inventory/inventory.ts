@@ -186,15 +186,6 @@ export const getSuggestedPurchases = withTenant(
     },
 );
 
-export const getInventoryValuation = withTenant(
-    async function getInventoryValuation() {
-        return safeAction(async () => {
-            await requireAuth();
-            return await AnalyticsService.getInventoryValuation();
-        });
-    },
-);
-
 export const getInventoryAsOf = withTenant(async function getInventoryAsOf(
     targetDate: Date,
     locationId?: string,
@@ -219,27 +210,6 @@ export const getStockLedgerAction = withTenant(
                 endDate,
                 locationId,
             );
-        });
-    },
-);
-// ============================================
-// ANALYTICS & INSIGHTS (Phase 4)
-// ============================================
-
-export const getInventoryTurnover = withTenant(
-    async function getInventoryTurnover(periodDays = 30) {
-        return safeAction(async () => {
-            await requireAuth();
-            return await AnalyticsService.getInventoryTurnover(periodDays);
-        });
-    },
-);
-
-export const getDaysOfInventoryOnHand = withTenant(
-    async function getDaysOfInventoryOnHand(periodDays = 30) {
-        return safeAction(async () => {
-            await requireAuth();
-            return await AnalyticsService.getDaysOfInventoryOnHand(periodDays);
         });
     },
 );

@@ -17,7 +17,6 @@ vi.mock('@/lib/core/tenant', () => ({
 }));
 vi.mock('@/lib/core/prisma', () => ({
     getTenantDbFromContext: () => mocks.tenantDb.current,
-    getEntitlementsFromContext: () => undefined,
 }));
 vi.mock('@/actions/admin/permissions', () => ({
     getMyPermissions: mocks.permissions,

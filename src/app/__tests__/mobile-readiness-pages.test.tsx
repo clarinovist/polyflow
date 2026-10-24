@@ -22,7 +22,7 @@ import SelectorPage from '../mobile/page';
 import { getAvailableMobilePortals } from '@/lib/mobile/mobile-portal-decision';
 import { HrdAttendanceClient } from '../hrd/mobile/attendance/attendance-client';
 import WarehouseHome from '../warehouse/mobile/page';
-const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), followUps: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), warehouse: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
+const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), warehouse: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
 vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production, getMobileSupervisorSpkList: m.spkList, getFactoryManagerExecutiveOverview: m.exec }));
 vi.mock('@/actions/production/alert-threshold-settings', () => ({ getProductionAlertThresholdsForPage: async () => ({ success: false }) }));
 vi.mock('@/actions/finance/mobile-dashboard', () => ({ getFinanceMobileOverview: m.finance }));
@@ -39,7 +39,6 @@ vi.mock('@/actions/sales/field-actions', () => ({
     getMyFieldReceivables: m.receivables,
     getMyFieldCustomers: m.customers,
     getMyFieldComplianceStats: m.compliance,
-    getMyFollowUpsToday: m.followUps,
     getMyFieldSalesOrders: m.orders,
 }));
 vi.mock('@/actions/sales/route-plans', () => ({ getTodayRoutePlan: m.routePlan }));
@@ -57,7 +56,7 @@ vi.mock('../field/sales/receivables/ReceivablesListClient', () => ({ Receivables
 afterEach(cleanup);
 beforeEach(() => {
     vi.resetAllMocks();
-    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.pipeline, m.customers, m.compliance, m.followUps, m.routePlan, m.products, m.locations, m.orders, m.receivables, m.portals, m.warehouse]) fn.mockResolvedValue({ success: false });
+    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.pipeline, m.customers, m.compliance, m.routePlan, m.products, m.locations, m.orders, m.receivables, m.portals, m.warehouse]) fn.mockResolvedValue({ success: false });
     m.auth.mockResolvedValue({ user: { id: 'synthetic', role: 'FINANCE' } });
 });
 describe('mobile read states', () => {
