@@ -233,5 +233,3 @@ export function createPolyflowReadOnlyTools(
         ],
     });
 }
-
-export const PolyflowReadOnlyTools = createPolyflowReadOnlyTools();

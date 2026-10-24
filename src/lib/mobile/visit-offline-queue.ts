@@ -1,4 +1,3 @@
-export const VISIT_QUEUE_VERSION = 1;
 export const VISIT_QUEUE_PREFIX = 'polyflow:visit-queue:v1';
 
 export interface VisitQueuePartition {

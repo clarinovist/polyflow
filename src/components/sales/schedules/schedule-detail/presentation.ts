@@ -53,13 +53,6 @@ export const TRANSPORT_MODE_LABELS: Record<string, string> = {
     TBD: 'Belum Ditentukan',
 };
 
-export const TRANSPORT_MODE_STYLES: Record<string, string> = {
-    INTERNAL_FLEET: 'bg-blue-100 text-blue-700',
-    EXTERNAL_FLEET: 'bg-purple-100 text-purple-700',
-    CUSTOMER_PICKUP: 'bg-teal-100 text-teal-700',
-    TBD: 'bg-gray-100 text-gray-500',
-};
-
 export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
     DELIVERY: 'Pengiriman',
     PICKUP_LOAD: 'Muat/Pickup',

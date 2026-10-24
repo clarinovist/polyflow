@@ -48,18 +48,6 @@ export type PresentationDocument = JsonObject & {
     projected: boolean;
     interactionId?: string;
 };
-export const PresentationDoc = defineDoc<PresentationDocument>({
-    kind: 'polyflow.presentation',
-    version: 1,
-    scope: 'conversation',
-    history: 'latest',
-    fork: 'initial',
-    initial: () => ({
-        requestId: '',
-        response: { answer: '', citations: [], safety: { allowed: true } },
-        projected: false,
-    }),
-});
 
 export type ToolEvidenceDetail = JsonObject & {
     evidence: (ToolEvidence & JsonObject) | null;

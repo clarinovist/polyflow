@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
-import type { HelpConversation, HelpMessage, Prisma } from '@prisma/client';
+import type { HelpConversation, Prisma } from '@prisma/client';
 
-const MAX_MESSAGE_CONTENT_LENGTH = 4000;
 const MAX_HISTORY_MESSAGES = 10;
 // ---------------------------------------------------------------------------
 // Types
@@ -200,35 +199,6 @@ export async function loadConversationContext(
     };
 }
 
-// ---------------------------------------------------------------------------
-// Save a message
-// ---------------------------------------------------------------------------
-
-export async function saveMessage(input: {
-    conversationId: string;
-    role: 'USER' | 'ASSISTANT';
-    content: string;
-    evidenceJson?: unknown;
-}): Promise<HelpMessage> {
-    const truncatedContent = input.content.slice(0, MAX_MESSAGE_CONTENT_LENGTH);
-
-    const [message] = await prisma.$transaction([
-        prisma.helpMessage.create({
-            data: {
-                conversationId: input.conversationId,
-                role: input.role,
-                content: truncatedContent,
-                evidenceJson: input.evidenceJson ?? undefined,
-            },
-        }),
-        prisma.helpConversation.update({
-            where: { id: input.conversationId },
-            data: { lastMessageAt: new Date() },
-        }),
-    ]);
-
-    return message;
-}
 /** Save the whole exchange before acknowledging it to the browser. */
 export async function saveConversationExchange(input: {
     conversationId: string;

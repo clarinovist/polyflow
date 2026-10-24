@@ -187,8 +187,4 @@ export async function observeDashboardSection<T>(
     }
 }
 
-export const dashboardTimingTestUtils = {
-    safeSectionKey,
-    emitTiming,
-};
 export type { TimingDependencies };
