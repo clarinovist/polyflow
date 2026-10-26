@@ -42,7 +42,9 @@ export default async function KioskLayout({
     // getActiveExecutions returns the safeAction envelope, not a bare array.
     const activeResult = await getActiveExecutions();
     const activeExecutions = activeResult.success
-        ? (activeResult.data as unknown as KioskActiveExecution[])
+        ? (activeResult.data as unknown as KioskActiveExecution[]).map(
+              toBannerExecution,
+          )
         : [];
 
     return (
@@ -91,6 +93,31 @@ export default async function KioskLayout({
             </div>
         </KioskIdleShell>
     );
+}
+
+/**
+ * The kiosk is public and the banner is a client component, so every prop
+ * lands in the page payload. Copy only the fields the banner shows.
+ */
+function toBannerExecution(
+    execution: KioskActiveExecution,
+): KioskActiveExecution {
+    return {
+        id: execution.id,
+        startTime: execution.startTime,
+        productionOrderId: execution.productionOrderId,
+        productionOrder: {
+            id: execution.productionOrder.id,
+            orderNumber: execution.productionOrder.orderNumber,
+            bom: {
+                productVariant: {
+                    name:
+                        execution.productionOrder.bom?.productVariant?.name ??
+                        '',
+                },
+            },
+        },
+    };
 }
 
 function KioskClock() {

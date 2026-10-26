@@ -92,15 +92,53 @@ describe('KioskLayout guard', () => {
     });
 
     it('shows the running-SPK banner from the action result envelope', async () => {
-        const execution = { id: 'exec-1', productionOrderId: 'order-1' };
+        const publicFields = {
+            id: 'exec-1',
+            startTime: '2026-10-26T01:00:00.000Z',
+            productionOrderId: 'order-1',
+            productionOrder: {
+                id: 'order-1',
+                orderNumber: 'WO-001',
+                bom: { productVariant: { name: 'Tali Rafia 1 kg' } },
+            },
+        };
         mockGetActiveExecutions.mockResolvedValue({
             success: true,
-            data: [execution],
+            data: [publicFields],
         });
 
         renderToStaticMarkup(await KioskLayout({ children: null }));
 
-        expect(mockBanner).toHaveBeenCalledWith({ executions: [execution] });
+        expect(mockBanner).toHaveBeenCalledWith({ executions: [publicFields] });
+    });
+
+    it('passes only public fields to the banner, never employee or machine records', async () => {
+        // The kiosk is public: anything given to a client component is in the page payload.
+        mockGetActiveExecutions.mockResolvedValue({
+            success: true,
+            data: [
+                {
+                    id: 'exec-1',
+                    startTime: '2026-10-26T01:00:00.000Z',
+                    productionOrderId: 'order-1',
+                    operatorId: 'emp-1',
+                    operator: { id: 'emp-1', name: 'Synthetic', pinHash: 'hash', nik: '123', bankAccountNo: '999' },
+                    machine: { id: 'm-1', name: 'Mesin 1' },
+                    productionOrder: {
+                        id: 'order-1',
+                        orderNumber: 'WO-001',
+                        status: 'IN_PROGRESS',
+                        bom: { productVariant: { name: 'Tali Rafia 1 kg', price: 12000 } },
+                    },
+                },
+            ],
+        });
+
+        renderToStaticMarkup(await KioskLayout({ children: null }));
+
+        const sent = JSON.stringify(mockBanner.mock.calls[0][0]);
+        expect(sent).not.toMatch(/pinHash|nik|bankAccountNo|operator|machine|price|status/);
+        expect(sent).toContain('WO-001');
     });
 
     it('hides the banner when active executions cannot be read', async () => {

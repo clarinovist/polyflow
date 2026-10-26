@@ -1183,14 +1183,18 @@ export class ProductionExecutionService {
     }
 
     /**
-     * Get Active Executions
+     * Running executions for the public kiosk banner. Selects only what the
+     * banner shows: employee and machine records must never reach the page.
      */
     static async getActiveExecutions() {
         return await prisma.productionExecution.findMany({
             where: {
                 endTime: { equals: null },
             },
-            include: {
+            select: {
+                id: true,
+                startTime: true,
+                productionOrderId: true,
                 productionOrder: {
                     select: {
                         id: true,
@@ -1202,8 +1206,6 @@ export class ProductionExecutionService {
                         },
                     },
                 },
-                operator: true,
-                machine: true,
             },
             orderBy: {
                 startTime: 'desc',

@@ -751,6 +751,16 @@ describe('ProductionExecutionService.getActiveExecutions', () => {
         expect(prisma.productionExecution.findMany).toHaveBeenCalled();
     });
 
+    it('reads running executions without employee or machine records (public kiosk banner)', async () => {
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([] as never);
+
+        await ProductionExecutionService.getActiveExecutions();
+
+        const args = vi.mocked(prisma.productionExecution.findMany).mock.calls[0][0] as Record<string, unknown>;
+        expect(args.include).toBeUndefined();
+        expect(Object.keys(args.select as object).sort()).toEqual(['id', 'productionOrder', 'productionOrderId', 'startTime']);
+    });
+
     it('should return empty array when no active executions', async () => {
         // Arrange
         vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([]);
