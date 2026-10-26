@@ -73,14 +73,12 @@ function ToggleHarness() {
 
 /** Fills Hasil 25 KG and Plastik 0.8 KG, then submits. */
 async function submitPackagedEntry() {
-    fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
+    fireEvent.change(screen.getByLabelText(/Jumlah hasil bagus/i), { target: { value: '25' } });
     next();
     fireEvent.change(screen.getByLabelText('Jumlah Plastik'), { target: { value: '0.8' } });
     next();
-    next();
-    fireEvent.click(screen.getByRole('button', { name: /Ya, Tidak Ada Scrap/ }));
-    next();
-    fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tidak ada affal' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Kirim hasil/ }));
 }
 const sentRequestIds = () =>
     mocks.logRunningOutput.mock.calls.map((call) => (call[0] as { packagedOutput: { clientRequestId: string } }).packagedOutput.clientRequestId);
@@ -104,16 +102,14 @@ beforeEach(() => {
 describe('KioskLogOutputDialog with actual packaging', () => {
     it('records the counted packaging with the output in one submission', async () => {
         renderWizard();
-        fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
+        fireEvent.change(screen.getByLabelText(/Jumlah hasil bagus/i), { target: { value: '25' } });
         next();
 
         fireEvent.change(screen.getByLabelText('Jumlah Plastik'), { target: { value: '0.8' } });
         next();
-        next();
-        fireEvent.click(screen.getByRole('button', { name: /Ya, Tidak Ada Scrap/ }));
-        next();
+        fireEvent.click(screen.getByRole('button', { name: 'Tidak ada affal' }));
         expect(screen.getByText('Plastik')).toBeTruthy();
-        fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^Kirim hasil/ }));
 
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
         const payload = mocks.logRunningOutput.mock.calls[0][0];
@@ -132,23 +128,38 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         });
     });
 
-    it('stops at the Kemasan step until every count is filled', () => {
+    it('locks the Kemasan step, with its reason, until every count is filled', () => {
         renderWizard();
-        fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
-        next();
+        fireEvent.change(screen.getByLabelText(/Jumlah hasil bagus/i), { target: { value: '25' } });
         next();
 
-        expect(mocks.toastError).toHaveBeenCalledWith('Isi jumlah Plastik yang terpakai.');
+        expect((screen.getByRole('button', { name: /^Lanjut/ }) as HTMLButtonElement).disabled).toBe(true);
+        expect(screen.getByText('Isi jumlah Plastik yang terpakai.')).toBeTruthy();
         expect(screen.getByLabelText('Jumlah Plastik')).toBeTruthy();
+    });
+
+    it('skips Kemasan and sends no packaging when only affal is recorded', async () => {
+        renderWizard();
+        fireEvent.click(screen.getByRole('button', { name: 'Hasil 0, hanya affal' }));
+        fireEvent.change(screen.getByLabelText(/^Daun/), { target: { value: '1,5' } });
+        next();
+        fireEvent.click(screen.getByRole('button', { name: /^Kirim hasil/ }));
+
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
+        expect(mocks.logRunningOutput.mock.calls[0][0]).toMatchObject({
+            quantityProduced: 0,
+            scrapDaunQty: 1.5,
+            packagedOutput: { clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/), groups: [] },
+        });
     });
 
     it('keeps the original steps and payload for SPKs without actual packaging', async () => {
         renderWizard(false);
-        fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
+        fireEvent.change(screen.getByLabelText(/Jumlah hasil bagus/i), { target: { value: '25' } });
         next();
 
         expect(screen.queryByLabelText('Jumlah Plastik')).toBeNull();
-        expect(screen.getByLabelText(/Scrap Prongkol/)).toBeTruthy();
+        expect(screen.getByLabelText(/^Prongkol/)).toBeTruthy();
     });
 
     it('reuses the request id after a failed submit, even across close and reopen', async () => {
@@ -158,7 +169,7 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
 
         fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
-        await waitFor(() => expect(screen.queryByLabelText(/Jumlah Hasil Bagus/)).toBeNull());
+        await waitFor(() => expect(screen.queryByLabelText(/Jumlah hasil bagus/i)).toBeNull());
         fireEvent.click(screen.getByRole('button', { name: 'buka' }));
         await submitPackagedEntry();
 
@@ -172,7 +183,7 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         await submitPackagedEntry();
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
 
-        fireEvent.click(await screen.findByRole('button', { name: /Catat Lagi/ }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Catat lagi' }));
         await submitPackagedEntry();
 
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(2));
@@ -186,7 +197,7 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         await submitPackagedEntry();
         await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringMatching(/sudah tersimpan/)));
 
-        fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^Kirim hasil/ }));
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(2));
         const [first, second] = sentRequestIds();
         expect(second).not.toBe(first);
@@ -194,12 +205,10 @@ describe('KioskLogOutputDialog with actual packaging', () => {
 
     it('sends a plain request id, without packaging, for SPKs without actual packaging', async () => {
         renderWizard(false);
-        fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
+        fireEvent.change(screen.getByLabelText(/Jumlah hasil bagus/i), { target: { value: '25' } });
         next();
-        next();
-        fireEvent.click(screen.getByRole('button', { name: /Ya, Tidak Ada Scrap/ }));
-        next();
-        fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+        fireEvent.click(screen.getByRole('button', { name: 'Tidak ada affal' }));
+        fireEvent.click(screen.getByRole('button', { name: /^Kirim hasil/ }));
 
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
         const sent = mocks.logRunningOutput.mock.calls[0][0];

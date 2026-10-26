@@ -541,6 +541,7 @@ export default function KioskJobFocus({
                         salesUnit={unitMeta.salesUnit}
                         conversionFactor={unitMeta.conversionFactor}
                         operatorId={operatorId || undefined}
+                        operatorName={operator.operatorName ?? undefined}
                         orderHelpers={order.helpers}
                         shifts={shifts}
                         executionModeSnapshot={

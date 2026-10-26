@@ -1,40 +1,22 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Loader2, Send } from 'lucide-react';
+import { toast } from 'sonner';
+import { Unit } from '@prisma/client';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
-    DialogTitle,
     DialogDescription,
+    DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
 import { logRunningOutput } from '@/actions/production/production';
 import { getQualityCheckParametersForVariant } from '@/actions/production/production-quality-standards';
-import {
-    Loader2,
-    Users,
-    Camera,
-    CheckCircle2,
-    ArrowLeft,
-    ArrowRight,
-    Save,
-    RotateCcw,
-    AlertTriangle,
-} from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
 import {
     getProductionUnitMeta,
     toBaseQuantity,
 } from '@/lib/utils/production-units';
-import { Unit } from '@prisma/client';
 import { kioskLabels } from '@/lib/labels';
-import { formatShiftOptionLabel } from '@/lib/production/shift-label';
-import { CameraCapture } from '@/components/ui/camera-capture';
-import { KioskStepHeader } from '@/components/kiosk/KioskStepHeader';
 import {
     resolveKioskMode,
     computeMaterialPreview,
@@ -48,7 +30,29 @@ import {
     type KioskPackagingContext,
 } from '@/lib/production/kiosk-packaging';
 import type { PackagedOutputValues } from '@/lib/schemas/production-packaging';
+import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
+import { KioskDialogClose } from '@/components/kiosk/ui/KioskDialogClose';
 import { KioskPackagingStep } from './KioskPackagingStep';
+import { StepHasil } from './wizard/StepHasil';
+import { StepAffal } from './wizard/StepAffal';
+import { StepQc, type QcParameter } from './wizard/StepQc';
+import { StepKirim } from './wizard/StepKirim';
+import { WizardSaved } from './wizard/WizardSaved';
+import {
+    WizardStepBar,
+    WizardSummary,
+    type SummaryRow,
+} from './wizard/WizardFrame';
+import {
+    WIZARD_STEP_LABEL,
+    affalProblem,
+    hasilProblem,
+    kirimProblem,
+    parseAmount,
+    qcProblem,
+    wizardSteps,
+    type WizardStepKey,
+} from './wizard/wizard-model';
 
 interface ShiftInfo {
     id: string;
@@ -56,15 +60,6 @@ interface ShiftInfo {
     startTime: Date | string;
     endTime: Date | string;
     operatorId: string | null;
-}
-
-interface QcParameter {
-    id: string;
-    name: string;
-    unit: string;
-    targetValue: unknown;
-    minValue: unknown;
-    maxValue: unknown;
 }
 
 interface KioskLogOutputDialogProps {
@@ -77,6 +72,8 @@ interface KioskLogOutputDialogProps {
     salesUnit?: string | null;
     conversionFactor?: unknown;
     operatorId?: string;
+    /** Shown as "Dikirim sebagai"; identity itself comes from the PIN session. */
+    operatorName?: string;
     orderHelpers?: Array<{ id: string; name: string }>;
     shifts?: ShiftInfo[];
     executionModeSnapshot?: string | null;
@@ -105,51 +102,30 @@ interface KioskLogOutputDialogProps {
 
 type PackagingGroups = PackagedOutputValues['groups'];
 
-const PACKAGING_STEP = {
-    key: 'packaging',
-    title: kioskLabels.wizardStepKemasan,
-    subtitle: kioskLabels.wizardKemasanDesc,
-} as const;
+const num = (value: number) =>
+    value.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+const isActive = (shift: ShiftInfo, now: number) =>
+    now >= new Date(shift.startTime).getTime() &&
+    now <= new Date(shift.endTime).getTime();
 
-const BASE_STEPS = [
-    {
-        key: 'qty',
-        title: kioskLabels.wizardStepQty,
-        subtitle: kioskLabels.wizardQtyDesc,
+const STEP_TEXT: Record<
+    Exclude<WizardStepKey, 'hasil'>,
+    { title: string; desc: string }
+> = {
+    packaging: {
+        title: kioskLabels.wizardKemasanTitle,
+        desc: kioskLabels.wizardKemasanCountDesc,
     },
-    {
-        key: 'scrap',
-        title: kioskLabels.wizardStepScrap,
-        subtitle: kioskLabels.wizardScrapDesc,
+    affal: {
+        title: kioskLabels.wizardAffalTitle,
+        desc: kioskLabels.wizardAffalDesc,
     },
-] as const;
-
-const QC_STEP = {
-    key: 'qc',
-    title: kioskLabels.wizardStepQC,
-    subtitle: kioskLabels.wizardQCDesc,
-} as const;
-
-const TAIL_STEPS = [
-    {
-        key: 'photo',
-        title: kioskLabels.wizardStepFoto,
-        subtitle: kioskLabels.wizardFotoDesc,
+    qc: { title: kioskLabels.wizardQcTitle, desc: kioskLabels.wizardQCDesc },
+    kirim: {
+        title: kioskLabels.wizardKirimTitle,
+        desc: kioskLabels.wizardKirimDesc,
     },
-    {
-        key: 'confirm',
-        title: kioskLabels.wizardStepKonfirmasi,
-        subtitle: kioskLabels.wizardKonfirmasiDesc,
-    },
-] as const;
-
-type ScrapConfirmMode = 'idle' | 'scrap-zero' | 'scrap-only';
-
-function isQcValueOutOfRange(param: QcParameter, value: number) {
-    const min = param.minValue !== null ? Number(param.minValue) : null;
-    const max = param.maxValue !== null ? Number(param.maxValue) : null;
-    return (min !== null && value < min) || (max !== null && value > max);
-}
+};
 
 export function KioskLogOutputDialog({
     open,
@@ -161,6 +137,7 @@ export function KioskLogOutputDialog({
     salesUnit,
     conversionFactor,
     operatorId,
+    operatorName = '',
     orderHelpers = [],
     shifts = [],
     executionModeSnapshot = null,
@@ -171,25 +148,20 @@ export function KioskLogOutputDialog({
     packaging,
     onSuccess,
 }: KioskLogOutputDialogProps) {
-    const [step, setStep] = useState(0);
-    const [quantity, setQuantity] = useState<string>('');
-    const [scrapProngkol, setScrapProngkol] = useState<string>('');
-    const [scrapDaun, setScrapDaun] = useState<string>('');
-    const [notes, setNotes] = useState<string>('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [stepIndex, setStepIndex] = useState(0);
+    const [quantity, setQuantity] = useState('');
+    // "Hasil 0, hanya affal" chosen: an explicit answer, not a confirmation.
+    const [scrapOnly, setScrapOnly] = useState(false);
+    const [prongkol, setProngkol] = useState('');
+    const [daun, setDaun] = useState('');
+    const [noAffal, setNoAffal] = useState(false);
+    const [notes, setNotes] = useState('');
     const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
-    const [scrapConfirmMode, setScrapConfirmMode] =
-        useState<ScrapConfirmMode>('idle');
-    const [loggedOutputs, setLoggedOutputs] = useState<
-        Array<{
-            quantity: number;
-            unit: string;
-            hasPhoto: boolean;
-        }>
-    >([]);
-    const [selectedShiftId, setSelectedShiftId] = useState<string>('');
+    const [savedRows, setSavedRows] = useState<SummaryRow[] | null>(null);
+    const [session, setSession] = useState({ count: 0, total: 0 });
+    const [selectedShiftId, setSelectedShiftId] = useState('');
     const [qcParameters, setQcParameters] = useState<QcParameter[]>([]);
     const [qcValues, setQcValues] = useState<Record<string, string>>({});
     // null until the operator edits the step; until then it follows the prefill.
@@ -198,14 +170,6 @@ export function KioskLogOutputDialog({
     // One id per submission. It survives failures and close/reopen so a lost
     // response cannot double-post; only a confirmed save clears it.
     const pendingRequestIdRef = useRef<string | null>(null);
-
-    const hasQcStep = qcParameters.length > 0;
-    const headSteps = actualPackagingEnabled
-        ? [BASE_STEPS[0], PACKAGING_STEP, BASE_STEPS[1]]
-        : [...BASE_STEPS];
-    const STEPS = hasQcStep
-        ? [...headSteps, QC_STEP, ...TAIL_STEPS]
-        : [...headSteps, ...TAIL_STEPS];
 
     // Fetch QC parameters for this variant once per dialog open — kalau
     // varian belum punya parameter terdefinisi, step QC tidak pernah muncul.
@@ -224,46 +188,25 @@ export function KioskLogOutputDialog({
         };
     }, [open, productVariantId]);
 
-    // Is any shift currently active by time window (startTime <= now <= endTime)?
-    // Mirrors findActiveShift server-side logic — used to detect stale/expired shifts.
-    const hasActiveShiftByTime = (() => {
-        if (shifts.length === 0) return false;
-        const now = Date.now();
-        return shifts.some((s) => {
-            const start = new Date(s.startTime).getTime();
-            const end = new Date(s.endTime).getTime();
-            return now >= start && now <= end;
-        });
-    })();
-
-    // Auto-select shift: hanya shift AKTIF (milik operator dulu, lalu shift aktif mana pun).
-    // Bila tidak ada shift aktif, TIDAK auto-pilih (anti tempel shift basi) — operator wajib
-    // memilih manual di picker (lihat validasi submitOutput).
-    const autoSelectedShift = (() => {
-        if (shifts.length === 0) return null;
-        const now = Date.now();
-        const isActive = (s: ShiftInfo) => {
-            const start = new Date(s.startTime).getTime();
-            const end = new Date(s.endTime).getTime();
-            return now >= start && now <= end;
-        };
-        if (operatorId) {
-            const activeByOperator = shifts.find(
-                (s) => s.operatorId === operatorId && isActive(s),
-            );
-            if (activeByOperator) return activeByOperator;
-        }
-        const activeAny = shifts.find(isActive);
-        if (activeAny) return activeAny;
-        return null;
-    })();
+    // Auto-select only an ACTIVE shift (the operator's first). With none
+    // active nothing is preselected, so a stale shift is never attached.
+    const now = Date.now();
+    const hasActiveShift = shifts.some((shift) => isActive(shift, now));
+    const autoShift =
+        (operatorId &&
+            shifts.find(
+                (shift) =>
+                    shift.operatorId === operatorId && isActive(shift, now),
+            )) ||
+        shifts.find((shift) => isActive(shift, now)) ||
+        null;
+    const shiftId = selectedShiftId || autoShift?.id || '';
 
     const unitMeta = getProductionUnitMeta({
         primaryUnit,
         salesUnit,
         conversionFactor,
     });
-
     const mode = resolveKioskMode(executionModeSnapshot);
 
     // GENERIC keeps legacy behavior (auto-fill order helpers except the kiosk
@@ -274,19 +217,25 @@ export function KioskLogOutputDialog({
             ? orderHelpers.filter((h) => h.id !== operatorId).map((h) => h.id)
             : [];
 
-    // ── BOM ratio preview (MATERIAL_CONVERSION only) ──
-    // Pick the single BOM item whose input unit differs from the output unit.
-    // Ambiguous (none or several) → null → submit blocked, no ratio-1 fallback.
-    const qtyNum = parseFloat(quantity) || 0;
-    const baseQtyNum = unitMeta.hasAlternateUnit
-        ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
-        : qtyNum;
+    const qtyNum = parseAmount(quantity);
+    const safeQty = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 0;
+    const baseQty = unitMeta.hasAlternateUnit
+        ? toBaseQuantity(safeQty, unitMeta.conversionFactor)
+        : safeQty;
+    const prongkolNum = parseAmount(prongkol);
+    const daunNum = parseAmount(daun);
+    const totalScrap =
+        (Number.isFinite(prongkolNum) ? prongkolNum : 0) +
+        (Number.isFinite(daunNum) ? daunNum : 0);
+
     const packagingContext = packaging?.context ?? null;
     const effectiveGroups: PackagingGroups =
         packagingGroups ??
-        (packagingContext
-            ? buildInitialGroups(packagingContext, baseQtyNum)
-            : []);
+        (packagingContext ? buildInitialGroups(packagingContext, baseQty) : []);
+
+    // ── BOM ratio preview (MATERIAL_CONVERSION only) ──
+    // Pick the single BOM item whose input unit differs from the output unit.
+    // Ambiguous (none or several) → null → blocked, no ratio-1 fallback.
     const outputUnit = unitMeta.displayUnit;
     const ratioItem = (() => {
         if (mode !== 'MATERIAL_CONVERSION' || bomItems.length === 0)
@@ -305,18 +254,100 @@ export function KioskLogOutputDialog({
     const materialPreview =
         mode === 'MATERIAL_CONVERSION' && ratioItem
             ? computeMaterialPreview(
-                  qtyNum,
+                  safeQty,
                   Number(bomOutputQuantity),
                   Number(ratioItem.quantity),
                   ratioItem.productVariant.primaryUnit || 'PCS',
               )
             : null;
 
-    const prongkolNum = parseFloat(scrapProngkol) || 0;
-    const daunNum = parseFloat(scrapDaun) || 0;
-    const totalScrap = prongkolNum + daunNum;
-    const hasScrap = totalScrap > 0;
-    const hasPhoto = !!photoFile;
+    const steps = wizardSteps({
+        actualPackagingEnabled,
+        scrapOnly,
+        hasQc: qcParameters.length > 0,
+    });
+    const index = Math.min(stepIndex, steps.length - 1);
+    const stepKey = steps[index];
+
+    const problem = (() => {
+        switch (stepKey) {
+            case 'hasil':
+                return hasilProblem({
+                    qty: qtyNum,
+                    scrapOnly,
+                    conversionInvalid:
+                        mode === 'MATERIAL_CONVERSION' && !materialPreview,
+                });
+            case 'packaging':
+                return packagingContext
+                    ? packagingStepProblem(
+                          packagingContext,
+                          effectiveGroups,
+                          baseQty,
+                          unitMeta.primaryUnit,
+                      )
+                    : baseQty > 0
+                      ? kioskLabels.packagingNotLoaded
+                      : null;
+            case 'affal':
+                return affalProblem({
+                    prongkol: prongkolNum,
+                    daun: daunNum,
+                    scrapOnly,
+                    noAffal,
+                });
+            case 'qc':
+                return qcProblem(qcParameters, qcValues);
+            case 'kirim':
+                return kirimProblem({ mode, hasActiveShift, shiftId });
+        }
+    })();
+
+    const packagingRows: SummaryRow[] =
+        actualPackagingEnabled && packagingContext && baseQty > 0
+            ? effectiveGroups.flatMap((group) =>
+                  group.packaging.map((row) => ({
+                      label: materialName(
+                          packagingContext,
+                          row.productVariantId,
+                      ),
+                      value:
+                          row.quantity > 0
+                              ? `${num(row.quantity)} ${row.unit === 'KG' ? 'KG' : 'pcs'}`
+                              : '-',
+                  })),
+              )
+            : [];
+    const summaryRows: SummaryRow[] = [
+        {
+            label: kioskLabels.todayGood,
+            value:
+                quantity === '' && !scrapOnly
+                    ? '-'
+                    : `${num(safeQty)} ${unitMeta.displayUnit}`,
+        },
+        ...packagingRows,
+        {
+            label: kioskLabels.todayScrap,
+            value:
+                totalScrap > 0
+                    ? `${num(totalScrap)} KG`
+                    : noAffal
+                      ? '0 KG'
+                      : '-',
+        },
+        ...qcParameters
+            .filter((param) => (qcValues[param.id] ?? '') !== '')
+            .map((param) => ({
+                label: param.name,
+                value: `${qcValues[param.id]} ${param.unit}`,
+            })),
+        {
+            label: kioskLabels.shift,
+            value:
+                shifts.find((shift) => shift.id === shiftId)?.shiftName ?? '-',
+        },
+    ];
 
     const uploadPhoto = async (file: File): Promise<string | null> => {
         const formData = new FormData();
@@ -360,27 +391,12 @@ export function KioskLogOutputDialog({
     };
 
     const submitOutput = async () => {
-        const baseQty = baseQtyNum;
-        const sendsSalesUnit = unitMeta.hasAlternateUnit && qtyNum > 0;
-
-        const effectiveShiftId = selectedShiftId || autoSelectedShift?.id;
-
-        // Shift wajib untuk mode non-generik (individual/conversion), dan selalu wajib
-        // dipilih manual bila tidak ada shift aktif (anti tempel shift basi).
-        if ((mode !== 'GENERIC' || !hasActiveShiftByTime) && !effectiveShiftId) {
-            toast.error(kioskLabels.shiftWajibMessage);
-            return;
-        }
-
-        // MATERIAL_CONVERSION: BOM ambigu/invalid → block, no ratio-1 fallback
-        if (mode === 'MATERIAL_CONVERSION' && qtyNum > 0 && !materialPreview) {
-            toast.error(kioskLabels.bomInvalidMessage);
-            return;
-        }
-
+        if (problem) return;
         // One id per submission until it saves, so a retry never posts twice.
         pendingRequestIdRef.current ??= newClientRequestId();
         const clientRequestId = pendingRequestIdRef.current;
+        const prongkolKg = Number.isFinite(prongkolNum) ? prongkolNum : 0;
+        const daunKg = Number.isFinite(daunNum) ? daunNum : 0;
 
         setIsLoading(true);
         try {
@@ -394,27 +410,30 @@ export function KioskLogOutputDialog({
             const result = await logRunningOutput({
                 executionId,
                 quantityProduced: baseQty,
-                // Sales-unit fields only with an output: the schema rejects 0.
-                enteredQuantity: sendsSalesUnit ? qtyNum : undefined,
-                enteredUnit: sendsSalesUnit
+                enteredQuantity: unitMeta.hasAlternateUnit
+                    ? safeQty
+                    : undefined,
+                enteredUnit: unitMeta.hasAlternateUnit
                     ? (unitMeta.salesUnit as Unit)
                     : undefined,
-                baseQuantityProduced: sendsSalesUnit ? baseQty : undefined,
-                conversionFactorSnapshot: sendsSalesUnit
+                baseQuantityProduced: unitMeta.hasAlternateUnit
+                    ? baseQty
+                    : undefined,
+                conversionFactorSnapshot: unitMeta.hasAlternateUnit
                     ? unitMeta.conversionFactor
                     : undefined,
-                scrapQuantity: totalScrap,
-                scrapProngkolQty: prongkolNum,
-                scrapDaunQty: daunNum,
+                scrapQuantity: prongkolKg + daunKg,
+                scrapProngkolQty: prongkolKg,
+                scrapDaunQty: daunKg,
                 notes: notes || '',
-                operatorId: operatorId,
+                operatorId,
                 helperIds: helperIds.length > 0 ? helperIds : undefined,
                 photoUrl,
-                shiftId: effectiveShiftId || undefined,
+                shiftId: shiftId || undefined,
                 qcMeasurements: qcParameters
                     .map((param) => ({
                         parameterId: param.id,
-                        value: parseFloat(qcValues[param.id] ?? ''),
+                        value: parseAmount(qcValues[param.id] ?? ''),
                     }))
                     .filter((m) => !Number.isNaN(m.value)),
                 clientRequestId: actualPackagingEnabled
@@ -438,862 +457,293 @@ export function KioskLogOutputDialog({
             if (result.success) {
                 pendingRequestIdRef.current = null;
                 toast.success(kioskLabels.wizardSuccessDesc);
-                setLoggedOutputs((prev) => [
-                    ...prev,
-                    {
-                        quantity: qtyNum,
-                        unit: unitMeta.displayUnit,
-                        hasPhoto: !!photoUrl,
-                    },
-                ]);
-                setShowSuccess(true);
-                if (onSuccess) onSuccess();
+                setSession((prev) => ({
+                    count: prev.count + 1,
+                    total: prev.total + safeQty,
+                }));
+                setSavedRows(
+                    summaryRows.filter(
+                        (row) => row.label !== kioskLabels.shift,
+                    ),
+                );
+                onSuccess?.();
             } else if (result.code === PACKAGED_REQUEST_REUSED) {
                 // An earlier attempt was saved with other numbers.
                 pendingRequestIdRef.current = null;
                 toast.error(kioskLabels.packagedRequestReused);
             } else {
-                toast.error(result.error || 'Gagal mencatat hasil');
+                toast.error(result.error || kioskLabels.wizardFailed);
             }
         } catch (error) {
-            toast.error('Gagal memproses. Silakan coba lagi.');
+            toast.error(kioskLabels.wizardFailed);
             console.error(error);
         } finally {
+            setIsUploadingPhoto(false);
             setIsLoading(false);
         }
     };
 
-    // Step 0: Qty — only reject negative
-    const handleNextFromQty = () => {
-        if (qtyNum < 0) {
-            toast.error('Jumlah hasil tidak boleh negatif');
-            return;
-        }
-        // Allow qty=0 (will be validated at confirm step)
-        setStep(1);
+    const goNext = () => {
+        if (!problem) setStepIndex(index + 1);
     };
 
-    // Step 1: Scrap — handle confirmations
-    const handleNextFromScrap = () => {
-        const scrapAlreadyZero = !hasScrap;
-
-        if (qtyNum === 0 && scrapAlreadyZero) {
-            // qty=0 + scrap=0 → block, need at least one
-            toast.error('Masukkan jumlah hasil atau scrap');
-            return;
-        }
-
-        if (qtyNum === 0 && hasScrap) {
-            // qty=0 + scrap>0 → scrap-only confirmation
-            setScrapConfirmMode('scrap-only');
-            return;
-        }
-
-        if (qtyNum > 0 && scrapAlreadyZero) {
-            // qty>0 + scrap=0 → scrap-zero warning
-            setScrapConfirmMode('scrap-zero');
-            return;
-        }
-
-        // qty>0 + scrap>0 → normal flow
-        setStep(step + 1);
-    };
-
-    const handleNextFromPackaging = () => {
-        const problem = packagingContext
-            ? packagingStepProblem(
-                  packagingContext,
-                  effectiveGroups,
-                  baseQtyNum,
-                  unitMeta.primaryUnit,
-              )
-            : baseQtyNum > 0
-              ? kioskLabels.packagingNotLoaded
-              : null;
-        if (problem) {
-            toast.error(problem);
-            return;
-        }
-        setStep(step + 1);
-    };
-
-    const handleScrapConfirm = () => {
-        setScrapConfirmMode('idle');
-        setStep(step + 1);
-    };
-
-    const handleScrapConfirmEditScrap = () => {
-        setScrapConfirmMode('idle');
-        // Focus on first scrap input
-        document.getElementById('log-scrap-prongkol')?.focus();
-    };
-
-    const handleScrapConfirmEditQty = () => {
-        setScrapConfirmMode('idle');
-        setStep(0);
-        // Focus on qty input
-        setTimeout(() => document.getElementById('log-quantity')?.focus(), 100);
-    };
-
-    // QC step — wajib diisi begitu variant punya parameter terdefinisi
-    // (hasQcStep true), tapi nilai di luar toleransi tidak block (warning
-    // saja) — lihat docs/plan/2026-08-11-qc-kiosk-parametric-checkpoint.md
-    const handleNextFromQC = () => {
-        const missing = qcParameters.some((param) => {
-            const raw = qcValues[param.id];
-            return raw === undefined || raw === '' || Number.isNaN(Number(raw));
-        });
-        if (missing) {
-            toast.error('Isi semua hasil ukur QC sebelum lanjut');
-            return;
-        }
-        setStep(step + 1);
-    };
-
-    const handleBack = () => {
-        if (step > 0) {
-            setStep(step - 1);
-        }
-    };
-
-    const handleReset = () => {
+    const resetForm = () => {
         setQuantity('');
-        setScrapProngkol('');
-        setScrapDaun('');
+        setScrapOnly(false);
+        setProngkol('');
+        setDaun('');
+        setNoAffal(false);
         setNotes('');
         setPhotoFile(null);
-        setShowSuccess(false);
-        setScrapConfirmMode('idle');
         setSelectedShiftId('');
         setQcValues({});
         setPackagingGroups(null);
-        setStep(0);
+        setSavedRows(null);
+        setStepIndex(0);
     };
 
     const handleClose = () => {
-        handleReset();
-        setLoggedOutputs([]);
+        resetForm();
+        setSession({ count: 0, total: 0 });
         onOpenChange(false);
     };
 
-    const handleCatatLagi = () => {
-        handleReset();
+    const handleOpenChange = (next: boolean) => {
+        if (!next) handleClose();
+        else onOpenChange(next);
     };
 
-    const handleOpenChange = (open: boolean) => {
-        if (!open) {
-            handleClose();
-        } else {
-            onOpenChange(open);
-        }
-    };
-
-    // Success screen
-    if (showSuccess) {
-        return (
-            <Dialog open={open} onOpenChange={handleOpenChange}>
-                <DialogContent className="sm:max-w-lg">
-                    <div className="flex flex-col items-center py-8 space-y-4">
-                        <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center">
-                            <CheckCircle2 className="h-8 w-8 text-emerald-600" />
-                        </div>
-                        <h2 className="text-2xl font-black">
-                            {kioskLabels.wizardSuccessTitle}
-                        </h2>
-                        <p className="text-muted-foreground text-center">
-                            {kioskLabels.wizardSuccessDesc}
-                        </p>
-
-                        {loggedOutputs.length > 0 && (
-                            <div className="w-full bg-muted/50 rounded-lg p-3 text-sm">
-                                <div className="font-bold text-emerald-600">
-                                    +{qtyNum.toLocaleString('id-ID')}{' '}
-                                    {unitMeta.displayUnit}
-                                    {hasPhoto && (
-                                        <Camera className="inline ml-2 h-4 w-4" />
-                                    )}
-                                </div>
-                                {loggedOutputs.length > 1 && (
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                        Total dicatat:{' '}
-                                        {loggedOutputs
-                                            .reduce((s, l) => s + l.quantity, 0)
-                                            .toLocaleString('id-ID')}{' '}
-                                        {unitMeta.displayUnit}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="flex gap-3 w-full pt-4">
-                            <Button
-                                variant="outline"
-                                className="flex-1 h-12 font-bold"
-                                onClick={handleCatatLagi}
-                            >
-                                <RotateCcw className="mr-2 h-5 w-5" />
-                                {kioskLabels.wizardCatatLagi}
-                            </Button>
-                            <Button
-                                className="flex-1 h-12 font-bold bg-emerald-600 hover:bg-emerald-700"
-                                onClick={handleClose}
-                            >
-                                <CheckCircle2 className="mr-2 h-5 w-5" />
-                                {kioskLabels.wizardSelesai}
-                            </Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        );
-    }
+    const stepTitle =
+        stepKey === 'hasil'
+            ? mode === 'INDIVIDUAL_OUTPUT'
+                ? kioskLabels.wizardHasilIndividualTitle
+                : kioskLabels.wizardHasilTitle
+            : STEP_TEXT[stepKey].title;
+    const stepDesc =
+        stepKey === 'hasil'
+            ? kioskLabels.wizardHasilDesc
+            : STEP_TEXT[stepKey].desc;
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="text-xl">
-                        {mode === 'GENERIC'
-                            ? `${kioskLabels.logOutput}: ${productName}`
-                            : `${kioskLabels.logOutputModeTitle} ${
-                                  processNameSnapshot || productName
-                              }`}
-                    </DialogTitle>
-                    <DialogDescription className="sr-only">
-                        Wizard catat hasil produksi
-                    </DialogDescription>
-                </DialogHeader>
-
-                {/* Step header with progress */}
-                <KioskStepHeader
-                    currentStep={step + 1}
-                    totalSteps={STEPS.length}
-                    title={STEPS[step].title}
-                    subtitle={STEPS[step].subtitle}
-                />
-
-                {/* Step content */}
-                <div className="min-h-[280px] py-4">
-                    {/* Step 1: Qty */}
-                    {STEPS[step].key === 'qty' && (
-                        <div className="space-y-4 animate-in fade-in duration-200">
-                            <div className="space-y-2">
-                                <Label
-                                    htmlFor="log-quantity"
-                                    className="text-base font-semibold"
-                                >
-                                    {mode === 'GENERIC'
-                                        ? `${kioskLabels.wizardQtyLabel} (${unitMeta.displayUnit})`
-                                        : mode === 'MATERIAL_CONVERSION'
-                                          ? `${kioskLabels.logOutput} (${unitMeta.displayUnit})`
-                                          : `${kioskLabels.qtyIndividualLabel} (${unitMeta.displayUnit})`}
-                                </Label>
-                                <Input
-                                    id="log-quantity"
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    className="h-16 text-2xl font-bold bg-emerald-500/10 border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500"
-                                    value={quantity}
-                                    onChange={(e) =>
-                                        setQuantity(e.target.value)
-                                    }
-                                    autoFocus
-                                />
-                                {unitMeta.hasAlternateUnit && (
-                                    <p className="text-xs text-muted-foreground">
-                                        Dicatat internal sebagai{' '}
-                                        {unitMeta.primaryUnit}
-                                    </p>
-                                )}
-                                {mode === 'MATERIAL_CONVERSION' &&
-                                    ratioItem && (
-                                        <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-1">
-                                            <p className="text-xs font-semibold text-violet-800">
-                                                {kioskLabels.bomStandardLabel}:{' '}
-                                                {Number(
-                                                    ratioItem.quantity,
-                                                ).toLocaleString('id-ID')}{' '}
-                                                {
-                                                    ratioItem.productVariant
-                                                        .primaryUnit
-                                                }{' '}
-                                                / {Number(bomOutputQuantity)}{' '}
-                                                {outputUnit}
-                                            </p>
-                                            {materialPreview && (
-                                                <p className="text-sm font-bold text-violet-900">
-                                                    {
-                                                        kioskLabels.bomWipPreviewLabel
-                                                    }
-                                                    :{' '}
-                                                    {materialPreview.requiredQty.toLocaleString(
-                                                        'id-ID',
-                                                    )}{' '}
-                                                    {materialPreview.unit}
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-                                {mode === 'MATERIAL_CONVERSION' &&
-                                    !ratioItem && (
-                                        <p className="text-xs text-amber-600 font-medium">
-                                            {kioskLabels.bomInvalidMessage}
-                                        </p>
-                                    )}
-                            </div>
-                        </div>
-                    )}
-
-                    {STEPS[step].key === 'packaging' && (
-                        <KioskPackagingStep
-                            context={packagingContext}
-                            isLoading={packaging?.isLoading ?? false}
-                            error={packaging?.error ?? ''}
-                            onRetry={packaging?.onRetry ?? (() => {})}
-                            groups={effectiveGroups}
-                            onChange={setPackagingGroups}
-                            baseQty={baseQtyNum}
-                            unit={unitMeta.primaryUnit}
+            <DialogContent
+                showCloseButton={false}
+                className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-2xl"
+            >
+                {savedRows ? (
+                    <div className="flex-1 overflow-y-auto">
+                        <DialogDescription className="sr-only">
+                            {productName}
+                        </DialogDescription>
+                        <WizardSaved
+                            rows={savedRows}
+                            sessionTotal={
+                                session.count > 1
+                                    ? `${num(session.total)} ${unitMeta.displayUnit}`
+                                    : null
+                            }
+                            onAgain={resetForm}
+                            onDone={handleClose}
                         />
-                    )}
-
-                    {/* Step 2: Scrap */}
-                    {STEPS[step].key === 'scrap' && (
-                        <div className="space-y-4 animate-in fade-in duration-200">
-                            {/* Scrap confirm banners */}
-                            {scrapConfirmMode === 'scrap-zero' && (
-                                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
-                                    <div className="flex items-start gap-3">
-                                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                                        <div>
-                                            <p className="font-semibold text-amber-800">
-                                                {
-                                                    kioskLabels.wizardScrapZeroTitle
-                                                }
-                                            </p>
-                                            <p className="text-sm text-amber-700 mt-1">
-                                                {
-                                                    kioskLabels.wizardScrapZeroDesc
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 justify-end">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="border-amber-400 text-amber-700 hover:bg-amber-100"
-                                            onClick={
-                                                handleScrapConfirmEditScrap
-                                            }
-                                        >
-                                            Isi Scrap
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            className="bg-amber-600 hover:bg-amber-700"
-                                            onClick={handleScrapConfirm}
-                                        >
-                                            {kioskLabels.wizardScrapZeroYes}
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {scrapConfirmMode === 'scrap-only' && (
-                                <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 space-y-3">
-                                    <div className="flex items-start gap-3">
-                                        <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
-                                        <div>
-                                            <p className="font-semibold text-blue-800">
-                                                {
-                                                    kioskLabels.wizardScrapOnlyTitle
-                                                }
-                                            </p>
-                                            <p className="text-sm text-blue-700 mt-1">
-                                                {
-                                                    kioskLabels.wizardScrapOnlyDesc
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 justify-end">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="border-blue-400 text-blue-700 hover:bg-blue-100"
-                                            onClick={handleScrapConfirmEditQty}
-                                        >
-                                            Isi Hasil Bagus
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            className="bg-blue-600 hover:bg-blue-700"
-                                            onClick={handleScrapConfirm}
-                                        >
-                                            {kioskLabels.wizardScrapOnlyYes}
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {scrapConfirmMode === 'idle' && (
-                                <>
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="log-scrap-prongkol"
-                                            className="text-sm font-semibold text-amber-500"
-                                        >
-                                            {kioskLabels.wizardScrapProngkol} (
-                                            {unitMeta.primaryUnit})
-                                        </Label>
-                                        <Input
-                                            id="log-scrap-prongkol"
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
-                                            value={scrapProngkol}
-                                            onChange={(e) =>
-                                                setScrapProngkol(e.target.value)
-                                            }
-                                            autoFocus
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="log-scrap-daun"
-                                            className="text-sm font-semibold text-amber-500"
-                                        >
-                                            {kioskLabels.wizardScrapDaun} (
-                                            {unitMeta.primaryUnit})
-                                        </Label>
-                                        <Input
-                                            id="log-scrap-daun"
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="h-14 text-xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
-                                            value={scrapDaun}
-                                            onChange={(e) =>
-                                                setScrapDaun(e.target.value)
-                                            }
-                                        />
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Kosongkan jika tidak ada scrap. Lanjut
-                                        untuk skip.
+                    </div>
+                ) : (
+                    <>
+                        <div className="grid gap-3 border-b px-4 py-3 md:px-6">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="truncate text-base text-muted-foreground">
+                                        {kioskLabels.wizardTitle} ·{' '}
+                                        {processNameSnapshot || productName}
                                     </p>
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Step QC — hanya muncul kalau variant punya parameter terdefinisi */}
-                    {STEPS[step].key === 'qc' && (
-                        <div className="space-y-4 animate-in fade-in duration-200">
-                            {qcParameters.map((param, idx) => {
-                                const rawValue = qcValues[param.id] ?? '';
-                                const numValue = parseFloat(rawValue);
-                                const outOfRange =
-                                    rawValue !== '' &&
-                                    !Number.isNaN(numValue) &&
-                                    isQcValueOutOfRange(param, numValue);
-                                return (
-                                    <div key={param.id} className="space-y-1.5">
-                                        <Label
-                                            htmlFor={`log-qc-${param.id}`}
-                                            className="text-sm font-semibold"
-                                        >
-                                            {param.name} ({param.unit})
-                                        </Label>
-                                        <Input
-                                            id={`log-qc-${param.id}`}
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className={`h-14 text-xl font-bold ${
-                                                outOfRange
-                                                    ? 'bg-amber-500/10 border-amber-500/50 focus:border-amber-500 focus:ring-amber-500'
-                                                    : 'bg-emerald-500/10 border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500'
-                                            }`}
-                                            value={rawValue}
-                                            onChange={(e) =>
-                                                setQcValues((prev) => ({
-                                                    ...prev,
-                                                    [param.id]: e.target.value,
-                                                }))
-                                            }
-                                            autoFocus={idx === 0}
-                                        />
-                                        {outOfRange && (
-                                            <p className="text-xs font-medium text-amber-600 flex items-center gap-1">
-                                                <AlertTriangle className="h-3 w-3" />
-                                                {kioskLabels.wizardQCOutOfRange}
-                                            </p>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* Step 3: Photo */}
-                    {STEPS[step].key === 'photo' && (
-                        <div className="space-y-4 animate-in fade-in duration-200">
-                            <div className="space-y-2">
-                                <Label className="text-sm font-semibold">
-                                    {kioskLabels.wizardPhotoLabel}
-                                </Label>
-                                <CameraCapture
-                                    onCapture={setPhotoFile}
-                                    onRemove={() => setPhotoFile(null)}
-                                    disabled={isLoading || isUploadingPhoto}
-                                />
-                                {isUploadingPhoto && (
-                                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                                        <Loader2 className="h-3 w-3 animate-spin" />{' '}
-                                        Mengupload foto...
-                                    </p>
+                                    <DialogTitle className="text-2xl font-extrabold">
+                                        {stepTitle}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-base">
+                                        {stepDesc}
+                                    </DialogDescription>
+                                </div>
+                                <KioskDialogClose />
+                            </div>
+                            <WizardStepBar
+                                labels={steps.map(
+                                    (key) => WIZARD_STEP_LABEL[key],
                                 )}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="log-notes">
-                                    {kioskLabels.wizardNotesLabel}
-                                </Label>
-                                <Textarea
-                                    id="log-notes"
-                                    placeholder="contoh: Nomor Batch, ID Roll..."
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    className="bg-muted border-border"
-                                />
-                            </div>
+                                current={index}
+                            />
                         </div>
-                    )}
 
-                    {/* Step 4: Confirm */}
-                    {STEPS[step].key === 'confirm' && (
-                        <div className="space-y-4 animate-in fade-in duration-200">
-                            {/* Summary */}
-                            <div className="bg-muted/50 rounded-xl border p-4 space-y-3">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <span className="text-xs text-muted-foreground uppercase font-bold">
-                                            {kioskLabels.wizardSummaryQty}
-                                        </span>
-                                        <p className="text-2xl font-black text-emerald-600">
-                                            {qtyNum.toLocaleString('id-ID')}{' '}
-                                            {unitMeta.displayUnit}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs text-muted-foreground uppercase font-bold">
-                                            {kioskLabels.wizardSummaryScrap}
-                                        </span>
-                                        <p className="text-2xl font-black text-amber-600">
-                                            {totalScrap.toLocaleString('id-ID')}{' '}
-                                            {unitMeta.primaryUnit}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                    <Camera className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-medium">
-                                        {kioskLabels.wizardSummaryFoto}:
-                                    </span>
-                                    <span
-                                        className={
-                                            hasPhoto
-                                                ? 'text-emerald-600 font-bold'
-                                                : 'text-muted-foreground'
+                        <div className="grid flex-1 content-start gap-4 overflow-y-auto p-4 md:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+                            {stepKey === 'hasil' && (
+                                <StepHasil
+                                    value={quantity}
+                                    unit={unitMeta.displayUnit}
+                                    onChange={(value) => {
+                                        setQuantity(value);
+                                        if (parseAmount(value) > 0)
+                                            setScrapOnly(false);
+                                    }}
+                                    onZeroOutput={() => {
+                                        setQuantity('0');
+                                        setScrapOnly(true);
+                                        setNoAffal(false);
+                                        setStepIndex(1);
+                                    }}
+                                    baseUnitNote={
+                                        unitMeta.hasAlternateUnit
+                                            ? unitMeta.primaryUnit
+                                            : null
+                                    }
+                                    conversion={
+                                        ratioItem
+                                            ? {
+                                                  standard: `${num(Number(ratioItem.quantity))} ${ratioItem.productVariant.primaryUnit} / ${Number(bomOutputQuantity)} ${outputUnit}`,
+                                                  preview: materialPreview
+                                                      ? `${kioskLabels.bomWipPreviewLabel}: ${num(materialPreview.requiredQty)} ${materialPreview.unit}`
+                                                      : null,
+                                              }
+                                            : null
+                                    }
+                                    conversionInvalid={
+                                        mode === 'MATERIAL_CONVERSION' &&
+                                        !ratioItem
+                                    }
+                                />
+                            )}
+                            {stepKey === 'packaging' && (
+                                <div className="rounded-2xl border-2 border-border bg-card p-4">
+                                    <KioskPackagingStep
+                                        context={packagingContext}
+                                        isLoading={
+                                            packaging?.isLoading ?? false
                                         }
-                                    >
-                                        {hasPhoto
-                                            ? kioskLabels.wizardSummaryAda
-                                            : kioskLabels.wizardSummaryTidak}
-                                    </span>
+                                        error={packaging?.error ?? ''}
+                                        onRetry={
+                                            packaging?.onRetry ?? (() => {})
+                                        }
+                                        groups={effectiveGroups}
+                                        onChange={setPackagingGroups}
+                                        baseQty={baseQty}
+                                        unit={unitMeta.primaryUnit}
+                                    />
                                 </div>
-                                {actualPackagingEnabled &&
-                                    packagingContext &&
-                                    baseQtyNum > 0 && (
-                                        <div className="text-sm space-y-1 border-t pt-3">
-                                            <span className="text-xs text-muted-foreground uppercase font-bold">
-                                                {kioskLabels.wizardSummaryKemasan}
-                                            </span>
-                                            {effectiveGroups.flatMap((group) =>
-                                                group.packaging.map((row) => (
-                                                    <div
-                                                        key={`${group.productVariantId}-${row.productVariantId}-${row.sourceLocationId}`}
-                                                        className="flex justify-between gap-3"
-                                                    >
-                                                        <span>
-                                                            {materialName(
-                                                                packagingContext,
-                                                                row.productVariantId,
-                                                            )}
-                                                        </span>
-                                                        <span className="font-bold tabular-nums">
-                                                            {row.quantity.toLocaleString(
-                                                                'id-ID',
-                                                            )}{' '}
-                                                            {row.unit === 'KG'
-                                                                ? 'KG'
-                                                                : 'lembar/pcs'}
-                                                        </span>
-                                                    </div>
-                                                )),
-                                            )}
-                                        </div>
-                                    )}
-                                {hasQcStep && (
-                                    <div className="text-sm space-y-1 border-t pt-3">
-                                        <span className="text-xs text-muted-foreground uppercase font-bold">
-                                            {kioskLabels.wizardStepQC}
-                                        </span>
-                                        {qcParameters.map((param) => {
-                                            const raw =
-                                                qcValues[param.id] ?? '';
-                                            const num = parseFloat(raw);
-                                            const outOfRange =
-                                                raw !== '' &&
-                                                !Number.isNaN(num) &&
-                                                isQcValueOutOfRange(param, num);
-                                            return (
-                                                <div
-                                                    key={param.id}
-                                                    className="flex justify-between"
-                                                >
-                                                    <span>{param.name}</span>
-                                                    <span
-                                                        className={
-                                                            outOfRange
-                                                                ? 'font-bold text-amber-600'
-                                                                : 'font-bold text-emerald-600'
-                                                        }
-                                                    >
-                                                        {raw || '-'}{' '}
-                                                        {param.unit}
-                                                        {outOfRange && (
-                                                            <AlertTriangle className="inline ml-1 h-3 w-3" />
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            );
+                            )}
+                            {stepKey === 'affal' && (
+                                <StepAffal
+                                    prongkol={prongkol}
+                                    daun={daun}
+                                    onProngkolChange={(value) => {
+                                        setProngkol(value);
+                                        setNoAffal(false);
+                                    }}
+                                    onDaunChange={(value) => {
+                                        setDaun(value);
+                                        setNoAffal(false);
+                                    }}
+                                    showNoAffal={!scrapOnly}
+                                    onNoAffal={() => {
+                                        setProngkol('');
+                                        setDaun('');
+                                        setNoAffal(true);
+                                        setStepIndex(index + 1);
+                                    }}
+                                />
+                            )}
+                            {stepKey === 'qc' && (
+                                <StepQc
+                                    parameters={qcParameters}
+                                    values={qcValues}
+                                    onChange={(id, value) =>
+                                        setQcValues((prev) => ({
+                                            ...prev,
+                                            [id]: value,
+                                        }))
+                                    }
+                                />
+                            )}
+                            {stepKey === 'kirim' && (
+                                <StepKirim
+                                    shifts={shifts}
+                                    shiftId={shiftId}
+                                    onShiftChange={setSelectedShiftId}
+                                    hasActiveShift={hasActiveShift}
+                                    operatorName={operatorName || '-'}
+                                    helperCount={helperIds.length}
+                                    notes={notes}
+                                    onNotesChange={setNotes}
+                                    onPhoto={setPhotoFile}
+                                    isUploadingPhoto={isUploadingPhoto}
+                                    disabled={isLoading}
+                                />
+                            )}
+                            <WizardSummary
+                                rows={summaryRows}
+                                footer={productName}
+                            />
+                        </div>
+
+                        <div className="grid gap-2 border-t px-4 py-3 sm:flex sm:items-center sm:gap-3 md:px-6">
+                            <p
+                                aria-live="polite"
+                                className="text-base text-muted-foreground sm:order-2 sm:min-w-0 sm:flex-1 sm:text-right"
+                            >
+                                {problem}
+                            </p>
+                            <div className="flex items-center gap-3 sm:contents">
+                                {index > 0 && (
+                                    <button
+                                        type="button"
+                                        className={kioskButton({
+                                            size: 'lg',
+                                            tone: 'ghost',
+                                            className: 'sm:order-1',
                                         })}
-                                    </div>
-                                )}
-                                {notes && (
-                                    <div className="text-sm">
-                                        <span className="font-medium">
-                                            Catatan:
-                                        </span>{' '}
-                                        {notes}
-                                    </div>
-                                )}
-                                {mode === 'INDIVIDUAL_OUTPUT' && (
-                                    <div className="text-sm text-blue-800">
-                                        <span className="font-bold">
-                                            {
-                                                kioskLabels.wizardSummaryIndividualTitle
-                                            }
-                                            :
-                                        </span>{' '}
-                                        {qtyNum.toLocaleString('id-ID')}{' '}
-                                        {unitMeta.displayUnit}{' '}
-                                        {
-                                            kioskLabels.wizardSummaryIndividualDesc
-                                        }
-                                    </div>
-                                )}
-                                {mode === 'MATERIAL_CONVERSION' &&
-                                    ratioItem && (
-                                        <div className="text-sm space-y-1">
-                                            <p>
-                                                <span className="font-semibold">
-                                                    {
-                                                        kioskLabels.bomStandardLabel
-                                                    }
-                                                    :
-                                                </span>{' '}
-                                                {Number(
-                                                    ratioItem.quantity,
-                                                ).toLocaleString('id-ID')}{' '}
-                                                {
-                                                    ratioItem.productVariant
-                                                        .primaryUnit
-                                                }{' '}
-                                                / {Number(bomOutputQuantity)}{' '}
-                                                {outputUnit}
-                                            </p>
-                                            {materialPreview && (
-                                                <p>
-                                                    <span className="font-semibold">
-                                                        {
-                                                            kioskLabels.bomWipPreviewLabel
-                                                        }
-                                                        :
-                                                    </span>{' '}
-                                                    {materialPreview.requiredQty.toLocaleString(
-                                                        'id-ID',
-                                                    )}{' '}
-                                                    {materialPreview.unit}
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-                            </div>
-
-                            {/* Shift picker — shown when shifts exist */}
-                            {shifts.length > 0 && (
-                                <div className="space-y-2">
-                                    <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                                        Shift
-                                    </Label>
-                                    {!hasActiveShiftByTime && (
-                                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
-                                            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                                            <p className="text-xs text-amber-700">
-                                                Semua shift untuk SPK ini sudah
-                                                lewat. Sistem memilih shift
-                                                terakhir secara otomatis —
-                                                periksa kembali sebelum simpan,
-                                                atau hubungi PPIC untuk tambah
-                                                shift baru.
-                                            </p>
-                                        </div>
-                                    )}
-                                    <select
-                                        value={
-                                            selectedShiftId ||
-                                            autoSelectedShift?.id ||
-                                            ''
-                                        }
-                                        onChange={(e) =>
-                                            setSelectedShiftId(e.target.value)
-                                        }
-                                        className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                        onClick={() => setStepIndex(index - 1)}
+                                        disabled={isLoading}
                                     >
-                                        {shifts.map((s) => (
-                                            <option key={s.id} value={s.id}>
-                                                {formatShiftOptionLabel(s)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-                            {shifts.length === 0 && (
-                                <div className="rounded-lg border border-red-300 bg-red-50 p-3 flex items-start gap-2">
-                                    <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
-                                    <p className="text-xs text-red-700">
-                                        Belum ada shift di SPK ini — tambah
-                                        shift dulu di detail SPK atau hubungi
-                                        PPIC.
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Final validation warning */}
-                            {qtyNum === 0 && totalScrap === 0 && (
-                                <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 font-medium">
-                                    Qty bagus dan scrap keduanya 0. Masukkan
-                                    minimal satu.
-                                </div>
-                            )}
-
-                            {/* Helpers — legacy generic mode only */}
-                            {mode === 'GENERIC' && orderHelpers.length > 0 && (
-                                <div className="space-y-2">
-                                    <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                                        <Users className="h-4 w-4" />
-                                        {kioskLabels.wizardTeamLabel}
-                                    </Label>
-                                    <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded-lg border">
-                                        {orderHelpers.map((emp) => (
-                                            <span
-                                                key={emp.id}
-                                                className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                                                    emp.id === operatorId
-                                                        ? 'bg-primary/20 text-primary border border-primary/30'
-                                                        : 'bg-muted text-muted-foreground'
-                                                }`}
-                                            >
-                                                {emp.name}
-                                                {emp.id === operatorId &&
-                                                    ' (Anda)'}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                        <ArrowLeft aria-hidden="true" />
+                                        {kioskLabels.wizardBack}
+                                    </button>
+                                )}
+                                {stepKey === 'kirim' ? (
+                                    <button
+                                        type="button"
+                                        className={kioskButton({
+                                            size: 'lg',
+                                            tone: 'go',
+                                            className: 'ml-auto sm:order-3',
+                                        })}
+                                        onClick={submitOutput}
+                                        disabled={Boolean(problem) || isLoading}
+                                    >
+                                        {isLoading ? (
+                                            <Loader2
+                                                aria-hidden="true"
+                                                className="animate-spin"
+                                            />
+                                        ) : (
+                                            <Send aria-hidden="true" />
+                                        )}
+                                        {kioskLabels.wizardSubmit}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className={kioskButton({
+                                            size: 'lg',
+                                            tone: 'go',
+                                            className: 'ml-auto sm:order-3',
+                                        })}
+                                        onClick={goNext}
+                                        disabled={Boolean(problem)}
+                                    >
+                                        {kioskLabels.wizardNext}
+                                        <ArrowRight aria-hidden="true" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    )}
-                </div>
-
-                {/* Navigation */}
-                <div className="flex gap-3 pt-2 border-t">
-                    {step > 0 && scrapConfirmMode === 'idle' && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleBack}
-                            className="h-12 font-bold px-4"
-                            disabled={isLoading}
-                        >
-                            <ArrowLeft className="mr-1 h-4 w-4" />
-                            {kioskLabels.wizardBack}
-                        </Button>
-                    )}
-
-                    <div className="flex-1" />
-
-                    {step < STEPS.length - 1 && scrapConfirmMode === 'idle' ? (
-                        <Button
-                            type="button"
-                            onClick={
-                                STEPS[step].key === 'qty'
-                                    ? handleNextFromQty
-                                    : STEPS[step].key === 'packaging'
-                                      ? handleNextFromPackaging
-                                      : STEPS[step].key === 'scrap'
-                                      ? handleNextFromScrap
-                                      : STEPS[step].key === 'qc'
-                                        ? handleNextFromQC
-                                        : () => setStep(step + 1)
-                            }
-                            className="h-12 font-bold px-8 bg-emerald-600 hover:bg-emerald-700"
-                        >
-                            {kioskLabels.wizardNext}
-                            <ArrowRight className="ml-1 h-4 w-4" />
-                        </Button>
-                    ) : step === STEPS.length - 1 &&
-                      scrapConfirmMode === 'idle' ? (
-                        <Button
-                            type="button"
-                            onClick={submitOutput}
-                            disabled={
-                                isLoading || (qtyNum === 0 && totalScrap === 0)
-                            }
-                            className="h-12 font-bold px-8 bg-emerald-600 hover:bg-emerald-700"
-                        >
-                            {isLoading ? (
-                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            ) : (
-                                <Save className="mr-2 h-5 w-5" />
-                            )}
-                            {kioskLabels.wizardSubmit}
-                        </Button>
-                    ) : null}
-                </div>
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );
