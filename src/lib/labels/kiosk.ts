@@ -77,6 +77,8 @@ export const kioskLabels = {
     wizardKemasanDesc: 'Isi etiket, karung, dan plastik yang terpakai',
     wizardSummaryKemasan: 'Kemasan',
     packagingNotLoaded: 'Data kemasan belum termuat. Ketuk Coba lagi.',
+    packagedRequestReused:
+        'Catatan sebelumnya ternyata sudah tersimpan. Periksa riwayat catat, lalu kirim lagi hanya bila ini batch baru.',
     wizardStepKonfirmasi: 'Konfirmasi',
     wizardQtyDesc: 'Masukkan jumlah hasil bagus',
     wizardScrapDesc: 'Prongkol & Daun atau lewati',

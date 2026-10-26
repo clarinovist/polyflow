@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import type { KioskPackagingContext } from '@/lib/production/kiosk-packaging';
 
 const mocks = vi.hoisted(() => ({ logRunningOutput: vi.fn(), toastError: vi.fn() }));
@@ -47,6 +48,41 @@ function renderWizard(actualPackagingEnabled = true) {
 }
 
 const next = () => fireEvent.click(screen.getByRole('button', { name: /^Lanjut/ }));
+
+function ToggleHarness() {
+    const [open, setOpen] = useState(true);
+    return (
+        <>
+            <button type="button" onClick={() => setOpen(true)}>buka</button>
+            <KioskLogOutputDialog
+                open={open}
+                onOpenChange={setOpen}
+                executionId="exec-1"
+                productVariantId="base"
+                productName="Tali Rafia 1 kg"
+                primaryUnit="KG"
+                operatorId="op-1"
+                shifts={[activeShift]}
+                actualPackagingEnabled
+                packaging={{ context, isLoading: false, error: '', onRetry: () => {} }}
+            />
+        </>
+    );
+}
+
+/** Fills Hasil 25 KG and Plastik 0.8 KG, then submits. */
+async function submitPackagedEntry() {
+    fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
+    next();
+    fireEvent.change(screen.getByLabelText('Jumlah Plastik'), { target: { value: '0.8' } });
+    next();
+    next();
+    fireEvent.click(screen.getByRole('button', { name: /Ya, Tidak Ada Scrap/ }));
+    next();
+    fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+}
+const sentRequestIds = () =>
+    mocks.logRunningOutput.mock.calls.map((call) => (call[0] as { packagedOutput: { clientRequestId: string } }).packagedOutput.clientRequestId);
 
 const originalScrollIntoView = Element.prototype.scrollIntoView;
 beforeAll(() => {
@@ -112,5 +148,62 @@ describe('KioskLogOutputDialog with actual packaging', () => {
 
         expect(screen.queryByLabelText('Jumlah Plastik')).toBeNull();
         expect(screen.getByLabelText(/Scrap Prongkol/)).toBeTruthy();
+    });
+
+    it('reuses the request id after a failed submit, even across close and reopen', async () => {
+        mocks.logRunningOutput.mockResolvedValueOnce({ success: false, error: 'Koneksi terputus', code: 'INTERNAL' });
+        render(<ToggleHarness />);
+        await submitPackagedEntry();
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
+
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+        await waitFor(() => expect(screen.queryByLabelText(/Jumlah Hasil Bagus/)).toBeNull());
+        fireEvent.click(screen.getByRole('button', { name: 'buka' }));
+        await submitPackagedEntry();
+
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(2));
+        const [first, second] = sentRequestIds();
+        expect(second).toBe(first);
+    });
+
+    it('starts a new request id after a confirmed save', async () => {
+        render(<ToggleHarness />);
+        await submitPackagedEntry();
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
+
+        fireEvent.click(await screen.findByRole('button', { name: /Catat Lagi/ }));
+        await submitPackagedEntry();
+
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(2));
+        const [first, second] = sentRequestIds();
+        expect(second).not.toBe(first);
+    });
+
+    it('drops a request id the server already used, so the next batch can be sent', async () => {
+        mocks.logRunningOutput.mockResolvedValueOnce({ success: false, error: 'Permintaan sudah dipakai', code: 'PACKAGED_REQUEST_REUSED' });
+        render(<ToggleHarness />);
+        await submitPackagedEntry();
+        await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringMatching(/sudah tersimpan/)));
+
+        fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(2));
+        const [first, second] = sentRequestIds();
+        expect(second).not.toBe(first);
+    });
+
+    it('never creates a request id for SPKs without actual packaging', async () => {
+        const randomUUID = vi.spyOn(crypto, 'randomUUID');
+        renderWizard(false);
+        fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
+        next();
+        next();
+        fireEvent.click(screen.getByRole('button', { name: /Ya, Tidak Ada Scrap/ }));
+        next();
+        fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
+        expect(mocks.logRunningOutput.mock.calls[0][0].packagedOutput).toBeUndefined();
+        expect(randomUUID).not.toHaveBeenCalled();
+        randomUUID.mockRestore();
     });
 });

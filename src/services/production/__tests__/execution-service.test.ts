@@ -1480,7 +1480,19 @@ describe('ProductionExecutionService kiosk actual packaging', () => {
 
         await expect(
             ProductionExecutionService.logRunningOutput({ ...logInput, packagedOutput, kioskOperator }),
-        ).rejects.toThrow('Permintaan sudah dipakai');
+        ).rejects.toMatchObject({ message: expect.stringContaining('Permintaan sudah dipakai'), code: 'PACKAGED_REQUEST_REUSED' });
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('treats a retry with a re-uploaded photo as the same submission', async () => {
+        await ProductionExecutionService.logRunningOutput({ ...logInput, photoUrl: 'https://files.example/a.jpg', packagedOutput, kioskOperator });
+        const { requestHash } = vi.mocked(tx.productionExecution.create).mock.calls[0][0].data as { requestHash: string };
+        vi.clearAllMocks();
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue(shell as never);
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({ requestHash, status: 'COMPLETED' } as never);
+
+        await ProductionExecutionService.logRunningOutput({ ...logInput, photoUrl: 'https://files.example/b.jpg', packagedOutput, kioskOperator });
+
         expect(tx.productionExecution.create).not.toHaveBeenCalled();
     });
 

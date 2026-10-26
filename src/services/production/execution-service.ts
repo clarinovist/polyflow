@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import { logActivity } from '@/lib/tools/audit';
 import type { PackagedOutputValues } from '@/lib/schemas/production-packaging';
 import { validatePackagedOutput, postPackagedOutput } from './packaging-output-service';
-import { ProductionRuleViolationError } from '@/lib/errors/errors';
+import { BusinessRuleError, ProductionRuleViolationError } from '@/lib/errors/errors';
+import { PACKAGED_REQUEST_REUSED } from '@/lib/production/kiosk-packaging';
 import {
     StartExecutionValues,
     StopExecutionValues,
@@ -357,7 +358,7 @@ async function preparePackagedSubmission(
     const replay = await tx.productionExecution.findUnique({ where: { clientRequestId } });
     if (replay) {
         if (replay.requestHash !== requestHash || replay.status === 'VOIDED') {
-            throw new ProductionRuleViolationError('Permintaan sudah dipakai dengan data berbeda atau dibatalkan.');
+            throw new BusinessRuleError('Permintaan sudah dipakai dengan data berbeda atau dibatalkan.', undefined, PACKAGED_REQUEST_REUSED);
         }
         return false;
     }
@@ -720,7 +721,8 @@ export class ProductionExecutionService {
             ? createHash('sha256').update(JSON.stringify({
                   executionId, operatorId: requestOperatorId, shiftId: explicitShiftId, helperIds,
                   quantityProduced, enteredQuantity, enteredUnit, baseQuantityProduced, conversionFactorSnapshot,
-                  scrapQuantity, scrapProngkolQty, scrapDaunQty, notes, photoUrl, qcMeasurements, packagedOutput,
+                  // photoUrl is left out: a retry re-uploads the photo under a new URL.
+                  scrapQuantity, scrapProngkolQty, scrapDaunQty, notes, qcMeasurements, packagedOutput,
               })).digest('hex')
             : undefined;
 

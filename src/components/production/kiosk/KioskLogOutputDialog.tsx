@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -40,8 +40,10 @@ import {
     computeMaterialPreview,
 } from '@/lib/production/rewinder-workflow';
 import {
+    PACKAGED_REQUEST_REUSED,
     buildInitialGroups,
     materialName,
+    newClientRequestId,
     packagingStepProblem,
     type KioskPackagingContext,
 } from '@/lib/production/kiosk-packaging';
@@ -193,10 +195,9 @@ export function KioskLogOutputDialog({
     // null until the operator edits the step; until then it follows the prefill.
     const [packagingGroups, setPackagingGroups] =
         useState<PackagingGroups | null>(null);
-    // One id per submission, reused on retry so a lost response cannot double-post.
-    const [clientRequestId, setClientRequestId] = useState(() =>
-        crypto.randomUUID(),
-    );
+    // One id per submission. It survives failures and close/reopen so a lost
+    // response cannot double-post; only a confirmed save clears it.
+    const pendingRequestIdRef = useRef<string | null>(null);
 
     const hasQcStep = qcParameters.length > 0;
     const headSteps = actualPackagingEnabled
@@ -376,6 +377,12 @@ export function KioskLogOutputDialog({
             return;
         }
 
+        let clientRequestId: string | undefined;
+        if (actualPackagingEnabled) {
+            pendingRequestIdRef.current ??= newClientRequestId();
+            clientRequestId = pendingRequestIdRef.current;
+        }
+
         setIsLoading(true);
         try {
             let photoUrl: string | undefined;
@@ -412,7 +419,7 @@ export function KioskLogOutputDialog({
                         value: parseFloat(qcValues[param.id] ?? ''),
                     }))
                     .filter((m) => !Number.isNaN(m.value)),
-                packagedOutput: actualPackagingEnabled
+                packagedOutput: clientRequestId
                     ? {
                           clientRequestId,
                           groups:
@@ -428,6 +435,7 @@ export function KioskLogOutputDialog({
             });
 
             if (result.success) {
+                pendingRequestIdRef.current = null;
                 toast.success(kioskLabels.wizardSuccessDesc);
                 setLoggedOutputs((prev) => [
                     ...prev,
@@ -439,6 +447,10 @@ export function KioskLogOutputDialog({
                 ]);
                 setShowSuccess(true);
                 if (onSuccess) onSuccess();
+            } else if (result.code === PACKAGED_REQUEST_REUSED) {
+                // An earlier attempt was saved with other numbers.
+                pendingRequestIdRef.current = null;
+                toast.error(kioskLabels.packagedRequestReused);
             } else {
                 toast.error(result.error || 'Gagal mencatat hasil');
             }
@@ -554,7 +566,6 @@ export function KioskLogOutputDialog({
         setSelectedShiftId('');
         setQcValues({});
         setPackagingGroups(null);
-        setClientRequestId(crypto.randomUUID());
         setStep(0);
     };
 

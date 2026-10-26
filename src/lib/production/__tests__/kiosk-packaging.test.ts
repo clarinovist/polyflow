@@ -190,3 +190,26 @@ describe('sourcesFor and newPackagingRow', () => {
         expect(newPackagingRow(context, 'film')).toEqual({ productVariantId: 'film', sourceLocationId: 'pack', ownerCustomerId: null, unit: 'KG', quantity: 0 });
     });
 });
+
+describe('newClientRequestId', () => {
+    const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+    it('uses crypto.randomUUID when the page is a secure context', async () => {
+        const { newClientRequestId } = await import('../kiosk-packaging');
+
+        expect(newClientRequestId()).toMatch(UUID_V4);
+    });
+
+    it('falls back to random bytes over plain HTTP', async () => {
+        const { newClientRequestId } = await import('../kiosk-packaging');
+        const original = crypto.randomUUID;
+        Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+        try {
+            const ids = new Set(Array.from({ length: 20 }, () => newClientRequestId()));
+            expect([...ids].every((id) => UUID_V4.test(id))).toBe(true);
+            expect(ids.size).toBe(20);
+        } finally {
+            Object.defineProperty(crypto, 'randomUUID', { value: original, configurable: true });
+        }
+    });
+});
