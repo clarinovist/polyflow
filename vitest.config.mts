@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitest/config';
-import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
 // Vitest only defaults NODE_ENV to 'test' when it is UNSET. An ambient
@@ -15,11 +14,11 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 export default defineConfig({
-    plugins: [tsconfigPaths()],
     resolve: {
+        tsconfigPaths: true,
         alias: {
             'next/server': path.resolve(
-                __dirname,
+                import.meta.dirname,
                 './__mocks__/next-server.ts',
             ),
         },

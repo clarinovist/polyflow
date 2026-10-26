@@ -1,4 +1,4 @@
-import base from '../../vitest.config.ts';
+import base from '../../vitest.config.mts';
 
 if (!['1/2', '2/2'].includes(process.env.CI_BENCHMARK_SHARD)) {
     throw new Error('Collection-only config requires a two-shard benchmark; never use as a coverage gate');

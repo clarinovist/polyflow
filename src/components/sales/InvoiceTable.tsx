@@ -33,6 +33,7 @@ import {
     ChevronsLeft,
     ChevronsRight,
     Search,
+    Printer,
 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
@@ -100,6 +101,7 @@ interface InvoiceTableProps {
     initialStatus?: string;
     overdueMode?: boolean;
     canDelete?: boolean;
+    canPrint?: boolean;
     pagination?: {
         page: number;
         pageSize: number;
@@ -112,12 +114,28 @@ interface InvoiceTableProps {
     };
 }
 
+function InvoicePrintLink({ invoice }: { invoice: InvoiceData }) {
+    return (
+        <Button variant="outline" size="sm" className="min-h-11" asChild>
+            <a
+                href={`/api/print/invoice?id=${encodeURIComponent(invoice.id)}`}
+                aria-label={`Cetak invoice ${invoice.invoiceNumber} (ESC/P)`}
+                title="Unduh invoice saja untuk printer ESC/P (Dot Matrix)"
+            >
+                <Printer className="h-4 w-4" aria-hidden="true" />
+                Cetak Invoice (ESC/P)
+            </a>
+        </Button>
+    );
+}
+
 export function InvoiceTable({
     invoices,
     basePath = '/sales/orders',
     initialStatus,
     overdueMode,
     canDelete = true,
+    canPrint = false,
     pagination,
     serverSorting,
 }: InvoiceTableProps) {
@@ -428,7 +446,7 @@ export function InvoiceTable({
             {
                 id: 'actions',
                 header: () => <div className="text-right">Aksi</div>,
-                size: 100,
+                size: canPrint ? 260 : 100,
                 enableSorting: false,
                 cell: ({ row }) => {
                     const invoice = row.original;
@@ -439,7 +457,10 @@ export function InvoiceTable({
                           invoice.purchaseOrderId ||
                           invoice.id;
                     return (
-                        <div className="flex justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2">
+                            {canPrint && isAR && (
+                                <InvoicePrintLink invoice={invoice} />
+                            )}
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -507,7 +528,7 @@ export function InvoiceTable({
                 },
             },
         ],
-        [basePath, canDelete, isDeleting, serverSorting],
+        [basePath, canDelete, canPrint, isDeleting, serverSorting],
     );
 
     const serverTable = useReactTable({
@@ -671,6 +692,9 @@ export function InvoiceTable({
                                             )}
                                         </div>
                                     </details>
+                                    {canPrint && invoice.salesOrder && (
+                                        <InvoicePrintLink invoice={invoice} />
+                                    )}
                                     <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
                                         <span>
                                             Jatuh tempo:{' '}

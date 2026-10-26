@@ -3,7 +3,7 @@
 **Verifikasi mengikuti risiko, bukan jumlah file/baris. Kurangi administrasi, bukan perlindungan data.**
 File ini sumber kebijakan workflow; panduan modul hanya menambah invariant domain.
 
-**Izin tetap pengguna:** commit/push langsung ke `main`, CI/CD, deploy, dan SSH ke seluruh VPS milik pengguna (root/sudo bila perlu) diizinkan untuk scope tugas tanpa approval ulang. Verifikasi remote/target aktual, jaga WIP dan secret, serta hormati instruksi terbaru seperti “lokal saja”. Aturan ini menggantikan larangan izin ulang dalam referensi lama; bukan izin force-push, penghapusan data, atau operasi di luar scope.
+**Izin pengguna:** commit lokal dulu; push/deploy perlu izin eksplisit untuk scope yang disetujui. Izin push bukan izin deploy; bila push memicu auto-deploy, izin deploy harus ada sebelum push. SSH read-only untuk diagnosis dalam scope tetap diizinkan setelah target terverifikasi; akses SSH/root/sudo bukan izin deploy atau tulis data. Jaga WIP/secret dan gate rilis; bukan izin force-push, penghapusan data, atau operasi di luar scope. Jika tersedia, baca kebijakan workspace `../AGENTS.md`.
 
 Navigasi kode: `.agents/AGENTS.md` → `AGENTS.md` area terkait. Baca bagian relevan dari
 `docs/development/agent-workflow-reference.md` hanya saat trigger-nya berlaku: diagnosis coverage,
@@ -14,7 +14,7 @@ delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index cam
 1. **Pahami:** cek `git status --short`, lindungi WIP, lalu sebut jalur + alasan + acceptance criteria + verifikasi secara singkat sebelum edit. Investigasi bila dampak belum jelas.
 2. **Perbaiki:** kerjakan scope yang disepakati. Ringan dan Normal kecil cukup rencana di chat; file plan wajib sebelum fix untuk Kritis, delegasi, atau pekerjaan panjang/multitahap yang perlu handoff. Gunakan `docs/plan/YYYY-MM-DD-<slug>.md`; Kritis memakai bagian relevan `_TEMPLATE.md` secara ringkas; invariant, verifikasi, dan failure path/rollback tetap wajib. Plan rutin lokal/gitignored, jangan stage. Naikkan jalur dan perbarui rencana jika risiko bertambah.
 3. **Review & verifikasi:** periksa diff aktual terhadap acceptance criteria, regresi, dan guardrail; selesaikan blocker sebelum commit. Tidak perlu hitungan/checklist “Residual Gap” terpisah. Temuan di luar scope menjadi follow-up kecuali memengaruhi keamanan/kebenaran patch. Gate gagal → fix → review ulang dan ulangi pemeriksaan terdampak.
-4. **Laporkan:** ringkas perubahan, jalur, pemeriksaan lolos/gagal/tidak dijalankan beserta alasan, serta cleanup. Gate berat yang terhalang environment lokal dipindahkan ke CI/remote test terisolasi; boleh push lalu dispatch release bila perlu, tetapi belum boleh mengklaim lolos atau deploy sebelum gate rilis sukses.
+4. **Laporkan:** ringkas perubahan, jalur, pemeriksaan lolos/gagal/tidak dijalankan beserta alasan, serta cleanup. Gate berat yang terhalang environment lokal dipindahkan ke CI/remote test terisolasi; push/dispatch release hanya setelah izin masing-masing diberikan; jangan mengklaim lolos atau deploy sebelum gate rilis sukses.
 
 ## Eksekusi proporsional — jalur terpendek yang aman
 
@@ -43,7 +43,7 @@ delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index cam
 
 - Gunakan tooling lokal yang tersedia untuk pemeriksaan ringan. **Kritis tidak otomatis berarti Docker.** Full suite/coverage, integration/E2E, build produksi, dan image build diutamakan di CI.
 - Jangan otomatis menyalakan Docker, membuat container/Compose stack, atau menarik/build image lokal. Jika DB/runtime khusus diperlukan, gunakan CI service container atau remote test terisolasi yang sudah tersedia. Docker lokal hanya untuk reproduksi yang benar-benar membutuhkan lokal dan resource memadai; jelaskan kebutuhan, batasi resource, lalu bersihkan resource tugas sendiri.
-- Jangan gunakan database produksi untuk test. Test yang membutuhkan DB nyata tidak boleh diganti mock hanya demi cepat. Environment lokal tidak tersedia bukan blocker push: jalankan verifikasi di CI/remote terisolasi, pertahankan gate sebelum deploy, dan laporkan hasil yang belum ada secara jujur.
+- Jangan gunakan database produksi untuk test. Test yang membutuhkan DB nyata tidak boleh diganti mock hanya demi cepat. Environment lokal tidak tersedia bukan alasan melewati izin push: setelah diizinkan, jalankan verifikasi di CI/remote terisolasi, pertahankan gate sebelum deploy, dan laporkan hasil yang belum ada secara jujur.
 - Terminal lain aktif bukan otomatis blocker: cek konflik `.next`, workspace, lock, resource/RAM, dan proses DB. Bila konflik, tunggu/koordinasikan isolasi; jangan menghentikan proses sesi lain tanpa izin.
 
 ## Workspace & cleanup
@@ -61,18 +61,22 @@ delegasi, hooks, runtime/container, recovery/arsip, atau commit dengan index cam
 - Aktifkan hooks sekali per clone: `git config core.hooksPath .githooks`. Pertahankan guard AGENTS, data-file, dan tenant-name; baca referensi saat setup/guard terblokir (sidecar lokal wajib agar guard tenant-name aktif).
 - `.nvmrc` dan base Node `Dockerfile` harus sama; CI memakai `node-version-file: '.nvmrc'`. Perubahan runtime mengikuti referensi dan `bash scripts/check-node-version.sh`.
 - Commit setelah review acceptance criteria/guardrail dan pemeriksaan lokal yang terjangkau; gate berat berjalan di Push CI dan menerbitkan artifact release immutable. Release terjadwal atau `workflow_dispatch` hanya boleh mengonsumsi artifact exact run/SHA yang seluruh gatenya lolos. Stage/commit scope sendiri, bukan seluruh index; file campuran harus dipisahkan dulu. Sebut plan pada pesan commit bila ada; detail pathspec ada di referensi.
-- **Push langsung ke `main` diizinkan** untuk scope tugas; tidak perlu menunggu perintah “push/ship” lagi. Push dibatch dan tidak langsung deploy; release otomatis berjalan terjadwal pada hari kerja, sedangkan kebutuhan mendesak memakai `workflow_dispatch` pada `main`. SSH, deploy/restart rutin, dan migration rilis diizinkan dengan target terverifikasi, backup, serta rollback. Seeding/data patch destruktif atau perubahan credential/akses di luar scope tetap perlu instruksi spesifik.
+- **Commit lokal dulu; push dan deploy masing-masing perlu izin eksplisit.** Push ke `main` dapat memasok artifact ke release terjadwal; sebelum push, periksa apakah jadwal atau trigger akan merilis artifact itu. Dapatkan izin deploy juga bila push akan berujung deploy otomatis, atau gunakan jalur verifikasi non-deploy yang tersedia tanpa mengubah pipeline diam-diam. Setelah operasi diizinkan, verifikasi target, backup, serta rollback; seeding/data patch atau perubahan credential/akses memerlukan scope spesifik.
 - **CI tidak dikurangi:** artifact commit SHA yang dideploy wajib lolos full coverage, lint/typecheck/JEV, kedua contract PostgreSQL, worker smoke, Nginx, serta build-and-push di `.github/workflows/ci.yml`. Push CI menerbitkan manifest SHA/run-attempt/digest immutable; `.github/workflows/production.yml` hanya memverifikasi bukti tersebut lalu migrate/deploy. Build produksi di CI → registry → VPS pull/restart; **jangan build di VPS**.
 - Sebelum deploy/operasi produksi, baca `docs/ops/vps.md` lokal; jika tidak ada, cari runbook/inventaris tepercaya atau konfigurasi SSH yang tersedia. Minta hanya detail target yang benar-benar belum terverifikasi, bukan izin SSH ulang; jangan menebak. Pascadeploy: health/log + smoke test; perubahan schema/data juga wajib verifikasi migration dan invariant/isi tabel tenant target. CI green bukan bukti data benar.
 - Debug DB produksi wajib read-only (`SET TRANSACTION READ ONLY` / user read-only); tulis langsung ke DB prod hanya lewat alur rilis/migration. Satu key SSH per perangkat; key tak terpakai dihapus dari `authorized_keys`. Detail pola di `docs/ops/vps.md` (lokal).
 
 ## Delegasi (opsional)
 
+- Dalam Hermes, kerjakan langsung di sesi yang sama; worker/reviewer tambahan memerlukan persetujuan runner/model/scope/biaya dan akses terverifikasi. Jangan otomatis mengganti CLI/model atau mengaktifkan delegasi bawaan. CommandCode tidak aktif: jangan otomatis menjalankan CLI/API, login, atau smoke-test.
+- Review sendiri adalah self-review, bukan review independen. Tetap periksa diff dan bukti gate yang relevan.
 - Edit kecil kerjakan langsung. Setiap dispatch perlu approval eksplisit, file plan, dan scope ownership terbatas; baca prosedur worker di referensi sebelum dispatch. Gunakan Pi, bukan OpenCode.
 - Default warisi model sesi. Worker code/migration/test minimum tier Sonnet; Haiku hanya task mekanis bounded. Jangan menurunkan tier demi biaya atau mengganti model tanpa alasan.
 - Orchestrator review diff aktual dan bukti verifikasi worker; gunakan hasil identik tanpa mengulang suite. Scope melenceng/overlap → hentikan dan review, jangan revert sesi lain. Operasi produksi, credential, commit/push/deploy dikoordinasikan orchestrator memakai izin tetap di atas; worker tetap mengikuti scope delegasi.
 
-## codemode
+## Codemode — khusus Pi
+
+Resep berikut hanya berlaku di Pi dengan `codemode` tersedia. Di Hermes gunakan tool yang tersedia pada sesi aktif, bukan memasang Pi atau menebak nama tool. Prinsip file-backed, urutan mutasi, exit status, dan perlindungan data tetap berlaku di semua runner.
 
 - Gunakan `codemode` secara adaptif: dua atau lebih call independen, loop/filter/agregasi, output besar yang perlu diringkas, atau chaining sederhana. Untuk satu `read`/`bash`/`edit`/`write` trivial, panggil tool langsung.
 - Skrip adalah JavaScript mentah (bukan JSON/fence), dijalankan sebagai body async di sandbox QuickJS: top-level `await`/`return` bisa; tanpa Node/fs/network/timer. Dunia luar hanya via `tools.*` dan `models`. Skrip tidak bisa memanggil `codemode` lain dari dalam.

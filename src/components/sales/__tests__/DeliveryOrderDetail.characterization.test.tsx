@@ -564,6 +564,14 @@ describe('DeliveryOrderDetail characterization', () => {
         ).toBe('');
     });
 
+    it('does not offer invoice printing before an invoice exists', async () => {
+        render(<DeliveryOrderDetail order={makeOrder()} />);
+        const menu = await openDocuments();
+        expect(within(menu).queryByRole('menuitem', { name: /Cetak invoice/ })).toBeNull();
+        expect(within(menu).queryByRole('menuitem', { name: /SJ \+ Invoice/ })).toBeNull();
+        expect(within(menu).getByRole('menuitem', { name: 'Cetak Surat Jalan' })).toBeTruthy();
+    });
+
     it('preserves print preview props and ordered SJ/invoice bundle links', async () => {
         const order = makeOrder({
             status: 'CANCELLED',
@@ -573,6 +581,11 @@ describe('DeliveryOrderDetail characterization', () => {
         });
         const { rerender } = render(<DeliveryOrderDetail order={order} />);
         let menu = await openDocuments();
+        expect(
+            within(menu).getByRole('menuitem', {
+                name: 'Cetak invoice INV-ONE saja (ESC/P)',
+            }).getAttribute('href'),
+        ).toBe('/api/print/invoice?id=invoice-one');
         expect(
             within(menu)
                 .getByRole('menuitem', { name: 'ESC/P (Dot Matrix)' })
@@ -615,6 +628,11 @@ describe('DeliveryOrderDetail characterization', () => {
             />,
         );
         menu = await openDocuments();
+        for (const [number, id] of [['INV-ONE', 'invoice-one'], ['INV-TWO', 'invoice-two']]) {
+            expect(within(menu).getByRole('menuitem', {
+                name: `Cetak invoice ${number} saja (ESC/P)`,
+            }).getAttribute('href')).toBe(`/api/print/invoice?id=${id}`);
+        }
         expect(
             within(menu)
                 .getByRole('menuitem', {

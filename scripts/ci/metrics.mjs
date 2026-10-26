@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 
 export function fingerprint() {
     return createHash('sha256').update([
-        'package-lock.json', '.nvmrc', 'vitest.config.ts', 'vitest.setup.ts',
+        'package-lock.json', '.nvmrc', 'vitest.config.mts', 'vitest.setup.ts',
     ].map(file => readFileSync(file)).join('\0')).digest('hex');
 }
 

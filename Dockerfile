@@ -8,6 +8,7 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
+COPY vendor/node-domexception ./vendor/node-domexception
 RUN \
   if [ -f package-lock.json ]; then npm ci; \
   else echo "Lockfile not found." && exit 1; \
@@ -72,6 +73,7 @@ RUN adduser --system --uid 1001 nextjs
 
 
 
+COPY --from=deps --chown=nextjs:nodejs /app/vendor/node-domexception ./vendor/node-domexception
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache

@@ -199,7 +199,7 @@ export function ProductionOrderForm({
     // P1: Track qtyHint for prefill
     const qtyHintRef = useRef(qtyHint);
     // P2: Dirty flag — prevent preview seed from overwriting user edits
-    const itemsDirtyRef = useRef(false);
+    const [itemsDirty, setItemsDirty] = useState(false);
 
     const locationLikes = useMemo(
         () => locations as LocationLike[],
@@ -435,11 +435,11 @@ export function ProductionOrderForm({
         if (
             !materialPreview.isCalculating &&
             materialPreview.items.length > 0 &&
-            !itemsDirtyRef.current
+            !itemsDirty
         ) {
             form.setValue('items', materialPreview.items);
         }
-    }, [materialPreview.items, materialPreview.isCalculating, form]);
+    }, [materialPreview.items, materialPreview.isCalculating, form, itemsDirty]);
 
     // Clear items when preview empties (e.g., bomId cleared)
     useEffect(() => {
@@ -449,7 +449,7 @@ export function ProductionOrderForm({
             watchBomId
         ) {
             form.setValue('items', []);
-            itemsDirtyRef.current = false;
+            setItemsDirty(false);
         }
     }, [
         materialPreview.isCalculating,
@@ -465,7 +465,7 @@ export function ProductionOrderForm({
     // get silently discarded by adjusting the target quantity or source warehouse.
     // See docs/plan/2026-08-10-fix-spk-material-edit-revert.md.
     useEffect(() => {
-        itemsDirtyRef.current = false;
+        setItemsDirty(false);
     }, [watchBomId]);
 
     // Display items: form items (edited) if available, else preview
@@ -650,7 +650,7 @@ export function ProductionOrderForm({
             form.setValue('plannedQuantity', 0);
             form.setValue('machineId', '');
             form.setValue('items', []);
-            itemsDirtyRef.current = false;
+            setItemsDirty(false);
             // Re-apply qtyHint if still pending
             if (qtyHintRef.current && qtyHintRef.current > 0) {
                 form.setValue('plannedQuantity', qtyHintRef.current);
@@ -749,7 +749,7 @@ export function ProductionOrderForm({
                     : i,
             );
             form.setValue('items', updated);
-            itemsDirtyRef.current = true;
+            setItemsDirty(true);
         },
         [form, markDirty],
     );
@@ -766,7 +766,7 @@ export function ProductionOrderForm({
                 ...current,
                 { productVariantId, quantity: qty },
             ]);
-            itemsDirtyRef.current = true;
+            setItemsDirty(true);
 
             const locationName =
                 locations.find((l) => l.id === locationId)?.name || '';
@@ -802,7 +802,7 @@ export function ProductionOrderForm({
                 'items',
                 current.filter((i) => i.productVariantId !== productVariantId),
             );
-            itemsDirtyRef.current = true;
+            setItemsDirty(true);
 
             setManualMaterialMeta((prev) => {
                 if (!(productVariantId in prev)) return prev;
@@ -1510,7 +1510,7 @@ export function ProductionOrderForm({
                                 Periksa kebutuhan bahan. Penyesuaian hanya
                                 berlaku untuk SPK ini, bukan resep utama.
                             </p>
-                            {itemsDirtyRef.current && (
+                            {itemsDirty && (
                                 <p className="mb-3 rounded-lg border bg-muted p-3 text-sm">
                                     Bahan disesuaikan manual. Periksa kembali
                                     jumlahnya jika target berubah.

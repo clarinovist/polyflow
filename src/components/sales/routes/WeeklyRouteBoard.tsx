@@ -105,7 +105,9 @@ export function WeeklyRouteBoard({
         string | null
     >(null);
 
-    const userIds = team.map((t) => t.id);
+    // Preserve value-based identity even when a parent recreates the team array.
+    const userIdsKey = JSON.stringify(team.map((t) => t.id));
+    const userIds = useMemo<string[]>(() => JSON.parse(userIdsKey), [userIdsKey]);
     const isFirstRender = useRef(true);
     const today = todayISO();
 
@@ -122,8 +124,7 @@ export function WeeklyRouteBoard({
         } finally {
             setLoading(false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [weekStart, JSON.stringify(userIds)]);
+    }, [weekStart, userIds]);
 
     useEffect(() => {
         if (isFirstRender.current) {

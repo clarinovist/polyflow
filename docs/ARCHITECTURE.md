@@ -441,7 +441,7 @@ PolyFlow intentionally avoids Redux/Zustand/Recoil because:
 
 **Tools**:
 
-- **Vitest** - Unit + integration tests (configured in `vitest.config.ts`)
+- **Vitest** - Unit + integration tests (configured in `vitest.config.mts`)
 - **Testing Library** - React component tests
 - **jsdom** - DOM environment for unit tests
 

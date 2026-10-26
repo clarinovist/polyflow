@@ -537,8 +537,10 @@ describe('ProductionOrderForm — editable material list (step 3)', () => {
 
         expect(screen.getByText('Bahan A')).toBeTruthy();
         expect(screen.getByText('Bahan B')).toBeTruthy();
+        expect(screen.queryByText(/Bahan disesuaikan manual/)).toBeNull();
 
         removeRow('Bahan A');
+        expect(screen.getByText(/Bahan disesuaikan manual/)).toBeTruthy();
 
         expect(screen.queryByText('Bahan A')).toBeNull();
         expect(screen.getByText('Bahan B')).toBeTruthy();

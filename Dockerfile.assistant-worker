@@ -4,6 +4,7 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY vendor/node-domexception ./vendor/node-domexception
 RUN npm ci
 
 FROM base AS builder
@@ -18,6 +19,7 @@ RUN addgroup --system --gid 1001 nodejs \
     && mkdir -p /data /app/dist \
     && chown -R assistant:nodejs /data /app
 COPY --from=deps --chown=assistant:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=assistant:nodejs /app/vendor/node-domexception ./vendor/node-domexception
 COPY --from=builder --chown=assistant:nodejs /app/dist/assistant-worker ./dist/assistant-worker
 COPY --from=builder --chown=assistant:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=assistant:nodejs /app/prisma ./prisma

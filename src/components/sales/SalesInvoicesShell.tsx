@@ -307,6 +307,7 @@ export function SalesInvoicesShell({
                         // double-filtering by literal equality (breaks on non-enum values
                         // like 'PENDING').
                         initialStatus="ALL"
+                        canPrint
                         canDelete={canAccessFinance}
                     />
                 </CardContent>

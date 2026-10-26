@@ -71,7 +71,7 @@ describe('independent shard merge orchestration', () => {
         const mergeCalls = mocks.timed.mock.calls.filter(call => call[0] === 'merge-and-global-coverage');
         expect(mergeCalls).toHaveLength(1);
         expect(mergeCalls[0][2]).toContain(`--mergeReports=${directory}/blobs`);
-        expect(mergeCalls[0][2]).toContain('--config=vitest.config.ts');
+        expect(mergeCalls[0][2]).toContain('--config=vitest.config.mts');
         expect(mergeCalls[0][2]).toContain('--coverage');
         expect(mergeCalls[0][2]).not.toContain('run');
         expect(mocks.emit).toHaveBeenCalledWith({ kind: 'shard-coverage-gate', result: 'passed', fileCount: 2 });

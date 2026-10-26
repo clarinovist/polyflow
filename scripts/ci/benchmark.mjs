@@ -126,7 +126,7 @@ export async function merge(input) {
     }
     // No test execution: Vitest replays blobs and merges Istanbul maps with global thresholds.
     const code = await timed('merge-and-global-coverage', process.execPath, [vitest,
-        `--mergeReports=${directory}/blobs`, '--coverage', '--config=vitest.config.ts',
+        `--mergeReports=${directory}/blobs`, '--coverage', '--config=vitest.config.mts',
         '--reporter=default', '--reporter=./scripts/ci/timing-reporter.mjs',
         `--coverage.reportsDirectory=${directory}/coverage`], {
         env: { ...process.env, CI_TEST_MANIFEST: `${directory}/manifest.json` },

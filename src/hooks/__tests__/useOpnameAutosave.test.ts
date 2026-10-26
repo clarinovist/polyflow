@@ -109,7 +109,7 @@ describe('useOpnameAutosave', () => {
             .mockResolvedValue(undefined);
         const payload = { count: '10' };
 
-        const { result } = renderHook(
+        const { result, rerender } = renderHook(
             ({ p }) => useOpnameAutosave(p, saveFn, { delayMs: 500 }),
             { initialProps: { p: payload } },
         );
@@ -117,6 +117,8 @@ describe('useOpnameAutosave', () => {
         await act(async () => {
             vi.advanceTimersByTime(500);
         });
+        rerender({ p: { count: '20' } });
+        await act(async () => { vi.advanceTimersByTime(500); });
 
         expect(result.current.status).toBe('saving');
         expect(saveFn).toHaveBeenCalledTimes(1);
@@ -125,6 +127,8 @@ describe('useOpnameAutosave', () => {
             resolveFirst!();
         });
 
+        expect(saveFn).toHaveBeenCalledTimes(2);
+        expect(saveFn).toHaveBeenLastCalledWith({ count: '20' });
         expect(result.current.status).toBe('saved');
     });
 
