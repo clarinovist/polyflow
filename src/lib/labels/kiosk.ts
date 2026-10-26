@@ -75,12 +75,49 @@ export const kioskLabels = {
     searchFilter: 'Filter atau cari SPK...',
     refresh: 'Segarkan',
 
+    // Akhiri pekerjaan (stop dialog)
+    stopTitle: 'Akhiri pekerjaan di',
+    stopUnrecorded:
+        'Hasil terakhir belum dicatat? Catat dulu supaya etiket dan kemasannya ikut tercatat.',
+    stopRecord: 'Catat hasil',
+    stopPause: 'Jeda',
+    stopPauseDesc:
+        'SPK tetap berjalan. Anda atau operator lain bisa melanjutkan nanti.',
+    stopFinish: 'SPK selesai',
+    stopFinishDesc: 'Tutup SPK di',
+    stopFinishRest: 'tidak dikerjakan.',
+    stopFailed: 'Gagal mengakhiri pekerjaan. Coba lagi.',
+    stopPaused: 'Pekerjaan dijeda.',
+    stopFinished: 'SPK selesai.',
+    dialogClose: 'Tutup',
+
+    // Riwayat catat
+    historyTitle: 'Riwayat catat SPK ini',
+    historyCount: 'catatan',
+    historyEmpty: 'Belum ada hasil yang dicatat untuk SPK ini.',
+    historyTime: 'Jam',
+    historyOperator: 'Operator',
+    historyOutput: 'Hasil',
+    historyPackaging: 'Kemasan',
+    historyScrap: 'Affal',
+
     // Focus mode
-    focusBack: 'Daftar SPK',
+    focusBack: 'SPK saya',
     focusProgress: 'Progress',
     focusCatatHasil: 'Catat Hasil',
-    focusDowntime: 'Downtime',
-    focusStop: 'Hentikan',
+    focusDowntime: 'Lapor mesin bermasalah',
+    focusMaterial: 'Bahan tambahan',
+    focusRemaining: 'sisa',
+    focusSince: 'sejak',
+    focusMyShift: 'Hasil saya shift ini',
+    focusShiftTotal: 'Total shift ini',
+    focusStaleShift:
+        'Belum ada shift aktif untuk jadwal ini, jadi angka shift memakai shift terakhir. Minta admin menambahkan shift hari ini.',
+    downtimeReason: 'Apa masalahnya?',
+    downtimeReasonHint: 'contoh: motor panas, belt putus',
+    downtimeSaved: 'Laporan tersimpan. Mesin ditandai sedang diperbaiki.',
+    downtimeFailed: 'Gagal mengirim laporan. Coba lagi.',
+    focusStop: 'Jeda / selesai',
     focusLogTerakhir: 'Log Terakhir',
 
     // Execution mode (capability-driven kiosk behavior)

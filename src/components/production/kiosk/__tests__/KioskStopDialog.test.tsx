@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useState } from 'react';
 
 const { mockStopExecution } = vi.hoisted(() => ({ mockStopExecution: vi.fn() }));
 vi.mock('@/actions/production/production', () => ({
@@ -11,74 +10,80 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { KioskStopDialog } from '../KioskStopDialog';
 
-function Harness({ actualPackagingEnabled = false }: { actualPackagingEnabled?: boolean }) {
-    const [open, setOpen] = useState(true);
-    return (
-        <>
-            <button type="button" onClick={() => setOpen(true)}>
-                buka
-            </button>
-            <KioskStopDialog
-                open={open}
-                onOpenChange={setOpen}
-                executionId="exec-1"
-                productName="Produk A"
-                primaryUnit="KG"
-                currentProduced={10}
-                targetQuantity={100}
-                logs={[]}
-                actualPackagingEnabled={actualPackagingEnabled}
-                onSuccess={() => {}}
-            />
-        </>
-    );
-}
+const props = {
+    open: true,
+    onOpenChange: vi.fn(),
+    executionId: 'exec-1',
+    orderNumber: 'WO-001',
+    progressLabel: '80 KG dari 200 KG',
+    remainingLabel: '120 KG',
+    operatorId: 'op-1',
+    onRecordOutput: vi.fn(),
+    onSuccess: vi.fn(),
+};
+
+const zeroOutput = {
+    executionId: 'exec-1',
+    quantityProduced: 0,
+    scrapQuantity: 0,
+    scrapProngkolQty: 0,
+    scrapDaunQty: 0,
+    operatorId: 'op-1',
+};
 
 afterEach(cleanup);
 beforeEach(() => {
-    mockStopExecution.mockReset();
+    vi.clearAllMocks();
     mockStopExecution.mockResolvedValue({ success: true, data: null });
 });
 
 describe('KioskStopDialog', () => {
-    it('does not keep a hidden "SPK selesai" choice after cancel and reopen', async () => {
-        render(<Harness />);
-        fireEvent.click(screen.getByLabelText(/Tandai SPK Selesai/));
-        fireEvent.click(screen.getByRole('button', { name: 'Batal' }));
-        await waitFor(() => expect(screen.queryByLabelText(/Tandai SPK Selesai/)).toBeNull());
+    it('asks for no quantities: the last output goes through Catat Hasil', () => {
+        render(<KioskStopDialog {...props} />);
 
-        fireEvent.click(screen.getByRole('button', { name: 'buka' }));
-        const checkbox = (await screen.findByLabelText(/Tandai SPK Selesai/)) as HTMLInputElement;
-        expect(checkbox.checked).toBe(false);
-
-        fireEvent.click(screen.getByRole('button', { name: /Hentikan & Simpan/ }));
-        await waitFor(() => expect(mockStopExecution).toHaveBeenCalledTimes(1));
-        expect(mockStopExecution.mock.calls[0][0]).toMatchObject({ completed: false });
+        expect(screen.getByRole('heading', { name: 'Akhiri pekerjaan di WO-001?' })).toBeTruthy();
+        expect(screen.queryByRole('spinbutton')).toBeNull();
+        expect(screen.queryByRole('textbox')).toBeNull();
     });
 
-    it('sends the completed choice when it is ticked', async () => {
-        render(<Harness />);
-        fireEvent.click(screen.getByLabelText(/Tandai SPK Selesai/));
-        fireEvent.click(screen.getByRole('button', { name: /Hentikan & Simpan/ }));
+    it('pauses: closes this shift without completing the SPK', async () => {
+        render(<KioskStopDialog {...props} />);
 
-        await waitFor(() => expect(mockStopExecution).toHaveBeenCalledTimes(1));
-        expect(mockStopExecution.mock.calls[0][0]).toMatchObject({ completed: true, executionId: 'exec-1' });
+        fireEvent.click(screen.getByRole('button', { name: /^Jeda/ }));
+
+        await waitFor(() => expect(props.onSuccess).toHaveBeenCalled());
+        expect(mockStopExecution).toHaveBeenCalledWith({ ...zeroOutput, notes: '', completed: false });
+        expect(props.onOpenChange).toHaveBeenCalledWith(false);
     });
 
-    it('only closes the shift for an SPK that records actual packaging', async () => {
-        render(<Harness actualPackagingEnabled />);
+    it('closes the SPK at its current output', async () => {
+        render(<KioskStopDialog {...props} />);
 
-        expect(screen.queryByLabelText(/Tambah Hasil Akhir/)).toBeNull();
-        expect(screen.queryByLabelText(/Scrap Prongkol/)).toBeNull();
-        expect(screen.getByText(/lewat Catat Hasil/)).toBeTruthy();
-        fireEvent.click(screen.getByRole('button', { name: /Hentikan & Simpan/ }));
+        const finish = screen.getByRole('button', { name: /^SPK selesai/ });
+        expect(finish.textContent).toContain('80 KG dari 200 KG');
+        expect(finish.textContent).toContain('Sisa 120 KG tidak dikerjakan');
+        fireEvent.click(finish);
 
-        await waitFor(() => expect(mockStopExecution).toHaveBeenCalledTimes(1));
-        expect(mockStopExecution.mock.calls[0][0]).toMatchObject({
-            quantityProduced: 0,
-            scrapQuantity: 0,
-            scrapProngkolQty: 0,
-            scrapDaunQty: 0,
-        });
+        await waitFor(() => expect(mockStopExecution).toHaveBeenCalledWith({ ...zeroOutput, notes: '', completed: true }));
+    });
+
+    it('sends the operator to Catat Hasil first when output is still unrecorded', () => {
+        render(<KioskStopDialog {...props} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Catat hasil' }));
+
+        expect(props.onOpenChange).toHaveBeenCalledWith(false);
+        expect(props.onRecordOutput).toHaveBeenCalledTimes(1);
+        expect(mockStopExecution).not.toHaveBeenCalled();
+    });
+
+    it('keeps the dialog open and shows the server reason when stopping fails', async () => {
+        mockStopExecution.mockResolvedValue({ success: false, error: 'Masih ada permintaan bahan tambahan.' });
+        render(<KioskStopDialog {...props} />);
+
+        fireEvent.click(screen.getByRole('button', { name: /^SPK selesai/ }));
+
+        expect((await screen.findByRole('alert')).textContent).toContain('Masih ada permintaan bahan tambahan.');
+        expect(props.onOpenChange).not.toHaveBeenCalledWith(false);
     });
 });

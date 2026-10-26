@@ -42,7 +42,7 @@ export function KioskJobProgress({
                 <div
                     className={cn(
                         'h-full rounded-full transition-all duration-500',
-                        isComplete ? 'bg-emerald-500' : 'bg-primary',
+                        isComplete ? 'bg-kiosk-go' : 'bg-kiosk-go/80',
                     )}
                     style={{ width: `${pct}%` }}
                 />

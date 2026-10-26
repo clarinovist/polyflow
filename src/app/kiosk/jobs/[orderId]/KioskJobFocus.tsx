@@ -3,22 +3,14 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-    ArrowLeft,
-    Play,
-    Square,
     AlertTriangle,
-    Ellipsis,
+    ArrowLeft,
+    Loader2,
     PackagePlus,
-    PlusCircle,
+    Play,
+    Plus,
+    Square,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -33,10 +25,16 @@ import { KioskStopDialog } from '@/components/production/kiosk/KioskStopDialog';
 import { DowntimeDialog } from '@/components/production/kiosk/DowntimeDialog';
 import { KioskLogOutputDialog } from '@/components/production/kiosk/KioskLogOutputDialog';
 import {
+    KioskOutputHistory,
+    type KioskOutputHistoryLog,
+} from '@/components/production/kiosk/KioskOutputHistory';
+import {
     AdditionalMaterialRequestDialog,
     type KioskMaterialOption,
 } from '@/components/production/kiosk/AdditionalMaterialRequestDialog';
 import { KioskJobProgress } from '@/components/kiosk/KioskJobProgress';
+import { KioskPill } from '@/components/kiosk/ui/KioskPill';
+import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
 import {
     getProductionUnitMeta,
     toDisplayQuantity,
@@ -44,6 +42,7 @@ import {
 import { kioskLabels } from '@/lib/labels';
 import { getStatusLabel } from '@/lib/labels/helpers';
 import { legacyScrapSummary } from '@/lib/production/quantity-summary';
+import { cn } from '@/lib/utils/utils';
 import {
     resolveKioskMode,
     type ProductionExecutionMode,
@@ -95,6 +94,7 @@ export interface Order {
         createdAt?: string;
         status?: string;
         quantityProduced?: number | null;
+        enteredQuantity?: number | null;
         scrapQuantity?: number | null;
         scrapDaunQty?: number | null;
         scrapProngkolQty?: number | null;
@@ -104,11 +104,7 @@ export interface Order {
         operator?: { name: string } | null;
         shift?: { shiftName: string } | null;
     }>;
-    outputLogs?: Array<{
-        id: string;
-        quantity: number;
-        createdAt: string;
-    }>;
+    outputLogs?: KioskOutputHistoryLog[];
     helpers?: Array<{
         id: string;
         name: string;
@@ -127,6 +123,24 @@ interface KioskJobFocusProps {
     order: Order;
     shifts?: Shift[];
     materials?: KioskMaterialOption[];
+}
+
+const REFRESH_SECONDS = 30;
+const TIME = new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+});
+const qty = (value: number, unit: string) =>
+    `${value.toLocaleString('id-ID', { maximumFractionDigits: 2 })} ${unit}`;
+
+function Stat({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="grid gap-1 rounded-xl bg-muted/60 p-3">
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="text-lg font-bold tabular-nums">{value}</dd>
+        </div>
+    );
 }
 
 export default function KioskJobFocus({
@@ -148,11 +162,11 @@ export default function KioskJobFocus({
         order.id,
         usesActualPackaging && Boolean(operatorId),
     );
-    const [timeLeft, setTimeLeft] = useState(30);
+    const [timeLeft, setTimeLeft] = useState(REFRESH_SECONDS);
     const [optimisticExecutionId, setOptimisticExecutionId] = useState<
         string | null
     >(null);
-    const [_isPending, startTransition] = useTransition();
+    const [, startTransition] = useTransition();
 
     const activeExecution =
         order.executions.find((e) => !e.endTime) ??
@@ -187,7 +201,7 @@ export default function KioskJobFocus({
         }
     }, [order.executions, optimisticExecutionId]);
 
-    // Auto-refresh timer (30s) — pause while log/stop dialog open
+    // Auto-refresh (30s), paused while a dialog is open so input is never lost
     const dialogOpen =
         logDialogOpen ||
         stopDialogOpen ||
@@ -196,10 +210,7 @@ export default function KioskJobFocus({
     useEffect(() => {
         if (dialogOpen) return;
         const timer = setInterval(() => {
-            setTimeLeft((prev) => {
-                if (prev <= 0) return 30;
-                return prev - 1;
-            });
+            setTimeLeft((prev) => (prev <= 0 ? REFRESH_SECONDS : prev - 1));
         }, 1000);
         return () => clearInterval(timer);
     }, [dialogOpen]);
@@ -241,8 +252,6 @@ export default function KioskJobFocus({
         }
     };
 
-    const recentLogs = (order.outputLogs || []).slice(0, 3);
-
     // ── Rekap shift: aggregate completed executions of the selected shift ──
     // Pure helper (kiosk-shift-status.ts) mempertahankan logika pilihan lama
     // dan menambah flag `stale` = tidak ada shift aktif (semua window lewat).
@@ -250,16 +259,13 @@ export default function KioskJobFocus({
     const selectedShift = rekapShift.shift;
     const isShiftStale = rekapShift.stale;
 
-    const {
-        myTotal: myShiftTotal,
-        orderTotal: orderShiftTotal,
-        logs: shiftLogs,
-    } = summarizeShiftOutput(
-        order.executions || [],
-        selectedShift?.id,
-        operatorId,
-        unitMeta,
-    );
+    const { myTotal: myShiftTotal, orderTotal: orderShiftTotal } =
+        summarizeShiftOutput(
+            order.executions || [],
+            selectedShift?.id,
+            operatorId,
+            unitMeta,
+        );
 
     // Progress numbers must match displayUnit (convert base → sales when alternate unit)
     const actualBase = order.actualQuantity || 0;
@@ -270,318 +276,224 @@ export default function KioskJobFocus({
     const progressTarget = unitMeta.hasAlternateUnit
         ? toDisplayQuantity(targetBase, unitMeta.conversionFactor)
         : targetBase;
+    const remaining = Math.max(progressTarget - progressActual, 0);
 
     // Generic scrapQuantity is an aggregate duplicate on kiosk-written rows;
     // AddOutputDialog rows leave it 0 and use the dedicated affal columns.
     // executionScrapTotal = max(generic, prongkol + daun) is exact for both.
-    const scrapSummary = legacyScrapSummary((order.executions || [])
-        .filter((e) => e.status !== 'VOIDED'), unitMeta.primaryUnit);
+    const scrapSummary = legacyScrapSummary(
+        (order.executions || []).filter((e) => e.status !== 'VOIDED'),
+        unitMeta.primaryUnit,
+    );
 
-    // Show loading while hydrating or redirecting to hub (no operator)
     if (!isInitialized || !operatorId) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <div
+                role="status"
+                className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-lg text-muted-foreground"
+            >
+                <Loader2 aria-hidden="true" className="size-8 animate-spin" />
+                {kioskLabels.loadingKiosk}
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            {/* Auto-refresh timer */}
-            <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
-                <div
-                    className="h-full bg-primary transition-all duration-1000 ease-linear"
-                    style={{ width: `${(timeLeft / 30) * 100}%` }}
-                />
-            </div>
-
-            {/* Back nav */}
-            <div className="flex items-center gap-3">
-                <Link href="/kiosk/jobs">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10"
-                        title={kioskLabels.focusBack}
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
+        <div className="grid gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <Link
+                    href="/kiosk/jobs"
+                    className={kioskButton({ tone: 'ghost' })}
+                >
+                    <ArrowLeft aria-hidden="true" /> {kioskLabels.focusBack}
                 </Link>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground font-mono">
-                            WO#{order.orderNumber}
-                        </span>
-                        <Badge
-                            variant={isRunning ? 'default' : 'secondary'}
-                            className={`${isRunning ? 'bg-emerald-600 animate-pulse' : ''} text-[10px]`}
-                        >
-                            {isRunning
-                                ? kioskLabels.running.toUpperCase()
-                                : getStatusLabel(order.status, 'production')}
-                        </Badge>
-                        {mode === 'INDIVIDUAL_OUTPUT' && (
-                            <Badge
-                                variant="outline"
-                                className="text-[10px] text-blue-700 border-blue-300 bg-blue-50"
-                            >
-                                {kioskLabels.modeIndividualBadge.toUpperCase()}
-                            </Badge>
-                        )}
-                        {mode === 'MATERIAL_CONVERSION' && (
-                            <Badge
-                                variant="outline"
-                                className="text-[10px] text-violet-700 border-violet-300 bg-violet-50"
-                            >
-                                {kioskLabels.modeMaterialBadge.toUpperCase()}
-                            </Badge>
-                        )}
-                    </div>
-                </div>
+                <span className="flex flex-wrap items-center gap-2">
+                    {isRunning ? (
+                        <KioskPill tone="go" live>
+                            {kioskLabels.running} · {kioskLabels.focusSince}{' '}
+                            {TIME.format(new Date(activeExecution.startTime))}
+                        </KioskPill>
+                    ) : (
+                        <KioskPill tone="info">
+                            {getStatusLabel(order.status, 'production')}
+                        </KioskPill>
+                    )}
+                    <span className="font-mono text-base text-muted-foreground">
+                        {order.orderNumber}
+                    </span>
+                </span>
             </div>
 
-            {/* Job info card */}
             <div
-                className={`bg-card border-2 rounded-2xl p-6 md:p-8 ${isRunning ? 'border-emerald-500 shadow-lg' : 'border-border'}`}
+                className={cn(
+                    'grid gap-4',
+                    usesActualPackaging &&
+                        'lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]',
+                )}
             >
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-tight mb-2">
-                    {order.bom.productVariant.name}
-                </h1>
+                <div className="grid min-w-0 content-start gap-4">
+                    <section
+                        className={cn(
+                            'grid gap-4 rounded-2xl border-2 bg-card p-5',
+                            isRunning ? 'border-kiosk-go' : 'border-border',
+                        )}
+                    >
+                        <div>
+                            <h1 className="text-3xl font-extrabold leading-tight tracking-tight">
+                                {order.bom.productVariant.name}
+                            </h1>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {processName && (
+                                    <KioskPill>{processName}</KioskPill>
+                                )}
+                                {mode === 'INDIVIDUAL_OUTPUT' && (
+                                    <KioskPill>
+                                        {kioskLabels.modeIndividual}
+                                    </KioskPill>
+                                )}
+                                {mode === 'MATERIAL_CONVERSION' && (
+                                    <KioskPill>
+                                        {kioskLabels.modeMaterial}
+                                    </KioskPill>
+                                )}
+                                {order.machine && (
+                                    <KioskPill>{order.machine.name}</KioskPill>
+                                )}
+                                <KioskPill>{operator.operatorName}</KioskPill>
+                                {selectedShift && (
+                                    <KioskPill>
+                                        {selectedShift.shiftName}
+                                    </KioskPill>
+                                )}
+                            </div>
+                        </div>
 
-                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-6">
-                    {processName && (
-                        <span className="flex items-center gap-1">
-                            <span className="font-semibold">
-                                {kioskLabels.process}:
-                            </span>{' '}
-                            {processName}
-                        </span>
-                    )}
-                    {order.machine && (
-                        <span className="flex items-center gap-1">
-                            <span className="font-semibold">
-                                {kioskLabels.machine}:
-                            </span>{' '}
-                            {order.machine.name}
-                        </span>
-                    )}
-                    <span className="flex items-center gap-1">
-                        <span className="font-semibold">
-                            {kioskLabels.operator}:
-                        </span>{' '}
-                        {operator.operatorName || (operatorId ? 'Anda' : '-')}
-                    </span>
-                    <span className="flex items-center gap-1">
-                        <span className="font-semibold">Satuan:</span>{' '}
-                        {unitMeta.displayUnit}
-                    </span>
-                </div>
+                        <KioskJobProgress
+                            actual={progressActual}
+                            target={progressTarget}
+                            unit={`${unitMeta.displayUnit} · ${kioskLabels.focusRemaining} ${qty(remaining, unitMeta.displayUnit)}`}
+                        />
 
-                {/* Progress — numbers in display unit (e.g. BAL), not base KG */}
-                <KioskJobProgress
-                    actual={progressActual}
-                    target={progressTarget}
-                    unit={unitMeta.displayUnit}
-                />
-                <div className="mt-3 flex items-center justify-between border-t pt-3">
-                    <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-                        {kioskLabels.focusScrap}
-                    </span>
-                    <span className="text-sm font-black text-destructive">
-                        {scrapSummary}
-                    </span>
-                </div>
-            </div>
+                        {isShiftStale && (
+                            <p className="flex items-start gap-2 rounded-xl bg-kiosk-warn-soft p-3 text-base text-kiosk-warn-ink">
+                                <AlertTriangle
+                                    aria-hidden="true"
+                                    className="mt-0.5 size-5 shrink-0"
+                                />
+                                {kioskLabels.focusStaleShift}
+                            </p>
+                        )}
 
-            {/* CTA buttons */}
-            <div className="space-y-3">
-                {isRunning ? (
-                    <>
-                        <Button
-                            className="w-full h-16 text-lg md:text-xl font-black bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg"
-                            onClick={() => setLogDialogOpen(true)}
-                            disabled={isLoading}
-                        >
-                            <PlusCircle className="mr-3 h-6 w-6 md:h-7 md:w-7" />
-                            {kioskLabels.logOutput.toUpperCase()}
-                        </Button>
+                        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <Stat
+                                label={kioskLabels.historyScrap}
+                                value={scrapSummary}
+                            />
+                            {selectedShift && (
+                                <>
+                                    <Stat
+                                        label={kioskLabels.focusMyShift}
+                                        value={qty(
+                                            myShiftTotal,
+                                            unitMeta.displayUnit,
+                                        )}
+                                    />
+                                    <Stat
+                                        label={kioskLabels.focusShiftTotal}
+                                        value={qty(
+                                            orderShiftTotal,
+                                            unitMeta.displayUnit,
+                                        )}
+                                    />
+                                </>
+                            )}
+                        </dl>
+                    </section>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="h-14 border-2 text-base font-bold active:scale-95"
-                                    >
-                                        <Ellipsis className="mr-2 h-5 w-5" />
-                                        Aksi Lainnya
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="min-w-64 p-2">
-                                    <DropdownMenuItem
-                                        className="min-h-12 text-base font-semibold"
-                                        onSelect={() => setMaterialDialogOpen(true)}
-                                    >
-                                        <PackagePlus className="h-5 w-5" />
-                                        Bahan Tambahan
-                                    </DropdownMenuItem>
-                                    {order.machine && (
-                                        <DropdownMenuItem
-                                            className="min-h-12 text-base font-semibold text-amber-700"
-                                            onSelect={() => setDowntimeDialogOpen(true)}
-                                        >
-                                            <AlertTriangle className="h-5 w-5" />
-                                            {kioskLabels.focusDowntime}
-                                        </DropdownMenuItem>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <Button
-                                variant="destructive"
-                                className="h-14 text-base font-bold active:scale-95"
-                                onClick={() => setStopDialogOpen(true)}
+                    {isRunning ? (
+                        <>
+                            <button
+                                type="button"
+                                className={kioskButton({
+                                    size: 'xl',
+                                    tone: 'go',
+                                })}
+                                onClick={() => setLogDialogOpen(true)}
                                 disabled={isLoading}
                             >
-                                <Square className="mr-2 h-5 w-5 fill-current" />
-                                {kioskLabels.focusStop}
-                            </Button>
-                        </div>
-                    </>
-                ) : (
-                    <Button
-                        className="w-full h-16 text-lg md:text-xl font-black bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg"
-                        onClick={handleStart}
-                        disabled={isLoading || order.status === 'COMPLETED'}
-                    >
-                        <Play className="mr-3 h-6 w-6 md:h-7 md:w-7 fill-current" />
-                        {kioskLabels.startJob.toUpperCase()}
-                    </Button>
+                                <Plus aria-hidden="true" />
+                                {kioskLabels.logOutput}
+                            </button>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                                <button
+                                    type="button"
+                                    className={kioskButton()}
+                                    onClick={() => setMaterialDialogOpen(true)}
+                                >
+                                    <PackagePlus aria-hidden="true" />
+                                    {kioskLabels.focusMaterial}
+                                </button>
+                                {order.machine && (
+                                    <button
+                                        type="button"
+                                        className={kioskButton()}
+                                        onClick={() =>
+                                            setDowntimeDialogOpen(true)
+                                        }
+                                    >
+                                        <AlertTriangle aria-hidden="true" />
+                                        {kioskLabels.focusDowntime}
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    className={kioskButton({ tone: 'stop' })}
+                                    onClick={() => setStopDialogOpen(true)}
+                                    disabled={isLoading}
+                                >
+                                    <Square aria-hidden="true" />
+                                    {kioskLabels.focusStop}
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <button
+                            type="button"
+                            className={kioskButton({ size: 'xl', tone: 'go' })}
+                            onClick={handleStart}
+                            disabled={isLoading || order.status === 'COMPLETED'}
+                        >
+                            {isLoading ? (
+                                <Loader2
+                                    aria-hidden="true"
+                                    className="animate-spin"
+                                />
+                            ) : (
+                                <Play aria-hidden="true" />
+                            )}
+                            {kioskLabels.startJob}
+                        </button>
+                    )}
+                </div>
+
+                {usesActualPackaging && (
+                    <KioskPackagingPanel
+                        context={packaging.context}
+                        isLoading={packaging.isLoading}
+                        error={packaging.error}
+                        onRetry={packaging.reload}
+                        remainingBaseQty={Math.max(
+                            order.plannedQuantity - (order.actualQuantity || 0),
+                            0,
+                        )}
+                    />
                 )}
             </div>
 
-            {usesActualPackaging && (
-                <KioskPackagingPanel
-                    context={packaging.context}
-                    isLoading={packaging.isLoading}
-                    error={packaging.error}
-                    onRetry={packaging.reload}
-                    remainingBaseQty={Math.max(
-                        order.plannedQuantity - (order.actualQuantity || 0),
-                        0,
-                    )}
-                />
-            )}
-
-            {/* Rekap shift */}
-            {selectedShift && (
-                <div className="bg-muted/30 border rounded-xl p-4 space-y-3">
-                    {isShiftStale && (
-                        <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg p-3">
-                            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                            <p className="text-xs text-amber-800">
-                                Belum ada shift aktif untuk jadwal ini — rekap
-                                di bawah memakai shift terakhir (
-                                {selectedShift.shiftName}). Hubungi admin untuk
-                                menambahkan shift hari ini.
-                            </p>
-                        </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                            {kioskLabels.shiftRekapTitle} ·{' '}
-                            {selectedShift.shiftName}
-                        </h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-background rounded-lg border p-3">
-                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                {kioskLabels.shiftMyTotal}
-                            </span>
-                            <span className="font-black text-lg text-blue-700">
-                                {myShiftTotal.toLocaleString('id-ID')}{' '}
-                                {unitMeta.displayUnit}
-                            </span>
-                        </div>
-                        <div className="bg-background rounded-lg border p-3">
-                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                {kioskLabels.shiftOrderTotal}
-                            </span>
-                            <span className="font-black text-lg text-emerald-600">
-                                {orderShiftTotal.toLocaleString('id-ID')}{' '}
-                                {unitMeta.displayUnit}
-                            </span>
-                        </div>
-                    </div>
-                    {shiftLogs.length > 0 && (
-                        <div className="space-y-2">
-                            <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
-                                {kioskLabels.shiftRecentLogs}
-                            </span>
-                            {shiftLogs.map(
-                                ({ execution: log, quantity, unit }) => (
-                                    <div
-                                        key={log.id}
-                                        className="flex items-center justify-between p-2 bg-background rounded-lg text-sm"
-                                    >
-                                        <div className="min-w-0">
-                                            <span className="font-bold text-emerald-600">
-                                                +
-                                                {quantity.toLocaleString(
-                                                    'id-ID',
-                                                )}{' '}
-                                                {unit}
-                                            </span>
-                                            <span className="ml-2 text-xs text-muted-foreground">
-                                                {log.operator?.name || '-'}
-                                                {log.shift?.shiftName &&
-                                                    ` · ${log.shift.shiftName}`}
-                                            </span>
-                                        </div>
-                                        <span className="text-xs text-muted-foreground font-mono shrink-0">
-                                            {new Date(
-                                                log.createdAt || log.startTime,
-                                            ).toLocaleTimeString('id-ID', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </span>
-                                    </div>
-                                ),
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Recent logs */}
-            {recentLogs.length > 0 && (
-                <div className="bg-muted/30 border rounded-xl p-4">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                        {kioskLabels.focusLogTerakhir}
-                    </h3>
-                    <div className="space-y-2">
-                        {recentLogs.map((log) => (
-                            <div
-                                key={log.id}
-                                className="flex items-center justify-between p-2 bg-background rounded-lg text-sm"
-                            >
-                                <span className="font-bold text-emerald-600">
-                                    +{log.quantity.toLocaleString('id-ID')}{' '}
-                                    {unitMeta.primaryUnit}
-                                </span>
-                                <span className="text-xs text-muted-foreground font-mono">
-                                    {new Date(log.createdAt).toLocaleTimeString(
-                                        'id-ID',
-                                        { hour: '2-digit', minute: '2-digit' },
-                                    )}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            <KioskOutputHistory
+                logs={order.outputLogs ?? []}
+                primaryUnit={unitMeta.primaryUnit}
+            />
 
             {/* Dialogs */}
             {activeExecution && (
@@ -608,15 +520,15 @@ export default function KioskJobFocus({
                         open={stopDialogOpen}
                         onOpenChange={setStopDialogOpen}
                         executionId={activeExecution.id}
-                        productName={order.bom.productVariant.name}
-                        primaryUnit={unitMeta.primaryUnit}
-                        salesUnit={unitMeta.salesUnit}
-                        conversionFactor={unitMeta.conversionFactor}
-                        currentProduced={order.actualQuantity || 0}
-                        targetQuantity={order.plannedQuantity}
-                        logs={order.outputLogs || []}
+                        orderNumber={order.orderNumber}
+                        progressLabel={`${qty(progressActual, unitMeta.displayUnit)} dari ${qty(progressTarget, unitMeta.displayUnit)}`}
+                        remainingLabel={
+                            remaining > 0
+                                ? qty(remaining, unitMeta.displayUnit)
+                                : null
+                        }
                         operatorId={operatorId || undefined}
-                        actualPackagingEnabled={usesActualPackaging}
+                        onRecordOutput={() => setLogDialogOpen(true)}
                         onSuccess={() => router.refresh()}
                     />
                     <KioskLogOutputDialog

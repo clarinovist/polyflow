@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     findMovements: vi.fn(),
     findShifts: vi.fn(),
     findMaterials: vi.fn(),
+    findConsumption: vi.fn(),
     notFound: vi.fn(() => {
         throw new Error('NEXT_NOT_FOUND');
     }),
@@ -19,6 +20,7 @@ vi.mock('@/lib/core/prisma', () => ({
         stockMovement: { findMany: mocks.findMovements },
         productionShift: { findMany: mocks.findShifts },
         productVariant: { findMany: mocks.findMaterials },
+        productionPackagingConsumption: { findMany: mocks.findConsumption },
     },
 }));
 vi.mock('@/lib/core/tenant', () => ({
@@ -56,6 +58,7 @@ describe('KioskFocusPage', () => {
         vi.clearAllMocks();
         mocks.findMovements.mockResolvedValue([]);
         mocks.findShifts.mockResolvedValue([]);
+        mocks.findConsumption.mockResolvedValue([]);
         mocks.findMaterials.mockResolvedValue([
             {
                 id: 'material-1',

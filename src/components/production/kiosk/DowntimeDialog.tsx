@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -14,6 +13,9 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import { kioskLabels } from '@/lib/labels';
+import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
+import { KioskDialogClose } from '@/components/kiosk/ui/KioskDialogClose';
 import { toast } from 'sonner';
 import { logMachineDowntime } from '@/actions/production/downtime';
 
@@ -60,16 +62,14 @@ export function DowntimeDialog({
                 operatorId,
             );
             if (result.success) {
-                toast.success(
-                    'Downtime tercatat. Status mesin diubah ke Maintenance.',
-                );
+                toast.success(kioskLabels.downtimeSaved);
                 setOpen(false);
                 setReason('');
             } else {
                 toast.error(result.error);
             }
         } catch {
-            toast.error('Gagal mencatat downtime');
+            toast.error(kioskLabels.downtimeFailed);
         } finally {
             setLoading(false);
         }
@@ -78,49 +78,68 @@ export function DowntimeDialog({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle className="text-destructive flex items-center">
-                        <AlertTriangle className="mr-2 h-5 w-5" /> Laporkan
-                        Masalah Mesin
-                    </DialogTitle>
-                    <DialogDescription>
-                        Melaporkan kerusakan untuk:{' '}
-                        <span className="font-bold">{machineName}</span>
-                    </DialogDescription>
+            <DialogContent
+                showCloseButton={false}
+                className="gap-4 rounded-2xl sm:max-w-xl"
+            >
+                <DialogHeader className="flex-row items-start justify-between gap-3 text-left">
+                    <div className="grid gap-1">
+                        <DialogTitle className="flex items-center gap-2 text-2xl font-extrabold text-kiosk-stop-ink">
+                            <AlertTriangle
+                                aria-hidden="true"
+                                className="size-6"
+                            />
+                            {kioskLabels.focusDowntime}
+                        </DialogTitle>
+                        <DialogDescription className="text-base">
+                            {kioskLabels.machine}:{' '}
+                            <span className="font-bold">{machineName}</span>
+                        </DialogDescription>
+                    </div>
+                    <KioskDialogClose />
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="reason">
-                            Alasan / Deskripsi Masalah
+                <form onSubmit={handleSubmit} className="grid gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="reason" className="text-base">
+                            {kioskLabels.downtimeReason}
                         </Label>
                         <Textarea
                             id="reason"
-                            placeholder="contoh: Motor panas, Belt putus..."
+                            placeholder={kioskLabels.downtimeReasonHint}
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
+                            className="min-h-28 text-lg"
                             required
                         />
                     </div>
-                    <DialogFooter>
-                        <Button
+                    <DialogFooter className="gap-2 sm:gap-2">
+                        <button
                             type="button"
-                            variant="ghost"
+                            className={kioskButton({
+                                size: 'lg',
+                                tone: 'ghost',
+                            })}
                             onClick={() => setOpen(false)}
                         >
-                            Batal
-                        </Button>
-                        <Button
+                            {kioskLabels.sessionLogoutCancel}
+                        </button>
+                        <button
                             type="submit"
-                            variant="destructive"
+                            className={kioskButton({
+                                size: 'lg',
+                                tone: 'stop',
+                            })}
                             disabled={loading}
                         >
                             {loading && (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2
+                                    aria-hidden="true"
+                                    className="animate-spin"
+                                />
                             )}
-                            Laporkan Kerusakan
-                        </Button>
+                            {kioskLabels.focusDowntime}
+                        </button>
                     </DialogFooter>
                 </form>
             </DialogContent>

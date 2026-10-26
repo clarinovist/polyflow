@@ -37,7 +37,7 @@ export function KioskPackagingPanel({
     return (
         <section
             aria-labelledby="kiosk-packaging-title"
-            className="space-y-3 rounded-xl border border-t-4 border-t-amber-400 bg-card p-4"
+            className="space-y-3 rounded-xl border-2 border-t-4 border-t-kiosk-tag bg-card p-4"
         >
             <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -52,12 +52,12 @@ export function KioskPackagingPanel({
                     </p>
                 </div>
                 {isShort && (
-                    <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-800 dark:text-amber-300">
+                    <span className="rounded-full bg-kiosk-warn-soft px-3 py-1 text-sm font-semibold text-kiosk-warn-ink">
                         Stok menipis
                     </span>
                 )}
                 {isEnough && (
-                    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                    <span className="rounded-full bg-kiosk-go-soft px-3 py-1 text-sm font-semibold text-kiosk-go-ink">
                         Stok cukup
                     </span>
                 )}
@@ -111,7 +111,7 @@ export function KioskPackagingPanel({
                                     )}
                                 </p>
                                 {row.sufficient === false && (
-                                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                                    <p className="text-sm font-semibold text-kiosk-warn-ink">
                                         Stok kurang untuk sisa target
                                     </p>
                                 )}
@@ -128,7 +128,7 @@ export function KioskPackagingPanel({
                     ))}
                 </ul>
             )}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
                 Perkiraan dari rata-rata pemakaian SPK ini, hanya untuk cek
                 stok. Jumlah sebenarnya tetap dihitung saat Catat Hasil.
             </p>

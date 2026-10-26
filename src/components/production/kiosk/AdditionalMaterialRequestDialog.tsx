@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { KioskDialogClose } from '@/components/kiosk/ui/KioskDialogClose';
+import { kioskLabels } from '@/lib/labels';
 import { requestAdditionalMaterial } from '@/actions/production/production';
 import { Button } from '@/components/ui/button';
 import {
@@ -132,9 +134,17 @@ export function AdditionalMaterialRequestDialog({
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent
+                showCloseButton={false}
+                className="rounded-2xl sm:max-w-lg"
+            >
                 <DialogHeader>
-                    <DialogTitle>Ajukan Bahan Tambahan</DialogTitle>
+                    <div className="flex items-start justify-between gap-3">
+                        <DialogTitle className="text-2xl font-extrabold">
+                            {kioskLabels.focusMaterial}
+                        </DialogTitle>
+                        <KioskDialogClose />
+                    </div>
                     <DialogDescription>
                         SPK {orderNumber}. Permintaan dikirim ke gudang; stok dan
                         HPP baru berubah setelah gudang mengonfirmasi.
