@@ -36,7 +36,7 @@ async function seed(client: PrismaClient) {
     await client.bom.create({ data: { id: 'bom', name: 'Synthetic core recipe', productVariantId: 'base', outputQuantity: 1 } });
     await client.productionOrder.create({ data: {
         id: 'order', orderNumber: 'PKG-ORDER', bomId: 'bom', locationId: 'fg', plannedQuantity: 100, plannedStartDate: new Date(),
-        status: 'IN_PROGRESS', estimatedConversionCost: 0,
+        status: 'IN_PROGRESS', estimatedConversionCost: 0, actualQuantity: 0,
         customerDestinations: { create: { customerId: 'a' } },
     } });
     await client.productionShift.create({ data: { id: 'shift', productionOrderId: 'order', shiftName: 'Synthetic', startTime: new Date('2026-10-21T00:00:00Z'), endTime: new Date('2026-10-21T08:00:00Z') } });
