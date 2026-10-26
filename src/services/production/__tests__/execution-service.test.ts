@@ -840,6 +840,52 @@ describe('ProductionExecutionService.logRunningOutput', () => {
         expect(tx.productionOrder.update).toHaveBeenCalled();
     });
 
+    describe('realized quantity on orders created without one (MRP, child stages)', () => {
+        const logFifty = () => ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-1', quantityProduced: 50, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0,
+            notes: '', shiftId: undefined, userId: 'user-1',
+        });
+
+        beforeEach(() => {
+            vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+                id: 'exec-1', productionOrderId: 'po-1', machineId: 'machine-1', operatorId: 'op-1', shiftId: 'shift-1',
+                enteredQuantity: null, enteredUnit: null, notes: null,
+            } as never);
+            vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
+        });
+
+        it('starts from the output when the increment leaves NULL', async () => {
+            // Arrange: SQL NULL + 50 stays NULL
+            vi.mocked(tx.productionOrder.update)
+                .mockResolvedValueOnce({ id: 'po-1', actualQuantity: null } as never)
+                .mockResolvedValue({ id: 'po-1', actualQuantity: 50 } as never);
+
+            // Act
+            await logFifty();
+
+            // Assert
+            expect(tx.productionOrder.update).toHaveBeenNthCalledWith(1, expect.objectContaining({
+                where: { id: 'po-1' }, data: { actualQuantity: { increment: 50 } },
+            }));
+            expect(tx.productionOrder.update).toHaveBeenCalledWith(expect.objectContaining({
+                where: { id: 'po-1' }, data: { actualQuantity: 50 },
+            }));
+        });
+
+        it('keeps the plain increment when the order already has a quantity', async () => {
+            // Arrange
+            vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1', actualQuantity: 150 } as never);
+
+            // Act
+            await logFifty();
+
+            // Assert
+            expect(tx.productionOrder.update).not.toHaveBeenCalledWith(expect.objectContaining({
+                data: { actualQuantity: 50 },
+            }));
+        });
+    });
+
     it('uses kiosk operatorId + active shift instead of inheriting shell operator', async () => {
         vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
             id: 'exec-1',

@@ -252,30 +252,41 @@ async function processOutputAndBackflush(params: {
         scrapDaunQty = 0,
     } = params;
 
-    const order = await tx.productionOrder.update({
-        where: { id: productionOrderId },
-        data: { actualQuantity: { increment: resolvedBaseQty } },
-        include: {
-            bom: {
-                include: {
-                    items: {
-                        include: {
-                            productVariant: {
-                                include: { product: true },
-                            },
+    const orderInclude = {
+        bom: {
+            include: {
+                items: {
+                    include: {
+                        productVariant: {
+                            include: { product: true },
                         },
                     },
                 },
             },
-            plannedMaterials: {
-                include: {
-                    productVariant: {
-                        include: { product: true },
-                    },
+        },
+        plannedMaterials: {
+            include: {
+                productVariant: {
+                    include: { product: true },
                 },
             },
         },
+    } satisfies Prisma.ProductionOrderInclude;
+    const incremented = await tx.productionOrder.update({
+        where: { id: productionOrderId },
+        data: { actualQuantity: { increment: resolvedBaseQty } },
+        include: orderInclude,
     });
+    // MRP and child-stage orders start with NULL, and SQL NULL + x stays NULL.
+    // The update above already holds the row lock, so setting it is race-free.
+    const order =
+        incremented.actualQuantity === null
+            ? await tx.productionOrder.update({
+                  where: { id: productionOrderId },
+                  data: { actualQuantity: resolvedBaseQty },
+                  include: orderInclude,
+              })
+            : incremented;
 
     if (order.actualPackagingEnabled && !params.packagedOutput) {
         throw new ProductionRuleViolationError('SPK ini memakai kemasan aktual. Catat hasil melalui form kemasan aktual.');

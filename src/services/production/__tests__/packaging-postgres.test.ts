@@ -216,6 +216,15 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
         expect(await custodyLabelStock()).toBe(90);
         expect(await orderActualQuantity()).toBe(24.7);
     });
+    it('an order created without a realized quantity (as MRP does) counts every kiosk output', async () => {
+        const shell = await kioskShell();
+        await db!.productionOrder.update({ where: { id: 'order' }, data: { actualQuantity: null } });
+
+        await run(db!, () => ProductionExecutionService.logRunningOutput(kioskInput(shell.id, payload().packagedOutput)));
+        expect(await orderActualQuantity()).toBe(24.7);
+        await run(db!, () => ProductionExecutionService.logRunningOutput(kioskInput(shell.id, payload().packagedOutput)));
+        expect(await orderActualQuantity()).toBe(49.4);
+    });
     it('voiding a kiosk output restores packaging stock and the realized quantity', async () => {
         const shell = await kioskShell();
         const { packagedOutput } = payload();
