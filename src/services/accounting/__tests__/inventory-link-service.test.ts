@@ -148,6 +148,21 @@ describe("inventory-link-service", () => {
   // recordInventoryMovement
   // =========================================================================
   describe("recordInventoryMovement", () => {
+    it('resolves identical account codes independently for alternating tenant transactions', async () => {
+      mockResolveAccountCode.mockImplementation(async () => ({ code: 'SHARED' }));
+      const tenant = (prefix: string) => ({
+        journalEntry: { findFirst: vi.fn().mockResolvedValue(null) },
+        account: { findUnique: vi.fn(async () => ({ id: `${prefix}-account`, code: 'SHARED', type: 'LIABILITY' })) },
+      });
+      const a = tenant('a'), b = tenant('b');
+      const movement = { ...baseMovement, productVariant: { name: 'Synthetic', product: {
+        ...baseProduct, inventoryAccountId: null, wipAccountId: null,
+      } } };
+      for (const db of [a, b, a]) await recordInventoryMovement(movement as never, db as never);
+      expect(mockCreateJournalEntry.mock.calls.map(call => call[0].lines[0].accountId))
+        .toEqual(['a-account', 'b-account', 'a-account']);
+    });
+
     it("never reconstructs an internal usage journal as a production WIP issue", async () => {
       vi.mocked(prisma.internalUsage.findUnique).mockResolvedValueOnce({ id: 'usage' } as never);
       await expect(recordInventoryMovement({ ...baseMovement, type: 'OUT', salesOrderId: null, productionOrderId: null } as never)).rejects.toThrow('pemakaian internal');

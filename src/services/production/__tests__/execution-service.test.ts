@@ -98,6 +98,12 @@ vi.mock('../accounting/accounting-service', () => ({
     }
 }));
 
+vi.mock('@/services/accounting/production-movement-reversal', () => ({
+    reverseProductionMovementJournal: vi.fn(),
+}));
+vi.mock('@/lib/core/actor-context', () => ({ getActorUserId: vi.fn(() => 'actor') }));
+vi.mock('@/lib/tools/audit', () => ({ logActivity: vi.fn() }));
+
 vi.mock('../material-service', () => ({
     ProductionMaterialService: {}
 }));
@@ -266,6 +272,16 @@ describe('ProductionExecutionService.voidExecution', () => {
         });
     });
 
+    it('rechecks status after acquiring the WO lock and rejects a competing void', async () => {
+        const execution = { id: 'exec-1', productionOrderId: 'po-1', status: 'COMPLETED',
+            quantityProduced: 10, createdAt: new Date(), endTime: new Date(), productionOrder: { id: 'po-1' } };
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValueOnce(execution as never)
+            .mockResolvedValueOnce({ ...execution, status: 'VOIDED' } as never);
+        await expect(ProductionExecutionService.voidExecution('exec-1')).rejects.toThrow('sudah di-void');
+        expect(tx.$queryRaw).toHaveBeenCalled();
+        expect(tx.stockMovement.create).not.toHaveBeenCalled();
+    });
+
     it('uses midpoint boundaries so nearby executions are not reversed together', async () => {
         const executionCreatedAt = new Date('2026-04-15T08:02:57.177Z');
         const nextCreatedAt = new Date('2026-04-15T08:03:20.823Z');
@@ -338,7 +354,7 @@ describe('ProductionExecutionService.voidExecution', () => {
 
         vi.mocked(tx.stockMovement.findMany).mockResolvedValue([
             {
-                type: 'IN',
+                id: 'move-reserved', type: 'IN',
                 productVariantId: 'pv-1',
                 toLocationId: 'loc-1',
                 quantity: 10,
@@ -369,6 +385,10 @@ describe('ProductionExecutionService.voidExecution', () => {
 
         await ProductionExecutionService.voidExecution('exec-1');
 
+        expect(tx.stockMovement.create).toHaveBeenCalledWith({ data: expect.objectContaining({ reversalOfId: 'move-reserved' }) });
+        const { reverseProductionMovementJournal } = await import('@/services/accounting/production-movement-reversal');
+        expect(reverseProductionMovementJournal).toHaveBeenCalledWith(tx,
+            expect.objectContaining({ id: 'move-reserved' }), expect.any(Object), 'actor');
         expect(cancelSpecificReservation).toHaveBeenCalledWith('res-123', tx);
         expect(adjustReservationsForVoidOutput).not.toHaveBeenCalled();
     });
@@ -391,7 +411,7 @@ describe('ProductionExecutionService.voidExecution', () => {
 
         vi.mocked(tx.stockMovement.findMany).mockResolvedValue([
             {
-                type: 'IN',
+                id: 'move-output', type: 'IN',
                 productVariantId: 'pv-1',
                 toLocationId: 'loc-1',
                 quantity: 10,

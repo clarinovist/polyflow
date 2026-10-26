@@ -125,6 +125,10 @@ describe('execution-output-posting', () => {
 
             const { createStockReservation } = await import('@/services/inventory/reservation-service');
             expect(createStockReservation).not.toHaveBeenCalled();
+            const { AccountingService } = await import('@/services/accounting/accounting-service');
+            expect(AccountingService.recordInventoryMovement).toHaveBeenCalledWith(
+                { id: 'movement-1' }, mockTx, { productionOutput: true },
+            );
         });
 
     it('keeps finished output at the output location when material consumption uses another location', async () => {
