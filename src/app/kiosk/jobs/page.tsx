@@ -1,39 +1,11 @@
 import { prisma } from '@/lib/core/prisma';
 import { withTenantPage } from '@/lib/core/tenant';
-import { serializeData } from '@/lib/utils/utils';
-import { ProductionStatus } from '@prisma/client';
-import KioskJobList, { type Order } from './KioskJobList';
+import { listKioskJobs } from '@/services/production/kiosk-job-service';
+import KioskJobList from './KioskJobList';
 
 const getData = withTenantPage(async function getData() {
-    const orders = await prisma.productionOrder.findMany({
-        where: {
-            status: {
-                in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS],
-            },
-        },
-        include: {
-            bom: {
-                include: {
-                    productVariant: true,
-                },
-            },
-            machine: true,
-            executions: {
-                where: {
-                    endTime: { equals: null },
-                },
-                orderBy: { startTime: 'desc' },
-                take: 1,
-            },
-            helpers: {
-                select: {
-                    id: true,
-                    name: true,
-                },
-            },
-        },
-        orderBy: [{ status: 'desc' }, { plannedStartDate: 'asc' }],
-    });
+    // Narrow DTOs only: this page is public and every prop reaches the browser.
+    const jobs = await listKioskJobs();
 
     const employees = await prisma.employee.findMany({
         where: {
@@ -81,49 +53,23 @@ const getData = withTenantPage(async function getData() {
     }
 
     const machines = await prisma.machine.findMany({
-        select: {
-            id: true,
-            name: true,
-            operators: {
-                select: {
-                    employeeId: true,
-                    isPrimary: true,
-                },
-            },
-        },
+        select: { id: true, name: true },
     });
 
-    return { orders, employees, machines, machinesByOperator };
+    return { jobs, employees, machines, machinesByOperator };
 });
 
 export const metadata = {
-    title: 'Daftar SPK - Kiosk',
+    title: 'SPK saya - Kiosk',
 };
 
-export default async function KioskJobsPage({
-    searchParams,
-}: {
-    searchParams: Promise<{ q?: string }>;
-}) {
-    const params = await searchParams;
-    const { orders, employees, machines, machinesByOperator } = await getData();
-
-    const searchQuery = params?.q?.toLowerCase() || '';
-
-    const filteredOrders = searchQuery
-        ? orders.filter(
-              (o) =>
-                  o.orderNumber.toLowerCase().includes(searchQuery) ||
-                  o.bom.productVariant.name.toLowerCase().includes(searchQuery),
-          )
-        : orders;
-
-    const serializedOrders = serializeData(filteredOrders);
+export default async function KioskJobsPage() {
+    const { jobs, employees, machines, machinesByOperator } = await getData();
 
     return (
-        <div className="h-full flex flex-col space-y-4 md:space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="mx-auto h-full max-w-7xl p-4 md:p-6">
             <KioskJobList
-                initialOrders={serializedOrders as unknown as Order[]}
+                jobs={jobs}
                 employees={employees.map((e) => ({
                     id: e.id,
                     name: e.name,
@@ -132,11 +78,7 @@ export default async function KioskJobsPage({
                             ? e.machineAssignments.map((a) => a.machineId)
                             : (machinesByOperator.get(e.id) ?? []),
                 }))}
-                machines={machines.map((m) => ({
-                    id: m.id,
-                    name: m.name,
-                    operatorIds: m.operators.map((o) => o.employeeId),
-                }))}
+                machines={machines}
             />
         </div>
     );

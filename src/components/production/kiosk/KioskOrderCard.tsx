@@ -1,13 +1,6 @@
-'use client';
-
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Play } from 'lucide-react';
-import { startExecution } from '@/actions/production/production';
-import { toast } from 'sonner';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-
+import Link from 'next/link';
+import { Tag } from 'lucide-react';
+import type { KioskJobCard } from '@/services/production/kiosk-job-service';
 import {
     formatProductionQuantity,
     getEnteredQuantityDisplay,
@@ -15,221 +8,122 @@ import {
 import { kioskLabels } from '@/lib/labels';
 import { getStatusLabel } from '@/lib/labels/helpers';
 import { resolveKioskMode } from '@/lib/production/rewinder-workflow';
+import { cn } from '@/lib/utils/utils';
+import { KioskPill } from '@/components/kiosk/ui/KioskPill';
 
-interface ProductionOrder {
-    id: string;
-    orderNumber: string;
-    plannedQuantity: number;
-    plannedEnteredQuantity?: number | null;
-    plannedEnteredUnit?: string | null;
-    plannedConversionFactorSnapshot?: number | null;
-    actualQuantity: number | null;
-    status: string;
-    executionModeSnapshot?: string | null;
-    processNameSnapshot?: string | null;
-    bom: {
-        productVariant: {
-            name: string;
-            skuCode: string;
-            primaryUnit?: string | null;
-            salesUnit?: string | null;
-            conversionFactor?: unknown;
-        };
-    };
-    machine?: {
-        id: string;
-        name: string;
-    } | null;
-    executions: Array<{
-        id: string;
-        startTime: Date;
-        endTime: Date | null;
-    }>;
-    outputLogs?: Array<{
-        id: string;
-        quantity: number;
-        createdAt: string;
-    }>;
-    helpers?: Array<{
-        id: string;
-        name: string;
-    }>;
+function PackagingPill({
+    packaging,
+}: {
+    packaging: NonNullable<KioskJobCard['packaging']>;
+}) {
+    if (!packaging.labelName) {
+        return (
+            <KioskPill tone="tag">
+                <Tag aria-hidden="true" className="size-4" />
+                {kioskLabels.jobsPackaging}
+            </KioskPill>
+        );
+    }
+    const isEmpty = packaging.labelStock === 0;
+    return (
+        <KioskPill tone={isEmpty ? 'warn' : 'tag'}>
+            <Tag aria-hidden="true" className="size-4" />
+            {packaging.labelName} ·{' '}
+            {isEmpty
+                ? kioskLabels.jobsLabelEmpty
+                : `${kioskLabels.jobsLabelStock} ${(packaging.labelStock ?? 0).toLocaleString('id-ID')} lbr`}
+        </KioskPill>
+    );
 }
 
-interface KioskOrderCardProps {
-    order: ProductionOrder;
-    operatorId?: string;
-}
-
-export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
-    const router = useRouter();
-    const [isLoading, setIsLoading] = useState(false);
-
-    const activeExecution = order.executions.find((e) => !e.endTime);
-    const isRunning = !!activeExecution;
-    const mode = resolveKioskMode(order.executionModeSnapshot);
-    const modeBadge =
-        mode === 'INDIVIDUAL_OUTPUT'
-            ? { label: kioskLabels.modeIndividualBadge, cls: 'text-blue-700 border-blue-300 bg-blue-50' }
-            : mode === 'MATERIAL_CONVERSION'
-              ? { label: kioskLabels.modeMaterialBadge, cls: 'text-violet-700 border-violet-300 bg-violet-50' }
-              : null;
-
-    const handleStart = async (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsLoading(true);
-        try {
-            const result = await startExecution({
-                productionOrderId: order.id,
-                machineId: order.machine?.id,
-                operatorId: operatorId,
-            });
-
-            if (result.success) {
-                toast.success(
-                    activeExecution ? 'Operator diganti!' : 'Produksi dimulai!',
-                );
-                // Navigate to focus after start
-                router.push(`/kiosk/jobs/${order.id}`);
-            } else {
-                toast.error(result.error || 'Gagal memulai produksi');
-            }
-        } catch {
-            toast.error('Gagal memproses. Silakan coba lagi.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleCardClick = () => {
-        router.push(`/kiosk/jobs/${order.id}`);
-    };
+/** One SPK on the kiosk list: the whole card opens Fokus SPK. */
+export function KioskOrderCard({ job }: { job: KioskJobCard }) {
+    const mode = resolveKioskMode(job.executionMode);
+    const done = formatProductionQuantity(job.actualQuantity, job.unit, {
+        showBaseWhenAlternate: false,
+    });
+    const target = getEnteredQuantityDisplay(
+        {
+            ...job.unit,
+            quantity: job.plannedQuantity,
+            enteredQuantity: job.plannedEnteredQuantity,
+            enteredUnit: job.plannedEnteredUnit,
+            conversionFactorSnapshot: job.plannedConversionFactorSnapshot,
+        },
+        { showBaseWhenAlternate: false },
+    );
+    const progress =
+        job.plannedQuantity > 0
+            ? Math.min(100, (job.actualQuantity / job.plannedQuantity) * 100)
+            : 0;
 
     return (
-        <div
-            role="button"
-            tabIndex={0}
-            onClick={handleCardClick}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleCardClick();
-                }
-            }}
-            className={`flex flex-col rounded-xl border-2 shadow-sm text-left w-full transition-all active:scale-[0.98] hover:shadow-md ${isRunning ? 'border-emerald-500 bg-emerald-50/10 shadow-lg hover:border-emerald-600' : 'border-border bg-card text-card-foreground hover:border-primary/50'} h-full overflow-hidden cursor-pointer`}
+        <Link
+            href={`/kiosk/jobs/${job.id}`}
+            className={cn(
+                'grid gap-3 rounded-2xl border-2 bg-card p-4 transition-colors hover:border-primary active:scale-[0.99]',
+                job.isRunning ? 'border-kiosk-go' : 'border-border',
+            )}
         >
-            <div className="p-3 md:p-4 pb-2 border-b-0 space-y-2">
-                <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-1 flex-wrap">
-                        <Badge
-                            variant={isRunning ? 'default' : 'secondary'}
-                            className={`${isRunning ? 'bg-emerald-600 animate-pulse' : ''} text-[10px] md:text-sm`}
-                        >
-                            {isRunning
-                                ? kioskLabels.running.toUpperCase()
-                                : getStatusLabel(order.status, 'production')}
-                        </Badge>
-                        {modeBadge && (
-                            <Badge
-                                variant="outline"
-                                className={`text-[10px] md:text-xs ${modeBadge.cls}`}
-                            >
-                                {modeBadge.label.toUpperCase()}
-                            </Badge>
+            <span className="flex flex-wrap items-start justify-between gap-3">
+                <span className="grid min-w-0 gap-1.5">
+                    <span className="flex flex-wrap items-center gap-2">
+                        {job.isRunning ? (
+                            <KioskPill tone="go" live>
+                                {kioskLabels.running}
+                            </KioskPill>
+                        ) : (
+                            <KioskPill tone="info">
+                                {getStatusLabel(job.status, 'production')}
+                            </KioskPill>
                         )}
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono">
-                        {order.orderNumber}
+                        {mode === 'INDIVIDUAL_OUTPUT' && (
+                            <KioskPill>{kioskLabels.modeIndividual}</KioskPill>
+                        )}
+                        {mode === 'MATERIAL_CONVERSION' && (
+                            <KioskPill>{kioskLabels.modeMaterial}</KioskPill>
+                        )}
+                        <span className="font-mono text-sm text-muted-foreground">
+                            {job.orderNumber}
+                        </span>
                     </span>
-                </div>
-                <div>
-                    <h3 className="text-lg md:text-xl font-semibold leading-tight tracking-tight line-clamp-2">
-                        {order.bom.productVariant.name}
-                    </h3>
-                    <div className="text-xs md:text-sm font-medium text-muted-foreground mt-1 uppercase tracking-wider">
-                        TARGET:{' '}
-                        {getEnteredQuantityDisplay({
-                            ...order.bom.productVariant,
-                            quantity: order.plannedQuantity,
-                            enteredQuantity: order.plannedEnteredQuantity,
-                            enteredUnit: order.plannedEnteredUnit,
-                            conversionFactorSnapshot:
-                                order.plannedConversionFactorSnapshot,
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            <div className="p-3 md:p-4 pt-2 flex-1">
-                <div className="grid grid-cols-1 gap-2 text-sm mt-1 md:mt-2">
-                    <div className="bg-muted/30 p-2.5 md:p-3 rounded-md flex flex-col gap-1 md:gap-2">
-                        <div className="flex justify-between items-start">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                    {kioskLabels.machine.toUpperCase()}
-                                </span>
-                                <span className="font-bold text-sm md:text-base">
-                                    {order.machine?.name ||
-                                        kioskLabels.unassigned}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
-                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                {kioskLabels.produced.toUpperCase()}
-                            </span>
-                            <span className="font-bold text-lg md:text-xl">
-                                {formatProductionQuantity(
-                                    order.actualQuantity || 0,
-                                    order.bom.productVariant,
-                                    { showBaseWhenAlternate: false },
-                                )}
-                            </span>
-                        </div>
-                        <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
-                            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                {kioskLabels.target.toUpperCase()}
-                            </span>
-                            <span className="font-bold text-lg md:text-xl text-muted-foreground">
-                                {getEnteredQuantityDisplay(
-                                    {
-                                        ...order.bom.productVariant,
-                                        quantity: order.plannedQuantity,
-                                        enteredQuantity:
-                                            order.plannedEnteredQuantity,
-                                        enteredUnit: order.plannedEnteredUnit,
-                                        conversionFactorSnapshot:
-                                            order.plannedConversionFactorSnapshot,
-                                    },
-                                    { showBaseWhenAlternate: false },
-                                )}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="p-3 md:p-4 pt-0">
-                {!isRunning ? (
-                    <Button
-                        variant="default"
-                        className="w-full h-12 md:h-14 text-sm md:text-lg font-bold bg-emerald-600 hover:bg-emerald-700 shadow-sm active:scale-95"
-                        onClick={handleStart}
-                        disabled={isLoading || order.status === 'COMPLETED'}
-                    >
-                        <Play className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-current" />{' '}
-                        {kioskLabels.startJob.toUpperCase()}
-                    </Button>
-                ) : (
-                    <div className="text-center py-2 text-sm font-bold text-emerald-700 uppercase tracking-wider">
-                        Ketuk untuk buka →
-                    </div>
-                )}
-            </div>
-        </div>
+                    <span className="text-xl font-bold leading-snug">
+                        {job.productName}
+                    </span>
+                </span>
+                <span className="text-2xl font-bold tabular-nums">
+                    {done}
+                    <span className="text-base font-medium text-muted-foreground">
+                        {' '}
+                        / {target}
+                    </span>
+                </span>
+            </span>
+            <span
+                aria-hidden="true"
+                className="h-2.5 overflow-hidden rounded-full bg-muted"
+            >
+                <span
+                    className="block h-full rounded-full bg-kiosk-go"
+                    style={{ width: `${progress}%` }}
+                />
+            </span>
+            <span className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex flex-wrap gap-2">
+                    <KioskPill>
+                        {job.machine?.name ?? kioskLabels.jobsManual}
+                    </KioskPill>
+                    {job.packaging && (
+                        <PackagingPill packaging={job.packaging} />
+                    )}
+                </span>
+                <span className="text-lg font-bold">
+                    {job.isRunning
+                        ? kioskLabels.jobsOpen
+                        : kioskLabels.jobsView}{' '}
+                    →
+                </span>
+            </span>
+        </Link>
     );
 }
