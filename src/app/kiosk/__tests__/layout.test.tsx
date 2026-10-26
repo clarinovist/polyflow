@@ -2,12 +2,17 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockRedirect, mockGetActiveExecutions, mockHasWorkspaceEntitlement } =
-    vi.hoisted(() => ({
-        mockRedirect: vi.fn(),
-        mockGetActiveExecutions: vi.fn(),
-        mockHasWorkspaceEntitlement: vi.fn(),
-    }));
+const {
+    mockRedirect,
+    mockGetActiveExecutions,
+    mockHasWorkspaceEntitlement,
+    mockBanner,
+} = vi.hoisted(() => ({
+    mockRedirect: vi.fn(),
+    mockGetActiveExecutions: vi.fn(),
+    mockHasWorkspaceEntitlement: vi.fn(),
+    mockBanner: vi.fn(),
+}));
 
 vi.mock('next/navigation', () => ({
     redirect: (...args: unknown[]) => mockRedirect(...args),
@@ -25,7 +30,10 @@ vi.mock('@/lib/auth/access-policy', () => ({
 
 // Presentational children are irrelevant to the guard being tested.
 vi.mock('@/components/production/kiosk/ActiveExecutionBanner', () => ({
-    ActiveExecutionBanner: () => null,
+    ActiveExecutionBanner: (props: unknown) => {
+        mockBanner(props);
+        return null;
+    },
 }));
 vi.mock('@/components/auth/polyflow-logo', () => ({ default: () => null }));
 vi.mock('@/components/layout/admin-back-button', () => ({
@@ -39,12 +47,13 @@ vi.mock('../KioskIdleShell', () => ({
     KioskIdleShell: ({ children }: { children: unknown }) => children,
 }));
 
+import { renderToStaticMarkup } from 'react-dom/server';
 import KioskLayout from '../layout';
 
 describe('KioskLayout guard', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockGetActiveExecutions.mockResolvedValue([]);
+        mockGetActiveExecutions.mockResolvedValue({ success: true, data: [] });
         mockHasWorkspaceEntitlement.mockReturnValue(true);
     });
 
@@ -80,5 +89,29 @@ describe('KioskLayout guard', () => {
         expect(mockRedirect).toHaveBeenCalledWith(
             '/error?error=ModuleNotEntitled',
         );
+    });
+
+    it('shows the running-SPK banner from the action result envelope', async () => {
+        const execution = { id: 'exec-1', productionOrderId: 'order-1' };
+        mockGetActiveExecutions.mockResolvedValue({
+            success: true,
+            data: [execution],
+        });
+
+        renderToStaticMarkup(await KioskLayout({ children: null }));
+
+        expect(mockBanner).toHaveBeenCalledWith({ executions: [execution] });
+    });
+
+    it('hides the banner when active executions cannot be read', async () => {
+        mockGetActiveExecutions.mockResolvedValue({
+            success: false,
+            error: 'boom',
+            code: 'INTERNAL',
+        });
+
+        renderToStaticMarkup(await KioskLayout({ children: null }));
+
+        expect(mockBanner).not.toHaveBeenCalled();
     });
 });

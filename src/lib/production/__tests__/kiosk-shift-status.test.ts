@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickRekapShift } from '../kiosk-shift-status';
+import { pickRekapShift, summarizeShiftOutput } from '../kiosk-shift-status';
 
 interface ShiftLite {
     id: string;
@@ -70,5 +70,40 @@ describe('pickRekapShift', () => {
         const res = pickRekapShift([asDates], ms('2026-09-02T02:00:00Z'));
         expect(res.shift?.id).toBe('day');
         expect(res.stale).toBe(false);
+    });
+});
+
+describe('summarizeShiftOutput', () => {
+    const units = { primaryUnit: 'KG', hasAlternateUnit: true, conversionFactor: 50 };
+    const done = '2026-10-26T05:00:00.000Z';
+    const executions = [
+        { id: 'a', endTime: done, status: 'COMPLETED', shiftId: 's1', operatorId: 'op-a', quantityProduced: 100, enteredQuantity: 2, enteredUnit: 'BAL' },
+        { id: 'b', endTime: done, status: 'COMPLETED', shiftId: 's1', operatorId: 'op-b', quantityProduced: 50, enteredQuantity: null, enteredUnit: null },
+        { id: 'void', endTime: done, status: 'VOIDED', shiftId: 's1', operatorId: 'op-a', quantityProduced: 500 },
+        { id: 'other-shift', endTime: done, status: 'COMPLETED', shiftId: 's2', operatorId: 'op-a', quantityProduced: 500 },
+        { id: 'running', endTime: null, status: 'COMPLETED', shiftId: 's1', operatorId: 'op-a', quantityProduced: 0 },
+    ];
+
+    it('reports shift totals in the display unit, not raw base quantities', () => {
+        const result = summarizeShiftOutput(executions, 's1', 'op-a', units);
+
+        expect(result.myTotal).toBe(2);
+        expect(result.orderTotal).toBe(3);
+    });
+
+    it('labels each log with the unit its quantity is in', () => {
+        const result = summarizeShiftOutput(executions, 's1', 'op-a', units);
+
+        expect(result.logs.map((log) => [log.execution.id, log.quantity, log.unit])).toEqual([
+            ['a', 2, 'BAL'],
+            ['b', 50, 'KG'],
+        ]);
+    });
+
+    it('keeps base quantities when the product has no alternate unit', () => {
+        const result = summarizeShiftOutput(executions, 's1', 'op-b', { ...units, hasAlternateUnit: false, conversionFactor: 1 });
+
+        expect(result.myTotal).toBe(50);
+        expect(result.orderTotal).toBe(150);
     });
 });

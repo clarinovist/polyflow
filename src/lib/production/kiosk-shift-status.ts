@@ -19,6 +19,8 @@
  * memakai shift sama sekali).
  */
 
+import { toDisplayQuantity } from '@/lib/utils/production-units';
+
 export interface RekapShiftCandidate {
     id: string;
     shiftName: string;
@@ -72,5 +74,68 @@ export function pickRekapShift<C extends RekapShiftCandidate>(
     return {
         shift: selected ?? null,
         stale: selected != null && !shifts.some((s) => isActiveShift(s, nowMs)),
+    };
+}
+
+export interface ShiftOutputExecution {
+    id: string;
+    endTime?: Date | string | null;
+    status?: string | null;
+    shiftId?: string | null;
+    operatorId?: string | null;
+    quantityProduced?: unknown;
+    enteredQuantity?: unknown;
+    enteredUnit?: string | null;
+}
+
+export interface ShiftOutputUnits {
+    primaryUnit: string;
+    hasAlternateUnit: boolean;
+    conversionFactor: number;
+}
+
+const RECENT_SHIFT_LOGS = 3;
+
+/**
+ * Rekap Shift totals. quantityProduced is always in the base unit, so totals
+ * are converted to the display unit they are labelled with; each log keeps
+ * the unit it was entered in, falling back to the base unit.
+ */
+export function summarizeShiftOutput<E extends ShiftOutputExecution>(
+    executions: readonly E[],
+    shiftId: string | undefined,
+    operatorId: string | null | undefined,
+    units: ShiftOutputUnits,
+) {
+    const rows = executions.filter(
+        (e) => e.endTime && e.status !== 'VOIDED' && e.shiftId === shiftId,
+    );
+    const baseTotal = (list: readonly E[]) =>
+        list.reduce((sum, e) => sum + Number(e.quantityProduced || 0), 0);
+    const toDisplay = (base: number) =>
+        units.hasAlternateUnit
+            ? toDisplayQuantity(base, units.conversionFactor)
+            : base;
+
+    return {
+        myTotal: toDisplay(
+            baseTotal(rows.filter((e) => e.operatorId === operatorId)),
+        ),
+        orderTotal: toDisplay(baseTotal(rows)),
+        logs: rows.slice(0, RECENT_SHIFT_LOGS).map((execution) => {
+            const entered =
+                execution.enteredQuantity != null && execution.enteredUnit;
+            return {
+                execution,
+                quantity: Number(
+                    entered
+                        ? execution.enteredQuantity
+                        : execution.quantityProduced || 0,
+                ),
+                unit: entered
+                    ? (execution.enteredUnit as string)
+                    : units.primaryUnit,
+            };
+        }),
     };
 }

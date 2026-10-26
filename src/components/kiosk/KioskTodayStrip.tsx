@@ -44,7 +44,7 @@ export function KioskTodayStrip({
                             <span>{summary.jobCount} job</span>
                             <span className="text-muted-foreground">•</span>
                             <span className="text-emerald-700 dark:text-emerald-400">
-                                {formatQuantitySummary(summary.goodByUnit)}
+                                {formatQuantitySummary(summary.goodByUnit)}{' '}
                                 bagus
                             </span>
                             <span className="text-muted-foreground">•</span>

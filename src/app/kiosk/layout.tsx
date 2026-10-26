@@ -39,8 +39,11 @@ export default async function KioskLayout({
         redirect('/error?error=ModuleNotEntitled');
     }
 
-    const activeExecutions =
-        (await getActiveExecutions()) as unknown as KioskActiveExecution[];
+    // getActiveExecutions returns the safeAction envelope, not a bare array.
+    const activeResult = await getActiveExecutions();
+    const activeExecutions = activeResult.success
+        ? (activeResult.data as unknown as KioskActiveExecution[])
+        : [];
 
     return (
         <KioskIdleShell>

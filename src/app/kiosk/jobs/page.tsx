@@ -93,19 +93,7 @@ const getData = withTenantPage(async function getData() {
         },
     });
 
-    const orderNumbers = orders.map((o) => o.orderNumber);
-    const movements = await prisma.stockMovement.findMany({
-        where: {
-            reference: {
-                in: orderNumbers.map(
-                    (n) => `Production Partial Output: WO#${n}`,
-                ),
-            },
-        },
-        orderBy: { createdAt: 'desc' },
-    });
-
-    return { orders, employees, machines, movements, machinesByOperator };
+    return { orders, employees, machines, machinesByOperator };
 });
 
 export const metadata = {
@@ -118,8 +106,7 @@ export default async function KioskJobsPage({
     searchParams: Promise<{ q?: string }>;
 }) {
     const params = await searchParams;
-    const { orders, employees, machines, movements, machinesByOperator } =
-        await getData();
+    const { orders, employees, machines, machinesByOperator } = await getData();
 
     const searchQuery = params?.q?.toLowerCase() || '';
 
@@ -131,22 +118,7 @@ export default async function KioskJobsPage({
           )
         : orders;
 
-    const ordersWithLogs = filteredOrders.map((order) => ({
-        ...order,
-        outputLogs: movements
-            .filter(
-                (l) =>
-                    l.reference ===
-                    `Production Partial Output: WO#${order.orderNumber}`,
-            )
-            .map((l) => ({
-                id: l.id,
-                quantity: l.quantity.toNumber(),
-                createdAt: l.createdAt,
-            })),
-    }));
-
-    const serializedOrders = serializeData(ordersWithLogs);
+    const serializedOrders = serializeData(filteredOrders);
 
     return (
         <div className="h-full flex flex-col space-y-4 md:space-y-6 p-4 md:p-6 max-w-7xl mx-auto">

@@ -69,6 +69,19 @@ export function KioskStopDialog({
         conversionFactor,
     });
 
+    // Closing must discard the form, otherwise a cancelled "SPK selesai"
+    // choice survives into the next submit while the checkbox looks empty.
+    const handleOpenChange = (next: boolean) => {
+        if (!next) {
+            setQuantity('0');
+            setScrapProngkol('0');
+            setScrapDaun('0');
+            setNotes('');
+            setCompleted(false);
+        }
+        onOpenChange(next);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -121,7 +134,7 @@ export function KioskStopDialog({
                         ? 'SPK berhasil diselesaikan!'
                         : 'Pekerjaan dihentikan dan hasil tersimpan.',
                 );
-                onOpenChange(false);
+                handleOpenChange(false);
                 onSuccess();
             } else {
                 toast.error(result.error || 'Gagal menyelesaikan SPK');
@@ -134,7 +147,7 @@ export function KioskStopDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="text-xl">
@@ -288,6 +301,7 @@ export function KioskStopDialog({
                             type="checkbox"
                             id="completed"
                             className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+                            checked={completed}
                             onChange={(e) => setCompleted(e.target.checked)}
                         />
                         <Label
@@ -302,7 +316,7 @@ export function KioskStopDialog({
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => onOpenChange(false)}
+                            onClick={() => handleOpenChange(false)}
                             disabled={loading}
                             className="h-12 font-bold"
                         >

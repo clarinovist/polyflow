@@ -21,7 +21,10 @@ import {
     PlusCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { pickRekapShift } from '@/lib/production/kiosk-shift-status';
+import {
+    pickRekapShift,
+    summarizeShiftOutput,
+} from '@/lib/production/kiosk-shift-status';
 import { startExecution } from '@/actions/production/production';
 import { KioskStopDialog } from '@/components/production/kiosk/KioskStopDialog';
 import { DowntimeDialog } from '@/components/production/kiosk/DowntimeDialog';
@@ -242,20 +245,16 @@ export default function KioskJobFocus({
     const selectedShift = rekapShift.shift;
     const isShiftStale = rekapShift.stale;
 
-    const shiftExecutions = (order.executions || []).filter(
-        (e) =>
-            e.endTime &&
-            e.status !== 'VOIDED' &&
-            e.shiftId === selectedShift?.id,
+    const {
+        myTotal: myShiftTotal,
+        orderTotal: orderShiftTotal,
+        logs: shiftLogs,
+    } = summarizeShiftOutput(
+        order.executions || [],
+        selectedShift?.id,
+        operatorId,
+        unitMeta,
     );
-    const myShiftTotal = shiftExecutions
-        .filter((e) => e.operatorId === operatorId)
-        .reduce((sum, e) => sum + Number(e.quantityProduced || 0), 0);
-    const orderShiftTotal = shiftExecutions.reduce(
-        (sum, e) => sum + Number(e.quantityProduced || 0),
-        0,
-    );
-    const shiftLogs = shiftExecutions.slice(0, 3);
 
     // Progress numbers must match displayUnit (convert base → sales when alternate unit)
     const actualBase = order.actualQuantity || 0;
@@ -502,36 +501,37 @@ export default function KioskJobFocus({
                             <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
                                 {kioskLabels.shiftRecentLogs}
                             </span>
-                            {shiftLogs.map((log) => (
-                                <div
-                                    key={log.id}
-                                    className="flex items-center justify-between p-2 bg-background rounded-lg text-sm"
-                                >
-                                    <div className="min-w-0">
-                                        <span className="font-bold text-emerald-600">
-                                            +
-                                            {Number(
-                                                log.quantityProduced || 0,
-                                            ).toLocaleString('id-ID')}{' '}
-                                            {log.enteredUnit ||
-                                                unitMeta.displayUnit}
-                                        </span>
-                                        <span className="ml-2 text-xs text-muted-foreground">
-                                            {log.operator?.name || '-'}
-                                            {log.shift?.shiftName &&
-                                                ` · ${log.shift.shiftName}`}
+                            {shiftLogs.map(
+                                ({ execution: log, quantity, unit }) => (
+                                    <div
+                                        key={log.id}
+                                        className="flex items-center justify-between p-2 bg-background rounded-lg text-sm"
+                                    >
+                                        <div className="min-w-0">
+                                            <span className="font-bold text-emerald-600">
+                                                +
+                                                {quantity.toLocaleString(
+                                                    'id-ID',
+                                                )}{' '}
+                                                {unit}
+                                            </span>
+                                            <span className="ml-2 text-xs text-muted-foreground">
+                                                {log.operator?.name || '-'}
+                                                {log.shift?.shiftName &&
+                                                    ` · ${log.shift.shiftName}`}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground font-mono shrink-0">
+                                            {new Date(
+                                                log.createdAt || log.startTime,
+                                            ).toLocaleTimeString('id-ID', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
                                         </span>
                                     </div>
-                                    <span className="text-xs text-muted-foreground font-mono shrink-0">
-                                        {new Date(
-                                            log.createdAt || log.startTime,
-                                        ).toLocaleTimeString('id-ID', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
-                                    </span>
-                                </div>
-                            ))}
+                                ),
+                            )}
                         </div>
                     )}
                 </div>

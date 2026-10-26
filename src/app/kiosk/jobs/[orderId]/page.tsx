@@ -47,18 +47,7 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
         return null;
     }
 
-    const orderNumbers = [order.orderNumber];
-    const [movements, shifts, materials] = await Promise.all([
-        prisma.stockMovement.findMany({
-            where: {
-                reference: {
-                    in: orderNumbers.map(
-                        (n) => `Production Partial Output: WO#${n}`,
-                    ),
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-        }),
+    const [shifts, materials] = await Promise.all([
         prisma.productionShift.findMany({
             where: { productionOrderId: orderId },
             select: {
@@ -88,8 +77,34 @@ const getOrder = withTenantPage(async function getOrder(orderId: string) {
         }),
     ]);
 
-    return { order, movements, shifts, materials };
+    return { order, shifts, materials };
 });
+
+type ExecutionLogSource = {
+    id: string;
+    status: string;
+    endTime: Date | null;
+    quantityProduced: unknown;
+    createdAt: Date;
+};
+
+// Read logs from executions. The stock-movement reference the kiosk used to
+// match ("Production Partial Output") has not been written since 2026-06-25.
+function toOutputLogs(executions: ExecutionLogSource[]) {
+    return executions
+        .filter(
+            (execution) =>
+                execution.status !== 'VOIDED' &&
+                execution.endTime !== null &&
+                Number(execution.quantityProduced) > 0,
+        )
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map((execution) => ({
+            id: execution.id,
+            quantity: Number(execution.quantityProduced),
+            createdAt: execution.createdAt,
+        }));
+}
 
 export default async function KioskFocusPage({
     params,
@@ -101,21 +116,11 @@ export default async function KioskFocusPage({
 
     if (!data) notFound();
 
-    const { order, movements, shifts, materials } = data;
+    const { order, shifts, materials } = data;
 
     const orderWithLogs = {
         ...order,
-        outputLogs: movements
-            .filter(
-                (l) =>
-                    l.reference ===
-                    `Production Partial Output: WO#${order.orderNumber}`,
-            )
-            .map((l) => ({
-                id: l.id,
-                quantity: l.quantity.toNumber(),
-                createdAt: l.createdAt,
-            })),
+        outputLogs: toOutputLogs(order.executions),
     };
 
     return (
