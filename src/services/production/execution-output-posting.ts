@@ -17,6 +17,7 @@ export async function recordFinishedGoodsOutput(params: {
     productionOrderId: string;
     order: ProductionExecutionOrder;
     quantityProduced: number;
+    materialRoundingAdjustment?: number;
     reference: string;
 }) {
     const { tx, productionOrderId, order, quantityProduced, reference } =
@@ -33,12 +34,14 @@ export async function recordFinishedGoodsOutput(params: {
     // 2. Variant's saved cost basis (standardCost → buyPrice → price)
     // 3. Estimated from BOM recipe (last resort before zero)
     let unitCost = 0;
+    let journalTotal: number | undefined;
 
     try {
-        unitCost = await ProductionCostService.calculateBatchCOGM(
-            productionOrderId,
-            tx,
+        const valuation = await ProductionCostService.calculateBatchOutputValuation(
+            productionOrderId, quantityProduced, tx, params.materialRoundingAdjustment,
         );
+        unitCost = valuation.unitCost;
+        if (unitCost > 0) journalTotal = valuation.journalTotal;
     } catch (error) {
         console.warn(`COGM calc failed for ${productionOrderId}:`, error);
     }
@@ -157,7 +160,11 @@ export async function recordFinishedGoodsOutput(params: {
             productionOrderId,
         },
     });
-    await AccountingService.recordInventoryMovement(movement, tx, { productionOutput: true });
+    // The linked journal persists the exact money amount; 4dp unit cost cannot
+    // reconstruct it. Replay and reversal use that original journal, not a new COGM.
+    await AccountingService.recordInventoryMovement(movement, tx, {
+        productionOutput: true, ...(journalTotal === undefined ? {} : { journalTotal }),
+    });
 }
 
 /**

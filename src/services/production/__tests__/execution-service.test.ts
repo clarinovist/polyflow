@@ -1275,6 +1275,8 @@ describe('ProductionExecutionService.logRunningOutput - multi-operator attributi
 
     it('keeps backflush and FG output to exactly once per execution under concurrent submits', async () => {
         const { backflushMaterials, recordFinishedGoodsOutput } = await import('../execution-helpers');
+        vi.mocked(backflushMaterials).mockResolvedValueOnce({ roundingAdjustment: -0.01 })
+            .mockResolvedValueOnce({ roundingAdjustment: 0.01 });
         vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-a' } as never);
         vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
             ...fullOrder,
@@ -1309,6 +1311,8 @@ describe('ProductionExecutionService.logRunningOutput - multi-operator attributi
         expect(tx.productionExecution.create).toHaveBeenCalledTimes(2);
         expect(backflushMaterials).toHaveBeenCalledTimes(2);
         expect(recordFinishedGoodsOutput).toHaveBeenCalledTimes(2);
+        expect(vi.mocked(recordFinishedGoodsOutput).mock.calls.map(([params]) => params.materialRoundingAdjustment).sort())
+            .toEqual([-0.01, 0.01]);
     });
 
     // Phase 1.2 — running shell is NOT an output attribution source.

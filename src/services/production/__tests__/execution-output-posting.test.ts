@@ -24,7 +24,7 @@ vi.mock('@/services/inventory/core-service', () => ({
 // Mock ProductionCostService
 vi.mock('../cost-service', () => ({
     ProductionCostService: {
-        calculateBatchCOGM: vi.fn(),
+        calculateBatchOutputValuation: vi.fn(),
     },
 }));
 
@@ -81,7 +81,7 @@ describe('execution-output-posting', () => {
         it('should record output with COGM cost', async () => {
             // Arrange
             const { ProductionCostService } = await import('../cost-service');
-            vi.mocked(ProductionCostService.calculateBatchCOGM).mockResolvedValue(50);
+            vi.mocked(ProductionCostService.calculateBatchOutputValuation).mockResolvedValue({ unitCost: 50, journalTotal: 5000 });
 
             const mockTx = {
                 productVariant: {
@@ -127,13 +127,13 @@ describe('execution-output-posting', () => {
             expect(createStockReservation).not.toHaveBeenCalled();
             const { AccountingService } = await import('@/services/accounting/accounting-service');
             expect(AccountingService.recordInventoryMovement).toHaveBeenCalledWith(
-                { id: 'movement-1' }, mockTx, { productionOutput: true },
+                { id: 'movement-1' }, mockTx, { productionOutput: true, journalTotal: 5000 },
             );
         });
 
     it('keeps finished output at the output location when material consumption uses another location', async () => {
             const { ProductionCostService } = await import('../cost-service');
-            vi.mocked(ProductionCostService.calculateBatchCOGM).mockResolvedValue(50);
+            vi.mocked(ProductionCostService.calculateBatchOutputValuation).mockResolvedValue({ unitCost: 50, journalTotal: 5000 });
             const mockTx = {
                 productVariant: { findUnique: vi.fn() },
                 bom: { findFirst: vi.fn() },
@@ -174,7 +174,7 @@ describe('execution-output-posting', () => {
         it('should fallback to variant cost when COGM is 0', async () => {
             // Arrange
             const { ProductionCostService } = await import('../cost-service');
-            vi.mocked(ProductionCostService.calculateBatchCOGM).mockResolvedValue(0);
+            vi.mocked(ProductionCostService.calculateBatchOutputValuation).mockResolvedValue({ unitCost: 0, journalTotal: 0 });
 
             const mockTx = {
                 productVariant: {
@@ -221,7 +221,7 @@ describe('execution-output-posting', () => {
         it('should record output even when all costs are 0', async () => {
             // Arrange
             const { ProductionCostService } = await import('../cost-service');
-            vi.mocked(ProductionCostService.calculateBatchCOGM).mockResolvedValue(0);
+            vi.mocked(ProductionCostService.calculateBatchOutputValuation).mockResolvedValue({ unitCost: 0, journalTotal: 0 });
 
             const mockTx = {
                 productVariant: {
