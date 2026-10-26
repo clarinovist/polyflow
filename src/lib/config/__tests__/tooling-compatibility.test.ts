@@ -16,7 +16,9 @@ describe('framework and native Node tooling compatibility', () => {
     ])('%s passes the installed React rules', async (file) => {
         const results = await new ESLint().lintFiles([file]);
         expect(results.flatMap(result => result.messages)).toEqual([]);
-    });
+    // Cold ESLint/React rule loading took 6.3s on a coverage shard; this is a
+    // compatibility assertion, not a 5s performance budget. Keep it bounded.
+    }, 20_000);
 
     it('runs the CI JEV entry point without implicit module detection', () => {
         const workflow = load(readFileSync('.github/workflows/ci.yml', 'utf8'));
