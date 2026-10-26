@@ -363,4 +363,24 @@ describe('WO output production date', () => {
         openDialog();
         expect(dateInput().value).toBe('2026-09-03');
     });
+
+    it('keeps one request id until the output saves, then starts a new one', async () => {
+        vi.mocked(addProductionOutput).mockResolvedValueOnce({ success: false, error: 'Shift sudah ditutup' } as never);
+        render(<AddOutputDialog {...props} />);
+        openDialog();
+        addScrap();
+        fireEvent.submit(form());
+        await waitFor(() => expect(addProductionOutput).toHaveBeenCalledTimes(1));
+        fireEvent.submit(form());
+        await waitFor(() => expect(toast.success).toHaveBeenCalled());
+        openDialog();
+        addScrap();
+        fireEvent.submit(form());
+        await waitFor(() => expect(addProductionOutput).toHaveBeenCalledTimes(3));
+
+        const ids = vi.mocked(addProductionOutput).mock.calls.map((call) => call[0].clientRequestId);
+        expect(ids[0]).toMatch(/^[0-9a-f-]{36}$/);
+        expect(ids[1]).toBe(ids[0]);
+        expect(ids[2]).not.toBe(ids[0]);
+    });
 });

@@ -239,6 +239,22 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
         expect(await orderActualQuantity()).toBe(0);
     });
 
+    it('plain output with a request id posts once on concurrent retries, from the kiosk and the daily report', async () => {
+        const shell = await db!.productionExecution.create({ data: { productionOrderId: 'order', startTime: new Date(), quantityProduced: 0, scrapQuantity: 0 } });
+        const kiosk = {
+            executionId: shell.id, quantityProduced: 5, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0, notes: '',
+            shiftId: undefined, clientRequestId: randomUUID(),
+        };
+        const report = { ...payload(), packagedOutput: undefined, clientRequestId: randomUUID() };
+
+        await run(db!, () => Promise.all([ProductionExecutionService.logRunningOutput(kiosk), ProductionExecutionService.logRunningOutput(kiosk)]));
+        await run(db!, () => Promise.all([ProductionExecutionService.addProductionOutput(report), ProductionExecutionService.addProductionOutput(report)]));
+
+        expect(await db!.productionExecution.count({ where: { clientRequestId: { in: [kiosk.clientRequestId, report.clientRequestId] } } })).toBe(2);
+        expect(await orderActualQuantity()).toBe(29.7);
+        await expect(run(db!, () => ProductionExecutionService.addProductionOutput({ ...report, quantityProduced: 30 })))
+            .rejects.toMatchObject({ code: 'PACKAGED_REQUEST_REUSED' });
+    });
     it('same IDs in a second tenant do not share balances or postings', async () => {
         await seed(other!);
         await run(db!, () => ProductionExecutionService.addProductionOutput(payload()));

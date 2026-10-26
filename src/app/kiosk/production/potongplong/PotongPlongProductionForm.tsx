@@ -33,6 +33,8 @@ import {
 } from '@/lib/utils/production-units';
 import { Unit } from '@prisma/client';
 import { getProductionShiftsByOrder } from '@/actions/production/production-shifts';
+import { newClientRequestId } from '@/lib/production/kiosk-packaging';
+import { readDailyReportOutcome } from '@/lib/production/daily-report-outcome';
 
 const bulkSchema = z.object({
     reports: z.array(productionOutputSchema),
@@ -72,6 +74,8 @@ function toLocalDatetime(date: Date | string): string {
 function makeEmpty(): BulkFormValues['reports'][0] {
     return {
         productionOrderId: '',
+        // Stays with the entry until it saves, so a resend never posts twice.
+        clientRequestId: newClientRequestId(),
         machineId: '',
         operatorId: '',
         helperIds: [],
@@ -100,6 +104,9 @@ export default function PotongPlongProductionForm({
 }) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [entryErrors, setEntryErrors] = useState<Record<string, string>>(
+        {},
+    );
     const [shiftsByOrder, setShiftsByOrder] = useState<Record<string, Shift[]>>(
         {},
     );
@@ -140,6 +147,7 @@ export default function PotongPlongProductionForm({
 
     const onSubmit = async (data: BulkFormValues) => {
         setIsSubmitting(true);
+        setEntryErrors({});
         try {
             const reports = data.reports.map((report) => {
                 const order = orders.find(
@@ -179,12 +187,16 @@ export default function PotongPlongProductionForm({
             const json = await res.json();
 
             if (res.status === 207) {
-                const failedCount = json.errors?.length ?? 0;
-                const successCount = json.results?.length ?? 0;
-                toast.warning(
-                    `${successCount} laporan berhasil, ${failedCount} gagal. Cek konsol untuk detail.`,
+                // Saved entries leave the form; failed ones stay with the server's reason.
+                const outcome = readDailyReportOutcome(
+                    reports.map((report) => report.clientRequestId ?? ''),
+                    json,
                 );
-                console.error('Partial errors:', json.errors);
+                remove(outcome.savedIndexes);
+                setEntryErrors(outcome.errorsById);
+                toast.warning(
+                    `${outcome.savedIndexes.length} laporan tersimpan, ${Object.keys(outcome.errorsById).length} gagal. Perbaiki entri bertanda merah lalu kirim lagi.`,
+                );
                 return;
             }
 
@@ -218,6 +230,10 @@ export default function PotongPlongProductionForm({
                     const unitMeta = getProductionUnitMeta(
                         selectedOrder?.bom?.productVariant || {},
                     );
+                    const entryError =
+                        entryErrors[
+                            form.watch(`reports.${index}.clientRequestId`) ?? ''
+                        ];
 
                     return (
                         <div
@@ -245,6 +261,14 @@ export default function PotongPlongProductionForm({
                                     </Button>
                                 )}
                             </div>
+                            {entryError && (
+                                <p
+                                    role="alert"
+                                    className="text-sm font-semibold text-destructive"
+                                >
+                                    Gagal disimpan: {entryError}
+                                </p>
+                            )}
 
                             {/* Top Config row: WO, Mesin, Operator, Shift */}
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

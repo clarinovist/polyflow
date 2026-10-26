@@ -192,8 +192,7 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         expect(second).not.toBe(first);
     });
 
-    it('never creates a request id for SPKs without actual packaging', async () => {
-        const randomUUID = vi.spyOn(crypto, 'randomUUID');
+    it('sends a plain request id, without packaging, for SPKs without actual packaging', async () => {
         renderWizard(false);
         fireEvent.change(screen.getByLabelText(/Jumlah Hasil Bagus/), { target: { value: '25' } });
         next();
@@ -203,9 +202,9 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
 
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
-        expect(mocks.logRunningOutput.mock.calls[0][0].packagedOutput).toBeUndefined();
-        expect(randomUUID).not.toHaveBeenCalled();
-        randomUUID.mockRestore();
+        const sent = mocks.logRunningOutput.mock.calls[0][0];
+        expect(sent.packagedOutput).toBeUndefined();
+        expect(sent.clientRequestId).toMatch(/^[0-9a-f-]{36}$/);
     });
 
     it('sends an affal-only entry on a sales-unit SPK without zero unit fields the schema rejects', async () => {

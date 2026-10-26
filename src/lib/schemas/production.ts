@@ -370,6 +370,8 @@ export const archiveBomSchema = z.object({
 
 export const productionOutputSchema = z.object({
     packagedOutput: packagedOutputSchema.optional(),
+    // One id per submission until it saves, so a retry never posts twice.
+    clientRequestId: z.string().uuid('Request ID tidak valid').optional(),
     productionOrderId: z.string().min(1, 'Production Order ID is required'),
     // Transform empty string '' → undefined to prevent FK constraint violations in DB
     machineId: z
@@ -489,6 +491,8 @@ export const logRunningOutputSchema = z.object({
     // Etiket/karung/plastik yang benar-benar terpakai; wajib untuk SPK
     // yang memakai kemasan aktual.
     packagedOutput: packagedOutputSchema.optional(),
+    // Exactly-once id for plain output; packaged output carries its own.
+    clientRequestId: z.string().uuid('Request ID tidak valid').optional(),
 });
 
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;

@@ -378,11 +378,9 @@ export function KioskLogOutputDialog({
             return;
         }
 
-        let clientRequestId: string | undefined;
-        if (actualPackagingEnabled) {
-            pendingRequestIdRef.current ??= newClientRequestId();
-            clientRequestId = pendingRequestIdRef.current;
-        }
+        // One id per submission until it saves, so a retry never posts twice.
+        pendingRequestIdRef.current ??= newClientRequestId();
+        const clientRequestId = pendingRequestIdRef.current;
 
         setIsLoading(true);
         try {
@@ -419,7 +417,10 @@ export function KioskLogOutputDialog({
                         value: parseFloat(qcValues[param.id] ?? ''),
                     }))
                     .filter((m) => !Number.isNaN(m.value)),
-                packagedOutput: clientRequestId
+                clientRequestId: actualPackagingEnabled
+                    ? undefined
+                    : clientRequestId,
+                packagedOutput: actualPackagingEnabled
                     ? {
                           clientRequestId,
                           groups:

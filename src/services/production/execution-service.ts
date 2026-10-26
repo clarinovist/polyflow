@@ -350,6 +350,25 @@ export interface KioskOperatorActor {
 }
 
 /**
+ * Exactly-once guard for one output submission: locks the order row, replays a
+ * saved request with the same data as a no-op (returns false), and rejects an
+ * id reused with different data or after a void.
+ */
+async function claimOutputRequest(
+    tx: Prisma.TransactionClient,
+    params: { productionOrderId: string; clientRequestId: string; requestHash: string },
+): Promise<boolean> {
+    const { productionOrderId, clientRequestId, requestHash } = params;
+    await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
+    const replay = await tx.productionExecution.findUnique({ where: { clientRequestId } });
+    if (!replay) return true;
+    if (replay.requestHash !== requestHash || replay.status === 'VOIDED') {
+        throw new BusinessRuleError('Permintaan sudah dipakai dengan data berbeda atau dibatalkan.', undefined, PACKAGED_REQUEST_REUSED);
+    }
+    return false;
+}
+
+/**
  * Locks the order and checks replay for an actual-packaging submission.
  * Returns false when the identical request was already posted.
  * Only the admin form may switch an SPK into actual packaging, and only
@@ -364,15 +383,8 @@ async function preparePackagedSubmission(
         allowEnable: boolean;
     },
 ): Promise<boolean> {
-    const { productionOrderId, clientRequestId, requestHash } = params;
-    await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
-    const replay = await tx.productionExecution.findUnique({ where: { clientRequestId } });
-    if (replay) {
-        if (replay.requestHash !== requestHash || replay.status === 'VOIDED') {
-            throw new BusinessRuleError('Permintaan sudah dipakai dengan data berbeda atau dibatalkan.', undefined, PACKAGED_REQUEST_REUSED);
-        }
-        return false;
-    }
+    const { productionOrderId } = params;
+    if (!(await claimOutputRequest(tx, params))) return false;
     const state = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
     if (!state.actualPackagingEnabled) {
         if (!params.allowEnable) {
@@ -722,13 +734,14 @@ export class ProductionExecutionService {
             packagedOutput,
             kioskOperator,
         } = data;
+        const clientRequestId = packagedOutput?.clientRequestId ?? data.clientRequestId;
 
         const actorUserId =
             userId ?? (kioskOperator ? KIOSK_AUDIT_ACTOR_USER_ID : undefined);
         if (packagedOutput && !actorUserId) {
             throw new ProductionRuleViolationError('Aktor pencatatan wajib tersedia.');
         }
-        const requestHash = packagedOutput
+        const requestHash = clientRequestId
             ? createHash('sha256').update(JSON.stringify({
                   executionId, operatorId: requestOperatorId, shiftId: explicitShiftId, helperIds,
                   quantityProduced, enteredQuantity, enteredUnit, baseQuantityProduced, conversionFactorSnapshot,
@@ -757,6 +770,9 @@ export class ProductionExecutionService {
                     requestHash: requestHash!,
                     allowEnable: false,
                 });
+                if (!fresh) return;
+            } else if (clientRequestId) {
+                const fresh = await claimOutputRequest(tx, { productionOrderId, clientRequestId, requestHash: requestHash! });
                 if (!fresh) return;
             }
 
@@ -882,7 +898,7 @@ export class ProductionExecutionService {
                     pieceRateSnapshot: pieceSnap.pieceRateSnapshot,
                     pieceEarnings: pieceSnap.pieceEarnings,
                     pieceMachineType: pieceSnap.pieceMachineType,
-                    clientRequestId: packagedOutput?.clientRequestId,
+                    clientRequestId,
                     requestHash,
                     helpers:
                         helperIds && helperIds.length > 0
@@ -987,7 +1003,8 @@ export class ProductionExecutionService {
             conversionFactorSnapshot,
         } = data;
 
-        const requestHash = data.packagedOutput ? createHash('sha256').update(JSON.stringify({
+        const clientRequestId = data.packagedOutput?.clientRequestId ?? data.clientRequestId;
+        const requestHash = clientRequestId ? createHash('sha256').update(JSON.stringify({
             productionOrderId, machineId, operatorId, shiftId, helperIds, quantityProduced,
             scrapQuantity, scrapProngkolQty, scrapDaunQty, notes, enteredQuantity, enteredUnit,
             productionDate: data.productionDate, packagedOutput: data.packagedOutput,
@@ -1003,6 +1020,9 @@ export class ProductionExecutionService {
                     requestHash: requestHash!,
                     allowEnable: true,
                 });
+                if (!fresh) return;
+            } else if (clientRequestId) {
+                const fresh = await claimOutputRequest(tx, { productionOrderId, clientRequestId, requestHash: requestHash! });
                 if (!fresh) return;
             }
             const resolved = await resolveOutputQuantity({
@@ -1137,7 +1157,7 @@ export class ProductionExecutionService {
             executionData.pieceMachineType = pieceSnap.pieceMachineType;
 
             const execution = await tx.productionExecution.create({
-                data: { ...executionData, clientRequestId: data.packagedOutput?.clientRequestId, requestHash },
+                data: { ...executionData, clientRequestId, requestHash },
             });
 
             await processOutputAndBackflush({

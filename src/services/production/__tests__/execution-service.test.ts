@@ -1622,3 +1622,97 @@ describe('ProductionExecutionService kiosk actual packaging', () => {
     });
 });
 
+
+describe('plain output submissions with a client request id post exactly once', () => {
+    const requestId = '6f1d1c1e-3b8a-4d5e-9f7a-2b4c6d8e0a1b';
+    const plainOrder = {
+        id: 'po-1',
+        status: 'IN_PROGRESS',
+        actualPackagingEnabled: false,
+        actualQuantity: 0,
+        orderNumber: 'WO-001',
+        isMaklon: false,
+        locationId: 'loc-1',
+        productionRunId: null,
+        bom: { productVariantId: 'pv-1', category: 'EXTRUSION', items: [] },
+        plannedMaterials: [],
+    };
+    const kioskLog = {
+        executionId: 'exec-shell', quantityProduced: 50, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0,
+        notes: '', shiftId: undefined, operatorId: 'op-1', clientRequestId: requestId,
+    };
+    const dailyReport = {
+        productionOrderId: 'po-1', machineId: undefined, operatorId: undefined, cekGram: undefined,
+        shiftId: 'shift-1', quantityProduced: 50, scrapQuantity: 0, scrapProngkolQty: 0,
+        scrapDaunQty: 0, startTime: new Date('2026-10-26T01:00:00Z'), endTime: new Date('2026-10-26T02:00:00Z'),
+        notes: '', clientRequestId: requestId,
+    };
+    const savedHash = () => (vi.mocked(tx.productionExecution.create).mock.calls[0][0].data as { requestHash: string }).requestHash;
+    const replaying = (requestHash: string) => {
+        vi.mocked(tx.productionExecution.create).mockClear();
+        vi.mocked(tx.productionOrder.update).mockClear();
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({ requestHash, status: 'COMPLETED' } as never);
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(tx.$queryRaw).mockResolvedValue([] as never);
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-shell', productionOrderId: 'po-1', machineId: 'machine-1', operatorId: 'op-1', shiftId: null,
+            enteredQuantity: null, enteredUnit: null, conversionFactorSnapshot: null,
+        } as never);
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue(null as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue(plainOrder as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue(plainOrder as never);
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue({
+            id: 'shift-1', startTime: new Date('2026-10-26T00:00:00Z'), endTime: new Date('2026-10-26T08:00:00Z'),
+        } as never);
+    });
+
+    it('saves the request id and hash on a plain kiosk output', async () => {
+        await ProductionExecutionService.logRunningOutput(kioskLog);
+
+        expect(tx.$queryRaw).toHaveBeenCalled();
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({ clientRequestId: requestId, requestHash: expect.any(String) }),
+        }));
+    });
+
+    it('replays a plain kiosk retry without posting twice', async () => {
+        await ProductionExecutionService.logRunningOutput(kioskLog);
+        replaying(savedHash());
+
+        await ProductionExecutionService.logRunningOutput(kioskLog);
+
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a plain request id reused with different numbers', async () => {
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({ requestHash: 'other', status: 'COMPLETED' } as never);
+
+        await expect(ProductionExecutionService.logRunningOutput(kioskLog))
+            .rejects.toMatchObject({ code: 'PACKAGED_REQUEST_REUSED' });
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('replays a daily-report entry that was already saved', async () => {
+        await ProductionExecutionService.addProductionOutput(dailyReport);
+        replaying(savedHash());
+
+        await ProductionExecutionService.addProductionOutput(dailyReport);
+
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('keeps submissions without a request id as before', async () => {
+        await ProductionExecutionService.logRunningOutput({ ...kioskLog, clientRequestId: undefined });
+
+        expect(tx.$queryRaw).not.toHaveBeenCalled();
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({ clientRequestId: undefined, requestHash: undefined }),
+        }));
+    });
+});

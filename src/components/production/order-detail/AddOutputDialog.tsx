@@ -31,6 +31,7 @@ import { productionOutputDateSchema } from '@/lib/schemas/production-output-date
 import type { ExtendedProductionOrder } from './types';
 import { PackagingOutputFields } from './PackagingOutputFields';
 import { packagedOutputSchema, type PackagedOutputValues } from '@/lib/schemas/production-packaging';
+import { newClientRequestId } from '@/lib/production/kiosk-packaging';
 
 interface OutputFormData {
     locations: Location[];
@@ -51,6 +52,8 @@ export function AddOutputDialog({
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitting = useRef(false);
+    // One id per plain submission until it saves, so a resend never posts twice.
+    const plainRequestId = useRef<string | null>(null);
     const [productionDate, setProductionDate] = useState(() =>
         toBusinessDateString(new Date()),
     );
@@ -214,6 +217,9 @@ export function AddOutputDialog({
             const result = await addProductionOutput({
                 productionOrderId: order.id,
                 packagedOutput: packagedPayload,
+                clientRequestId: packagedPayload
+                    ? undefined
+                    : (plainRequestId.current ??= newClientRequestId()),
                 machineId: order.machineId || undefined,
                 operatorId: String(fd.get('operatorId')),
                 helperIds: selectedHelpers,
@@ -242,6 +248,7 @@ export function AddOutputDialog({
                 return;
             }
             toast.success('Hasil produksi berhasil dicatat');
+            plainRequestId.current = null;
             setOpen(false);
             setRolls([]);
             setPackagedOutput(undefined);
